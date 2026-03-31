@@ -250,3 +250,100 @@
 - Command ids should normalize during migration, even when the legacy JSON field was inconsistent.
   - `view-transactions` became `transactions-view` to match the current command naming convention used by the shared boundary.
   - That is a user-visible JSON change, so future migrations should make the rename explicit in tests and notes instead of leaving mixed ids around.
+
+## Phase 10: `providers` family alignment
+
+### What worked
+
+- Not every TUI command needs a command runtime.
+  - `providers view` reads from app configuration and a stats file, but it does not need the runtime lifecycle or cleanup hooks.
+  - It fit cleanly on `runCliCommandBoundary(...)` alone, with `renderApp(...)` staying local and `silentSuccess()` marking the text path complete.
+
+- Expected validation failures and real runtime failures can still be separated without falling back to throw-based control flow.
+  - `providers benchmark` now classifies setup errors as invalid arguments and benchmark execution failures as general errors.
+  - That split is handled locally before converting to `CliFailure`, which keeps the shared boundary simple.
+
+### Constraints confirmed
+
+- Command-level validation should not survive once the schema already owns it.
+  - `providers view` was manually re-validating `--health` even though the Zod schema already enforced the enum.
+  - Carrying both would have reintroduced two validation contracts for the same flag.
+
+## Phase 11: `assets` review flows
+
+### What worked
+
+- TUI-local mutations can stay inside the command scope without inventing a second boundary.
+  - `assets view` needs live review callbacks for exclude/include/confirm/clear while the app is mounted.
+  - The clean shape was the same as `prices view`: build the view state inside the scope, let callback failures reject inside the UI loop, and return `silentSuccess()` when the app closes.
+
+- Small sibling commands benefited from one shared override adapter.
+  - `assets exclude`, `assets include`, `assets confirm`, and `assets clear-review` all had the same parse/scope/output shell.
+  - Moving that shell into one shared command helper reduced repetition without hiding the command contract.
+
+### Constraints confirmed
+
+- Command helpers should build completions, not print directly.
+  - The override helper now takes a completion builder instead of a side-effecting success callback.
+  - That keeps JSON/text rendering at the shared boundary and avoids sneaking output logic back into command-local helpers.
+
+## Phase 12: `balance` runtime-backed browse and refresh flows
+
+### What worked
+
+- Runtime-scoped TUI rendering can still fit the shared boundary cleanly.
+  - `balance view` needs the runtime open long enough to rebuild projections before rendering.
+  - `balance refresh` needs the runtime open while the verification stream is active and cleanup hooks are registered.
+  - Both commands now convert scope results into `CliCompletion` values inside the runtime-owned section instead of returning to legacy try/catch shells.
+
+- Command-level tests should cover at least one text path when runtime cleanup and rendering interact.
+  - The old balance tests only covered JSON mode.
+  - Adding focused text-mode assertions caught the new command seam without forcing a full UI test harness.
+
+### Constraints confirmed
+
+- Defensive invariants should stay local instead of becoming new shared error semantics.
+  - A missing single-account view result after a successful stored-snapshot lookup would indicate broken command assumptions, not a normal lookup miss.
+  - Treating that case as a generic command failure is cleaner than building a one-off `NOT_FOUND` bridge inside the TUI helper.
+
+## Phase 13: `links` family alignment
+
+### What worked
+
+- Prompt-driven workflows need explicit outcomes, not `null` sentinels.
+  - `links run` now distinguishes submitted params, cancellation, and invalid cross-field prompt input.
+  - That kept prompt decline as a normal text completion while letting invalid prompted thresholds route through the same invalid-args boundary as flag validation.
+
+- One family can still share a single outer command contract even when the inner presentation varies a lot.
+  - `links run` mixes an Ink prompt with a runtime workflow.
+  - `links view` mixes runtime-scoped TUI review callbacks with JSON browse output.
+  - `links review` mixes spinners with a small text/json completion and localized text-only error rendering.
+  - All three now use `runCliCommandBoundary(...)` without reintroducing throw-based command flow.
+
+### Constraints confirmed
+
+- Some text-only affordances still belong inside the command, not the shared boundary.
+  - `links review` keeps its small Ink success/error flashes local because they are presentation details of that command family.
+  - The important constraint is that those side effects happen before returning `CliCompletion` or `CliFailure`, not by bypassing the boundary entirely.
+
+## Phase 14: `portfolio` + root `cost-basis` + final feature cleanup
+
+### What worked
+
+- The last command entrypoints fit the same contract without special casing.
+  - `portfolio` now does JSON output and runtime-scoped TUI rendering through the shared boundary.
+  - Root `cost-basis` now does the same, including prompt-driven parameter collection in text mode.
+
+- JSON builders should return data, not write directly.
+  - `cost-basis-json.ts` now builds the JSON payload instead of printing it.
+  - That keeps command output flowing through the same success path as every other migrated command.
+
+- Narrow feature-local errors are better than keeping one global CLI exception alive.
+  - `accounts remove` no longer depends on `CliCommandError` for its not-found path.
+  - A small accounts-local not-found error plus command-local mapping to `NOT_FOUND` kept the shared compatibility bridge from surviving longer than necessary.
+
+### Constraints confirmed
+
+- Finishing the feature migration before deleting compatibility wrappers is the right order.
+  - After `portfolio` and root `cost-basis` moved, the only remaining legacy references were inside the shared compatibility layer itself, its tests, and stale comments/docs.
+  - That makes the next cleanup phase focused and low-risk instead of interleaving feature migrations with shared helper removal.

@@ -1,18 +1,27 @@
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliCompletion,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
 
 import { withBalanceCommandScope } from './balance-command-scope.js';
+import type { StoredSnapshotBalanceResult } from './balance-handler-types.js';
 import { BalanceViewCommandOptionsSchema } from './balance-option-schemas.js';
 import { runBalanceView } from './run-balance.js';
 
@@ -44,127 +53,138 @@ Notes:
 }
 
 async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('balance-view', rawOptions, BalanceViewCommandOptionsSchema);
-  if (format === 'json') {
-    await executeBalanceViewJSON(options, appRuntime);
-  } else {
-    await executeBalanceViewTUI(options, appRuntime);
-  }
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command: 'balance-view',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, BalanceViewCommandOptionsSchema);
+        return yield* await executeBalanceViewCommandResult(options, format, appRuntime);
+      }),
+  });
 }
 
-async function executeBalanceViewJSON(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
+async function executeBalanceViewCommandResult(
+  options: BalanceViewCommandOptions,
+  format: CliOutputFormat,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'balance-view',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const completion = yield* toCliResult(
+          await withBalanceCommandScope(
+            ctx,
+            {
+              format,
+              needsWorkflow: true,
+              prepareStoredSnapshots: true,
+            },
+            async (scope) => {
+              const result = await runBalanceView(scope, { accountId: options.accountId });
+              if (result.isErr()) {
+                return err(result.error);
+              }
+
+              if (format === 'json') {
+                return ok(buildBalanceViewJsonCompletion(options, result.value));
+              }
+
+              return buildBalanceViewTuiCompletion(ctx, options, result.value);
+            }
+          ),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return completion;
+      }),
+  });
+}
+
+function buildBalanceViewJsonCompletion(
+  options: BalanceViewCommandOptions,
+  result: StoredSnapshotBalanceResult
+): CliCompletion {
+  const accounts = result.accounts.map((item) => ({
+    accountId: item.account.id,
+    platformKey: item.account.platformKey,
+    accountType: item.account.accountType,
+    snapshot: {
+      verificationStatus: item.snapshot.verificationStatus,
+      statusReason: item.snapshot.statusReason,
+      suggestion: item.snapshot.suggestion,
+      lastRefreshAt: item.snapshot.lastRefreshAt?.toISOString(),
+    },
+    ...(item.requestedAccount && {
+      requestedAccount: {
+        id: item.requestedAccount.id,
+        platformKey: item.requestedAccount.platformKey,
+        accountType: item.requestedAccount.accountType,
+      },
+    }),
+    assets: item.assets.map((asset) => ({
+      assetId: asset.assetId,
+      assetSymbol: asset.assetSymbol,
+      calculatedBalance: asset.calculatedBalance,
+      diagnostics: asset.diagnostics,
+    })),
+  }));
+
+  return jsonSuccess(
+    { accounts },
+    {
+      totalAccounts: result.accounts.length,
+      mode: 'view',
+      filters: {
+        ...(options.accountId ? { accountId: options.accountId } : {}),
+      },
+    }
+  );
+}
+
+async function buildBalanceViewTuiCompletion(
+  ctx: CommandRuntime,
+  options: BalanceViewCommandOptions,
+  result: StoredSnapshotBalanceResult
+): Promise<Result<CliCompletion, Error>> {
   try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withBalanceCommandScope(
-        ctx,
-        {
-          format: 'json',
-          needsWorkflow: true,
-          prepareStoredSnapshots: true,
-        },
-        (scope) => runBalanceView(scope, { accountId: options.accountId })
-      );
-      if (result.isErr()) {
-        displayCliError('balance-view', result.error, ExitCodes.GENERAL_ERROR, 'json');
+    await ctx.closeDatabase();
+
+    if (options.accountId !== undefined) {
+      const item = result.accounts[0];
+      if (!item) {
+        return err(new Error(`Account #${options.accountId} not found`));
       }
 
-      const accountsData = result.value.accounts.map((item) => ({
-        accountId: item.account.id,
-        platformKey: item.account.platformKey,
-        accountType: item.account.accountType,
-        snapshot: {
+      const initialState = createBalanceStoredSnapshotAssetState(
+        {
+          accountId: item.account.id,
+          platformKey: item.account.platformKey,
+          accountType: item.account.accountType,
           verificationStatus: item.snapshot.verificationStatus,
           statusReason: item.snapshot.statusReason,
           suggestion: item.snapshot.suggestion,
           lastRefreshAt: item.snapshot.lastRefreshAt?.toISOString(),
         },
-        ...(item.requestedAccount && {
-          requestedAccount: {
-            id: item.requestedAccount.id,
-            platformKey: item.requestedAccount.platformKey,
-            accountType: item.requestedAccount.accountType,
-          },
-        }),
-        assets: item.assets.map((asset) => ({
-          assetId: asset.assetId,
-          assetSymbol: asset.assetSymbol,
-          calculatedBalance: asset.calculatedBalance,
-          diagnostics: asset.diagnostics,
-        })),
-      }));
-
-      outputSuccess(
-        'balance-view',
-        { accounts: accountsData },
-        {
-          totalAccounts: result.value.accounts.length,
-          mode: 'view',
-          filters: {
-            ...(options.accountId ? { accountId: options.accountId } : {}),
-          },
-        }
+        sortStoredSnapshotAssets(item.assets)
       );
-    });
-  } catch (error) {
-    displayCliError(
-      'balance-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-async function executeBalanceViewTUI(options: BalanceViewCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withBalanceCommandScope(
-        ctx,
-        {
-          format: 'text',
-          needsWorkflow: true,
-          prepareStoredSnapshots: true,
-        },
-        (scope) => runBalanceView(scope, { accountId: options.accountId })
-      );
-      if (result.isErr()) throw result.error;
-
-      await ctx.closeDatabase();
-
-      if (options.accountId) {
-        const item = result.value.accounts[0];
-        if (!item) throw new Error(`Account #${options.accountId} not found`);
-
-        const initialState = createBalanceStoredSnapshotAssetState(
-          {
-            accountId: item.account.id,
-            platformKey: item.account.platformKey,
-            accountType: item.account.accountType,
-            verificationStatus: item.snapshot.verificationStatus,
-            statusReason: item.snapshot.statusReason,
-            suggestion: item.snapshot.suggestion,
-            lastRefreshAt: item.snapshot.lastRefreshAt?.toISOString(),
-          },
-          sortStoredSnapshotAssets(item.assets)
-        );
-
-        await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
-        return;
-      }
-
-      const storedSnapshotItems = result.value.accounts.map((item) =>
-        buildStoredSnapshotAccountItem(item.account, sortStoredSnapshotAssets(item.assets), item.snapshot)
-      );
-      const initialState = createBalanceStoredSnapshotState(storedSnapshotItems);
 
       await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
-    });
-  } catch (error) {
-    displayCliError(
-      'balance-view',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
+      return ok(silentSuccess());
+    }
+
+    const storedSnapshotItems = result.accounts.map((item) =>
+      buildStoredSnapshotAccountItem(item.account, sortStoredSnapshotAssets(item.assets), item.snapshot)
     );
+    const initialState = createBalanceStoredSnapshotState(storedSnapshotItems);
+
+    await renderApp((unmount) => React.createElement(BalanceApp, { initialState, onQuit: unmount }));
+    return ok(silentSuccess());
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
   }
 }

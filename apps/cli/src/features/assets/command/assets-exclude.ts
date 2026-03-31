@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
-import { outputSuccess } from '../../shared/json-output.js';
+import { jsonSuccess, textSuccess } from '../../shared/cli-contract.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsExcludeCommandOptionsSchema } from './assets-option-schemas.js';
@@ -44,25 +45,26 @@ async function executeAssetsExcludeCommand(rawOptions: unknown): Promise<void> {
         symbol: options.symbol,
         reason: options.reason,
       }),
-    handleAssetsExcludeSuccess
+    buildAssetsExcludeCompletion
   );
 }
 
-function handleAssetsExcludeSuccess(isJsonMode: boolean, result: AssetOverrideResult): void {
-  if (isJsonMode) {
-    outputSuccess('assets-exclude', result);
-    return;
+function buildAssetsExcludeCompletion(format: CliOutputFormat, result: AssetOverrideResult) {
+  if (format === 'json') {
+    return jsonSuccess(result);
   }
 
-  if (!result.changed) {
-    console.log('Asset is already excluded from accounting');
-  } else {
-    console.log('✓ Asset excluded from accounting');
-  }
+  return textSuccess(() => {
+    if (!result.changed) {
+      console.log('Asset is already excluded from accounting');
+    } else {
+      console.log('✓ Asset excluded from accounting');
+    }
 
-  console.log(`   Asset ID: ${result.assetId}`);
-  console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
-  if (result.reason) {
-    console.log(`   Reason: ${result.reason}`);
-  }
+    console.log(`   Asset ID: ${result.assetId}`);
+    console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
+    if (result.reason) {
+      console.log(`   Reason: ${result.reason}`);
+    }
+  });
 }

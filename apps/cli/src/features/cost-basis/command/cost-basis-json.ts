@@ -1,13 +1,12 @@
-import { outputSuccess } from '../../shared/json-output.js';
 import type { CostBasisPresentationModel } from '../view/cost-basis-view-utils.js';
 
-type CostBasisCommandResult = CostBasisPresentationModel['context'] & {
+export type CostBasisCommandResult = CostBasisPresentationModel['context'] & {
   assets: CostBasisPresentationModel['assetItems'];
   summary: CostBasisPresentationModel['summary'];
 };
 
-export function outputCostBasisJSON(presentation: CostBasisPresentationModel): void {
-  const resultData: CostBasisCommandResult = {
+export function buildCostBasisJsonData(presentation: CostBasisPresentationModel): CostBasisCommandResult {
+  return {
     calculationId: presentation.context.calculationId,
     method: presentation.context.method,
     jurisdiction: presentation.context.jurisdiction,
@@ -17,6 +16,4 @@ export function outputCostBasisJSON(presentation: CostBasisPresentationModel): v
     summary: presentation.summary,
     assets: presentation.assetItems,
   };
-
-  outputSuccess('cost-basis', resultData);
 }

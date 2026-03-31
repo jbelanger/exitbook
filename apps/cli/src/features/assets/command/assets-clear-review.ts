@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
-import { outputSuccess } from '../../shared/json-output.js';
+import { jsonSuccess, textSuccess } from '../../shared/cli-contract.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';
@@ -44,26 +45,27 @@ async function executeAssetsClearReviewCommand(rawOptions: unknown): Promise<voi
         symbol: options.symbol,
         reason: options.reason,
       }),
-    handleAssetsClearReviewSuccess
+    buildAssetsClearReviewCompletion
   );
 }
 
-function handleAssetsClearReviewSuccess(isJsonMode: boolean, result: AssetReviewOverrideResult): void {
-  if (isJsonMode) {
-    outputSuccess('assets-clear-review', result);
-    return;
+function buildAssetsClearReviewCompletion(format: CliOutputFormat, result: AssetReviewOverrideResult) {
+  if (format === 'json') {
+    return jsonSuccess(result);
   }
 
-  if (!result.changed) {
-    console.log('Asset review confirmation was already cleared');
-  } else {
-    console.log('Asset review confirmation cleared');
-  }
+  return textSuccess(() => {
+    if (!result.changed) {
+      console.log('Asset review confirmation was already cleared');
+    } else {
+      console.log('Asset review confirmation cleared');
+    }
 
-  console.log(`   Asset ID: ${result.assetId}`);
-  console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
-  console.log(`   Review Status: ${result.reviewStatus}`);
-  if (result.reason) {
-    console.log(`   Reason: ${result.reason}`);
-  }
+    console.log(`   Asset ID: ${result.assetId}`);
+    console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
+    console.log(`   Review Status: ${result.reviewStatus}`);
+    if (result.reason) {
+      console.log(`   Reason: ${result.reason}`);
+    }
+  });
 }

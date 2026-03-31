@@ -1,30 +1,48 @@
-// Command registration for providers view subcommand
-
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  createCliFailure,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliCompletion,
+  type CliFailure,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from '../view/index.js';
 
 import { ProvidersViewCommandOptionsSchema } from './providers-option-schemas.js';
 import { ProvidersViewHandler } from './providers-view-handler.js';
-import { validateHealthFilter, type HealthFilter } from './providers-view-utils.js';
 
-/**
- * Command options (validated at CLI boundary).
- */
-type CommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
+type ProvidersViewCommandOptions = z.infer<typeof ProvidersViewCommandOptionsSchema>;
 
-/**
- * Register the providers view subcommand.
- */
+interface ProvidersViewData {
+  healthCounts: ReturnType<typeof computeHealthCounts>;
+  viewItems: Awaited<ReturnType<ProvidersViewHandler['execute']>>;
+}
+
+interface ProvidersViewCommandResult {
+  data: {
+    providers: ReturnType<typeof serializeProvidersViewItem>[];
+  };
+  meta: {
+    byHealth: ProvidersViewData['healthCounts'];
+    filters?: Record<string, unknown> | undefined;
+    requireApiKey: number;
+    total: number;
+  };
+}
+
 export function registerProvidersViewCommand(providersCommand: Command, appRuntime: CliAppRuntime): void {
   providersCommand
     .command('view')
@@ -49,144 +67,146 @@ Common Usage:
     .option('--health <status>', 'Filter by health (healthy, degraded, unhealthy)')
     .option('--missing-api-key', 'Show only providers with missing API keys')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeProvidersViewCommand(rawOptions, appRuntime);
-    });
+    .action((rawOptions: unknown) => executeProvidersViewCommand(rawOptions, appRuntime));
 }
 
-/**
- * Execute the providers view command.
- */
 async function executeProvidersViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('providers-view', rawOptions, ProvidersViewCommandOptionsSchema);
-  let validatedHealth: HealthFilter | undefined;
-  if (options.health) {
-    const healthResult = validateHealthFilter(options.health);
-    if (healthResult.isErr()) {
-      displayCliError('providers-view', healthResult.error, ExitCodes.INVALID_ARGS, format);
-    }
-    validatedHealth = healthResult.value;
-  }
+  const format = detectCliOutputFormat(rawOptions);
 
-  if (format === 'json') {
-    await executeProvidersViewJSON(options, validatedHealth, appRuntime);
-  } else {
-    await executeProvidersViewTUI(options, validatedHealth, appRuntime);
-  }
-}
-
-/**
- * Load provider view items and health counts from the registry.
- */
-async function fetchProviderViewData(
-  options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  appRuntime: CliAppRuntime
-) {
-  const handler = new ProvidersViewHandler(appRuntime.dataDir, appRuntime.blockchainExplorersConfig);
-  const viewItems = await handler.execute({
-    blockchain: options.blockchain,
-    health: validatedHealth,
-    missingApiKey: options.missingApiKey,
+  await runCliCommandBoundary({
+    command: 'providers-view',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, ProvidersViewCommandOptionsSchema);
+        return yield* await executeProvidersViewCommandResult(options, format, appRuntime);
+      }),
   });
-  const healthCounts = computeHealthCounts(viewItems);
-  return { viewItems, healthCounts };
 }
 
-/**
- * Execute providers view in TUI mode
- */
-async function executeProvidersViewTUI(
-  options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
+async function executeProvidersViewCommandResult(
+  options: ProvidersViewCommandOptions,
+  format: CliOutputFormat,
   appRuntime: CliAppRuntime
-): Promise<void> {
-  await withCliCommandErrorHandling('providers-view', 'text', async () => {
-    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, appRuntime);
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const data = yield* toCliResult(await fetchProviderViewData(options, appRuntime), ExitCodes.GENERAL_ERROR);
 
-    const initialState = createProvidersViewState(
+    if (format === 'json') {
+      return buildProvidersViewJsonCompletion(options, data);
+    }
+
+    return yield* await buildProvidersViewTuiCompletion(options, data);
+  });
+}
+
+async function fetchProviderViewData(
+  options: ProvidersViewCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<Result<ProvidersViewData, Error>> {
+  try {
+    const handler = new ProvidersViewHandler(appRuntime.dataDir, appRuntime.blockchainExplorersConfig);
+    const viewItems = await handler.execute({
+      blockchain: options.blockchain,
+      health: options.health,
+      missingApiKey: options.missingApiKey,
+    });
+
+    return ok({
       viewItems,
-      {
-        blockchainFilter: options.blockchain,
-        healthFilter: validatedHealth,
-        missingApiKeyFilter: options.missingApiKey,
-      },
-      healthCounts
-    );
+      healthCounts: computeHealthCounts(viewItems),
+    });
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
 
+function buildProvidersViewJsonCompletion(
+  options: ProvidersViewCommandOptions,
+  data: ProvidersViewData
+): CliCompletion {
+  const resultData: ProvidersViewCommandResult = {
+    data: {
+      providers: data.viewItems.map(serializeProvidersViewItem),
+    },
+    meta: {
+      total: data.viewItems.length,
+      byHealth: data.healthCounts,
+      requireApiKey: data.viewItems.filter((provider) => provider.requiresApiKey).length,
+      filters: buildDefinedFilters({
+        blockchain: options.blockchain,
+        health: options.health,
+        missingApiKey: options.missingApiKey ? true : undefined,
+      }),
+    },
+  };
+
+  return jsonSuccess(resultData);
+}
+
+async function buildProvidersViewTuiCompletion(
+  options: ProvidersViewCommandOptions,
+  data: ProvidersViewData
+): Promise<Result<CliCompletion, CliFailure>> {
+  const initialState = createProvidersViewState(
+    data.viewItems,
+    {
+      blockchainFilter: options.blockchain,
+      healthFilter: options.health,
+      missingApiKeyFilter: options.missingApiKey,
+    },
+    data.healthCounts
+  );
+
+  try {
     await renderApp((unmount) =>
       React.createElement(ProvidersViewApp, {
         initialState,
         onQuit: unmount,
       })
     );
-  });
+  } catch (error) {
+    return err(createCliFailure(error, ExitCodes.GENERAL_ERROR));
+  }
+
+  return ok(silentSuccess());
 }
 
-/**
- * Execute providers view in JSON mode
- */
-async function executeProvidersViewJSON(
-  options: CommandOptions,
-  validatedHealth: HealthFilter | undefined,
-  appRuntime: CliAppRuntime
-): Promise<void> {
-  await withCliCommandErrorHandling('providers-view', 'json', async () => {
-    const { viewItems, healthCounts } = await fetchProviderViewData(options, validatedHealth, appRuntime);
-
-    const jsonProviders = viewItems.map((p) => ({
-      name: p.name,
-      displayName: p.displayName,
-      requiresApiKey: p.requiresApiKey,
-      apiKeyConfigured: p.apiKeyConfigured,
-      blockchains: p.blockchains.map((b) => ({
-        name: b.name,
-        capabilities: b.capabilities,
-        rateLimit: b.rateLimit,
-        configSource: b.configSource,
-      })),
-      chainCount: p.chainCount,
-      stats: p.stats
-        ? {
-            totalRequests: p.stats.totalRequests,
-            avgResponseTime: p.stats.avgResponseTime,
-            errorRate: p.stats.errorRate,
-            lastChecked: p.stats.lastChecked,
-            perBlockchain: Object.fromEntries(
-              p.blockchains
-                .filter((b) => b.stats)
-                .map((b) => [
-                  b.name,
-                  {
-                    totalSuccesses: b.stats!.totalSuccesses,
-                    totalFailures: b.stats!.totalFailures,
-                    avgResponseTime: b.stats!.avgResponseTime,
-                    errorRate: b.stats!.errorRate,
-                  },
-                ])
-            ),
-          }
-        : undefined,
-      healthStatus: p.healthStatus,
-      lastError: p.lastError ?? undefined,
-    }));
-
-    const resultData = {
-      data: {
-        providers: jsonProviders,
-      },
-      meta: {
-        total: viewItems.length,
-        byHealth: healthCounts,
-        requireApiKey: viewItems.filter((p) => p.requiresApiKey).length,
-        filters: buildDefinedFilters({
-          blockchain: options.blockchain,
-          health: validatedHealth,
-          missingApiKey: options.missingApiKey ? true : undefined,
-        }),
-      },
-    };
-
-    outputSuccess('providers-view', resultData);
-  });
+function serializeProvidersViewItem(provider: ProvidersViewData['viewItems'][number]) {
+  return {
+    name: provider.name,
+    displayName: provider.displayName,
+    requiresApiKey: provider.requiresApiKey,
+    apiKeyConfigured: provider.apiKeyConfigured,
+    blockchains: provider.blockchains.map((blockchain) => ({
+      name: blockchain.name,
+      capabilities: blockchain.capabilities,
+      rateLimit: blockchain.rateLimit,
+      configSource: blockchain.configSource,
+    })),
+    chainCount: provider.chainCount,
+    stats: provider.stats
+      ? {
+          totalRequests: provider.stats.totalRequests,
+          avgResponseTime: provider.stats.avgResponseTime,
+          errorRate: provider.stats.errorRate,
+          lastChecked: provider.stats.lastChecked,
+          perBlockchain: Object.fromEntries(
+            provider.blockchains
+              .filter((blockchain) => blockchain.stats)
+              .map((blockchain) => [
+                blockchain.name,
+                {
+                  totalSuccesses: blockchain.stats!.totalSuccesses,
+                  totalFailures: blockchain.stats!.totalFailures,
+                  avgResponseTime: blockchain.stats!.avgResponseTime,
+                  errorRate: blockchain.stats!.errorRate,
+                },
+              ])
+          ),
+        }
+      : undefined,
+    healthStatus: provider.healthStatus,
+    lastError: provider.lastError ?? undefined,
+  };
 }

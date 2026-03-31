@@ -1,16 +1,24 @@
-// Command registration for links view subcommand
-import type { LinkStatus } from '@exitbook/core';
-import type { Transaction, TransactionLink } from '@exitbook/core';
-import type { Result } from '@exitbook/foundation';
+import type { TransactionLink } from '@exitbook/core';
+import { OverrideStore } from '@exitbook/data/overrides';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, runCommand } from '../../../../runtime/command-runtime.js';
+import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { displayCliError } from '../../../shared/cli-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
+import {
+  createCliFailure,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliCompletion,
+  type CliFailure,
+} from '../../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../../shared/command-options.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
-import { outputSuccess } from '../../../shared/json-output.js';
 import { buildDefinedFilters, buildViewMeta, type ViewCommandResult } from '../../../shared/view-utils.js';
 import type { LinkGapIssue } from '../../links-gap-model.js';
 import type { LinkWithTransactions } from '../../links-view-model.js';
@@ -19,15 +27,18 @@ import { LinksGapsCommandOptionsSchema, LinksViewCommandOptionsSchema } from '..
 import { LinksReviewHandler } from '../review/links-review-handler.js';
 
 import { analyzeLinkGaps } from './links-gap-analysis.js';
-import type { LinkInfo, LinksViewParams, LinksViewResult } from './links-view-presenter.js';
-import { filterLinksByConfidence, formatLinkInfo } from './links-view-presenter.js';
+import {
+  filterLinksByConfidence,
+  formatLinkInfo,
+  type LinkInfo,
+  type LinksViewParams,
+} from './links-view-presenter.js';
 
-/**
- * Fetch transactions for a list of links.
- */
+type LinksCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
+
 async function fetchTransactionsForLinks(
   links: TransactionLink[],
-  txRepo: { findById: (id: number, profileId?: number) => Promise<Result<Transaction | undefined, Error>> },
+  txRepo: LinksCommandDatabase['transactions'],
   profileId: number
 ): Promise<LinkWithTransactions[]> {
   const result: LinkWithTransactions[] = [];
@@ -49,20 +60,9 @@ async function fetchTransactionsForLinks(
   return result;
 }
 
-/**
- * Result data for links view command (JSON mode).
- */
 type LinksViewCommandResult = ViewCommandResult<LinkInfo[]>;
-
-/**
- * Result data for gaps view command (JSON mode).
- */
 type GapsViewCommandResult = ViewCommandResult<LinkGapIssue[]>;
-type LinksCommandParams = LinksViewParams;
 
-/**
- * Register the links view subcommand.
- */
 export function registerLinksViewCommand(linksCommand: Command): void {
   linksCommand
     .command('view')
@@ -125,292 +125,112 @@ Examples:
     });
 }
 
-/**
- * Execute the links view command.
- */
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
-  const { format, options } = parseCliCommandOptions('links-view', rawOptions, LinksViewCommandOptionsSchema);
-  const params: LinksCommandParams = {
-    status: options.status,
-    minConfidence: options.minConfidence,
-    maxConfidence: options.maxConfidence,
-    verbose: options.verbose,
-  };
+  const format = detectCliOutputFormat(rawOptions);
 
-  if (format === 'json') {
-    await executeLinksViewJSON(params);
-    return;
-  }
-
-  await executeLinksViewTUI(params);
+  await runCliCommandBoundary({
+    command: 'links-view',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, LinksViewCommandOptionsSchema);
+        return yield* await executeLinksViewCommandResult(
+          {
+            status: options.status,
+            minConfidence: options.minConfidence,
+            maxConfidence: options.maxConfidence,
+            verbose: options.verbose,
+          },
+          format
+        );
+      }),
+  });
 }
 
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
-  const { format } = parseCliCommandOptions('links-gaps', rawOptions, LinksGapsCommandOptionsSchema);
-  if (format === 'json') {
-    await executeGapsViewJSON();
-    return;
-  }
+  const format = detectCliOutputFormat(rawOptions);
 
-  await executeGapsViewTUI();
+  await runCliCommandBoundary({
+    command: 'links-gaps',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        yield* parseCliCommandOptionsResult(rawOptions, LinksGapsCommandOptionsSchema);
+        return yield* await executeLinksGapsCommandResult(format);
+      }),
+  });
 }
 
-/**
- * Execute links view in TUI mode (text mode, no JSON)
- */
-async function executeLinksViewTUI(params: LinksCommandParams): Promise<void> {
-  const { OverrideStore } = await import('@exitbook/data/overrides');
+async function executeLinksViewCommandResult(
+  params: LinksViewParams,
+  format: CliOutputFormat
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'links-view',
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+        const linksResult = yield* toCliResult(
+          await database.transactionLinks.findAll({
+            profileId: profile.id,
+            status: params.status,
+          }),
+          ExitCodes.GENERAL_ERROR
+        );
 
-  await withCliCommandErrorHandling('links-view', 'text', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        console.error('\n⚠ Error:', profileResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
+        const filteredLinks =
+          params.minConfidence !== undefined || params.maxConfidence !== undefined
+            ? filterLinksByConfidence(linksResult, params.minConfidence, params.maxConfidence)
+            : linksResult;
 
-      const linkRepo = database.transactionLinks;
-      const txRepo = database.transactions;
-      const overrideStore = new OverrideStore(ctx.dataDir);
+        const linksWithTransactions = await fetchTransactionsForLinks(filteredLinks, database.transactions, profile.id);
 
-      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
-      if (linksResult.isErr()) {
-        console.error('\n⚠ Error:', linksResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const linksWithTransactions: LinkWithTransactions[] = await fetchTransactionsForLinks(
-        linksResult.value,
-        txRepo,
-        profileResult.value.id
-      );
-
-      const reviewHandler = new LinksReviewHandler(
-        database,
-        profileResult.value.id,
-        profileResult.value.profileKey,
-        overrideStore
-      );
-
-      const handleAction = async (
-        linkId: number,
-        action: 'confirm' | 'reject'
-      ): Promise<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }> => {
-        const result = await reviewHandler.execute({ linkId }, action);
-        if (result.isErr()) {
-          throw result.error;
+        if (format === 'json') {
+          return buildLinksViewJsonCompletion(linksWithTransactions, params);
         }
 
-        return {
-          affectedLinkIds: result.value.affectedLinkIds,
-          newStatus: result.value.newStatus,
-        };
-      };
-
-      const initialState = createLinksViewState(
-        linksWithTransactions,
-        params.status as LinkStatus,
-        params.verbose ?? false,
-        undefined,
-        {
-          maxConfidence: params.maxConfidence,
-          minConfidence: params.minConfidence,
-        }
-      );
-
-      await renderApp((unmount) =>
-        React.createElement(LinksViewApp, {
-          initialState,
-          onAction: handleAction,
-          onQuit: unmount,
-        })
-      );
-    });
+        return yield* await buildLinksViewTuiCompletion(ctx, database, profile, linksWithTransactions, params);
+      }),
   });
 }
 
-/**
- * Execute gaps view in TUI mode (read-only)
- */
-async function executeGapsViewTUI(): Promise<void> {
-  await withCliCommandErrorHandling('links-gaps', 'text', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        console.error('\n⚠ Error:', profileResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
+async function executeLinksGapsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'links-gaps',
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+        const analysis = yield* toCliResult(await loadLinksGapAnalysis(database, profile.id), ExitCodes.GENERAL_ERROR);
 
-      const txRepo = database.transactions;
-      const linkRepo = database.transactionLinks;
-      const accountRepo = database.accounts;
-
-      const transactionsResult = await txRepo.findAll({ profileId: profileResult.value.id });
-      if (transactionsResult.isErr()) {
-        console.error('\n⚠ Error:', transactionsResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
-      if (linksResult.isErr()) {
-        console.error('\n⚠ Error:', linksResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const accountsResult = await accountRepo.findAll({ profileId: profileResult.value.id });
-      if (accountsResult.isErr()) {
-        console.error('\n⚠ Error:', accountsResult.error.message);
-        ctx.exitCode = ExitCodes.GENERAL_ERROR;
-        return;
-      }
-
-      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value, {
-        accounts: accountsResult.value,
-      });
-
-      await ctx.closeDatabase();
-
-      const initialState = createGapsViewState(analysis);
-
-      await renderApp((unmount) =>
-        React.createElement(LinksViewApp, {
-          initialState,
-          onQuit: unmount,
-        })
-      );
-    });
-  });
-}
-
-/**
- * Execute links view in JSON mode
- */
-async function executeLinksViewJSON(params: LinksCommandParams): Promise<void> {
-  await withCliCommandErrorHandling('links-view', 'json', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('links-view', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const linkRepo = database.transactionLinks;
-      const txRepo = database.transactions;
-
-      const linksResult = await linkRepo.findAll({
-        profileId: profileResult.value.id,
-        status: params.status,
-      });
-      if (linksResult.isErr()) {
-        displayCliError('links-view', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      let links = linksResult.value;
-
-      if (params.minConfidence !== undefined || params.maxConfidence !== undefined) {
-        links = filterLinksByConfidence(links, params.minConfidence, params.maxConfidence);
-      }
-
-      const linksWithTransactions = await fetchTransactionsForLinks(links, txRepo, profileResult.value.id);
-      const linkInfos: LinkInfo[] = linksWithTransactions.map((item) => {
-        const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
-
-        if (!params.verbose) {
-          linkInfo.source_transaction = undefined;
-          linkInfo.target_transaction = undefined;
+        if (format === 'json') {
+          return buildLinksGapsJsonCompletion(analysis);
         }
 
-        return linkInfo;
-      });
-
-      const result: LinksViewResult = {
-        links: linkInfos,
-        count: linkInfos.length,
-      };
-
-      handleLinksViewJSON(result, params);
-    });
+        return yield* await buildLinksGapsTuiCompletion(ctx, analysis);
+      }),
   });
 }
 
-/**
- * Execute gaps view in JSON mode
- */
-async function executeGapsViewJSON(): Promise<void> {
-  await withCliCommandErrorHandling('links-gaps', 'json', async () => {
-    await runCommand(async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('links-gaps', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
+function buildLinksViewJsonCompletion(
+  linksWithTransactions: LinkWithTransactions[],
+  params: LinksViewParams
+): CliCompletion {
+  const linkInfos = linksWithTransactions.map((item) => {
+    const linkInfo = formatLinkInfo(item.link, item.sourceTransaction, item.targetTransaction);
 
-      const txRepo = database.transactions;
-      const linkRepo = database.transactionLinks;
-      const accountRepo = database.accounts;
+    if (!params.verbose) {
+      linkInfo.source_transaction = undefined;
+      linkInfo.target_transaction = undefined;
+    }
 
-      const transactionsResult = await txRepo.findAll({ profileId: profileResult.value.id });
-      if (transactionsResult.isErr()) {
-        displayCliError('links-gaps', transactionsResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const linksResult = await linkRepo.findAll({ profileId: profileResult.value.id });
-      if (linksResult.isErr()) {
-        displayCliError('links-gaps', linksResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const accountsResult = await accountRepo.findAll({ profileId: profileResult.value.id });
-      if (accountsResult.isErr()) {
-        displayCliError('links-gaps', accountsResult.error, ExitCodes.GENERAL_ERROR, 'json');
-        return;
-      }
-
-      const analysis = analyzeLinkGaps(transactionsResult.value, linksResult.value, {
-        accounts: accountsResult.value,
-      });
-
-      const resultData: GapsViewCommandResult = {
-        data: analysis.issues,
-        meta: {
-          count: analysis.issues.length,
-          offset: 0,
-          limit: analysis.issues.length,
-          hasMore: false,
-          filters: {
-            total_issues: analysis.summary.total_issues,
-            uncovered_inflows: analysis.summary.uncovered_inflows,
-            unmatched_outflows: analysis.summary.unmatched_outflows,
-            affected_assets: analysis.summary.affected_assets,
-            assets: analysis.summary.assets,
-          },
-        },
-      };
-
-      outputSuccess('links-gaps', resultData);
-    });
+    return linkInfo;
   });
-}
 
-/**
- * Handle links view JSON output.
- */
-function handleLinksViewJSON(result: LinksViewResult, params: LinksCommandParams): void {
-  const { links, count } = result;
-
+  const count = linkInfos.length;
   const resultData: LinksViewCommandResult = {
-    data: links,
+    data: linkInfos,
     meta: buildViewMeta(
       count,
       0,
@@ -424,5 +244,116 @@ function handleLinksViewJSON(result: LinksViewResult, params: LinksCommandParams
     ),
   };
 
-  outputSuccess('links-view', resultData);
+  return jsonSuccess(resultData);
+}
+
+async function buildLinksViewTuiCompletion(
+  ctx: CommandRuntime,
+  database: LinksCommandDatabase,
+  profile: { id: number; profileKey: string },
+  linksWithTransactions: LinkWithTransactions[],
+  params: LinksViewParams
+): Promise<Result<CliCompletion, CliFailure>> {
+  const reviewHandler = new LinksReviewHandler(
+    database as never,
+    profile.id,
+    profile.profileKey,
+    new OverrideStore(ctx.dataDir)
+  );
+  const initialState = createLinksViewState(linksWithTransactions, params.status, params.verbose ?? false, undefined, {
+    maxConfidence: params.maxConfidence,
+    minConfidence: params.minConfidence,
+  });
+
+  try {
+    await renderApp((unmount) =>
+      React.createElement(LinksViewApp, {
+        initialState,
+        onAction: async (linkId, action) => {
+          const result = await reviewHandler.execute({ linkId }, action);
+          if (result.isErr()) {
+            throw result.error;
+          }
+
+          return {
+            affectedLinkIds: result.value.affectedLinkIds,
+            newStatus: result.value.newStatus,
+          };
+        },
+        onQuit: unmount,
+      })
+    );
+  } catch (error) {
+    return err(createCliFailure(error, ExitCodes.GENERAL_ERROR));
+  }
+
+  return ok(silentSuccess());
+}
+
+function buildLinksGapsJsonCompletion(analysis: ReturnType<typeof analyzeLinkGaps>): CliCompletion {
+  const resultData: GapsViewCommandResult = {
+    data: analysis.issues,
+    meta: {
+      count: analysis.issues.length,
+      offset: 0,
+      limit: analysis.issues.length,
+      hasMore: false,
+      filters: {
+        total_issues: analysis.summary.total_issues,
+        uncovered_inflows: analysis.summary.uncovered_inflows,
+        unmatched_outflows: analysis.summary.unmatched_outflows,
+        affected_assets: analysis.summary.affected_assets,
+        assets: analysis.summary.assets,
+      },
+    },
+  };
+
+  return jsonSuccess(resultData);
+}
+
+async function buildLinksGapsTuiCompletion(
+  ctx: CommandRuntime,
+  analysis: ReturnType<typeof analyzeLinkGaps>
+): Promise<Result<CliCompletion, CliFailure>> {
+  try {
+    await ctx.closeDatabase();
+
+    const initialState = createGapsViewState(analysis);
+    await renderApp((unmount) =>
+      React.createElement(LinksViewApp, {
+        initialState,
+        onQuit: unmount,
+      })
+    );
+  } catch (error) {
+    return err(createCliFailure(error, ExitCodes.GENERAL_ERROR));
+  }
+
+  return ok(silentSuccess());
+}
+
+async function loadLinksGapAnalysis(
+  database: LinksCommandDatabase,
+  profileId: number
+): Promise<Result<ReturnType<typeof analyzeLinkGaps>, Error>> {
+  const transactionsResult = await database.transactions.findAll({ profileId });
+  if (transactionsResult.isErr()) {
+    return err(transactionsResult.error);
+  }
+
+  const linksResult = await database.transactionLinks.findAll({ profileId });
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
+  const accountsResult = await database.accounts.findAll({ profileId });
+  if (accountsResult.isErr()) {
+    return err(accountsResult.error);
+  }
+
+  return ok(
+    analyzeLinkGaps(transactionsResult.value, linksResult.value, {
+      accounts: accountsResult.value,
+    })
+  );
 }

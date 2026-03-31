@@ -1,15 +1,28 @@
-import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting/cost-basis';
+import {
+  getDefaultCostBasisMethodForJurisdiction,
+  type CostBasisJurisdiction,
+  type CostBasisWorkflowResult,
+} from '@exitbook/accounting/cost-basis';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  cliErr,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliFailure,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { unwrapResult } from '../../shared/result-utils.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
 import { createCostBasisAssetState, createCostBasisTimelineState } from '../view/cost-basis-view-state.js';
@@ -18,7 +31,7 @@ import { buildPresentationModel } from '../view/cost-basis-view-utils.js';
 import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
 import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
-import { outputCostBasisJSON } from './cost-basis-json.js';
+import { buildCostBasisJsonData } from './cost-basis-json.js';
 import { CostBasisCommandOptionsSchema } from './cost-basis-option-schemas.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
@@ -28,9 +41,6 @@ const logger = getLogger('cost-basis');
 
 type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
 
-/**
- * Register the cost-basis command.
- */
 export function registerCostBasisCommand(program: Command, appRuntime: CliAppRuntime): void {
   const costBasisCommand = program
     .command('cost-basis')
@@ -62,119 +72,147 @@ Notes:
 }
 
 async function executeCostBasisCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('cost-basis', rawOptions, CostBasisCommandOptionsSchema);
+  const format = detectCliOutputFormat(rawOptions);
 
-  if (format === 'json') {
-    await executeCostBasisCalculateJSON(options, appRuntime);
-  } else {
-    await executeCostBasisCalculateTUI(options, appRuntime);
-  }
-}
+  await runCliCommandBoundary({
+    command: 'cost-basis',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, CostBasisCommandOptionsSchema);
 
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
-async function executeCostBasisCalculateJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    const params = unwrapResult(buildCostBasisInputFromFlags(options));
-
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
-        runCostBasis(scope, params, { refresh: options.refresh })
-      );
-      if (result.isErr()) {
-        displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      outputCostBasisJSON(buildPresentationModel(result.value));
-    });
-  } catch (error) {
-    displayCliError(
-      'cost-basis',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
-}
-
-// ─── TUI: Calculate Mode ─────────────────────────────────────────────────────
-
-async function executeCostBasisCalculateTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      // Step 1: Resolve params via interactive prompts or CLI flags
-      let params: ValidatedCostBasisConfig;
-      const defaultMethodResult = options.jurisdiction
-        ? getDefaultCostBasisMethodForJurisdiction(options.jurisdiction as CostBasisJurisdiction)
-        : undefined;
-      const defaultMethodForJurisdiction = defaultMethodResult?.isOk() ? defaultMethodResult.value : undefined;
-      const needsPrompt =
-        !options.jurisdiction || !options.taxYear || (!options.method && !defaultMethodForJurisdiction);
-
-      if (needsPrompt) {
-        const promptResult = await promptForCostBasisParams(options);
-        if (!promptResult) {
-          console.log('\nCost basis calculation cancelled');
-          return;
+        if (format === 'json') {
+          const params = yield* toCliResult(buildCostBasisInputFromFlags(options), ExitCodes.INVALID_ARGS);
+          return yield* await executeCostBasisJsonCommand(options, params, appRuntime);
         }
-        params = promptResult;
-      } else {
-        params = unwrapResult(buildCostBasisInputFromFlags(options));
-      }
 
-      // Step 3: Calculate cost basis
-      const spinner = createSpinner('Calculating cost basis...', false);
-      let result: Awaited<ReturnType<typeof runCostBasis>>;
-      try {
-        result = await withCostBasisCommandScope(ctx, { format: 'text', params }, (scope) =>
-          runCostBasis(scope, params, { refresh: options.refresh })
+        const params = yield* await resolveCostBasisTextParams(options);
+        if (params === undefined) {
+          return {
+            exitCode: ExitCodes.SUCCESS,
+            output: {
+              kind: 'text',
+              render: () => console.log('\nCost basis calculation cancelled'),
+            },
+          };
+        }
+
+        return yield* await executeCostBasisTextCommand(options, params, appRuntime);
+      }),
+  });
+}
+
+async function executeCostBasisJsonCommand(
+  options: CommandOptions,
+  params: ValidatedCostBasisConfig,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'cost-basis',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
+            runCostBasis(scope, params, { refresh: options.refresh })
+          ),
+          ExitCodes.GENERAL_ERROR
         );
-      } finally {
-        stopSpinner(spinner);
-      }
 
-      if (result.isErr()) {
-        displayCliError('cost-basis', result.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
+        return jsonSuccess(buildCostBasisJsonData(buildPresentationModel(result)));
+      }),
+  });
+}
 
-      const presentation = buildPresentationModel(result.value);
+async function executeCostBasisTextCommand(
+  options: CommandOptions,
+  params: ValidatedCostBasisConfig,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'cost-basis',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await loadCostBasisTextResult(ctx, params, options.refresh),
+          ExitCodes.GENERAL_ERROR
+        );
 
-      const initialState = createCostBasisAssetState(
-        presentation.context,
-        presentation.assetItems,
-        presentation.summary,
-        {
-          totalDisposals: presentation.summary.disposalsProcessed,
-          totalLots: presentation.summary.lotsCreated,
-        }
-      );
+        return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, result), ExitCodes.GENERAL_ERROR);
+      }),
+  });
+}
 
-      const finalState = resolveAssetFilter(initialState, options.asset);
-
-      await ctx.closeDatabase();
-
-      await renderApp((unmount) =>
-        React.createElement(CostBasisApp, {
-          initialState: finalState,
-          onQuit: unmount,
-        })
-      );
-    });
-  } catch (error) {
-    displayCliError(
-      'cost-basis',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
+async function loadCostBasisTextResult(
+  ctx: CommandRuntime,
+  params: ValidatedCostBasisConfig,
+  refresh: boolean | undefined
+): Promise<Result<CostBasisWorkflowResult, Error>> {
+  const spinner = createSpinner('Calculating cost basis...', false);
+  try {
+    return await withCostBasisCommandScope(ctx, { format: 'text', params }, (scope) =>
+      runCostBasis(scope, params, { refresh })
     );
+  } finally {
+    stopSpinner(spinner);
   }
 }
 
-// ─── Shared Helpers ──────────────────────────────────────────────────────────
+async function buildCostBasisTuiCompletion(
+  ctx: CommandRuntime,
+  options: CommandOptions,
+  result: CostBasisWorkflowResult
+): Promise<Result<ReturnType<typeof silentSuccess>, Error>> {
+  try {
+    const presentation = buildPresentationModel(result);
+    const initialState = createCostBasisAssetState(
+      presentation.context,
+      presentation.assetItems,
+      presentation.summary,
+      {
+        totalDisposals: presentation.summary.disposalsProcessed,
+        totalLots: presentation.summary.lotsCreated,
+      }
+    );
 
-/**
- * If --asset is specified, find the matching asset and jump to its timeline.
- */
+    const finalState = resolveAssetFilter(initialState, options.asset);
+
+    await ctx.closeDatabase();
+    await renderApp((unmount) =>
+      React.createElement(CostBasisApp, {
+        initialState: finalState,
+        onQuit: unmount,
+      })
+    );
+
+    return ok(silentSuccess());
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function resolveCostBasisTextParams(
+  options: CommandOptions
+): Promise<Result<ValidatedCostBasisConfig | undefined, CliFailure>> {
+  const defaultMethodResult = options.jurisdiction
+    ? getDefaultCostBasisMethodForJurisdiction(options.jurisdiction as CostBasisJurisdiction)
+    : undefined;
+  const defaultMethodForJurisdiction = defaultMethodResult?.isOk() ? defaultMethodResult.value : undefined;
+  const needsPrompt = !options.jurisdiction || !options.taxYear || (!options.method && !defaultMethodForJurisdiction);
+
+  if (!needsPrompt) {
+    return toCliResult(buildCostBasisInputFromFlags(options), ExitCodes.INVALID_ARGS);
+  }
+
+  try {
+    const promptResult = await promptForCostBasisParams(options);
+    return ok(promptResult ?? undefined);
+  } catch (error) {
+    return cliErr(error, ExitCodes.INVALID_ARGS);
+  }
+}
+
 function resolveAssetFilter(
   state: ReturnType<typeof createCostBasisAssetState>,
   assetFilter?: string
@@ -182,7 +220,7 @@ function resolveAssetFilter(
   if (!assetFilter) return state;
 
   const upperFilter = assetFilter.toUpperCase();
-  const assetIndex = state.assets.findIndex((a) => a.asset.toUpperCase() === upperFilter);
+  const assetIndex = state.assets.findIndex((asset) => asset.asset.toUpperCase() === upperFilter);
   if (assetIndex < 0) {
     logger.warn({ asset: assetFilter }, 'Asset filter did not match any assets in the calculation');
     return state;

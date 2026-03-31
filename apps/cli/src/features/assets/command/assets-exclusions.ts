@@ -1,10 +1,11 @@
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 
 import { withAssetsCommandScope } from './assets-command-scope.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
@@ -27,51 +28,54 @@ Notes:
 `
     )
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeAssetsExclusionsCommand(rawOptions);
-    });
+    .action((rawOptions: unknown) => executeAssetsExclusionsCommand(rawOptions));
 }
 
 async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
-  const { format } = parseCliCommandOptions('assets-exclusions', rawOptions, AssetsExclusionsCommandOptionsSchema);
+  const format = detectCliOutputFormat(rawOptions);
 
-  try {
-    await runCommand(async (ctx) => {
-      const result = await withAssetsCommandScope(ctx, runAssetsExclusions);
-
-      if (result.isErr()) {
-        displayCliError('assets-exclusions', result.error, ExitCodes.GENERAL_ERROR, format);
-        return;
-      }
-
-      handleAssetsExclusionsSuccess(format === 'json', result.value);
-    });
-  } catch (error) {
-    displayCliError(
-      'assets-exclusions',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      format
-    );
-  }
+  await runCliCommandBoundary({
+    command: 'assets-exclusions',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        yield* parseCliCommandOptionsResult(rawOptions, AssetsExclusionsCommandOptionsSchema);
+        return yield* await executeAssetsExclusionsCommandResult(format);
+      }),
+  });
 }
 
-function handleAssetsExclusionsSuccess(isJsonMode: boolean, result: AssetExclusionsResult): void {
-  if (isJsonMode) {
-    outputSuccess('assets-exclusions', result);
-    return;
+async function executeAssetsExclusionsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'assets-exclusions',
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await withAssetsCommandScope(ctx, runAssetsExclusions),
+          ExitCodes.GENERAL_ERROR
+        );
+        return buildAssetsExclusionsCompletion(format, result);
+      }),
+  });
+}
+
+function buildAssetsExclusionsCompletion(format: CliOutputFormat, result: AssetExclusionsResult) {
+  if (format === 'json') {
+    return jsonSuccess(result);
   }
 
-  if (result.excludedAssets.length === 0) {
-    console.log('No assets are currently excluded from accounting');
-    return;
-  }
+  return textSuccess(() => {
+    if (result.excludedAssets.length === 0) {
+      console.log('No assets are currently excluded from accounting');
+      return;
+    }
 
-  console.log(`Excluded assets (${result.excludedAssets.length}):`);
-  for (const excludedAsset of result.excludedAssets) {
-    const symbolText = excludedAsset.assetSymbols.length > 0 ? excludedAsset.assetSymbols.join(', ') : '(unknown)';
-    console.log(
-      `- ${symbolText}  ${excludedAsset.assetId}  ${excludedAsset.transactionCount} txs  ${excludedAsset.movementCount} movements`
-    );
-  }
+    console.log(`Excluded assets (${result.excludedAssets.length}):`);
+    for (const excludedAsset of result.excludedAssets) {
+      const symbolText = excludedAsset.assetSymbols.length > 0 ? excludedAsset.assetSymbols.join(', ') : '(unknown)';
+      console.log(
+        `- ${symbolText}  ${excludedAsset.assetId}  ${excludedAsset.transactionCount} txs  ${excludedAsset.movementCount} movements`
+      );
+    }
+  });
 }

@@ -12,6 +12,7 @@ import { promptConfirmDecision } from '../../shared/prompts.js';
 
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
+import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
 import { prepareAccountRemoval, runAccountRemoval } from './run-accounts-remove.js';
 
 const ACCOUNTS_REMOVE_COMMAND_ID = 'accounts-remove';
@@ -60,8 +61,8 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
           command: ACCOUNTS_REMOVE_COMMAND_ID,
           action: async (ctx) =>
             resultDoAsync(async function* () {
-              return yield* toCliResult(
-                await withAccountsRemoveCommandScope(ctx, async (scope) =>
+              return yield* await toAccountRemovalCliResult(
+                withAccountsRemoveCommandScope(ctx, async (scope) =>
                   resultDoAsync(async function* () {
                     const { accountIds, accountName, preview } = yield* await prepareAccountRemoval(scope, name);
 
@@ -95,13 +96,22 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
                       console.log(`Removed account ${accountName}`);
                     });
                   })
-                ),
-                ExitCodes.GENERAL_ERROR
+                )
               );
             }),
         });
       }),
   });
+}
+
+async function toAccountRemovalCliResult<T>(resultPromise: Promise<import('@exitbook/foundation').Result<T, Error>>) {
+  const result = await resultPromise;
+
+  if (result.isErr() && result.error instanceof AccountRemovalTargetNotFoundError) {
+    return cliErr(result.error, ExitCodes.NOT_FOUND);
+  }
+
+  return toCliResult(result, ExitCodes.GENERAL_ERROR);
 }
 
 const AccountsRemoveCommandOptionsSchema = JsonFlagSchema.extend({

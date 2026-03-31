@@ -1,32 +1,41 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- Vitest command-scope mocks intentionally use partial test doubles. */
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockCtx,
-  mockDisplayCliError,
+  mockExitCliFailure,
+  mockLoadBalanceVerificationAccounts,
   mockOutputSuccess,
+  mockRenderApp,
   mockRunBalanceRefreshSingle,
   mockRunBalanceView,
   mockRunCommand,
+  mockStartBalanceVerificationStream,
   mockWithBalanceCommandScope,
 } = vi.hoisted(() => ({
   mockCtx: {
+    closeDatabase: vi.fn(),
     database: vi.fn(),
+    onAbort: vi.fn(),
   },
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
+  mockLoadBalanceVerificationAccounts: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockRenderApp: vi.fn(),
   mockRunBalanceRefreshSingle: vi.fn(),
   mockRunBalanceView: vi.fn(),
   mockRunCommand: vi.fn(),
+  mockStartBalanceVerificationStream: vi.fn(),
   mockWithBalanceCommandScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
-  renderApp: vi.fn(),
+  renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));
 
@@ -35,7 +44,7 @@ vi.mock('../../../shared/json-output.js', () => ({
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../balance-command-scope.js', () => ({
@@ -44,11 +53,15 @@ vi.mock('../balance-command-scope.js', () => ({
 
 vi.mock('../run-balance.js', () => ({
   abortBalanceVerification: vi.fn(),
-  loadBalanceVerificationAccounts: vi.fn(),
+  loadBalanceVerificationAccounts: mockLoadBalanceVerificationAccounts,
   runBalanceRefreshAll: vi.fn(),
   runBalanceRefreshSingle: mockRunBalanceRefreshSingle,
   runBalanceView: mockRunBalanceView,
-  startBalanceVerificationStream: vi.fn(),
+  startBalanceVerificationStream: mockStartBalanceVerificationStream,
+}));
+
+vi.mock('../../view/balance-view-components.jsx', () => ({
+  BalanceApp: 'BalanceApp',
 }));
 
 import { registerBalanceRefreshCommand } from '../balance-refresh.js';
@@ -109,11 +122,14 @@ beforeEach(() => {
       verificationRunner: {},
     })
   );
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
+  mockExitCliFailure.mockImplementation(
+    (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+      throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
     }
   );
+  mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+    create(() => undefined);
+  });
 });
 
 describe('balance command JSON mode', () => {
@@ -207,11 +223,15 @@ describe('balance command JSON mode', () => {
     mockWithBalanceCommandScope.mockResolvedValue(err(prerequisiteError));
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:processing failed'
+      'CLI:balance-view:json:processing failed:1'
     );
 
     expect(mockRunBalanceView).not.toHaveBeenCalled();
-    expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', prerequisiteError, 1, 'json');
+    expect(mockExitCliFailure).toHaveBeenCalledWith(
+      'balance-view',
+      expect.objectContaining({ error: prerequisiteError, exitCode: 1 }),
+      'json'
+    );
   });
 
   it('routes stored snapshot failures through the JSON CLI error path after prerequisites succeed', async () => {
@@ -222,7 +242,7 @@ describe('balance command JSON mode', () => {
     mockRunBalanceView.mockImplementation(viewStoredSnapshots);
 
     await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:stored snapshot read failed'
+      'CLI:balance-view:json:stored snapshot read failed:1'
     );
 
     expect(viewStoredSnapshots).toHaveBeenCalledWith(
@@ -231,7 +251,50 @@ describe('balance command JSON mode', () => {
       }),
       { accountId: 2 }
     );
-    expect(mockDisplayCliError).toHaveBeenCalledWith('balance-view', failClosedError, 1, 'json');
+    expect(mockExitCliFailure).toHaveBeenCalledWith(
+      'balance-view',
+      expect.objectContaining({ error: failClosedError, exitCode: 1 }),
+      'json'
+    );
+  });
+
+  it('renders the single-account stored snapshot TUI and closes the database first', async () => {
+    const program = createBalanceCommand();
+    let renderedElement: ReactElement | undefined;
+
+    mockRunBalanceView.mockResolvedValue(
+      ok({
+        accounts: [
+          {
+            account: createAccount({ id: 9, identifier: 'xpub-balance' }),
+            snapshot: {
+              verificationStatus: 'match',
+              statusReason: undefined,
+              suggestion: 'Looks good',
+              lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
+            },
+            assets: [
+              {
+                assetId: 'blockchain:bitcoin:native',
+                assetSymbol: 'BTC',
+                calculatedBalance: '1.25',
+                diagnostics: { txCount: 4 },
+              },
+            ],
+          },
+        ],
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['view', '--account-id', '9'], { from: 'user' });
+
+    expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('BalanceApp');
+    expect(mockOutputSuccess).not.toHaveBeenCalled();
   });
 
   it('outputs refresh JSON including requestedAccount when a child request resolves to the parent scope', async () => {
@@ -339,7 +402,8 @@ describe('balance command JSON mode', () => {
           },
         },
         suggestion: 'Balances match',
-      })
+      }),
+      undefined
     );
   });
 
@@ -420,7 +484,40 @@ describe('balance command JSON mode', () => {
         warnings: [
           'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
         ],
+      }),
+      undefined
+    );
+  });
+
+  it('renders the refresh-all TUI and wires the verification stream through the runtime', async () => {
+    const program = createBalanceCommand();
+    let renderedElement: ReactElement | undefined;
+
+    mockLoadBalanceVerificationAccounts.mockResolvedValue(
+      ok([
+        {
+          account: createAccount({ id: 21, identifier: 'kraken-root', accountType: 'exchange-api' }),
+          accountId: 21,
+          platformKey: 'kraken',
+          accountType: 'exchange-api',
+          skipReason: undefined,
+        },
+      ])
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['refresh'], { from: 'user' });
+
+    expect(mockLoadBalanceVerificationAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
       })
     );
+    expect(mockStartBalanceVerificationStream).toHaveBeenCalledOnce();
+    expect(mockCtx.onAbort).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('BalanceApp');
   });
 });

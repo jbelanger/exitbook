@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
-import { outputSuccess } from '../../shared/json-output.js';
+import { jsonSuccess, textSuccess } from '../../shared/cli-contract.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
@@ -45,39 +46,42 @@ async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
         symbol: options.symbol,
         reason: options.reason,
       }),
-    handleAssetsConfirmSuccess
+    buildAssetsConfirmCompletion
   );
 }
 
-function handleAssetsConfirmSuccess(isJsonMode: boolean, result: AssetReviewOverrideResult): void {
-  if (isJsonMode) {
-    outputSuccess('assets-confirm', result);
-    return;
+function buildAssetsConfirmCompletion(format: CliOutputFormat, result: AssetReviewOverrideResult) {
+  if (format === 'json') {
+    return jsonSuccess(result);
   }
 
-  if (!result.changed) {
-    console.log('Asset review is already confirmed for the current evidence');
-  } else {
-    console.log('Asset review confirmed');
-  }
-
-  console.log(`   Asset ID: ${result.assetId}`);
-  console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
-  console.log(`   Review Status: ${result.reviewStatus}`);
-  console.log(`   Accounting: ${result.accountingBlocked ? 'blocked' : 'allowed'}`);
-  if (result.reason) {
-    console.log(`   Reason: ${result.reason}`);
-  }
-
-  if (result.accountingBlocked) {
-    const hasAmbiguity = result.evidence.some((e) => e.kind === 'same-symbol-ambiguity');
-    if (hasAmbiguity) {
-      console.log('');
-      console.log('Confirmation recorded, but accounting is still blocked until one conflicting contract is excluded.');
-      console.log('Run: assets exclude --asset-id <conflicting-asset-id>');
+  return textSuccess(() => {
+    if (!result.changed) {
+      console.log('Asset review is already confirmed for the current evidence');
     } else {
-      console.log('');
-      console.log('Confirmation recorded, but accounting is still blocked due to unresolved evidence.');
+      console.log('Asset review confirmed');
     }
-  }
+
+    console.log(`   Asset ID: ${result.assetId}`);
+    console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
+    console.log(`   Review Status: ${result.reviewStatus}`);
+    console.log(`   Accounting: ${result.accountingBlocked ? 'blocked' : 'allowed'}`);
+    if (result.reason) {
+      console.log(`   Reason: ${result.reason}`);
+    }
+
+    if (result.accountingBlocked) {
+      const hasAmbiguity = result.evidence.some((e) => e.kind === 'same-symbol-ambiguity');
+      if (hasAmbiguity) {
+        console.log('');
+        console.log(
+          'Confirmation recorded, but accounting is still blocked until one conflicting contract is excluded.'
+        );
+        console.log('Run: assets exclude --asset-id <conflicting-asset-id>');
+      } else {
+        console.log('');
+        console.log('Confirmation recorded, but accounting is still blocked due to unresolved evidence.');
+      }
+    }
+  });
 }

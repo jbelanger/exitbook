@@ -1,8 +1,7 @@
 import pc from 'picocolors';
 
-import { createCliFailure, type CliFailure } from './cli-contract.js';
+import type { CliFailure } from './cli-contract.js';
 import { createErrorResponse, exitCodeToErrorCode } from './cli-response.js';
-import type { ExitCode } from './exit-codes.js';
 
 /**
  * Tips shown after error messages, keyed by error code.
@@ -15,24 +14,6 @@ const ERROR_TIPS: Record<string, string> = {
   RATE_LIMIT:
     'You have exceeded the API rate limit. Wait a few minutes and try again, or configure rate limits in blockchain-explorers.json.',
 };
-
-/**
- * Display a CLI error and exit.
- *
- * Centralized error handling for CLI commands.
- * - Text mode: formatted error to stderr with contextual tips
- * - JSON mode: structured JSON error to stdout
- *
- * TODO(cli-rework): Legacy compatibility wrapper for commands that still exit
- * from deep helper layers. Verify whether this can be deleted once command
- * migrations route failures through `runCliCommandBoundary(...)` /
- * `exitCliFailure(...)`.
- * @deprecated Prefer returning `CliFailure` data and letting the shared
- * boundary own rendering and termination.
- */
-export function displayCliError(command: string, error: Error, exitCode: ExitCode, format: 'json' | 'text'): never {
-  return exitCliFailure(command, createCliFailure(error, exitCode), format);
-}
 
 export function writeCliFailure(command: string, failure: CliFailure, format: 'json' | 'text'): void {
   const code = exitCodeToErrorCode(failure.exitCode);

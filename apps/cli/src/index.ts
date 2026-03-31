@@ -5,9 +5,9 @@ import { flushLoggers, getLogger } from '@exitbook/logger';
 import { runCli } from './cli.js';
 
 // Only catch initialization errors (before commands run).
-// All command errors MUST go through displayCliError() to ensure consistent
-// JSON/text formatting and respect for --json flag. Global handlers would bypass
-// this function and produce inconsistent output.
+// Command execution should route failures through the shared CLI boundary so
+// JSON/text formatting and semantic exit codes stay consistent. Global handlers
+// would bypass that boundary and produce inconsistent output.
 runCli().catch((error) => {
   const logger = getLogger('CLI');
   logger.error(`CLI initialization failed: ${String(error)}`);

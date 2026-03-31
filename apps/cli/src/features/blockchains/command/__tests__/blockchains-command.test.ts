@@ -9,14 +9,14 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 const {
   mockComputeCategoryCounts,
   mockCreateBlockchainsViewState,
-  mockDisplayCliError,
+  mockExitCliFailure,
   mockListBlockchainProviders,
   mockOutputSuccess,
   mockRenderApp,
 } = vi.hoisted(() => ({
   mockComputeCategoryCounts: vi.fn(),
   mockCreateBlockchainsViewState: vi.fn(),
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
   mockListBlockchainProviders: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock('@exitbook/blockchain-providers', () => ({
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -105,9 +105,9 @@ beforeEach(() => {
   mockRenderApp.mockResolvedValue(undefined);
   mockComputeCategoryCounts.mockReturnValue({ solana: 1 });
   mockCreateBlockchainsViewState.mockReturnValue({ tag: 'state' });
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
+  mockExitCliFailure.mockImplementation(
+    (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+      throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
     }
   );
 });
@@ -149,34 +149,38 @@ describe('registerBlockchainsViewCommand', () => {
     await program.parseAsync(['blockchains', 'view', '--category', 'utxo', '--json'], { from: 'user' });
 
     expect(mockListBlockchainProviders).toHaveBeenCalledWith();
-    expect(mockOutputSuccess).toHaveBeenCalledWith('blockchains-view', {
-      data: {
-        blockchains: [
-          expect.objectContaining({
-            name: 'bitcoin',
-            displayName: 'Bitcoin',
-            category: 'utxo',
-            providerCount: 1,
-            exampleAddress: 'bc1q...',
-            providers: [
-              expect.objectContaining({
-                name: 'mempool',
-                displayName: 'Mempool',
-                requiresApiKey: false,
-                capabilities: ['balance', 'txs'],
-                rateLimit: '5/sec',
-              }),
-            ],
-          }),
-        ],
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'blockchains-view',
+      {
+        data: {
+          blockchains: [
+            expect.objectContaining({
+              name: 'bitcoin',
+              displayName: 'Bitcoin',
+              category: 'utxo',
+              providerCount: 1,
+              exampleAddress: 'bc1q...',
+              providers: [
+                expect.objectContaining({
+                  name: 'mempool',
+                  displayName: 'Mempool',
+                  requiresApiKey: false,
+                  capabilities: ['balance', 'txs'],
+                  rateLimit: '5/sec',
+                }),
+              ],
+            }),
+          ],
+        },
+        meta: {
+          total: 1,
+          byCategory: { utxo: 1 },
+          totalProviders: 2,
+          filters: { category: 'utxo' },
+        },
       },
-      meta: {
-        total: 1,
-        byCategory: { utxo: 1 },
-        totalProviders: 2,
-        filters: { category: 'utxo' },
-      },
-    });
+      undefined
+    );
   });
 
   it('renders the TUI with derived state in text mode', async () => {
@@ -245,7 +249,7 @@ describe('registerBlockchainsViewCommand', () => {
     await expect(
       program.parseAsync(['blockchains', 'view', '--category', 'invalid', '--json'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other'
+      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other:2'
     );
 
     expect(mockListBlockchainProviders).not.toHaveBeenCalled();

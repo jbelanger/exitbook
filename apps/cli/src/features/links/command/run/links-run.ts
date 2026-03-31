@@ -1,27 +1,37 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import type { LinkingRunParams } from '@exitbook/accounting/linking';
-import { parseDecimal } from '@exitbook/foundation';
+import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import { runCommand } from '../../../../runtime/command-runtime.js';
 import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { displayCliError } from '../../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
+import {
+  cliErr,
+  jsonSuccess,
+  silentSuccess,
+  textSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliFailure,
+} from '../../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../../shared/command-options.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
-import { outputSuccess } from '../../../shared/json-output.js';
 import { LinksRunCommandOptionsSchema } from '../links-option-schemas.js';
 
 import { runLinks } from './run-links.js';
 
-/**
- * Command options validated by Zod at CLI boundary
- */
 type LinksRunCommandOptions = z.infer<typeof LinksRunCommandOptionsSchema>;
+
+type LinksRunPromptOutcome =
+  | { kind: 'submitted'; params: LinkingRunParams }
+  | { kind: 'cancelled' }
+  | { kind: 'invalid'; message: string };
 
 function hasExplicitLinksRunThresholds(options: LinksRunCommandOptions): boolean {
   return options.minConfidence !== undefined || options.autoConfirmThreshold !== undefined;
@@ -31,9 +41,6 @@ function normalizeThresholdInput(input: string, fallback: string): string {
   return input.trim() === '' ? fallback : input;
 }
 
-/**
- * Build links run parameters from validated CLI options.
- */
 function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingRunParams {
   return {
     minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? '0.7'),
@@ -41,11 +48,8 @@ function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingR
   };
 }
 
-/**
- * Prompt user for links run parameters in interactive mode using Ink.
- */
-async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
-  return new Promise<LinkingRunParams | null>((resolve) => {
+async function promptForLinksRunParams(): Promise<LinksRunPromptOutcome> {
+  return new Promise<LinksRunPromptOutcome>((resolve) => {
     const steps: PromptStep[] = [
       {
         type: 'text',
@@ -53,7 +57,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           message: 'Minimum confidence score (0-1):',
           placeholder: '0.7',
           validate: (value) => {
-            if (!value) return; // Allow empty for default
+            if (!value) return;
             const num = Number(value);
             if (Number.isNaN(num) || num < 0 || num > 1) {
               return 'Must be a number between 0 and 1';
@@ -67,7 +71,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           message: 'Auto-confirm threshold (0-1):',
           placeholder: '0.95',
           validate: (value) => {
-            if (!value) return; // Allow empty for default
+            if (!value) return;
             const num = Number(value);
             if (Number.isNaN(num) || num < 0 || num > 1) {
               return 'Must be a number between 0 and 1';
@@ -96,7 +100,7 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           const shouldProceed = answers[2] as boolean;
 
           if (!shouldProceed) {
-            resolve(null);
+            resolve({ kind: 'cancelled' });
             return;
           }
 
@@ -105,28 +109,30 @@ async function promptForLinksRunParams(): Promise<LinkingRunParams | null> {
           const minConfidence = Number(normalizedMinConfidence);
           const autoConfirm = Number(normalizedAutoConfirm);
           if (autoConfirm < minConfidence) {
-            console.error('\u26A0 Error: Auto-confirm threshold must be >= minimum confidence score');
-            resolve(null);
+            resolve({
+              kind: 'invalid',
+              message: 'Auto-confirm threshold must be >= minimum confidence score',
+            });
             return;
           }
 
           resolve({
-            minConfidenceScore: parseDecimal(normalizedMinConfidence),
-            autoConfirmThreshold: parseDecimal(normalizedAutoConfirm),
+            kind: 'submitted',
+            params: {
+              minConfidenceScore: parseDecimal(normalizedMinConfidence),
+              autoConfirmThreshold: parseDecimal(normalizedAutoConfirm),
+            },
           });
         },
         onCancel: () => {
           unmount();
-          resolve(null);
+          resolve({ kind: 'cancelled' });
         },
       })
     );
   });
 }
 
-/**
- * Register the links run subcommand.
- */
 export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAppRuntime): void {
   linksCommand
     .command('run')
@@ -154,95 +160,113 @@ Notes:
 }
 
 async function executeLinksRunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('links-run', rawOptions, LinksRunCommandOptionsSchema);
-  if (format === 'json') {
-    await executeLinksRunJSON(options, appRuntime);
-  } else {
-    await executeLinksRunTUI(options, appRuntime);
-  }
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command: 'links-run',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, LinksRunCommandOptionsSchema);
+
+        if (format === 'json') {
+          return yield* await executeLinksRunJsonCommand(options, appRuntime);
+        }
+
+        return yield* await executeLinksRunTextCommand(options, appRuntime);
+      }),
+  });
 }
 
-// ─── JSON Mode ───────────────────────────────────────────────────────────────
-
-async function executeLinksRunJSON(options: LinksRunCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
+async function executeLinksRunJsonCommand(
+  options: LinksRunCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
   const startTime = Date.now();
   const params = buildLinksRunParamsFromFlags(options);
 
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
+  return captureCliRuntimeResult({
+    command: 'links-run',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+        const result = yield* toCliResult(
+          await runLinks(
+            ctx,
+            {
+              format: 'json',
+              profileId: profile.id,
+              profileKey: profile.profileKey,
+            },
+            params
+          ),
+          ExitCodes.GENERAL_ERROR
+        );
 
-      const result = await runLinks(
-        ctx,
-        {
-          format: 'json',
-          profileId: profileResult.value.id,
-          profileKey: profileResult.value.profileKey,
-        },
-        params
-      );
-      if (result.isErr()) {
-        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'json');
-      }
-
-      outputSuccess('links-run', result.value, { duration_ms: Date.now() - startTime });
-    });
-  } catch (error) {
-    displayCliError(
-      'links-run',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+        return jsonSuccess(result, { duration_ms: Date.now() - startTime });
+      }),
+  });
 }
 
-// ─── TUI Mode ────────────────────────────────────────────────────────────────
-
-async function executeLinksRunTUI(options: LinksRunCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    let params: LinkingRunParams;
-    if (!hasExplicitLinksRunThresholds(options)) {
-      const prompted = await promptForLinksRunParams();
-      if (!prompted) {
-        console.log('Transaction linking cancelled.');
-        return;
-      }
-      params = prompted;
-    } else {
-      params = buildLinksRunParamsFromFlags(options);
-    }
-
-    await runCommand(appRuntime, async (ctx) => {
-      const database = await ctx.database();
-      const profileResult = await resolveCommandProfile(ctx, database);
-      if (profileResult.isErr()) {
-        displayCliError('links-run', profileResult.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-
-      const result = await runLinks(
-        ctx,
-        {
-          format: 'text',
-          profileId: profileResult.value.id,
-          profileKey: profileResult.value.profileKey,
-        },
-        params
-      );
-      if (result.isErr()) {
-        displayCliError('links-run', result.error, ExitCodes.GENERAL_ERROR, 'text');
-      }
-    });
-  } catch (error) {
-    displayCliError(
-      'links-run',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
+async function executeLinksRunTextCommand(
+  options: LinksRunCommandOptions,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  const paramsResult = await resolveLinksRunParams(options);
+  if (paramsResult.isErr()) {
+    return err(paramsResult.error);
   }
+
+  if (paramsResult.value === null) {
+    return ok(textSuccess(() => console.log('Transaction linking cancelled.')));
+  }
+
+  const params = paramsResult.value;
+
+  return captureCliRuntimeResult({
+    command: 'links-run',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const database = await ctx.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+
+        yield* toCliResult(
+          await runLinks(
+            ctx,
+            {
+              format: 'text',
+              profileId: profile.id,
+              profileKey: profile.profileKey,
+            },
+            params
+          ),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return silentSuccess();
+      }),
+  });
+}
+
+async function resolveLinksRunParams(
+  options: LinksRunCommandOptions
+): Promise<Result<LinkingRunParams | null, CliFailure>> {
+  if (hasExplicitLinksRunThresholds(options)) {
+    return ok(buildLinksRunParamsFromFlags(options));
+  }
+
+  const outcome = await promptForLinksRunParams();
+
+  if (outcome.kind === 'cancelled') {
+    return ok(null);
+  }
+
+  if (outcome.kind === 'invalid') {
+    return cliErr(new Error(outcome.message), ExitCodes.INVALID_ARGS);
+  }
+
+  return ok(outcome.params);
 }

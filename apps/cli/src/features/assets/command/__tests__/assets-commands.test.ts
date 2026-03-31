@@ -8,7 +8,7 @@ import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-t
 
 const {
   mockCtx,
-  mockDisplayCliError,
+  mockExitCliFailure,
   mockOutputSuccess,
   mockRenderApp,
   mockRunAssetsClearReview,
@@ -23,9 +23,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-assets',
     database: vi.fn(),
-    exitCode: 0,
   },
-  mockDisplayCliError: vi.fn(),
+  mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunAssetsClearReview: vi.fn(),
@@ -44,7 +43,7 @@ vi.mock('../../../../runtime/command-runtime.js', () => ({
 }));
 
 vi.mock('../../../shared/cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
+  exitCliFailure: mockExitCliFailure,
 }));
 
 vi.mock('../../../shared/json-output.js', () => ({
@@ -107,9 +106,9 @@ describe('assets command modules', () => {
     mockWithAssetsCommandScope.mockImplementation(
       async (_ctx: unknown, operation: (scope: typeof assetsScope) => Promise<unknown>) => operation(assetsScope)
     );
-    mockDisplayCliError.mockImplementation(
-      (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-        throw new Error(`CLI:${command}:${format}:${error.message}`);
+    mockExitCliFailure.mockImplementation(
+      (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+        throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
     );
     consoleLogSpy.mockClear();
@@ -139,7 +138,7 @@ describe('assets command modules', () => {
       symbol: undefined,
       reason: 'reset evidence',
     });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('assets-clear-review', result);
+    expect(mockOutputSuccess).toHaveBeenCalledWith('assets-clear-review', result, undefined);
   });
 
   it('prints confirm guidance when the asset remains accounting-blocked after review confirmation', async () => {
@@ -175,10 +174,10 @@ describe('assets command modules', () => {
     const program = createAssetsProgram();
 
     await expect(program.parseAsync(['assets', 'exclude', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:assets-exclude:json:Either --asset-id or --symbol is required'
+      'CLI:assets-exclude:json:Either --asset-id or --symbol is required:2'
     );
 
-    expect(mockDisplayCliError).toHaveBeenCalledWith('assets-exclude', expect.any(Error), 2, 'json');
+    expect(mockExitCliFailure).toHaveBeenCalledWith('assets-exclude', expect.objectContaining({ exitCode: 2 }), 'json');
     expect(mockRunAssetsExclude).not.toHaveBeenCalled();
   });
 
@@ -218,14 +217,18 @@ describe('assets command modules', () => {
 
     await expect(
       program.parseAsync(['assets', 'include', '--asset-id', 'asset-5', '--json'], { from: 'user' })
-    ).rejects.toThrow('CLI:assets-include:json:override write failed');
+    ).rejects.toThrow('CLI:assets-include:json:override write failed:1');
 
     expect(mockRunAssetsInclude).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-5',
       symbol: undefined,
       reason: undefined,
     });
-    expect(mockDisplayCliError).toHaveBeenCalledWith('assets-include', includeError, 1, 'json');
+    expect(mockExitCliFailure).toHaveBeenCalledWith(
+      'assets-include',
+      expect.objectContaining({ error: includeError, exitCode: 1 }),
+      'json'
+    );
   });
 
   it('outputs asset view JSON with action-required metadata', async () => {
@@ -258,32 +261,36 @@ describe('assets command modules', () => {
     await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
 
     expect(mockRunAssetsView).toHaveBeenCalledWith(assetsScope, { actionRequiredOnly: true });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('assets-view', {
-      data: [
-        {
-          assetId: 'asset-view-1',
-          assetSymbols: ['SCAM'],
-          accountingBlocked: true,
-          confirmationIsStale: false,
-          currentQuantity: '100',
-          evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
-          evidenceFingerprint: 'fingerprint-1',
-          excluded: false,
-          movementCount: 2,
-          referenceStatus: 'unknown',
-          reviewStatus: 'needs-review',
-          warningSummary: 'flagged',
-          transactionCount: 1,
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'assets-view',
+      {
+        data: [
+          {
+            assetId: 'asset-view-1',
+            assetSymbols: ['SCAM'],
+            accountingBlocked: true,
+            confirmationIsStale: false,
+            currentQuantity: '100',
+            evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
+            evidenceFingerprint: 'fingerprint-1',
+            excluded: false,
+            movementCount: 2,
+            referenceStatus: 'unknown',
+            reviewStatus: 'needs-review',
+            warningSummary: 'flagged',
+            transactionCount: 1,
+          },
+        ],
+        meta: {
+          count: 1,
+          offset: 0,
+          limit: 1,
+          hasMore: true,
+          filters: { actionRequired: true },
         },
-      ],
-      meta: {
-        count: 1,
-        offset: 0,
-        limit: 1,
-        hasMore: true,
-        filters: { actionRequired: true },
       },
-    });
+      undefined
+    );
   });
 
   it('renders the assets TUI and wires action callbacks to handler methods', async () => {

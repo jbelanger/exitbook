@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
-import { outputSuccess } from '../../shared/json-output.js';
+import { jsonSuccess, textSuccess } from '../../shared/cli-contract.js';
+import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
@@ -44,25 +45,26 @@ async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
         symbol: options.symbol,
         reason: options.reason,
       }),
-    handleAssetsIncludeSuccess
+    buildAssetsIncludeCompletion
   );
 }
 
-function handleAssetsIncludeSuccess(isJsonMode: boolean, result: AssetOverrideResult): void {
-  if (isJsonMode) {
-    outputSuccess('assets-include', result);
-    return;
+function buildAssetsIncludeCompletion(format: CliOutputFormat, result: AssetOverrideResult) {
+  if (format === 'json') {
+    return jsonSuccess(result);
   }
 
-  if (!result.changed) {
-    console.log('Asset is already included in accounting');
-  } else {
-    console.log('✓ Asset included in accounting');
-  }
+  return textSuccess(() => {
+    if (!result.changed) {
+      console.log('Asset is already included in accounting');
+    } else {
+      console.log('✓ Asset included in accounting');
+    }
 
-  console.log(`   Asset ID: ${result.assetId}`);
-  console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
-  if (result.reason) {
-    console.log(`   Reason: ${result.reason}`);
-  }
+    console.log(`   Asset ID: ${result.assetId}`);
+    console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
+    if (result.reason) {
+      console.log(`   Reason: ${result.reason}`);
+    }
+  });
 }

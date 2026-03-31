@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import { CliCommandError } from '../../../shared/cli-command-error.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
+import { AccountRemovalTargetNotFoundError } from '../accounts-remove-errors.js';
 
 const {
   mockBuildCliAccountLifecycleService,
@@ -420,9 +420,7 @@ describe('accounts lifecycle commands', () => {
   it('preserves not-found semantics for account removal', async () => {
     const program = createAccountsProgram();
 
-    mockPrepareAccountRemoval.mockResolvedValue(
-      err(new CliCommandError("Account 'ghost-wallet' not found", ExitCodes.NOT_FOUND))
-    );
+    mockPrepareAccountRemoval.mockResolvedValue(err(new AccountRemovalTargetNotFoundError('ghost-wallet')));
 
     await expect(
       program.parseAsync(['accounts', 'remove', 'ghost-wallet', '--confirm'], { from: 'user' })

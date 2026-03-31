@@ -1,9 +1,10 @@
-import type { Result } from '@exitbook/foundation';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { ZodType } from 'zod';
 
-import { runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { toCliResult, type CliCommandResult, type CliCompletion } from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 
 import type { AssetsCommandScope } from './assets-command-scope.js';
@@ -21,26 +22,44 @@ export async function executeAssetOverrideCommand<TOptions extends AssetOverride
   rawOptions: unknown,
   schema: ZodType<TOptions>,
   runOperation: (scope: AssetsCommandScope, options: TOptions) => Promise<Result<TResult, Error>>,
-  handleSuccess: (isJsonMode: boolean, result: TResult) => void
+  buildCompletion: (format: CliOutputFormat, result: TResult) => CliCompletion
 ): Promise<void> {
-  const { format, options } = parseCliCommandOptions(commandName, rawOptions, schema);
+  const format = detectCliOutputFormat(rawOptions);
 
-  try {
-    await runCommand(async (ctx) => {
-      const result = await withAssetsCommandScope(ctx, (scope) => runOperation(scope, options));
-      if (result.isErr()) {
-        displayCliError(commandName, result.error, ExitCodes.GENERAL_ERROR, format);
-        return;
-      }
+  await runCliCommandBoundary({
+    command: commandName,
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, schema);
+        return yield* await executeAssetOverrideCommandResult(
+          commandName,
+          options,
+          format,
+          runOperation,
+          buildCompletion
+        );
+      }),
+  });
+}
 
-      handleSuccess(format === 'json', result.value);
-    });
-  } catch (error) {
-    displayCliError(
-      commandName,
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      format
-    );
-  }
+async function executeAssetOverrideCommandResult<TOptions extends AssetOverrideCommandOptions, TResult>(
+  commandName: string,
+  options: TOptions,
+  format: CliOutputFormat,
+  runOperation: (scope: AssetsCommandScope, options: TOptions) => Promise<Result<TResult, Error>>,
+  buildCompletion: (format: CliOutputFormat, result: TResult) => CliCompletion
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: commandName,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(
+          await withAssetsCommandScope(ctx, (scope) => runOperation(scope, options)),
+          ExitCodes.GENERAL_ERROR
+        );
+
+        return buildCompletion(format, result);
+      }),
+  });
 }

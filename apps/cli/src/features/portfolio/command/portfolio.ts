@@ -1,13 +1,23 @@
+import type { PortfolioResult } from '@exitbook/accounting/portfolio';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  cliErr,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliFailure,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 import {
@@ -60,145 +70,154 @@ Notes:
 }
 
 async function executePortfolioCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions('portfolio', rawOptions, PortfolioCommandOptionsSchema);
+  const format = detectCliOutputFormat(rawOptions);
 
+  await runCliCommandBoundary({
+    command: 'portfolio',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, PortfolioCommandOptionsSchema);
+        const normalized = yield* normalizePortfolioOptionsResult(options);
+        return yield* await executePortfolioCommandResult(normalized, format, appRuntime);
+      }),
+  });
+}
+
+async function executePortfolioCommandResult(
+  normalized: NormalizedPortfolioOptions,
+  format: 'json' | 'text',
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'portfolio',
+    appRuntime,
+    action: async (ctx) =>
+      resultDoAsync(async function* () {
+        const result = yield* toCliResult(await loadPortfolioResult(ctx, normalized, format), ExitCodes.GENERAL_ERROR);
+
+        if (format === 'json') {
+          return jsonSuccess({
+            data: {
+              asOf: result.asOf,
+              method: result.method,
+              jurisdiction: result.jurisdiction,
+              displayCurrency: result.displayCurrency,
+              totalValue: result.totalValue,
+              totalCost: result.totalCost,
+              totalUnrealizedGainLoss: result.totalUnrealizedGainLoss,
+              totalUnrealizedPct: result.totalUnrealizedPct,
+              totalRealizedGainLossAllTime: result.totalRealizedGainLossAllTime,
+              totalNetFiatIn: result.totalNetFiatIn,
+              positions: result.positions,
+              closedPositions: result.closedPositions,
+            },
+            warnings: result.warnings,
+            meta: result.meta,
+          });
+        }
+
+        return yield* toCliResult(await buildPortfolioTuiCompletion(ctx, result), ExitCodes.GENERAL_ERROR);
+      }),
+  });
+}
+
+async function loadPortfolioResult(
+  ctx: CommandRuntime,
+  normalized: NormalizedPortfolioOptions,
+  format: 'json' | 'text'
+): Promise<Result<PortfolioResult, Error>> {
   if (format === 'json') {
-    await executePortfolioJSON(options, appRuntime);
-  } else {
-    await executePortfolioTUI(options, appRuntime);
-  }
-}
-
-async function executePortfolioJSON(options: PortfolioCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    const normalized = normalizeOptions(options);
-
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format: 'json' }, (scope) =>
-        runPortfolio(scope, {
-          method: normalized.method,
-          jurisdiction: normalized.jurisdiction,
-          displayCurrency: normalized.displayCurrency,
-          asOf: normalized.asOf,
-        })
-      );
-      if (result.isErr()) {
-        throw result.error;
-      }
-
-      const value = result.value;
-      outputSuccess('portfolio', {
-        data: {
-          asOf: value.asOf,
-          method: value.method,
-          jurisdiction: value.jurisdiction,
-          displayCurrency: value.displayCurrency,
-          totalValue: value.totalValue,
-          totalCost: value.totalCost,
-          totalUnrealizedGainLoss: value.totalUnrealizedGainLoss,
-          totalUnrealizedPct: value.totalUnrealizedPct,
-          totalRealizedGainLossAllTime: value.totalRealizedGainLossAllTime,
-          totalNetFiatIn: value.totalNetFiatIn,
-          positions: value.positions,
-          closedPositions: value.closedPositions,
-        },
-        warnings: value.warnings,
-        meta: value.meta,
-      });
-    });
-  } catch (error) {
-    displayCliError(
-      'portfolio',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
+    return withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format }, (scope) =>
+      runPortfolio(scope, {
+        method: normalized.method,
+        jurisdiction: normalized.jurisdiction,
+        displayCurrency: normalized.displayCurrency,
+        asOf: normalized.asOf,
+      })
     );
   }
-}
 
-async function executePortfolioTUI(options: PortfolioCommandOptions, appRuntime: CliAppRuntime): Promise<void> {
+  const spinner = createSpinner('Calculating portfolio...', false);
   try {
-    const normalized = normalizeOptions(options);
-
-    await runCommand(appRuntime, async (ctx) => {
-      const spinner = createSpinner('Calculating portfolio...', false);
-      let result: Awaited<ReturnType<typeof runPortfolio>>;
-      try {
-        result = await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format: 'text' }, (scope) =>
-          runPortfolio(scope, {
-            method: normalized.method,
-            jurisdiction: normalized.jurisdiction,
-            displayCurrency: normalized.displayCurrency,
-            asOf: normalized.asOf,
-          })
-        );
-      } finally {
-        stopSpinner(spinner);
-      }
-
-      if (result.isErr()) {
-        throw result.error;
-      }
-
-      const value = result.value;
-      const assetIdsBySymbol = buildAssetIdsBySymbol(value.transactions);
-
-      const transactionsByAssetId = new Map<string, PortfolioTransactionItem[]>();
-      for (const position of [...value.positions, ...value.closedPositions]) {
-        const holdingAssetIds = position.sourceAssetIds ?? [position.assetId];
-        const symbolAssetIds = assetIdsBySymbol.get(position.assetSymbol.trim().toUpperCase()) ?? [];
-        const historyAssetIds = Array.from(new Set([...holdingAssetIds, ...symbolAssetIds]));
-        const filteredTransactions = filterTransactionsForAssets(value.transactions, historyAssetIds);
-        const transactionItems = buildTransactionItems(filteredTransactions, historyAssetIds);
-        transactionsByAssetId.set(position.assetId, transactionItems);
-      }
-
-      const stateParams: CreatePortfolioAssetsStateParams = {
-        asOf: value.asOf,
-        method: value.method,
-        jurisdiction: value.jurisdiction,
-        displayCurrency: value.displayCurrency,
-        positions: value.positions,
-        closedPositions: value.closedPositions,
-        transactionsByAssetId,
-        warnings: value.warnings,
-        totalTransactions: value.transactions.length,
-        totalValue: value.totalValue,
-        totalCost: value.totalCost,
-        totalUnrealizedGainLoss: value.totalUnrealizedGainLoss,
-        totalUnrealizedPct: value.totalUnrealizedPct,
-        totalRealizedGainLossAllTime: value.totalRealizedGainLossAllTime,
-        totalNetFiatIn: value.totalNetFiatIn,
-      };
-
-      const initialState = createPortfolioAssetsState(stateParams);
-
-      await ctx.closeDatabase();
-
-      await renderApp((unmount) =>
-        React.createElement(PortfolioApp, {
-          initialState,
-          onQuit: unmount,
-        })
-      );
-    });
-  } catch (error) {
-    displayCliError(
-      'portfolio',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
+    return await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format }, (scope) =>
+      runPortfolio(scope, {
+        method: normalized.method,
+        jurisdiction: normalized.jurisdiction,
+        displayCurrency: normalized.displayCurrency,
+        asOf: normalized.asOf,
+      })
     );
+  } finally {
+    stopSpinner(spinner);
   }
 }
 
-function normalizeOptions(options: PortfolioCommandOptions): NormalizedPortfolioOptions {
+async function buildPortfolioTuiCompletion(
+  ctx: CommandRuntime,
+  value: PortfolioResult
+): Promise<Result<ReturnType<typeof silentSuccess>, Error>> {
+  try {
+    const assetIdsBySymbol = buildAssetIdsBySymbol(value.transactions);
+
+    const transactionsByAssetId = new Map<string, PortfolioTransactionItem[]>();
+    for (const position of [...value.positions, ...value.closedPositions]) {
+      const holdingAssetIds = position.sourceAssetIds ?? [position.assetId];
+      const symbolAssetIds = assetIdsBySymbol.get(position.assetSymbol.trim().toUpperCase()) ?? [];
+      const historyAssetIds = Array.from(new Set([...holdingAssetIds, ...symbolAssetIds]));
+      const filteredTransactions = filterTransactionsForAssets(value.transactions, historyAssetIds);
+      const transactionItems = buildTransactionItems(filteredTransactions, historyAssetIds);
+      transactionsByAssetId.set(position.assetId, transactionItems);
+    }
+
+    const stateParams: CreatePortfolioAssetsStateParams = {
+      asOf: value.asOf,
+      method: value.method,
+      jurisdiction: value.jurisdiction,
+      displayCurrency: value.displayCurrency,
+      positions: value.positions,
+      closedPositions: value.closedPositions,
+      transactionsByAssetId,
+      warnings: value.warnings,
+      totalTransactions: value.transactions.length,
+      totalValue: value.totalValue,
+      totalCost: value.totalCost,
+      totalUnrealizedGainLoss: value.totalUnrealizedGainLoss,
+      totalUnrealizedPct: value.totalUnrealizedPct,
+      totalRealizedGainLossAllTime: value.totalRealizedGainLossAllTime,
+      totalNetFiatIn: value.totalNetFiatIn,
+    };
+
+    const initialState = createPortfolioAssetsState(stateParams);
+
+    await ctx.closeDatabase();
+    await renderApp((unmount) =>
+      React.createElement(PortfolioApp, {
+        initialState,
+        onQuit: unmount,
+      })
+    );
+
+    return ok(silentSuccess());
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+function normalizePortfolioOptionsResult(
+  options: PortfolioCommandOptions
+): Result<NormalizedPortfolioOptions, CliFailure> {
   const jurisdiction = (options.jurisdiction ?? 'US').toUpperCase();
+  const asOf = options.asOf ? new Date(options.asOf) : new Date();
 
-  return {
+  if (Number.isNaN(asOf.getTime())) {
+    return cliErr(new Error('Invalid --as-of datetime. Use an ISO 8601 timestamp.'), ExitCodes.INVALID_ARGS);
+  }
+
+  return ok({
     method: (options.method ?? (jurisdiction === 'CA' ? 'average-cost' : 'fifo')).toLowerCase(),
     jurisdiction,
     displayCurrency: (options.fiatCurrency ?? 'USD').toUpperCase(),
-    asOf: options.asOf ? new Date(options.asOf) : new Date(),
-  };
+    asOf,
+  });
 }

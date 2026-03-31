@@ -1,20 +1,29 @@
 import { listBlockchainProviders, type BlockchainProviderDescriptor } from '@exitbook/blockchain-providers';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions, withCliCommandErrorHandling } from '../../shared/command-options.js';
+import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  createCliFailure,
+  jsonSuccess,
+  silentSuccess,
+  toCliResult,
+  type CliCompletion,
+  type CliFailure,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { toBlockchainViewItem } from '../blockchain-view-projection.js';
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from '../view/index.js';
 
 import { BlockchainsViewCommandOptionsSchema } from './blockchains-option-schemas.js';
-import type { BlockchainCategory } from './blockchains-view-utils.js';
+import type { BlockchainCatalogItem, BlockchainCategory } from './blockchains-view-utils.js';
 import {
   buildBlockchainCatalogItem,
   filterByApiKeyRequirement,
@@ -23,14 +32,14 @@ import {
   validateCategory,
 } from './blockchains-view-utils.js';
 
-/**
- * Command options (validated at CLI boundary).
- */
-type CommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>;
+type BlockchainsViewCommandOptions = z.infer<typeof BlockchainsViewCommandOptionsSchema>;
 
-/**
- * Register the blockchains view subcommand.
- */
+interface BlockchainsViewData {
+  allProviders: BlockchainProviderDescriptor[];
+  blockchains: BlockchainCatalogItem[];
+  validatedCategory?: BlockchainCategory | undefined;
+}
+
 export function registerBlockchainsViewCommand(blockchainsCommand: Command, appRuntime: CliAppRuntime): void {
   blockchainsCommand
     .command('view')
@@ -56,45 +65,40 @@ Categories:
     .option('--category <type>', 'Filter by category (evm, substrate, cosmos, utxo, solana, other)')
     .option('--requires-api-key', 'Show only blockchains that require API keys')
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeBlockchainsViewCommand(rawOptions, appRuntime);
-    });
+    .action((rawOptions: unknown) => executeBlockchainsViewCommand(rawOptions, appRuntime));
 }
 
-/**
- * Execute the blockchains view command.
- */
 async function executeBlockchainsViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    'blockchains-view',
-    rawOptions,
-    BlockchainsViewCommandOptionsSchema
-  );
-  if (format === 'json') {
-    await executeBlockchainsViewJSON(options, appRuntime);
-  } else {
-    await executeBlockchainsViewTUI(options, appRuntime);
-  }
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliCommandBoundary({
+    command: 'blockchains-view',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, BlockchainsViewCommandOptionsSchema);
+        const data = yield* toCliResult(loadBlockchainCatalogData(options, appRuntime), ExitCodes.INVALID_ARGS);
+
+        if (format === 'json') {
+          return buildBlockchainsViewJsonCompletion(options, data);
+        }
+
+        return yield* await buildBlockchainsViewTuiCompletion(options, data);
+      }),
+  });
 }
 
-/**
- * Load and prepare blockchain data with filters applied.
- */
 function loadBlockchainCatalogData(
-  options: CommandOptions,
-  appRuntime: CliAppRuntime,
-  format: 'json' | 'text'
-): {
-  allProviders: BlockchainProviderDescriptor[];
-  blockchains: ReturnType<typeof buildBlockchainCatalogItem>[];
-  validatedCategory: BlockchainCategory | undefined;
-} | null {
+  options: BlockchainsViewCommandOptions,
+  appRuntime: CliAppRuntime
+): Result<BlockchainsViewData, Error> {
   let validatedCategory: BlockchainCategory | undefined;
   if (options.category) {
     const categoryResult = validateCategory(options.category);
     if (categoryResult.isErr()) {
-      displayCliError('blockchains-view', categoryResult.error, ExitCodes.INVALID_ARGS, format);
+      return err(categoryResult.error);
     }
+
     validatedCategory = categoryResult.value;
   }
 
@@ -116,81 +120,78 @@ function loadBlockchainCatalogData(
 
   blockchains = sortBlockchains(blockchains);
 
-  return { blockchains, allProviders, validatedCategory };
+  return ok({
+    allProviders,
+    blockchains,
+    validatedCategory,
+  });
 }
 
-/**
- * Execute blockchains view in TUI mode
- */
-async function executeBlockchainsViewTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  await withCliCommandErrorHandling('blockchains-view', 'text', async () => {
-    const data = loadBlockchainCatalogData(options, appRuntime, 'text');
-    if (!data) return;
+function buildBlockchainsViewJsonCompletion(
+  options: BlockchainsViewCommandOptions,
+  data: BlockchainsViewData
+): CliCompletion {
+  const categoryCounts: Record<string, number> = {};
+  for (const blockchain of data.blockchains) {
+    categoryCounts[blockchain.category] = (categoryCounts[blockchain.category] || 0) + 1;
+  }
 
-    const { blockchains, allProviders, validatedCategory } = data;
-    const viewItems = blockchains.map((b) => toBlockchainViewItem(b));
-    const categoryCounts = computeCategoryCounts(viewItems);
+  return jsonSuccess({
+    data: {
+      blockchains: data.blockchains.map((blockchain) => ({
+        name: blockchain.name,
+        displayName: blockchain.displayName,
+        category: blockchain.category,
+        layer: blockchain.layer,
+        providers: blockchain.providers.map((provider) => ({
+          name: provider.name,
+          displayName: provider.displayName,
+          requiresApiKey: provider.requiresApiKey,
+          capabilities: provider.capabilities,
+          rateLimit: provider.rateLimit,
+        })),
+        providerCount: blockchain.providerCount,
+        exampleAddress: blockchain.exampleAddress,
+      })),
+    },
+    meta: {
+      total: data.blockchains.length,
+      byCategory: categoryCounts,
+      totalProviders: data.allProviders.length,
+      filters: buildDefinedFilters({
+        category: data.validatedCategory,
+        requiresApiKey: options.requiresApiKey ? true : undefined,
+      }),
+    },
+  });
+}
 
-    const initialState = createBlockchainsViewState(
-      viewItems,
-      {
-        categoryFilter: validatedCategory,
-        requiresApiKeyFilter: options.requiresApiKey,
-      },
-      allProviders.length,
-      categoryCounts
-    );
+async function buildBlockchainsViewTuiCompletion(
+  options: BlockchainsViewCommandOptions,
+  data: BlockchainsViewData
+): Promise<Result<CliCompletion, CliFailure>> {
+  const viewItems = data.blockchains.map((blockchain) => toBlockchainViewItem(blockchain));
+  const categoryCounts = computeCategoryCounts(viewItems);
+  const initialState = createBlockchainsViewState(
+    viewItems,
+    {
+      categoryFilter: data.validatedCategory,
+      requiresApiKeyFilter: options.requiresApiKey,
+    },
+    data.allProviders.length,
+    categoryCounts
+  );
 
+  try {
     await renderApp((unmount) =>
       React.createElement(BlockchainsViewApp, {
         initialState,
         onQuit: unmount,
       })
     );
-  });
-}
+  } catch (error) {
+    return err(createCliFailure(error, ExitCodes.GENERAL_ERROR));
+  }
 
-/**
- * Execute blockchains view in JSON mode
- */
-async function executeBlockchainsViewJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  await withCliCommandErrorHandling('blockchains-view', 'json', async () => {
-    const data = loadBlockchainCatalogData(options, appRuntime, 'json');
-    if (!data) return;
-
-    const { blockchains, allProviders, validatedCategory } = data;
-    const categoryCounts: Record<string, number> = {};
-    for (const blockchain of blockchains) {
-      categoryCounts[blockchain.category] = (categoryCounts[blockchain.category] || 0) + 1;
-    }
-
-    outputSuccess('blockchains-view', {
-      data: {
-        blockchains: blockchains.map((blockchain) => ({
-          name: blockchain.name,
-          displayName: blockchain.displayName,
-          category: blockchain.category,
-          layer: blockchain.layer,
-          providers: blockchain.providers.map((provider) => ({
-            name: provider.name,
-            displayName: provider.displayName,
-            requiresApiKey: provider.requiresApiKey,
-            capabilities: provider.capabilities,
-            rateLimit: provider.rateLimit,
-          })),
-          providerCount: blockchain.providerCount,
-          exampleAddress: blockchain.exampleAddress,
-        })),
-      },
-      meta: {
-        total: blockchains.length,
-        byCategory: categoryCounts,
-        totalProviders: allProviders.length,
-        filters: buildDefinedFilters({
-          category: validatedCategory,
-          requiresApiKey: options.requiresApiKey ? true : undefined,
-        }),
-      },
-    });
-  });
+  return ok(silentSuccess());
 }

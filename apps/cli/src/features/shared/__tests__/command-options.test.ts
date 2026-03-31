@@ -1,67 +1,34 @@
 import { Command } from 'commander';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-const { mockDisplayCliError } = vi.hoisted(() => ({
-  mockDisplayCliError: vi.fn(),
-}));
-
-vi.mock('../cli-error.js', () => ({
-  displayCliError: mockDisplayCliError,
-}));
-
 import {
-  parseCliBrowseRootInvocation,
   parseCliBrowseRootInvocationResult,
+  parseCliBrowseOptionsResult,
   parseCliCommandOptionsResult,
 } from '../command-options.js';
+import { explorerListSurfaceSpec } from '../presentation/browse-surface.js';
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockDisplayCliError.mockImplementation(
-    (command: string, error: Error, _exitCode: number, format: 'json' | 'text') => {
-      throw new Error(`CLI:${command}:${format}:${error.message}`);
-    }
-  );
-});
-
-describe('parseCliBrowseRootInvocation', () => {
+describe('command option result helpers', () => {
   it('parses a selector and browse options from root command tokens', () => {
-    const invocation = parseCliBrowseRootInvocation(
-      'accounts',
+    const invocationResult = parseCliBrowseRootInvocationResult(
       ['kraken-main', '--platform', 'kraken', '--json'],
       (command) => command.option('--platform <name>').option('--json')
     );
 
-    expect(invocation).toEqual({
-      selector: 'kraken-main',
-      rawOptions: {
-        platform: 'kraken',
-        json: true,
-      },
-    });
+    expect(invocationResult.isOk()).toBe(true);
+    if (invocationResult.isOk()) {
+      expect(invocationResult.value).toEqual({
+        selector: 'kraken-main',
+        rawOptions: {
+          platform: 'kraken',
+          json: true,
+        },
+      });
+    }
   });
 
-  it('routes parse failures through the cli error helper using token-level json detection', () => {
-    expect(() =>
-      parseCliBrowseRootInvocation('accounts', ['first', 'second', '--json'], (command) => command.option('--json'))
-    ).toThrow('CLI:accounts:json:error: too many arguments. Expected 1 argument but got 2.');
-
-    expect(mockDisplayCliError).toHaveBeenCalledWith('accounts', expect.any(Error), 2, 'json');
-  });
-
-  it('returns empty options when no selector or flags are provided', () => {
-    const invocation = parseCliBrowseRootInvocation('accounts', undefined, (command: Command) =>
-      command.option('--json')
-    );
-
-    expect(invocation).toEqual({
-      selector: undefined,
-      rawOptions: {},
-    });
-  });
-
-  it('returns result failures without exiting in the new result-based helper', () => {
+  it('returns parse failures without exiting for browse root invocations', () => {
     const invocationResult = parseCliBrowseRootInvocationResult(['first', 'second', '--json'], (command) =>
       command.option('--json')
     );
@@ -85,6 +52,35 @@ describe('parseCliBrowseRootInvocation', () => {
     if (optionsResult.isErr()) {
       expect(optionsResult.error.exitCode).toBe(2);
       expect(optionsResult.error.error.message).toContain('expected boolean');
+    }
+  });
+
+  it('returns browse presentation details without exiting', () => {
+    const browseOptionsResult = parseCliBrowseOptionsResult(
+      { json: true },
+      z.object({ json: z.boolean().optional() }),
+      explorerListSurfaceSpec('accounts')
+    );
+
+    expect(browseOptionsResult.isOk()).toBe(true);
+    if (browseOptionsResult.isOk()) {
+      expect(browseOptionsResult.value.options).toEqual({ json: true });
+      expect(browseOptionsResult.value.presentation.kind).toBe('explorer-list');
+      expect(browseOptionsResult.value.presentation.mode).toBe('json');
+    }
+  });
+
+  it('returns empty options when no selector or flags are provided', () => {
+    const invocationResult = parseCliBrowseRootInvocationResult(undefined, (command: Command) =>
+      command.option('--json')
+    );
+
+    expect(invocationResult.isOk()).toBe(true);
+    if (invocationResult.isOk()) {
+      expect(invocationResult.value).toEqual({
+        selector: undefined,
+        rawOptions: {},
+      });
     }
   });
 });

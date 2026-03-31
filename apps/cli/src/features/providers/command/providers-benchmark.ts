@@ -1,36 +1,40 @@
-// Command registration for benchmark providers subcommand
-
-import { err, ok } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, runCommand } from '../../../runtime/command-runtime.js';
-import { displayCliError } from '../../shared/cli-error.js';
-import { parseCliCommandOptions } from '../../shared/command-options.js';
+import { renderApp } from '../../../runtime/command-runtime.js';
+import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import {
+  cliErr,
+  jsonSuccess,
+  normalizeCliError,
+  silentSuccess,
+  type CliCommandResult,
+  type CliCompletion,
+} from '../../shared/cli-contract.js';
+import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
+import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
-import { outputSuccess } from '../../shared/json-output.js';
 import { BenchmarkApp } from '../view/benchmark-components.jsx';
 import { createBenchmarkState } from '../view/benchmark-state.js';
 
+import type { BenchmarkResult } from './benchmark-tool.js';
 import { withProviderBenchmarkCommandScope } from './providers-benchmark-command-scope.js';
 import { buildConfigOverride } from './providers-benchmark-utils.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from './providers-option-schemas.js';
-import {
-  prepareProviderBenchmarkSession,
-  runProviderBenchmark,
-  runProviderBenchmarkJson,
-} from './run-providers-benchmark.js';
+import { prepareProviderBenchmarkSession, runProviderBenchmark } from './run-providers-benchmark.js';
 
-/**
- * Command options (validated at CLI boundary).
- */
-type CommandOptions = z.infer<typeof ProvidersBenchmarkCommandOptionsSchema>;
+type ProvidersBenchmarkCommandOptions = z.infer<typeof ProvidersBenchmarkCommandOptionsSchema>;
 
-/**
- * Register the providers benchmark subcommand.
- */
+class ProviderBenchmarkValidationError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ProviderBenchmarkValidationError';
+  }
+}
+
 export function registerProvidersBenchmarkCommand(providersCommand: Command, appRuntime: CliAppRuntime): void {
   providersCommand
     .command('benchmark')
@@ -59,104 +63,135 @@ Common Usage:
     .option('--num-requests <number>', 'Number of requests to send per rate test (default: 10)', '10')
     .option('--skip-burst', 'Skip burst limit testing (only test sustained rates)', false)
     .option('--json', 'Output results in JSON format')
-    .action(async (rawOptions: unknown) => {
-      await executeProvidersBenchmarkCommand(rawOptions, appRuntime);
-    });
+    .action((rawOptions: unknown) => executeProvidersBenchmarkCommand(rawOptions, appRuntime));
 }
 
-/**
- * Execute the providers benchmark command.
- */
 async function executeProvidersBenchmarkCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const { format, options } = parseCliCommandOptions(
-    'providers-benchmark',
-    rawOptions,
-    ProvidersBenchmarkCommandOptionsSchema
-  );
-  const isJsonMode = format === 'json';
+  const format = detectCliOutputFormat(rawOptions);
 
-  if (isJsonMode) {
-    await executeProvidersBenchmarkJSON(options, appRuntime);
-  } else {
-    await executeProvidersBenchmarkTUI(options, appRuntime);
-  }
+  await runCliCommandBoundary({
+    command: 'providers-benchmark',
+    format,
+    action: async () =>
+      resultDoAsync(async function* () {
+        const options = yield* parseCliCommandOptionsResult(rawOptions, ProvidersBenchmarkCommandOptionsSchema);
+        return yield* await executeProvidersBenchmarkCommandResult(options, format, appRuntime);
+      }),
+  });
 }
 
-/**
- * Execute providers benchmark in JSON mode
- */
-async function executeProvidersBenchmarkJSON(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withProviderBenchmarkCommandScope(ctx, (scope) => runProviderBenchmarkJson(scope, options));
+async function executeProvidersBenchmarkCommandResult(
+  options: ProvidersBenchmarkCommandOptions,
+  format: CliOutputFormat,
+  appRuntime: CliAppRuntime
+): Promise<CliCommandResult> {
+  return captureCliRuntimeResult({
+    command: 'providers-benchmark',
+    appRuntime,
+    action: async (ctx) => {
+      const result =
+        format === 'json'
+          ? await buildProvidersBenchmarkJsonCompletion(ctx, options)
+          : await buildProvidersBenchmarkTuiCompletion(ctx, options);
 
-      if (result.isErr()) {
-        displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'json');
-      }
-
-      const { params, provider, result: benchmarkResult } = result.value;
-
-      const resultData = {
-        blockchain: params.blockchain,
-        provider: provider.name,
-        currentRateLimit: provider.rateLimit,
-        maxSafeRate: benchmarkResult.maxSafeRate,
-        recommended: benchmarkResult.recommended,
-        testResults: benchmarkResult.testResults,
-        burstLimits: benchmarkResult.burstLimits,
-        configOverride: buildConfigOverride(params.blockchain, provider.name, benchmarkResult.recommended),
-      };
-
-      outputSuccess('providers-benchmark', resultData);
-    });
-  } catch (error) {
-    displayCliError(
-      'providers-benchmark',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'json'
-    );
-  }
+      return toProvidersBenchmarkCliResult(result);
+    },
+  });
 }
 
-/**
- * Execute providers benchmark in TUI mode
- */
-async function executeProvidersBenchmarkTUI(options: CommandOptions, appRuntime: CliAppRuntime): Promise<void> {
-  try {
-    await runCommand(appRuntime, async (ctx) => {
-      const result = await withProviderBenchmarkCommandScope(ctx, async (scope) => {
-        const setupResult = await prepareProviderBenchmarkSession(scope, options);
-        if (setupResult.isErr()) {
-          return err(setupResult.error);
-        }
+async function buildProvidersBenchmarkJsonCompletion(
+  ctx: Parameters<typeof withProviderBenchmarkCommandScope>[0],
+  options: ProvidersBenchmarkCommandOptions
+): Promise<Result<CliCompletion, Error>> {
+  return withProviderBenchmarkCommandScope(ctx, async (scope) => {
+    const setupResult = await prepareProviderBenchmarkSession(scope, options);
+    if (setupResult.isErr()) {
+      return err(new ProviderBenchmarkValidationError(setupResult.error.message, { cause: setupResult.error }));
+    }
 
-        const { params, session, providerInfo } = setupResult.value;
-        const initialState = createBenchmarkState(params, providerInfo);
+    const { params, session, providerInfo } = setupResult.value;
 
-        ctx.onAbort(() => {
-          /* empty */
-        });
-
-        await renderApp(() =>
-          React.createElement(BenchmarkApp, {
-            initialState,
-            runBenchmark: async (onProgress) => runProviderBenchmark(scope, session.provider, params, onProgress),
+    try {
+      const benchmarkResult = await runProviderBenchmark(scope, session.provider, params);
+      return ok(
+        jsonSuccess(
+          buildProvidersBenchmarkJsonResult({
+            params,
+            provider: {
+              name: providerInfo.name,
+              rateLimit: providerInfo.rateLimit,
+            },
+            result: benchmarkResult,
           })
-        );
+        )
+      );
+    } catch (error) {
+      return err(normalizeCliError(error));
+    }
+  });
+}
 
-        return ok(undefined);
-      });
-      if (result.isErr()) {
-        displayCliError('providers-benchmark', result.error, ExitCodes.INVALID_ARGS, 'text');
-      }
+async function buildProvidersBenchmarkTuiCompletion(
+  ctx: Parameters<typeof withProviderBenchmarkCommandScope>[0],
+  options: ProvidersBenchmarkCommandOptions
+): Promise<Result<CliCompletion, Error>> {
+  return withProviderBenchmarkCommandScope(ctx, async (scope) => {
+    const setupResult = await prepareProviderBenchmarkSession(scope, options);
+    if (setupResult.isErr()) {
+      return err(new ProviderBenchmarkValidationError(setupResult.error.message, { cause: setupResult.error }));
+    }
+
+    const { params, session, providerInfo } = setupResult.value;
+    const initialState = createBenchmarkState(params, providerInfo);
+
+    ctx.onAbort(() => {
+      /* empty */
     });
-  } catch (error) {
-    displayCliError(
-      'providers-benchmark',
-      error instanceof Error ? error : new Error(String(error)),
-      ExitCodes.GENERAL_ERROR,
-      'text'
-    );
+
+    try {
+      await renderApp(() =>
+        React.createElement(BenchmarkApp, {
+          initialState,
+          runBenchmark: async (onProgress) => runProviderBenchmark(scope, session.provider, params, onProgress),
+        })
+      );
+    } catch (error) {
+      return err(normalizeCliError(error));
+    }
+
+    return ok(silentSuccess());
+  });
+}
+
+function buildProvidersBenchmarkJsonResult(input: {
+  params: {
+    blockchain: string;
+    provider: string;
+  };
+  provider: {
+    name: string;
+    rateLimit: unknown;
+  };
+  result: BenchmarkResult;
+}) {
+  return {
+    blockchain: input.params.blockchain,
+    provider: input.provider.name,
+    currentRateLimit: input.provider.rateLimit,
+    maxSafeRate: input.result.maxSafeRate,
+    recommended: input.result.recommended,
+    testResults: input.result.testResults,
+    burstLimits: input.result.burstLimits,
+    configOverride: buildConfigOverride(input.params.blockchain, input.provider.name, input.result.recommended),
+  };
+}
+
+function toProvidersBenchmarkCliResult(result: Result<CliCompletion, Error>): CliCommandResult {
+  if (result.isErr()) {
+    return result.error instanceof ProviderBenchmarkValidationError
+      ? cliErr(result.error, ExitCodes.INVALID_ARGS)
+      : cliErr(result.error, ExitCodes.GENERAL_ERROR);
   }
+
+  return ok(result.value);
 }

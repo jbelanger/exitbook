@@ -1,11 +1,9 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import { CliCommandError } from '../../shared/cli-command-error.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
-
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { flattenAccountRemovePreview } from './account-removal-service.js';
 import type { AccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
+import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
 
 export interface AccountRemovalPreparation {
   accountIds: number[];
@@ -22,10 +20,7 @@ export async function prepareAccountRemoval(
     return err(accountResult.error);
   }
   if (!accountResult.value) {
-    // TODO(cli-rework): This still uses the legacy CLI exception type as data so
-    // the surrounding remove scope can preserve NOT_FOUND without throwing.
-    // Revisit once remove-scope helpers can carry CliFailure directly.
-    return err(new CliCommandError(`Account '${accountName.trim().toLowerCase()}' not found`, ExitCodes.NOT_FOUND));
+    return err(new AccountRemovalTargetNotFoundError(accountName));
   }
 
   const hierarchyResult = await scope.accountService.collectHierarchy(scope.profile.id, accountResult.value.id);

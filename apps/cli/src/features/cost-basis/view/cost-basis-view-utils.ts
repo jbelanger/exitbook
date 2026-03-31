@@ -13,7 +13,6 @@ import {
 import { Decimal } from 'decimal.js';
 
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
-import { unwrapResult } from '../../shared/result-utils.js';
 
 import type {
   AcquisitionViewItem,
@@ -708,7 +707,12 @@ export interface CostBasisPresentationModel {
 }
 
 export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
-  const filingFacts = unwrapResult(buildCostBasisFilingFacts({ artifact: costBasisResult }));
+  const filingFactsResult = buildCostBasisFilingFacts({ artifact: costBasisResult });
+  if (filingFactsResult.isErr()) {
+    throw filingFactsResult.error;
+  }
+
+  const filingFacts = filingFactsResult.value;
 
   if (costBasisResult.kind === 'standard-workflow') {
     if (filingFacts.kind !== 'standard') {
