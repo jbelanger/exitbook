@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-29
+last_verified: 2026-03-31
 status: draft
 ---
 
@@ -7,7 +7,9 @@ status: draft
 
 > The Exitbook CLI should read like a product, not a bag of tools. New commands must fit a user journey first, then a code structure.
 
-This spec defines the user-facing design language for the CLI as it grows: the mental model, command grouping rules, naming rules, help-writing rules, and interaction patterns that keep new command families consistent.
+This spec defines the user-facing design language for the CLI as it grows: the mental model, command grouping rules, naming rules, help-writing rules, and visual interaction principles that keep new command families consistent.
+
+Exact browse/workflow surface semantics belong in [CLI Surface V3 Specification](./cli-surface-v3-spec.md). This document owns product language and command-design conventions, not the low-level terminal-behavior contract.
 
 ## Product Promise
 
@@ -70,19 +72,7 @@ The namespace should describe the object the user is reasoning about, not the im
 
 A bare namespace command should do something useful when that namespace has a primary browse surface. It should not just dump help and force the user to remember `view`.
 
-The standard interaction ladder for browse-heavy namespaces is:
-
-- bare noun: quick static list/table
-- bare noun + stable selector: focused static detail card
-- explicit `view`: immersive TUI explorer
-- explicit `view` + selector: same explorer, pre-selected on that entity
-
-Example:
-
-- `exitbook accounts`
-- `exitbook accounts kraken-main`
-- `exitbook accounts view`
-- `exitbook accounts view kraken-main`
+The normative browse ladder lives in [CLI Surface V3 Specification](./cli-surface-v3-spec.md). This document only sets the product expectation: a namespace should have a fast default landing surface, a deeper focused inspection path when the selector is stable, and an explicit richer explorer path when exploration is the point.
 
 This makes the CLI feel faster and more product-like:
 
@@ -90,8 +80,7 @@ This makes the CLI feel faster and more product-like:
 - deeper inspection through stable command shapes, not output flags
 - one stable explorer verb for TUI-heavy flows
 
-When a browse family has a stable, obvious selector, the bare namespace plus selector should open a static detail card. If the selector contract is not yet stable, a dedicated detail subcommand is acceptable temporarily, but it should not become the default pattern.
-Static output may be a list/table or a detail card, but master-detail is reserved for the TUI explorer.
+When a browse family has a stable, obvious selector, it should converge on the standard noun-based ladder instead of inventing extra browse verbs or aliases.
 
 ### Ambient Context Beats Repeated Flags
 
@@ -225,28 +214,18 @@ Avoid low-signal confirmations like:
 
 - "Operation completed successfully"
 
-## Interaction Rules
+## Interaction Principles
 
 ### Review Surfaces
 
-Browse-heavy namespaces should expose three human-facing browse surfaces:
+Browse-heavy namespaces should feel fast to enter and deeper only when the user asks for it.
 
-- bare noun commands should return a fast static list/table by default
-- bare noun + selector should return a static detail card when the selector is stable
-- explicit `view` commands should open the richer explorer surface
-- focused selection inside Ink remains valid and important
-- `view` + selector should open the same explorer pre-selected on that entity
-- filters narrow the initial state at either depth
-- human-facing surface is chosen by command shape, not by generic `--text` / `--tui` flags
-- JSON bypasses the TUI entirely
-- `--json` is the only generic output override; command-specific flags such as `--interactive` are about prompting or execution, not presentation
-- non-interactive terminals degrade to the matching static surface: list/table or detail card
-- explorer commands must detect non-interactive terminals before Ink mounts
-- interactive `view` commands may short-circuit to the matching static empty state when the initial collection is truly empty
-- missing selectors should use the shared not-found path instead of mounting an empty explorer
-- a zero-result filtered slice inside an otherwise valid explorer should not, by itself, change the chosen surface
-- never leak React or Ink stack traces for terminal-readiness failures
-- if a static fallback is not implemented yet, fail with one clean CLI error line and a non-interactive hint instead of a framework crash
+- default entry should answer the quick "what is here?" question
+- deeper inspection should use stable command shapes, not ad hoc output flags
+- richer exploration should feel like the same domain object at greater depth, not a different product
+- failure modes should stay product-like: one clean CLI error, no framework leakage, and a clear next step
+
+For the normative browse, fallback, and JSON rules, use [CLI Surface V3 Specification](./cli-surface-v3-spec.md).
 
 ### Static Output Layout
 
@@ -258,7 +237,7 @@ Static human output should reuse the TUI's information design without imitating 
 - do not render controls bars, quit hints, or other interaction footers
 - only render a trailing truncation hint when results were actually cut off
 
-Static output is not a master-detail surface. Static output may be a compact list/table or a single detail card, but it must never embed detail panes, selected-row expansions, or any other imitation of the TUI's master-detail layout. If a family cannot support noun-plus-selector detail yet because its selector contract is not stable, a dedicated detail subcommand is acceptable temporarily.
+Static output is not a master-detail surface. It should feel like the compact, scrollback-friendly expression of the same product surface, not a degraded screenshot of the explorer.
 
 The shell prompt returning is the natural end of static output. It should feel compact and scannable, not like a pasted report.
 
@@ -272,6 +251,8 @@ Workflow commands should answer operational questions continuously:
 - what the final outcome was
 
 Users should not need `--verbose` just to learn whether the run is stuck or failing.
+
+Exact workflow-output and prompt-first semantics belong in [CLI Surface V3 Specification](./cli-surface-v3-spec.md).
 
 ### Mutations
 

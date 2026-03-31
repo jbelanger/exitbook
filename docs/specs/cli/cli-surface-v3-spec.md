@@ -1,68 +1,68 @@
 ---
-last_verified: 2026-03-29
+last_verified: 2026-03-31
 status: draft
 supersedes: cli-surface-v2-spec.md
 ---
 
 # CLI Surface V3 Specification
 
-> Code is law: if this document disagrees with implementation, the implementation is correct and this spec must be updated.
+> This document is the normative user-facing surface contract for the Exitbook CLI. Internal wiring and helper structure belong in [CLI Command Wiring](../../code-assistants/cli-command-wiring.md), not here.
 
-This spec defines the next surface model for the Exitbook CLI. It replaces the V2 draft's generic `--text` / `--tui` override model with a command-shape model:
+V3 replaces the earlier generic `--text` / `--tui` model with a command-shape model:
 
 - command shape chooses the human surface
 - terminal readiness decides whether an explorer can mount Ink
 - `--json` remains the only generic output override
-- command-specific flags such as `--interactive` may still exist, but they control prompting or execution behavior, not presentation selection
+- command-specific flags such as `--interactive` or `--confirm` may change input collection or execution behavior, but they do not act as generic presentation flags
 
 ## Quick Reference
 
-| Shape                          | Human output                             | TTY required |
-| ------------------------------ | ---------------------------------------- | ------------ |
-| `accounts`                     | static list/table                        | no           |
-| `accounts <name>`              | static detail card                       | no           |
-| `accounts view`                | TUI explorer/master-detail               | yes          |
-| `accounts view <name>`         | TUI explorer pre-selected on `<name>`    | yes          |
-| `accounts view` off-TTY        | static list/table fallback               | no           |
-| `accounts view <name>` off-TTY | static detail card fallback              | no           |
-| any command + `--json`         | machine JSON                             | no           |
-| workflows                      | line-oriented `text-progress` by default | no           |
+| Shape                              | Human output                                     | TTY required |
+| ---------------------------------- | ------------------------------------------------ | ------------ |
+| `accounts`                         | static list/table                                | no           |
+| `accounts <selector>`              | static detail card                               | no           |
+| `accounts view`                    | TUI explorer/master-detail                       | yes          |
+| `accounts view <selector>`         | TUI explorer pre-selected on `<selector>`        | yes          |
+| `accounts view` off-TTY            | same static list/table as `accounts`             | no           |
+| `accounts view <selector>` off-TTY | same static detail card as `accounts <selector>` | no           |
+| any command + `--json`             | machine JSON                                     | no           |
+| workflows                          | text-progress or prompt-first interaction        | no           |
 
-The same command-shape pattern should apply consistently to browse-heavy families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, `blockchains`, and `balance`.
+Browse-heavy families should follow this ladder when they expose both static and explorer surfaces:
 
-Off-TTY `view` fallbacks are intentionally aliases of the matching static commands:
+- `accounts`
+- `accounts <selector>`
+- `accounts view`
+- `accounts view <selector>`
 
-- `accounts view` off-TTY should produce the same output as `accounts`
-- `accounts view kraken-main` off-TTY should produce the same output as `accounts kraken-main`
-
-The `view` verb selects the explorer when available. It does not imply a richer text surface.
+The same model applies to families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, `blockchains`, and `balance` when they have stable browse semantics.
 
 ## Goals
 
-- Make browse commands predictable from syntax alone.
-- Reserve master-detail for TUI explorers only.
-- Keep static output compact and copyable in scrollback.
-- Preserve one generic machine-output escape hatch: `--json`.
-- Allow workflows to keep capability-specific flags such as `--interactive` without turning them into generic presentation flags.
+- Make browse behavior predictable from syntax alone.
+- Reserve master-detail for explorer/TUI surfaces only.
+- Keep static output compact and readable in scrollback.
+- Preserve a single generic machine-output escape hatch: `--json`.
+- Allow workflows to remain command-shaped instead of being forced into browse rules.
 
 ## Non-Goals
 
-- Redesign the look of existing Ink explorers.
-- Standardize every selector shape in one pass.
-- Require every domain to support static detail immediately.
+- Prescribe internal helper names or shared type taxonomies.
+- Require every family to invent a selector before it is stable.
+- Turn prompt-first workflows into a generic TUI mode.
 
-## Core Model
+## Current Contract
 
-### Human Surface Is Chosen By Command Shape
+### Browse Surface Is Chosen By Command Shape
 
-Browse-heavy namespaces expose four canonical human-facing forms:
+Browse-heavy namespaces expose up to four human-facing forms:
 
-| Shape                | Meaning                                   | Static / TUI |
-| -------------------- | ----------------------------------------- | ------------ |
-| bare noun            | quick browse list/table                   | static       |
-| bare noun + selector | focused non-interactive detail            | static       |
-| `view`               | immersive explorer                        | TUI          |
-| `view` + selector    | immersive explorer with initial selection | TUI          |
+| Shape                | Meaning                                   | Surface |
+| -------------------- | ----------------------------------------- | ------- |
+| bare noun            | quick browse list/table                   | static  |
+| bare noun + selector | focused non-interactive detail            | static  |
+| `view`               | immersive explorer                        | TUI     |
+| `view` + selector    | immersive explorer with initial selection | TUI     |
 
 Examples:
 
@@ -71,134 +71,82 @@ Examples:
 - `exitbook accounts view`
 - `exitbook accounts view kraken-main`
 
-The key rule is simple: users choose list vs detail vs explorer by command shape, not by generic output flags.
+The user chooses list vs detail vs explorer by command shape, not by generic presentation flags.
 
 ### Static Output Is Never Master-Detail
 
-Static output may be either:
+Static output may be:
 
 - a compact list/table
 - a compact detail card
 
-Static output must never imitate the TUI's master-detail layout. No selected-row expansion, no side-by-side detail pane, and no copied controls bar.
+Static output must never imitate the explorer layout. No selected-row expansion, no side-by-side detail pane, no controls footer, and no copied quit hints.
 
-### TUI Is Reserved For Explorers
+### `view` Always Means Explorer
 
-Master-detail, keyboard navigation, inline actions, and other immersive interaction patterns are reserved for `view` explorers on interactive terminals.
+`view` is the explorer verb. It does not mean “show text” and it does not introduce a separate JSON schema.
 
-### JSON Is The Only Generic Output Override
+On an interactive terminal:
 
-`--json` is the only generic cross-command output override. It bypasses TUI and static human formatting and returns machine-oriented data.
+- `view` opens the explorer when there is a real collection to browse
+- `view <selector>` opens the same explorer pre-selected on that entity
 
-There is no general `--text` flag and no general `--tui` flag in V3.
+On a non-interactive terminal:
 
-For browse commands, JSON follows the semantic target, not the human-facing surface verb:
+- `view` falls back to the matching static list/table
+- `view <selector>` falls back to the matching static detail card
+- those fallbacks are intentionally aliases of the matching bare command shapes
 
-- `accounts --json` and `accounts view --json` should return the same list payload
-- `accounts kraken-main --json` and `accounts view kraken-main --json` should return the same detail payload
+### Interactive Terminal Readiness
 
-Per-family specs still define the exact JSON schema, but the top-level contract is that `view` does not create a different JSON shape.
-
-### V2 To V3 Terminology
-
-V2 used the term `text` for human-readable non-TUI output. V3 renames that concept to `static` because the human surface is now split into two explicit forms:
-
-- static list/table
-- static detail card
-
-This is a naming cleanup, not a new renderer family.
-
-### Workflow Flags Are Capability Flags, Not Presentation Flags
-
-Workflow commands still default to line-oriented `text-progress`. Some workflows may keep flags such as `--interactive` when they need to opt into prompting or guided input collection.
-
-Those flags:
-
-- are command-specific
-- do not imply TUI
-- do not replace the command-shape rules used by browse commands
-
-## Interactive Terminal
-
-A command is considered interactive when all of the following are true:
+A terminal is considered interactive when all of the following are true:
 
 - `process.stdin.isTTY === true`
 - `process.stdout.isTTY === true`
 - `process.env.CI` is not set
 
-If a `view` explorer is invoked without an interactive terminal, it must not try to mount Ink.
+Explorer commands must check readiness before Ink mounts.
 
-Even on an interactive terminal, a `view` command should not mount Ink when there is no navigable explorer state to show. The approved short-circuit cases are:
+Approved explorer short-circuit cases:
 
 - the initial collection is truly empty, so the matching static empty state is the entire useful result
-- a requested selector does not resolve, in which case the shared not-found path should run before any renderer mounts
+- a requested selector does not resolve, so the shared not-found path runs before any renderer mounts
 
-A zero-result filtered slice inside an otherwise valid explorer is not, by itself, a reason to skip TUI.
+Non-approved short-circuit case:
 
-## Browse Surface Rules
+- a zero-result filtered slice inside an otherwise valid explorer
 
-### Static List
+That last case must still open the explorer. A filtered empty view is not the same thing as an empty collection.
 
-The bare namespace command should render a compact static list/table:
+### JSON Is The Only Generic Output Override
 
-- `accounts`
-- `transactions`
-- `links`
-- `assets`
-- `prices`
-- `providers`
-- `blockchains`
-- `balance`
+`--json` is the only generic cross-command output override.
 
-This surface should answer the quick "show me what's here" question.
+- there is no generic `--text`
+- there is no generic `--tui`
+- `view` does not create a different JSON shape
 
-### Static Detail
+For browse commands, JSON follows the semantic target rather than the human-facing verb:
 
-When the family has a stable, obvious selector, the bare namespace plus selector should render a static detail card:
+- `accounts --json` and `accounts view --json` return the same list payload
+- `accounts kraken-main --json` and `accounts view kraken-main --json` return the same detail payload
 
-- `accounts kraken-main`
-- `transactions 123`
-- `links 456`
+Per-family specs still own the concrete JSON schema. This spec only defines the cross-command contract.
 
-Static detail is the non-interactive "tell me about this one thing" surface. It is not an explorer fallback pasted into scrollback.
+### Selector Resolution Must Not Diverge By Surface
 
-If a family does not yet have a stable selector contract, it may keep a dedicated detail subcommand temporarily, but the V3 direction is to prefer a simple noun-plus-selector shape where the selector is unambiguous.
+If a selector does not resolve, the command should fail before rendering.
 
-If the selector does not match anything, the command should fail before rendering with the same not-found error path used by the explorer form. `accounts ghost-wallet` and `accounts view ghost-wallet` should not diverge in not-found behavior just because one is static and one is TUI-shaped.
+- `accounts ghost-wallet`
+- `accounts view ghost-wallet`
+- `accounts ghost-wallet --json`
+- `accounts view ghost-wallet --json`
 
-### Explorer
+These forms may render differently on success, but they must not disagree about whether the selector exists.
 
-`view` is the canonical explorer verb:
+### Workflow Rules
 
-- `accounts view`
-- `accounts view kraken-main`
-- `transactions view`
-- `transactions view 123`
-
-On an interactive terminal:
-
-- `view` opens the TUI explorer when there is an actual collection to browse
-- `view` may short-circuit to the matching static empty state when the initial collection is truly empty
-- `view <selector>` opens the same explorer pre-selected on that entity
-
-Off terminal:
-
-- `view` falls back to the matching static list/table
-- `view <selector>` falls back to the matching static detail card
-- those fallbacks are intentionally identical to the matching bare command forms
-
-Explorer fallbacks must never emulate master-detail in static output.
-
-If a selector passed to `view <selector>` does not resolve, the command should fail before Ink mounts rather than opening an empty explorer. In JSON mode, the same case should return the structured not-found error payload.
-
-## Workflow Rules
-
-Workflows are different from browse commands:
-
-- they always behave like workflows, not static browse surfaces
-- they default to `text-progress` on both TTY and non-TTY terminals
-- they may use command-specific flags such as `--interactive`
-- they may expose richer interactive prompting when the user is present, but they do not switch into TUI through a generic flag
+Workflows are not browse commands. They should keep workflow semantics on both TTY and non-TTY terminals.
 
 Examples:
 
@@ -208,29 +156,49 @@ Examples:
 - `prices enrich`
 - `balance refresh`
 - `providers benchmark`
+- `clear`
 
-### Minimum `text-progress` Contract
+Workflow rules:
 
-`text-progress` must remain observable enough that a workflow is understandable in scrollback, logs, and CI.
+- they do not participate in the browse ladder
+- they do not switch surfaces through generic flags
+- they remain observable in scrollback, logs, and CI
+- they may use command-specific flags such as `--interactive` or `--confirm`
 
-Minimum requirements:
+#### Text-Progress Default
 
-- line-oriented output only; no cursor control, spinner frames, or full-screen terminal tricks
-- material state changes must be visible
-- long-running work should emit periodic heartbeat/progress summaries
-- final completion output must include a concise outcome summary
-- the same run should remain legible when stdout is piped or captured
+Most workflows should default to line-oriented `text-progress`.
 
-## Mutation, Export, And Destructive Review
+Minimum contract:
+
+- line-oriented output only
+- material state changes are visible
+- long-running work emits periodic progress or heartbeat summaries
+- final output includes a concise outcome summary
+- the same run remains legible when stdout is piped or captured
+
+#### Prompt-First Workflows
+
+Some workflows may begin with interactive prompting or guided confirmation before they start execution.
+
+This is valid when the command meaning is inherently interactive, such as:
+
+- destructive confirmation before `clear`
+- guided input collection before a workflow starts
+
+Prompt-first interaction does not create a generic TUI mode. It is still command-local workflow behavior.
+
+### Mutation, Export, And Review Commands
 
 These remain text-first unless `--json` is requested.
 
-- mutate commands render compact confirmations
+- mutation commands render compact confirmations
 - export commands render compact success/failure output
-- destructive-review commands may use TUI when the command itself is explicitly a review surface, but they do not participate in a generic `--tui` model
-- new `destructive-review` commands require explicit justification; this remains a narrow category rather than a catch-all for dangerous actions
+- explicit review commands may use TUI when the command itself is a review surface
 
-## Static Layout Rules
+This category does not reintroduce a generic presentation override.
+
+### Static Layout Rules
 
 Static human output should follow these rules:
 
@@ -242,97 +210,55 @@ Static human output should follow these rules:
 - no master-detail imitation
 - no trailing truncation hint unless truncation actually happened
 
-List/table and detail card are both valid static surfaces. The shell prompt returning is the natural end of the output.
+The shell prompt returning is the natural end of the output.
 
-## Naming And Help Rules
+### Naming And Help Rules
 
-### Browse Families
-
-The preferred ladder is:
+Preferred browse ladder:
 
 1. `noun`
 2. `noun <selector>`
 3. `noun view`
 4. `noun view <selector>`
 
-The static and TUI shapes should describe the same domain object at different depths, not different mental models.
+Rules:
 
-### `view`
-
-`view` always means "open the explorer." It should never mean "show text."
-
-### Generic Flags
-
+- `view` always means “open the explorer”
 - keep `--json`
-- remove generic `--text`
-- remove generic `--tui`
-- keep capability-specific flags only when they serve a real command-local purpose, such as `--interactive`
+- do not introduce generic `--text`
+- do not introduce generic `--tui`
+- do not reintroduce removed browse aliases such as `list`
 
-### Aliases
+## Transition Direction
 
-Removed browse aliases such as `list` are not part of the V3 model and should not be reintroduced. Canonical docs should teach the noun-based ladder only.
+The V3 direction is to prefer `noun + selector` for static detail when the selector is stable and obvious.
 
-## Shared Implementation Shape
+Until then:
 
-The shared presentation layer should model surface shape, not semantic intent.
+- a family may keep a dedicated detail subcommand temporarily
+- temporary shapes should not become the new default pattern
+- once a stable selector exists, the family should converge on the standard browse ladder
 
-Recommended internal split:
+This section is directional. The rest of the document is the current contract.
 
-```ts
-type PresentationMode = 'json' | 'static' | 'text-progress' | 'tui';
-type StaticSurfaceKind = 'list' | 'detail'; // only used when PresentationMode === 'static'
-type CommandSurfaceKind =
-  | 'static-list'
-  | 'static-detail'
-  | 'explorer'
-  | 'workflow'
-  | 'text-only'
-  | 'destructive-review';
-```
+## Implementation Boundary
 
-Key consequences:
+This spec intentionally does not prescribe helper constructors, internal type unions, or file layout.
 
-- resolver-level types should not carry a separate `intent` field
-- helper constructors should model actual surface behavior, not semantic categories
-- `accounts` and `accounts <name>` are different entrypoint shapes even though they share a namespace
+Implementation details belong in:
 
-Minimal useful helper families:
+- [CLI Command Wiring](../../code-assistants/cli-command-wiring.md)
+- `apps/cli/src/cli/presentation.ts`
 
-- `staticListSurfaceSpec`
-- `staticDetailSurfaceSpec`
-- `explorerSurfaceSpec`
-- `workflowSurfaceSpec`
-- `textOnlySurfaceSpec`
-- `destructiveReviewSurfaceSpec`
-
-`textOnlySurfaceSpec` covers mutate/export commands whose human output is a compact confirmation or result line rather than a browse surface.
-
-## Changes From V2
-
-Compared with V2:
-
-- generic `--text` and `--tui` are removed
-- `--json` remains the only generic output override
-- V2 `text` is renamed to `static`
-- browse command shape now distinguishes static list, static detail, and explorer explicitly
-- off-TTY `view` is intentionally an alias of the matching static command shape
-- browse aliases such as `list` are removed from the canonical surface
+If implementation helpers need to change, update those documents and modules without weakening the user-facing surface contract defined here.
 
 ## Acceptance Criteria
 
-- Browse command shape alone tells the user whether they will get a static list, a static detail card, or a TUI explorer.
-- `view` never needs a generic `--tui` flag.
-- TUI is skipped when there is no navigable explorer state to present, such as a truly empty initial collection.
+- Browse command shape alone tells the user whether they will get a static list, a static detail card, or an explorer.
+- `view` never requires a generic `--tui` flag.
+- Non-interactive `view` commands fall back to the matching static surface.
+- Explorer commands skip Ink only when there is no navigable explorer state, such as a truly empty initial collection or a missing selector.
+- Filtered-empty explorer states do not silently downgrade to static.
 - Static output never imitates master-detail.
-- `view` commands fall back cleanly off-terminal.
 - `--json` remains the only generic output override.
-- Command-specific flags such as `--interactive` are documented as input/execution flags, not presentation flags.
-
-## Decisions & Smells
-
-- Decision: master-detail is reserved for TUI only.
-- Decision: static human output may be either list/table or detail card.
-- Decision: command shape, not generic human-output flags, is the primary browse UX contract.
-- Decision: `--json` remains the only generic output override.
-- Smell: V2 mixed semantic intent with presentation-selection concerns in one type.
-- Smell: V2 helper constructors modeled command categories more than renderer behavior.
+- Workflow-specific flags are documented as input or execution flags, not presentation flags.
