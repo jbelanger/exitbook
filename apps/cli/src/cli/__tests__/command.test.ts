@@ -13,11 +13,11 @@ vi.mock('../../runtime/command-runtime.js', () => ({
   runCommand: mockRunCommand,
 }));
 
-vi.mock('../../features/shared/cli-error.js', () => ({
+vi.mock('../error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 
-vi.mock('../../features/shared/json-output.js', () => ({
+vi.mock('../output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 

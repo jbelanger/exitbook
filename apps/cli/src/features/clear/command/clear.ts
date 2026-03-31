@@ -2,8 +2,8 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { runCliRuntimeCommand } from '../../../cli/command.js';
+import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 
 import type { ClearCommandOptions } from './clear-command-types.js';
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';

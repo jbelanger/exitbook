@@ -1,12 +1,12 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import { exitCliFailure } from '../features/shared/cli-error.js';
-import { ExitCodes, type ExitCode } from '../features/shared/exit-codes.js';
-import { outputSuccess } from '../features/shared/json-output.js';
 import type { CliAppRuntime } from '../runtime/app-runtime.js';
 import { CommandRuntime, runCommand } from '../runtime/command-runtime.js';
 
+import { exitCliFailure } from './error.js';
+import { ExitCodes, type ExitCode } from './exit-codes.js';
 import type { CliOutputFormat } from './options.js';
+import { outputSuccess } from './output.js';
 
 interface CliCommandBoundaryOptions {
   command: string;

@@ -24,11 +24,11 @@ vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
 }));
 
-vi.mock('../../../shared/cli-error.js', () => ({
+vi.mock('../../../../cli/error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 
-vi.mock('../../../shared/json-output.js', () => ({
+vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 

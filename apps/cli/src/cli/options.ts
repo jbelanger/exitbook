@@ -2,9 +2,8 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { Command, type CommanderError } from 'commander';
 import type { z } from 'zod';
 
-import { ExitCodes, type ExitCode } from '../features/shared/exit-codes.js';
-
 import { createCliFailure, type CliFailure } from './command.js';
+import { ExitCodes, type ExitCode } from './exit-codes.js';
 import type { BrowseSurfaceSpec, ResolvedBrowsePresentation } from './presentation.js';
 import { resolveBrowsePresentation } from './presentation.js';
 

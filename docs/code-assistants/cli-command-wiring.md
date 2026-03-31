@@ -109,9 +109,13 @@ Preferred shape:
 ```text
 cli/
   command.ts       - public CLI boundary helpers and command result modeling
+  error.ts         - CLI failure rendering and process-boundary exit
+  exit-codes.ts    - semantic CLI exit codes
   options.ts       - output-format detection and result-returning option parsing
-  prompts.ts       - prompt decision helpers and small CLI-facing display utilities
+  output.ts        - JSON success output writing
   presentation.ts  - browse surface resolution
+  prompts.ts       - prompt decision helpers and small CLI-facing display utilities
+  response.ts      - structured JSON response shapes and error-code mapping
 
 runtime/
   app-runtime.ts

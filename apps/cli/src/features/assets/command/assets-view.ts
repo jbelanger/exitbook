@@ -10,9 +10,9 @@ import {
   toCliResult,
   type CliCompletion,
 } from '../../../cli/command.js';
+import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
 import { createAssetsViewState } from '../view/assets-view-state.js';

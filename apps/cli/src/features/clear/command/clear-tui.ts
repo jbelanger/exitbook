@@ -2,9 +2,9 @@ import { resultDoAsync } from '@exitbook/foundation';
 import React from 'react';
 
 import { silentSuccess, toCliResult, type CliCommandResult } from '../../../cli/command.js';
+import { ExitCodes } from '../../../cli/exit-codes.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';
 import { createClearViewState } from '../view/clear-view-state.js';
 

@@ -1,8 +1,7 @@
 import pc from 'picocolors';
 
-import type { CliFailure } from '../../cli/command.js';
-
-import { createErrorResponse, exitCodeToErrorCode } from './cli-response.js';
+import type { CliFailure } from './command.js';
+import { createErrorResponse, exitCodeToErrorCode } from './response.js';
 
 /**
  * Tips shown after error messages, keyed by error code.
@@ -31,7 +30,6 @@ export function writeCliFailure(command: string, failure: CliFailure, format: 'j
     process.stderr.write(`\n${pc.dim(tip)}\n`);
   }
 
-  // In development, show full stack trace
   if (process.env['NODE_ENV'] === 'development' && failure.error.stack) {
     process.stderr.write(`\n${pc.dim(failure.error.stack)}\n\n`);
   }

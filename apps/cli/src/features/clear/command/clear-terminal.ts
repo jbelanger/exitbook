@@ -1,8 +1,8 @@
 import { resultDoAsync } from '@exitbook/foundation';
 
 import { toCliResult, type CliCommandResult } from '../../../cli/command.js';
+import { ExitCodes } from '../../../cli/exit-codes.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 
 import { withClearCommandScope } from './clear-command-scope.js';

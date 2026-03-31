@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../cli-response.js';
 import { ExitCodes, type ExitCode } from '../exit-codes.js';
+import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../response.js';
 
 describe('cli-response', () => {
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe('cli-response', () => {
   });
 
   describe('createSuccessResponse', () => {
-    it('should create a success response with data', () => {
+    it('creates a success response with data', () => {
       const response = createSuccessResponse('test-command', { result: 'success' });
 
       expect(response).toEqual({
@@ -26,7 +26,7 @@ describe('cli-response', () => {
       });
     });
 
-    it('should create a success response with metadata', () => {
+    it('creates a success response with metadata', () => {
       const response = createSuccessResponse(
         'test-command',
         { result: 'success' },
@@ -45,13 +45,13 @@ describe('cli-response', () => {
       });
     });
 
-    it('should create a success response without metadata', () => {
+    it('creates a success response without metadata', () => {
       const response = createSuccessResponse('test-command', { result: 'success' });
 
       expect(response.metadata).toBeUndefined();
     });
 
-    it('should handle different data types', () => {
+    it('handles different data types', () => {
       const stringResponse = createSuccessResponse('test', 'string data');
       expect(stringResponse.data).toBe('string data');
 
@@ -64,7 +64,7 @@ describe('cli-response', () => {
   });
 
   describe('createErrorResponse', () => {
-    it('should create an error response with code and message', () => {
+    it('creates an error response with code and message', () => {
       const error = new Error('Test error');
       const response = createErrorResponse('test-command', error, 'INVALID_ARGS');
 
@@ -79,7 +79,7 @@ describe('cli-response', () => {
       });
     });
 
-    it('should create an error response with details', () => {
+    it('creates an error response with details', () => {
       const error = new Error('Test error');
       const details = { field: 'address', reason: 'invalid format' };
       const response = createErrorResponse('test-command', error, 'VALIDATION_ERROR', details);
@@ -96,7 +96,7 @@ describe('cli-response', () => {
       });
     });
 
-    it('should include stack trace in development mode', () => {
+    it('includes stack trace in development mode', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'development';
 
@@ -109,7 +109,7 @@ describe('cli-response', () => {
       process.env['NODE_ENV'] = originalEnv;
     });
 
-    it('should not include stack trace in production mode', () => {
+    it('does not include stack trace in production mode', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'production';
 
@@ -124,7 +124,7 @@ describe('cli-response', () => {
   });
 
   describe('exitCodeToErrorCode', () => {
-    it('should map exit codes to error code strings', () => {
+    it('maps exit codes to error code strings', () => {
       expect(exitCodeToErrorCode(ExitCodes.GENERAL_ERROR)).toBe('GENERAL_ERROR');
       expect(exitCodeToErrorCode(ExitCodes.INVALID_ARGS)).toBe('INVALID_ARGS');
       expect(exitCodeToErrorCode(ExitCodes.AUTHENTICATION_ERROR)).toBe('AUTHENTICATION_ERROR');
@@ -140,11 +140,11 @@ describe('cli-response', () => {
       expect(exitCodeToErrorCode(ExitCodes.PERMISSION_DENIED)).toBe('PERMISSION_DENIED');
     });
 
-    it('should return UNKNOWN_ERROR for unmapped exit codes', () => {
+    it('returns UNKNOWN_ERROR for unmapped exit codes', () => {
       expect(exitCodeToErrorCode(999 as ExitCode)).toBe('UNKNOWN_ERROR');
     });
 
-    it('should not map SUCCESS exit code', () => {
+    it('does not map SUCCESS exit code', () => {
       expect(exitCodeToErrorCode(ExitCodes.SUCCESS)).toBe('UNKNOWN_ERROR');
     });
   });

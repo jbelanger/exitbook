@@ -4,11 +4,11 @@ import { ExitCodes } from '../exit-codes.js';
 
 describe('exit-codes', () => {
   describe('ExitCodes', () => {
-    it('should define SUCCESS as 0', () => {
+    it('defines SUCCESS as 0', () => {
       expect(ExitCodes.SUCCESS).toBe(0);
     });
 
-    it('should define error codes', () => {
+    it('defines error codes', () => {
       expect(ExitCodes.GENERAL_ERROR).toBe(1);
       expect(ExitCodes.INVALID_ARGS).toBe(2);
       expect(ExitCodes.AUTHENTICATION_ERROR).toBe(3);
@@ -24,7 +24,7 @@ describe('exit-codes', () => {
       expect(ExitCodes.PERMISSION_DENIED).toBe(13);
     });
 
-    it('should have unique exit codes', () => {
+    it('has unique exit codes', () => {
       const codes = Object.values(ExitCodes);
       const uniqueCodes = new Set(codes);
       expect(codes.length).toBe(uniqueCodes.size);

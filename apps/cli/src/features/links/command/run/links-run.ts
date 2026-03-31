@@ -17,12 +17,12 @@ import {
   type CliCommandResult,
   type CliFailure,
 } from '../../../../cli/command.js';
+import { ExitCodes } from '../../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { ExitCodes } from '../../../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../links-option-schemas.js';
 
 import { runLinks } from './run-links.js';

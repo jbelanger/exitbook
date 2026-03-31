@@ -4,8 +4,8 @@ import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ExitCodes } from '../../../../cli/exit-codes.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import { ExitCodes } from '../../../shared/exit-codes.js';
 
 const {
   mockCtx,
@@ -37,11 +37,11 @@ vi.mock('../../../../runtime/command-runtime.js', () => ({
   runCommand: mockRunCommand,
 }));
 
-vi.mock('../../../shared/json-output.js', () => ({
+vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-vi.mock('../../../shared/cli-error.js', () => ({
+vi.mock('../../../../cli/error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 

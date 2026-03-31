@@ -4,7 +4,7 @@ import type { ExitCode } from './exit-codes.js';
  * Standardized CLI response format.
  * Used for both JSON output and internal tracking.
  */
-export interface CLIResponse<T = unknown> {
+export interface CliResponse<T = unknown> {
   /** Whether the command executed successfully */
   success: boolean;
 
@@ -49,8 +49,8 @@ export interface CLIResponse<T = unknown> {
     | undefined;
 }
 
-export function createSuccessResponse<T>(command: string, data: T, metadata?: Record<string, unknown>): CLIResponse<T> {
-  const response: CLIResponse<T> = {
+export function createSuccessResponse<T>(command: string, data: T, metadata?: Record<string, unknown>): CliResponse<T> {
+  const response: CliResponse<T> = {
     success: true,
     command,
     timestamp: new Date().toISOString(),
@@ -73,7 +73,7 @@ export function createErrorResponse(
   error: Error,
   code: string,
   details?: unknown
-): CLIResponse<never> {
+): CliResponse<never> {
   const errorObj: { code: string; details?: unknown; message: string; stack?: string | undefined } = {
     code,
     message: error.message,

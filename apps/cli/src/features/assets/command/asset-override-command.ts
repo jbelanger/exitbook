@@ -2,8 +2,8 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { ZodType } from 'zod';
 
 import { runCliRuntimeCommand, toCliResult, type CliCompletion } from '../../../cli/command.js';
+import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 
 import type { AssetsCommandScope } from './assets-command-scope.js';
 import { withAssetsCommandScope } from './assets-command-scope.js';

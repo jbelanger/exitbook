@@ -4,7 +4,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { CLIResponse } from '../../features/shared/cli-response.js';
+import type { CliResponse } from '../../cli/response.js';
 
 /**
  * Paths for e2e testing
@@ -45,7 +45,7 @@ export async function canBindUnixSocket(): Promise<boolean> {
 /**
  * Execute a CLI command and parse JSON output
  */
-export function executeCLI(args: string[]): CLIResponse<unknown> {
+export function executeCLI(args: string[]): CliResponse<unknown> {
   const { repoRoot, testDataDir } = getTestPaths();
   const pnpmArgs = ['-s', 'run', 'dev', ...args, '--json'];
 
@@ -68,7 +68,7 @@ export function executeCLI(args: string[]): CLIResponse<unknown> {
       throw new Error('No output from CLI command');
     }
 
-    return JSON.parse(trimmed) as CLIResponse<unknown>;
+    return JSON.parse(trimmed) as CliResponse<unknown>;
   } catch (error) {
     if (error instanceof Error && 'stdout' in error) {
       const stdout = (error as { stdout: Buffer }).stdout?.toString() ?? '';
@@ -76,7 +76,7 @@ export function executeCLI(args: string[]): CLIResponse<unknown> {
 
       if (trimmed) {
         try {
-          return JSON.parse(trimmed) as CLIResponse<unknown>;
+          return JSON.parse(trimmed) as CliResponse<unknown>;
         } catch {
           // Not JSON, re-throw original error
         }

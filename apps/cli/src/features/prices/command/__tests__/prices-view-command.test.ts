@@ -42,11 +42,11 @@ vi.mock('../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
 }));
 
-vi.mock('../../../shared/cli-error.js', () => ({
+vi.mock('../../../../cli/error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 
-vi.mock('../../../shared/json-output.js', () => ({
+vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 

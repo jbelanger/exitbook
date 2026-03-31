@@ -26,7 +26,7 @@ vi.mock('@exitbook/blockchain-providers', () => ({
   listBlockchainProviders: mockListBlockchainProviders,
 }));
 
-vi.mock('../../../shared/cli-error.js', () => ({
+vi.mock('../../../../cli/error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 
@@ -38,7 +38,7 @@ vi.mock('../../../shared/data-dir.js', () => ({
   getDataDir: () => '/tmp/exitbook-blockchains',
 }));
 
-vi.mock('../../../shared/json-output.js', () => ({
+vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
