@@ -3,19 +3,18 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
@@ -55,53 +54,49 @@ Notes:
 async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<BalanceViewCommandOptions>({
     command: 'balance-view',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, BalanceViewCommandOptionsSchema);
-        return yield* await executeBalanceViewCommandResult(options, format, appRuntime);
+        return yield* parseCliCommandOptionsResult(rawOptions, BalanceViewCommandOptionsSchema);
       }),
+    action: async (context) => executeBalanceViewCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeBalanceViewCommandResult(
+  ctx: CommandRuntime,
   options: BalanceViewCommandOptions,
-  format: CliOutputFormat,
-  appRuntime: CliAppRuntime
+  format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'balance-view',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const completion = yield* toCliResult(
-          await withBalanceCommandScope(
-            ctx,
-            {
-              format,
-              needsWorkflow: true,
-              prepareStoredSnapshots: true,
-            },
-            async (scope) => {
-              const result = await runBalanceView(scope, { accountId: options.accountId });
-              if (result.isErr()) {
-                return err(result.error);
-              }
+  return resultDoAsync(async function* () {
+    const completion = yield* toCliResult(
+      await withBalanceCommandScope(
+        ctx,
+        {
+          format,
+          needsWorkflow: true,
+          prepareStoredSnapshots: true,
+        },
+        async (scope) => {
+          const result = await runBalanceView(scope, { accountId: options.accountId });
+          if (result.isErr()) {
+            return err(result.error);
+          }
 
-              if (format === 'json') {
-                return ok(buildBalanceViewJsonCompletion(options, result.value));
-              }
+          if (format === 'json') {
+            return ok(buildBalanceViewJsonCompletion(options, result.value));
+          }
 
-              return buildBalanceViewTuiCompletion(ctx, options, result.value);
-            }
-          ),
-          ExitCodes.GENERAL_ERROR
-        );
+          return buildBalanceViewTuiCompletion(ctx, options, result.value);
+        }
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
 
-        return completion;
-      }),
+    return completion;
   });
 }
 

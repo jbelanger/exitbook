@@ -2,9 +2,7 @@ import {
   isInteractiveTerminal,
   readTerminalInteractivitySnapshot,
   type TerminalInteractivitySnapshot,
-} from '../../../runtime/interactive-terminal.js';
-
-import type { PresentationMode } from './presentation-mode.js';
+} from '../runtime/interactive-terminal.js';
 
 export type StaticSurfaceKind = 'list' | 'detail';
 
@@ -18,7 +16,7 @@ export interface BrowseSurfaceSpec {
 export interface ResolvedBrowsePresentation {
   commandId: string;
   kind: BrowseSurfaceKind;
-  mode: Extract<PresentationMode, 'json' | 'static' | 'tui'>;
+  mode: BrowsePresentationMode;
   staticKind: StaticSurfaceKind;
 }
 
@@ -30,6 +28,8 @@ export interface ExplorerNavigability {
   hasNavigableItems: boolean;
   shouldCollapseEmptyExplorer: boolean;
 }
+
+type BrowsePresentationMode = 'json' | 'static' | 'tui';
 
 export function staticListSurfaceSpec(commandId: string): BrowseSurfaceSpec {
   return {
@@ -91,7 +91,7 @@ export function collapseEmptyExplorerToStatic(
 function resolveHumanBrowseMode(
   spec: BrowseSurfaceSpec,
   snapshot: TerminalInteractivitySnapshot
-): Extract<PresentationMode, 'static' | 'tui'> {
+): Extract<BrowsePresentationMode, 'static' | 'tui'> {
   if (spec.kind === 'static-list' || spec.kind === 'static-detail') {
     return 'static';
   }
@@ -104,9 +104,6 @@ function getStaticSurfaceKind(kind: BrowseSurfaceKind): StaticSurfaceKind {
 }
 
 function readRawBrowseOptions(rawOptions: unknown): RawBrowseOptions {
-  // Defensive on purpose: this helper sits at the CLI boundary and accepts raw
-  // option payloads from command handlers, even though current callers all come
-  // from Commander-parsed objects.
   if (typeof rawOptions !== 'object' || rawOptions === null) {
     return {};
   }

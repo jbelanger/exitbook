@@ -1,6 +1,6 @@
 import type { Profile } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
 import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -19,11 +19,11 @@ export async function withPricesEnrichCommandScope<T>(
   runtime: CommandRuntime,
   operation: (scope: PricesEnrichCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  try {
+  return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
-      return err(profileResult.error);
+      return yield* err(profileResult.error);
     }
 
     const accountingExclusionPolicyResult = await loadAccountingExclusionPolicy(
@@ -31,16 +31,15 @@ export async function withPricesEnrichCommandScope<T>(
       profileResult.value.profileKey
     );
     if (accountingExclusionPolicyResult.isErr()) {
-      return err(accountingExclusionPolicyResult.error);
+      return yield* err(accountingExclusionPolicyResult.error);
     }
 
-    return operation({
+    const value = yield* await operation({
       accountingExclusionPolicy: accountingExclusionPolicyResult.value,
       database,
       profile: profileResult.value,
       runtime,
     });
-  } catch (error) {
-    return wrapError(error, 'Failed to prepare prices enrich command scope');
-  }
+    return value;
+  }, 'Failed to prepare prices enrich command scope');
 }

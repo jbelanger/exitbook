@@ -1,7 +1,7 @@
 import type { Account, ImportSession } from '@exitbook/core';
 import { buildImportPorts } from '@exitbook/data/ingestion';
 import { EventBus, type EventBus as EventBusType } from '@exitbook/events';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import { err, ok, resultTryAsync, wrapError, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
 import { isUtxoAdapter } from '@exitbook/ingestion/adapters';
 import type { IngestionEvent } from '@exitbook/ingestion/events';
@@ -9,11 +9,11 @@ import { ImportWorkflow, type ImportParams } from '@exitbook/ingestion/import';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
+import type { ConfirmationPromptDecision } from '../../../cli/prompts.js';
 import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
-import type { ConfirmationPromptDecision } from '../../shared/prompts.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
@@ -153,10 +153,10 @@ export async function runImport(
   options: { format: CliOutputFormat },
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<ConfirmationPromptDecision>) | undefined }
 ): Promise<Result<ImportRunOutcome, Error>> {
-  try {
+  return resultTryAsync<ImportRunOutcome>(async function* () {
     const database = scope.database;
     const registry = scope.registry;
-    return withIngestionRuntime(
+    const result = yield* await withIngestionRuntime(
       scope.runtime,
       database,
       {
@@ -173,9 +173,8 @@ export async function runImport(
         return executeImportWithRuntime(runtime, params);
       }
     );
-  } catch (error) {
-    return wrapError(error, 'Failed to run import');
-  }
+    return result;
+  }, 'Failed to run import');
 }
 
 export async function runImportAll(

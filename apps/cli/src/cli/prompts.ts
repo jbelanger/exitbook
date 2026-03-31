@@ -1,15 +1,8 @@
 import confirm from '@inquirer/confirm';
 import { ExitPromptError } from '@inquirer/core';
 
-/**
- * Reusable prompt helpers for the CLI.
- */
-
 export type ConfirmationPromptDecision = 'cancelled' | 'confirmed' | 'declined';
 
-/**
- * Prompt for confirmation without exiting from the helper on Ctrl+C.
- */
 export async function promptConfirmDecision(message: string, initialValue = true): Promise<ConfirmationPromptDecision> {
   try {
     const confirmed = await confirm({
@@ -27,9 +20,6 @@ export async function promptConfirmDecision(message: string, initialValue = true
   }
 }
 
-/**
- * Format blockchain name for display.
- */
 export function formatBlockchainName(name: string): string {
   const names: Record<string, string> = {
     bitcoin: 'Bitcoin',
@@ -52,16 +42,12 @@ export function formatBlockchainName(name: string): string {
     names[name] ??
     name
       .split('-')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   );
 }
 
-/**
- * Get blockchain category hint.
- */
 export function getBlockchainHint(name: string): string {
-  // EVM chains
   const evmChains = [
     'arbitrum-one',
     'avalanche-c',
@@ -91,28 +77,22 @@ export function getBlockchainHint(name: string): string {
     return 'EVM';
   }
 
-  // Substrate chains
   if (['astar', 'bittensor', 'kusama', 'moonbeam', 'polkadot'].includes(name)) {
     if (name === 'polkadot') return 'Substrate • Layer 0';
     if (name === 'bittensor') return 'Substrate • AI';
     return 'Substrate';
   }
 
-  // Cosmos chains
   if (['cosmos', 'injective', 'osmosis'].includes(name)) {
     return 'Cosmos SDK';
   }
 
-  // Others
   if (name === 'bitcoin') return 'UTXO • Layer 1';
   if (name === 'solana') return 'High TPS';
 
   return '';
 }
 
-/**
- * Get address placeholder for blockchain.
- */
 export function getAddressPlaceholder(blockchain: string): string {
   if (blockchain === 'bitcoin') return 'bc1q...';
   if (blockchain === 'ethereum' || blockchain.includes('evm')) return '0x742d35Cc...';

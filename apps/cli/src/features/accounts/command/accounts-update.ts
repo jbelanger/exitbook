@@ -2,13 +2,17 @@ import type { Account } from '@exitbook/core';
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  toCliValue,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, toCliValue } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
 import { serializeAccountForCli } from './account-cli-serialization.js';
@@ -53,54 +57,47 @@ async function executeUpdateAccountCommand(
   rawOptions: unknown,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<AccountUpdateCommandOptions>({
     command: ACCOUNTS_UPDATE_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, AccountUpdateCommandOptionsSchema);
+        return yield* parseCliCommandOptionsResult(rawOptions, AccountUpdateCommandOptionsSchema);
+      }),
+    action: async (context) =>
+      resultDoAsync(async function* () {
+        const db = await context.runtime.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
+        const accountService = buildCliAccountLifecycleService(db);
+        const account = yield* toCliResult(await accountService.getByName(profile.id, name), ExitCodes.GENERAL_ERROR);
+        const existingAccount = yield* toCliValue(
+          account,
+          `Account '${name.trim().toLowerCase()}' not found`,
+          ExitCodes.NOT_FOUND
+        );
+        const draft = yield* toCliResult(
+          buildUpdateAccountInput(existingAccount, context.prepared, appRuntime.adapterRegistry),
+          ExitCodes.INVALID_ARGS
+        );
+        const updatedAccount = yield* toCliResult(
+          await accountService.update(profile.id, name, draft),
+          ExitCodes.GENERAL_ERROR
+        );
+        const payload = {
+          account: serializeAccountForCli(updatedAccount),
+          profile: profile.profileKey,
+        };
 
-        return yield* await runCliRuntimeAction({
-          command: ACCOUNTS_UPDATE_COMMAND_ID,
-          appRuntime,
-          action: async (ctx) =>
-            resultDoAsync(async function* () {
-              const db = await ctx.database();
-              const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
-              const accountService = buildCliAccountLifecycleService(db);
-              const account = yield* toCliResult(
-                await accountService.getByName(profile.id, name),
-                ExitCodes.GENERAL_ERROR
-              );
-              const existingAccount = yield* toCliValue(
-                account,
-                `Account '${name.trim().toLowerCase()}' not found`,
-                ExitCodes.NOT_FOUND
-              );
-              const draft = yield* toCliResult(
-                buildUpdateAccountInput(existingAccount, options, appRuntime.adapterRegistry),
-                ExitCodes.INVALID_ARGS
-              );
-              const updatedAccount = yield* toCliResult(
-                await accountService.update(profile.id, name, draft),
-                ExitCodes.GENERAL_ERROR
-              );
-              const payload = {
-                account: serializeAccountForCli(updatedAccount),
-                profile: profile.profileKey,
-              };
+        if (context.prepared.json) {
+          return jsonSuccess(payload);
+        }
 
-              if (options.json) {
-                return jsonSuccess(payload);
-              }
-
-              return textSuccess(() => {
-                console.log(`Updated account ${updatedAccount.name}`);
-                for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, options)) {
-                  console.log(`  ${change}`);
-                }
-              });
-            }),
+        return textSuccess(() => {
+          console.log(`Updated account ${updatedAccount.name}`);
+          for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, context.prepared)) {
+            console.log(`  ${change}`);
+          }
         });
       }),
   });

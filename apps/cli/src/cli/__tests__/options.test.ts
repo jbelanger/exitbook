@@ -6,8 +6,8 @@ import {
   parseCliBrowseRootInvocationResult,
   parseCliBrowseOptionsResult,
   parseCliCommandOptionsResult,
-} from '../command-options.js';
-import { explorerListSurfaceSpec } from '../presentation/browse-surface.js';
+} from '../options.js';
+import { explorerListSurfaceSpec } from '../presentation.js';
 
 describe('command option result helpers', () => {
   it('parses a selector and browse options from root command tokens', () => {

@@ -1,13 +1,13 @@
 import type { Profile } from '@exitbook/core';
 import { buildBalancePorts } from '@exitbook/data/balances';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
 import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
 import { BalanceStoredSnapshotReader } from './balance-stored-snapshot-reader.js';
@@ -28,11 +28,11 @@ export async function withBalanceCommandScope<T>(
   },
   operation: (scope: BalanceCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  try {
+  return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
-      return err(profileResult.error);
+      return yield* err(profileResult.error);
     }
 
     if (options.prepareStoredSnapshots) {
@@ -41,7 +41,7 @@ export async function withBalanceCommandScope<T>(
         profileId: profileResult.value.id,
       });
       if (readyResult.isErr()) {
-        return err(readyResult.error);
+        return yield* err(readyResult.error);
       }
     }
 
@@ -55,7 +55,7 @@ export async function withBalanceCommandScope<T>(
     });
 
     if (!options.needsWorkflow) {
-      return operation({
+      const value = yield* await operation({
         profile: profileResult.value,
         snapshotReader,
         verificationRunner: new BalanceVerificationRunner({
@@ -64,6 +64,7 @@ export async function withBalanceCommandScope<T>(
           balanceOperation: undefined,
         }),
       });
+      return value;
     }
 
     const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
@@ -79,7 +80,7 @@ export async function withBalanceCommandScope<T>(
       await cleanupBlockchainProviderRuntime();
     });
 
-    return operation({
+    const value = yield* await operation({
       profile: profileResult.value,
       snapshotReader: new BalanceStoredSnapshotReader({
         accountService,
@@ -89,7 +90,6 @@ export async function withBalanceCommandScope<T>(
       }),
       verificationRunner,
     });
-  } catch (error) {
-    return wrapError(error, 'Failed to prepare balance command scope');
-  }
+    return value;
+  }, 'Failed to prepare balance command scope');
 }

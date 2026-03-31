@@ -49,7 +49,7 @@ Important lesson from the first phase-0.5 experiment:
 - it mostly replaced `action` / `run` / `prepare + run` with a different syntax
 - that is not enough value for the churn, so phase 0.5 should not chase a one-helper abstraction
 
-Current files driving the refactor:
+Refactor starting point:
 
 - `apps/cli/src/features/shared/cli-boundary.ts`
 - `apps/cli/src/features/shared/cli-contract.ts`
@@ -124,7 +124,7 @@ await runCliRuntimeCommand({
   command,
   format,
   appRuntime,
-  prepare?: async () => Result<TPrepared, CliFailure>,
+  prepare?: async () => Result<TPrepared | CliRuntimeCompletionStep, CliFailure>,
   action: async ({ runtime, prepared }) => Promise<CliCommandResult>,
 });
 ```
@@ -149,14 +149,14 @@ The point is to make the wrong path harder than the right path.
 
 ## Workstreams
 
-| Workstream                  | Start State                                           | Target End State                                                               | Status      |
-| --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ----------- |
-| Boundary API simplification | three exported helpers in `cli-boundary.ts`           | two public helpers; private runtime helper no longer imported by command files | In Progress |
-| Module relocation           | CLI boundary files live in `features/shared`          | CLI adapter infrastructure moved under `apps/cli/src/cli/`                     | In Progress |
-| File simplification         | contract/output/error/format spread across many files | fewer, clearer files with sharper ownership                                    | In Progress |
-| Lint guardrails             | docs only                                             | hard lint rules prevent bypass in command files                                | Pending     |
-| Documentation alignment     | wiring doc still describes the three-helper model     | wiring doc updated to the phase 0.5 end state                                  | Pending     |
-| Legacy file removal         | old `features/shared` boundary files still present    | obsolete files removed after migration completes                               | Pending     |
+| Workstream                  | Start State                                           | Target End State                                                               | Status |
+| --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ------ |
+| Boundary API simplification | three exported helpers in `cli-boundary.ts`           | two public helpers; private runtime helper no longer imported by command files | Done   |
+| Module relocation           | CLI boundary files live in `features/shared`          | CLI adapter infrastructure moved under `apps/cli/src/cli/`                     | Done   |
+| File simplification         | contract/output/error/format spread across many files | fewer, clearer files with sharper ownership                                    | Done   |
+| Lint guardrails             | docs only                                             | hard lint rules prevent bypass in command files                                | Done   |
+| Documentation alignment     | wiring doc still describes the three-helper model     | wiring doc updated to the phase 0.5 end state                                  | Done   |
+| Legacy file removal         | old `features/shared` boundary files still present    | obsolete files removed after migration completes                               | Done   |
 
 ## Command Progress
 
@@ -167,65 +167,66 @@ Status values:
 - `Done`
 - `Blocked`
 
-| Family       | Command                  | Kind                 | Phase 0.5 Status | Notes                                                 |
-| ------------ | ------------------------ | -------------------- | ---------------- | ----------------------------------------------------- |
-| accounts     | `accounts`               | browse root/detail   | Pending          | shared browse entrypoint                              |
-| accounts     | `accounts view`          | explorer             | Pending          | shared browse entrypoint                              |
-| accounts     | `accounts add`           | mutation             | Pending          | runtime-backed                                        |
-| accounts     | `accounts update`        | mutation             | Pending          | runtime-backed                                        |
-| accounts     | `accounts rename`        | mutation             | Pending          | runtime-backed                                        |
-| accounts     | `accounts remove`        | destructive mutation | Pending          | runtime-backed + prompt                               |
-| assets       | `assets view`            | review browse        | Pending          | runtime-backed TUI                                    |
-| assets       | `assets confirm`         | review mutation      | Pending          | shared override shell                                 |
-| assets       | `assets clear-review`    | review mutation      | Pending          | shared override shell                                 |
-| assets       | `assets exclude`         | review mutation      | Pending          | shared override shell                                 |
-| assets       | `assets include`         | review mutation      | Pending          | shared override shell                                 |
-| assets       | `assets exclusions`      | review list          | Pending          | runtime-backed                                        |
-| balance      | `balance view`           | browse/read          | Pending          | runtime-backed TUI                                    |
-| balance      | `balance refresh`        | workflow             | Pending          | runtime-backed stream/TUI                             |
-| blockchains  | `blockchains view`       | browse catalog       | Done             | migrated to `apps/cli/src/cli/` public boundary       |
-| clear        | `clear`                  | destructive workflow | Pending          | prompt + TUI/text split                               |
-| cost-basis   | `cost-basis`             | analysis workflow    | Pending          | prompt-first / runtime-backed                         |
-| cost-basis   | `cost-basis export`      | export workflow      | Pending          | preflight + runtime                                   |
-| import       | `import`                 | workflow             | Pending          | preflight + runtime                                   |
-| links        | `links run`              | workflow             | Pending          | prompt + runtime                                      |
-| links        | `links view`             | browse/review        | Pending          | runtime-backed TUI                                    |
-| links        | `links gaps`             | browse/review        | Pending          | shared view entrypoint                                |
-| links        | `links confirm`          | review mutation      | Pending          | runtime-backed                                        |
-| links        | `links reject`           | review mutation      | Pending          | runtime-backed                                        |
-| portfolio    | `portfolio`              | analysis workflow    | Pending          | runtime-backed TUI                                    |
-| prices       | `prices view`            | browse/explorer      | Pending          | runtime-backed TUI + callbacks                        |
-| prices       | `prices enrich`          | workflow             | Done             | migrated to public runtime helper with preflight      |
-| prices       | `prices set`             | mutation             | Done             | migrated to public runtime helper with preflight      |
-| prices       | `prices set-fx`          | mutation             | Done             | migrated to public runtime helper with preflight      |
-| profiles     | `profiles list`          | admin list           | Done             | migrated to `apps/cli/src/cli/` public runtime helper |
-| profiles     | `profiles add`           | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper |
-| profiles     | `profiles rename`        | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper |
-| profiles     | `profiles switch`        | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper |
-| profiles     | `profiles current`       | admin detail         | Done             | migrated to `apps/cli/src/cli/` public runtime helper |
-| providers    | `providers view`         | browse catalog       | Done             | migrated to `apps/cli/src/cli/` public boundary       |
-| providers    | `providers benchmark`    | workflow             | Done             | migrated to public runtime helper with preflight      |
-| reprocess    | `reprocess`              | workflow             | Done             | migrated to public runtime helper with preflight      |
-| transactions | `transactions view`      | browse/explorer      | Pending          | runtime-backed TUI                                    |
-| transactions | `transactions edit note` | mutation             | Done             | migrated to public runtime helper with preflight      |
-| transactions | `transactions export`    | export               | Pending          | preflight + runtime                                   |
+| Family       | Command                  | Kind                 | Phase 0.5 Status | Notes                                                                                              |
+| ------------ | ------------------------ | -------------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
+| accounts     | `accounts`               | browse root/detail   | Done             | migrated to public runtime helper with browse prepare                                              |
+| accounts     | `accounts view`          | explorer             | Done             | migrated to public runtime helper with browse prepare                                              |
+| accounts     | `accounts add`           | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| accounts     | `accounts update`        | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| accounts     | `accounts rename`        | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| accounts     | `accounts remove`        | destructive mutation | Done             | migrated to public runtime helper with prompt flow                                                 |
+| assets       | `assets view`            | review browse        | Done             | migrated to public runtime helper with runtime-backed TUI                                          |
+| assets       | `assets confirm`         | review mutation      | Done             | migrated through local override helper on public runtime helper                                    |
+| assets       | `assets clear-review`    | review mutation      | Done             | migrated through local override helper on public runtime helper                                    |
+| assets       | `assets exclude`         | review mutation      | Done             | migrated through local override helper on public runtime helper                                    |
+| assets       | `assets include`         | review mutation      | Done             | migrated through local override helper on public runtime helper                                    |
+| assets       | `assets exclusions`      | review list          | Done             | migrated to public runtime helper with preflight                                                   |
+| balance      | `balance view`           | browse/read          | Done             | migrated to public runtime helper with preflight                                                   |
+| balance      | `balance refresh`        | workflow             | Done             | migrated to public runtime helper with preflight                                                   |
+| blockchains  | `blockchains view`       | browse catalog       | Done             | migrated to `apps/cli/src/cli/` public boundary                                                    |
+| clear        | `clear`                  | destructive workflow | Done             | entrypoint migrated to public runtime helper; text and TUI flows now stay runtime-backed internals |
+| cost-basis   | `cost-basis`             | analysis workflow    | Done             | prompt-first cancellation now short-circuits through `prepare` on the public runtime helper        |
+| cost-basis   | `cost-basis export`      | export workflow      | Done             | migrated to public runtime helper with preflight                                                   |
+| import       | `import`                 | workflow             | Done             | migrated to public runtime helper with preflight                                                   |
+| links        | `links run`              | workflow             | Done             | prompt-first cancellation now short-circuits through `prepare` on the public runtime helper        |
+| links        | `links view`             | browse/review        | Done             | migrated to public runtime helper with preflight                                                   |
+| links        | `links gaps`             | browse/review        | Done             | migrated to public runtime helper with preflight                                                   |
+| links        | `links confirm`          | review mutation      | Done             | migrated to public runtime helper with preflight                                                   |
+| links        | `links reject`           | review mutation      | Done             | migrated to public runtime helper with preflight                                                   |
+| portfolio    | `portfolio`              | analysis workflow    | Done             | migrated to public runtime helper with preflight                                                   |
+| prices       | `prices view`            | browse/explorer      | Done             | migrated to public runtime helper with preflight                                                   |
+| prices       | `prices enrich`          | workflow             | Done             | migrated to public runtime helper with preflight                                                   |
+| prices       | `prices set`             | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| prices       | `prices set-fx`          | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| profiles     | `profiles list`          | admin list           | Done             | migrated to `apps/cli/src/cli/` public runtime helper                                              |
+| profiles     | `profiles add`           | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper                                              |
+| profiles     | `profiles rename`        | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper                                              |
+| profiles     | `profiles switch`        | admin mutation       | Done             | migrated to `apps/cli/src/cli/` public runtime helper                                              |
+| profiles     | `profiles current`       | admin detail         | Done             | migrated to `apps/cli/src/cli/` public runtime helper                                              |
+| providers    | `providers view`         | browse catalog       | Done             | migrated to `apps/cli/src/cli/` public boundary                                                    |
+| providers    | `providers benchmark`    | workflow             | Done             | migrated to public runtime helper with preflight                                                   |
+| reprocess    | `reprocess`              | workflow             | Done             | migrated to public runtime helper with preflight                                                   |
+| transactions | `transactions view`      | browse/explorer      | Done             | migrated to public runtime helper with preflight                                                   |
+| transactions | `transactions edit note` | mutation             | Done             | migrated to public runtime helper with preflight                                                   |
+| transactions | `transactions export`    | export               | Done             | migrated to public runtime helper with preflight                                                   |
 
 ## Issue Log
 
 Track every meaningful smell or investigation discovered during phase 0.5.
 
-| ID       | Scope               | Marker                 | Description                                                                                                                                                                                                                       | Status |
-| -------- | ------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P0.5-001 | boundary API        | TODO                   | Public boundary surface is too wide. Keep only the two helpers that carry real intent and make the runtime-only helper private.                                                                                                   | Open   |
-| P0.5-002 | module ownership    | TODO                   | CLI adapter infrastructure lives under `features/shared` even though it is not feature-shared behavior.                                                                                                                           | Open   |
-| P0.5-003 | enforcement         | TODO                   | No lint rule currently stops command files from bypassing the boundary contract.                                                                                                                                                  | Open   |
-| P0.5-004 | documentation       | TODO                   | `docs/code-assistants/cli-command-wiring.md` still documents the three-helper model.                                                                                                                                              | Open   |
-| P0.5-005 | file layout         | REQUIRES_INVESTIGATION | Decide whether browse surface helpers should move into `apps/cli/src/cli/presentation.ts` or stay in a separate presentation module.                                                                                              | Open   |
-| P0.5-006 | output modeling     | REQUIRES_INVESTIGATION | Decide whether `cli-response.ts` survives as a separate file or is folded into a smaller command/output module.                                                                                                                   | Open   |
-| P0.5-007 | scope discipline    | TODO                   | Avoid moving true feature helpers out of place while cleaning up CLI adapter infrastructure.                                                                                                                                      | Open   |
-| P0.5-008 | boundary experiment | REQUIRES_INVESTIGATION | A one-helper `runCliCommand(...)` experiment did not materially simplify the model. Do not resume that direction unless a later design proves clear value.                                                                        | Closed |
-| P0.5-009 | overload ergonomics | REQUIRES_INVESTIGATION | Prepared-runtime calls can require an explicit generic parameter for stable overload resolution. If this keeps spreading, adjust the public helper shape instead of normalizing extra ceremony in command files.                  | Open   |
-| P0.5-010 | bridge module       | TODO                   | `apps/cli/src/cli/command.ts` and `apps/cli/src/cli/options.ts` still delegate into `features/shared`. Finish the command migration, then inline or move the real implementation instead of keeping a permanent forwarding layer. | Open   |
+| ID       | Scope               | Marker                 | Description                                                                                                                                                                                                                                                                   | Status |
+| -------- | ------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| P0.5-001 | boundary API        | TODO                   | Public boundary surface is now two helpers in `apps/cli/src/cli/command.ts`, with `runCliRuntimeAction(...)` kept private to the module.                                                                                                                                      | Closed |
+| P0.5-002 | module ownership    | TODO                   | CLI adapter infrastructure moved out of `features/shared` and now lives under `apps/cli/src/cli/`.                                                                                                                                                                            | Closed |
+| P0.5-003 | enforcement         | TODO                   | ESLint now blocks command files from importing shared CLI boundary/helpers, calling `runCommand(...)`, or calling `process.exit(...)` directly.                                                                                                                               | Closed |
+| P0.5-004 | documentation       | TODO                   | `docs/code-assistants/cli-command-wiring.md` now documents the phase 0.5 two-helper model and the prompt-first `prepare` short-circuit path.                                                                                                                                  | Closed |
+| P0.5-005 | file layout         | REQUIRES_INVESTIGATION | Browse surface helpers moved into `apps/cli/src/cli/presentation.ts`. Keep the follow-up question open only for whether adjacent presentation-specific helpers should join that module or stay feature-local.                                                                 | Closed |
+| P0.5-006 | output modeling     | REQUIRES_INVESTIGATION | Decide whether `cli-response.ts` survives as a separate file or is folded into a smaller command/output module.                                                                                                                                                               | Open   |
+| P0.5-007 | scope discipline    | TODO                   | Feature-local helpers stayed feature-local during the boundary move; only CLI adapter infrastructure moved into `apps/cli/src/cli/`.                                                                                                                                          | Closed |
+| P0.5-008 | boundary experiment | REQUIRES_INVESTIGATION | A one-helper `runCliCommand(...)` experiment did not materially simplify the model. Do not resume that direction unless a later design proves clear value.                                                                                                                    | Closed |
+| P0.5-009 | overload ergonomics | REQUIRES_INVESTIGATION | Prepared-runtime calls can require an explicit generic parameter for stable overload resolution. `assets exclusions` needed that extra annotation; if more commands hit the same edge, adjust the public helper shape instead of normalizing extra ceremony in command files. | Open   |
+| P0.5-010 | bridge module       | TODO                   | `apps/cli/src/cli/command.ts`, `apps/cli/src/cli/options.ts`, `apps/cli/src/cli/prompts.ts`, and `apps/cli/src/cli/presentation.ts` now own real implementation, and the obsolete `features/shared` boundary files have been removed.                                         | Closed |
+| P0.5-011 | prompt-first flows  | REQUIRES_INVESTIGATION | Prompt-first flows now short-circuit cleanly through `completeCliRuntime(...)` from `prepare`, so command files no longer import the private runtime helper directly.                                                                                                         | Closed |
 
 ## Suggested Execution Order
 

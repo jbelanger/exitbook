@@ -3,20 +3,19 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
-import { EventRelay } from '../../../ui/shared/event-relay.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
+import { EventRelay } from '../../../ui/shared/event-relay.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
   type AccountVerificationItem,
@@ -75,37 +74,32 @@ Notes:
 async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<BalanceRefreshCommandOptions>({
     command: 'balance-refresh',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, BalanceRefreshCommandOptionsSchema);
-        return yield* await executeBalanceRefreshCommandResult(options, format, appRuntime);
+        return yield* parseCliCommandOptionsResult(rawOptions, BalanceRefreshCommandOptionsSchema);
       }),
+    action: async (context) => executeBalanceRefreshCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeBalanceRefreshCommandResult(
+  ctx: CommandRuntime,
   options: BalanceRefreshCommandOptions,
-  format: 'json' | 'text',
-  appRuntime: CliAppRuntime
+  format: 'json' | 'text'
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'balance-refresh',
-    appRuntime,
-    action: async (ctx) => {
-      if (format === 'json') {
-        return options.accountId === undefined
-          ? executeBalanceRefreshAllJsonCommand(ctx)
-          : executeBalanceRefreshSingleJsonCommand(ctx, options);
-      }
+  if (format === 'json') {
+    return options.accountId === undefined
+      ? executeBalanceRefreshAllJsonCommand(ctx)
+      : executeBalanceRefreshSingleJsonCommand(ctx, options);
+  }
 
-      return options.accountId === undefined
-        ? executeBalanceRefreshAllTuiCommand(ctx)
-        : executeBalanceRefreshSingleTuiCommand(ctx, options);
-    },
-  });
+  return options.accountId === undefined
+    ? executeBalanceRefreshAllTuiCommand(ctx)
+    : executeBalanceRefreshSingleTuiCommand(ctx, options);
 }
 
 async function executeBalanceRefreshSingleJsonCommand(

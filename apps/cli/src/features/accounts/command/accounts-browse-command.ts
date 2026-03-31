@@ -2,21 +2,24 @@ import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
-  cliErr,
+  createCliFailure,
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   textSuccess,
   toCliValue,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliBrowseOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
-import { collapseEmptyExplorerToStatic, type BrowseSurfaceSpec } from '../../shared/presentation/browse-surface.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../cli/options.js';
+import {
+  collapseEmptyExplorerToStatic,
+  type BrowseSurfaceSpec,
+  type ResolvedBrowsePresentation,
+} from '../../../cli/presentation.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { outputAccountStaticDetail, outputAccountsStaticList } from '../view/accounts-static-renderer.js';
 import { AccountsViewApp } from '../view/accounts-view-components.jsx';
 
@@ -33,6 +36,11 @@ interface ExecuteAccountsBrowseCommandInput {
   commandId: string;
   rawOptions: unknown;
   surfaceSpec: BrowseSurfaceSpec;
+}
+
+export interface PreparedAccountsBrowseCommand {
+  params: AccountsBrowseParams;
+  presentation: ResolvedBrowsePresentation;
 }
 
 interface AccountsBrowseOptionDefinition {
@@ -86,56 +94,59 @@ export function buildAccountsBrowseOptionsHelpText(): string {
   }).join('\n');
 }
 
-export async function executeAccountsBrowseCommand({
+export function prepareAccountsBrowseCommand({
   accountName,
-  commandId,
   rawOptions,
   surfaceSpec,
-}: ExecuteAccountsBrowseCommandInput): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const { presentation, options } = yield* parseCliBrowseOptionsResult(
-      rawOptions,
-      AccountsBrowseCommandOptionsSchema,
-      surfaceSpec
-    );
+}: ExecuteAccountsBrowseCommandInput): Result<PreparedAccountsBrowseCommand, CliFailure> {
+  const parsedOptionsResult = parseCliBrowseOptionsResult(rawOptions, AccountsBrowseCommandOptionsSchema, surfaceSpec);
+  if (parsedOptionsResult.isErr()) {
+    return err(parsedOptionsResult.error);
+  }
 
-    if (accountName && (options.accountId !== undefined || options.platform || options.type)) {
-      return yield* cliErr(
-        'Account name lookup cannot be combined with --account-id, --platform, or --type',
+  const { presentation, options } = parsedOptionsResult.value;
+  if (accountName && (options.accountId !== undefined || options.platform || options.type)) {
+    return err(
+      createCliFailure(
+        new Error('Account name lookup cannot be combined with --account-id, --platform, or --type'),
         ExitCodes.INVALID_ARGS
-      );
-    }
+      )
+    );
+  }
 
-    const params: AccountsBrowseParams = {
+  return ok({
+    params: {
       accountName,
       accountId: options.accountId,
       platformKey: options.platform,
       accountType: options.type,
       showSessions: options.showSessions,
       preselectInExplorer: accountName && presentation.mode === 'tui' ? true : undefined,
-    };
+    },
+    presentation,
+  });
+}
 
-    return yield* await runCliRuntimeAction({
-      command: commandId,
-      action: async (ctx) =>
-        resultDoAsync(async function* () {
-          const browsePresentation = yield* await buildAccountsBrowsePresentation(ctx, params);
-          const finalPresentation = collapseEmptyExplorerToStatic(presentation, {
-            hasNavigableItems: hasNavigableAccounts(browsePresentation.initialState),
-            shouldCollapseEmptyExplorer: shouldCollapseAccountsExplorerWhenEmpty(params),
-          });
-
-          if (finalPresentation.mode === 'tui') {
-            await ctx.closeDatabase();
-          }
-
-          return yield* buildAccountsBrowseCompletion(
-            browsePresentation,
-            finalPresentation.staticKind,
-            finalPresentation.mode
-          );
-        }),
+export async function executePreparedAccountsBrowseCommand(
+  ctx: CommandRuntime,
+  prepared: PreparedAccountsBrowseCommand
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const browsePresentation = yield* await buildAccountsBrowsePresentation(ctx, prepared.params);
+    const finalPresentation = collapseEmptyExplorerToStatic(prepared.presentation, {
+      hasNavigableItems: hasNavigableAccounts(browsePresentation.initialState),
+      shouldCollapseEmptyExplorer: shouldCollapseAccountsExplorerWhenEmpty(prepared.params),
     });
+
+    if (finalPresentation.mode === 'tui') {
+      await ctx.closeDatabase();
+    }
+
+    return yield* buildAccountsBrowseCompletion(
+      browsePresentation,
+      finalPresentation.staticKind,
+      finalPresentation.mode
+    );
   });
 }
 
@@ -213,14 +224,11 @@ function shouldCollapseAccountsExplorerWhenEmpty(params: AccountsBrowseParams): 
   );
 }
 
-export function runAccountsBrowseCommandBoundary(
-  command: string,
-  rawOptions: unknown,
-  action: () => Promise<CliCommandResult>
-): Promise<void> {
-  return runCliCommandBoundary({
-    command,
-    format: detectCliOutputFormat(rawOptions),
-    action,
+export async function runAccountsBrowseCommand(input: ExecuteAccountsBrowseCommandInput): Promise<void> {
+  await runCliRuntimeCommand<PreparedAccountsBrowseCommand>({
+    command: input.commandId,
+    format: detectCliOutputFormat(input.rawOptions),
+    prepare: async () => prepareAccountsBrowseCommand(input),
+    action: async (context) => executePreparedAccountsBrowseCommand(context.runtime, context.prepared),
   });
 }

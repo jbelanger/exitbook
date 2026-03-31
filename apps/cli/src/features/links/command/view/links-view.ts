@@ -4,21 +4,20 @@ import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
-import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   createCliFailure,
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
-} from '../../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../../shared/command-options.js';
-import { ExitCodes } from '../../../shared/exit-codes.js';
+} from '../../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
+import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { buildDefinedFilters, buildViewMeta, type ViewCommandResult } from '../../../shared/view-utils.js';
 import type { LinkGapIssue } from '../../links-gap-model.js';
 import type { LinkWithTransactions } from '../../links-view-model.js';
@@ -128,88 +127,80 @@ Examples:
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<LinksViewParams>({
     command: 'links-view',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, LinksViewCommandOptionsSchema);
-        return yield* await executeLinksViewCommandResult(
-          {
-            status: options.status,
-            minConfidence: options.minConfidence,
-            maxConfidence: options.maxConfidence,
-            verbose: options.verbose,
-          },
-          format
-        );
+        return {
+          status: options.status,
+          minConfidence: options.minConfidence,
+          maxConfidence: options.maxConfidence,
+          verbose: options.verbose,
+        };
       }),
+    action: async (context) => executeLinksViewCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<void>({
     command: 'links-gaps',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
         yield* parseCliCommandOptionsResult(rawOptions, LinksGapsCommandOptionsSchema);
-        return yield* await executeLinksGapsCommandResult(format);
+        return;
       }),
+    action: async (context) => executeLinksGapsCommandResult(context.runtime, format),
   });
 }
 
 async function executeLinksViewCommandResult(
+  ctx: CommandRuntime,
   params: LinksViewParams,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'links-view',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const linksResult = yield* toCliResult(
-          await database.transactionLinks.findAll({
-            profileId: profile.id,
-            status: params.status,
-          }),
-          ExitCodes.GENERAL_ERROR
-        );
-
-        const filteredLinks =
-          params.minConfidence !== undefined || params.maxConfidence !== undefined
-            ? filterLinksByConfidence(linksResult, params.minConfidence, params.maxConfidence)
-            : linksResult;
-
-        const linksWithTransactions = await fetchTransactionsForLinks(filteredLinks, database.transactions, profile.id);
-
-        if (format === 'json') {
-          return buildLinksViewJsonCompletion(linksWithTransactions, params);
-        }
-
-        return yield* await buildLinksViewTuiCompletion(ctx, database, profile, linksWithTransactions, params);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const linksResult = yield* toCliResult(
+      await database.transactionLinks.findAll({
+        profileId: profile.id,
+        status: params.status,
       }),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    const filteredLinks =
+      params.minConfidence !== undefined || params.maxConfidence !== undefined
+        ? filterLinksByConfidence(linksResult, params.minConfidence, params.maxConfidence)
+        : linksResult;
+
+    const linksWithTransactions = await fetchTransactionsForLinks(filteredLinks, database.transactions, profile.id);
+
+    if (format === 'json') {
+      return buildLinksViewJsonCompletion(linksWithTransactions, params);
+    }
+
+    return yield* await buildLinksViewTuiCompletion(ctx, database, profile, linksWithTransactions, params);
   });
 }
 
-async function executeLinksGapsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'links-gaps',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const analysis = yield* toCliResult(await loadLinksGapAnalysis(database, profile.id), ExitCodes.GENERAL_ERROR);
+async function executeLinksGapsCommandResult(ctx: CommandRuntime, format: CliOutputFormat): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const analysis = yield* toCliResult(await loadLinksGapAnalysis(database, profile.id), ExitCodes.GENERAL_ERROR);
 
-        if (format === 'json') {
-          return buildLinksGapsJsonCompletion(analysis);
-        }
+    if (format === 'json') {
+      return buildLinksGapsJsonCompletion(analysis);
+    }
 
-        return yield* await buildLinksGapsTuiCompletion(ctx, analysis);
-      }),
+    return yield* await buildLinksGapsTuiCompletion(ctx, analysis);
   });
 }
 

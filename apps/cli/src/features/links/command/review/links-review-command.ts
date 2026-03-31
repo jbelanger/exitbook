@@ -3,19 +3,18 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   createCliFailure,
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   textSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
-} from '../../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../../shared/command-options.js';
-import { ExitCodes } from '../../../shared/exit-codes.js';
+} from '../../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
 import { createSpinner, stopSpinner } from '../../../shared/spinner.js';
 import { LinkActionError, LinkActionResult } from '../../view/index.js';
 import { LinksReviewCommandOptionsSchema } from '../links-option-schemas.js';
@@ -102,52 +101,49 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
   rawOptions: unknown
 ): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
-
-  await runCliCommandBoundary({
-    command: definition.commandId,
-    format,
-    action: async () =>
-      resultDoAsync(async function* () {
-        const linkId = yield* parseLinksReviewLinkIdResult(linkIdArg);
-        yield* parseCliCommandOptionsResult(rawOptions, LinksReviewCommandOptionsSchema);
-        return yield* await executeLinksReviewCommandResult(definition, format, linkId);
-      }),
-  });
-}
-
-async function executeLinksReviewCommandResult<TAction extends LinksReviewAction>(
-  definition: LinksReviewCommandDefinition<TAction>,
-  format: CliOutputFormat,
-  linkId: number
-): Promise<CliCommandResult> {
   const spinner = createSpinner(definition.spinnerText, format === 'json');
 
   try {
-    return runCliRuntimeAction({
+    await runCliRuntimeCommand<number>({
       command: definition.commandId,
-      action: async (ctx) =>
+      format,
+      prepare: async () =>
         resultDoAsync(async function* () {
-          const completion = yield* toCliResult(
-            await withLinksReviewCommandScope(ctx, async (scope) => {
-              const result = await runLinksReview(scope, { linkId }, definition.action);
-              if (result.isErr()) {
-                if (format !== 'json') {
-                  renderLinksReviewError(linkId, result.error.message);
-                }
-                return err(result.error);
-              }
-
-              return ok(buildLinksReviewCompletion(definition, format, result.value));
-            }),
-            ExitCodes.GENERAL_ERROR
-          );
-
-          return completion;
+          const linkId = yield* parseLinksReviewLinkIdResult(linkIdArg);
+          yield* parseCliCommandOptionsResult(rawOptions, LinksReviewCommandOptionsSchema);
+          return linkId;
         }),
+      action: async (context) => executeLinksReviewCommandResult(context.runtime, definition, format, context.prepared),
     });
   } finally {
     stopSpinner(spinner);
   }
+}
+
+async function executeLinksReviewCommandResult<TAction extends LinksReviewAction>(
+  ctx: Parameters<typeof withLinksReviewCommandScope>[0],
+  definition: LinksReviewCommandDefinition<TAction>,
+  format: CliOutputFormat,
+  linkId: number
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const completion = yield* toCliResult(
+      await withLinksReviewCommandScope(ctx, async (scope) => {
+        const result = await runLinksReview(scope, { linkId }, definition.action);
+        if (result.isErr()) {
+          if (format !== 'json') {
+            renderLinksReviewError(linkId, result.error.message);
+          }
+          return err(result.error);
+        }
+
+        return ok(buildLinksReviewCompletion(definition, format, result.value));
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    return completion;
+  });
 }
 
 function parseLinksReviewLinkIdResult(linkIdArg: string): Result<number, CliFailure> {

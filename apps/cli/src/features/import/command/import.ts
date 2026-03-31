@@ -3,13 +3,19 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import {
+  cliErr,
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  silentSuccess,
+  textSuccess,
+  type CliCommandResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { promptConfirmDecision } from '../../../cli/prompts.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { cliErr, jsonSuccess, silentSuccess, textSuccess, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
-import { promptConfirmDecision } from '../../shared/prompts.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { withImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
@@ -117,59 +123,55 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
   const command = 'import';
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<ImportCommandOptions>({
     command,
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, ImportCommandOptionsSchema);
-        return yield* await executeImportCommandResult(options, format, appRuntime);
+        return yield* parseCliCommandOptionsResult(rawOptions, ImportCommandOptionsSchema);
       }),
+    action: async (context) => executeImportCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeImportCommandResult(
+  ctx: CommandRuntime,
   options: ImportCommandOptions,
-  format: CliOutputFormat,
-  appRuntime: CliAppRuntime
+  format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'import',
-    appRuntime,
-    action: async (ctx) =>
+  return resultDoAsync(async function* () {
+    const executionResult = await withImportCommandScope(ctx, async (scope) =>
       resultDoAsync(async function* () {
-        const executionResult = await withImportCommandScope(ctx, async (scope) =>
-          resultDoAsync(async function* () {
-            if (options.all) {
-              const result = yield* await runImportAll(scope, { format });
-              return {
-                kind: 'batch' as const,
-                result,
-              };
-            }
-
-            const account = yield* await resolveImportAccount(scope, options);
-            const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
-            if (outcome.kind === 'cancelled') {
-              return {
-                kind: 'single-cancelled' as const,
-              };
-            }
-
-            return {
-              kind: 'single-completed' as const,
-              account,
-              result: outcome.result,
-            };
-          })
-        );
-
-        if (executionResult.isErr()) {
-          return yield* cliErr(executionResult.error, ExitCodes.GENERAL_ERROR);
+        if (options.all) {
+          const result = yield* await runImportAll(scope, { format });
+          return {
+            kind: 'batch' as const,
+            result,
+          };
         }
 
-        return buildImportCompletion(executionResult.value, format);
-      }),
+        const account = yield* await resolveImportAccount(scope, options);
+        const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+        if (outcome.kind === 'cancelled') {
+          return {
+            kind: 'single-cancelled' as const,
+          };
+        }
+
+        return {
+          kind: 'single-completed' as const,
+          account,
+          result: outcome.result,
+        };
+      })
+    );
+
+    if (executionResult.isErr()) {
+      return yield* cliErr(executionResult.error, ExitCodes.GENERAL_ERROR);
+    }
+
+    return buildImportCompletion(executionResult.value, format);
   });
 }
 

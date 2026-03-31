@@ -60,7 +60,7 @@ vi.mock('../run-import.js', async () => {
   };
 });
 
-vi.mock('../../../shared/prompts.js', () => ({
+vi.mock('../../../../cli/prompts.js', () => ({
   promptConfirmDecision: mockPromptConfirmDecision,
 }));
 

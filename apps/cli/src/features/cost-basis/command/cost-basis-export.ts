@@ -14,12 +14,18 @@ import {
 import { err, ok, resultDoAsync, sha256Hex, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
+import {
+  ExitCodes,
+  type CliCommandResult,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  type CliCompletion,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, type CliCompletion } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 
 import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
@@ -34,6 +40,13 @@ interface CostBasisExportCommandResult {
   outputPaths: string[];
   packageStatus: 'blocked' | 'ready';
   snapshotId?: string | undefined;
+}
+
+interface CostBasisExportPreparedInput {
+  outputDir: string;
+  params: ValidatedCostBasisConfig;
+  refresh?: boolean | undefined;
+  scope: ReturnType<typeof validateTaxPackageScope> extends Result<infer T, Error> ? T : never;
 }
 
 const V1_TAX_PACKAGE_OUTPUT_FILES = new Set([
@@ -78,10 +91,11 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
   const command = 'cost-basis-export';
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<CostBasisExportPreparedInput>({
     command,
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, CostBasisExportCommandOptionsSchema);
         const params = yield* toCliResult(buildCostBasisInputFromFlags(options), ExitCodes.VALIDATION_ERROR);
@@ -96,52 +110,61 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
         const outputDir = resolveCostBasisExportOutputDir(options.output, buildDefaultOutputDir(params));
         await mkdir(outputDir, { recursive: true });
 
-        return yield* await runCliRuntimeAction({
-          command,
-          appRuntime,
-          action: async (ctx) =>
-            resultDoAsync(async function* () {
-              const artifactResult = yield* toCliResult(
-                await withCostBasisCommandScope(ctx, { format, params }, (scope) =>
-                  runCostBasisArtifact(scope, params, { refresh: options.refresh })
-                ),
-                ExitCodes.GENERAL_ERROR
-              );
-
-              const buildContext = yield* toCliResult(
-                buildTaxPackageBuildContext({
-                  artifact: artifactResult.artifact,
-                  sourceContext: artifactResult.sourceContext,
-                  scopeKey: artifactResult.scopeKey,
-                  snapshotId: artifactResult.snapshotId,
-                }),
-                ExitCodes.GENERAL_ERROR
-              );
-
-              const readinessMetadata = deriveTaxPackageReadinessMetadata({
-                context: buildContext,
-                assetReviewSummaries: artifactResult.assetReviewSummaries,
-              });
-
-              const exportResult = yield* toCliResult(
-                await exportTaxPackage(
-                  {
-                    context: buildContext,
-                    readinessMetadata,
-                    scope,
-                  },
-                  {
-                    now: () => new Date(),
-                    writer: new TaxPackageDirectoryWriter(outputDir),
-                  }
-                ),
-                ExitCodes.GENERAL_ERROR
-              );
-
-              return buildCostBasisExportCompletion(format, outputDir, exportResult);
-            }),
-        });
+        return {
+          outputDir,
+          params,
+          refresh: options.refresh,
+          scope,
+        };
       }),
+    action: async (context) => executeCostBasisExportCommandResult(context.runtime, context.prepared, format),
+  });
+}
+
+async function executeCostBasisExportCommandResult(
+  ctx: CommandRuntime,
+  prepared: CostBasisExportPreparedInput,
+  format: CliOutputFormat
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const artifactResult = yield* toCliResult(
+      await withCostBasisCommandScope(ctx, { format, params: prepared.params }, (scope) =>
+        runCostBasisArtifact(scope, prepared.params, { refresh: prepared.refresh })
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    const buildContext = yield* toCliResult(
+      buildTaxPackageBuildContext({
+        artifact: artifactResult.artifact,
+        sourceContext: artifactResult.sourceContext,
+        scopeKey: artifactResult.scopeKey,
+        snapshotId: artifactResult.snapshotId,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    const readinessMetadata = deriveTaxPackageReadinessMetadata({
+      context: buildContext,
+      assetReviewSummaries: artifactResult.assetReviewSummaries,
+    });
+
+    const exportResult = yield* toCliResult(
+      await exportTaxPackage(
+        {
+          context: buildContext,
+          readinessMetadata,
+          scope: prepared.scope,
+        },
+        {
+          now: () => new Date(),
+          writer: new TaxPackageDirectoryWriter(prepared.outputDir),
+        }
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    return buildCostBasisExportCompletion(format, prepared.outputDir, exportResult);
   });
 }
 

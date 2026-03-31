@@ -21,7 +21,14 @@ vi.mock('../../features/shared/json-output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-import { createCliFailure, ExitCodes, jsonSuccess, runCliCommandBoundary, runCliRuntimeCommand } from '../command.js';
+import {
+  completeCliRuntime,
+  createCliFailure,
+  ExitCodes,
+  jsonSuccess,
+  runCliCommandBoundary,
+  runCliRuntimeCommand,
+} from '../command.js';
 
 const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
@@ -83,5 +90,23 @@ describe('runCliRuntimeCommand', () => {
 
     expect(action).not.toHaveBeenCalled();
     expect(mockRunCommand).not.toHaveBeenCalled();
+  });
+
+  it('can complete before opening runtime', async () => {
+    const action = vi.fn();
+
+    await runCliRuntimeCommand<never>({
+      command: 'links-run',
+      format: 'json',
+      prepare: async () => ok(completeCliRuntime(jsonSuccess({ cancelled: true }))),
+      action: async ({ runtime }) => {
+        action(runtime);
+        return ok(jsonSuccess({}));
+      },
+    });
+
+    expect(action).not.toHaveBeenCalled();
+    expect(mockRunCommand).not.toHaveBeenCalled();
+    expect(mockOutputSuccess).toHaveBeenCalledWith('links-run', { cancelled: true }, undefined);
   });
 });

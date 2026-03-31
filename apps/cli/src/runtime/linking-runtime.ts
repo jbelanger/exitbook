@@ -12,8 +12,8 @@ import { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import type { CliOutputFormat } from '../cli/options.js';
 import { LinksRunMonitor } from '../features/links/view/links-run-components.jsx';
-import type { CliOutputFormat } from '../features/shared/cli-output-format.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
 const logger = getLogger('cli-linking-runtime');

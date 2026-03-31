@@ -1,14 +1,14 @@
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import { err, ok, resultTryAsync, type Result } from '@exitbook/foundation';
 import type { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { getLogger } from '@exitbook/logger';
 import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observability';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { type CliEvent, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { resetProjections } from '../../../runtime/projection-reset.js';
 import type { EventDrivenController } from '../../../ui/shared/index.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 export interface ReprocessResultWithMetrics {
   processed: number;
@@ -99,9 +99,9 @@ export async function runReprocess(
   options: { format: CliOutputFormat },
   params: ReprocessParams
 ): Promise<Result<ReprocessResultWithMetrics, Error>> {
-  try {
+  return resultTryAsync<ReprocessResultWithMetrics>(async function* () {
     const database = await ctx.database();
-    return withIngestionRuntime(
+    const result = yield* await withIngestionRuntime(
       ctx,
       database,
       {
@@ -128,7 +128,6 @@ export async function runReprocess(
         return executeReprocessWithRuntime(runtime, params);
       }
     );
-  } catch (error) {
-    return wrapError(error, 'Failed to run reprocess');
-  }
+    return result;
+  }, 'Failed to run reprocess');
 }

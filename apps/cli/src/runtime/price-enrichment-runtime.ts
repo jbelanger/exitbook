@@ -13,8 +13,8 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import type { CliOutputFormat } from '../cli/options.js';
 import { PricesEnrichMonitor } from '../features/prices/view/prices-enrich-components.jsx';
-import type { CliOutputFormat } from '../features/shared/cli-output-format.js';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
 
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';

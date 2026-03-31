@@ -1,18 +1,17 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import { Command } from 'commander';
 
+import { cliErr, ExitCodes, runCliRuntimeCommand } from '../../../cli/command.js';
+import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
+import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { cliErr } from '../../shared/cli-contract.js';
-import { detectCliTokenOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliBrowseRootInvocationResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
-import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../shared/presentation/browse-surface.js';
 
 import { registerAccountsAddCommand } from './accounts-add.js';
 import {
   buildAccountsBrowseOptionsHelpText,
-  executeAccountsBrowseCommand,
+  executePreparedAccountsBrowseCommand,
+  prepareAccountsBrowseCommand,
+  type PreparedAccountsBrowseCommand,
   registerAccountsBrowseOptions,
 } from './accounts-browse-command.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
@@ -64,10 +63,10 @@ Notes:
     );
 
   accounts.action(async (tokens: string[] | undefined) => {
-    await runCliCommandBoundary({
+    await runCliRuntimeCommand<PreparedAccountsBrowseCommand>({
       command: ACCOUNTS_COMMAND_ID,
       format: detectCliTokenOutputFormat(tokens),
-      action: async () =>
+      prepare: async () =>
         resultDoAsync(async function* () {
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAccountsBrowseOptions);
           const accountName = parsedInvocation.selector?.trim();
@@ -76,7 +75,7 @@ Notes:
             return yield* cliErr(new Error('Use bare "accounts" instead of "accounts list".'), ExitCodes.INVALID_ARGS);
           }
 
-          return yield* await executeAccountsBrowseCommand({
+          return yield* prepareAccountsBrowseCommand({
             accountName,
             commandId: ACCOUNTS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
@@ -85,6 +84,7 @@ Notes:
               : staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
           });
         }),
+      action: async (context) => executePreparedAccountsBrowseCommand(context.runtime, context.prepared),
     });
   });
 

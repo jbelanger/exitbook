@@ -6,7 +6,7 @@ import {
   explorerListSurfaceSpec,
   resolveBrowsePresentation,
   staticListSurfaceSpec,
-} from '../browse-surface.js';
+} from '../presentation.js';
 
 describe('resolveBrowsePresentation', () => {
   const interactive = { stdinIsTTY: true, stdoutIsTTY: true, ci: false } as const;

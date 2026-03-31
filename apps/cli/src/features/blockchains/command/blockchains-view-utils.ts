@@ -2,7 +2,7 @@ import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-provider
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
-import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../shared/prompts.js';
+import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../../cli/prompts.js';
 import { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 import type { BlockchainDisplayCategory } from '../blockchains-view-model.js';
 

@@ -14,22 +14,25 @@ Do not design new CLI code around tiered handler categories.
 
 ### Command boundary
 
-Feature command entrypoints must use the shared CLI boundary contract.
+Feature command entrypoints must use the CLI boundary contract from `apps/cli/src/cli/`.
 
 Use:
 
 - `runCliCommandBoundary(...)` when the command can parse, execute, and complete without opening a command runtime directly
-- `runCliRuntimeCommand(...)` when the full command lives inside the runtime-owned section
-- `runCliRuntimeAction(...)` when parsing or preflight happens first, but execution still needs the command runtime before returning a `CliCommandResult`
+- `runCliRuntimeCommand(...)` when execution needs the command runtime
+
+`runCliRuntimeAction(...)` is private implementation detail inside `apps/cli/src/cli/command.ts`.
+Command files must not import it directly.
 
 Command adapter rules:
 
-- command files return `Result<CliCompletion, CliFailure>`
+- boundary actions return `Result<CliCompletion, CliFailure>`
 - expected user-facing failures stay as data, not exceptions
 - JSON/text/TUI success rendering stays at the outer CLI boundary
 - prompt helpers return explicit user intent such as confirm, decline, or cancel
 - command files must not call `process.exit(...)` directly
 - command files must not write informal success exit codes through runtime mutation
+- prompt-first commands may complete before runtime by returning `completeCliRuntime(...)` from `prepare`
 
 The only allowed process-boundary owners are:
 
@@ -67,15 +70,25 @@ This is the resource ownership boundary for the CLI.
 Command files should use the shared CLI boundary helpers, then call `with*CommandScope(...)`, then feature runner functions with the prepared feature scope:
 
 ```ts
-await runCliCommandBoundary({
-  command: 'import',
+await runCliRuntimeCommand({
+  command: 'cost-basis',
   format,
-  action: async () =>
-    runCliRuntimeAction({
-      command: 'import',
-      appRuntime,
-      action: async (runtime) => withImportCommandScope(runtime, (importScope) => runImport(importScope, params)),
+  appRuntime,
+  prepare: async () =>
+    resultDoAsync(async function* () {
+      const options = yield* parseCliCommandOptionsResult(rawOptions, CostBasisCommandOptionsSchema);
+      const params = yield* await resolveCostBasisTextParams(options);
+
+      if (params === undefined) {
+        return completeCliRuntime(textSuccess(() => console.log('\nCost basis calculation cancelled')));
+      }
+
+      return { options, params };
     }),
+  action: async ({ runtime, prepared }) =>
+    withCostBasisCommandScope(runtime, { format: 'text', params: prepared.params }, (scope) =>
+      runCostBasis(scope, prepared.params, { refresh: prepared.options.refresh })
+    ),
 });
 ```
 
@@ -94,6 +107,12 @@ expressed clearly as a plain function.
 Preferred shape:
 
 ```text
+cli/
+  command.ts       - public CLI boundary helpers and command result modeling
+  options.ts       - output-format detection and result-returning option parsing
+  prompts.ts       - prompt decision helpers and small CLI-facing display utilities
+  presentation.ts  - browse surface resolution
+
 runtime/
   app-runtime.ts
   command-runtime.ts

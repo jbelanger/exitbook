@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 
-import type { CliFailure } from './cli-contract.js';
+import type { CliFailure } from '../../cli/command.js';
+
 import { createErrorResponse, exitCodeToErrorCode } from './cli-response.js';
 
 /**

@@ -1,29 +1,10 @@
-import { err, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
-import {
-  runCliCommandBoundary as runSharedCliCommandBoundary,
-  runCliRuntimeAction,
-  runCliRuntimeCommand as runSharedCliRuntimeCommand,
-} from '../features/shared/cli-boundary.js';
-import {
-  cliErr,
-  createCliFailure,
-  jsonSuccess,
-  silentSuccess,
-  textSuccess,
-  toCliResult,
-  toCliValue,
-  type CliCommandResult,
-  type CliCompletion,
-  type CliFailure,
-  type CliJsonOutput,
-  type CliNoOutput,
-  type CliOutput,
-  type CliTextOutput,
-} from '../features/shared/cli-contract.js';
+import { exitCliFailure } from '../features/shared/cli-error.js';
 import { ExitCodes, type ExitCode } from '../features/shared/exit-codes.js';
+import { outputSuccess } from '../features/shared/json-output.js';
 import type { CliAppRuntime } from '../runtime/app-runtime.js';
-import type { CommandRuntime } from '../runtime/command-runtime.js';
+import { CommandRuntime, runCommand } from '../runtime/command-runtime.js';
 
 import type { CliOutputFormat } from './options.js';
 
@@ -50,16 +31,159 @@ interface CliPreparedRuntimeContext<TPrepared> {
   runtime: CommandRuntime;
 }
 
+const CLI_RUNTIME_PREPARATION_MARKER = Symbol('CliRuntimePreparation');
+
+interface CliRuntimeCompletionStep {
+  readonly [CLI_RUNTIME_PREPARATION_MARKER]: 'complete';
+  readonly completion: CliCompletion;
+}
+
 interface CliPreparedRuntimeCommandOptions<TPrepared> extends CliRuntimeCommandBaseOptions {
-  prepare: () => Promise<Result<TPrepared, CliFailure>>;
+  prepare: () => Promise<Result<TPrepared | CliRuntimeCompletionStep, CliFailure>>;
   action: (context: CliPreparedRuntimeContext<TPrepared>) => Promise<CliCommandResult>;
 }
 
-export async function runCliCommandBoundary(options: CliCommandBoundaryOptions): Promise<void> {
-  await runSharedCliCommandBoundary(options);
+interface CliRuntimeActionOptions {
+  command: string;
+  action: (runtime: CommandRuntime) => Promise<CliCommandResult>;
+  appRuntime?: CliAppRuntime | undefined;
+  unexpectedErrorExitCode?: ExitCode | undefined;
 }
 
-// TODO(cli-phase-0-5): Inline shared boundary implementation here after command migrations complete.
+export interface CliFailure {
+  error: Error;
+  exitCode: ExitCode;
+  details?: unknown;
+}
+
+export interface CliJsonOutput {
+  kind: 'json';
+  data: unknown;
+  metadata?: Record<string, unknown> | undefined;
+}
+
+export interface CliTextOutput {
+  kind: 'text';
+  render: () => void | Promise<void>;
+}
+
+export interface CliNoOutput {
+  kind: 'none';
+}
+
+export type CliOutput = CliJsonOutput | CliTextOutput | CliNoOutput;
+
+export interface CliCompletion {
+  exitCode?: ExitCode | undefined;
+  output?: CliOutput | undefined;
+}
+
+export type CliCommandResult = Result<CliCompletion, CliFailure>;
+
+export function createCliFailure(error: unknown, exitCode: ExitCode, details?: unknown): CliFailure {
+  const failure: CliFailure = {
+    error: normalizeCliError(error),
+    exitCode,
+  };
+
+  if (details !== undefined) {
+    failure.details = details;
+  }
+
+  return failure;
+}
+
+export function cliErr<T = never>(error: unknown, exitCode: ExitCode, details?: unknown): Result<T, CliFailure> {
+  return err(createCliFailure(error, exitCode, details));
+}
+
+export function toCliResult<T>(result: Result<T, Error>, exitCode: ExitCode, details?: unknown): Result<T, CliFailure> {
+  if (result.isErr()) {
+    return err(createCliFailure(result.error, exitCode, details));
+  }
+
+  return ok(result.value);
+}
+
+export function toCliValue<T>(
+  value: T | undefined,
+  error: unknown,
+  exitCode: ExitCode,
+  details?: unknown
+): Result<T, CliFailure> {
+  if (value === undefined) {
+    return err(createCliFailure(error, exitCode, details));
+  }
+
+  return ok(value);
+}
+
+export function jsonSuccess(data: unknown, metadata?: Record<string, unknown>, exitCode?: ExitCode): CliCompletion {
+  return {
+    exitCode,
+    output: {
+      kind: 'json',
+      data,
+      metadata,
+    },
+  };
+}
+
+export function textSuccess(render: () => void | Promise<void>, exitCode?: ExitCode): CliCompletion {
+  return {
+    exitCode,
+    output: {
+      kind: 'text',
+      render,
+    },
+  };
+}
+
+export function silentSuccess(exitCode?: ExitCode): CliCompletion {
+  return {
+    exitCode,
+    output: {
+      kind: 'none',
+    },
+  };
+}
+
+export function completeCliRuntime(completion: CliCompletion): CliRuntimeCompletionStep {
+  return {
+    [CLI_RUNTIME_PREPARATION_MARKER]: 'complete',
+    completion,
+  };
+}
+
+export async function runCliCommandBoundary({
+  command,
+  format,
+  action,
+  unexpectedErrorExitCode = ExitCodes.GENERAL_ERROR,
+}: CliCommandBoundaryOptions): Promise<void> {
+  let result: CliCommandResult;
+
+  try {
+    result = await action();
+  } catch (error) {
+    exitCliFailure(command, createCliFailure(error, unexpectedErrorExitCode), format);
+  }
+
+  if (result.isErr()) {
+    exitCliFailure(command, result.error, format);
+  }
+
+  try {
+    await renderCliCompletion(command, result.value);
+  } catch (error) {
+    exitCliFailure(command, createCliFailure(error, unexpectedErrorExitCode), format);
+  }
+
+  if (result.value.exitCode !== undefined && result.value.exitCode !== ExitCodes.SUCCESS) {
+    process.exit(result.value.exitCode);
+  }
+}
+
 // REQUIRES_INVESTIGATION(cli-phase-0-5): Prepared-runtime calls can require an explicit generic in some command
 // entrypoints for clean overload resolution. Revisit if this keeps spreading during migration.
 export async function runCliRuntimeCommand(options: CliSimpleRuntimeCommandOptions): Promise<void>;
@@ -70,46 +194,102 @@ export async function runCliRuntimeCommand<TPrepared>(
   options: CliSimpleRuntimeCommandOptions | CliPreparedRuntimeCommandOptions<TPrepared>
 ): Promise<void> {
   if (!('prepare' in options)) {
-    await runSharedCliRuntimeCommand({
-      command: options.command,
-      format: options.format,
-      appRuntime: options.appRuntime,
-      unexpectedErrorExitCode: options.unexpectedErrorExitCode,
-      action: options.action,
+    const runtimeOptions: CliSimpleRuntimeCommandOptions = options;
+
+    await runCliCommandBoundary({
+      command: runtimeOptions.command,
+      format: runtimeOptions.format,
+      unexpectedErrorExitCode: runtimeOptions.unexpectedErrorExitCode,
+      action: async () =>
+        runCliRuntimeAction({
+          command: runtimeOptions.command,
+          appRuntime: runtimeOptions.appRuntime,
+          unexpectedErrorExitCode: runtimeOptions.unexpectedErrorExitCode,
+          action: runtimeOptions.action,
+        }),
     });
     return;
   }
 
-  await runSharedCliCommandBoundary({
-    command: options.command,
-    format: options.format,
-    unexpectedErrorExitCode: options.unexpectedErrorExitCode,
+  const preparedOptions: CliPreparedRuntimeCommandOptions<TPrepared> = options;
+
+  await runCliCommandBoundary({
+    command: preparedOptions.command,
+    format: preparedOptions.format,
+    unexpectedErrorExitCode: preparedOptions.unexpectedErrorExitCode,
     action: async () => {
-      const preparedResult = await options.prepare();
+      const preparedResult = await preparedOptions.prepare();
 
       if (preparedResult.isErr()) {
         return err(preparedResult.error);
       }
 
+      const preparedValue = preparedResult.value;
+
+      if (isCliRuntimeCompletionStep(preparedValue)) {
+        return ok(preparedValue.completion);
+      }
+
       return runCliRuntimeAction({
-        command: options.command,
-        appRuntime: options.appRuntime,
-        unexpectedErrorExitCode: options.unexpectedErrorExitCode,
-        action: async (runtime) => options.action({ runtime, prepared: preparedResult.value }),
+        command: preparedOptions.command,
+        appRuntime: preparedOptions.appRuntime,
+        unexpectedErrorExitCode: preparedOptions.unexpectedErrorExitCode,
+        action: async (runtime: CommandRuntime) => preparedOptions.action({ runtime, prepared: preparedValue }),
       });
     },
   });
 }
 
-export { cliErr, createCliFailure, ExitCodes, jsonSuccess, silentSuccess, textSuccess, toCliResult, toCliValue };
+async function runCliRuntimeAction(options: CliRuntimeActionOptions): Promise<CliCommandResult> {
+  const command = options.command;
+  const runtimeAction: (runtime: CommandRuntime) => Promise<CliCommandResult> = options.action;
+  const appRuntime = options.appRuntime;
+  const unexpectedErrorExitCode = options.unexpectedErrorExitCode ?? ExitCodes.GENERAL_ERROR;
+  let result: CliCommandResult | undefined;
 
-export type {
-  CliCommandResult,
-  CliCompletion,
-  CliFailure,
-  CliJsonOutput,
-  CliNoOutput,
-  CliOutput,
-  CliTextOutput,
-  ExitCode,
-};
+  const captureResult = async (runtime: CommandRuntime) => {
+    result = await runtimeAction(runtime);
+  };
+
+  if (appRuntime === undefined) {
+    await runCommand(captureResult);
+  } else {
+    await runCommand(appRuntime, captureResult);
+  }
+
+  return (
+    result ?? err(createCliFailure(new Error(`Command '${command}' returned no outcome`), unexpectedErrorExitCode))
+  );
+}
+
+async function renderCliCompletion(command: string, completion: CliCompletion): Promise<void> {
+  if (completion.output === undefined || completion.output.kind === 'none') {
+    return;
+  }
+
+  if (completion.output.kind === 'json') {
+    outputSuccess(command, completion.output.data, completion.output.metadata);
+    return;
+  }
+
+  await completion.output.render();
+}
+
+function normalizeCliError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function isCliRuntimeCompletionStep<TPrepared>(
+  value: TPrepared | CliRuntimeCompletionStep
+): value is CliRuntimeCompletionStep {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    CLI_RUNTIME_PREPARATION_MARKER in value &&
+    value[CLI_RUNTIME_PREPARATION_MARKER] === 'complete'
+  );
+}
+
+export { ExitCodes };
+
+export type { ExitCode };

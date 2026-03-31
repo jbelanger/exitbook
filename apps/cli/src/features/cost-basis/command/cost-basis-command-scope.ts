@@ -1,11 +1,11 @@
 import type { Profile } from '@exitbook/core';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import { CostBasisHandler, type ValidatedCostBasisConfig } from './cost-basis-handler.js';
 
@@ -22,11 +22,11 @@ export async function withCostBasisCommandScope<T>(
   },
   operation: (scope: CostBasisCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  try {
+  return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
-      return err(profileResult.error);
+      return yield* err(profileResult.error);
     }
 
     const pricedRuntimeResult = await preparePricedConsumerRuntime(runtime, {
@@ -40,10 +40,10 @@ export async function withCostBasisCommandScope<T>(
       target: 'cost-basis',
     });
     if (pricedRuntimeResult.isErr()) {
-      return err(pricedRuntimeResult.error);
+      return yield* err(pricedRuntimeResult.error);
     }
 
-    return operation({
+    const value = yield* await operation({
       handler: new CostBasisHandler(
         database,
         profileResult.value.id,
@@ -59,7 +59,6 @@ export async function withCostBasisCommandScope<T>(
       ),
       profile: profileResult.value,
     });
-  } catch (error) {
-    return wrapError(error, 'Failed to prepare cost basis command scope');
-  }
+    return value;
+  }, 'Failed to prepare cost basis command scope');
 }

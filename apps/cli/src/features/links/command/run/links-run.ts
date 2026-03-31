@@ -1,26 +1,27 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
 import type { LinkingRunParams } from '@exitbook/accounting/linking';
-import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
+import { ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
-import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   cliErr,
+  completeCliRuntime,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   textSuccess,
   toCliResult,
   type CliCommandResult,
   type CliFailure,
-} from '../../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../../shared/command-options.js';
+} from '../../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
+import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
+import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { ExitCodes } from '../../../shared/exit-codes.js';
 import { LinksRunCommandOptionsSchema } from '../links-option-schemas.js';
 
@@ -32,6 +33,10 @@ type LinksRunPromptOutcome =
   | { kind: 'submitted'; params: LinkingRunParams }
   | { kind: 'cancelled' }
   | { kind: 'invalid'; message: string };
+
+type PreparedLinksRunCommand =
+  | { mode: 'json'; params: LinkingRunParams; startTime: number }
+  | { mode: 'text'; params: LinkingRunParams };
 
 function hasExplicitLinksRunThresholds(options: LinksRunCommandOptions): boolean {
   return options.minConfidence !== undefined || options.autoConfirmThreshold !== undefined;
@@ -162,92 +167,62 @@ Notes:
 async function executeLinksRunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<PreparedLinksRunCommand>({
     command: 'links-run',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, LinksRunCommandOptionsSchema);
 
         if (format === 'json') {
-          return yield* await executeLinksRunJsonCommand(options, appRuntime);
+          return {
+            mode: 'json',
+            params: buildLinksRunParamsFromFlags(options),
+            startTime: Date.now(),
+          } satisfies PreparedLinksRunCommand;
         }
 
-        return yield* await executeLinksRunTextCommand(options, appRuntime);
+        const params = yield* await resolveLinksRunParams(options);
+
+        if (params === null) {
+          return completeCliRuntime(textSuccess(() => console.log('Transaction linking cancelled.')));
+        }
+
+        return {
+          mode: 'text',
+          params,
+        } satisfies PreparedLinksRunCommand;
       }),
+    action: async ({ runtime, prepared }) => executePreparedLinksRunCommand(runtime, prepared),
   });
 }
 
-async function executeLinksRunJsonCommand(
-  options: LinksRunCommandOptions,
-  appRuntime: CliAppRuntime
+async function executePreparedLinksRunCommand(
+  ctx: CommandRuntime,
+  prepared: PreparedLinksRunCommand
 ): Promise<CliCommandResult> {
-  const startTime = Date.now();
-  const params = buildLinksRunParamsFromFlags(options);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const result = yield* toCliResult(
+      await runLinks(
+        ctx,
+        {
+          format: prepared.mode,
+          profileId: profile.id,
+          profileKey: profile.profileKey,
+        },
+        prepared.params
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
 
-  return runCliRuntimeAction({
-    command: 'links-run',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const result = yield* toCliResult(
-          await runLinks(
-            ctx,
-            {
-              format: 'json',
-              profileId: profile.id,
-              profileKey: profile.profileKey,
-            },
-            params
-          ),
-          ExitCodes.GENERAL_ERROR
-        );
+    if (prepared.mode === 'json') {
+      return jsonSuccess(result, { duration_ms: Date.now() - prepared.startTime });
+    }
 
-        return jsonSuccess(result, { duration_ms: Date.now() - startTime });
-      }),
-  });
-}
-
-async function executeLinksRunTextCommand(
-  options: LinksRunCommandOptions,
-  appRuntime: CliAppRuntime
-): Promise<CliCommandResult> {
-  const paramsResult = await resolveLinksRunParams(options);
-  if (paramsResult.isErr()) {
-    return err(paramsResult.error);
-  }
-
-  if (paramsResult.value === null) {
-    return ok(textSuccess(() => console.log('Transaction linking cancelled.')));
-  }
-
-  const params = paramsResult.value;
-
-  return runCliRuntimeAction({
-    command: 'links-run',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-
-        yield* toCliResult(
-          await runLinks(
-            ctx,
-            {
-              format: 'text',
-              profileId: profile.id,
-              profileKey: profile.profileKey,
-            },
-            params
-          ),
-          ExitCodes.GENERAL_ERROR
-        );
-
-        return silentSuccess();
-      }),
+    return silentSuccess();
   });
 }
 

@@ -1,17 +1,17 @@
 import { type LinkingRunParams, type LinkingRunResult } from '@exitbook/accounting/linking';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
+import type { CliOutputFormat } from '../../../../cli/options.js';
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../../../runtime/consumer-input-readiness.js';
 import { executeCliLinkingRuntime, withCliLinkingRuntime } from '../../../../runtime/linking-runtime.js';
-import type { CliOutputFormat } from '../../../shared/cli-output-format.js';
 
 export async function runLinks(
   ctx: CommandRuntime,
   options: { format: CliOutputFormat; profileId: number; profileKey: string },
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
-  try {
+  return resultTryAsync<LinkingRunResult>(async function* () {
     const database = await ctx.database();
     const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
       format: options.format,
@@ -19,10 +19,10 @@ export async function runLinks(
       profileKey: options.profileKey,
     });
     if (readyResult.isErr()) {
-      return err(readyResult.error);
+      return yield* err(readyResult.error);
     }
 
-    return withCliLinkingRuntime(
+    const result = yield* await withCliLinkingRuntime(
       {
         dataDir: ctx.dataDir,
         database,
@@ -33,7 +33,6 @@ export async function runLinks(
       },
       (runtime) => executeCliLinkingRuntime(runtime, params)
     );
-  } catch (error) {
-    return wrapError(error, 'Failed to run links operation');
-  }
+    return result;
+  }, 'Failed to run links operation');
 }

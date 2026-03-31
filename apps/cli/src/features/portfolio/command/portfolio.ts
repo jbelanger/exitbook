@@ -4,20 +4,19 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliFailure,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 import {
@@ -72,53 +71,49 @@ Notes:
 async function executePortfolioCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<NormalizedPortfolioOptions>({
     command: 'portfolio',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, PortfolioCommandOptionsSchema);
-        const normalized = yield* normalizePortfolioOptionsResult(options);
-        return yield* await executePortfolioCommandResult(normalized, format, appRuntime);
+        return yield* normalizePortfolioOptionsResult(options);
       }),
+    action: async (context) => executePortfolioCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executePortfolioCommandResult(
+  ctx: CommandRuntime,
   normalized: NormalizedPortfolioOptions,
-  format: 'json' | 'text',
-  appRuntime: CliAppRuntime
+  format: 'json' | 'text'
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'portfolio',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const result = yield* toCliResult(await loadPortfolioResult(ctx, normalized, format), ExitCodes.GENERAL_ERROR);
+  return resultDoAsync(async function* () {
+    const result = yield* toCliResult(await loadPortfolioResult(ctx, normalized, format), ExitCodes.GENERAL_ERROR);
 
-        if (format === 'json') {
-          return jsonSuccess({
-            data: {
-              asOf: result.asOf,
-              method: result.method,
-              jurisdiction: result.jurisdiction,
-              displayCurrency: result.displayCurrency,
-              totalValue: result.totalValue,
-              totalCost: result.totalCost,
-              totalUnrealizedGainLoss: result.totalUnrealizedGainLoss,
-              totalUnrealizedPct: result.totalUnrealizedPct,
-              totalRealizedGainLossAllTime: result.totalRealizedGainLossAllTime,
-              totalNetFiatIn: result.totalNetFiatIn,
-              positions: result.positions,
-              closedPositions: result.closedPositions,
-            },
-            warnings: result.warnings,
-            meta: result.meta,
-          });
-        }
+    if (format === 'json') {
+      return jsonSuccess({
+        data: {
+          asOf: result.asOf,
+          method: result.method,
+          jurisdiction: result.jurisdiction,
+          displayCurrency: result.displayCurrency,
+          totalValue: result.totalValue,
+          totalCost: result.totalCost,
+          totalUnrealizedGainLoss: result.totalUnrealizedGainLoss,
+          totalUnrealizedPct: result.totalUnrealizedPct,
+          totalRealizedGainLossAllTime: result.totalRealizedGainLossAllTime,
+          totalNetFiatIn: result.totalNetFiatIn,
+          positions: result.positions,
+          closedPositions: result.closedPositions,
+        },
+        warnings: result.warnings,
+        meta: result.meta,
+      });
+    }
 
-        return yield* toCliResult(await buildPortfolioTuiCompletion(ctx, result), ExitCodes.GENERAL_ERROR);
-      }),
+    return yield* toCliResult(await buildPortfolioTuiCompletion(ctx, result), ExitCodes.GENERAL_ERROR);
   });
 }
 

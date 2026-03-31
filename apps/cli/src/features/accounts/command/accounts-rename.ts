@@ -1,16 +1,22 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  toCliValue,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, toCliValue } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
 const ACCOUNTS_RENAME_COMMAND_ID = 'accounts-rename';
+type AccountsRenameCommandOptions = z.infer<typeof JsonFlagSchema>;
 
 export function registerAccountsRenameCommand(accountsCommand: Command): void {
   accountsCommand
@@ -39,46 +45,42 @@ Notes:
 }
 
 async function executeRenameAccountCommand(currentName: string, nextName: string, rawOptions: unknown): Promise<void> {
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<AccountsRenameCommandOptions>({
     command: ACCOUNTS_RENAME_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, JsonFlagSchema);
+        return yield* parseCliCommandOptionsResult(rawOptions, JsonFlagSchema);
+      }),
+    action: async (context) =>
+      resultDoAsync(async function* () {
+        const db = await context.runtime.database();
+        const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
+        const account = yield* toCliResult(
+          await buildCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
+          ExitCodes.GENERAL_ERROR
+        );
+        const payload = {
+          account: {
+            id: account.id,
+            name: account.name,
+            platformKey: account.platformKey,
+          },
+          profile: profile.profileKey,
+        };
 
-        return yield* await runCliRuntimeAction({
-          command: ACCOUNTS_RENAME_COMMAND_ID,
-          action: async (ctx) =>
-            resultDoAsync(async function* () {
-              const db = await ctx.database();
-              const profile = yield* toCliResult(await resolveCommandProfile(ctx, db), ExitCodes.GENERAL_ERROR);
-              const account = yield* toCliResult(
-                await buildCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
-                ExitCodes.GENERAL_ERROR
-              );
-              const payload = {
-                account: {
-                  id: account.id,
-                  name: account.name,
-                  platformKey: account.platformKey,
-                },
-                profile: profile.profileKey,
-              };
+        if (context.prepared.json) {
+          return jsonSuccess(payload);
+        }
 
-              if (options.json) {
-                return jsonSuccess(payload);
-              }
+        const renamedAccountName = yield* toCliValue(
+          account.name,
+          `Renamed account ${account.id} is missing a top-level name`,
+          ExitCodes.GENERAL_ERROR
+        );
 
-              const renamedAccountName = yield* toCliValue(
-                account.name,
-                `Renamed account ${account.id} is missing a top-level name`,
-                ExitCodes.GENERAL_ERROR
-              );
-
-              return textSuccess(() => {
-                console.log(`Renamed account ${currentName.trim().toLowerCase()} to ${renamedAccountName}`);
-              });
-            }),
+        return textSuccess(() => {
+          console.log(`Renamed account ${currentName.trim().toLowerCase()} to ${renamedAccountName}`);
         });
       }),
   });

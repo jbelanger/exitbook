@@ -4,21 +4,20 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { type CommandRuntime, renderApp, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   createCliFailure,
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { type CommandRuntime, renderApp, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import type {
@@ -92,35 +91,33 @@ Common Usage:
 async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<ViewPricesParams>({
     command: 'prices-view',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, PricesViewCommandOptionsSchema);
-        return yield* await executePricesViewCommandResult(buildViewPricesParams(options), format);
+        return buildViewPricesParams(options);
       }),
+    action: async (context) => executePricesViewCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executePricesViewCommandResult(
+  ctx: CommandRuntime,
   params: ViewPricesParams,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'prices-view',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const handler = new PricesViewHandler(database, profile.id);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const handler = new PricesViewHandler(database, profile.id);
 
-        if (format === 'json') {
-          return yield* await buildPricesViewJsonCompletion(handler, params);
-        }
+    if (format === 'json') {
+      return yield* await buildPricesViewJsonCompletion(handler, params);
+    }
 
-        return yield* await buildPricesViewTuiCompletion(ctx, handler, profile.profileKey, params);
-      }),
+    return yield* await buildPricesViewTuiCompletion(ctx, handler, profile.profileKey, params);
   });
 }
 

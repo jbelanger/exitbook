@@ -79,7 +79,7 @@ vi.mock('../run-accounts-remove.js', () => ({
   runAccountRemoval: mockRunAccountRemoval,
 }));
 
-vi.mock('../../../shared/prompts.js', () => ({
+vi.mock('../../../../cli/prompts.js', () => ({
   promptConfirmDecision: mockPromptConfirmDecision,
 }));
 

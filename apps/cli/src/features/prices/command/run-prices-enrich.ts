@@ -1,11 +1,11 @@
 import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/accounting/price-enrichment';
-import { wrapError, type Result } from '@exitbook/foundation';
+import { resultTryAsync, type Result } from '@exitbook/foundation';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
 import {
   executeCliPriceEnrichmentRuntime,
   withCliPriceEnrichmentRuntime,
 } from '../../../runtime/price-enrichment-runtime.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 import type { PricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 
@@ -14,8 +14,8 @@ export async function runPricesEnrich(
   options: { format: CliOutputFormat },
   params: PricesEnrichOptions
 ): Promise<Result<PricesEnrichResult, Error>> {
-  try {
-    return withCliPriceEnrichmentRuntime(
+  return resultTryAsync<PricesEnrichResult>(async function* () {
+    const result = yield* await withCliPriceEnrichmentRuntime(
       {
         accountingExclusionPolicy: scope.accountingExclusionPolicy,
         database: scope.database,
@@ -29,7 +29,6 @@ export async function runPricesEnrich(
           params,
         })
     );
-  } catch (error) {
-    return wrapError(error, 'Failed to run prices enrich');
-  }
+    return result;
+  }, 'Failed to run prices enrich');
 }

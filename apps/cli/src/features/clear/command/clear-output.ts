@@ -1,4 +1,4 @@
-import { jsonSuccess, silentSuccess, textSuccess, type CliCompletion } from '../../shared/cli-contract.js';
+import { jsonSuccess, silentSuccess, textSuccess, type CliCompletion } from '../../../cli/command.js';
 import { stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
 
 import type { ClearCommandResult } from './clear-command-types.js';

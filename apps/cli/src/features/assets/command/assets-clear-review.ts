@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 
-import { jsonSuccess, textSuccess } from '../../shared/cli-contract.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
+import { jsonSuccess, textSuccess } from '../../../cli/command.js';
+import type { CliOutputFormat } from '../../../cli/options.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';

@@ -374,6 +374,72 @@ export default [
     },
   },
 
+  // === CLI command files: enforce shared boundary entrypoints ===
+  {
+    files: ['apps/cli/src/features/**/command/**/*.{ts,tsx}'],
+    ignores: [
+      'apps/cli/src/features/**/command/**/__tests__/**/*.{ts,tsx}',
+      'apps/cli/src/features/**/command/**/*.test.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/shared/cli-boundary.js'],
+              importNames: ['runCliCommandBoundary', 'runCliRuntimeCommand', 'runCliRuntimeAction'],
+              message:
+                'Command files must use the public CLI boundary from apps/cli/src/cli/command.ts. Private runtime helpers are not allowed here.',
+            },
+            {
+              group: ['**/shared/cli-contract.js'],
+              message:
+                'Command files must import CLI contract helpers from apps/cli/src/cli/command.ts, not features/shared.',
+            },
+            {
+              group: ['**/shared/cli-output-format.js', '**/shared/command-options.js'],
+              message:
+                'Command files must import CLI option parsing and output-format helpers from apps/cli/src/cli/options.ts.',
+            },
+            {
+              group: ['**/shared/prompts.js'],
+              message: 'Command files must import prompt helpers from apps/cli/src/cli/prompts.ts.',
+            },
+            {
+              group: ['**/shared/presentation/browse-surface.js'],
+              message: 'Command files must import browse presentation helpers from apps/cli/src/cli/presentation.ts.',
+            },
+            {
+              group: ['**/shared/cli-error.js'],
+              importNames: ['exitCliFailure'],
+              message: 'Command files must not bypass the CLI boundary to render or exit on failures.',
+            },
+            {
+              group: ['**/shared/json-output.js'],
+              importNames: ['outputSuccess'],
+              message: 'Command files must not write JSON success output directly; return CliCompletion instead.',
+            },
+            {
+              group: ['**/runtime/command-runtime.js'],
+              importNames: ['runCommand'],
+              message:
+                'Command files must not call runCommand() directly. Use runCliCommandBoundary(...) or runCliRuntimeCommand(...) instead.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.object.name="process"][callee.property.name="exit"]',
+          message:
+            'Command files must not call process.exit() directly. Return CliCompletion or let the runtime/boundary own termination.',
+        },
+      ],
+    },
+  },
+
   // === CLI app: allow database lifecycle management only in entry points ===
   {
     files: [

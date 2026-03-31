@@ -9,19 +9,20 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
+  completeCliRuntime,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
+  textSuccess,
   toCliResult,
   type CliCommandResult,
   type CliFailure,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
@@ -40,6 +41,11 @@ import { runCostBasis } from './run-cost-basis.js';
 const logger = getLogger('cost-basis');
 
 type CommandOptions = z.infer<typeof CostBasisCommandOptionsSchema>;
+interface PreparedCostBasisCommand {
+  mode: 'json' | 'text';
+  options: CommandOptions;
+  params: ValidatedCostBasisConfig;
+}
 
 export function registerCostBasisCommand(program: Command, appRuntime: CliAppRuntime): void {
   const costBasisCommand = program
@@ -74,73 +80,77 @@ Notes:
 async function executeCostBasisCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<PreparedCostBasisCommand>({
     command: 'cost-basis',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, CostBasisCommandOptionsSchema);
 
         if (format === 'json') {
           const params = yield* toCliResult(buildCostBasisInputFromFlags(options), ExitCodes.INVALID_ARGS);
-          return yield* await executeCostBasisJsonCommand(options, params, appRuntime);
+          return {
+            mode: 'json',
+            options,
+            params,
+          } satisfies PreparedCostBasisCommand;
         }
 
         const params = yield* await resolveCostBasisTextParams(options);
         if (params === undefined) {
-          return {
-            exitCode: ExitCodes.SUCCESS,
-            output: {
-              kind: 'text',
-              render: () => console.log('\nCost basis calculation cancelled'),
-            },
-          };
+          return completeCliRuntime(
+            textSuccess(() => {
+              console.log('\nCost basis calculation cancelled');
+            })
+          );
         }
 
-        return yield* await executeCostBasisTextCommand(options, params, appRuntime);
+        return {
+          mode: 'text',
+          options,
+          params,
+        } satisfies PreparedCostBasisCommand;
       }),
+    action: async ({ runtime, prepared }) => {
+      if (prepared.mode === 'json') {
+        return executeCostBasisJsonCommand(runtime, prepared.options, prepared.params);
+      }
+
+      return executeCostBasisTextCommand(runtime, prepared.options, prepared.params);
+    },
   });
 }
 
 async function executeCostBasisJsonCommand(
+  ctx: CommandRuntime,
   options: CommandOptions,
-  params: ValidatedCostBasisConfig,
-  appRuntime: CliAppRuntime
+  params: ValidatedCostBasisConfig
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'cost-basis',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const result = yield* toCliResult(
-          await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
-            runCostBasis(scope, params, { refresh: options.refresh })
-          ),
-          ExitCodes.GENERAL_ERROR
-        );
+  return resultDoAsync(async function* () {
+    const result = yield* toCliResult(
+      await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
+        runCostBasis(scope, params, { refresh: options.refresh })
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
 
-        return jsonSuccess(buildCostBasisJsonData(buildPresentationModel(result)));
-      }),
+    return jsonSuccess(buildCostBasisJsonData(buildPresentationModel(result)));
   });
 }
 
 async function executeCostBasisTextCommand(
+  ctx: CommandRuntime,
   options: CommandOptions,
-  params: ValidatedCostBasisConfig,
-  appRuntime: CliAppRuntime
+  params: ValidatedCostBasisConfig
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'cost-basis',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const result = yield* toCliResult(
-          await loadCostBasisTextResult(ctx, params, options.refresh),
-          ExitCodes.GENERAL_ERROR
-        );
+  return resultDoAsync(async function* () {
+    const result = yield* toCliResult(
+      await loadCostBasisTextResult(ctx, params, options.refresh),
+      ExitCodes.GENERAL_ERROR
+    );
 
-        return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, result), ExitCodes.GENERAL_ERROR);
-      }),
+    return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, result), ExitCodes.GENERAL_ERROR);
   });
 }
 

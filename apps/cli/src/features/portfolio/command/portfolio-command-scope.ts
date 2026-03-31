@@ -1,15 +1,15 @@
 import { PortfolioHandler } from '@exitbook/accounting/portfolio';
 import type { Profile } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 import { calculateBalances } from '@exitbook/ingestion/balance';
 
+import type { CliOutputFormat } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { readCostBasisDependencyWatermark } from '../../../runtime/cost-basis-dependency-watermark-runtime.js';
 import { preparePricedConsumerRuntime } from '../../../runtime/priced-consumer-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
-import type { CliOutputFormat } from '../../shared/cli-output-format.js';
 
 export interface PortfolioCommandScope {
   handler: PortfolioHandler;
@@ -24,11 +24,11 @@ export async function withPortfolioCommandScope<T>(
   },
   operation: (scope: PortfolioCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  try {
+  return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
-      return err(profileResult.error);
+      return yield* err(profileResult.error);
     }
 
     const pricedRuntimeResult = await preparePricedConsumerRuntime(runtime, {
@@ -39,10 +39,10 @@ export async function withPortfolioCommandScope<T>(
       target: 'portfolio',
     });
     if (pricedRuntimeResult.isErr()) {
-      return err(pricedRuntimeResult.error);
+      return yield* err(pricedRuntimeResult.error);
     }
 
-    return operation({
+    const value = yield* await operation({
       handler: new PortfolioHandler({
         accountingExclusionPolicy: pricedRuntimeResult.value.accountingExclusionPolicy,
         calculateHoldings: (transactions) => calculateBalances(transactions),
@@ -60,7 +60,6 @@ export async function withPortfolioCommandScope<T>(
       }),
       profile: profileResult.value,
     });
-  } catch (error) {
-    return wrapError(error, 'Failed to prepare portfolio command scope');
-  }
+    return value;
+  }, 'Failed to prepare portfolio command scope');
 }

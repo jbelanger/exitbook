@@ -1,16 +1,17 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
+import type { z } from 'zod';
 
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
+import { jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { withAssetsCommandScope } from './assets-command-scope.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetExclusionsResult } from './assets-types.js';
 import { runAssetsExclusions } from './run-assets.js';
+
+type AssetsExclusionsCommandOptions = z.infer<typeof AssetsExclusionsCommandOptionsSchema>;
 
 export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
@@ -34,28 +35,21 @@ Notes:
 async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<AssetsExclusionsCommandOptions>({
     command: 'assets-exclusions',
     format,
-    action: async () =>
-      resultDoAsync(async function* () {
-        yield* parseCliCommandOptionsResult(rawOptions, AssetsExclusionsCommandOptionsSchema);
-        return yield* await executeAssetsExclusionsCommandResult(format);
-      }),
-  });
-}
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsExclusionsCommandOptionsSchema),
+    action: async (context) => {
+      const runtime = context.runtime;
 
-async function executeAssetsExclusionsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'assets-exclusions',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
+      return resultDoAsync(async function* () {
         const result = yield* toCliResult(
-          await withAssetsCommandScope(ctx, runAssetsExclusions),
+          await withAssetsCommandScope(runtime, runAssetsExclusions),
           ExitCodes.GENERAL_ERROR
         );
         return buildAssetsExclusionsCompletion(format, result);
-      }),
+      });
+    },
   });
 }
 

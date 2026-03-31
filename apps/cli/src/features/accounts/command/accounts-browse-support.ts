@@ -1,10 +1,9 @@
 import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
+import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { cliErr, toCliResult, type CliFailure } from '../../shared/cli-contract.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';

@@ -1,11 +1,11 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
+import { runCliRuntimeCommand } from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 
+import type { ClearCommandOptions } from './clear-command-types.js';
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
 import { runClearTerminalFlow } from './clear-terminal.js';
 import { runClearTuiFlow } from './clear-tui.js';
@@ -48,23 +48,18 @@ Notes:
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<ClearCommandOptions>({
     command: 'clear',
     format,
     unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,
-    action: async () =>
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, ClearCommandOptionsSchema, ExitCodes.INVALID_ARGS),
+    action: async ({ runtime, prepared: options }) =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(
-          rawOptions,
-          ClearCommandOptionsSchema,
-          ExitCodes.INVALID_ARGS
-        );
-
         if (format === 'text' && options.confirm !== true) {
-          return yield* await runClearTuiFlow(options);
+          return yield* await runClearTuiFlow(runtime, options);
         }
 
-        return yield* await runClearTerminalFlow(options);
+        return yield* await runClearTerminalFlow(runtime, options);
       }),
   });
 }

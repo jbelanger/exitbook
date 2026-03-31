@@ -2,13 +2,17 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { z } from 'zod';
 
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { cliErr, jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+import {
+  cliErr,
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { promptConfirmDecision } from '../../../cli/prompts.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
-import { promptConfirmDecision } from '../../shared/prompts.js';
 
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
@@ -43,10 +47,10 @@ Notes:
 }
 
 async function executeRemoveAccountCommand(name: string, rawOptions: unknown): Promise<void> {
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<z.infer<typeof AccountsRemoveCommandOptionsSchema>>({
     command: ACCOUNTS_REMOVE_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, AccountsRemoveCommandOptionsSchema);
 
@@ -57,49 +61,47 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
           );
         }
 
-        return yield* await runCliRuntimeAction({
-          command: ACCOUNTS_REMOVE_COMMAND_ID,
-          action: async (ctx) =>
+        return options;
+      }),
+    action: async (context) =>
+      resultDoAsync(async function* () {
+        return yield* await toAccountRemovalCliResult(
+          withAccountsRemoveCommandScope(context.runtime, async (scope) =>
             resultDoAsync(async function* () {
-              return yield* await toAccountRemovalCliResult(
-                withAccountsRemoveCommandScope(ctx, async (scope) =>
-                  resultDoAsync(async function* () {
-                    const { accountIds, accountName, preview } = yield* await prepareAccountRemoval(scope, name);
+              const { accountIds, accountName, preview } = yield* await prepareAccountRemoval(scope, name);
 
-                    if (!options.confirm && !options.json) {
-                      outputRemovalPreview(accountName, preview);
-                      const decision = await promptConfirmDecision(
-                        `Delete account ${accountName} and all attached data?`,
-                        false
-                      );
-                      if (decision !== 'confirmed') {
-                        return textSuccess(
-                          () => {
-                            console.error('Account removal cancelled');
-                          },
-                          decision === 'cancelled' ? ExitCodes.CANCELLED : undefined
-                        );
-                      }
-                    }
+              if (!context.prepared.confirm && !context.prepared.json) {
+                outputRemovalPreview(accountName, preview);
+                const decision = await promptConfirmDecision(
+                  `Delete account ${accountName} and all attached data?`,
+                  false
+                );
+                if (decision !== 'confirmed') {
+                  return textSuccess(
+                    () => {
+                      console.error('Account removal cancelled');
+                    },
+                    decision === 'cancelled' ? ExitCodes.CANCELLED : undefined
+                  );
+                }
+              }
 
-                    const removal = yield* await runAccountRemoval(scope, accountIds);
+              const removal = yield* await runAccountRemoval(scope, accountIds);
 
-                    if (options.json) {
-                      return jsonSuccess({
-                        accountName,
-                        deleted: removal.deleted,
-                        profile: scope.profile.profileKey,
-                      });
-                    }
+              if (context.prepared.json) {
+                return jsonSuccess({
+                  accountName,
+                  deleted: removal.deleted,
+                  profile: scope.profile.profileKey,
+                });
+              }
 
-                    return textSuccess(() => {
-                      console.log(`Removed account ${accountName}`);
-                    });
-                  })
-                )
-              );
-            }),
-        });
+              return textSuccess(() => {
+                console.log(`Removed account ${accountName}`);
+              });
+            })
+          )
+        );
       }),
   });
 }

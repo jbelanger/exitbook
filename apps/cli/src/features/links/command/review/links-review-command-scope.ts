@@ -1,5 +1,5 @@
 import { OverrideStore } from '@exitbook/data/overrides';
-import { err, wrapError, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
@@ -14,14 +14,14 @@ export async function withLinksReviewCommandScope<T>(
   runtime: CommandRuntime,
   operation: (scope: LinksReviewCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  try {
+  return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
-      return err(profileResult.error);
+      return yield* err(profileResult.error);
     }
 
-    return operation({
+    const value = yield* await operation({
       handler: new LinksReviewHandler(
         database,
         profileResult.value.id,
@@ -29,7 +29,6 @@ export async function withLinksReviewCommandScope<T>(
         new OverrideStore(runtime.dataDir)
       ),
     });
-  } catch (error) {
-    return wrapError(error, 'Failed to prepare links review command scope');
-  }
+    return value;
+  }, 'Failed to prepare links review command scope');
 }

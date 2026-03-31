@@ -3,17 +3,15 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import { renderApp } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   toCliResult,
-  type CliCommandResult,
   type CliCompletion,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { renderApp } from '../../../runtime/command-runtime.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
@@ -60,28 +58,15 @@ Notes:
 async function executeAssetsViewCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<AssetsViewCommandOptions>({
     command: 'assets-view',
     format,
-    action: async () =>
-      resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, AssetsViewCommandOptionsSchema);
-        return yield* await executeAssetsViewCommandResult(options, format);
-      }),
-  });
-}
-
-async function executeAssetsViewCommandResult(
-  options: AssetsViewCommandOptions,
-  format: CliOutputFormat
-): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'assets-view',
-    action: async (ctx) =>
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsViewCommandOptionsSchema),
+    action: async ({ runtime, prepared: options }) =>
       resultDoAsync(async function* () {
         const actionRequiredOnly = options.actionRequired || options.needsReview;
         const completion = yield* toCliResult(
-          await withAssetsCommandScope(ctx, async (scope) => {
+          await withAssetsCommandScope(runtime, async (scope) => {
             const result = await runAssetsView(scope, { actionRequiredOnly });
             if (result.isErr()) {
               return err(result.error);
