@@ -22,10 +22,6 @@ import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-
 const TransactionIdArgumentSchema = z.coerce.number().int().positive();
 
 type TransactionsEditNoteCommandOptions = z.infer<typeof TransactionsEditNoteCommandOptionsSchema>;
-interface TransactionsEditNotePreparedInput {
-  options: TransactionsEditNoteCommandOptions;
-  transactionId: number;
-}
 
 export function registerTransactionsEditNoteCommand(editCommand: Command): void {
   editCommand
@@ -53,7 +49,7 @@ Examples:
 async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<TransactionsEditNotePreparedInput>({
+  await runCliRuntimeCommand({
     command: 'transactions-edit-note',
     format,
     prepare: async () =>

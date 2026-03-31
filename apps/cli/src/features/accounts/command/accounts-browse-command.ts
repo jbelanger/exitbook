@@ -225,7 +225,7 @@ function shouldCollapseAccountsExplorerWhenEmpty(params: AccountsBrowseParams): 
 }
 
 export async function runAccountsBrowseCommand(input: ExecuteAccountsBrowseCommandInput): Promise<void> {
-  await runCliRuntimeCommand<PreparedAccountsBrowseCommand>({
+  await runCliRuntimeCommand({
     command: input.commandId,
     format: detectCliOutputFormat(input.rawOptions),
     prepare: async () => prepareAccountsBrowseCommand(input),

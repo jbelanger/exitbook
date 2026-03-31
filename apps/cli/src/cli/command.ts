@@ -184,12 +184,10 @@ export async function runCliCommandBoundary({
   }
 }
 
-// REQUIRES_INVESTIGATION(cli-phase-0-5): Prepared-runtime calls can require an explicit generic in some command
-// entrypoints for clean overload resolution. Revisit if this keeps spreading during migration.
-export async function runCliRuntimeCommand(options: CliSimpleRuntimeCommandOptions): Promise<void>;
 export async function runCliRuntimeCommand<TPrepared>(
   options: CliPreparedRuntimeCommandOptions<TPrepared>
 ): Promise<void>;
+export async function runCliRuntimeCommand(options: CliSimpleRuntimeCommandOptions): Promise<void>;
 export async function runCliRuntimeCommand<TPrepared>(
   options: CliSimpleRuntimeCommandOptions | CliPreparedRuntimeCommandOptions<TPrepared>
 ): Promise<void> {

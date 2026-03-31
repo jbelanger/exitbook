@@ -77,7 +77,7 @@ describe('runCliRuntimeCommand', () => {
     const action = vi.fn();
 
     await expect(
-      runCliRuntimeCommand<{ outputPath: string }>({
+      runCliRuntimeCommand({
         command: 'transactions-export',
         format: 'text',
         prepare: async () => err(createCliFailure(new Error('Invalid export path'), ExitCodes.INVALID_ARGS)),
@@ -95,7 +95,7 @@ describe('runCliRuntimeCommand', () => {
   it('can complete before opening runtime', async () => {
     const action = vi.fn();
 
-    await runCliRuntimeCommand<never>({
+    await runCliRuntimeCommand({
       command: 'links-run',
       format: 'json',
       prepare: async () => ok(completeCliRuntime(jsonSuccess({ cancelled: true }))),

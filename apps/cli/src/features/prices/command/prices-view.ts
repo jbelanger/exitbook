@@ -91,7 +91,7 @@ Common Usage:
 async function executeViewPricesCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ViewPricesParams>({
+  await runCliRuntimeCommand({
     command: 'prices-view',
     format,
     prepare: async () =>

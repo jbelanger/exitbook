@@ -64,7 +64,7 @@ function collect(value: string, previous: string[]): string[] {
 async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<PricesEnrichOptions>({
+  await runCliRuntimeCommand({
     command: 'prices-enrich',
     format,
     appRuntime,

@@ -80,7 +80,7 @@ Notes:
 async function executeCostBasisCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<PreparedCostBasisCommand>({
+  await runCliRuntimeCommand({
     command: 'cost-basis',
     format,
     appRuntime,

@@ -1,6 +1,5 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
@@ -13,7 +12,6 @@ import { buildCreateAccountInput } from './account-draft-utils.js';
 import { AccountAddCommandOptionsSchema } from './accounts-option-schemas.js';
 
 const ACCOUNTS_ADD_COMMAND_ID = 'accounts-add';
-type AccountAddCommandOptions = z.infer<typeof AccountAddCommandOptionsSchema>;
 
 export function registerAccountsAddCommand(accountsCommand: Command, appRuntime: CliAppRuntime): void {
   accountsCommand
@@ -51,7 +49,7 @@ Notes:
 }
 
 async function executeAddAccountCommand(name: string, rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  await runCliRuntimeCommand<AccountAddCommandOptions>({
+  await runCliRuntimeCommand({
     command: ACCOUNTS_ADD_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
     appRuntime,

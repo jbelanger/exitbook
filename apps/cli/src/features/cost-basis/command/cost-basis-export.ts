@@ -91,7 +91,7 @@ async function executeCostBasisExportCommand(rawOptions: unknown, appRuntime: Cl
   const command = 'cost-basis-export';
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<CostBasisExportPreparedInput>({
+  await runCliRuntimeCommand({
     command,
     format,
     appRuntime,

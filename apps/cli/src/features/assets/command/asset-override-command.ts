@@ -24,7 +24,7 @@ export async function executeAssetOverrideCommand<TOptions extends AssetOverride
 ): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<TOptions>({
+  await runCliRuntimeCommand({
     command: commandName,
     format,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, schema),

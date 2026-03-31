@@ -71,7 +71,7 @@ Notes:
 async function executePortfolioCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<NormalizedPortfolioOptions>({
+  await runCliRuntimeCommand({
     command: 'portfolio',
     format,
     appRuntime,

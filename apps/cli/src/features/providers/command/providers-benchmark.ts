@@ -67,7 +67,7 @@ Common Usage:
 async function executeProvidersBenchmarkCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ProvidersBenchmarkCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'providers-benchmark',
     format,
     appRuntime,

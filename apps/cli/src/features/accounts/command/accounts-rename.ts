@@ -1,6 +1,5 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import {
   ExitCodes,
@@ -16,7 +15,6 @@ import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
 
 const ACCOUNTS_RENAME_COMMAND_ID = 'accounts-rename';
-type AccountsRenameCommandOptions = z.infer<typeof JsonFlagSchema>;
 
 export function registerAccountsRenameCommand(accountsCommand: Command): void {
   accountsCommand
@@ -45,7 +43,7 @@ Notes:
 }
 
 async function executeRenameAccountCommand(currentName: string, nextName: string, rawOptions: unknown): Promise<void> {
-  await runCliRuntimeCommand<AccountsRenameCommandOptions>({
+  await runCliRuntimeCommand({
     command: ACCOUNTS_RENAME_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
     prepare: async () =>

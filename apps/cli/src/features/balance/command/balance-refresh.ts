@@ -74,7 +74,7 @@ Notes:
 async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<BalanceRefreshCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'balance-refresh',
     format,
     appRuntime,

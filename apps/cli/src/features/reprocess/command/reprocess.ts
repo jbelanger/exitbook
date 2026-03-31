@@ -61,7 +61,7 @@ Notes:
 async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ReprocessCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'reprocess',
     format,
     appRuntime,

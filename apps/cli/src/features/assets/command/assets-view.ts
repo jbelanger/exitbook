@@ -1,7 +1,6 @@
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
-import type { z } from 'zod';
 
 import {
   jsonSuccess,
@@ -28,8 +27,6 @@ import {
   runAssetsInclude,
   runAssetsView,
 } from './run-assets.js';
-
-type AssetsViewCommandOptions = z.infer<typeof AssetsViewCommandOptionsSchema>;
 
 type ViewAssetsCommandResult = ViewCommandResult<AssetViewItem[]>;
 
@@ -58,7 +55,7 @@ Notes:
 async function executeAssetsViewCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<AssetsViewCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'assets-view',
     format,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsViewCommandOptionsSchema),

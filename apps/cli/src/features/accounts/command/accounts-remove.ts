@@ -47,7 +47,7 @@ Notes:
 }
 
 async function executeRemoveAccountCommand(name: string, rawOptions: unknown): Promise<void> {
-  await runCliRuntimeCommand<z.infer<typeof AccountsRemoveCommandOptionsSchema>>({
+  await runCliRuntimeCommand({
     command: ACCOUNTS_REMOVE_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
     prepare: async () =>

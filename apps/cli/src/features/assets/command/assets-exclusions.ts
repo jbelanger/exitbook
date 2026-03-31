@@ -1,6 +1,5 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
 import { jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { ExitCodes } from '../../../cli/exit-codes.js';
@@ -10,8 +9,6 @@ import { withAssetsCommandScope } from './assets-command-scope.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetExclusionsResult } from './assets-types.js';
 import { runAssetsExclusions } from './run-assets.js';
-
-type AssetsExclusionsCommandOptions = z.infer<typeof AssetsExclusionsCommandOptionsSchema>;
 
 export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
   assetsCommand
@@ -35,7 +32,7 @@ Notes:
 async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<AssetsExclusionsCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'assets-exclusions',
     format,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsExclusionsCommandOptionsSchema),

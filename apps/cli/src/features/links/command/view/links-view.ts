@@ -127,7 +127,7 @@ Examples:
 async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<LinksViewParams>({
+  await runCliRuntimeCommand({
     command: 'links-view',
     format,
     prepare: async () =>
@@ -147,7 +147,7 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
 async function executeLinksGapsCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<void>({
+  await runCliRuntimeCommand({
     command: 'links-gaps',
     format,
     prepare: async () =>

@@ -5,7 +5,6 @@ import { runCliRuntimeCommand } from '../../../cli/command.js';
 import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 
-import type { ClearCommandOptions } from './clear-command-types.js';
 import { ClearCommandOptionsSchema } from './clear-option-schemas.js';
 import { runClearTerminalFlow } from './clear-terminal.js';
 import { runClearTuiFlow } from './clear-tui.js';
@@ -48,7 +47,7 @@ Notes:
 async function executeClearCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ClearCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'clear',
     format,
     unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,

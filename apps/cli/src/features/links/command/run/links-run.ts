@@ -167,7 +167,7 @@ Notes:
 async function executeLinksRunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<PreparedLinksRunCommand>({
+  await runCliRuntimeCommand({
     command: 'links-run',
     format,
     appRuntime,

@@ -52,7 +52,7 @@ Notes:
 async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<PricesSetFxCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'prices-set-fx',
     format,
     prepare: async () =>

@@ -11,7 +11,6 @@ import {
   buildAccountsBrowseOptionsHelpText,
   executePreparedAccountsBrowseCommand,
   prepareAccountsBrowseCommand,
-  type PreparedAccountsBrowseCommand,
   registerAccountsBrowseOptions,
 } from './accounts-browse-command.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
@@ -63,7 +62,7 @@ Notes:
     );
 
   accounts.action(async (tokens: string[] | undefined) => {
-    await runCliRuntimeCommand<PreparedAccountsBrowseCommand>({
+    await runCliRuntimeCommand({
       command: ACCOUNTS_COMMAND_ID,
       format: detectCliTokenOutputFormat(tokens),
       prepare: async () =>

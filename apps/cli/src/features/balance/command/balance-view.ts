@@ -54,7 +54,7 @@ Notes:
 async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<BalanceViewCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'balance-view',
     format,
     appRuntime,

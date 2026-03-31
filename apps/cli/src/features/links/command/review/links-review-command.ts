@@ -104,7 +104,7 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
   const spinner = createSpinner(definition.spinnerText, format === 'json');
 
   try {
-    await runCliRuntimeCommand<number>({
+    await runCliRuntimeCommand({
       command: definition.commandId,
       format,
       prepare: async () =>

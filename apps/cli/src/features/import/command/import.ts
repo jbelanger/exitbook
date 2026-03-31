@@ -123,7 +123,7 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
   const command = 'import';
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ImportCommandOptions>({
+  await runCliRuntimeCommand({
     command,
     format,
     appRuntime,

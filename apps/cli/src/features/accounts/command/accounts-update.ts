@@ -57,7 +57,7 @@ async function executeUpdateAccountCommand(
   rawOptions: unknown,
   appRuntime: CliAppRuntime
 ): Promise<void> {
-  await runCliRuntimeCommand<AccountUpdateCommandOptions>({
+  await runCliRuntimeCommand({
     command: ACCOUNTS_UPDATE_COMMAND_ID,
     format: detectCliOutputFormat(rawOptions),
     appRuntime,

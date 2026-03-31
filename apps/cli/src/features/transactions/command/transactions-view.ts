@@ -77,7 +77,7 @@ Common Usage:
 async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<ViewTransactionsCommandParams>({
+  await runCliRuntimeCommand({
     command: 'transactions-view',
     format,
     prepare: async () =>

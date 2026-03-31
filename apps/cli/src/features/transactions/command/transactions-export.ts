@@ -52,7 +52,7 @@ Examples:
 async function executeTransactionsExportCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliRuntimeCommand<TransactionsExportCommandOptions>({
+  await runCliRuntimeCommand({
     command: 'transactions-export',
     format,
     prepare: async () =>
