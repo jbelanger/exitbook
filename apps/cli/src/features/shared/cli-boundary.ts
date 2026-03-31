@@ -54,7 +54,7 @@ export async function runCliCommandBoundary({
   }
 }
 
-export async function captureCliRuntimeResult({
+export async function runCliRuntimeAction({
   command,
   action,
   appRuntime,
@@ -88,7 +88,7 @@ export async function runCliRuntimeCommand({
     command,
     format,
     unexpectedErrorExitCode,
-    action: async () => captureCliRuntimeResult({ command, action, appRuntime, unexpectedErrorExitCode }),
+    action: async () => runCliRuntimeAction({ command, action, appRuntime, unexpectedErrorExitCode }),
   });
 }
 

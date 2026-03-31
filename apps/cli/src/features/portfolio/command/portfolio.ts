@@ -6,7 +6,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
   jsonSuccess,
@@ -89,7 +89,7 @@ async function executePortfolioCommandResult(
   format: 'json' | 'text',
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'portfolio',
     appRuntime,
     action: async (ctx) =>

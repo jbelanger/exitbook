@@ -2,7 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { z } from 'zod';
 
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { cliErr, jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -57,7 +57,7 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
           );
         }
 
-        return yield* await captureCliRuntimeResult({
+        return yield* await runCliRuntimeAction({
           command: ACCOUNTS_REMOVE_COMMAND_ID,
           action: async (ctx) =>
             resultDoAsync(async function* () {

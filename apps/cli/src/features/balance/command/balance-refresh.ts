@@ -6,7 +6,7 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   jsonSuccess,
   silentSuccess,
@@ -91,7 +91,7 @@ async function executeBalanceRefreshCommandResult(
   format: 'json' | 'text',
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'balance-refresh',
     appRuntime,
     action: async (ctx) => {

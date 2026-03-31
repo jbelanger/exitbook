@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -59,7 +59,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, AccountAddCommandOptionsSchema);
 
-        return yield* await captureCliRuntimeResult({
+        return yield* await runCliRuntimeAction({
           command: ACCOUNTS_ADD_COMMAND_ID,
           appRuntime,
           action: async (ctx) =>

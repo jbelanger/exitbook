@@ -268,9 +268,9 @@ The static and TUI shapes should describe the same domain object at different de
 - remove generic `--tui`
 - keep capability-specific flags only when they serve a real command-local purpose, such as `--interactive`
 
-### Legacy Aliases
+### Aliases
 
-Legacy aliases such as `list` may remain temporarily for compatibility, but they are not part of the V3 model and new browse families should not add them. Canonical docs should teach the noun-based ladder, not the aliases.
+Removed browse aliases such as `list` are not part of the V3 model and should not be reintroduced. Canonical docs should teach the noun-based ladder only.
 
 ## Shared Implementation Shape
 
@@ -316,7 +316,7 @@ Compared with V2:
 - V2 `text` is renamed to `static`
 - browse command shape now distinguishes static list, static detail, and explorer explicitly
 - off-TTY `view` is intentionally an alias of the matching static command shape
-- legacy aliases may remain temporarily, but they are no longer canonical
+- browse aliases such as `list` are removed from the canonical surface
 
 ## Acceptance Criteria
 

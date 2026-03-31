@@ -12,6 +12,31 @@ Do not design new CLI code around tiered handler categories.
 
 ## Core Model
 
+### Command boundary
+
+Feature command entrypoints must use the shared CLI boundary contract.
+
+Use:
+
+- `runCliCommandBoundary(...)` when the command can parse, execute, and complete without opening a command runtime directly
+- `runCliRuntimeCommand(...)` when the full command lives inside the runtime-owned section
+- `runCliRuntimeAction(...)` when parsing or preflight happens first, but execution still needs the command runtime before returning a `CliCommandResult`
+
+Command adapter rules:
+
+- command files return `Result<CliCompletion, CliFailure>`
+- expected user-facing failures stay as data, not exceptions
+- JSON/text/TUI success rendering stays at the outer CLI boundary
+- prompt helpers return explicit user intent such as confirm, decline, or cancel
+- command files must not call `process.exit(...)` directly
+- command files must not write informal success exit codes through runtime mutation
+
+The only allowed process-boundary owners are:
+
+- the app entrypoint
+- the shared CLI boundary
+- the runtime lifecycle owner
+
 ### App runtime
 
 The app runtime is created once at startup and holds immutable host config:
@@ -39,12 +64,18 @@ This is the resource ownership boundary for the CLI.
 
 ### Feature runner functions
 
-Command files should call `with*CommandScope(...)`, then feature runner functions with the prepared feature scope:
+Command files should use the shared CLI boundary helpers, then call `with*CommandScope(...)`, then feature runner functions with the prepared feature scope:
 
 ```ts
-await runCommand(appRuntime, async (scope) => {
-  const result = await withImportCommandScope(scope, (importScope) => runImport(importScope, params));
-  if (result.isErr()) throw result.error;
+await runCliCommandBoundary({
+  command: 'import',
+  format,
+  action: async () =>
+    runCliRuntimeAction({
+      command: 'import',
+      appRuntime,
+      action: async (runtime) => withImportCommandScope(runtime, (importScope) => runImport(importScope, params)),
+    }),
 });
 ```
 

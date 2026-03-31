@@ -6,7 +6,7 @@ import React from 'react';
 
 import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   createCliFailure,
   jsonSuccess,
@@ -165,7 +165,7 @@ async function executeLinksViewCommandResult(
   params: LinksViewParams,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'links-view',
     action: async (ctx) =>
       resultDoAsync(async function* () {
@@ -196,7 +196,7 @@ async function executeLinksViewCommandResult(
 }
 
 async function executeLinksGapsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'links-gaps',
     action: async (ctx) =>
       resultDoAsync(async function* () {

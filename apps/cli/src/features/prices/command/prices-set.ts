@@ -5,7 +5,7 @@ import type { z } from 'zod';
 
 import { withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -63,7 +63,7 @@ async function executePricesSetCommandResult(
   options: PricesSetCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'prices-set',
     action: async (ctx) =>
       resultDoAsync(async function* () {

@@ -1,7 +1,7 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -46,7 +46,7 @@ async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void
 }
 
 async function executeAssetsExclusionsCommandResult(format: CliOutputFormat): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'assets-exclusions',
     action: async (ctx) =>
       resultDoAsync(async function* () {

@@ -4,7 +4,7 @@ import React from 'react';
 import type { z } from 'zod';
 
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   jsonSuccess,
   silentSuccess,
@@ -75,7 +75,7 @@ async function executeAssetsViewCommandResult(
   options: AssetsViewCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'assets-view',
     action: async (ctx) =>
       resultDoAsync(async function* () {

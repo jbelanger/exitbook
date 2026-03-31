@@ -1,6 +1,6 @@
 import { resultDoAsync } from '@exitbook/foundation';
 
-import { captureCliRuntimeResult } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction } from '../../shared/cli-boundary.js';
 import { toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
@@ -14,7 +14,7 @@ import { buildClearParams, previewClear, runClear } from './run-clear.js';
 export async function runClearTerminalFlow(options: ClearCommandOptions): Promise<CliCommandResult> {
   const isJsonMode = options.json === true;
 
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'clear',
     unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,
     action: async (ctx) =>

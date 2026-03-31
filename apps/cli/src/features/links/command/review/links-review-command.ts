@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import { render } from 'ink';
 import React from 'react';
 
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   createCliFailure,
   jsonSuccess,
@@ -123,7 +123,7 @@ async function executeLinksReviewCommandResult<TAction extends LinksReviewAction
   const spinner = createSpinner(definition.spinnerText, format === 'json');
 
   try {
-    return captureCliRuntimeResult({
+    return runCliRuntimeAction({
       command: definition.commandId,
       action: async (ctx) =>
         resultDoAsync(async function* () {

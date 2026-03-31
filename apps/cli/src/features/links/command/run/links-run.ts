@@ -9,7 +9,7 @@ import type { z } from 'zod';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../../shared/cli-boundary.js';
 import {
   cliErr,
   jsonSuccess,
@@ -185,7 +185,7 @@ async function executeLinksRunJsonCommand(
   const startTime = Date.now();
   const params = buildLinksRunParamsFromFlags(options);
 
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'links-run',
     appRuntime,
     action: async (ctx) =>
@@ -225,7 +225,7 @@ async function executeLinksRunTextCommand(
 
   const params = paramsResult.value;
 
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'links-run',
     appRuntime,
     action: async (ctx) =>

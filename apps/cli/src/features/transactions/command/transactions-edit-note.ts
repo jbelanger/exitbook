@@ -4,7 +4,7 @@ import type { Command } from 'commander';
 import { z } from 'zod';
 
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult, toCliValue, type CliCommandResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -60,7 +60,7 @@ async function executeTransactionsEditNoteCommandResult(
   options: TransactionsEditNoteCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'transactions-edit-note',
     action: async (ctx) =>
       resultDoAsync(async function* () {

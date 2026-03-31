@@ -2,7 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, textSuccess, toCliResult, toCliValue } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -46,7 +46,7 @@ async function executeRenameAccountCommand(currentName: string, nextName: string
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, JsonFlagSchema);
 
-        return yield* await captureCliRuntimeResult({
+        return yield* await runCliRuntimeAction({
           command: ACCOUNTS_RENAME_COMMAND_ID,
           action: async (ctx) =>
             resultDoAsync(async function* () {

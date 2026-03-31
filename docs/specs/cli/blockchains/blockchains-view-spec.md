@@ -2,7 +2,7 @@
 
 ## Overview
 
-`exitbook blockchains view` replaces the legacy `list-blockchains` command. It is a read-only TUI for browsing supported blockchains and inspecting their provider configuration, API key health, and capabilities.
+`exitbook blockchains view` replaces the former `list-blockchains` command. It is a read-only TUI for browsing supported blockchains and inspecting their provider configuration, API key health, and capabilities.
 
 Single-mode design: a scrollable list of blockchains with a detail panel showing the selected blockchain's full provider breakdown (capabilities, rate limits, API key status, health stats). Filters narrow the dataset via CLI flags.
 

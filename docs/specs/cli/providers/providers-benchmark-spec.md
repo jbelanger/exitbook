@@ -2,7 +2,7 @@
 
 ## Overview
 
-`exitbook providers benchmark` tests live API rate limits for a specific blockchain provider by sending real requests at increasing rates. It replaces the legacy `benchmark-rate-limit` top-level command.
+`exitbook providers benchmark` tests live API rate limits for a specific blockchain provider by sending real requests at increasing rates. It replaces the former `benchmark-rate-limit` top-level command.
 
 Three-phase design: **testing** (live progress as rates are tested), **results** (summary with recommendations), **complete** (final output).
 

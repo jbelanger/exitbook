@@ -3,8 +3,10 @@ import { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { cliErr } from '../../shared/cli-contract.js';
 import { detectCliTokenOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliBrowseRootInvocationResult } from '../../shared/command-options.js';
+import { ExitCodes } from '../../shared/exit-codes.js';
 import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../shared/presentation/browse-surface.js';
 
 import { registerAccountsAddCommand } from './accounts-add.js';
@@ -19,7 +21,7 @@ import { registerAccountsUpdateCommand } from './accounts-update.js';
 import { registerAccountsViewCommand } from './accounts-view.js';
 
 const ACCOUNTS_COMMAND_ID = 'accounts';
-const LEGACY_ACCOUNTS_LIST_ALIAS = 'list';
+const ACCOUNTS_LIST_ALIAS = 'list';
 
 /**
  * Register the unified accounts command with all subcommands.
@@ -68,7 +70,11 @@ Notes:
       action: async () =>
         resultDoAsync(async function* () {
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAccountsBrowseOptions);
-          const accountName = normalizeAccountsRootSelector(parsedInvocation.selector);
+          const accountName = parsedInvocation.selector?.trim();
+
+          if (accountName?.toLowerCase() === ACCOUNTS_LIST_ALIAS) {
+            return yield* cliErr(new Error('Use bare "accounts" instead of "accounts list".'), ExitCodes.INVALID_ARGS);
+          }
 
           return yield* await executeAccountsBrowseCommand({
             accountName,
@@ -87,12 +93,4 @@ Notes:
   registerAccountsUpdateCommand(accounts, appRuntime);
   registerAccountsRenameCommand(accounts);
   registerAccountsRemoveCommand(accounts);
-}
-
-function normalizeAccountsRootSelector(accountName: string | undefined): string | undefined {
-  if (!accountName) {
-    return undefined;
-  }
-
-  return accountName.trim().toLowerCase() === LEGACY_ACCOUNTS_LIST_ALIAS ? undefined : accountName;
 }

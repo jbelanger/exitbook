@@ -6,7 +6,7 @@ import type { z } from 'zod';
 
 import { type CommandRuntime, renderApp, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   createCliFailure,
   jsonSuccess,
@@ -107,7 +107,7 @@ async function executePricesViewCommandResult(
   params: ViewPricesParams,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'prices-view',
     action: async (ctx) =>
       resultDoAsync(async function* () {

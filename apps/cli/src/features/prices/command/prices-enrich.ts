@@ -13,7 +13,7 @@ import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -75,7 +75,7 @@ async function executePricesEnrichCommandResult(
   format: CliOutputFormat,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'prices-enrich',
     appRuntime,
     action: async (ctx) =>

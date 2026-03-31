@@ -11,7 +11,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
   jsonSuccess,
@@ -107,7 +107,7 @@ async function executeCostBasisJsonCommand(
   params: ValidatedCostBasisConfig,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'cost-basis',
     appRuntime,
     action: async (ctx) =>
@@ -129,7 +129,7 @@ async function executeCostBasisTextCommand(
   params: ValidatedCostBasisConfig,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'cost-basis',
     appRuntime,
     action: async (ctx) =>

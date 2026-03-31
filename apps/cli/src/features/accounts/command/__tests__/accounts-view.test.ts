@@ -366,25 +366,16 @@ describe('accounts browse commands', () => {
     );
   });
 
-  it('keeps the legacy list alias on the static list surface', async () => {
+  it('rejects the removed list alias and points to the bare command', async () => {
     const program = createAccountsProgram();
-    const account = createAccountSummary();
 
-    mockList.mockResolvedValue(
-      ok({
-        accounts: [account],
-        count: 1,
-        sessions: undefined,
-      })
+    await expect(program.parseAsync(['accounts', 'list'], { from: 'user' })).rejects.toThrow(
+      'CLI:accounts:text:Use bare "accounts" instead of "accounts list".:2'
     );
 
-    await program.parseAsync(['accounts', 'list'], {
-      from: 'user',
-    });
-
+    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts', expect.objectContaining({ exitCode: 2 }), 'text');
     expect(mockGetByName).not.toHaveBeenCalled();
-    expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
-    expect(mockOutputAccountStaticDetail).not.toHaveBeenCalled();
+    expect(mockList).not.toHaveBeenCalled();
   });
 
   it('routes bare selector misses through the not-found error path', async () => {

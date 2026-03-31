@@ -1,7 +1,7 @@
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { ZodType } from 'zod';
 
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import { toCliResult, type CliCommandResult, type CliCompletion } from '../../shared/cli-contract.js';
 import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
 import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
@@ -50,7 +50,7 @@ async function executeAssetOverrideCommandResult<TOptions extends AssetOverrideC
   runOperation: (scope: AssetsCommandScope, options: TOptions) => Promise<Result<TResult, Error>>,
   buildCompletion: (format: CliOutputFormat, result: TResult) => CliCompletion
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: commandName,
     action: async (ctx) =>
       resultDoAsync(async function* () {

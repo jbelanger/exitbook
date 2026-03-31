@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import React from 'react';
 
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
   jsonSuccess,
@@ -115,7 +115,7 @@ export async function executeAccountsBrowseCommand({
       preselectInExplorer: accountName && presentation.mode === 'tui' ? true : undefined,
     };
 
-    return yield* await captureCliRuntimeResult({
+    return yield* await runCliRuntimeAction({
       command: commandId,
       action: async (ctx) =>
         resultDoAsync(async function* () {

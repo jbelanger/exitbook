@@ -2,7 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import React from 'react';
 
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction } from '../../shared/cli-boundary.js';
 import { silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
 import { ExitCodes } from '../../shared/exit-codes.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';
@@ -15,7 +15,7 @@ import { flattenPreview } from './clear-service.js';
 import { buildClearParams, previewClear } from './run-clear.js';
 
 export async function runClearTuiFlow(options: ClearCommandOptions): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'clear',
     unexpectedErrorExitCode: ExitCodes.GENERAL_ERROR,
     action: async (ctx) =>

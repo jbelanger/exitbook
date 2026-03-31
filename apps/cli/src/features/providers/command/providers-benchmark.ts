@@ -5,7 +5,7 @@ import type { z } from 'zod';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { captureCliRuntimeResult, runCliCommandBoundary } from '../../shared/cli-boundary.js';
+import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
   jsonSuccess,
@@ -85,7 +85,7 @@ async function executeProvidersBenchmarkCommandResult(
   format: CliOutputFormat,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return captureCliRuntimeResult({
+  return runCliRuntimeAction({
     command: 'providers-benchmark',
     appRuntime,
     action: async (ctx) => {
