@@ -10,9 +10,11 @@ import { buildTaxPackageBuildContext } from '../tax-package-context-builder.js';
 function createAccount(id: number, platformKey = `account-${id}`): Account {
   return {
     id,
+    profileId: 1,
     accountType: 'exchange-api',
     platformKey,
     identifier: `${platformKey}-identifier`,
+    accountFingerprint: `acct:1:exchange-api:${platformKey}:${platformKey}-identifier`,
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
   };
 }

@@ -19,7 +19,7 @@ export interface CreateImportAccountInput {
   identifier: string;
   parentAccountId: number;
   platformKey: string;
-  profileId: number | undefined;
+  profileId: number;
   providerName?: string | undefined;
 }
 

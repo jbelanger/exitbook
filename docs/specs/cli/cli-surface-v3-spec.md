@@ -192,7 +192,7 @@ Prompt-first interaction does not create a generic TUI mode. It is still command
 
 These remain text-first unless `--json` is requested.
 
-- mutation commands render compact confirmations
+- mutation commands render terse line-oriented confirmations, not browse headers or cards
 - export commands render compact success/failure output
 - explicit review commands may use TUI when the command itself is a review surface
 
@@ -200,17 +200,20 @@ This category does not reintroduce a generic presentation override.
 
 ### Static Layout Rules
 
-Static human output should follow these rules:
+Browse snapshots and static detail cards should follow these rules:
 
-- one blank line before the header
-- one blank line after the header
+- no blank line before the header
+- one blank line after the header when a real table or detail body follows
 - then immediately the primary table or detail card
 - no controls footer
 - no quit hints
 - no master-detail imitation
 - no trailing truncation hint unless truncation actually happened
+- no trailing blank line after the final rendered line
 
 The shell prompt returning is the natural end of the output.
+
+Terse text commands such as mutations, compact exports, and simple status reads do not need browse-style header spacing. They should print only the lines required for the outcome.
 
 ### Naming And Help Rules
 
@@ -260,5 +263,7 @@ If implementation helpers need to change, update those documents and modules wit
 - Explorer commands skip Ink only when there is no navigable explorer state, such as a truly empty initial collection or a missing selector.
 - Filtered-empty explorer states do not silently downgrade to static.
 - Static output never imitates master-detail.
+- Browse snapshots do not render a leading or trailing blank line.
+- Mutation and export confirmations stay terse instead of borrowing browse layout.
 - `--json` remains the only generic output override.
 - Workflow-specific flags are documented as input or execution flags, not presentation flags.

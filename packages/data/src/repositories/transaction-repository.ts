@@ -7,6 +7,7 @@ import { err, ok } from '@exitbook/foundation';
 import type { KyselyDB } from '../database.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
+import { loadValidatedAccountFingerprint } from './account-identity-support.js';
 import { BaseRepository } from './base-repository.js';
 import {
   materializeTransactionNoteOverrides,
@@ -17,7 +18,6 @@ import {
 import {
   buildInsertValues,
   buildMovementRows,
-  loadAccountFingerprint,
   resolveExistingTransactionConflict,
   validatePriceDataForPersistence,
 } from './transaction-persistence-support.js';
@@ -36,7 +36,7 @@ export class TransactionRepository extends BaseRepository {
    * Callers that need atomicity should use DataSession.executeInTransaction().
    */
   async create(transaction: TransactionDraft, accountId: number): Promise<Result<number, Error>> {
-    const accountFingerprintResult = await loadAccountFingerprint(this.db, accountId);
+    const accountFingerprintResult = await loadValidatedAccountFingerprint(this.db, accountId);
     if (accountFingerprintResult.isErr()) {
       return err(accountFingerprintResult.error);
     }
@@ -101,7 +101,7 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const createdAt = new Date().toISOString();
-    const accountFingerprintResult = await loadAccountFingerprint(this.db, accountId);
+    const accountFingerprintResult = await loadValidatedAccountFingerprint(this.db, accountId);
     if (accountFingerprintResult.isErr()) {
       return err(accountFingerprintResult.error);
     }

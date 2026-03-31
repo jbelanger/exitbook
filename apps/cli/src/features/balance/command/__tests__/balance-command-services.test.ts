@@ -9,12 +9,18 @@ import { BalanceStoredSnapshotReader } from '../balance-stored-snapshot-reader.j
 import { BalanceVerificationRunner } from '../balance-verification-runner.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
+  const profileId = overrides.profileId ?? 1;
+  const accountType = overrides.accountType ?? 'blockchain';
+  const platformKey = overrides.platformKey ?? 'bitcoin';
+  const identifier = overrides.identifier ?? `identifier-${overrides.id ?? 1}`;
+
   return {
     id: overrides.id ?? 1,
-    profileId: overrides.profileId ?? 1,
-    accountType: overrides.accountType ?? 'blockchain',
-    platformKey: overrides.platformKey ?? 'bitcoin',
-    identifier: overrides.identifier ?? `identifier-${overrides.id ?? 1}`,
+    profileId,
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
     parentAccountId: overrides.parentAccountId,
     providerName: overrides.providerName,
     credentials: overrides.credentials,

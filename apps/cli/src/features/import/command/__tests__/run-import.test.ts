@@ -41,15 +41,23 @@ const makeSession = (
   ...overrides,
 });
 
-const makeAccount = (overrides: Partial<Account> = {}): Account => ({
-  id: 1,
-  profileId: 1,
-  accountType: 'blockchain',
-  platformKey: 'bitcoin',
-  identifier: 'bc1qtest',
-  createdAt: new Date('2026-01-01T00:00:00.000Z'),
-  ...overrides,
-});
+const makeAccount = (overrides: Partial<Account> = {}): Account => {
+  const profileId = overrides.profileId ?? 1;
+  const accountType = overrides.accountType ?? 'blockchain';
+  const platformKey = overrides.platformKey ?? 'bitcoin';
+  const identifier = overrides.identifier ?? 'bc1qtest';
+
+  return {
+    id: 1,
+    profileId,
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    ...overrides,
+  };
+};
 
 describe('import runner helpers', () => {
   let mockFindAccountById: Mock;

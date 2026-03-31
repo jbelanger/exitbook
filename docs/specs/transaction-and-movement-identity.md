@@ -11,16 +11,16 @@ Defines the canonical identity contracts for processed transactions and processe
 
 ## Quick Reference
 
-| Concept                        | Key Rule                                                                                  |
-| ------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------ | ------------- | ------------------------------ | ---- |
-| Account identity root          | `accountFingerprint` is derived from `profileKey` plus semantic account identity material |
-| Exchange account identity      | `sha256(profileKey                                                                        | exchange                                   | platformKey)` |
-| Wallet account identity        | `sha256(profileKey                                                                        | wallet                                     | platformKey   | identifier)`                   |
-| Processed transaction identity | `txFingerprint` is the only durable processed transaction identifier                      |
-| Blockchain tx fingerprint      | `sha256(accountFingerprint                                                                | blockchain                                 | source        | blockchainTransactionHash)`    |
-| Exchange tx fingerprint        | `sha256(accountFingerprint                                                                | exchange                                   | source        | sortedComponentEventIds.join(' | '))` |
-| Processed movement identity    | `movementFingerprint = movement:<sha256(txFingerprint                                     | canonicalMaterial)>:<duplicateOccurrence>` |
-| Persistence                    | `transactions.tx_fingerprint` and `transaction_movements.movement_fingerprint` are unique |
+| Concept                        | Key Rule                                                                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------- | ------------------------------ | ---- |
+| Account identity root          | `accountFingerprint` is derived from `profileKey` plus semantic account identity material                                                          |
+| Exchange account identity      | `sha256(profileKey                                                                                                                                 | exchange                                   | platformKey)` |
+| Wallet account identity        | `sha256(profileKey                                                                                                                                 | wallet                                     | platformKey   | identifier)`                   |
+| Processed transaction identity | `txFingerprint` is the only durable processed transaction identifier                                                                               |
+| Blockchain tx fingerprint      | `sha256(accountFingerprint                                                                                                                         | blockchain                                 | source        | blockchainTransactionHash)`    |
+| Exchange tx fingerprint        | `sha256(accountFingerprint                                                                                                                         | exchange                                   | source        | sortedComponentEventIds.join(' | '))` |
+| Processed movement identity    | `movementFingerprint = movement:<sha256(txFingerprint                                                                                              | canonicalMaterial)>:<duplicateOccurrence>` |
+| Persistence                    | `accounts.account_fingerprint`, `transactions.tx_fingerprint`, and `transaction_movements.movement_fingerprint` are persisted canonical identities |
 
 ## Goals
 
@@ -140,6 +140,7 @@ Fingerprint derivation is strict:
 ## Persistence
 
 ```sql
+accounts.account_fingerprint TEXT NOT NULL UNIQUE
 transactions.tx_fingerprint TEXT NOT NULL UNIQUE
 transaction_movements.movement_fingerprint TEXT NOT NULL UNIQUE
 ```
@@ -151,6 +152,12 @@ interface Transaction {
   id: number;
   accountId: number;
   txFingerprint: string;
+}
+
+interface Account {
+  id: number;
+  profileId: number;
+  accountFingerprint: string;
 }
 
 interface AssetMovement {

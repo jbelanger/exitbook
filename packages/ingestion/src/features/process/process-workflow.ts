@@ -359,7 +359,7 @@ export class ProcessingWorkflow {
    */
   private async processAccountWithBatchProvider(
     accountId: number,
-    account: { accountType: string; identifier: string; platformKey: string; profileId?: number | undefined },
+    account: { accountType: string; identifier: string; platformKey: string; profileId: number },
     batchProvider: IRawDataBatchProvider
   ): Promise<Result<BatchProcessSummary, Error>> {
     const platformKey = account.platformKey.toLowerCase();
@@ -519,7 +519,7 @@ export class ProcessingWorkflow {
   }
 
   private async buildAddressContext(
-    account: { accountType: string; identifier: string; platformKey: string; profileId?: number | undefined },
+    account: { accountType: string; identifier: string; platformKey: string; profileId: number },
     accountId: number
   ): Promise<AddressContext> {
     const addressContext: AddressContext = {
@@ -531,17 +531,15 @@ export class ProcessingWorkflow {
     if (account.accountType === 'blockchain') {
       addressContext.primaryAddress = account.identifier;
 
-      if (account.profileId) {
-        const userAddressesResult = await this.ports.accountLookup.getProfileAddresses(
-          account.profileId,
-          account.platformKey
+      const userAddressesResult = await this.ports.accountLookup.getProfileAddresses(
+        account.profileId,
+        account.platformKey
+      );
+      if (userAddressesResult.isOk() && userAddressesResult.value.length > 0) {
+        addressContext.userAddresses = userAddressesResult.value;
+        this.logger.debug(
+          `Account ${accountId}: Augmented context with ${userAddressesResult.value.length} user addresses for multi-address fund-flow analysis`
         );
-        if (userAddressesResult.isOk() && userAddressesResult.value.length > 0) {
-          addressContext.userAddresses = userAddressesResult.value;
-          this.logger.debug(
-            `Account ${accountId}: Augmented context with ${userAddressesResult.value.length} user addresses for multi-address fund-flow analysis`
-          );
-        }
       }
     }
     return addressContext;

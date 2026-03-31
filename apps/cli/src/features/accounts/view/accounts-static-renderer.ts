@@ -22,15 +22,16 @@ export function outputAccountsStaticList(state: AccountsViewState): void {
 }
 
 export function buildAccountsStaticList(state: AccountsViewState): string {
-  const lines: string[] = ['', buildListHeader(state), ''];
+  const lines: string[] = [buildListHeader(state), ''];
 
   if (state.accounts.length === 0) {
     lines.push(...buildEmptyStateLines(state));
-    return `${lines.join('\n')}\n\n`;
+    return `${lines.join('\n')}\n`;
   }
 
   const columns = createColumns(state.accounts, {
-    acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
+    acctId: { format: (item) => `#${item.id}`, align: 'left' },
+    name: { format: (item) => truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28) },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
@@ -39,7 +40,7 @@ export function buildAccountsStaticList(state: AccountsViewState): string {
     lines.push(buildAccountRow(item, columns));
   }
 
-  return `${lines.join('\n')}\n\n`;
+  return `${lines.join('\n')}\n`;
 }
 
 export function outputAccountStaticDetail(account: AccountViewItem): void {
@@ -52,7 +53,6 @@ export function buildAccountStaticDetail(account: AccountViewItem): string {
   const projection = getProjectionDisplay(account.balanceProjectionStatus);
   const title = account.name ? account.name : `#${account.id}`;
   const lines: string[] = [
-    '',
     `${pc.bold(title)}${account.name ? ` ${pc.dim(`#${account.id}`)}` : ''} ${pc.cyan(account.platformKey)} ${pc.dim(type)}`,
     '',
     buildDetailLine('Name', account.name ?? pc.dim('—')),
@@ -76,7 +76,7 @@ export function buildAccountStaticDetail(account: AccountViewItem): string {
     lines.push('', ...buildSessionLines(account.sessions));
   }
 
-  return `${lines.join('\n')}\n\n`;
+  return `${lines.join('\n')}\n`;
 }
 
 function buildListHeader(state: AccountsViewState): string {
@@ -87,7 +87,6 @@ function buildListHeader(state: AccountsViewState): string {
   const metadata = [
     `${state.totalCount} total`,
     ...buildTypeParts(state.typeCounts).map((part) => `${part.count} ${part.label}`),
-    state.filters.showSessions ? 'sessions visible' : undefined,
   ].filter((part): part is string => part !== undefined);
 
   return `${pc.bold(`Accounts${filterLabel}`)} ${pc.dim(metadata.join(' · '))}`;
@@ -111,25 +110,17 @@ function buildEmptyStateLines(state: AccountsViewState): string[] {
 
 function buildAccountRow(
   item: AccountViewItem,
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'acctId' | 'platform' | 'type'>>
+  columns: ReturnType<typeof createColumns<AccountViewItem, 'acctId' | 'name' | 'platform' | 'type'>>
 ): string {
-  const { acctId, platform, type } = columns.format(item);
-  const label = truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28);
+  const { acctId, name, platform, type } = columns.format(item);
   const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
-  const imports = item.sessionCount !== undefined ? formatImportCount(item.sessionCount) : '';
-  const projection = getProjectionDisplay(item.balanceProjectionStatus);
-  const verification = getVerificationDisplay(item.verificationStatus);
-  const children = item.childAccounts && item.childAccounts.length > 0 ? ` +${item.childAccounts.length} derived` : '';
 
   const parts = [
     acctId,
+    item.name ? pc.bold(name) : name,
     pc.cyan(platform),
     pc.dim(type),
-    item.name ? pc.bold(label) : label,
     identifierSuffix ? pc.dim(identifierSuffix) : undefined,
-    imports || children ? pc.dim(`${imports}${children}`) : undefined,
-    `${pc.dim('proj:')}${colorStatus(projection.iconColor, projection.listLabel)}`,
-    `${pc.dim('ver:')}${colorStatus(verification.iconColor, verification.listLabel)}`,
   ].filter((part): part is string => part !== undefined && part.length > 0);
 
   return parts.join(' ');

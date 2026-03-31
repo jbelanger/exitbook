@@ -20,12 +20,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('accounts')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('profile_id', 'integer', (col) => col.references('profiles.id'))
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id'))
     .addColumn('name', 'text')
     .addColumn('parent_account_id', 'integer', (col) => col.references('accounts.id'))
     .addColumn('account_type', 'text', (col) => col.notNull())
     .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('identifier', 'text', (col) => col.notNull()) // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
+    .addColumn('account_fingerprint', 'text', (col) => col.notNull())
     .addColumn('provider_name', 'text')
     .addColumn('credentials', 'text') // JSON: ExchangeCredentials for exchange-api accounts only
     .addColumn('last_cursor', 'text')
@@ -36,6 +37,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'accounts_account_type_valid',
       sql`account_type IN ('blockchain', 'exchange-api', 'exchange-csv')`
     )
+    .addCheckConstraint('accounts_account_fingerprint_not_empty', sql`trim(account_fingerprint) <> ''`)
     .addCheckConstraint('accounts_child_name_null', sql`parent_account_id IS NULL OR name IS NULL`)
     .addCheckConstraint('accounts_credentials_json_valid', sql`credentials IS NULL OR json_valid(credentials)`)
     .addCheckConstraint('accounts_last_cursor_json_valid', sql`last_cursor IS NULL OR json_valid(last_cursor)`)
@@ -62,6 +64,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     ON accounts (COALESCE(profile_id, 0), lower(name))
     WHERE name IS NOT NULL AND parent_account_id IS NULL
   `.execute(db);
+
+  await db.schema
+    .createIndex('idx_accounts_account_fingerprint_unique')
+    .on('accounts')
+    .column('account_fingerprint')
+    .unique()
+    .execute();
 
   // Create index on parent_account_id for efficient child account queries (xpub hierarchies)
   await db.schema.createIndex('idx_accounts_parent_account_id').on('accounts').column('parent_account_id').execute();

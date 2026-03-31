@@ -304,12 +304,7 @@ function isLikelyCrossChainServiceFlowPair(
 
   const activityAccount = accountContextById.get(activity.transaction.accountId);
   const otherAccount = accountContextById.get(other.transaction.accountId);
-  if (
-    !activityAccount ||
-    !otherAccount ||
-    activityAccount.profileId === undefined ||
-    otherAccount.profileId === undefined
-  ) {
+  if (!activityAccount || !otherAccount) {
     return false;
   }
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
-import { seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
+import { computeTestAccountFingerprint, seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
 import { computeAccountHash } from '../account-hash.js';
 import { createTestDatabase } from '../test-utils.js';
 
@@ -50,7 +50,19 @@ describe('computeAccountHash', () => {
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     const hash1 = assertOk(await computeAccountHash(ctx));
 
-    await db.updateTable('accounts').set({ identifier: 'different-identifier' }).where('id', '=', 1).execute();
+    await db
+      .updateTable('accounts')
+      .set({
+        identifier: 'different-identifier',
+        account_fingerprint: await computeTestAccountFingerprint(db, {
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'different-identifier',
+        }),
+      })
+      .where('id', '=', 1)
+      .execute();
 
     const hash2 = assertOk(await computeAccountHash(ctx));
     expect(hash1).not.toBe(hash2);

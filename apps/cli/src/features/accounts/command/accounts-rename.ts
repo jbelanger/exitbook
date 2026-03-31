@@ -78,7 +78,7 @@ async function executeRenameAccountCommand(currentName: string, nextName: string
         );
 
         return textSuccess(() => {
-          console.log(`Renamed account ${currentName.trim().toLowerCase()} to ${renamedAccountName}`);
+          console.log(`Renamed account ${currentName} to ${renamedAccountName}`);
         });
       }),
   });

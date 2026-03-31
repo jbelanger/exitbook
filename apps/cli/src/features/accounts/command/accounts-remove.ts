@@ -121,7 +121,7 @@ const AccountsRemoveCommandOptionsSchema = JsonFlagSchema.extend({
 });
 
 function outputRemovalPreview(accountName: string, preview: FlatAccountRemovePreview): void {
-  console.error(`\nThis will remove account ${accountName}, delete attached imported data, and reset derived state:`);
+  console.error(`This will remove account ${accountName}, delete attached imported data, and reset derived state:`);
   if (preview.accounts > 0) console.error(`  - ${preview.accounts} account rows`);
   if (preview.transactions > 0) console.error(`  - ${preview.transactions} processed transactions`);
   if (preview.links > 0) console.error(`  - ${preview.links} transaction links`);
@@ -133,5 +133,4 @@ function outputRemovalPreview(accountName: string, preview: FlatAccountRemovePre
   }
   if (preview.sessions > 0) console.error(`  - ${preview.sessions} import sessions`);
   if (preview.rawData > 0) console.error(`  - ${preview.rawData} raw data items`);
-  console.error('');
 }

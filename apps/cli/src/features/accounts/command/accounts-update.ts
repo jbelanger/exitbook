@@ -93,10 +93,12 @@ async function executeUpdateAccountCommand(
           return jsonSuccess(payload);
         }
 
+        const changeSummary = buildAccountUpdateSummary(existingAccount, updatedAccount, context.prepared);
+
         return textSuccess(() => {
           console.log(`Updated account ${updatedAccount.name}`);
-          for (const change of buildAccountUpdateSummary(existingAccount, updatedAccount, context.prepared)) {
-            console.log(`  ${change}`);
+          if (changeSummary.length > 0) {
+            console.log(`Changes: ${changeSummary.join(' · ')}`);
           }
         });
       }),
@@ -111,25 +113,25 @@ function buildAccountUpdateSummary(
   const changes: string[] = [];
 
   if (options.apiKey !== undefined && options.apiKey !== previous.credentials?.apiKey) {
-    changes.push('API key updated');
+    changes.push('api key updated');
   }
   if (options.apiSecret !== undefined && options.apiSecret !== previous.credentials?.apiSecret) {
-    changes.push('API secret updated');
+    changes.push('api secret updated');
   }
   if (options.apiPassphrase !== undefined && options.apiPassphrase !== previous.credentials?.apiPassphrase) {
-    changes.push('API passphrase updated');
+    changes.push('api passphrase updated');
   }
   if (options.csvDir !== undefined && updated.identifier !== previous.identifier) {
-    changes.push(`CSV directory set to: ${updated.identifier}`);
+    changes.push(`csv directory set to ${updated.identifier}`);
   }
   if (options.provider !== undefined && updated.providerName !== previous.providerName) {
-    changes.push(updated.providerName ? `Provider set to: ${updated.providerName}` : 'Provider cleared');
+    changes.push(updated.providerName ? `provider set to ${updated.providerName}` : 'provider cleared');
   }
 
   const previousGapLimit = previous.metadata?.xpub?.gapLimit;
   const nextGapLimit = updated.metadata?.xpub?.gapLimit;
   if (options.xpubGap !== undefined && nextGapLimit !== undefined && nextGapLimit !== previousGapLimit) {
-    changes.push(`Xpub gap limit set to: ${nextGapLimit}`);
+    changes.push(`xpub gap limit set to ${nextGapLimit}`);
   }
 
   return changes;

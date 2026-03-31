@@ -174,6 +174,16 @@ Human-facing CLI copy should use text-style symbols, not emoji presentation.
 
 ## Visual Hierarchy
 
+### Shell-Native Text
+
+Human-facing text output should feel shell-native first and styled second.
+
+- favor structure, alignment, and wording over decoration
+- use restrained semantic color, not decorative color
+- never require color to understand the result
+- avoid box drawing, chrome, or mini-dashboard styling in non-TUI surfaces
+- reserve the richest visual treatment for true TUI explorers
+
 ### Header Tiers
 
 Explorer and static-surface headers should have one visual headline and one metadata tier.
@@ -201,6 +211,14 @@ When a better next step exists, name the exact command:
 - "Run `exitbook balance refresh` first"
 - "Run `exitbook import` before `exitbook reprocess` if raw data is stale"
 
+Error rendering should stay product-like:
+
+- print one primary error line to stderr
+- optionally print one short `Hint:` line when a next step is genuinely useful
+- do not leak framework internals or implementation terminology into the primary message
+- do not print stack traces by default in normal user-facing CLI output
+- keep the final error line flush with the shell prompt; no extra trailing blank line
+
 ### Success Copy
 
 Success text should confirm the durable outcome, not narrate the implementation.
@@ -213,6 +231,8 @@ Prefer:
 Avoid low-signal confirmations like:
 
 - "Operation completed successfully"
+
+Mutation success should usually be one line. A second line is acceptable only when it adds durable context such as profile, identifier, or output path.
 
 ## Interaction Principles
 
@@ -232,10 +252,12 @@ For the normative browse, fallback, and JSON rules, use [CLI Surface V3 Specific
 Static human output should reuse the TUI's information design without imitating the TUI chrome.
 
 - keep the header text identical to the TUI header when the command already has one
-- render one blank line before the header and one blank line after it
+- render no blank line before the header
+- render one blank line after the header only when a real table or detail body follows
 - go straight into the primary table or detail card with no extra document-style spacing
 - do not render controls bars, quit hints, or other interaction footers
 - only render a trailing truncation hint when results were actually cut off
+- do not render an extra blank line after the final output line
 
 Static output is not a master-detail surface. It should feel like the compact, scrollback-friendly expression of the same product surface, not a degraded screenshot of the explorer.
 
@@ -260,6 +282,8 @@ Mutation commands should be fast and explicit:
 
 - accept the exact identifier needed for the change
 - print one concise durable confirmation
+- avoid browse-style headers, cards, or report spacing
+- prefer a single line; allow a second line only when it adds durable context
 - avoid full-screen UI unless review is part of safety, not convenience
 
 ### Destructive Recovery

@@ -198,7 +198,7 @@ export class AccountQuery {
       if (account.profileId !== params.profileId) {
         return err(
           new Error(
-            `Account ${params.accountId} does not belong to profile ${params.profileId} (found ${account.profileId ?? 'null'})`
+            `Account ${params.accountId} does not belong to profile ${params.profileId} (found ${account.profileId})`
           )
         );
       }

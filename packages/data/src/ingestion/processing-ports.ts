@@ -21,7 +21,7 @@ async function materializeProfileScopedTransactionNotes(
     if (scope.accountIds) {
       for (const accountId of scope.accountIds) {
         const account = yield* await db.accounts.findById(accountId);
-        if (account?.profileId === undefined) {
+        if (!account) {
           continue;
         }
 

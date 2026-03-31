@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
-import type { Account } from '@exitbook/core';
+import { computeAccountFingerprint, type Account } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Kysely } from '@exitbook/sqlite';
@@ -9,7 +9,7 @@ import type { DatabaseSchema } from '../../database-schema.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { AccountRepository } from '../account-repository.js';
 
-import { seedProfile } from './helpers.js';
+import { computeTestAccountFingerprint, seedProfile } from './helpers.js';
 
 describe('AccountRepository', () => {
   let db: Kysely<DatabaseSchema>;
@@ -40,6 +40,16 @@ describe('AccountRepository', () => {
       const found = assertOk(await repo.getById(created.id));
       expect(found.id).toBe(created.id);
       expect(found.platformKey).toBe('ethereum');
+      expect(found.accountFingerprint).toBe(
+        assertOk(
+          computeAccountFingerprint({
+            profileKey: 'default',
+            accountType: 'blockchain',
+            platformKey: 'ethereum',
+            identifier: '0x123',
+          })
+        )
+      );
     });
 
     it('returns error for non-existent account', async () => {
@@ -59,6 +69,12 @@ describe('AccountRepository', () => {
           account_type: 'blockchain',
           platform_key: 'bitcoin',
           identifier: 'bc1q-invalid-cursor',
+          account_fingerprint: await computeTestAccountFingerprint(db, {
+            profileId: 1,
+            accountType: 'blockchain',
+            platformKey: 'bitcoin',
+            identifier: 'bc1q-invalid-cursor',
+          }),
           provider_name: null,
           credentials: null,
           last_cursor: JSON.stringify({ normal: { invalid: 'shape' } }),
@@ -84,6 +100,12 @@ describe('AccountRepository', () => {
           account_type: 'exchange-api',
           platform_key: 'kraken',
           identifier: 'apiKey-invalid-schema',
+          account_fingerprint: await computeTestAccountFingerprint(db, {
+            profileId: 1,
+            accountType: 'exchange-api',
+            platformKey: 'kraken',
+            identifier: 'apiKey-invalid-schema',
+          }),
           provider_name: null,
           credentials: JSON.stringify({ apiKey: 'key123' }), // missing apiSecret
           last_cursor: null,
@@ -111,7 +133,7 @@ describe('AccountRepository', () => {
     });
   });
 
-  describe('findBy', () => {
+  describe('findByIdentity', () => {
     it('finds account by unique key fields', async () => {
       assertOk(
         await repo.create({
@@ -123,7 +145,7 @@ describe('AccountRepository', () => {
       );
 
       const found = assertOk(
-        await repo.findBy({
+        await repo.findByIdentity({
           accountType: 'blockchain',
           platformKey: 'bitcoin',
           identifier: 'bc1q...',
@@ -136,7 +158,7 @@ describe('AccountRepository', () => {
 
     it('returns undefined for no match', async () => {
       const found = assertOk(
-        await repo.findBy({
+        await repo.findByIdentity({
           accountType: 'blockchain',
           platformKey: 'bitcoin',
           identifier: 'bc1qnone...',
@@ -146,26 +168,26 @@ describe('AccountRepository', () => {
       expect(found).toBeUndefined();
     });
 
-    it('handles null profileId correctly (COALESCE logic)', async () => {
-      assertOk(
+    it('persists the canonical account fingerprint for profiled accounts', async () => {
+      const created = assertOk(
         await repo.create({
-          profileId: undefined,
+          profileId: 1,
           accountType: 'blockchain',
           platformKey: 'bitcoin',
           identifier: 'bc1q...',
         })
       );
 
-      const found = assertOk(
-        await repo.findBy({
-          accountType: 'blockchain',
-          platformKey: 'bitcoin',
-          identifier: 'bc1q...',
-          profileId: undefined,
-        })
+      expect(created.accountFingerprint).toBe(
+        assertOk(
+          computeAccountFingerprint({
+            profileKey: 'default',
+            accountType: 'blockchain',
+            platformKey: 'bitcoin',
+            identifier: 'bc1q...',
+          })
+        )
       );
-      expect(found).toBeDefined();
-      expect(found?.profileId).toBeUndefined();
     });
 
     it('matches top-level exchange accounts by profile and platform, ignoring identifier and mode', async () => {
@@ -179,7 +201,7 @@ describe('AccountRepository', () => {
       );
 
       const found = assertOk(
-        await repo.findBy({
+        await repo.findByIdentity({
           accountType: 'exchange-api',
           platformKey: 'kraken',
           identifier: 'new-api-key',
@@ -189,6 +211,42 @@ describe('AccountRepository', () => {
 
       expect(found?.id).toBe(created.id);
       expect(found?.accountType).toBe('exchange-csv');
+    });
+  });
+
+  describe('fingerprint integrity', () => {
+    it('rejects accounts whose persisted fingerprint drifts from canonical identity', async () => {
+      const wrongFingerprint = await computeTestAccountFingerprint(db, {
+        profileId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-other-wallet',
+      });
+
+      const inserted = await db
+        .insertInto('accounts')
+        .values({
+          profile_id: 1,
+          parent_account_id: null,
+          account_type: 'blockchain',
+          platform_key: 'bitcoin',
+          identifier: 'bc1q-drifted-wallet',
+          account_fingerprint: wrongFingerprint,
+          provider_name: null,
+          credentials: null,
+          last_cursor: null,
+          metadata: null,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+
+      const result = await repo.findById(inserted.id);
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('fingerprint drift detected');
+      }
     });
   });
 
@@ -530,6 +588,12 @@ describe('AccountRepository', () => {
             account_type: 'blockchain',
             platform_key: 'bitcoin',
             identifier: 'bc1q-child',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: 2,
+              accountType: 'blockchain',
+              platformKey: 'bitcoin',
+              identifier: 'bc1q-child',
+            }),
             provider_name: null,
             credentials: null,
             last_cursor: null,

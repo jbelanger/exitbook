@@ -262,6 +262,62 @@ describe('accounts lifecycle commands', () => {
     );
   });
 
+  it('prints a one-line confirmation for text-mode account adds', async () => {
+    const program = createAccountsProgram();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    mockBuildCreateAccountInput.mockReturnValue(
+      ok({
+        profileId: 1,
+        name: 'theta-wallet',
+        accountType: 'blockchain',
+        platformKey: 'theta',
+        identifier: '0xabc',
+      })
+    );
+    mockCreate.mockResolvedValue(
+      ok({
+        id: 7,
+        name: 'theta-wallet',
+        accountType: 'blockchain',
+        platformKey: 'theta',
+        identifier: '0xabc',
+        providerName: undefined,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      })
+    );
+
+    await program.parseAsync(['accounts', 'add', 'theta-wallet', '--blockchain', 'theta', '--address', '0xabc'], {
+      from: 'user',
+    });
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(consoleLog).toHaveBeenCalledWith('Added account theta-wallet (theta)');
+    consoleLog.mockRestore();
+  });
+
+  it('prints a one-line confirmation for text-mode account renames', async () => {
+    const program = createAccountsProgram();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    mockRename.mockResolvedValue(
+      ok({
+        id: 7,
+        name: 'kraken-primary',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      })
+    );
+
+    await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary'], { from: 'user' });
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(consoleLog).toHaveBeenCalledWith('Renamed account kraken-main to kraken-primary');
+    consoleLog.mockRestore();
+  });
+
   it('updates an account config in JSON mode', async () => {
     const program = createAccountsProgram();
 
@@ -388,7 +444,7 @@ describe('accounts lifecycle commands', () => {
     await program.parseAsync(['accounts', 'update', 'ethereum-main', '--provider', 'alchemy'], { from: 'user' });
 
     expect(consoleLog).toHaveBeenNthCalledWith(1, 'Updated account ethereum-main');
-    expect(consoleLog).toHaveBeenNthCalledWith(2, '  Provider set to: alchemy');
+    expect(consoleLog).toHaveBeenNthCalledWith(2, 'Changes: provider set to alchemy');
     consoleLog.mockRestore();
   });
 

@@ -16,7 +16,7 @@ export async function resolveAffectedProfileIds(
     if (accountIds) {
       for (const accountId of accountIds) {
         const account = yield* await db.accounts.findById(accountId);
-        if (account?.profileId !== undefined) {
+        if (account) {
           profileIds.add(account.profileId);
         }
       }

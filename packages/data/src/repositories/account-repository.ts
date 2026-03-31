@@ -12,16 +12,14 @@ import type { AccountsTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 
+import {
+  deriveCanonicalAccountFingerprint,
+  type AccountIdentityParams,
+  validatePersistedAccountFingerprint,
+} from './account-identity-support.js';
 import { BaseRepository } from './base-repository.js';
 
-interface AccountKeyParams {
-  accountType: AccountType;
-  platformKey: string;
-  identifier: string;
-  profileId: number | undefined;
-}
-
-const EXCHANGE_ACCOUNT_TYPES: AccountType[] = ['exchange-api', 'exchange-csv'];
+type AccountRowWithProfileKey = Selectable<AccountsTable> & { profile_key: string };
 
 interface UpdateAccountParams {
   identifier?: string | undefined;
@@ -35,7 +33,7 @@ interface UpdateAccountParams {
 }
 
 interface CreateAccountParams {
-  profileId: number | undefined;
+  profileId: number;
   name?: string | undefined;
   parentAccountId?: number | undefined;
   accountType: AccountType;
@@ -58,14 +56,6 @@ const accountMetadataSchema = z
   })
   .optional();
 
-/**
- * Matches the DB unique index: COALESCE(profile_id, 0).
- * NULL and 0 are equivalent at the schema level — undefined in the domain maps to both.
- */
-function isUnsetProfileId(profileId: number | null | undefined): boolean {
-  return profileId === null || profileId === undefined || profileId === 0;
-}
-
 function normalizeAccountName(name: string): Result<string, Error> {
   const normalized = name.trim().toLowerCase();
   if (normalized.length === 0) {
@@ -75,32 +65,38 @@ function normalizeAccountName(name: string): Result<string, Error> {
   return ok(normalized);
 }
 
-function isExchangeAccountType(accountType: AccountType): boolean {
-  return EXCHANGE_ACCOUNT_TYPES.includes(accountType);
-}
-
-function profilesMatch(leftProfileId: number | null | undefined, rightProfileId: number | null | undefined): boolean {
-  if (isUnsetProfileId(leftProfileId) && isUnsetProfileId(rightProfileId)) {
-    return true;
-  }
-
+function profilesMatch(leftProfileId: number, rightProfileId: number): boolean {
   return leftProfileId === rightProfileId;
 }
 
-function toAccount(row: Selectable<AccountsTable>): Result<Account, Error> {
+function toAccount(row: AccountRowWithProfileKey): Result<Account, Error> {
   return resultDo(function* () {
+    const fingerprintValidationResult = validatePersistedAccountFingerprint({
+      accountId: row.id,
+      accountType: row.account_type,
+      platformKey: row.platform_key,
+      identifier: row.identifier,
+      profileId: row.profile_id,
+      accountFingerprint: row.account_fingerprint,
+      profileKey: row.profile_key,
+    });
+    if (fingerprintValidationResult.isErr()) {
+      return yield* err(fingerprintValidationResult.error);
+    }
+
     const credentials = yield* parseWithSchema(row.credentials, ExchangeCredentialsSchema.optional());
     const lastCursor = yield* parseWithSchema(row.last_cursor, z.record(z.string(), CursorStateSchema).optional());
     const metadata = yield* parseWithSchema(row.metadata, accountMetadataSchema);
 
     const parseResult = AccountSchema.safeParse({
       id: row.id,
-      profileId: row.profile_id ?? undefined,
+      profileId: row.profile_id,
       name: row.name ?? undefined,
       parentAccountId: row.parent_account_id ?? undefined,
       accountType: row.account_type,
       platformKey: row.platform_key,
       identifier: row.identifier,
+      accountFingerprint: row.account_fingerprint,
       providerName: row.provider_name ?? undefined,
       credentials: credentials ?? undefined,
       lastCursor,
@@ -124,7 +120,7 @@ export class AccountRepository extends BaseRepository {
   async findById(accountId: number): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
-        const row = await self.db.selectFrom('accounts').selectAll().where('id', '=', accountId).executeTakeFirst();
+        const row = await self.baseAccountQuery().where('accounts.id', '=', accountId).executeTakeFirst();
         if (!row) {
           return undefined;
         }
@@ -141,12 +137,11 @@ export class AccountRepository extends BaseRepository {
       async function* (self) {
         const normalizedName = yield* normalizeAccountName(name);
 
-        const row = await self.db
-          .selectFrom('accounts')
-          .selectAll()
-          .where('parent_account_id', 'is', null)
-          .where('profile_id', '=', profileId)
-          .where('name', 'is not', null)
+        const row = await self
+          .baseAccountQuery()
+          .where('accounts.parent_account_id', 'is', null)
+          .where('accounts.profile_id', '=', profileId)
+          .where('accounts.name', 'is not', null)
           .where(sql`lower(name)`, '=', normalizedName)
           .executeTakeFirst();
         if (!row) {
@@ -160,24 +155,18 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
-  async findBy(params: AccountKeyParams): Promise<Result<Account | undefined, Error>> {
+  async findByIdentity(params: AccountIdentityParams): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
-        let query = self.db.selectFrom('accounts').selectAll().where('platform_key', '=', params.platformKey);
-
-        if (isExchangeAccountType(params.accountType)) {
-          query = query.where('parent_account_id', 'is', null).where('account_type', 'in', EXCHANGE_ACCOUNT_TYPES);
-        } else {
-          query = query.where('account_type', '=', params.accountType).where('identifier', '=', params.identifier);
+        const accountFingerprintResult = await deriveCanonicalAccountFingerprint(self.db, params);
+        if (accountFingerprintResult.isErr()) {
+          return yield* err(accountFingerprintResult.error);
         }
 
-        if (isUnsetProfileId(params.profileId)) {
-          query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
-        } else {
-          query = query.where('profile_id', '=', params.profileId!);
-        }
-
-        const row = await query.executeTakeFirst();
+        const row = await self
+          .baseAccountQuery()
+          .where('accounts.account_fingerprint', '=', accountFingerprintResult.value)
+          .executeTakeFirst();
         if (!row) return undefined;
 
         return yield* toAccount(row);
@@ -212,29 +201,25 @@ export class AccountRepository extends BaseRepository {
   }): Promise<Result<Account[], Error>> {
     return resultTryAsync(
       async function* (self) {
-        let query = self.db.selectFrom('accounts').selectAll();
+        let query = self.baseAccountQuery();
 
         if (filters?.accountType) {
-          query = query.where('account_type', '=', filters.accountType);
+          query = query.where('accounts.account_type', '=', filters.accountType);
         }
         if (filters?.platformKey) {
-          query = query.where('platform_key', '=', filters.platformKey);
+          query = query.where('accounts.platform_key', '=', filters.platformKey);
         }
         if (filters?.profileId !== undefined) {
-          if (isUnsetProfileId(filters.profileId)) {
-            query = query.where((eb) => eb.or([eb('profile_id', 'is', null), eb('profile_id', '=', 0)]));
-          } else {
-            query = query.where('profile_id', '=', filters.profileId);
-          }
+          query = query.where('accounts.profile_id', '=', filters.profileId);
         }
         if (filters?.parentAccountId !== undefined) {
-          query = query.where('parent_account_id', '=', filters.parentAccountId);
+          query = query.where('accounts.parent_account_id', '=', filters.parentAccountId);
         } else if (filters?.topLevelOnly) {
-          query = query.where('parent_account_id', 'is', null);
+          query = query.where('accounts.parent_account_id', 'is', null);
         }
 
         if (filters?.includeUnnamedTopLevel === false) {
-          query = query.where('name', 'is not', null);
+          query = query.where('accounts.name', 'is not', null);
         }
 
         const rows = await query.execute();
@@ -292,6 +277,16 @@ export class AccountRepository extends BaseRepository {
           metadataJson = (yield* serializeToJson(params.metadata)) ?? null;
         }
 
+        const accountFingerprintResult = await deriveCanonicalAccountFingerprint(self.db, {
+          profileId: params.profileId,
+          accountType: params.accountType,
+          platformKey: params.platformKey,
+          identifier: params.identifier,
+        });
+        if (accountFingerprintResult.isErr()) {
+          return yield* err(accountFingerprintResult.error);
+        }
+
         const result = await self.db
           .insertInto('accounts')
           .values({
@@ -301,6 +296,7 @@ export class AccountRepository extends BaseRepository {
             account_type: params.accountType,
             platform_key: params.platformKey,
             identifier: params.identifier,
+            account_fingerprint: accountFingerprintResult.value,
             provider_name: params.providerName ?? null,
             credentials: credentialsJson,
             last_cursor: null,
@@ -343,15 +339,17 @@ export class AccountRepository extends BaseRepository {
         const updateData: Updateable<AccountsTable> = {
           updated_at: new Date().toISOString(),
         };
+        const currentAccount =
+          updates.parentAccountId !== undefined || updates.identifier !== undefined
+            ? yield* await self.getById(accountId)
+            : undefined;
 
         if (updates.parentAccountId !== undefined) {
-          const currentAccount = yield* await self.getById(accountId);
           const parentAccount = yield* await self.findById(updates.parentAccountId);
           if (!parentAccount) {
             yield* err(`Parent account ${updates.parentAccountId} not found`);
           }
-          const parentProfileId = parentAccount!.profileId;
-          if (!profilesMatch(parentProfileId, currentAccount.profileId)) {
+          if (!profilesMatch(parentAccount!.profileId, currentAccount!.profileId)) {
             yield* err('Child account profile must match parent account profile');
           }
           updateData.parent_account_id = updates.parentAccountId;
@@ -366,6 +364,18 @@ export class AccountRepository extends BaseRepository {
             yield* err('Account identifier must not be empty');
           }
           updateData.identifier = updates.identifier;
+
+          const accountFingerprintResult = await deriveCanonicalAccountFingerprint(self.db, {
+            profileId: currentAccount!.profileId,
+            accountType: currentAccount!.accountType,
+            platformKey: currentAccount!.platformKey,
+            identifier: updates.identifier,
+          });
+          if (accountFingerprintResult.isErr()) {
+            return yield* err(accountFingerprintResult.error);
+          }
+
+          updateData.account_fingerprint = accountFingerprintResult.value;
         }
 
         if (updates.providerName !== undefined) {
@@ -432,5 +442,13 @@ export class AccountRepository extends BaseRepository {
     } catch (error) {
       return err(new Error('Failed to delete accounts by IDs', { cause: error }));
     }
+  }
+
+  private baseAccountQuery() {
+    return this.db
+      .selectFrom('accounts')
+      .innerJoin('profiles', 'profiles.id', 'accounts.profile_id')
+      .selectAll('accounts')
+      .select('profiles.profile_key');
   }
 }

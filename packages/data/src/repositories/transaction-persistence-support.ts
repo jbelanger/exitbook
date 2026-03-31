@@ -5,7 +5,6 @@ import {
   TransactionNoteSchema,
   buildAssetMovementCanonicalMaterial,
   buildFeeMovementCanonicalMaterial,
-  computeAccountFingerprint,
   computeMovementFingerprint,
   type AssetMovementDraft,
   type FeeMovementDraft,
@@ -30,30 +29,6 @@ interface CanonicalMovementEntry<TMovement> {
   canonicalMaterial: string;
   duplicateOccurrence: number;
   movement: TMovement;
-}
-
-export async function loadAccountFingerprint(db: KyselyDB, accountId: number): Promise<Result<string, Error>> {
-  const account = await db
-    .selectFrom('accounts')
-    .leftJoin('profiles', 'profiles.id', 'accounts.profile_id')
-    .select(['accounts.account_type', 'accounts.platform_key', 'accounts.identifier', 'profiles.profile_key'])
-    .where('accounts.id', '=', accountId)
-    .executeTakeFirst();
-
-  if (!account) {
-    return err(new Error(`Account ${accountId} not found`));
-  }
-
-  if (!account.profile_key) {
-    return err(new Error(`Account ${accountId} is missing a stable profile key`));
-  }
-
-  return computeAccountFingerprint({
-    profileKey: account.profile_key,
-    accountType: account.account_type,
-    platformKey: account.platform_key,
-    identifier: account.identifier,
-  });
 }
 
 export async function resolveExistingTransactionConflict(

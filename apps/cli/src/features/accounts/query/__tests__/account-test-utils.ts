@@ -7,6 +7,7 @@ import type { AccountQueryPorts } from '../account-query-ports.js';
 
 export function createMockAccount(
   options?: Partial<Account> & {
+    accountFingerprint?: string | undefined;
     accountType?: AccountType | undefined;
     id?: number | undefined;
     identifier?: string | undefined;
@@ -14,14 +15,20 @@ export function createMockAccount(
     profileId?: number | undefined;
   }
 ): Account {
+  const profileId = options?.profileId ?? 1;
+  const accountType = options?.accountType ?? 'blockchain';
+  const platformKey = options?.platformKey ?? 'bitcoin';
+  const identifier = options?.identifier ?? 'bc1qtest';
+
   return {
     id: options?.id ?? 1,
-    profileId: options?.profileId ?? 1,
+    profileId,
     name: options?.name,
     parentAccountId: options?.parentAccountId,
-    accountType: options?.accountType ?? 'blockchain',
-    platformKey: options?.platformKey ?? 'bitcoin',
-    identifier: options?.identifier ?? 'bc1qtest',
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: options?.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
     providerName: options?.providerName,
     credentials: options?.credentials,
     lastCursor: options?.lastCursor,

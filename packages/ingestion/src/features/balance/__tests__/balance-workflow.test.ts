@@ -29,11 +29,18 @@ function materializeMovementFingerprint(
 }
 
 function createAccount(overrides: Partial<Account> = {}): Account {
+  const profileId = overrides.profileId ?? 1;
+  const accountType = overrides.accountType ?? 'blockchain';
+  const platformKey = overrides.platformKey ?? 'bitcoin';
+  const identifier = overrides.identifier ?? 'bc1-parent';
+
   return {
-    id: 1,
-    accountType: 'blockchain',
-    platformKey: 'bitcoin',
-    identifier: 'bc1-parent',
+    id: overrides.id ?? 1,
+    profileId,
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };

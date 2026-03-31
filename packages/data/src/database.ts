@@ -6,6 +6,7 @@ import type { Kysely } from '@exitbook/sqlite';
 
 import type { DatabaseSchema } from './database-schema.js';
 import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
+import { validateAccountFingerprintIntegrity } from './repositories/account-identity-support.js';
 
 export type KyselyDB = Kysely<DatabaseSchema>;
 
@@ -52,6 +53,15 @@ export async function initializeDatabase(dbPath: string): Promise<Result<KyselyD
       initLogger.warn({ error: closeResult.error }, 'Failed to close database after migration failure');
     }
     return err(migrationResult.error);
+  }
+
+  const accountIntegrityResult = await validateAccountFingerprintIntegrity(database);
+  if (accountIntegrityResult.isErr()) {
+    const closeResult = await closeDatabase(database);
+    if (closeResult.isErr()) {
+      initLogger.warn({ error: closeResult.error }, 'Failed to close database after account integrity failure');
+    }
+    return err(accountIntegrityResult.error);
   }
 
   initLogger.debug('Database initialization completed');

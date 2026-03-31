@@ -1,3 +1,4 @@
+import type { Account } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 
@@ -6,6 +7,23 @@ import type { CostBasisContext } from '../../../ports/cost-basis-persistence.js'
 import type { CostBasisWorkflowResult } from '../../workflow/workflow-result-types.js';
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
 import { buildTaxPackageBuildContext } from '../tax-package-context-builder.js';
+
+function createAccountFixture(
+  id: number,
+  accountType: Account['accountType'],
+  platformKey: string,
+  identifier: string
+): Account {
+  return {
+    id,
+    profileId: 1,
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: `acct:1:${accountType}:${platformKey}:${identifier}`,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  };
+}
 
 export function createStandardWorkflowArtifact(
   overrides?: Partial<Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>>
@@ -298,20 +316,8 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
       }),
     ],
     accounts: [
-      {
-        id: 1,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'primary-api',
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      },
-      {
-        id: 2,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1qexamplewallet',
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      },
+      createAccountFixture(1, 'exchange-api', 'kraken', 'primary-api'),
+      createAccountFixture(2, 'blockchain', 'bitcoin', 'bc1qexamplewallet'),
     ],
   };
 
@@ -503,27 +509,9 @@ export function createStandardPackageBuildContext(): TaxPackageBuildContext {
       }),
     ],
     accounts: [
-      {
-        id: 1,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'spot-wallet',
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      },
-      {
-        id: 2,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'trading-wallet',
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      },
-      {
-        id: 3,
-        accountType: 'blockchain',
-        platformKey: 'bitcoin',
-        identifier: 'bc1qstandardtestwallet',
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      },
+      createAccountFixture(1, 'exchange-api', 'kraken', 'spot-wallet'),
+      createAccountFixture(2, 'exchange-api', 'kraken', 'trading-wallet'),
+      createAccountFixture(3, 'blockchain', 'bitcoin', 'bc1qstandardtestwallet'),
     ],
   };
 

@@ -10,14 +10,20 @@ function isExchangeAccountType(accountType: Account['accountType']): boolean {
 }
 
 function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Account {
+  const profileId = overrides.profileId ?? 1;
+  const accountType = overrides.accountType ?? 'exchange-api';
+  const platformKey = overrides.platformKey ?? 'kraken';
+  const identifier = overrides.identifier ?? `identifier-${overrides.id}`;
+
   return {
     id: overrides.id,
-    profileId: overrides.profileId ?? 1,
+    profileId,
     name: overrides.name,
     parentAccountId: overrides.parentAccountId,
-    accountType: overrides.accountType ?? 'exchange-api',
-    platformKey: overrides.platformKey ?? 'kraken',
-    identifier: overrides.identifier ?? `identifier-${overrides.id}`,
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
     providerName: overrides.providerName,
     credentials: overrides.credentials,
     lastCursor: overrides.lastCursor,

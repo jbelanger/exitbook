@@ -8,7 +8,13 @@ import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { TransactionLinkRepository } from '../transaction-link-repository.js';
 
-import { seedAccount, seedImportSession, seedTxFingerprint, seedProfile } from './helpers.js';
+import {
+  computeTestAccountFingerprint,
+  seedAccount,
+  seedImportSession,
+  seedTxFingerprint,
+  seedProfile,
+} from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -360,6 +366,12 @@ describe('TransactionLinkRepository', () => {
           account_type: 'exchange-api',
           platform_key: 'test-2',
           identifier: 'test-api-key-2',
+          account_fingerprint: await computeTestAccountFingerprint(db, {
+            profileId: 1,
+            accountType: 'exchange-api',
+            platformKey: 'test-2',
+            identifier: 'test-api-key-2',
+          }),
           provider_name: null,
           last_cursor: null,
           created_at: new Date().toISOString(),
@@ -406,6 +418,12 @@ describe('TransactionLinkRepository', () => {
           account_type: 'exchange-api',
           platform_key: 'test-2',
           identifier: 'test-api-key-2',
+          account_fingerprint: await computeTestAccountFingerprint(db, {
+            profileId: 1,
+            accountType: 'exchange-api',
+            platformKey: 'test-2',
+            identifier: 'test-api-key-2',
+          }),
           provider_name: null,
           last_cursor: null,
           created_at: new Date().toISOString(),

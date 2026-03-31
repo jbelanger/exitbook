@@ -8,7 +8,7 @@ export interface ProcessingAccountInfo {
   accountType: string;
   identifier: string;
   platformKey: string;
-  profileId?: number | undefined;
+  profileId: number;
 }
 
 /**

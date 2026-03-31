@@ -76,13 +76,19 @@ function createImportProgram(): Command {
 }
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
+  const profileId = overrides.profileId ?? 1;
+  const accountType = overrides.accountType ?? 'exchange-api';
+  const platformKey = overrides.platformKey ?? 'kraken';
+  const identifier = overrides.identifier ?? 'api-key-1';
+
   return {
     id: 7,
-    profileId: 1,
+    profileId,
     name: 'kraken-main',
-    accountType: 'exchange-api',
-    platformKey: 'kraken',
-    identifier: 'api-key-1',
+    accountType,
+    platformKey,
+    identifier,
+    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
     createdAt: new Date('2026-01-02T00:00:00.000Z'),
     ...overrides,
   };

@@ -54,12 +54,16 @@ describe('buildAccountsStaticList', () => {
       },
     });
 
-    expect(stripAnsi(output)).toContain('\nAccounts (kraken) 1 total · 1 exchange-api\n');
-    expect(stripAnsi(output)).toContain('#1 kraken');
-    expect(stripAnsi(output)).toContain('kraken-main');
-    expect(stripAnsi(output)).toContain('2 imports +1 derived');
-    expect(stripAnsi(output)).toContain('proj:fresh');
-    expect(stripAnsi(output)).toContain('ver:ok');
+    expect(stripAnsi(output)).toContain('Accounts (kraken) 1 total · 1 exchange-api\n');
+    expect(stripAnsi(output)).toContain('\n#1 kraken-main');
+    expect(stripAnsi(output)).toContain('#1 kraken-main');
+    expect(stripAnsi(output)).toContain('kraken');
+    expect(stripAnsi(output)).not.toContain('imports');
+    expect(stripAnsi(output)).not.toContain('proj:');
+    expect(stripAnsi(output)).not.toContain('ver:');
+    expect(stripAnsi(output)).not.toContain('derived');
+    expect(stripAnsi(output).startsWith('\n')).toBe(false);
+    expect(stripAnsi(output).endsWith('\n\n')).toBe(false);
     expect(stripAnsi(output)).not.toContain('↑↓/j/k');
     expect(stripAnsi(output)).not.toContain('Identifier:');
   });
@@ -82,8 +86,10 @@ describe('buildAccountsStaticList', () => {
       },
     });
 
-    expect(stripAnsi(output)).toContain('\nAccounts (kraken) 0 total\n');
+    expect(stripAnsi(output)).toContain('Accounts (kraken) 0 total\n');
     expect(stripAnsi(output)).toContain('No accounts found for kraken.');
+    expect(stripAnsi(output).startsWith('\n')).toBe(false);
+    expect(stripAnsi(output).endsWith('\n\n')).toBe(false);
     expect(stripAnsi(output)).not.toContain('Tip:');
   });
 });
@@ -124,13 +130,15 @@ describe('buildAccountStaticDetail', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
     });
 
-    expect(stripAnsi(output)).toContain('\nkraken-main #1 kraken exchange-api\n');
+    expect(stripAnsi(output)).toContain('kraken-main #1 kraken exchange-api\n');
     expect(stripAnsi(output)).toContain('Name: kraken-main');
     expect(stripAnsi(output)).toContain('Identifier: acct-1');
     expect(stripAnsi(output)).toContain('Provider: kraken-api');
     expect(stripAnsi(output)).toContain('Verification: ✓ verified · Projection: ✓ fresh');
     expect(stripAnsi(output)).toContain('Derived addresses (1)');
     expect(stripAnsi(output)).toContain('Recent sessions');
+    expect(stripAnsi(output).startsWith('\n')).toBe(false);
+    expect(stripAnsi(output).endsWith('\n\n')).toBe(false);
     expect(stripAnsi(output)).not.toContain('↑↓/j/k');
     expect(stripAnsi(output)).not.toContain('q quit');
   });

@@ -54,12 +54,13 @@ Accounts are the named top-level sync targets users create and import.
 ```ts
 {
   id: number,
-  profileId?: number,
+  profileId: number,
   name?: string,
   parentAccountId?: number,
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv',
   platformKey: string,
   identifier: string,
+  accountFingerprint: string,
   providerName?: string,
   credentials?: { apiKey: string; apiSecret: string; apiPassphrase?: string },
   lastCursor?: Record<string, CursorState>,
@@ -79,6 +80,8 @@ Semantics:
 
 - top-level accounts are user-created and named
 - child accounts are internal derived rows and remain unnamed
+- every persisted account belongs to exactly one profile
+- `accountFingerprint` is the canonical persisted account identity
 - exchange API keys and CSV directories are sync config, not top-level exchange identity
 - blockchain identifiers remain semantic identity for wallet accounts
 
@@ -183,12 +186,13 @@ created_at TEXT NOT NULL
 
 ```sql
 id INTEGER PK,
-profile_id INTEGER NULL REFERENCES profiles(id),
+profile_id INTEGER NOT NULL REFERENCES profiles(id),
 name TEXT NULL,
 parent_account_id INTEGER NULL REFERENCES accounts(id),
 account_type TEXT NOT NULL,
 platform_key TEXT NOT NULL,
 identifier TEXT NOT NULL,
+account_fingerprint TEXT NOT NULL,
 provider_name TEXT NULL,
 credentials TEXT NULL,
 last_cursor TEXT NULL,
@@ -200,6 +204,8 @@ updated_at TEXT NULL
 Important indexes:
 
 ```sql
+UNIQUE (account_fingerprint)
+
 -- Blockchain + child identity
 UNIQUE (account_type, platform_key, identifier, COALESCE(profile_id, 0))
 WHERE NOT (account_type IN ('exchange-api', 'exchange-csv') AND parent_account_id IS NULL)
