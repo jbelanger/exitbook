@@ -3,13 +3,17 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  type CliCommandResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { withCommandPriceProviderRuntime, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { PricesSetFxCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetFxHandler } from './prices-set-fx-handler.js';
@@ -48,56 +52,53 @@ Notes:
 async function executePricesSetFxCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<PricesSetFxCommandOptions>({
     command: 'prices-set-fx',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, PricesSetFxCommandOptionsSchema);
-        return yield* await executePricesSetFxCommandResult(options, format);
+        return yield* parseCliCommandOptionsResult(rawOptions, PricesSetFxCommandOptionsSchema);
       }),
+    action: async (context) => executePricesSetFxCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executePricesSetFxCommandResult(
+  ctx: CommandRuntime,
   options: PricesSetFxCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'prices-set-fx',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const overrideStore = new OverrideStore(ctx.dataDir);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const overrideStore = new OverrideStore(ctx.dataDir);
 
-        const result = yield* toCliResult(
-          await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
-            const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
-            return handler.execute({
-              from: options.from,
-              to: options.to,
-              date: options.date,
-              rate: options.rate,
-              source: options.source,
-              profileKey: profile.profileKey,
-            });
-          }),
-          ExitCodes.GENERAL_ERROR
-        );
-
-        if (format === 'json') {
-          return jsonSuccess(result);
-        }
-
-        return textSuccess(() => {
-          console.log('✓ FX rate set successfully');
-          console.log(`   From: ${result.from}`);
-          console.log(`   To: ${result.to}`);
-          console.log(`   Date: ${result.timestamp.toISOString()}`);
-          console.log(`   Rate: ${result.rate}`);
-          console.log(`   Source: ${result.source}`);
+    const result = yield* toCliResult(
+      await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const handler = new PricesSetFxHandler(priceRuntime, overrideStore);
+        return handler.execute({
+          from: options.from,
+          to: options.to,
+          date: options.date,
+          rate: options.rate,
+          source: options.source,
+          profileKey: profile.profileKey,
         });
       }),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    if (format === 'json') {
+      return jsonSuccess(result);
+    }
+
+    return textSuccess(() => {
+      console.log('✓ FX rate set successfully');
+      console.log(`   From: ${result.from}`);
+      console.log(`   To: ${result.to}`);
+      console.log(`   Date: ${result.timestamp.toISOString()}`);
+      console.log(`   Rate: ${result.rate}`);
+      console.log(`   Source: ${result.source}`);
+    });
   });
 }

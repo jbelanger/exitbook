@@ -1,9 +1,7 @@
 import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
-import { runCliRuntimeCommand } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult } from '../../shared/cli-contract.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { buildCliProfileService } from '../profile-service.js';
 import { writeCliStateFile } from '../profile-state.js';
 

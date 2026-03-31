@@ -2,18 +2,18 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
+  ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   silentSuccess,
   textSuccess,
   toCliResult,
   type CliCommandResult,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { ReprocessCommandOptionsSchema } from './reprocess-option-schemas.js';
 import { runReprocess, type ReprocessResultWithMetrics } from './run-reprocess.js';
@@ -61,34 +61,30 @@ Notes:
 async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<ReprocessCommandOptions>({
     command: 'reprocess',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, ReprocessCommandOptionsSchema);
-        return yield* await executeReprocessCommandResult(options, format, appRuntime);
+        return yield* parseCliCommandOptionsResult(rawOptions, ReprocessCommandOptionsSchema);
       }),
+    action: async (context) => executeReprocessCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeReprocessCommandResult(
+  ctx: CommandRuntime,
   options: ReprocessCommandOptions,
-  format: CliOutputFormat,
-  appRuntime: CliAppRuntime
+  format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'reprocess',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const result = yield* toCliResult(
-          await runReprocess(ctx, { format }, { accountId: options.accountId }),
-          ExitCodes.GENERAL_ERROR
-        );
+  return resultDoAsync(async function* () {
+    const result = yield* toCliResult(
+      await runReprocess(ctx, { format }, { accountId: options.accountId }),
+      ExitCodes.GENERAL_ERROR
+    );
 
-        return buildReprocessCompletion(result, format);
-      }),
+    return buildReprocessCompletion(result, format);
   });
 }
 

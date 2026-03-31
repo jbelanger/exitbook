@@ -12,12 +12,17 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, silentSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { withPricesEnrichCommandScope } from './prices-enrich-command-scope.js';
 import { PricesEnrichCommandOptionsSchema } from './prices-option-schemas.js';
@@ -59,34 +64,31 @@ function collect(value: string, previous: string[]): string[] {
 async function executePricesEnrichCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<PricesEnrichOptions>({
     command: 'prices-enrich',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, PricesEnrichCommandOptionsSchema);
-        return yield* await executePricesEnrichCommandResult(buildPricesEnrichParams(options), format, appRuntime);
+        return buildPricesEnrichParams(options);
       }),
+    action: async (context) => executePricesEnrichCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executePricesEnrichCommandResult(
+  ctx: CommandRuntime,
   params: PricesEnrichOptions,
-  format: CliOutputFormat,
-  appRuntime: CliAppRuntime
+  format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'prices-enrich',
-    appRuntime,
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const result = yield* toCliResult(
-          await withPricesEnrichCommandScope(ctx, (scope) => runPricesEnrich(scope, { format }, params)),
-          ExitCodes.GENERAL_ERROR
-        );
+  return resultDoAsync(async function* () {
+    const result = yield* toCliResult(
+      await withPricesEnrichCommandScope(ctx, (scope) => runPricesEnrich(scope, { format }, params)),
+      ExitCodes.GENERAL_ERROR
+    );
 
-        return buildPricesEnrichCompletion(result, format);
-      }),
+    return buildPricesEnrichCompletion(result, format);
   });
 }
 

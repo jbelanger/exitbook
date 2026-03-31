@@ -3,12 +3,18 @@ import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { z } from 'zod';
 
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  toCliValue,
+  type CliCommandResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, toCliValue, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { TransactionsEditHandler, type TransactionNoteEditResult } from './transactions-edit-handler.js';
 import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
@@ -16,6 +22,10 @@ import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-
 const TransactionIdArgumentSchema = z.coerce.number().int().positive();
 
 type TransactionsEditNoteCommandOptions = z.infer<typeof TransactionsEditNoteCommandOptionsSchema>;
+interface TransactionsEditNotePreparedInput {
+  options: TransactionsEditNoteCommandOptions;
+  transactionId: number;
+}
 
 export function registerTransactionsEditNoteCommand(editCommand: Command): void {
   editCommand
@@ -43,65 +53,71 @@ Examples:
 async function executeTransactionsEditNoteCommand(rawTransactionId: string, rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<TransactionsEditNotePreparedInput>({
     command: 'transactions-edit-note',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, TransactionsEditNoteCommandOptionsSchema);
-        const transactionId = yield* toCliResult(parseTransactionId(rawTransactionId), ExitCodes.INVALID_ARGS);
-        return yield* await executeTransactionsEditNoteCommandResult(transactionId, options, format);
+        return {
+          options,
+          transactionId: yield* toCliResult(parseTransactionId(rawTransactionId), ExitCodes.INVALID_ARGS),
+        };
       }),
+    action: async (context) =>
+      executeTransactionsEditNoteCommandResult(
+        context.runtime,
+        context.prepared.transactionId,
+        context.prepared.options,
+        format
+      ),
   });
 }
 
 async function executeTransactionsEditNoteCommandResult(
+  ctx: CommandRuntime,
   transactionId: number,
   options: TransactionsEditNoteCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'transactions-edit-note',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const overrideStore = new OverrideStore(ctx.dataDir);
-        const handler = new TransactionsEditHandler(database, overrideStore);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const handler = new TransactionsEditHandler(database, overrideStore);
 
-        const result = options.clear
-          ? yield* toCliResult(
-              await handler.clearNote({
-                profileId: profile.id,
-                profileKey: profile.profileKey,
-                transactionId,
-                reason: options.reason,
-              }),
-              ExitCodes.GENERAL_ERROR
-            )
-          : yield* toCliResult(
-              await handler.setNote({
-                profileId: profile.id,
-                profileKey: profile.profileKey,
-                transactionId,
-                message: yield* toCliValue(
-                  options.message,
-                  new Error('Either --message or --clear is required'),
-                  ExitCodes.INVALID_ARGS
-                ),
-                reason: options.reason,
-              }),
-              ExitCodes.GENERAL_ERROR
-            );
+    const result = options.clear
+      ? yield* toCliResult(
+          await handler.clearNote({
+            profileId: profile.id,
+            profileKey: profile.profileKey,
+            transactionId,
+            reason: options.reason,
+          }),
+          ExitCodes.GENERAL_ERROR
+        )
+      : yield* toCliResult(
+          await handler.setNote({
+            profileId: profile.id,
+            profileKey: profile.profileKey,
+            transactionId,
+            message: yield* toCliValue(
+              options.message,
+              new Error('Either --message or --clear is required'),
+              ExitCodes.INVALID_ARGS
+            ),
+            reason: options.reason,
+          }),
+          ExitCodes.GENERAL_ERROR
+        );
 
-        if (format === 'json') {
-          return jsonSuccess(result);
-        }
+    if (format === 'json') {
+      return jsonSuccess(result);
+    }
 
-        return textSuccess(() => {
-          printTransactionsEditNoteResult(result);
-        });
-      }),
+    return textSuccess(() => {
+      printTransactionsEditNoteResult(result);
+    });
   });
 }
 

@@ -3,20 +3,18 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp } from '../../../runtime/command-runtime.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   cliErr,
+  ExitCodes,
   jsonSuccess,
-  normalizeCliError,
+  runCliRuntimeCommand,
   silentSuccess,
   type CliCommandResult,
   type CliCompletion,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { BenchmarkApp } from '../view/benchmark-components.jsx';
 import { createBenchmarkState } from '../view/benchmark-state.js';
 
@@ -69,38 +67,33 @@ Common Usage:
 async function executeProvidersBenchmarkCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<ProvidersBenchmarkCommandOptions>({
     command: 'providers-benchmark',
     format,
-    action: async () =>
+    appRuntime,
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, ProvidersBenchmarkCommandOptionsSchema);
-        return yield* await executeProvidersBenchmarkCommandResult(options, format, appRuntime);
+        return yield* parseCliCommandOptionsResult(rawOptions, ProvidersBenchmarkCommandOptionsSchema);
       }),
+    action: async (context) => executeProvidersBenchmarkCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executeProvidersBenchmarkCommandResult(
+  ctx: CommandRuntime,
   options: ProvidersBenchmarkCommandOptions,
-  format: CliOutputFormat,
-  appRuntime: CliAppRuntime
+  format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'providers-benchmark',
-    appRuntime,
-    action: async (ctx) => {
-      const result =
-        format === 'json'
-          ? await buildProvidersBenchmarkJsonCompletion(ctx, options)
-          : await buildProvidersBenchmarkTuiCompletion(ctx, options);
+  const result =
+    format === 'json'
+      ? await buildProvidersBenchmarkJsonCompletion(ctx, options)
+      : await buildProvidersBenchmarkTuiCompletion(ctx, options);
 
-      return toProvidersBenchmarkCliResult(result);
-    },
-  });
+  return toProvidersBenchmarkCliResult(result);
 }
 
 async function buildProvidersBenchmarkJsonCompletion(
-  ctx: Parameters<typeof withProviderBenchmarkCommandScope>[0],
+  ctx: CommandRuntime,
   options: ProvidersBenchmarkCommandOptions
 ): Promise<Result<CliCompletion, Error>> {
   return withProviderBenchmarkCommandScope(ctx, async (scope) => {
@@ -126,13 +119,13 @@ async function buildProvidersBenchmarkJsonCompletion(
         )
       );
     } catch (error) {
-      return err(normalizeCliError(error));
+      return err(normalizeCommandError(error));
     }
   });
 }
 
 async function buildProvidersBenchmarkTuiCompletion(
-  ctx: Parameters<typeof withProviderBenchmarkCommandScope>[0],
+  ctx: CommandRuntime,
   options: ProvidersBenchmarkCommandOptions
 ): Promise<Result<CliCompletion, Error>> {
   return withProviderBenchmarkCommandScope(ctx, async (scope) => {
@@ -156,7 +149,7 @@ async function buildProvidersBenchmarkTuiCompletion(
         })
       );
     } catch (error) {
-      return err(normalizeCliError(error));
+      return err(normalizeCommandError(error));
     }
 
     return ok(silentSuccess());
@@ -194,4 +187,8 @@ function toProvidersBenchmarkCliResult(result: Result<CliCompletion, Error>): Cl
   }
 
   return ok(result.value);
+}
+
+function normalizeCommandError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }

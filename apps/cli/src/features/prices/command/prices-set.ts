@@ -3,13 +3,17 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
-import { withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
+import {
+  ExitCodes,
+  jsonSuccess,
+  runCliRuntimeCommand,
+  textSuccess,
+  toCliResult,
+  type CliCommandResult,
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { withCommandPriceProviderRuntime, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { runCliRuntimeAction, runCliCommandBoundary } from '../../shared/cli-boundary.js';
-import { jsonSuccess, textSuccess, toCliResult, type CliCommandResult } from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
 
 import { PricesSetCommandOptionsSchema } from './prices-option-schemas.js';
 import { PricesSetHandler } from './prices-set-handler.js';
@@ -48,55 +52,52 @@ Notes:
 async function executePricesSetCommand(rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
-  await runCliCommandBoundary({
+  await runCliRuntimeCommand<PricesSetCommandOptions>({
     command: 'prices-set',
     format,
-    action: async () =>
+    prepare: async () =>
       resultDoAsync(async function* () {
-        const options = yield* parseCliCommandOptionsResult(rawOptions, PricesSetCommandOptionsSchema);
-        return yield* await executePricesSetCommandResult(options, format);
+        return yield* parseCliCommandOptionsResult(rawOptions, PricesSetCommandOptionsSchema);
       }),
+    action: async (context) => executePricesSetCommandResult(context.runtime, context.prepared, format),
   });
 }
 
 async function executePricesSetCommandResult(
+  ctx: CommandRuntime,
   options: PricesSetCommandOptions,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  return runCliRuntimeAction({
-    command: 'prices-set',
-    action: async (ctx) =>
-      resultDoAsync(async function* () {
-        const database = await ctx.database();
-        const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-        const overrideStore = new OverrideStore(ctx.dataDir);
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const overrideStore = new OverrideStore(ctx.dataDir);
 
-        const result = yield* toCliResult(
-          await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
-            const handler = new PricesSetHandler(priceRuntime, overrideStore);
-            return handler.execute({
-              asset: options.asset,
-              date: options.date,
-              price: options.price,
-              currency: options.currency,
-              source: options.source,
-              profileKey: profile.profileKey,
-            });
-          }),
-          ExitCodes.GENERAL_ERROR
-        );
-
-        if (format === 'json') {
-          return jsonSuccess(result);
-        }
-
-        return textSuccess(() => {
-          console.log('✓ Price set successfully');
-          console.log(`   Asset: ${result.asset}`);
-          console.log(`   Date: ${result.timestamp.toISOString()}`);
-          console.log(`   Price: ${result.price} ${result.currency}`);
-          console.log(`   Source: ${result.source}`);
+    const result = yield* toCliResult(
+      await withCommandPriceProviderRuntime(ctx, undefined, async (priceRuntime) => {
+        const handler = new PricesSetHandler(priceRuntime, overrideStore);
+        return handler.execute({
+          asset: options.asset,
+          date: options.date,
+          price: options.price,
+          currency: options.currency,
+          source: options.source,
+          profileKey: profile.profileKey,
         });
       }),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    if (format === 'json') {
+      return jsonSuccess(result);
+    }
+
+    return textSuccess(() => {
+      console.log('✓ Price set successfully');
+      console.log(`   Asset: ${result.asset}`);
+      console.log(`   Date: ${result.timestamp.toISOString()}`);
+      console.log(`   Price: ${result.price} ${result.currency}`);
+      console.log(`   Source: ${result.source}`);
+    });
   });
 }

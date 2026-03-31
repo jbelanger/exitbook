@@ -3,21 +3,20 @@ import type { Command } from 'commander';
 import React from 'react';
 import type { z } from 'zod';
 
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp } from '../../../runtime/command-runtime.js';
-import { runCliCommandBoundary } from '../../shared/cli-boundary.js';
 import {
   createCliFailure,
+  ExitCodes,
   jsonSuccess,
+  runCliCommandBoundary,
   silentSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
-} from '../../shared/cli-contract.js';
-import { detectCliOutputFormat, type CliOutputFormat } from '../../shared/cli-output-format.js';
-import { parseCliCommandOptionsResult } from '../../shared/command-options.js';
-import { ExitCodes } from '../../shared/exit-codes.js';
+} from '../../../cli/command.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { renderApp } from '../../../runtime/command-runtime.js';
 import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from '../view/index.js';
 
