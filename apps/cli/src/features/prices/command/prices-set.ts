@@ -12,6 +12,7 @@ import {
   type CliCommandResult,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { withCommandPriceProviderRuntime, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
@@ -93,7 +94,7 @@ async function executePricesSetCommandResult(
     }
 
     return textSuccess(() => {
-      console.log('✓ Price set successfully');
+      console.log(formatSuccessLine('Price set successfully'));
       console.log(`   Asset: ${result.asset}`);
       console.log(`   Date: ${result.timestamp.toISOString()}`);
       console.log(`   Price: ${result.price} ${result.currency}`);

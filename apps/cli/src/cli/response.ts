@@ -28,9 +28,6 @@ export interface CliResponse<T = unknown> {
 
         /** Human-readable error message */
         message: string;
-
-        /** Stack trace (only in development/verbose mode) */
-        stack?: string | undefined;
       }
     | undefined;
 
@@ -74,17 +71,13 @@ export function createErrorResponse(
   code: string,
   details?: unknown
 ): CliResponse<never> {
-  const errorObj: { code: string; details?: unknown; message: string; stack?: string | undefined } = {
+  const errorObj: { code: string; details?: unknown; message: string } = {
     code,
     message: error.message,
   };
 
   if (details !== undefined) {
     errorObj.details = details;
-  }
-
-  if (process.env['NODE_ENV'] === 'development' && error.stack) {
-    errorObj.stack = error.stack;
   }
 
   return {

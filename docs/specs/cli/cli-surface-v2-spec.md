@@ -645,7 +645,7 @@ The text-progress presenter receives the same event stream as the Ink presenter.
 - Every line must answer at least one of: is it stuck? which provider? is it failing? how far along?
 - State changes are not optional — provider failover and rate-limiting must be visible at default verbosity.
 - Heartbeat frequency should be adaptive: more frequent during active fetching, suppressed when idle.
-- `--verbose` increases detail level (per-request logging, full error stacks) without changing which presenter is selected. It is orthogonal to presentation mode.
+- Low-level request diagnostics belong in logs, not in a generic `--verbose` CLI flag.
 - Output must be CI-safe: no cursor control, no ANSI escape sequences beyond basic color, no terminal-width assumptions.
 - Human-facing text output should prefer text-style symbols over emoji presentation.
 
@@ -872,7 +872,7 @@ No phase is complete until every command touched in that phase has explicit mode
 - Decision: workflow commands default to `text-progress`, not TUI. The current Ink monitors are progress displays, not interactive apps — full-screen TUI is heavier, harder to copy from, worse in scrollback, and creates more implementation complexity for monitors that have no keyboard interaction. `--tui` opts into the Ink dashboard.
 - Decision: bare namespace commands are the canonical text snapshot entrypoints for browse-heavy domains, while `view` is the canonical explorer/TUI verb. `--tui` remains the TUI opt-in for workflow commands. `--json` is machine output. The flags remain mutually exclusive.
 - Decision: `text-progress` must preserve operational visibility — provider state changes, heartbeat summaries, and final rollups are not optional. Moving workflows off TUI must not make them less observable.
-- Decision: `--verbose` controls detail level within a presentation mode (e.g., per-request logging in text-progress). It is orthogonal to presenter selection.
+- Decision: low-level request diagnostics and stack traces belong in logs, not in a generic CLI verbosity flag.
 - Decision: `clear` fails closed in CI and other non-interactive contexts; preview without `--confirm` is an error path, not a silent no-op success.
 - Decision: `destructive-review` remains a narrow intent reserved for review-gated safety flows, not a generic label for dangerous mutations.
 - Decision: `clear --text` on an interactive terminal renders text preview + stdin confirmation prompt. It does not exit non-zero, because the user is present.

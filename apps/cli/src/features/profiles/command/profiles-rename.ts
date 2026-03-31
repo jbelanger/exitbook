@@ -2,6 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { buildCliProfileService } from '../profile-service.js';
 
 export function registerProfilesRenameCommand(profilesCommand: Command): void {
@@ -41,7 +42,7 @@ Notes:
             }
 
             return textSuccess(() => {
-              console.log(`Renamed profile ${profile.profileKey} to ${profile.displayName}`);
+              console.log(formatSuccessLine(`Renamed profile ${profile.profileKey} to ${profile.displayName}`));
             });
           }),
       });

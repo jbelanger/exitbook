@@ -96,7 +96,7 @@ describe('cli-response', () => {
       });
     });
 
-    it('includes stack trace in development mode', () => {
+    it('does not include stack trace in development mode', () => {
       const originalEnv = process.env['NODE_ENV'];
       process.env['NODE_ENV'] = 'development';
 
@@ -104,20 +104,10 @@ describe('cli-response', () => {
       error.stack = 'Error: Test error\n    at test.js:1:1';
       const response = createErrorResponse('test-command', error, 'GENERAL_ERROR');
 
-      expect(response.error?.stack).toBe('Error: Test error\n    at test.js:1:1');
-
-      process.env['NODE_ENV'] = originalEnv;
-    });
-
-    it('does not include stack trace in production mode', () => {
-      const originalEnv = process.env['NODE_ENV'];
-      process.env['NODE_ENV'] = 'production';
-
-      const error = new Error('Test error');
-      error.stack = 'Error: Test error\n    at test.js:1:1';
-      const response = createErrorResponse('test-command', error, 'GENERAL_ERROR');
-
-      expect(response.error?.stack).toBeUndefined();
+      expect(response.error).toEqual({
+        code: 'GENERAL_ERROR',
+        message: 'Test error',
+      });
 
       process.env['NODE_ENV'] = originalEnv;
     });

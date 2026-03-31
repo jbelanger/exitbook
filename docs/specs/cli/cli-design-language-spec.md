@@ -132,7 +132,6 @@ Use the same option name for the same kind of input across commands:
 - `--asset-id` for a canonical asset identity
 - `--blockchain` and `--provider` for registry keys
 - `--json` for machine output everywhere
-- `--verbose` for extra diagnostics without changing the interaction model
 
 Examples should prefer names over IDs unless the command fundamentally operates on an ID.
 
@@ -272,7 +271,7 @@ Workflow commands should answer operational questions continuously:
 - whether work is advancing or blocked
 - what the final outcome was
 
-Users should not need `--verbose` just to learn whether the run is stuck or failing.
+Users should not need debug logging just to learn whether the run is stuck or failing.
 
 Exact workflow-output and prompt-first semantics belong in [CLI Surface V3 Specification](./cli-surface-v3-spec.md).
 

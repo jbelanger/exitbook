@@ -13,6 +13,7 @@ import {
   type CliCommandResult,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
@@ -128,9 +129,9 @@ function parseTransactionId(rawTransactionId: string): Result<number, Error> {
 
 function printTransactionsEditNoteResult(result: TransactionNoteEditResult): void {
   if (result.action === 'set') {
-    console.log(result.changed ? 'Transaction note saved' : 'Transaction note unchanged');
+    console.log(formatSuccessLine(result.changed ? 'Transaction note saved' : 'Transaction note unchanged'));
   } else {
-    console.log(result.changed ? 'Transaction note cleared' : 'Transaction note already clear');
+    console.log(formatSuccessLine(result.changed ? 'Transaction note cleared' : 'Transaction note already clear'));
   }
 
   console.log(`   Transaction: #${result.transactionId} (${result.platformKey} / ${result.txFingerprint})`);

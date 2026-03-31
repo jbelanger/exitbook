@@ -23,15 +23,11 @@ export function writeCliFailure(command: string, failure: CliFailure, format: 'j
     return;
   }
 
-  process.stderr.write(`\n${pc.red('✗')} Error: ${failure.error.message}\n`);
+  process.stderr.write(`${pc.red('✗')} Error: ${failure.error.message}\n`);
 
   const tip = ERROR_TIPS[code];
   if (tip) {
     process.stderr.write(`\n${pc.dim(tip)}\n`);
-  }
-
-  if (process.env['NODE_ENV'] === 'development' && failure.error.stack) {
-    process.stderr.write(`\n${pc.dim(failure.error.stack)}\n\n`);
   }
 }
 

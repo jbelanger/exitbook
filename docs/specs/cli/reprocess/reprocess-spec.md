@@ -27,7 +27,6 @@ Options:
 
 - `--account-id <id>`: rebuild one account scope only
 - `--json`: emit structured results instead of human progress output
-- `--verbose`: increase diagnostic detail without changing the presenter
 
 ## User Mental Model
 

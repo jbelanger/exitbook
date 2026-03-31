@@ -162,7 +162,8 @@ describe('assets command modules', () => {
       symbol: 'USDC',
       reason: undefined,
     });
-    expect(consoleLogSpy).toHaveBeenCalledWith('Asset review confirmed');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Asset review confirmed');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Accounting: blocked');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       'Confirmation recorded, but accounting is still blocked until one conflicting contract is excluded.'

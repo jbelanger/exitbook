@@ -54,7 +54,6 @@ Notes:
     )
     .option('--account-id <id>', 'Reprocess only a specific account ID')
     .option('--json', 'Output results in JSON format')
-    .option('--verbose', 'Show verbose logging output')
     .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, appRuntime));
 }
 

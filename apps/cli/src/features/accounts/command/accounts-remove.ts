@@ -12,6 +12,7 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { promptConfirmDecision } from '../../../cli/prompts.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 import type { FlatAccountRemovePreview } from './account-removal-service.js';
@@ -97,7 +98,7 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
               }
 
               return textSuccess(() => {
-                console.log(`Removed account ${accountName}`);
+                console.log(formatSuccessLine(`Removed account ${accountName}`));
               });
             })
           )

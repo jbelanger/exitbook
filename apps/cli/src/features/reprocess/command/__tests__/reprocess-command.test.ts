@@ -65,6 +65,13 @@ beforeEach(() => {
 });
 
 describe('reprocess command', () => {
+  it('does not register a --verbose flag', () => {
+    const program = createProgram();
+    const reprocessCommand = program.commands.find((command) => command.name() === 'reprocess');
+
+    expect(reprocessCommand?.options.map((option) => option.long)).not.toContain('--verbose');
+  });
+
   it('outputs JSON results through the shared boundary', async () => {
     const program = createProgram();
 

@@ -105,7 +105,6 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
     .option('--account-id <number>', 'Account ID to sync', parseInt)
     .option('--all', 'Sync all top-level accounts in the selected profile')
     .option('--json', 'Output results in JSON format')
-    .option('--verbose', 'Show verbose logging output')
     .addHelpText(
       'after',
       `

@@ -57,6 +57,25 @@ beforeEach(() => {
 });
 
 describe('profiles rename command', () => {
+  it('prints a success-marked confirmation in text mode', async () => {
+    const program = createProfilesProgram();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const profile = {
+      id: 1,
+      profileKey: 'business',
+      displayName: 'Business / Family',
+      createdAt: new Date('2026-03-26T00:00:00.000Z'),
+    };
+    mockRename.mockResolvedValue(ok(profile));
+
+    await program.parseAsync(['profiles', 'rename', 'business', 'Business / Family'], { from: 'user' });
+
+    expect(consoleLog).toHaveBeenCalledOnce();
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('Renamed profile business to Business / Family');
+    consoleLog.mockRestore();
+  });
+
   it('renames a profile display name in JSON mode', async () => {
     const program = createProfilesProgram();
     const profile = {

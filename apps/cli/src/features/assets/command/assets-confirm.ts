@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
@@ -57,9 +58,9 @@ function buildAssetsConfirmCompletion(format: CliOutputFormat, result: AssetRevi
 
   return textSuccess(() => {
     if (!result.changed) {
-      console.log('Asset review is already confirmed for the current evidence');
+      console.log(formatSuccessLine('Asset review is already confirmed for the current evidence'));
     } else {
-      console.log('Asset review confirmed');
+      console.log(formatSuccessLine('Asset review confirmed'));
     }
 
     console.log(`   Asset ID: ${result.assetId}`);

@@ -11,6 +11,7 @@ import {
   toCliValue,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
@@ -96,7 +97,7 @@ async function executeUpdateAccountCommand(
         const changeSummary = buildAccountUpdateSummary(existingAccount, updatedAccount, context.prepared);
 
         return textSuccess(() => {
-          console.log(`Updated account ${updatedAccount.name}`);
+          console.log(formatSuccessLine(`Updated account ${updatedAccount.name}`));
           if (changeSummary.length > 0) {
             console.log(`Changes: ${changeSummary.join(' · ')}`);
           }

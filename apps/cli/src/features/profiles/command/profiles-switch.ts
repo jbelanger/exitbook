@@ -2,6 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { buildCliProfileService } from '../profile-service.js';
 import { writeCliStateFile } from '../profile-state.js';
 
@@ -43,7 +44,9 @@ Notes:
             }
 
             return textSuccess(() => {
-              console.log(`Default profile set to ${profile.displayName} [key: ${profile.profileKey}]`);
+              console.log(
+                formatSuccessLine(`Default profile set to ${profile.displayName} [key: ${profile.profileKey}]`)
+              );
             });
           }),
       });

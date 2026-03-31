@@ -198,6 +198,13 @@ describe('ImportCommandOptionsSchema', () => {
 });
 
 describe('import command', () => {
+  it('does not register a --verbose flag', () => {
+    const program = createImportProgram();
+    const importCommand = program.commands.find((command) => command.name() === 'import');
+
+    expect(importCommand?.options.map((option) => option.long)).not.toContain('--verbose');
+  });
+
   it('resolves an account name and outputs JSON results', async () => {
     const program = createImportProgram();
 

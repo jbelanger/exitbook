@@ -10,6 +10,7 @@ import {
   toCliValue,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
@@ -78,7 +79,7 @@ async function executeRenameAccountCommand(currentName: string, nextName: string
         );
 
         return textSuccess(() => {
-          console.log(`Renamed account ${currentName} to ${renamedAccountName}`);
+          console.log(formatSuccessLine(`Renamed account ${currentName} to ${renamedAccountName}`));
         });
       }),
   });

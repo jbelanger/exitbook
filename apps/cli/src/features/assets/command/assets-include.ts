@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
@@ -56,9 +57,9 @@ function buildAssetsIncludeCompletion(format: CliOutputFormat, result: AssetOver
 
   return textSuccess(() => {
     if (!result.changed) {
-      console.log('Asset is already included in accounting');
+      console.log(formatSuccessLine('Asset is already included in accounting'));
     } else {
-      console.log('✓ Asset included in accounting');
+      console.log(formatSuccessLine('Asset included in accounting'));
     }
 
     console.log(`   Asset ID: ${result.assetId}`);

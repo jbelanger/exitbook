@@ -12,6 +12,7 @@ import {
   type CliCommandResult,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { withCommandPriceProviderRuntime, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
@@ -93,7 +94,7 @@ async function executePricesSetFxCommandResult(
     }
 
     return textSuccess(() => {
-      console.log('✓ FX rate set successfully');
+      console.log(formatSuccessLine('FX rate set successfully'));
       console.log(`   From: ${result.from}`);
       console.log(`   To: ${result.to}`);
       console.log(`   Date: ${result.timestamp.toISOString()}`);

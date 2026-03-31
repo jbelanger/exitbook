@@ -292,7 +292,8 @@ describe('accounts lifecycle commands', () => {
     });
 
     expect(consoleLog).toHaveBeenCalledOnce();
-    expect(consoleLog).toHaveBeenCalledWith('Added account theta-wallet (theta)');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('Added account theta-wallet (theta)');
     consoleLog.mockRestore();
   });
 
@@ -314,7 +315,8 @@ describe('accounts lifecycle commands', () => {
     await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary'], { from: 'user' });
 
     expect(consoleLog).toHaveBeenCalledOnce();
-    expect(consoleLog).toHaveBeenCalledWith('Renamed account kraken-main to kraken-primary');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('Renamed account kraken-main to kraken-primary');
     consoleLog.mockRestore();
   });
 
@@ -443,7 +445,8 @@ describe('accounts lifecycle commands', () => {
 
     await program.parseAsync(['accounts', 'update', 'ethereum-main', '--provider', 'alchemy'], { from: 'user' });
 
-    expect(consoleLog).toHaveBeenNthCalledWith(1, 'Updated account ethereum-main');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('Updated account ethereum-main');
     expect(consoleLog).toHaveBeenNthCalledWith(2, 'Changes: provider set to alchemy');
     consoleLog.mockRestore();
   });

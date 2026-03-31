@@ -3,6 +3,7 @@ import type { Command } from 'commander';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { buildCliAccountLifecycleService } from '../account-service.js';
@@ -79,7 +80,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
         }
 
         return textSuccess(() => {
-          console.log(`Added account ${account.name} (${account.platformKey})`);
+          console.log(formatSuccessLine(`Added account ${account.name} (${account.platformKey})`));
         });
       }),
   });

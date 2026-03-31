@@ -5,10 +5,6 @@ export const JsonFlagSchema = z.object({
   json: z.boolean().optional(),
 });
 
-export const VerboseFlagSchema = z.object({
-  verbose: z.boolean().optional(),
-});
-
 export const SourceSelectionSchema = z
   .object({
     exchange: z.string().optional(),

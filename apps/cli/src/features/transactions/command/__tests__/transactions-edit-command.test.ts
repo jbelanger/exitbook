@@ -124,7 +124,8 @@ describe('transactions edit command', () => {
       message: 'Moved to Ledger',
       reason: 'wallet transfer',
     });
-    expect(consoleLogSpy).toHaveBeenCalledWith('Transaction note saved');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Transaction note saved');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Transaction: #123 (kraken / trade-123)');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Note: Moved to Ledger');
   });

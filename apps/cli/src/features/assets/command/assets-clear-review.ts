@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';
@@ -56,9 +57,9 @@ function buildAssetsClearReviewCompletion(format: CliOutputFormat, result: Asset
 
   return textSuccess(() => {
     if (!result.changed) {
-      console.log('Asset review confirmation was already cleared');
+      console.log(formatSuccessLine('Asset review confirmation was already cleared'));
     } else {
-      console.log('Asset review confirmation cleared');
+      console.log(formatSuccessLine('Asset review confirmation cleared'));
     }
 
     console.log(`   Asset ID: ${result.assetId}`);

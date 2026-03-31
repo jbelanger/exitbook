@@ -2,6 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
+import { formatSuccessLine } from '../../../cli/success.js';
 import { buildCliProfileService } from '../profile-service.js';
 
 export function registerProfilesAddCommand(profilesCommand: Command): void {
@@ -40,7 +41,7 @@ Notes:
             }
 
             return textSuccess(() => {
-              console.log(`Added profile ${profile.displayName} [key: ${profile.profileKey}]`);
+              console.log(formatSuccessLine(`Added profile ${profile.displayName} [key: ${profile.profileKey}]`));
             });
           }),
       });
