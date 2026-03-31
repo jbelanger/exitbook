@@ -1,4 +1,4 @@
-import type { Account } from '@exitbook/core';
+import { computeAccountFingerprint, type Account } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +7,19 @@ import { AccountLifecycleService } from '../account-lifecycle-service.js';
 
 function isExchangeAccountType(accountType: Account['accountType']): boolean {
   return accountType === 'exchange-api' || accountType === 'exchange-csv';
+}
+
+function recomputeAccountFingerprint(
+  account: Pick<Account, 'accountType' | 'identifier' | 'platformKey' | 'profileId'>
+): string {
+  return assertOk(
+    computeAccountFingerprint({
+      profileKey: `profile-${account.profileId}`,
+      accountType: account.accountType,
+      platformKey: account.platformKey,
+      identifier: account.identifier,
+    })
+  );
 }
 
 function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Account {
@@ -23,7 +36,8 @@ function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Accou
     accountType,
     platformKey,
     identifier,
-    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
+    accountFingerprint:
+      overrides.accountFingerprint ?? recomputeAccountFingerprint({ profileId, accountType, platformKey, identifier }),
     providerName: overrides.providerName,
     credentials: overrides.credentials,
     lastCursor: overrides.lastCursor,
@@ -67,7 +81,7 @@ function createStore(initialAccounts: Account[] = []) {
       async findById(accountId: number) {
         return ok(accounts.find((account) => account.id === accountId));
       },
-      async findByKey(input: {
+      async findByIdentity(input: {
         accountType: Account['accountType'];
         identifier: string;
         platformKey: string;
@@ -121,6 +135,7 @@ function createStore(initialAccounts: Account[] = []) {
         }
         if (updates.identifier !== undefined) {
           account.identifier = updates.identifier;
+          account.accountFingerprint = recomputeAccountFingerprint(account);
         }
         if (updates.providerName !== undefined) {
           account.providerName = updates.providerName;

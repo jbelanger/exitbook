@@ -13,7 +13,7 @@ interface AccountLifecycleStore {
     providerName?: string | undefined;
   }): Promise<Result<Account, Error>>;
   findById(accountId: number): Promise<Result<Account | undefined, Error>>;
-  findByKey(input: {
+  findByIdentity(input: {
     accountType: AccountType;
     identifier: string;
     platformKey: string;
@@ -91,37 +91,37 @@ export class AccountLifecycleService {
       return err(new Error(`Account '${normalizedName}' already exists`));
     }
 
-    const existingByKeyResult = await this.store.findByKey({
+    const existingByIdentityResult = await this.store.findByIdentity({
       accountType: input.accountType,
       identifier: input.identifier,
       platformKey: input.platformKey,
       profileId: input.profileId,
     });
-    if (existingByKeyResult.isErr()) {
-      return err(existingByKeyResult.error);
+    if (existingByIdentityResult.isErr()) {
+      return err(existingByIdentityResult.error);
     }
 
-    const existingByKey = existingByKeyResult.value;
-    if (existingByKey) {
-      if (existingByKey.parentAccountId !== undefined) {
+    const existingByIdentity = existingByIdentityResult.value;
+    if (existingByIdentity) {
+      if (existingByIdentity.parentAccountId !== undefined) {
         return err(
           new Error(
-            `Account config is already tracked by child account #${existingByKey.id}. Remove the parent wallet first if you want a standalone account.`
+            `Account config is already tracked by child account #${existingByIdentity.id}. Remove the parent wallet first if you want a standalone account.`
           )
         );
       }
 
-      if (existingByKey.name) {
+      if (existingByIdentity.name) {
         return err(
           new Error(
-            `Account config already exists as '${existingByKey.name}'. Use that account name or rename it first.`
+            `Account config already exists as '${existingByIdentity.name}'. Use that account name or rename it first.`
           )
         );
       }
 
       return err(
         new Error(
-          `Account config already exists as top-level account #${existingByKey.id}. Clear and recreate that profile data before adding it again.`
+          `Account config already exists as top-level account #${existingByIdentity.id}. Clear and recreate that profile data before adding it again.`
         )
       );
     }
@@ -230,7 +230,7 @@ export class AccountLifecycleService {
     const account = accountResult.value;
     const nextIdentifier = input.identifier ?? account.identifier;
     if (nextIdentifier !== account.identifier) {
-      const duplicateResult = await this.store.findByKey({
+      const duplicateResult = await this.store.findByIdentity({
         accountType: account.accountType,
         identifier: nextIdentifier,
         platformKey: account.platformKey,
