@@ -14,7 +14,6 @@ import {
   registerAccountsBrowseOptions,
 } from './accounts-browse-command.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
-import { registerAccountsRenameCommand } from './accounts-rename.js';
 import { registerAccountsUpdateCommand } from './accounts-update.js';
 import { registerAccountsViewCommand } from './accounts-view.js';
 
@@ -29,8 +28,7 @@ const ACCOUNTS_LIST_ALIAS = 'list';
  *   accounts <name>          - Static account detail card
  *   accounts view [name]     - Accounts explorer
  *   accounts add             - Create an account
- *   accounts update          - Update sync config for an account
- *   accounts rename          - Rename an account
+ *   accounts update          - Update account properties
  *   accounts remove          - Remove an account and all attached data
  */
 export function registerAccountsCommand(program: Command, appRuntime: CliAppRuntime): void {
@@ -60,7 +58,7 @@ Notes:
   - Use bare "accounts" for quick account lists and single-account details.
   - Use "accounts view" for the interactive explorer.
   - Bare selectors may be account names or account fingerprint prefixes.
-  - Account selectors cannot use reserved command words such as add, list, remove, rename, update, or view.
+  - Account selectors cannot use reserved command words such as add, list, remove, update, or view.
 `
     );
 
@@ -93,6 +91,5 @@ Notes:
   registerAccountsAddCommand(accounts, appRuntime);
   registerAccountsViewCommand(accounts);
   registerAccountsUpdateCommand(accounts, appRuntime);
-  registerAccountsRenameCommand(accounts);
   registerAccountsRemoveCommand(accounts);
 }

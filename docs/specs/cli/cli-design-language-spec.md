@@ -107,7 +107,7 @@ Reserve verbs for stable meanings across the whole CLI.
 | `enrich`       | Fill missing derived information                                    |
 | `export`       | Emit a report or file-focused artifact                              |
 | `add`          | Create a named resource                                             |
-| `update`       | Change sync or config fields on an existing resource                |
+| `update`       | Change mutable properties on an existing resource                   |
 | `rename`       | Change a label or key-adjacent identifier without changing identity |
 | `switch`       | Change the default active context for future commands               |
 | `current`      | Show the currently resolved context                                 |

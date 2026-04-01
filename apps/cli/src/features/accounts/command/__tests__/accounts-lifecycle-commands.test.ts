@@ -18,7 +18,6 @@ const {
   mockOutputSuccess,
   mockPrepareAccountRemoval,
   mockPromptConfirmDecision,
-  mockRenameOwned,
   mockResolveCommandProfile,
   mockRunAccountRemoval,
   mockRunCommand,
@@ -38,7 +37,6 @@ const {
   mockOutputSuccess: vi.fn(),
   mockPrepareAccountRemoval: vi.fn(),
   mockPromptConfirmDecision: vi.fn(),
-  mockRenameOwned: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunAccountRemoval: vi.fn(),
   mockRunCommand: vi.fn(),
@@ -87,7 +85,6 @@ vi.mock('../../../../cli/prompts.js', () => ({
 
 import { registerAccountsAddCommand } from '../accounts-add.js';
 import { registerAccountsRemoveCommand } from '../accounts-remove.js';
-import { registerAccountsRenameCommand } from '../accounts-rename.js';
 import { registerAccountsUpdateCommand } from '../accounts-update.js';
 
 const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -103,7 +100,6 @@ function createAccountsProgram(): Command {
 
   registerAccountsAddCommand(accounts, appRuntime);
   registerAccountsUpdateCommand(accounts, appRuntime);
-  registerAccountsRenameCommand(accounts);
   registerAccountsRemoveCommand(accounts);
 
   return program;
@@ -125,7 +121,6 @@ beforeEach(() => {
   );
   mockcreateCliAccountLifecycleService.mockReturnValue({
     create: mockCreate,
-    renameOwned: mockRenameOwned,
     getByFingerprintRef: mockGetByFingerprintRef,
     getByName: mockGetByName,
     updateOwned: mockUpdateOwned,
@@ -242,53 +237,6 @@ describe('accounts lifecycle commands', () => {
     );
   });
 
-  it('renames an account in JSON mode', async () => {
-    const program = createAccountsProgram();
-
-    mockGetByName.mockResolvedValue(
-      ok({
-        id: 7,
-        profileId: 1,
-        accountFingerprint: createAccountFingerprint(7),
-        name: 'kraken-main',
-        parentAccountId: undefined,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-        updatedAt: undefined,
-      })
-    );
-    mockRenameOwned.mockResolvedValue(
-      ok({
-        id: 7,
-        accountFingerprint: createAccountFingerprint(7),
-        name: 'kraken-primary',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-      })
-    );
-
-    await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary', '--json'], { from: 'user' });
-
-    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockRenameOwned).toHaveBeenCalledWith(1, 7, 'kraken-primary');
-    expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'accounts-rename',
-      {
-        account: {
-          id: 7,
-          name: 'kraken-primary',
-          platformKey: 'kraken',
-        },
-        profile: 'default',
-      },
-      undefined
-    );
-  });
-
   it('prints a one-line confirmation for text-mode account adds', async () => {
     const program = createAccountsProgram();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -325,49 +273,7 @@ describe('accounts lifecycle commands', () => {
     consoleLog.mockRestore();
   });
 
-  it('prints a one-line confirmation for text-mode account renames', async () => {
-    const program = createAccountsProgram();
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-
-    mockGetByFingerprintRef.mockResolvedValue(
-      ok({
-        id: 7,
-        profileId: 1,
-        accountFingerprint: createAccountFingerprint(7),
-        name: 'kraken-main',
-        parentAccountId: undefined,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-        updatedAt: undefined,
-      })
-    );
-    mockRenameOwned.mockResolvedValue(
-      ok({
-        id: 7,
-        accountFingerprint: createAccountFingerprint(7),
-        name: 'kraken-primary',
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'api-key-1',
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-      })
-    );
-
-    await program.parseAsync(['accounts', 'rename', createAccountFingerprint(7).slice(0, 10), 'kraken-primary'], {
-      from: 'user',
-    });
-
-    expect(consoleLog).toHaveBeenCalledOnce();
-    expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
-    expect(consoleLog.mock.calls[0]?.[0]).toContain(
-      `Renamed account ${createAccountFingerprint(7).slice(0, 10)} to kraken-primary`
-    );
-    consoleLog.mockRestore();
-  });
-
-  it('updates an account config in JSON mode', async () => {
+  it('updates account properties in JSON mode', async () => {
     const program = createAccountsProgram();
 
     mockGetByName.mockResolvedValue(
@@ -390,6 +296,7 @@ describe('accounts lifecycle commands', () => {
     );
     mockBuildUpdateAccountInput.mockReturnValue(
       ok({
+        name: 'kraken-primary',
         identifier: 'new-key',
         credentials: {
           apiKey: 'new-key',
@@ -402,7 +309,7 @@ describe('accounts lifecycle commands', () => {
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
-        name: 'kraken-main',
+        name: 'kraken-primary',
         accountType: 'exchange-api',
         platformKey: 'kraken',
         identifier: 'new-key',
@@ -412,7 +319,18 @@ describe('accounts lifecycle commands', () => {
     );
 
     await program.parseAsync(
-      ['accounts', 'update', 'kraken-main', '--api-key', 'new-key', '--api-secret', 'new-secret', '--json'],
+      [
+        'accounts',
+        'update',
+        'kraken-main',
+        '--name',
+        'kraken-primary',
+        '--api-key',
+        'new-key',
+        '--api-secret',
+        'new-secret',
+        '--json',
+      ],
       { from: 'user' }
     );
 
@@ -423,6 +341,7 @@ describe('accounts lifecycle commands', () => {
         name: 'kraken-main',
       }),
       expect.objectContaining({
+        name: 'kraken-primary',
         apiKey: 'new-key',
         apiSecret: 'new-secret',
       }),
@@ -432,6 +351,7 @@ describe('accounts lifecycle commands', () => {
       1,
       7,
       expect.objectContaining({
+        name: 'kraken-primary',
         identifier: 'new-key',
         resetCursor: true,
       })
@@ -442,7 +362,7 @@ describe('accounts lifecycle commands', () => {
         account: {
           id: 7,
           accountFingerprint: createAccountFingerprint(7),
-          name: 'kraken-main',
+          name: 'kraken-primary',
           accountType: 'exchange-api',
           platformKey: 'kraken',
           identifier: '***',
@@ -455,7 +375,7 @@ describe('accounts lifecycle commands', () => {
     );
   });
 
-  it('prints the specific fields changed during a text-mode update', async () => {
+  it('prints the specific property changes during a text-mode update', async () => {
     const program = createAccountsProgram();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -479,6 +399,7 @@ describe('accounts lifecycle commands', () => {
     );
     mockBuildUpdateAccountInput.mockReturnValue(
       ok({
+        name: 'ethereum-primary',
         providerName: 'alchemy',
       })
     );
@@ -486,7 +407,7 @@ describe('accounts lifecycle commands', () => {
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
-        name: 'ethereum-main',
+        name: 'ethereum-primary',
         accountType: 'blockchain',
         platformKey: 'ethereum',
         identifier: '0xabc',
@@ -495,11 +416,16 @@ describe('accounts lifecycle commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'update', 'ethereum-main', '--provider', 'alchemy'], { from: 'user' });
+    await program.parseAsync(
+      ['accounts', 'update', 'ethereum-main', '--name', 'ethereum-primary', '--provider', 'alchemy'],
+      {
+        from: 'user',
+      }
+    );
 
     expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
-    expect(consoleLog.mock.calls[0]?.[0]).toContain('Updated account ethereum-main');
-    expect(consoleLog).toHaveBeenNthCalledWith(2, 'Changes: provider set to alchemy');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain('Updated account ethereum-primary');
+    expect(consoleLog).toHaveBeenNthCalledWith(2, 'Changes: renamed to ethereum-primary · provider set to alchemy');
     consoleLog.mockRestore();
   });
 

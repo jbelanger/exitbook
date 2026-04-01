@@ -48,6 +48,7 @@ export interface CreateAccountInput {
 }
 
 export interface UpdateAccountInput {
+  name?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   identifier?: string | undefined;
   metadata?: Account['metadata'] | undefined;
@@ -55,7 +56,7 @@ export interface UpdateAccountInput {
   resetCursor?: boolean | undefined;
 }
 
-const RESERVED_ACCOUNT_NAMES = new Set(['add', 'list', 'remove', 'rename', 'update', 'view']);
+const RESERVED_ACCOUNT_NAMES = new Set(['add', 'list', 'remove', 'update', 'view']);
 
 function normalizeAccountName(name: string): Result<string, Error> {
   const normalized = name.trim().toLowerCase();
@@ -74,8 +75,9 @@ function normalizeAccountName(name: string): Result<string, Error> {
   return ok(normalized);
 }
 
-function hasAccountConfigChanges(input: UpdateAccountInput): boolean {
+function hasAccountPropertyChanges(input: UpdateAccountInput): boolean {
   return (
+    input.name !== undefined ||
     input.identifier !== undefined ||
     input.providerName !== undefined ||
     input.credentials !== undefined ||
@@ -92,7 +94,7 @@ function buildCreateIdentityConflictError(existingAccount: Account): Error {
 
   if (existingAccount.name) {
     return new Error(
-      `Account config already exists as '${existingAccount.name}'. Use that account name or rename it first.`
+      `Account config already exists as '${existingAccount.name}'. Use that account name or update it first.`
     );
   }
 
@@ -198,59 +200,9 @@ export class AccountLifecycleService {
     return this.store.findByName(profileId, normalizedNameResult.value);
   }
 
-  async rename(profileId: number, currentName: string, nextName: string): Promise<Result<Account, Error>> {
-    const accountResult = await this.requireNamedAccount(profileId, currentName);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    return this.renameOwned(profileId, accountResult.value.id, nextName);
-  }
-
-  async renameOwned(profileId: number, accountId: number, nextName: string): Promise<Result<Account, Error>> {
-    const accountResult = await this.requireOwned(profileId, accountId);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    const nextNameResult = this.normalizeAccountName(nextName);
-    if (nextNameResult.isErr()) {
-      return err(nextNameResult.error);
-    }
-
-    const nameAvailabilityResult = await this.ensureAccountNameAvailable(
-      profileId,
-      nextNameResult.value,
-      accountResult.value.id
-    );
-    if (nameAvailabilityResult.isErr()) {
-      return err(nameAvailabilityResult.error);
-    }
-
-    const updateResult = await this.store.update(accountResult.value.id, { name: nextNameResult.value });
-    if (updateResult.isErr()) {
-      return err(updateResult.error);
-    }
-
-    return this.reloadAccount(accountResult.value.id);
-  }
-
-  async update(profileId: number, name: string, input: UpdateAccountInput): Promise<Result<Account, Error>> {
-    if (!hasAccountConfigChanges(input)) {
-      return err(new Error('No account config changes were provided'));
-    }
-
-    const accountResult = await this.requireNamedAccount(profileId, name);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    return this.updateOwned(profileId, accountResult.value.id, input);
-  }
-
   async updateOwned(profileId: number, accountId: number, input: UpdateAccountInput): Promise<Result<Account, Error>> {
-    if (!hasAccountConfigChanges(input)) {
-      return err(new Error('No account config changes were provided'));
+    if (!hasAccountPropertyChanges(input)) {
+      return err(new Error('No account property changes were provided'));
     }
 
     const accountResult = await this.requireOwned(profileId, accountId);
@@ -259,6 +211,38 @@ export class AccountLifecycleService {
     }
 
     const account = accountResult.value;
+    const updates: UpdateAccountInput = {
+      ...(input.credentials !== undefined ? { credentials: input.credentials } : {}),
+      ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
+      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
+      ...(input.providerName !== undefined ? { providerName: input.providerName } : {}),
+      ...(input.resetCursor !== undefined ? { resetCursor: input.resetCursor } : {}),
+    };
+
+    if (input.name !== undefined) {
+      const nextNameResult = this.normalizeAccountName(input.name);
+      if (nextNameResult.isErr()) {
+        return err(nextNameResult.error);
+      }
+
+      if (nextNameResult.value !== account.name) {
+        const nameAvailabilityResult = await this.ensureAccountNameAvailable(
+          profileId,
+          nextNameResult.value,
+          account.id
+        );
+        if (nameAvailabilityResult.isErr()) {
+          return err(nameAvailabilityResult.error);
+        }
+
+        updates.name = nextNameResult.value;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return err(new Error('No account property changes were provided'));
+    }
+
     const nextIdentifier = input.identifier ?? account.identifier;
     if (nextIdentifier !== account.identifier) {
       const duplicateResult = await this.findAccountByIdentity({
@@ -277,7 +261,7 @@ export class AccountLifecycleService {
       }
     }
 
-    const updateResult = await this.store.update(account.id, input);
+    const updateResult = await this.store.update(account.id, updates);
     if (updateResult.isErr()) {
       return err(updateResult.error);
     }
@@ -337,23 +321,6 @@ export class AccountLifecycleService {
     profileId: number;
   }): Promise<Result<Account | undefined, Error>> {
     return this.store.findByIdentity(input);
-  }
-
-  private async requireNamedAccount(profileId: number, name: string): Promise<Result<Account, Error>> {
-    const normalizedNameResult = this.normalizeAccountName(name);
-    if (normalizedNameResult.isErr()) {
-      return err(normalizedNameResult.error);
-    }
-
-    const accountResult = await this.store.findByName(profileId, normalizedNameResult.value);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-    if (!accountResult.value) {
-      return err(new Error(`Account '${normalizedNameResult.value}' not found`));
-    }
-
-    return ok(accountResult.value);
   }
 
   private async requireStoredAccount(accountId: number, missingMessage: string): Promise<Result<Account, Error>> {

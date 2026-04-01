@@ -14,7 +14,11 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { getAccountSelectorErrorExitCode, resolveRequiredOwnedAccountSelector } from '../account-selector.js';
+import {
+  formatAccountSelectorLabel,
+  getAccountSelectorErrorExitCode,
+  resolveRequiredOwnedAccountSelector,
+} from '../account-selector.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
 
 import { serializeAccountForCli } from './account-cli-serialization.js';
@@ -31,19 +35,23 @@ export function registerAccountsUpdateCommand(accountsCommand: Command, appRunti
       'after',
       `
 Examples:
+  $ exitbook accounts update kraken-main --name kraken-primary
   $ exitbook accounts update kraken-main --api-key NEW_KEY --api-secret NEW_SECRET
+  $ exitbook accounts update kraken-main --name kraken-primary --api-key NEW_KEY --api-secret NEW_SECRET
   $ exitbook accounts update kucoin-csv --csv-dir ./exports/kucoin-2026
   $ exitbook accounts update 6f4c0d1a2b --provider blockchair
   $ exitbook accounts update wallet-main --provider blockchair
   $ exitbook accounts update wallet-xpub --xpub-gap 30
 
 Notes:
-  - Supply only the fields you want to change.
+  - Supply only the properties you want to change.
   - The selector can be an account name or fingerprint prefix.
+  - Compatible property changes can be combined in one command.
   - --xpub-gap can increase the stored gap limit for xpub accounts.
 `
     )
     .argument('<selector>', 'Account selector (name or fingerprint prefix)')
+    .option('--name <name>', 'New account name')
     .option('--api-key <key>', 'New API key for exchange API accounts')
     .option('--api-secret <secret>', 'New API secret for exchange API accounts')
     .option('--api-passphrase <passphrase>', 'New API passphrase for exchange API accounts')
@@ -103,9 +111,10 @@ async function executeUpdateAccountCommand(
         }
 
         const changeSummary = buildAccountUpdateSummary(existingAccount, updatedAccount, context.prepared);
+        const updatedAccountLabel = formatAccountSelectorLabel(updatedAccount);
 
         return textSuccess(() => {
-          console.log(formatSuccessLine(`Updated account ${updatedAccount.name}`));
+          console.log(formatSuccessLine(`Updated account ${updatedAccountLabel}`));
           if (changeSummary.length > 0) {
             console.log(`Changes: ${changeSummary.join(' · ')}`);
           }
@@ -116,11 +125,14 @@ async function executeUpdateAccountCommand(
 
 function buildAccountUpdateSummary(
   previous: Account,
-  updated: Pick<Account, 'identifier' | 'metadata' | 'providerName'>,
+  updated: Pick<Account, 'identifier' | 'metadata' | 'name' | 'providerName'>,
   options: AccountUpdateCommandOptions
 ): string[] {
   const changes: string[] = [];
 
+  if (options.name !== undefined && updated.name !== previous.name) {
+    changes.push(`renamed to ${updated.name}`);
+  }
   if (options.apiKey !== undefined && options.apiKey !== previous.credentials?.apiKey) {
     changes.push('api key updated');
   }

@@ -121,14 +121,19 @@ export function buildUpdateAccountInput(
   options: AccountUpdateCommandOptions,
   registry: AdapterRegistry
 ): Result<UpdateAccountInput, Error> {
+  const updates: UpdateAccountInput = {};
+  if (options.name !== undefined && options.name !== account.name) {
+    updates.name = options.name;
+  }
+
   const hasApiFlags =
     options.apiKey !== undefined || options.apiSecret !== undefined || options.apiPassphrase !== undefined;
   const hasCsvDir = options.csvDir !== undefined;
   const hasProvider = options.provider !== undefined;
   const hasXpubGap = options.xpubGap !== undefined;
 
-  if (!hasApiFlags && !hasCsvDir && !hasProvider && !hasXpubGap) {
-    return err(new Error('No account config changes were provided'));
+  if (!hasApiFlags && !hasCsvDir && !hasProvider && !hasXpubGap && updates.name === undefined) {
+    return err(new Error('No account property changes were provided'));
   }
 
   switch (account.accountType) {
@@ -136,7 +141,7 @@ export function buildUpdateAccountInput(
       if (hasCsvDir || hasProvider || hasXpubGap) {
         return err(
           new Error(
-            'exchange-api accounts can only be updated with API credential flags (--api-key, --api-secret, --api-passphrase)'
+            'exchange-api accounts can only be updated with --name and API credential flags (--api-key, --api-secret, --api-passphrase)'
           )
         );
       }
@@ -153,50 +158,53 @@ export function buildUpdateAccountInput(
         nextApiKey !== account.credentials?.apiKey ||
         nextApiSecret !== account.credentials?.apiSecret ||
         nextApiPassphrase !== account.credentials?.apiPassphrase;
-      if (!credentialsChanged) {
-        return err(new Error('No account config changes were provided'));
+      if (!credentialsChanged && updates.name === undefined) {
+        return err(new Error('No account property changes were provided'));
       }
 
-      const credentials: ExchangeCredentials = {
-        apiKey: nextApiKey,
-        apiSecret: nextApiSecret,
-      };
-      if (nextApiPassphrase !== undefined) {
-        credentials.apiPassphrase = nextApiPassphrase;
+      if (credentialsChanged) {
+        const credentials: ExchangeCredentials = {
+          apiKey: nextApiKey,
+          apiSecret: nextApiSecret,
+        };
+        if (nextApiPassphrase !== undefined) {
+          credentials.apiPassphrase = nextApiPassphrase;
+        }
+
+        updates.credentials = credentials;
+        updates.identifier = nextApiKey;
+        updates.resetCursor = nextApiKey !== account.identifier;
       }
 
-      return ok({
-        credentials,
-        identifier: nextApiKey,
-        resetCursor: nextApiKey !== account.identifier,
-      });
+      return ok(updates);
     }
 
     case 'exchange-csv': {
       if (hasApiFlags || hasProvider || hasXpubGap) {
-        return err(new Error('exchange-csv accounts can only be updated with --csv-dir'));
+        return err(new Error('exchange-csv accounts can only be updated with --name and --csv-dir'));
       }
-      if (!options.csvDir) {
+      if (options.csvDir) {
+        const identifier = normalizeCsvDir(options.csvDir);
+        if (identifier !== account.identifier) {
+          updates.identifier = identifier;
+          updates.resetCursor = identifier !== account.identifier;
+        }
+      } else if (updates.name === undefined) {
         return err(new Error('--csv-dir is required to update exchange-csv accounts'));
       }
 
-      const identifier = normalizeCsvDir(options.csvDir);
-      if (identifier === account.identifier) {
-        return err(new Error('No account config changes were provided'));
+      if (Object.keys(updates).length === 0) {
+        return err(new Error('No account property changes were provided'));
       }
 
-      return ok({
-        identifier,
-        resetCursor: identifier !== account.identifier,
-      });
+      return ok(updates);
     }
 
     case 'blockchain': {
       if (hasApiFlags || hasCsvDir) {
-        return err(new Error('blockchain accounts can only be updated with --provider or --xpub-gap'));
+        return err(new Error('blockchain accounts can only be updated with --name, --provider, or --xpub-gap'));
       }
 
-      const updates: UpdateAccountInput = {};
       if (hasProvider && options.provider !== account.providerName) {
         updates.providerName = options.provider;
       }
@@ -228,7 +236,7 @@ export function buildUpdateAccountInput(
       }
 
       if (Object.keys(updates).length === 0) {
-        return err(new Error('No account config changes were provided'));
+        return err(new Error('No account property changes were provided'));
       }
 
       return ok(updates);

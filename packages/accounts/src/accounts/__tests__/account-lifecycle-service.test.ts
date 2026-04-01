@@ -199,8 +199,25 @@ describe('AccountLifecycleService', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toContain("Account name 'view' is reserved");
-      expect(result.error.message).toContain('add, list, remove, rename, update, view');
+      expect(result.error.message).toContain('add, list, remove, update, view');
     }
+  });
+
+  it('allows rename as an account name now that it is not a command', async () => {
+    const { store } = createStore();
+    const service = new AccountLifecycleService(store);
+
+    const result = assertOk(
+      await service.create({
+        profileId: 1,
+        name: 'rename',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      })
+    );
+
+    expect(result.name).toBe('rename');
   });
 
   it('rejects a second top-level exchange account on the same platform in one profile', async () => {
@@ -286,7 +303,7 @@ describe('AccountLifecycleService', () => {
     }
   });
 
-  it('renames an existing account', async () => {
+  it('updates an existing account name', async () => {
     const { store } = createStore([
       createAccount({
         id: 7,
@@ -299,12 +316,12 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const renamed = assertOk(await service.rename(1, 'kraken-main', 'kraken-primary'));
+    const renamed = assertOk(await service.updateOwned(1, 7, { name: 'kraken-primary' }));
 
     expect(renamed.name).toBe('kraken-primary');
   });
 
-  it('rejects renaming an account to a reserved command word', async () => {
+  it('rejects updating an account name to a reserved command word', async () => {
     const { store } = createStore([
       createAccount({
         id: 7,
@@ -317,7 +334,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.rename(1, 'kraken-main', 'list');
+    const result = await service.updateOwned(1, 7, { name: 'list' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -350,7 +367,8 @@ describe('AccountLifecycleService', () => {
     const service = new AccountLifecycleService(store);
 
     const updated = assertOk(
-      await service.update(1, 'kraken-main', {
+      await service.updateOwned(1, 7, {
+        name: 'kraken-primary',
         identifier: 'new-key',
         credentials: {
           apiKey: 'new-key',
@@ -360,12 +378,44 @@ describe('AccountLifecycleService', () => {
       })
     );
 
+    expect(updated.name).toBe('kraken-primary');
     expect(updated.identifier).toBe('new-key');
     expect(updated.credentials).toEqual({
       apiKey: 'new-key',
       apiSecret: 'new-secret',
     });
     expect(updated.lastCursor).toBeUndefined();
+  });
+
+  it('rejects updating a name to an existing account name', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+      }),
+      createAccount({
+        id: 8,
+        profileId: 1,
+        name: 'kraken-secondary',
+        accountType: 'exchange-api',
+        platformKey: 'coinbase',
+        identifier: 'api-key-2',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.updateOwned(1, 7, {
+      name: 'kraken-secondary',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Account 'kraken-secondary' already exists");
+    }
   });
 
   it('rejects blockchain config updates that collide with another account', async () => {
@@ -389,7 +439,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.update(1, 'btc-main', {
+    const result = await service.updateOwned(1, 7, {
       identifier: 'bc1q-new',
     });
 
@@ -428,7 +478,7 @@ describe('AccountLifecycleService', () => {
     ]);
     const service = new AccountLifecycleService(store);
 
-    const result = await service.update(1, 'wallet-secondary', {
+    const result = await service.updateOwned(1, 9, {
       identifier: 'bc1q-child',
     });
 

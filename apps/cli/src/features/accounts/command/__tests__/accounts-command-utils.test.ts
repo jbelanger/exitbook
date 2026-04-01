@@ -110,9 +110,9 @@ describe('registerAccountsCommand', () => {
     const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
     expect(accountsCommand).toBeDefined();
     expect(accountsCommand?.description()).toBe('Browse and manage accounts');
-    expect(accountsCommand?.commands.map((command) => command.name())).toEqual(
-      expect.arrayContaining(['add', 'view', 'update', 'rename', 'remove'])
-    );
+    const subcommandNames = accountsCommand?.commands.map((command) => command.name()) ?? [];
+    expect(subcommandNames).toEqual(expect.arrayContaining(['add', 'view', 'update', 'remove']));
+    expect(subcommandNames).not.toContain('rename');
   });
 
   it('builds browse option help text from the same source used to register browse options', () => {

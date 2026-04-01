@@ -84,6 +84,7 @@ export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(Block
 
 export const AccountUpdateCommandOptionsSchema = z
   .object({
+    name: z.string().min(1).optional(),
     apiKey: z.string().min(1).optional(),
     apiSecret: z.string().min(1).optional(),
     apiPassphrase: z.string().optional(),
@@ -94,6 +95,7 @@ export const AccountUpdateCommandOptionsSchema = z
   })
   .refine(
     (data) =>
+      data.name !== undefined ||
       data.apiKey !== undefined ||
       data.apiSecret !== undefined ||
       data.apiPassphrase !== undefined ||
@@ -101,7 +103,7 @@ export const AccountUpdateCommandOptionsSchema = z
       data.provider !== undefined ||
       data.xpubGap !== undefined,
     {
-      message: 'At least one account config flag is required',
+      message: 'At least one account property flag is required',
     }
   )
   .refine(
