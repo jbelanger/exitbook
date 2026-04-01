@@ -6,7 +6,15 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
-import { buildCliAccountLifecycleService } from '../account-service.js';
+import {
+  buildAccountSelectorFilters,
+  formatResolvedAccountSelectorInput,
+  getAccountSelectorErrorExitCode,
+  resolveOwnedAccountSelector,
+  resolveOwnedBrowseAccountSelector,
+  type ResolvedAccountSelector,
+} from '../account-selector.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 import { toAccountViewItem } from '../account-view-projection.js';
 import type { AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
@@ -59,7 +67,7 @@ export async function buildAccountsBrowsePresentation(
 
     if (shouldPreselectAccount && viewItems.length > 0 && selectedIndex < 0) {
       return yield* cliErr(
-        `Account '${params.accountSelector ?? params.accountRef ?? selectedAccountId}' is not visible in the explorer`,
+        `${selection.requestedLabel ?? `Account '${selectedAccountId}'`} is not visible in the explorer`,
         ExitCodes.NOT_FOUND
       );
     }
@@ -71,8 +79,7 @@ export async function buildAccountsBrowsePresentation(
       showSessions: params.showSessions ?? false,
     };
     const jsonFilters = buildDefinedFilters({
-      accountName: selection.accountName,
-      accountRef: selection.accountRef,
+      ...buildAccountSelectorFilters(selection.selector),
       platform: params.platformKey,
       accountType: params.accountType,
     });
@@ -103,8 +110,8 @@ export async function buildAccountsBrowsePresentation(
 
 interface ResolvedSelectedAccount {
   accountId?: number | undefined;
-  accountName?: string | undefined;
-  accountRef?: string | undefined;
+  requestedLabel?: string | undefined;
+  selector?: ResolvedAccountSelector | undefined;
 }
 
 async function resolveSelectedAccount(
@@ -113,52 +120,41 @@ async function resolveSelectedAccount(
   params: AccountsBrowseParams
 ): Promise<Result<ResolvedSelectedAccount, CliFailure>> {
   return resultDoAsync(async function* () {
-    const accountService = buildCliAccountLifecycleService(database);
+    const accountService = createCliAccountLifecycleService(database);
 
     if (params.accountSelector) {
-      const accountByName = yield* toCliResult(
-        await accountService.getByName(profileId, params.accountSelector),
-        ExitCodes.GENERAL_ERROR
-      );
-      if (accountByName) {
-        return {
-          accountId: accountByName.id,
-          accountName: accountByName.name ?? params.accountSelector.trim().toLowerCase(),
-        };
+      const selectorResult = await resolveOwnedBrowseAccountSelector(accountService, profileId, params.accountSelector);
+      if (selectorResult.isErr()) {
+        return yield* cliErr(selectorResult.error, getAccountSelectorErrorExitCode(selectorResult.error));
       }
 
-      const accountByRef = yield* toCliResult(
-        await accountService.getByFingerprintRef(profileId, params.accountSelector),
-        ExitCodes.INVALID_ARGS
-      );
-      if (accountByRef) {
-        return {
-          accountId: accountByRef.id,
-          accountRef: params.accountSelector.trim().toLowerCase(),
-        };
-      }
-
-      return yield* cliErr(
-        `Account selector '${params.accountSelector.trim().toLowerCase()}' not found`,
-        ExitCodes.NOT_FOUND
-      );
+      const selector = selectorResult.value;
+      return {
+        accountId: selector.account.id,
+        requestedLabel: formatResolvedAccountSelectorInput(selector),
+        selector,
+      };
     }
 
     if (!params.accountRef) {
       return {};
     }
 
-    const account = yield* toCliResult(
-      await accountService.getByFingerprintRef(profileId, params.accountRef),
-      ExitCodes.INVALID_ARGS
-    );
-    if (!account) {
+    const selectorResult = await resolveOwnedAccountSelector(accountService, profileId, {
+      accountRef: params.accountRef,
+    });
+    if (selectorResult.isErr()) {
+      return yield* cliErr(selectorResult.error, getAccountSelectorErrorExitCode(selectorResult.error));
+    }
+    if (!selectorResult.value) {
       return yield* cliErr(`Account ref '${params.accountRef}' not found`, ExitCodes.NOT_FOUND);
     }
+    const selector = selectorResult.value;
 
     return {
-      accountId: account.id,
-      accountRef: params.accountRef,
+      accountId: selector.account.id,
+      requestedLabel: formatResolvedAccountSelectorInput(selector),
+      selector,
     };
   });
 }

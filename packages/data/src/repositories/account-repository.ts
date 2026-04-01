@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
-import { AccountSchema, ExchangeCredentialsSchema } from '@exitbook/core';
+import { AccountSchema, AmbiguousAccountFingerprintRefError, ExchangeCredentialsSchema } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
 import { CursorStateSchema } from '@exitbook/foundation';
 import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/foundation';
@@ -172,6 +172,7 @@ export class AccountRepository extends BaseRepository {
           .baseAccountQuery()
           .where('accounts.profile_id', '=', profileId)
           .where('accounts.account_fingerprint', 'like', `${normalizedRef}%`)
+          .orderBy('accounts.account_fingerprint', 'asc')
           .limit(4)
           .execute();
 
@@ -180,13 +181,8 @@ export class AccountRepository extends BaseRepository {
         }
 
         if (rows.length > 1) {
-          const sampleMatches = rows
-            .slice(0, 3)
-            .map((row) => row.account_fingerprint)
-            .join(', ');
-          return yield* err(
-            `Account ref '${normalizedRef}' is ambiguous. Use a longer fingerprint prefix. Matches include: ${sampleMatches}`
-          );
+          const sampleMatches = rows.slice(0, 3).map((row) => row.account_fingerprint);
+          return yield* err(new AmbiguousAccountFingerprintRefError(normalizedRef, sampleMatches));
         }
 
         return yield* toAccount(rows[0]!);

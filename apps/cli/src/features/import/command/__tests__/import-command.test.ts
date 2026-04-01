@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- Vitest command-scope mocks intentionally use partial test doubles. */
 import type { Account, ImportSession, Profile } from '@exitbook/core';
-import { err, ok } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,9 +10,10 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 const {
   mockCtx,
   mockExitCliFailure,
+  mockGetByFingerprintRef,
+  mockGetByName,
   mockOutputSuccess,
   mockPromptConfirmDecision,
-  mockResolveImportAccount,
   mockRunCommand,
   mockRunImport,
   mockRunImportAll,
@@ -22,9 +23,10 @@ const {
     database: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
+  mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPromptConfirmDecision: vi.fn(),
-  mockResolveImportAccount: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunImport: vi.fn(),
   mockRunImportAll: vi.fn(),
@@ -54,7 +56,6 @@ vi.mock('../run-import.js', async () => {
 
   return {
     ...actual,
-    resolveImportAccount: mockResolveImportAccount,
     runImport: mockRunImport,
     runImportAll: mockRunImportAll,
   };
@@ -131,13 +132,18 @@ beforeEach(() => {
   });
   mockWithImportCommandScope.mockImplementation(async (_ctx, operation) =>
     operation({
+      accountService: {
+        getByFingerprintRef: mockGetByFingerprintRef,
+        getByName: mockGetByName,
+      },
       database: { tag: 'db' },
       profile: makeProfile(),
       registry: { tag: 'registry' },
       runtime: mockCtx,
     })
   );
-  mockResolveImportAccount.mockResolvedValue(ok(makeAccount()));
+  mockGetByName.mockResolvedValue(ok(makeAccount()));
+  mockGetByFingerprintRef.mockResolvedValue(ok(makeAccount()));
   mockRunImport.mockResolvedValue(
     ok({
       kind: 'completed',
@@ -165,12 +171,12 @@ beforeEach(() => {
 });
 
 describe('ImportCommandOptionsSchema', () => {
-  it('requires exactly one of --account, --account-id, or --all', () => {
+  it('requires exactly one of --account-name, --account-ref, or --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({});
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Specify exactly one of --account, --account-id, or --all'
+        'Specify exactly one of --account-name, --account-ref, or --all'
       );
     }
   });
@@ -183,15 +189,15 @@ describe('ImportCommandOptionsSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects providing both --account and --all', () => {
+  it('rejects providing both --account-name and --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({
-      account: 'kraken-main',
+      accountName: 'kraken-main',
       all: true,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Specify exactly one of --account, --account-id, or --all'
+        'Specify exactly one of --account-name, --account-ref, or --all'
       );
     }
   });
@@ -208,14 +214,9 @@ describe('import command', () => {
   it('resolves an account name and outputs JSON results', async () => {
     const program = createImportProgram();
 
-    await program.parseAsync(['import', '--account', 'kraken-main', '--json'], { from: 'user' });
+    await program.parseAsync(['import', '--account-name', 'kraken-main', '--json'], { from: 'user' });
 
-    expect(mockResolveImportAccount).toHaveBeenCalledWith(
-      expect.objectContaining({
-        profile: expect.objectContaining({ id: 1 }),
-      }),
-      { account: 'kraken-main', json: true }
-    );
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
     expect(mockRunImport).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
@@ -256,15 +257,31 @@ describe('import command', () => {
     });
   });
 
-  it('rejects an account id that belongs to another profile', async () => {
+  it('rejects an account ref that the command runner cannot resolve', async () => {
     const program = createImportProgram();
-    mockResolveImportAccount.mockResolvedValue(err(new Error('Account 42 does not belong to the selected profile')));
+    mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
 
-    await expect(program.parseAsync(['import', '--account-id', '42', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:import:json:Account 42 does not belong to the selected profile:1'
-    );
+    await expect(
+      program.parseAsync(['import', '--account-ref', '42deadbeef', '--json'], { from: 'user' })
+    ).rejects.toThrow("CLI:import:json:Account ref '42deadbeef' not found:4");
 
     expect(mockRunImport).not.toHaveBeenCalled();
+  });
+
+  it('resolves an account ref and runs a single import', async () => {
+    const program = createImportProgram();
+
+    await program.parseAsync(['import', '--account-ref', '6f4c0d1a2b', '--json'], { from: 'user' });
+
+    expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, '6f4c0d1a2b');
+
+    expect(mockRunImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { format: 'json' },
+      { accountId: 7 }
+    );
   });
 
   it('runs batch import for --all in JSON mode and returns partial failure status', async () => {
@@ -326,7 +343,8 @@ describe('import command', () => {
       { format: 'json' }
     );
     expect(mockRunImport).not.toHaveBeenCalled();
-    expect(mockResolveImportAccount).not.toHaveBeenCalled();
+    expect(mockGetByName).not.toHaveBeenCalled();
+    expect(mockGetByFingerprintRef).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockProcessExit).toHaveBeenCalledWith(1);
 
@@ -399,7 +417,7 @@ describe('import command', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockRunImport.mockResolvedValue(ok({ kind: 'cancelled' }));
 
-    await program.parseAsync(['import', '--account', 'kraken-main'], { from: 'user' });
+    await program.parseAsync(['import', '--account-name', 'kraken-main'], { from: 'user' });
 
     expect(mockExitCliFailure).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith('Import cancelled by user');

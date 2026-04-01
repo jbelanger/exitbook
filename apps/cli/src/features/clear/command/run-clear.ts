@@ -4,10 +4,14 @@ import type { ClearCommandScope } from './clear-command-scope.js';
 import type { ClearCommandOptions } from './clear-command-types.js';
 import type { ClearParams, ClearResult, DeletionPreview } from './clear-service.js';
 
-export function buildClearParams(scope: ClearCommandScope, options: ClearCommandOptions): ClearParams {
+export function buildClearParams(
+  scope: ClearCommandScope,
+  options: ClearCommandOptions,
+  selectedAccountId?: number
+): ClearParams {
   return {
     profileId: scope.profile.id,
-    accountId: options.accountId,
+    accountId: selectedAccountId,
     platformKey: options.platform,
     includeRaw: options.includeRaw ?? false,
   };

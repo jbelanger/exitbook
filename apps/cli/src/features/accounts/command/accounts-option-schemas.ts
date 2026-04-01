@@ -7,15 +7,10 @@ import {
   JsonFlagSchema,
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
+import { AccountRefOptionSchema } from '../account-selector.js';
 
 export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({
-  accountRef: z
-    .string()
-    .trim()
-    .min(1)
-    .regex(/^[a-f0-9]+$/i, '--account-ref must be a fingerprint or unique fingerprint prefix')
-    .transform((value) => value.toLowerCase())
-    .optional(),
+  accountRef: AccountRefOptionSchema.optional(),
   platform: z.string().optional(),
   type: AccountTypeSchema.optional(),
   showSessions: z.boolean().optional(),

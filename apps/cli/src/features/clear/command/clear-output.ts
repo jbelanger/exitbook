@@ -4,9 +4,9 @@ import { stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
 import type { ClearCommandResult } from './clear-command-types.js';
 import { flattenPreview, type ClearResult, type FlatDeletionPreview } from './clear-service.js';
 
-export function buildScopeLabel(accountId: number | undefined, platformKey: string | undefined): string {
-  if (accountId) {
-    return `#${accountId}`;
+export function buildScopeLabel(accountLabel: string | undefined, platformKey: string | undefined): string {
+  if (accountLabel) {
+    return accountLabel;
   }
   if (platformKey) {
     return `(${platformKey})`;

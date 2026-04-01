@@ -13,7 +13,7 @@ import type { CliOutputFormat } from '../../../cli/options.js';
 import type { ConfirmationPromptDecision } from '../../../cli/prompts.js';
 import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
-import { buildCliAccountLifecycleService } from '../../accounts/account-service.js';
+import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
 import {
   BatchImportMonitor,
   type BatchImportDescriptor,
@@ -59,11 +59,6 @@ export interface BatchImportExecuteResult {
   profileDisplayName: string;
   runStats: MetricsSummary;
   totalCount: number;
-}
-
-export interface ImportAccountSelection {
-  account?: string | undefined;
-  accountId?: number | undefined;
 }
 
 export interface ImportExecutionRuntime {
@@ -419,7 +414,7 @@ async function loadBatchImportAccounts(
   database: ImportCommandScope['database'],
   profileId: number
 ): Promise<Result<BatchImportAccountPlan[], Error>> {
-  const accountService = buildCliAccountLifecycleService(database);
+  const accountService = createCliAccountLifecycleService(database);
   const accountsResult = await accountService.listTopLevel(profileId);
   if (accountsResult.isErr()) {
     return err(accountsResult.error);
@@ -482,31 +477,4 @@ function toBatchImportAccount(account: Account): BatchImportAccountResult['accou
     name: account.name ?? `account-${account.id}`,
     platformKey: account.platformKey,
   };
-}
-
-export async function resolveImportAccount(
-  scope: ImportCommandScope,
-  options: ImportAccountSelection
-): Promise<Result<Account, Error>> {
-  const accountService = buildCliAccountLifecycleService(scope.database);
-
-  if (options.accountId !== undefined) {
-    const accountResult = await accountService.requireOwned(scope.profile.id, options.accountId);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-
-    return ok(accountResult.value);
-  }
-
-  const requestedAccountName = options.account?.trim() ?? '';
-  const accountResult = await accountService.getByName(scope.profile.id, requestedAccountName);
-  if (accountResult.isErr()) {
-    return err(accountResult.error);
-  }
-  if (!accountResult.value) {
-    return err(new Error(`Account '${requestedAccountName.toLowerCase()}' not found`));
-  }
-
-  return ok(accountResult.value);
 }

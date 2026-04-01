@@ -163,6 +163,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
             accountType: string;
             id: number;
             identifier: string;
+            name?: string;
             platformKey: string;
           }[];
           expect(accounts.length).toBeGreaterThan(0);
@@ -170,10 +171,10 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           // Find the account matching this address
           const account = accounts.find((acc) => acc.identifier === address);
           expect(account).toBeDefined();
-          const accountId = account?.id;
-          expect(Number(accountId)).toBeGreaterThan(0);
+          const accountName = account?.name;
+          expect(accountName).toBeTruthy();
 
-          const balanceArgs = ['balance', '--account-id', String(accountId)];
+          const balanceArgs = ['balance', '--account-name', String(accountName)];
 
           const balanceResult = executeCLI(balanceArgs);
 

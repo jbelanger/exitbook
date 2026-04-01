@@ -14,9 +14,9 @@ export function registerBalanceCommand(program: Command, appRuntime: CliAppRunti
       `
 Examples:
   $ exitbook balance view
-  $ exitbook balance view --account-id 5
+  $ exitbook balance view --account-name kraken-main
   $ exitbook balance refresh
-  $ exitbook balance refresh --account-id 7 --json
+  $ exitbook balance refresh --account-ref 6f4c0d1a2b --json
 
 Notes:
   - "balance view" reads stored snapshots only.

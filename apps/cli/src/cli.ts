@@ -85,7 +85,7 @@ function createProgram(): Command {
       `
 Start Here:
   $ exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
-  $ exitbook import --account kraken-main
+  $ exitbook import --account-name kraken-main
   $ exitbook prices enrich
   $ exitbook portfolio
 

@@ -13,7 +13,7 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import { formatSuccessLine } from '../../../cli/success.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
-import { buildCliAccountLifecycleService } from '../account-service.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 
 const ACCOUNTS_RENAME_COMMAND_ID = 'accounts-rename';
 
@@ -56,7 +56,7 @@ async function executeRenameAccountCommand(currentName: string, nextName: string
         const db = await context.runtime.database();
         const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
         const account = yield* toCliResult(
-          await buildCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
+          await createCliAccountLifecycleService(db).rename(profile.id, currentName, nextName),
           ExitCodes.GENERAL_ERROR
         );
         const payload = {

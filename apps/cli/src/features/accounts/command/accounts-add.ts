@@ -6,7 +6,7 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { buildCliAccountLifecycleService } from '../account-service.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 
 import { serializeAccountForCli } from './account-cli-serialization.js';
 import { buildCreateAccountInput } from './account-draft-utils.js';
@@ -67,7 +67,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
           ExitCodes.INVALID_ARGS
         );
         const account = yield* toCliResult(
-          await buildCliAccountLifecycleService(db).create(draft),
+          await createCliAccountLifecycleService(db).create(draft),
           ExitCodes.GENERAL_ERROR
         );
         const payload = {

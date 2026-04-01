@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null --- null needed for db */
-import { computeAccountFingerprint, type Account } from '@exitbook/core';
+import { AmbiguousAccountFingerprintRefError, computeAccountFingerprint, type Account } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Kysely } from '@exitbook/sqlite';
@@ -357,6 +357,7 @@ describe('AccountRepository', () => {
       const result = await repo.findByFingerprintRef(1, ambiguousPrefix!);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
+        expect(result.error).toBeInstanceOf(AmbiguousAccountFingerprintRefError);
         expect(result.error.message).toContain(`Account ref '${ambiguousPrefix}' is ambiguous`);
       }
     });

@@ -399,6 +399,45 @@ describe('AccountLifecycleService', () => {
     }
   });
 
+  it('reports child-account collisions accurately during config updates', async () => {
+    const { store } = createStore([
+      createAccount({
+        id: 7,
+        profileId: 1,
+        name: 'wallet-root',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'xpub-root',
+      }),
+      createAccount({
+        id: 8,
+        profileId: 1,
+        parentAccountId: 7,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-child',
+      }),
+      createAccount({
+        id: 9,
+        profileId: 1,
+        name: 'wallet-secondary',
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1q-secondary',
+      }),
+    ]);
+    const service = new AccountLifecycleService(store);
+
+    const result = await service.update(1, 'wallet-secondary', {
+      identifier: 'bc1q-child',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('child account #8');
+    }
+  });
+
   it('returns the account when it belongs to the selected profile', async () => {
     const { store } = createStore([
       createAccount({

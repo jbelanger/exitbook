@@ -1,7 +1,4 @@
-import { z } from 'zod';
-
+import { OptionalAccountSelectorSchema } from '../../accounts/account-selector.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
-export const ReprocessCommandOptionsSchema = JsonFlagSchema.extend({
-  accountId: z.coerce.number().int().positive().optional(),
-});
+export const ReprocessCommandOptionsSchema = OptionalAccountSelectorSchema.extend(JsonFlagSchema.shape);

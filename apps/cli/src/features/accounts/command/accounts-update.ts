@@ -14,7 +14,7 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { buildCliAccountLifecycleService } from '../account-service.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 
 import { serializeAccountForCli } from './account-cli-serialization.js';
 import { buildUpdateAccountInput } from './account-draft-utils.js';
@@ -70,7 +70,7 @@ async function executeUpdateAccountCommand(
       resultDoAsync(async function* () {
         const db = await context.runtime.database();
         const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
-        const accountService = buildCliAccountLifecycleService(db);
+        const accountService = createCliAccountLifecycleService(db);
         const account = yield* toCliResult(await accountService.getByName(profile.id, name), ExitCodes.GENERAL_ERROR);
         const existingAccount = yield* toCliValue(
           account,

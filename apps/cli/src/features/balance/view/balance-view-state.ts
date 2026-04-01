@@ -137,7 +137,7 @@ export interface BalanceStoredSnapshotAssetState extends BalanceAssetStateBase {
   summary: {
     totalAssets: number;
   };
-  /** Stored parent state for drill-up restoration (undefined = entered via --account-id) */
+  /** Stored parent state for drill-up restoration (undefined = entered via a direct account selector) */
   parentState?: BalanceStoredSnapshotState | undefined;
 }
 

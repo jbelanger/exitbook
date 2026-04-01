@@ -96,12 +96,14 @@ describe('reprocess command', () => {
     expect(payload.reprocess.counts.processed).toBe(5);
   });
 
-  it('treats invalid options as invalid-args failures', async () => {
+  it('treats conflicting account selectors as invalid-args failures', async () => {
     const program = createProgram();
 
-    await expect(program.parseAsync(['reprocess', '--account-id', '0', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:reprocess:json:Too small: expected number to be >0:2'
-    );
+    await expect(
+      program.parseAsync(['reprocess', '--account-name', 'kraken-main', '--account-ref', '6f4c0d1a2b', '--json'], {
+        from: 'user',
+      })
+    ).rejects.toThrow('CLI:reprocess:json:Cannot specify both --account-name and --account-ref:2');
 
     expect(mockRunCommand).not.toHaveBeenCalled();
   });

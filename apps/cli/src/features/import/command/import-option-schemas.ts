@@ -1,18 +1,16 @@
 import { z } from 'zod';
 
+import { OptionalAccountSelectorSchema } from '../../accounts/account-selector.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
-export const ImportCommandOptionsSchema = z
-  .object({
-    account: z.string().trim().min(1).optional(),
-    accountId: z.number().int().positive().optional(),
-    all: z.boolean().optional(),
-  })
+export const ImportCommandOptionsSchema = OptionalAccountSelectorSchema.extend({
+  all: z.boolean().optional(),
+})
   .extend(JsonFlagSchema.shape)
   .refine(
     (data) =>
-      [data.account !== undefined, data.accountId !== undefined, data.all === true].filter(Boolean).length === 1,
+      [data.accountName !== undefined, data.accountRef !== undefined, data.all === true].filter(Boolean).length === 1,
     {
-      message: 'Specify exactly one of --account, --account-id, or --all',
+      message: 'Specify exactly one of --account-name, --account-ref, or --all',
     }
   );

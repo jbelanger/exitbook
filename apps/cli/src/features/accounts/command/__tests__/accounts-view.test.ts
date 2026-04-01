@@ -1,3 +1,4 @@
+import { AmbiguousAccountFingerprintRefError } from '@exitbook/core';
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
@@ -6,7 +7,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
-  mockBuildCliAccountLifecycleService,
+  mockcreateCliAccountLifecycleService,
   mockBuildAccountQueryPorts,
   mockCtx,
   mockExitCliFailure,
@@ -20,7 +21,7 @@ const {
   mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
-  mockBuildCliAccountLifecycleService: vi.fn(),
+  mockcreateCliAccountLifecycleService: vi.fn(),
   mockBuildAccountQueryPorts: vi.fn(),
   mockCtx: {
     activeProfileKey: 'default',
@@ -65,7 +66,7 @@ vi.mock('../../query/build-account-query-ports.js', () => ({
 }));
 
 vi.mock('../../account-service.js', () => ({
-  buildCliAccountLifecycleService: mockBuildCliAccountLifecycleService,
+  createCliAccountLifecycleService: mockcreateCliAccountLifecycleService,
 }));
 
 vi.mock('../../query/account-query.js', () => ({
@@ -152,7 +153,7 @@ beforeEach(() => {
   mockCtx.closeDatabase.mockResolvedValue(undefined);
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
-  mockBuildCliAccountLifecycleService.mockReturnValue({
+  mockcreateCliAccountLifecycleService.mockReturnValue({
     getByFingerprintRef: mockGetByFingerprintRef,
     getByName: mockGetByName,
   });
@@ -969,11 +970,11 @@ describe('accounts browse commands', () => {
     const program = createAccountsProgram();
 
     mockGetByFingerprintRef.mockResolvedValue(
-      err(new Error("Account ref '0000' is ambiguous. Use a longer fingerprint prefix."))
+      err(new AmbiguousAccountFingerprintRefError('0000', ['0000aaaa', '0000bbbb']))
     );
 
     await expect(program.parseAsync(['accounts', 'view', '--account-ref', '0000'], { from: 'user' })).rejects.toThrow(
-      "CLI:accounts-view:text:Account ref '0000' is ambiguous. Use a longer fingerprint prefix.:2"
+      "CLI:accounts-view:text:Account ref '0000' is ambiguous. Use a longer fingerprint prefix. Matches include: 0000aaaa, 0000bbbb:2"
     );
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 2 }), 'text');

@@ -411,7 +411,7 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
         key="no-stats-import-command"
         dimColor
       >
-        {'  '}exitbook import --account example-wallet
+        {'  '}exitbook import --account-name example-wallet
       </Text>
     );
   }

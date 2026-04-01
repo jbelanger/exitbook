@@ -20,7 +20,8 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     accountType,
     platformKey,
     identifier,
-    accountFingerprint: overrides.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
+    accountFingerprint:
+      overrides.accountFingerprint ?? `${(overrides.id ?? 1).toString(16)}${'a'.repeat(63)}`.slice(0, 64),
     parentAccountId: overrides.parentAccountId,
     providerName: overrides.providerName,
     credentials: overrides.credentials,
@@ -174,9 +175,9 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
     const result = await snapshotReader.viewStoredSnapshots({ accountId: childAccount.id, profileId: 1 });
     const error = assertErr(result);
 
-    expect(error.message).toContain('scope account #1');
+    expect(error.message).toContain('scope account 1aaaaaaaaa');
     expect(error.message).toContain('has not been built yet');
-    expect(error.message).toContain('balance refresh --account-id 2');
+    expect(error.message).toContain('balance refresh --account-ref 2aaaaaaaaa');
     expect(error.message).not.toContain('is stale');
   });
 
@@ -280,7 +281,7 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
     const error = assertErr(result);
 
     expect(error.message).toContain('has not been built yet');
-    expect(error.message).toContain('balance refresh --account-id 1');
+    expect(error.message).toContain('balance refresh --account-ref 1aaaaaaaaa');
     expect(error.message).not.toContain('invalidated stored balance snapshots for all scopes');
   });
 
@@ -299,7 +300,7 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
     expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
-    expect(error.message).toContain('exitbook balance refresh --account-id 1');
+    expect(error.message).toContain('exitbook balance refresh --account-ref 1aaaaaaaaa');
   });
 
   it('rebuilds stale stored snapshots automatically when a workflow is available', async () => {

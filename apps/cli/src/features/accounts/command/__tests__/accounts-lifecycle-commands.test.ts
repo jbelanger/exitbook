@@ -7,7 +7,7 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { AccountRemovalTargetNotFoundError } from '../accounts-remove-errors.js';
 
 const {
-  mockBuildCliAccountLifecycleService,
+  mockcreateCliAccountLifecycleService,
   mockBuildCreateAccountInput,
   mockBuildUpdateAccountInput,
   mockCreate,
@@ -24,7 +24,7 @@ const {
   mockUpdate,
   mockWithAccountsRemoveCommandScope,
 } = vi.hoisted(() => ({
-  mockBuildCliAccountLifecycleService: vi.fn(),
+  mockcreateCliAccountLifecycleService: vi.fn(),
   mockBuildCreateAccountInput: vi.fn(),
   mockBuildUpdateAccountInput: vi.fn(),
   mockCreate: vi.fn(),
@@ -62,7 +62,7 @@ vi.mock('../../../profiles/profile-resolution.js', () => ({
 }));
 
 vi.mock('../../account-service.js', () => ({
-  buildCliAccountLifecycleService: mockBuildCliAccountLifecycleService,
+  createCliAccountLifecycleService: mockcreateCliAccountLifecycleService,
 }));
 
 vi.mock('../account-draft-utils.js', () => ({
@@ -121,7 +121,7 @@ beforeEach(() => {
   mockResolveCommandProfile.mockResolvedValue(
     ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-01-01T00:00:00.000Z') })
   );
-  mockBuildCliAccountLifecycleService.mockReturnValue({
+  mockcreateCliAccountLifecycleService.mockReturnValue({
     create: mockCreate,
     rename: mockRename,
     getByName: mockGetByName,

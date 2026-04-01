@@ -4,17 +4,23 @@ import React from 'react';
 import type { z } from 'zod';
 
 import {
-  ExitCodes,
+  cliErr,
   jsonSuccess,
   runCliRuntimeCommand,
   silentSuccess,
-  toCliResult,
   type CliCommandResult,
   type CliCompletion,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import {
+  buildAccountSelectorFilters,
+  formatResolvedAccountSelectorInput,
+  getAccountSelectorErrorExitCode,
+  resolveOwnedAccountSelector,
+  type ResolvedAccountSelector,
+} from '../../accounts/account-selector.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import { createBalanceStoredSnapshotAssetState, createBalanceStoredSnapshotState } from '../view/balance-view-state.js';
 import { buildStoredSnapshotAccountItem, sortStoredSnapshotAssets } from '../view/balance-view-utils.js';
@@ -30,14 +36,16 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
   balanceCommand
     .command('view')
     .description('View stored balance snapshots without calling live providers')
-    .option('--account-id <id>', 'View a specific balance scope', parseInt)
+    .option('--account-name <name>', 'View one named balance scope')
+    .option('--account-ref <ref>', 'View one balance scope by account fingerprint prefix')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook balance view
-  $ exitbook balance view --account-id 5
+  $ exitbook balance view --account-name kraken-main
+  $ exitbook balance view --account-ref 6f4c0d1a2b
   $ exitbook balance view --json
 
 Notes:
@@ -72,36 +80,45 @@ async function executeBalanceViewCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withBalanceCommandScope(
-        ctx,
-        {
-          format,
-          needsWorkflow: true,
-          prepareStoredSnapshots: true,
-        },
-        async (scope) => {
-          const result = await runBalanceView(scope, { accountId: options.accountId });
-          if (result.isErr()) {
-            return err(result.error);
-          }
-
-          if (format === 'json') {
-            return ok(buildBalanceViewJsonCompletion(options, result.value));
-          }
-
-          return buildBalanceViewTuiCompletion(ctx, options, result.value);
+    const completion = await withBalanceCommandScope(
+      ctx,
+      {
+        format,
+        needsWorkflow: true,
+        prepareStoredSnapshots: true,
+      },
+      async (scope) => {
+        const selectionResult = await resolveOwnedAccountSelector(scope.accountService, scope.profile.id, {
+          accountName: options.accountName,
+          accountRef: options.accountRef,
+        });
+        if (selectionResult.isErr()) {
+          return err(selectionResult.error);
         }
-      ),
-      ExitCodes.GENERAL_ERROR
+
+        const result = await runBalanceView(scope, { accountId: selectionResult.value?.account.id });
+        if (result.isErr()) {
+          return err(result.error);
+        }
+
+        if (format === 'json') {
+          return ok(buildBalanceViewJsonCompletion(selectionResult.value, result.value));
+        }
+
+        return buildBalanceViewTuiCompletion(ctx, selectionResult.value, result.value);
+      }
     );
 
-    return completion;
+    if (completion.isErr()) {
+      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+    }
+
+    return completion.value;
   });
 }
 
 function buildBalanceViewJsonCompletion(
-  options: BalanceViewCommandOptions,
+  selection: ResolvedAccountSelector | undefined,
   result: StoredSnapshotBalanceResult
 ): CliCompletion {
   const accounts = result.accounts.map((item) => ({
@@ -134,25 +151,23 @@ function buildBalanceViewJsonCompletion(
     {
       totalAccounts: result.accounts.length,
       mode: 'view',
-      filters: {
-        ...(options.accountId ? { accountId: options.accountId } : {}),
-      },
+      filters: buildAccountSelectorFilters(selection),
     }
   );
 }
 
 async function buildBalanceViewTuiCompletion(
   ctx: CommandRuntime,
-  options: BalanceViewCommandOptions,
+  selection: ResolvedAccountSelector | undefined,
   result: StoredSnapshotBalanceResult
 ): Promise<Result<CliCompletion, Error>> {
   try {
     await ctx.closeDatabase();
 
-    if (options.accountId !== undefined) {
+    if (selection) {
       const item = result.accounts[0];
       if (!item) {
-        return err(new Error(`Account #${options.accountId} not found`));
+        return err(new Error(`${formatResolvedAccountSelectorInput(selection)} not found in stored balances`));
       }
 
       const initialState = createBalanceStoredSnapshotAssetState(

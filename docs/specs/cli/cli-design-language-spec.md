@@ -126,8 +126,8 @@ Do not add near-synonyms unless the workflow is materially different.
 
 Use the same option name for the same kind of input across commands:
 
-- `--account` for a human-facing account name
-- `--account-id` for an internal numeric account identifier
+- `--account-name` for a human-facing account name
+- `--account-ref` for a canonical account fingerprint prefix
 - `--asset` for a user-facing asset symbol filter
 - `--asset-id` for a canonical asset identity
 - `--blockchain` and `--provider` for registry keys

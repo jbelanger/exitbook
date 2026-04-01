@@ -16,11 +16,15 @@ import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResu
 import { promptConfirmDecision } from '../../../cli/prompts.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import {
+  getAccountSelectorErrorExitCode,
+  resolveRequiredOwnedAccountSelector,
+} from '../../accounts/account-selector.js';
 
 import { withImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import type { BatchImportExecuteResult, ImportExecuteResult } from './run-import.js';
-import { resolveImportAccount, runImport, runImportAll } from './run-import.js';
+import { runImport, runImportAll } from './run-import.js';
 
 type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
@@ -101,18 +105,18 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
   program
     .command('import')
     .description('Sync raw data for an existing account')
-    .option('--account <name>', 'Named account to sync')
-    .option('--account-id <number>', 'Account ID to sync', parseInt)
+    .option('--account-name <name>', 'Named account to sync')
+    .option('--account-ref <ref>', 'Account fingerprint prefix to sync')
     .option('--all', 'Sync all top-level accounts in the selected profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook import --account kraken-main
-  $ exitbook import --account wallet-main
+  $ exitbook import --account-name kraken-main
+  $ exitbook import --account-name wallet-main
   $ exitbook import --all
-  $ exitbook import --account-id 42 --json
+  $ exitbook import --account-ref 6f4c0d1a2b --json
 `
     )
     .action((rawOptions: unknown) => executeImportCommand(rawOptions, appRuntime));
@@ -150,7 +154,13 @@ async function executeImportCommandResult(
           };
         }
 
-        const account = yield* await resolveImportAccount(scope, options);
+        const accountSelection = yield* await resolveRequiredOwnedAccountSelector(
+          scope.accountService,
+          scope.profile.id,
+          options,
+          'Import requires --account-name or --account-ref'
+        );
+        const account = accountSelection.account;
         const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
         if (outcome.kind === 'cancelled') {
           return {
@@ -167,7 +177,7 @@ async function executeImportCommandResult(
     );
 
     if (executionResult.isErr()) {
-      return yield* cliErr(executionResult.error, ExitCodes.GENERAL_ERROR);
+      return yield* cliErr(executionResult.error, getAccountSelectorErrorExitCode(executionResult.error));
     }
 
     return buildImportCompletion(executionResult.value, format);
@@ -193,7 +203,7 @@ function buildSingleImportParams(account: Account, format: CliOutputFormat) {
       process.stderr.write(
         `  $ exitbook accounts add wallet-xpub --blockchain ${account.platformKey} --address xpub... --xpub-gap 20\n`
       );
-      process.stderr.write('  $ exitbook import --account wallet-xpub\n\n');
+      process.stderr.write('  $ exitbook import --account-name wallet-xpub\n\n');
       process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
       return await promptConfirmDecision('Continue with single address import?', false);
     },

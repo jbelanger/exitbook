@@ -124,10 +124,20 @@ function createMockDb(
     scopeAccountIds.push(1);
   }
   const snapshotRows = scopeAccountIds.map((scopeAccountId) => createSnapshot(scopeAccountId));
+  const accountsById = new Map(
+    scopeAccountIds.map((id) => [
+      id,
+      {
+        id,
+        accountFingerprint: `${id.toString(16)}${'a'.repeat(63)}`.slice(0, 64),
+      },
+    ])
+  );
 
   return {
     accounts: {
-      findAll: vi.fn().mockResolvedValue(ok(scopeAccountIds.map((id) => ({ id })))),
+      findById: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
+      findAll: vi.fn().mockResolvedValue(ok(scopeAccountIds.map((id) => accountsById.get(id)!))),
     },
     transactions: {
       findAll: vi.fn().mockResolvedValue(ok(transactions)),
@@ -523,7 +533,8 @@ describe('asset command services', () => {
     const error = assertErr(result);
 
     expect(error.message).toContain('Assets view requires fresh balance snapshots');
-    expect(error.message).toContain('balance refresh --account-id 1');
+    expect(error.message).toContain('balance refresh --account-ref 1aaaaaaaaa');
+    expect(mockDb.accounts.findById).not.toHaveBeenCalled();
   });
 
   it('explains when all stored balance snapshots were invalidated', async () => {
@@ -541,7 +552,7 @@ describe('asset command services', () => {
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
     expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
-    expect(error.message).toContain('exitbook balance refresh --account-id 1');
+    expect(error.message).toContain('exitbook balance refresh --account-ref 1aaaaaaaaa');
   });
 
   it('resolves symbols from snapshot-only holdings', async () => {

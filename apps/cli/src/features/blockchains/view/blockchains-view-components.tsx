@@ -276,7 +276,7 @@ function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[]
       key="example-import"
       dimColor
     >
-      {'  '} exitbook import --account main-wallet
+      {'  '} exitbook import --account-name main-wallet
     </Text>
   );
 

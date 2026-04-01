@@ -6,6 +6,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
+import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
 import {
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
   formatBalanceSnapshotFreshnessMessage,
@@ -145,8 +146,8 @@ export class BalanceStoredSnapshotReader {
       return err(
         new Error(
           formatBalanceSnapshotFreshnessMessage({
-            requestedAccountId: requestedAccount.id,
-            scopeAccountId: scopeAccount.id,
+            requestedAccountRef: formatAccountFingerprintRef(requestedAccount.accountFingerprint),
+            scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
             scopeSourceName: scopeAccount.platformKey,
             status: refreshedResult.value.status,
             reason: refreshedResult.value.reason,
@@ -159,8 +160,8 @@ export class BalanceStoredSnapshotReader {
       return err(
         new Error(
           formatBalanceSnapshotFreshnessMessage({
-            requestedAccountId: requestedAccount.id,
-            scopeAccountId: scopeAccount.id,
+            requestedAccountRef: formatAccountFingerprintRef(requestedAccount.accountFingerprint),
+            scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
             scopeSourceName: scopeAccount.platformKey,
             status: freshnessResult.value.status,
             reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
@@ -172,8 +173,8 @@ export class BalanceStoredSnapshotReader {
     return err(
       new Error(
         formatBalanceSnapshotFreshnessMessage({
-          requestedAccountId: requestedAccount.id,
-          scopeAccountId: scopeAccount.id,
+          requestedAccountRef: formatAccountFingerprintRef(requestedAccount.accountFingerprint),
+          scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
           scopeSourceName: scopeAccount.platformKey,
           status: freshnessResult.value.status,
           reason: freshnessResult.value.reason,

@@ -154,14 +154,15 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
           accountType: string;
           id: number;
           identifier: string;
+          name?: string;
           platformKey: string;
         }[];
         expect(accounts.length).toBeGreaterThan(0);
-        const accountId = accounts[0]?.id;
-        expect(Number(accountId)).toBeGreaterThan(0);
+        const accountName = accounts[0]?.name;
+        expect(accountName).toBeTruthy();
 
         // Build balance command arguments
-        const balanceArgs = ['balance', '--account-id', String(accountId)];
+        const balanceArgs = ['balance', '--account-name', String(accountName)];
 
         // Add required credentials (assuming first two are key/secret pattern)
         const [apiKeyVar, apiSecretVar] = requiredEnvVars;

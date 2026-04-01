@@ -24,7 +24,7 @@ Current implementation files:
 ### `exitbook balance view`
 
 ```text
-exitbook balance view [--account-id <id>] [--json]
+exitbook balance view [--account-name <name> | --account-ref <ref>] [--json]
 ```
 
 Purpose:
@@ -36,7 +36,8 @@ Purpose:
 
 Options:
 
-- `--account-id <id>`: view one requested account or child account
+- `--account-name <name>`: view one requested account or child account by name
+- `--account-ref <ref>`: view one requested account or child account by fingerprint prefix
 - `--json`: emit machine-readable output instead of the TUI
 
 Rules:
@@ -48,7 +49,7 @@ Rules:
 ### `exitbook balance refresh`
 
 ```text
-exitbook balance refresh [--account-id <id>] [--api-key <key>] [--api-secret <secret>] [--api-passphrase <passphrase>] [--json]
+exitbook balance refresh [--account-name <name> | --account-ref <ref>] [--api-key <key>] [--api-secret <secret>] [--api-passphrase <passphrase>] [--json]
 ```
 
 Purpose:
@@ -60,14 +61,15 @@ Purpose:
 
 Options:
 
-- `--account-id <id>`: refresh one requested account or child account
+- `--account-name <name>`: refresh one requested account or child account by name
+- `--account-ref <ref>`: refresh one requested account or child account by fingerprint prefix
 - `--api-key`, `--api-secret`, `--api-passphrase`: optional exchange credentials override
 - `--json`: emit machine-readable output instead of the TUI
 
 Validation:
 
 - `--api-key` and `--api-secret` must be provided together
-- credential overrides require `--account-id`
+- credential overrides require `--account-name` or `--account-ref`
 
 Rules:
 
@@ -103,21 +105,21 @@ the command returns an error with a concrete refresh hint.
 Examples:
 
 - root scope request:
-  `Stored balance snapshot for scope account #5 (...) is stale because ... Run "exitbook balance refresh --account-id 5" to rebuild it.`
+  `Stored balance snapshot for scope account <ref> (...) is stale because ... Run "exitbook balance refresh --account-ref <ref>" to rebuild it.`
 - child request:
-  `Stored balance snapshot for scope account #5 (...) is stale because ... Run "exitbook balance refresh --account-id 12" to rebuild it.`
+  `Stored balance snapshot for scope account <ref> (...) is stale because ... Run "exitbook balance refresh --account-ref <requested-ref>" to rebuild it.`
 - global invalidation from processed-transaction rebuild/reset:
-  `Stored balance snapshot for scope account #5 (...) is stale because processed transactions were rebuilt/reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-id 12" to rebuild only the requested scope.`
+  `Stored balance snapshot for scope account <ref> (...) is stale because processed transactions were rebuilt/reset, which invalidated stored balance snapshots for all scopes. Run "exitbook balance refresh" to rebuild all stored balances, or "exitbook balance refresh --account-ref <requested-ref>" to rebuild only the requested scope.`
 
 ### TUI Modes
 
-Without `--account-id`:
+Without an account selector:
 
 - open an account-list TUI backed by stored snapshots
 - each row shows one scope account and its stored asset count
 - `Enter` drills into the stored asset list for that scope
 
-With `--account-id`:
+With `--account-name` or `--account-ref`:
 
 - open directly in stored asset mode for the resolved scope account
 
@@ -188,7 +190,7 @@ Notes:
 
 ### Single Scope
 
-When `--account-id` is provided:
+When `--account-name` or `--account-ref` is provided:
 
 - resolve the owning scope account
 - rebuild the calculated snapshot if needed
@@ -256,7 +258,7 @@ Shape:
 
 ### All Scopes
 
-Without `--account-id`:
+Without an account selector:
 
 - load verifiable top-level accounts
 - mark missing-credential accounts as skipped

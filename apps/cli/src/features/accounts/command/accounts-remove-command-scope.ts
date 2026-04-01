@@ -3,12 +3,12 @@ import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import { buildCliAccountLifecycleService } from '../account-service.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 
 import { AccountRemovalService } from './account-removal-service.js';
 
 export interface AccountsRemoveCommandScope {
-  accountService: ReturnType<typeof buildCliAccountLifecycleService>;
+  accountService: ReturnType<typeof createCliAccountLifecycleService>;
   accountRemovalService: AccountRemovalService;
   profile: Profile;
 }
@@ -25,7 +25,7 @@ export async function withAccountsRemoveCommandScope<T>(
     }
 
     const value = yield* await operation({
-      accountService: buildCliAccountLifecycleService(database),
+      accountService: createCliAccountLifecycleService(database),
       accountRemovalService: new AccountRemovalService(database),
       profile: profileResult.value,
     });

@@ -12,6 +12,8 @@ const {
   mockCreateSpinner,
   mockCtx,
   mockExitCliFailure,
+  mockGetByFingerprintRef,
+  mockGetByName,
   mockOutputSuccess,
   mockPreviewClear,
   mockRenderApp,
@@ -26,6 +28,8 @@ const {
     database: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
+  mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPreviewClear: vi.fn(),
   mockRenderApp: vi.fn(),
@@ -106,6 +110,19 @@ function makePreview(overrides: Partial<DeletionPreview> = {}): DeletionPreview 
   };
 }
 
+function makeAccountSelection(overrides: { accountFingerprint?: string; id: number; name?: string } = { id: 12 }) {
+  return {
+    id: overrides.id,
+    profileId: 1,
+    name: overrides.name,
+    accountType: 'blockchain' as const,
+    platformKey: 'bitcoin',
+    identifier: 'bc1-test',
+    accountFingerprint: overrides.accountFingerprint ?? `${String(overrides.id).padStart(64, '0')}`,
+    createdAt: new Date('2026-01-02T00:00:00.000Z'),
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -113,12 +130,28 @@ beforeEach(() => {
     await fn(mockCtx);
   });
   mockWithClearCommandScope.mockImplementation(
-    async (_ctx: unknown, operation: (scope: { clearService: object; profile: Profile }) => Promise<unknown>) =>
+    async (
+      _ctx: unknown,
+      operation: (scope: {
+        accountService: {
+          getByFingerprintRef: typeof mockGetByFingerprintRef;
+          getByName: typeof mockGetByName;
+        };
+        clearService: object;
+        profile: Profile;
+      }) => Promise<unknown>
+    ) =>
       operation({
+        accountService: {
+          getByName: mockGetByName,
+          getByFingerprintRef: mockGetByFingerprintRef,
+        },
         clearService: { tag: 'clear-service' },
         profile: makeProfile(),
       })
   );
+  mockGetByName.mockResolvedValue(ok(undefined));
+  mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
   mockCreateClearViewState.mockImplementation((scope, previewWithRaw, previewWithoutRaw, includeRaw) => ({
     includeRaw,
     previewWithRaw,
@@ -170,6 +203,29 @@ describe('clear command', () => {
     expect(renderedElement?.type).toBe('ClearViewApp');
     expect(mockRunClear).not.toHaveBeenCalled();
     expect(mockOutputSuccess).not.toHaveBeenCalled();
+  });
+
+  it('resolves an account selector before building the clear TUI state', async () => {
+    const program = createProgram();
+    const preview = makePreview({
+      processedTransactions: { transactions: 2 },
+    });
+
+    mockGetByName.mockResolvedValue(ok(makeAccountSelection({ id: 12, name: 'wallet-main' })));
+    mockPreviewClear.mockResolvedValue(ok(preview));
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      create(() => undefined);
+    });
+
+    await program.parseAsync(['clear', '--account-name', 'wallet-main'], { from: 'user' });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'wallet-main');
+    expect(mockCreateClearViewState).toHaveBeenCalledWith(
+      { accountId: 12, platformKey: undefined, label: 'wallet-main' },
+      expect.any(Object),
+      expect.any(Object),
+      false
+    );
   });
 
   it('outputs empty JSON results through the shared boundary', async () => {
@@ -234,12 +290,14 @@ describe('clear command', () => {
     expect(mockRenderApp).not.toHaveBeenCalled();
   });
 
-  it('treats invalid clear options as invalid-args failures', async () => {
+  it('treats conflicting clear selectors as invalid-args failures', async () => {
     const program = createProgram();
 
-    await expect(program.parseAsync(['clear', '--account-id', '0', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:clear:json:Too small: expected number to be >0:2'
-    );
+    await expect(
+      program.parseAsync(['clear', '--account-name', 'wallet-main', '--platform', 'kraken', '--json'], {
+        from: 'user',
+      })
+    ).rejects.toThrow('CLI:clear:json:Cannot specify both an account selector and --platform:2');
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('clear', expect.objectContaining({ exitCode: 2 }), 'json');
     expect(mockRunCommand).not.toHaveBeenCalled();

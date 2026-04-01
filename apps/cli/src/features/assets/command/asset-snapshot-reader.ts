@@ -5,6 +5,7 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 
 import { createCliAssetReviewProjectionRuntime } from '../../../runtime/asset-review-projection-runtime.js';
+import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
@@ -127,7 +128,7 @@ export class AssetSnapshotReader {
     }
     const scopeAccountIds = topLevelAccountsResult.value.map((account) => account.id);
 
-    const freshnessResult = await this.assertFreshBalanceSnapshots(scopeAccountIds);
+    const freshnessResult = await this.assertFreshBalanceSnapshots(topLevelAccountsResult.value);
     if (freshnessResult.isErr()) {
       return err(freshnessResult.error);
     }
@@ -238,11 +239,16 @@ export class AssetSnapshotReader {
     return readAssetReviewProjectionSummaries(this.db, profileId, assetIds);
   }
 
-  private async assertFreshBalanceSnapshots(scopeAccountIds: number[]): Promise<Result<void, Error>> {
+  private async assertFreshBalanceSnapshots(
+    scopeAccounts: {
+      accountFingerprint: string;
+      id: number;
+    }[]
+  ): Promise<Result<void, Error>> {
     const freshnessPorts = buildBalancesFreshnessPorts(this.db);
 
-    for (const scopeAccountId of scopeAccountIds) {
-      const freshnessResult = await freshnessPorts.checkFreshness(scopeAccountId);
+    for (const scopeAccount of scopeAccounts) {
+      const freshnessResult = await freshnessPorts.checkFreshness(scopeAccount.id);
       if (freshnessResult.isErr()) {
         return err(freshnessResult.error);
       }
@@ -254,7 +260,7 @@ export class AssetSnapshotReader {
       return err(
         new Error(
           formatAssetsFreshnessMessage({
-            scopeAccountId,
+            scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
             status: freshnessResult.value.status,
             reason: freshnessResult.value.reason,
           })

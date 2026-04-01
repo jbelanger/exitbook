@@ -9,6 +9,8 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 const {
   mockCtx,
   mockExitCliFailure,
+  mockGetByFingerprintRef,
+  mockGetByName,
   mockLoadBalanceVerificationAccounts,
   mockOutputSuccess,
   mockRenderApp,
@@ -24,6 +26,8 @@ const {
     onAbort: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
+  mockGetByName: vi.fn(),
   mockLoadBalanceVerificationAccounts: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
@@ -79,22 +83,28 @@ function createBalanceCommand(): Command {
 }
 
 function createAccount(overrides: {
+  accountFingerprint?: string;
   accountType?: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier?: string;
+  name?: string;
   platformKey?: string;
   providerName?: string | undefined;
 }): {
+  accountFingerprint: string;
   accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
   id: number;
   identifier: string;
+  name?: string | undefined;
   platformKey: string;
   providerName?: string | undefined;
 } {
   return {
     accountType: overrides.accountType ?? 'blockchain',
+    accountFingerprint: overrides.accountFingerprint ?? `${String(overrides.id).padStart(64, '0')}`,
     id: overrides.id,
     identifier: overrides.identifier ?? `identifier-${overrides.id}`,
+    name: overrides.name,
     providerName: overrides.providerName,
     platformKey: overrides.platformKey ?? 'bitcoin',
   };
@@ -112,6 +122,10 @@ beforeEach(() => {
   });
   mockWithBalanceCommandScope.mockImplementation(async (_ctx, _options, operation) =>
     operation({
+      accountService: {
+        getByName: mockGetByName,
+        getByFingerprintRef: mockGetByFingerprintRef,
+      },
       profile: {
         id: 1,
         profileKey: 'default',
@@ -122,6 +136,8 @@ beforeEach(() => {
       verificationRunner: {},
     })
   );
+  mockGetByName.mockResolvedValue(ok(undefined));
+  mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -136,7 +152,12 @@ describe('balance command JSON mode', () => {
   it('outputs stored snapshot JSON including requestedAccount for child scope requests', async () => {
     const program = createBalanceCommand();
     const scopeAccount = createAccount({ id: 1, identifier: 'xpub-root' });
-    const requestedAccount = createAccount({ id: 2, identifier: 'bc1-child' });
+    const requestedAccount = createAccount({
+      id: 2,
+      identifier: 'bc1-child',
+      name: 'wallet-child',
+      accountFingerprint: '2bc1c1d0aa000000000000000000000000000000000000000000000000000000',
+    });
     const viewStoredSnapshots = vi.fn().mockResolvedValue(
       ok({
         accounts: [
@@ -163,8 +184,9 @@ describe('balance command JSON mode', () => {
     );
 
     mockRunBalanceView.mockImplementation(viewStoredSnapshots);
+    mockGetByFingerprintRef.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' });
+    await program.parseAsync(['view', '--account-ref', '2bc1c1d0aa', '--json'], { from: 'user' });
 
     expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
       mockCtx,
@@ -211,7 +233,7 @@ describe('balance command JSON mode', () => {
       {
         totalAccounts: 1,
         mode: 'view',
-        filters: { accountId: 2 },
+        filters: { accountRef: '2bc1c1d0aa' },
       }
     );
   });
@@ -222,7 +244,7 @@ describe('balance command JSON mode', () => {
 
     mockWithBalanceCommandScope.mockResolvedValue(err(prerequisiteError));
 
-    await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['view', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:balance-view:json:processing failed:1'
     );
 
@@ -241,9 +263,11 @@ describe('balance command JSON mode', () => {
     const viewStoredSnapshots = vi.fn().mockResolvedValue(err(failClosedError));
     mockRunBalanceView.mockImplementation(viewStoredSnapshots);
 
-    await expect(program.parseAsync(['view', '--account-id', '2', '--json'], { from: 'user' })).rejects.toThrow(
-      'CLI:balance-view:json:stored snapshot read failed:1'
-    );
+    mockGetByName.mockResolvedValue(ok(createAccount({ id: 2, identifier: 'bc1-child', name: 'wallet-child' })));
+
+    await expect(
+      program.parseAsync(['view', '--account-name', 'wallet-child', '--json'], { from: 'user' })
+    ).rejects.toThrow('CLI:balance-view:json:stored snapshot read failed:1');
 
     expect(viewStoredSnapshots).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -289,7 +313,17 @@ describe('balance command JSON mode', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['view', '--account-id', '9'], { from: 'user' });
+    mockGetByFingerprintRef.mockResolvedValue(
+      ok(
+        createAccount({
+          id: 9,
+          identifier: 'xpub-balance',
+          accountFingerprint: '9abcde0000000000000000000000000000000000000000000000000000000000',
+        })
+      )
+    );
+
+    await program.parseAsync(['view', '--account-ref', '9abcde0000'], { from: 'user' });
 
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
@@ -304,7 +338,11 @@ describe('balance command JSON mode', () => {
       identifier: 'xpub-root',
       providerName: 'mempool',
     });
-    const requestedAccount = createAccount({ id: 2, identifier: 'bc1-child' });
+    const requestedAccount = createAccount({
+      id: 2,
+      identifier: 'bc1-child',
+      name: 'wallet-child',
+    });
 
     const comparisons = [
       {
@@ -359,8 +397,9 @@ describe('balance command JSON mode', () => {
     );
 
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
+    mockGetByName.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['refresh', '--account-id', '2', '--json'], { from: 'user' });
+    await program.parseAsync(['refresh', '--account-name', 'wallet-child', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -458,8 +497,9 @@ describe('balance command JSON mode', () => {
     );
 
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
+    mockGetByFingerprintRef.mockResolvedValue(ok(scopeAccount));
 
-    await program.parseAsync(['refresh', '--account-id', '74', '--json'], { from: 'user' });
+    await program.parseAsync(['refresh', '--account-ref', '74abcde000', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({

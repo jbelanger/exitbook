@@ -4,11 +4,10 @@ import React from 'react';
 import type { z } from 'zod';
 
 import {
-  ExitCodes,
+  cliErr,
   jsonSuccess,
   runCliRuntimeCommand,
   silentSuccess,
-  toCliResult,
   type CliCommandResult,
   type CliCompletion,
 } from '../../../cli/command.js';
@@ -16,6 +15,11 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
+import {
+  hasAccountSelector,
+  getAccountSelectorErrorExitCode,
+  resolveRequiredOwnedAccountSelector,
+} from '../../accounts/account-selector.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
 import {
   type AccountVerificationItem,
@@ -48,7 +52,8 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
   balanceCommand
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
-    .option('--account-id <id>', 'Refresh a specific balance scope', parseInt)
+    .option('--account-name <name>', 'Refresh one named balance scope')
+    .option('--account-ref <ref>', 'Refresh one balance scope by account fingerprint prefix')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
@@ -58,8 +63,8 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
       `
 Examples:
   $ exitbook balance refresh
-  $ exitbook balance refresh --account-id 5
-  $ exitbook balance refresh --account-id 7 --api-key KEY --api-secret SECRET
+  $ exitbook balance refresh --account-name kraken-main
+  $ exitbook balance refresh --account-ref 6f4c0d1a2b --api-key KEY --api-secret SECRET
   $ exitbook balance refresh --json
 
 Notes:
@@ -92,14 +97,14 @@ async function executeBalanceRefreshCommandResult(
   format: 'json' | 'text'
 ): Promise<CliCommandResult> {
   if (format === 'json') {
-    return options.accountId === undefined
-      ? executeBalanceRefreshAllJsonCommand(ctx)
-      : executeBalanceRefreshSingleJsonCommand(ctx, options);
+    return hasAccountSelector(options)
+      ? executeBalanceRefreshSingleJsonCommand(ctx, options)
+      : executeBalanceRefreshAllJsonCommand(ctx);
   }
 
-  return options.accountId === undefined
-    ? executeBalanceRefreshAllTuiCommand(ctx)
-    : executeBalanceRefreshSingleTuiCommand(ctx, options);
+  return hasAccountSelector(options)
+    ? executeBalanceRefreshSingleTuiCommand(ctx, options)
+    : executeBalanceRefreshAllTuiCommand(ctx);
 }
 
 async function executeBalanceRefreshSingleJsonCommand(
@@ -107,40 +112,52 @@ async function executeBalanceRefreshSingleJsonCommand(
   options: BalanceRefreshCommandOptions
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
-        const result = await runBalanceRefreshSingle(scope, {
-          accountId: options.accountId!,
-          credentials: buildCliExchangeCredentials(options),
-        });
-        if (result.isErr()) {
-          return err(result.error);
-        }
+    const completion = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
+      const selection = await resolveRequiredOwnedAccountSelector(
+        scope.accountService,
+        scope.profile.id,
+        options,
+        'Balance refresh requires --account-name or --account-ref'
+      );
+      if (selection.isErr()) {
+        return err(selection.error);
+      }
 
-        return ok(buildBalanceRefreshSingleJsonCompletion(result.value));
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
+      const result = await runBalanceRefreshSingle(scope, {
+        accountId: selection.value.account.id,
+        credentials: buildCliExchangeCredentials(options),
+      });
+      if (result.isErr()) {
+        return err(result.error);
+      }
 
-    return completion;
+      return ok(buildBalanceRefreshSingleJsonCompletion(result.value));
+    });
+
+    if (completion.isErr()) {
+      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+    }
+
+    return completion.value;
   });
 }
 
 async function executeBalanceRefreshAllJsonCommand(ctx: CommandRuntime): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
-        const result = await runBalanceRefreshAll(scope);
-        if (result.isErr()) {
-          return err(result.error);
-        }
+    const completion = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
+      const result = await runBalanceRefreshAll(scope);
+      if (result.isErr()) {
+        return err(result.error);
+      }
 
-        return ok(buildBalanceRefreshAllJsonCompletion(result.value));
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
+      return ok(buildBalanceRefreshAllJsonCompletion(result.value));
+    });
 
-    return completion;
+    if (completion.isErr()) {
+      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+    }
+
+    return completion.value;
   });
 }
 
@@ -149,35 +166,47 @@ async function executeBalanceRefreshSingleTuiCommand(
   options: BalanceRefreshCommandOptions
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) => {
-        const result = await runBalanceRefreshSingle(scope, {
-          accountId: options.accountId!,
-          credentials: buildCliExchangeCredentials(options),
-        });
-        if (result.isErr()) {
-          return err(result.error);
-        }
+    const completion = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) => {
+      const selection = await resolveRequiredOwnedAccountSelector(
+        scope.accountService,
+        scope.profile.id,
+        options,
+        'Balance refresh requires --account-name or --account-ref'
+      );
+      if (selection.isErr()) {
+        return err(selection.error);
+      }
 
-        return buildBalanceRefreshSingleTuiCompletion(result.value);
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
+      const result = await runBalanceRefreshSingle(scope, {
+        accountId: selection.value.account.id,
+        credentials: buildCliExchangeCredentials(options),
+      });
+      if (result.isErr()) {
+        return err(result.error);
+      }
 
-    return completion;
+      return buildBalanceRefreshSingleTuiCompletion(result.value);
+    });
+
+    if (completion.isErr()) {
+      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+    }
+
+    return completion.value;
   });
 }
 
 async function executeBalanceRefreshAllTuiCommand(ctx: CommandRuntime): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) =>
-        buildBalanceRefreshAllTuiCompletion(ctx, scope)
-      ),
-      ExitCodes.GENERAL_ERROR
+    const completion = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) =>
+      buildBalanceRefreshAllTuiCompletion(ctx, scope)
     );
 
-    return completion;
+    if (completion.isErr()) {
+      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+    }
+
+    return completion.value;
   });
 }
 

@@ -1,8 +1,9 @@
-import { resultDoAsync } from '@exitbook/foundation';
+import { ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
 import {
+  cliErr,
   ExitCodes,
   jsonSuccess,
   runCliRuntimeCommand,
@@ -14,6 +15,13 @@ import {
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import {
+  hasAccountSelector,
+  getAccountSelectorErrorExitCode,
+  resolveRequiredOwnedAccountSelector,
+} from '../../accounts/account-selector.js';
+import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
+import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 import { ReprocessCommandOptionsSchema } from './reprocess-option-schemas.js';
 import { runReprocess, type ReprocessResultWithMetrics } from './run-reprocess.js';
@@ -44,7 +52,8 @@ export function registerReprocessCommand(program: Command, appRuntime: CliAppRun
       `
 Examples:
   $ exitbook reprocess
-  $ exitbook reprocess --account-id 7
+  $ exitbook reprocess --account-name kraken-main
+  $ exitbook reprocess --account-ref 6f4c0d1a2b
   $ exitbook reprocess --json
 
 Notes:
@@ -52,7 +61,8 @@ Notes:
   - Reprocess uses stored raw imports only. Run "exitbook import" first if raw data itself is stale.
 `
     )
-    .option('--account-id <id>', 'Reprocess only a specific account ID')
+    .option('--account-name <name>', 'Reprocess only a specific named account')
+    .option('--account-ref <ref>', 'Reprocess only a specific account fingerprint prefix')
     .option('--json', 'Output results in JSON format')
     .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, appRuntime));
 }
@@ -78,12 +88,42 @@ async function executeReprocessCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
+    const selectedAccountIdResult = await resolveSelectedReprocessAccountId(ctx, options);
+    if (selectedAccountIdResult.isErr()) {
+      return yield* cliErr(
+        selectedAccountIdResult.error,
+        getAccountSelectorErrorExitCode(selectedAccountIdResult.error)
+      );
+    }
+
     const result = yield* toCliResult(
-      await runReprocess(ctx, { format }, { accountId: options.accountId }),
+      await runReprocess(ctx, { format }, { accountId: selectedAccountIdResult.value }),
       ExitCodes.GENERAL_ERROR
     );
 
     return buildReprocessCompletion(result, format);
+  });
+}
+
+async function resolveSelectedReprocessAccountId(
+  ctx: CommandRuntime,
+  options: ReprocessCommandOptions
+): Promise<Result<number | undefined, Error>> {
+  if (!hasAccountSelector(options)) {
+    return ok(undefined);
+  }
+
+  return resultDoAsync(async function* () {
+    const database = await ctx.database();
+    const profile = yield* await resolveCommandProfile(ctx, database);
+    const selection = yield* await resolveRequiredOwnedAccountSelector(
+      createCliAccountLifecycleService(database),
+      profile.id,
+      options,
+      'Reprocess requires --account-name or --account-ref'
+    );
+
+    return selection.account.id;
   });
 }
 

@@ -74,25 +74,66 @@ function normalizeAccountName(name: string): Result<string, Error> {
   return ok(normalized);
 }
 
+function hasAccountConfigChanges(input: UpdateAccountInput): boolean {
+  return (
+    input.identifier !== undefined ||
+    input.providerName !== undefined ||
+    input.credentials !== undefined ||
+    input.metadata !== undefined
+  );
+}
+
+function buildCreateIdentityConflictError(existingAccount: Account): Error {
+  if (existingAccount.parentAccountId !== undefined) {
+    return new Error(
+      `Account config is already tracked by child account #${existingAccount.id}. Remove the parent wallet first if you want a standalone account.`
+    );
+  }
+
+  if (existingAccount.name) {
+    return new Error(
+      `Account config already exists as '${existingAccount.name}'. Use that account name or rename it first.`
+    );
+  }
+
+  return new Error(
+    `Account config already exists as top-level account #${existingAccount.id}. Clear and recreate that profile data before adding it again.`
+  );
+}
+
+function buildUpdateIdentityConflictError(existingAccount: Account): Error {
+  if (existingAccount.parentAccountId !== undefined) {
+    return new Error(
+      `Account config is already tracked by child account #${existingAccount.id}. Remove the parent wallet first or change the config.`
+    );
+  }
+
+  if (existingAccount.name) {
+    return new Error(
+      `Account config already exists as '${existingAccount.name}'. Use that account name or change the config.`
+    );
+  }
+
+  return new Error(
+    `Account config is already tracked by top-level account #${existingAccount.id}. Clear and recreate that profile data before reusing this config.`
+  );
+}
+
 export class AccountLifecycleService {
   constructor(private readonly store: AccountLifecycleStore) {}
 
   async create(input: CreateAccountInput): Promise<Result<Account, Error>> {
-    const normalizedNameResult = normalizeAccountName(input.name);
-    if (normalizedNameResult.isErr()) {
-      return err(normalizedNameResult.error);
-    }
-    const normalizedName = normalizedNameResult.value;
-
-    const existingByNameResult = await this.store.findByName(input.profileId, normalizedName);
-    if (existingByNameResult.isErr()) {
-      return err(existingByNameResult.error);
-    }
-    if (existingByNameResult.value) {
-      return err(new Error(`Account '${normalizedName}' already exists`));
+    const normalizedName = this.normalizeAccountName(input.name);
+    if (normalizedName.isErr()) {
+      return err(normalizedName.error);
     }
 
-    const existingByIdentityResult = await this.store.findByIdentity({
+    const nameAvailabilityResult = await this.ensureAccountNameAvailable(input.profileId, normalizedName.value);
+    if (nameAvailabilityResult.isErr()) {
+      return err(nameAvailabilityResult.error);
+    }
+
+    const existingByIdentityResult = await this.findAccountByIdentity({
       accountType: input.accountType,
       identifier: input.identifier,
       platformKey: input.platformKey,
@@ -104,32 +145,12 @@ export class AccountLifecycleService {
 
     const existingByIdentity = existingByIdentityResult.value;
     if (existingByIdentity) {
-      if (existingByIdentity.parentAccountId !== undefined) {
-        return err(
-          new Error(
-            `Account config is already tracked by child account #${existingByIdentity.id}. Remove the parent wallet first if you want a standalone account.`
-          )
-        );
-      }
-
-      if (existingByIdentity.name) {
-        return err(
-          new Error(
-            `Account config already exists as '${existingByIdentity.name}'. Use that account name or rename it first.`
-          )
-        );
-      }
-
-      return err(
-        new Error(
-          `Account config already exists as top-level account #${existingByIdentity.id}. Clear and recreate that profile data before adding it again.`
-        )
-      );
+      return err(buildCreateIdentityConflictError(existingByIdentity));
     }
 
     const createResult = await this.store.create({
       profileId: input.profileId,
-      name: normalizedName,
+      name: normalizedName.value,
       accountType: input.accountType,
       platformKey: input.platformKey,
       identifier: input.identifier,
@@ -157,12 +178,9 @@ export class AccountLifecycleService {
   }
 
   async requireOwned(profileId: number, accountId: number): Promise<Result<Account, Error>> {
-    const accountResult = await this.store.findById(accountId);
+    const accountResult = await this.requireStoredAccount(accountId, `Account ${accountId} not found`);
     if (accountResult.isErr()) {
       return err(accountResult.error);
-    }
-    if (!accountResult.value) {
-      return err(new Error(`Account ${accountId} not found`));
     }
     if (accountResult.value.profileId !== profileId) {
       return err(new Error(`Account ${accountId} does not belong to the selected profile`));
@@ -181,29 +199,22 @@ export class AccountLifecycleService {
   }
 
   async rename(profileId: number, currentName: string, nextName: string): Promise<Result<Account, Error>> {
-    const currentNameResult = normalizeAccountName(currentName);
-    if (currentNameResult.isErr()) {
-      return err(currentNameResult.error);
+    const accountResult = await this.requireNamedAccount(profileId, currentName);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
     }
-    const nextNameResult = normalizeAccountName(nextName);
+    const nextNameResult = this.normalizeAccountName(nextName);
     if (nextNameResult.isErr()) {
       return err(nextNameResult.error);
     }
 
-    const accountResult = await this.store.findByName(profileId, currentNameResult.value);
-    if (accountResult.isErr()) {
-      return err(accountResult.error);
-    }
-    if (!accountResult.value) {
-      return err(new Error(`Account '${currentNameResult.value}' not found`));
-    }
-
-    const duplicateResult = await this.store.findByName(profileId, nextNameResult.value);
-    if (duplicateResult.isErr()) {
-      return err(duplicateResult.error);
-    }
-    if (duplicateResult.value && duplicateResult.value.id !== accountResult.value.id) {
-      return err(new Error(`Account '${nextNameResult.value}' already exists`));
+    const nameAvailabilityResult = await this.ensureAccountNameAvailable(
+      profileId,
+      nextNameResult.value,
+      accountResult.value.id
+    );
+    if (nameAvailabilityResult.isErr()) {
+      return err(nameAvailabilityResult.error);
     }
 
     const updateResult = await this.store.update(accountResult.value.id, { name: nextNameResult.value });
@@ -211,31 +222,23 @@ export class AccountLifecycleService {
       return err(updateResult.error);
     }
 
-    return this.requireAccount(accountResult.value.id);
+    return this.reloadAccount(accountResult.value.id);
   }
 
   async update(profileId: number, name: string, input: UpdateAccountInput): Promise<Result<Account, Error>> {
-    if (
-      input.identifier === undefined &&
-      input.providerName === undefined &&
-      input.credentials === undefined &&
-      input.metadata === undefined
-    ) {
+    if (!hasAccountConfigChanges(input)) {
       return err(new Error('No account config changes were provided'));
     }
 
-    const accountResult = await this.getByName(profileId, name);
+    const accountResult = await this.requireNamedAccount(profileId, name);
     if (accountResult.isErr()) {
       return err(accountResult.error);
-    }
-    if (!accountResult.value) {
-      return err(new Error(`Account '${name.trim().toLowerCase()}' not found`));
     }
 
     const account = accountResult.value;
     const nextIdentifier = input.identifier ?? account.identifier;
     if (nextIdentifier !== account.identifier) {
-      const duplicateResult = await this.store.findByIdentity({
+      const duplicateResult = await this.findAccountByIdentity({
         accountType: account.accountType,
         identifier: nextIdentifier,
         platformKey: account.platformKey,
@@ -247,19 +250,7 @@ export class AccountLifecycleService {
 
       const duplicate = duplicateResult.value;
       if (duplicate && duplicate.id !== account.id) {
-        if (duplicate.name) {
-          return err(
-            new Error(
-              `Account config already exists as '${duplicate.name}'. Use that account name or change the config.`
-            )
-          );
-        }
-
-        return err(
-          new Error(
-            `Account config is already tracked by top-level account #${duplicate.id}. Clear and recreate that profile data before reusing this config.`
-          )
-        );
+        return err(buildUpdateIdentityConflictError(duplicate));
       }
     }
 
@@ -268,7 +259,7 @@ export class AccountLifecycleService {
       return err(updateResult.error);
     }
 
-    return this.requireAccount(account.id);
+    return this.reloadAccount(account.id);
   }
 
   async collectHierarchy(profileId: number, rootAccountId: number): Promise<Result<Account[], Error>> {
@@ -296,15 +287,65 @@ export class AccountLifecycleService {
     return ok(ordered);
   }
 
-  private async requireAccount(accountId: number): Promise<Result<Account, Error>> {
+  private normalizeAccountName(name: string): Result<string, Error> {
+    return normalizeAccountName(name);
+  }
+
+  private async ensureAccountNameAvailable(
+    profileId: number,
+    normalizedName: string,
+    excludeAccountId?: number
+  ): Promise<Result<void, Error>> {
+    const existingByNameResult = await this.store.findByName(profileId, normalizedName);
+    if (existingByNameResult.isErr()) {
+      return err(existingByNameResult.error);
+    }
+    if (existingByNameResult.value && existingByNameResult.value.id !== excludeAccountId) {
+      return err(new Error(`Account '${normalizedName}' already exists`));
+    }
+
+    return ok(undefined);
+  }
+
+  private async findAccountByIdentity(input: {
+    accountType: AccountType;
+    identifier: string;
+    platformKey: string;
+    profileId: number;
+  }): Promise<Result<Account | undefined, Error>> {
+    return this.store.findByIdentity(input);
+  }
+
+  private async requireNamedAccount(profileId: number, name: string): Promise<Result<Account, Error>> {
+    const normalizedNameResult = this.normalizeAccountName(name);
+    if (normalizedNameResult.isErr()) {
+      return err(normalizedNameResult.error);
+    }
+
+    const accountResult = await this.store.findByName(profileId, normalizedNameResult.value);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+    if (!accountResult.value) {
+      return err(new Error(`Account '${normalizedNameResult.value}' not found`));
+    }
+
+    return ok(accountResult.value);
+  }
+
+  private async requireStoredAccount(accountId: number, missingMessage: string): Promise<Result<Account, Error>> {
     const refreshedResult = await this.store.findById(accountId);
     if (refreshedResult.isErr()) {
       return err(refreshedResult.error);
     }
     if (!refreshedResult.value) {
-      return err(new Error(`Account ${accountId} disappeared after update`));
+      return err(new Error(missingMessage));
     }
 
     return ok(refreshedResult.value);
+  }
+
+  private async reloadAccount(accountId: number): Promise<Result<Account, Error>> {
+    return this.requireStoredAccount(accountId, `Account ${accountId} disappeared after update`);
   }
 }

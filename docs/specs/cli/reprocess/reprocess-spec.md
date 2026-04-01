@@ -25,7 +25,8 @@ Purpose:
 
 Options:
 
-- `--account-id <id>`: rebuild one account scope only
+- `--account-name <name>`: rebuild one named account scope only
+- `--account-ref <ref>`: rebuild one account scope by fingerprint prefix
 - `--json`: emit structured results instead of human progress output
 
 ## User Mental Model
@@ -48,11 +49,11 @@ It is not the primary entry point for newly fetched activity.
 
 ### Full Rebuild
 
-With no `--account-id`, the command prepares a reprocess plan for all eligible accounts with stored raw imports in the active profile.
+With no account selector, the command prepares a reprocess plan for all eligible accounts with stored raw imports in the active profile.
 
 ### Scoped Rebuild
 
-With `--account-id`, the command rebuilds only the selected account scope.
+With `--account-name` or `--account-ref`, the command rebuilds only the selected account scope.
 
 The scope selection must happen before any destructive reset.
 
