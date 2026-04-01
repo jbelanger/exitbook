@@ -340,8 +340,8 @@ importers:
         specifier: workspace:*
         version: link:../logger
       ccxt:
-        specifier: ^4.5.44
-        version: 4.5.44
+        specifier: ^4.5.45
+        version: 4.5.45
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -384,8 +384,8 @@ importers:
         specifier: workspace:*
         version: link:../observability
       undici:
-        specifier: ^7.24.5
-        version: 7.24.5
+        specifier: ^7.24.6
+        version: 7.24.6
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -2110,8 +2110,8 @@ packages:
   caniuse-lite@1.0.30001782:
     resolution: {integrity: sha512-dZcaJLJeDMh4rELYFw1tvSn1bhZWYFOt468FcbHHxx/Z/dFidd1I6ciyFdi3iwfQCyOjqo9upF6lGQYtMiJWxw==}
 
-  ccxt@4.5.44:
-    resolution: {integrity: sha512-cumeM+Mmb2Gj103G7q3oyjLoJ6Wf8JGwdVZO2y9QSg2RVHWgTSTcZehJt4Etj44k39X82tVPSI4+w3zvHVgAjQ==}
+  ccxt@4.5.45:
+    resolution: {integrity: sha512-SWegHSTosig++0bVhIJ6Qg5MMIrwOtOA8GT++GwksEB3GJ5fYl1mjdxqeozisSTsjCGhF9jAwsq+svnh6ABLBw==}
     engines: {node: '>=15.0.0'}
 
   chai@6.2.2:
@@ -3516,8 +3516,8 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
-  undici@7.24.5:
-    resolution: {integrity: sha512-3IWdCpjgxp15CbJnsi/Y9TCDE7HWVN19j1hmzVhoAkY/+CJx449tVxT5wZc1Gwg8J+P0LWvzlBzxYRnHJ+1i7Q==}
+  undici@7.24.6:
+    resolution: {integrity: sha512-Xi4agocCbRzt0yYMZGMA6ApD7gvtUFaxm4ZmeacWI4cZxaF6C+8I8QfofC20NAePiB/IcvZmzkJ7XPa471AEtA==}
     engines: {node: '>=20.18.1'}
 
   unrs-resolver@1.11.1:
@@ -5063,7 +5063,7 @@ snapshots:
 
   caniuse-lite@1.0.30001782: {}
 
-  ccxt@4.5.44:
+  ccxt@4.5.45:
     dependencies:
       ws: 8.20.0
     transitivePeerDependencies:
@@ -6601,7 +6601,7 @@ snapshots:
 
   undici-types@7.18.2: {}
 
-  undici@7.24.5: {}
+  undici@7.24.6: {}
 
   unrs-resolver@1.11.1:
     dependencies:
