@@ -4,7 +4,7 @@ import { normalizeProfileKey } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { ProfileRemovalImpactCounts } from './profile-removal-service.js';
+import type { ProfileRemovalImpactCounts, ProfileRemovalResult } from './profile-removal-service.js';
 import { flattenProfileRemovePreview, ProfileRemovalService } from './profile-removal-service.js';
 
 export interface ProfileRemovalPreparation {
@@ -49,7 +49,11 @@ export async function prepareProfileRemoval(
   });
 }
 
-export async function runProfileRemoval(db: DataSession, profileKey: string, accountIds: number[]) {
+export async function runProfileRemoval(
+  db: DataSession,
+  profileKey: string,
+  accountIds: number[]
+): Promise<Result<ProfileRemovalResult, Error>> {
   return new ProfileRemovalService(db).execute(profileKey, accountIds);
 }
 

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- ok for tests */
 /* eslint-disable @typescript-eslint/no-unsafe-call -- ok for tests */
 
+import pc from 'picocolors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createCliFailure, ExitCodes } from '../command.js';
@@ -47,7 +48,7 @@ describe('cli-error', () => {
 
     const rendered = getRenderedStderr();
 
-    expect(rendered).toBe("✗ Error: Account 'theta-wallet' already exists\n");
+    expect(rendered).toBe(`${pc.red('✗')} Error: Account 'theta-wallet' already exists\n`);
     expect(rendered).not.toContain('AccountLifecycleService.create');
     expect(rendered).not.toContain('/Users/test/account-lifecycle-service.ts:91:18');
   });
@@ -59,7 +60,7 @@ describe('cli-error', () => {
       'text'
     );
 
-    expect(getRenderedStderr()).toBe("✗ Error: Account 'injective-wallet' not found\n");
+    expect(getRenderedStderr()).toBe(`${pc.red('✗')} Error: Account 'injective-wallet' not found\n`);
   });
 
   it('prints actionable error tips without a blank spacer line', () => {
@@ -70,7 +71,7 @@ describe('cli-error', () => {
     );
 
     expect(getRenderedStderr()).toBe(
-      '✗ Error: Authentication failed\nCheck your API credentials in the .env file or pass them as arguments (--api-key YOUR_KEY --api-secret YOUR_SECRET).\n'
+      `${pc.red('✗')} Error: Authentication failed\n${pc.dim('Check your API credentials in the .env file or pass them as arguments (--api-key YOUR_KEY --api-secret YOUR_SECRET).')}\n`
     );
   });
 });

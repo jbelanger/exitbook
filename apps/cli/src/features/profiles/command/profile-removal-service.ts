@@ -39,7 +39,7 @@ export interface ProfileRemovalImpactCounts {
   rawData: number;
 }
 
-interface ProfileRemoveResult {
+export interface ProfileRemovalResult {
   deleted: ProfileRemovalImpactCounts;
 }
 
@@ -115,7 +115,7 @@ export class ProfileRemovalService {
     });
   }
 
-  async execute(profileKey: string, accountIds: number[]): Promise<Result<ProfileRemoveResult, Error>> {
+  async execute(profileKey: string, accountIds: number[]): Promise<Result<ProfileRemovalResult, Error>> {
     const previewResult = await this.preview(accountIds);
     if (previewResult.isErr()) {
       return err(previewResult.error);
