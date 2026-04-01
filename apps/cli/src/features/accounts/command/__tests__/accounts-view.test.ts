@@ -500,18 +500,7 @@ describe('accounts browse commands', () => {
     );
 
     await program.parseAsync(
-      [
-        'accounts',
-        'view',
-        '--account',
-        '000000000000',
-        '--platform',
-        'kraken',
-        '--type',
-        'exchange-api',
-        '--show-sessions',
-        '--json',
-      ],
+      ['accounts', 'view', '--platform', 'kraken', '--type', 'exchange-api', '--show-sessions', '--json'],
       {
         from: 'user',
       }
@@ -520,7 +509,7 @@ describe('accounts browse commands', () => {
     expect(mockBuildAccountQueryPorts).toHaveBeenCalledWith({ tag: 'db' });
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
-      accountId: 1,
+      accountId: undefined,
       accountType: 'exchange-api',
       platformKey: 'kraken',
       showSessions: true,
@@ -571,7 +560,6 @@ describe('accounts browse commands', () => {
           limit: 1,
           hasMore: false,
           filters: {
-            account: '000000000000',
             platform: 'kraken',
             accountType: 'exchange-api',
           },
@@ -952,22 +940,9 @@ describe('accounts browse commands', () => {
 
     await expect(
       program.parseAsync(['accounts', 'view', 'kraken-main', '--platform', 'kraken'], { from: 'user' })
-    ).rejects.toThrow(
-      'CLI:accounts-view:text:Account selector cannot be combined with --account, --platform, or --type:2'
-    );
+    ).rejects.toThrow('CLI:accounts-view:text:Account selector cannot be combined with --platform or --type:2');
 
     expect(mockRunCommand).not.toHaveBeenCalled();
-  });
-
-  it('routes missing account filters through the text error path', async () => {
-    const program = createAccountsProgram();
-    mockGetByName.mockResolvedValue(ok(undefined));
-
-    await expect(
-      program.parseAsync(['accounts', 'view', '--account', 'ghost-wallet'], { from: 'user' })
-    ).rejects.toThrow("CLI:accounts-view:text:Account selector 'ghost-wallet' not found:4");
-
-    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 4 }), 'text');
   });
 
   it('routes ambiguous account selectors through invalid-args semantics', async () => {
@@ -977,7 +952,7 @@ describe('accounts browse commands', () => {
       err(new AmbiguousAccountFingerprintRefError('0000', ['0000aaaa', '0000bbbb']))
     );
 
-    await expect(program.parseAsync(['accounts', 'view', '--account', '0000'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['accounts', 'view', '0000'], { from: 'user' })).rejects.toThrow(
       "CLI:accounts-view:text:Account selector '0000' is ambiguous. Use a longer fingerprint prefix. Matches include: 0000aaaa, 0000bbbb:2"
     );
 

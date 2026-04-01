@@ -21,7 +21,6 @@ import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
 
 export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId' | 'accountId'> {
-  account?: string | undefined;
   accountSelector?: string | undefined;
   preselectInExplorer?: boolean | undefined;
 }
@@ -120,7 +119,7 @@ async function resolveSelectedAccount(
 ): Promise<Result<ResolvedSelectedAccount, CliFailure>> {
   return resultDoAsync(async function* () {
     const accountService = createCliAccountLifecycleService(database);
-    const requestedSelector = params.accountSelector ?? params.account;
+    const requestedSelector = params.accountSelector;
     if (!requestedSelector) {
       return {};
     }

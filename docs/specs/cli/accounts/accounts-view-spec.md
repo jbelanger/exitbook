@@ -42,20 +42,17 @@ Resolution order:
 Behavior:
 
 - bare selector misses fail with `Account selector '<value>' not found`
-- bare selectors cannot be combined with `--account`, `--platform`, or `--type`
+- bare selectors cannot be combined with `--platform` or `--type`
 - bare selectors may target child accounts when the fingerprint prefix resolves to a child account
 
 ### Filter flags
 
 Supported browse options:
 
-- `--account <selector>`: filter by account name or unique fingerprint prefix
 - `--platform <name>`: filter by platform key
 - `--type <type>`: filter by account type (`blockchain`, `exchange-api`, `exchange-csv`)
 - `--show-sessions`: include recent import session details in detail surfaces and JSON
 - `--json`: output JSON
-
-`--account` is a filter option, not a command-shape detail selector. For example, `accounts --account <selector>` still resolves to the static list surface, even if the filtered result is a single account.
 
 ## Shared Data Semantics
 

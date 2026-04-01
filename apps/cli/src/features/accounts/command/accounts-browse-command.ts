@@ -51,10 +51,6 @@ interface AccountsBrowseOptionDefinition {
 
 const ACCOUNTS_BROWSE_OPTION_DEFINITIONS: AccountsBrowseOptionDefinition[] = [
   {
-    flags: '--account <selector>',
-    description: 'Filter by account name or unique fingerprint prefix',
-  },
-  {
     flags: '--platform <name>',
     description: 'Filter by exchange or blockchain platform',
   },
@@ -104,10 +100,10 @@ export function prepareAccountsBrowseCommand({
   }
 
   const { presentation, options } = parsedOptionsResult.value;
-  if (accountSelector && (options.account !== undefined || options.platform || options.type)) {
+  if (accountSelector && (options.platform || options.type)) {
     return err(
       createCliFailure(
-        new Error('Account selector cannot be combined with --account, --platform, or --type'),
+        new Error('Account selector cannot be combined with --platform or --type'),
         ExitCodes.INVALID_ARGS
       )
     );
@@ -115,7 +111,6 @@ export function prepareAccountsBrowseCommand({
 
   return ok({
     params: {
-      account: options.account,
       accountSelector,
       platformKey: options.platform,
       accountType: options.type,
@@ -215,12 +210,7 @@ function buildAccountsBrowseCompletion(
 }
 
 function shouldCollapseAccountsExplorerWhenEmpty(params: AccountsBrowseParams): boolean {
-  return (
-    params.accountSelector === undefined &&
-    params.account === undefined &&
-    params.platformKey === undefined &&
-    params.accountType === undefined
-  );
+  return params.accountSelector === undefined && params.platformKey === undefined && params.accountType === undefined;
 }
 
 export async function runAccountsBrowseCommand(input: ExecuteAccountsBrowseCommandInput): Promise<void> {
