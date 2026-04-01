@@ -970,7 +970,7 @@ describe('accounts browse commands', () => {
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 4 }), 'text');
   });
 
-  it('routes ambiguous account refs through invalid-args semantics', async () => {
+  it('routes ambiguous account selectors through invalid-args semantics', async () => {
     const program = createAccountsProgram();
 
     mockGetByFingerprintRef.mockResolvedValue(
@@ -978,7 +978,7 @@ describe('accounts browse commands', () => {
     );
 
     await expect(program.parseAsync(['accounts', 'view', '--account', '0000'], { from: 'user' })).rejects.toThrow(
-      "CLI:accounts-view:text:Account ref '0000' is ambiguous. Use a longer fingerprint prefix. Matches include: 0000aaaa, 0000bbbb:2"
+      "CLI:accounts-view:text:Account selector '0000' is ambiguous. Use a longer fingerprint prefix. Matches include: 0000aaaa, 0000bbbb:2"
     );
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 2 }), 'text');

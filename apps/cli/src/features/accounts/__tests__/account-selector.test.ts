@@ -140,7 +140,7 @@ describe('account-selector helpers', () => {
     }
   });
 
-  it('maps ambiguous fingerprint refs to invalid-args semantics', async () => {
+  it('maps ambiguous selectors to invalid-args semantics when the fingerprint prefix is ambiguous', async () => {
     const service = {
       getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi
@@ -154,7 +154,7 @@ describe('account-selector helpers', () => {
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(AccountSelectorResolutionError);
       expect(getAccountSelectorErrorExitCode(result.error)).toBe(2);
-      expect(result.error.message).toContain("Account ref '1aaa' is ambiguous");
+      expect(result.error.message).toContain("Account selector '1aaa' is ambiguous");
     }
   });
 });

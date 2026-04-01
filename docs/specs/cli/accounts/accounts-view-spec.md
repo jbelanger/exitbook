@@ -416,7 +416,7 @@ Expected browse-family errors:
 
 - `Use bare "accounts" instead of "accounts list".`
 - `Account selector '<value>' not found`
-- `Account ref '<value>' is ambiguous. Use a longer fingerprint prefix. Matches include: ...`
+- `Account selector '<value>' is ambiguous. Use a longer fingerprint prefix. Matches include: ...`
 - `Account selector cannot be combined with --account, --platform, or --type`
 
 Help copy should keep the V3 mental model explicit:

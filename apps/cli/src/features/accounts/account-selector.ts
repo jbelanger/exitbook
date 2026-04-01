@@ -80,7 +80,14 @@ async function resolveAccountRefSelector(
   const accountResult = await accountService.getByFingerprintRef(profileId, normalizedRef);
   if (accountResult.isErr()) {
     if (accountResult.error instanceof AmbiguousAccountFingerprintRefError) {
-      return err(new AccountSelectorResolutionError('ambiguous', accountResult.error.message));
+      const matchSuffix =
+        accountResult.error.matches.length > 0 ? ` Matches include: ${accountResult.error.matches.join(', ')}` : '';
+      return err(
+        new AccountSelectorResolutionError(
+          'ambiguous',
+          `Account selector '${normalizedRef}' is ambiguous. Use a longer fingerprint prefix.${matchSuffix}`
+        )
+      );
     }
 
     return err(accountResult.error);
