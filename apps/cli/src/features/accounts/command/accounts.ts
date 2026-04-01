@@ -36,7 +36,7 @@ const ACCOUNTS_LIST_ALIAS = 'list';
 export function registerAccountsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const accounts = program
     .command('accounts')
-    .usage('[name] [options]')
+    .usage('[selector] [options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('Browse and manage accounts')
@@ -46,9 +46,11 @@ export function registerAccountsCommand(program: Command, appRuntime: CliAppRunt
 Examples:
   $ exitbook accounts
   $ exitbook accounts kraken-main
+  $ exitbook accounts 1a2b3c4d
   $ exitbook accounts --platform kraken
   $ exitbook accounts view
   $ exitbook accounts view kraken-main
+  $ exitbook accounts view 1a2b3c4d
   $ exitbook accounts --json
 
 Browse Options:
@@ -57,6 +59,7 @@ ${buildAccountsBrowseOptionsHelpText()}
 Notes:
   - Use bare "accounts" for quick account lists and single-account details.
   - Use "accounts view" for the interactive explorer.
+  - Bare selectors may be account names or account fingerprint prefixes.
   - Account selectors cannot use reserved command words such as add, list, remove, rename, update, or view.
 `
     );
@@ -68,17 +71,17 @@ Notes:
       prepare: async () =>
         resultDoAsync(async function* () {
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAccountsBrowseOptions);
-          const accountName = parsedInvocation.selector?.trim();
+          const accountSelector = parsedInvocation.selector?.trim();
 
-          if (accountName?.toLowerCase() === ACCOUNTS_LIST_ALIAS) {
+          if (accountSelector?.toLowerCase() === ACCOUNTS_LIST_ALIAS) {
             return yield* cliErr(new Error('Use bare "accounts" instead of "accounts list".'), ExitCodes.INVALID_ARGS);
           }
 
           return yield* prepareAccountsBrowseCommand({
-            accountName,
+            accountSelector,
             commandId: ACCOUNTS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
-            surfaceSpec: accountName
+            surfaceSpec: accountSelector
               ? staticDetailSurfaceSpec(ACCOUNTS_COMMAND_ID)
               : staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
           });

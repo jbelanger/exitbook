@@ -10,6 +10,7 @@ const {
   mockBuildAccountQueryPorts,
   mockCtx,
   mockExitCliFailure,
+  mockGetByFingerprintRef,
   mockGetByName,
   mockList,
   mockOutputAccountStaticDetail,
@@ -28,6 +29,7 @@ const {
     exitCode: 0,
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
   mockGetByName: vi.fn(),
   mockList: vi.fn(),
   mockOutputAccountStaticDetail: vi.fn(),
@@ -85,6 +87,10 @@ vi.mock('../../view/accounts-static-renderer.js', () => ({
 
 import { registerAccountsCommand } from '../accounts.js';
 
+function createAccountFingerprint(id: number): string {
+  return `${id}`.padStart(64, '0');
+}
+
 function createAccountsProgram(): Command {
   const program = new Command();
   registerAccountsCommand(program, {} as CliAppRuntime);
@@ -102,6 +108,7 @@ function createAccountSummary(overrides: Partial<ReturnType<typeof createBaseAcc
 function createBaseAccountSummary() {
   return {
     id: 1,
+    accountFingerprint: createAccountFingerprint(1),
     accountType: 'exchange-api' as const,
     platformKey: 'kraken',
     name: 'kraken-main',
@@ -117,6 +124,7 @@ function createBaseAccountSummary() {
     childAccounts: [
       {
         id: 2,
+        accountFingerprint: createAccountFingerprint(2),
         accountType: 'exchange-api' as const,
         platformKey: 'kraken',
         identifier: 'acct-child',
@@ -145,12 +153,15 @@ beforeEach(() => {
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
   mockBuildCliAccountLifecycleService.mockReturnValue({
+    getByFingerprintRef: mockGetByFingerprintRef,
     getByName: mockGetByName,
   });
+  mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
   mockGetByName.mockResolvedValue(
     ok({
       id: 1,
       profileId: 1,
+      accountFingerprint: createAccountFingerprint(1),
       name: 'kraken-main',
       parentAccountId: undefined,
       accountType: 'exchange-api',
@@ -269,6 +280,7 @@ describe('accounts browse commands', () => {
         data: [
           {
             id: 1,
+            accountFingerprint: createAccountFingerprint(1),
             accountType: 'exchange-api',
             platformKey: 'kraken',
             name: 'kraken-main',
@@ -284,6 +296,7 @@ describe('accounts browse commands', () => {
             childAccounts: [
               {
                 id: 2,
+                accountFingerprint: createAccountFingerprint(2),
                 identifier: 'acct-child',
                 sessionCount: 1,
                 balanceProjectionStatus: 'fresh',
@@ -327,6 +340,7 @@ describe('accounts browse commands', () => {
       {
         data: {
           id: 1,
+          accountFingerprint: createAccountFingerprint(1),
           accountType: 'exchange-api',
           platformKey: 'kraken',
           name: 'kraken-main',
@@ -342,6 +356,7 @@ describe('accounts browse commands', () => {
           childAccounts: [
             {
               id: 2,
+              accountFingerprint: createAccountFingerprint(2),
               identifier: 'acct-child',
               sessionCount: 1,
               balanceProjectionStatus: 'fresh',
@@ -358,7 +373,6 @@ describe('accounts browse commands', () => {
           hasMore: false,
           filters: {
             accountName: 'kraken-main',
-            accountId: 1,
           },
         },
       },
@@ -384,17 +398,82 @@ describe('accounts browse commands', () => {
     mockGetByName.mockResolvedValue(ok(undefined));
 
     await expect(program.parseAsync(['accounts', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
-      "CLI:accounts:text:Account 'ghost-wallet' not found:4"
+      "CLI:accounts:text:Account selector 'ghost-wallet' not found:4"
     );
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts', expect.objectContaining({ exitCode: 4 }), 'text');
     expect(mockList).not.toHaveBeenCalled();
   });
 
+  it('falls back from name lookup to fingerprint ref lookup for bare selectors', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    mockGetByName.mockResolvedValue(ok(undefined));
+    mockGetByFingerprintRef.mockResolvedValue(
+      ok({
+        id: 1,
+        profileId: 1,
+        accountFingerprint: createAccountFingerprint(1),
+        name: 'kraken-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'acct-1',
+        providerName: 'kraken-api',
+        credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', '000000000000'], {
+      from: 'user',
+    });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, '000000000000');
+    expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, '000000000000');
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 1,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
+  });
+
   it('outputs JSON results using transformed account view items', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
+    mockGetByFingerprintRef.mockResolvedValue(
+      ok({
+        id: 1,
+        profileId: 1,
+        accountFingerprint: createAccountFingerprint(1),
+        name: 'kraken-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'acct-1',
+        providerName: 'kraken-api',
+        credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
     mockList.mockResolvedValue(
       ok({
         accounts: [account],
@@ -419,8 +498,8 @@ describe('accounts browse commands', () => {
       [
         'accounts',
         'view',
-        '--account-id',
-        '1',
+        '--account-ref',
+        '000000000000',
         '--platform',
         'kraken',
         '--type',
@@ -447,6 +526,7 @@ describe('accounts browse commands', () => {
         data: [
           {
             id: 1,
+            accountFingerprint: createAccountFingerprint(1),
             accountType: 'exchange-api',
             platformKey: 'kraken',
             name: 'kraken-main',
@@ -462,6 +542,7 @@ describe('accounts browse commands', () => {
             childAccounts: [
               {
                 id: 2,
+                accountFingerprint: createAccountFingerprint(2),
                 identifier: 'acct-child',
                 sessionCount: 1,
                 balanceProjectionStatus: 'fresh',
@@ -485,7 +566,7 @@ describe('accounts browse commands', () => {
           limit: 1,
           hasMore: false,
           filters: {
-            accountId: 1,
+            accountRef: '000000000000',
             platform: 'kraken',
             accountType: 'exchange-api',
           },
@@ -527,6 +608,7 @@ describe('accounts browse commands', () => {
       accounts: [
         {
           id: 1,
+          accountFingerprint: createAccountFingerprint(1),
           accountType: 'exchange-api',
           platformKey: 'kraken',
           name: 'kraken-main',
@@ -542,6 +624,7 @@ describe('accounts browse commands', () => {
           childAccounts: [
             {
               id: 2,
+              accountFingerprint: createAccountFingerprint(2),
               identifier: 'acct-child',
               sessionCount: 1,
               balanceProjectionStatus: 'fresh',
@@ -583,6 +666,7 @@ describe('accounts browse commands', () => {
       ok({
         id: 2,
         profileId: 1,
+        accountFingerprint: createAccountFingerprint(2),
         name: 'wallet-main',
         parentAccountId: undefined,
         accountType: 'exchange-api',
@@ -726,6 +810,7 @@ describe('accounts browse commands', () => {
     });
     expect(mockOutputAccountStaticDetail).toHaveBeenCalledWith({
       id: 1,
+      accountFingerprint: createAccountFingerprint(1),
       accountType: 'exchange-api',
       platformKey: 'kraken',
       name: 'kraken-main',
@@ -741,6 +826,7 @@ describe('accounts browse commands', () => {
       childAccounts: [
         {
           id: 2,
+          accountFingerprint: createAccountFingerprint(2),
           identifier: 'acct-child',
           sessionCount: 1,
           balanceProjectionStatus: 'fresh',
@@ -784,6 +870,7 @@ describe('accounts browse commands', () => {
       {
         data: {
           id: 1,
+          accountFingerprint: createAccountFingerprint(1),
           accountType: 'exchange-api',
           platformKey: 'kraken',
           name: 'kraken-main',
@@ -799,6 +886,7 @@ describe('accounts browse commands', () => {
           childAccounts: [
             {
               id: 2,
+              accountFingerprint: createAccountFingerprint(2),
               identifier: 'acct-child',
               sessionCount: 1,
               balanceProjectionStatus: 'fresh',
@@ -815,7 +903,6 @@ describe('accounts browse commands', () => {
           hasMore: false,
           filters: {
             accountName: 'kraken-main',
-            accountId: 1,
           },
         },
       },
@@ -826,7 +913,6 @@ describe('accounts browse commands', () => {
     expect(payload).toBeDefined();
     expect((payload as { meta?: { filters?: Record<string, unknown> } }).meta?.filters).toEqual({
       accountName: 'kraken-main',
-      accountId: 1,
     });
   });
 
@@ -836,7 +922,7 @@ describe('accounts browse commands', () => {
     mockGetByName.mockResolvedValue(ok(undefined));
 
     await expect(program.parseAsync(['accounts', 'view', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
-      "CLI:accounts-view:text:Account 'ghost-wallet' not found:4"
+      "CLI:accounts-view:text:Account selector 'ghost-wallet' not found:4"
     );
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 4 }), 'text');
@@ -862,7 +948,7 @@ describe('accounts browse commands', () => {
     await expect(
       program.parseAsync(['accounts', 'view', 'kraken-main', '--platform', 'kraken'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:accounts-view:text:Account name lookup cannot be combined with --account-id, --platform, or --type:2'
+      'CLI:accounts-view:text:Account selector cannot be combined with --account-ref, --platform, or --type:2'
     );
 
     expect(mockRunCommand).not.toHaveBeenCalled();
@@ -871,12 +957,26 @@ describe('accounts browse commands', () => {
   it('routes invalid CLI options through the text error path', async () => {
     const program = createAccountsProgram();
 
-    await expect(program.parseAsync(['accounts', 'view', '--account-id', '0'], { from: 'user' })).rejects.toThrow(
-      'CLI:accounts-view:text:Too small: expected number to be >0:2'
-    );
+    await expect(
+      program.parseAsync(['accounts', 'view', '--account-ref', 'not-a-ref'], { from: 'user' })
+    ).rejects.toThrow('CLI:accounts-view:text:--account-ref must be a fingerprint or unique fingerprint prefix:2');
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 2 }), 'text');
     expect(mockRunCommand).not.toHaveBeenCalled();
+  });
+
+  it('routes ambiguous account refs through invalid-args semantics', async () => {
+    const program = createAccountsProgram();
+
+    mockGetByFingerprintRef.mockResolvedValue(
+      err(new Error("Account ref '0000' is ambiguous. Use a longer fingerprint prefix."))
+    );
+
+    await expect(program.parseAsync(['accounts', 'view', '--account-ref', '0000'], { from: 'user' })).rejects.toThrow(
+      "CLI:accounts-view:text:Account ref '0000' is ambiguous. Use a longer fingerprint prefix.:2"
+    );
+
+    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 2 }), 'text');
   });
 });
 

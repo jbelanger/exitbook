@@ -9,7 +9,13 @@ import {
 } from '../../shared/option-schema-primitives.js';
 
 export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({
-  accountId: z.number().int().positive().optional(),
+  accountRef: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[a-f0-9]+$/i, '--account-ref must be a fingerprint or unique fingerprint prefix')
+    .transform((value) => value.toLowerCase())
+    .optional(),
   platform: z.string().optional(),
   type: AccountTypeSchema.optional(),
   showSessions: z.boolean().optional(),

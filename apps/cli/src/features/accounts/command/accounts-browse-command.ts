@@ -32,7 +32,7 @@ import {
 import { AccountsBrowseCommandOptionsSchema } from './accounts-option-schemas.js';
 
 interface ExecuteAccountsBrowseCommandInput {
-  accountName?: string | undefined;
+  accountSelector?: string | undefined;
   commandId: string;
   rawOptions: unknown;
   surfaceSpec: BrowseSurfaceSpec;
@@ -51,9 +51,8 @@ interface AccountsBrowseOptionDefinition {
 
 const ACCOUNTS_BROWSE_OPTION_DEFINITIONS: AccountsBrowseOptionDefinition[] = [
   {
-    flags: '--account-id <number>',
-    description: 'Filter by account ID',
-    parser: parseInt,
+    flags: '--account-ref <ref>',
+    description: 'Filter by account fingerprint or unique fingerprint prefix',
   },
   {
     flags: '--platform <name>',
@@ -95,7 +94,7 @@ export function buildAccountsBrowseOptionsHelpText(): string {
 }
 
 export function prepareAccountsBrowseCommand({
-  accountName,
+  accountSelector,
   rawOptions,
   surfaceSpec,
 }: ExecuteAccountsBrowseCommandInput): Result<PreparedAccountsBrowseCommand, CliFailure> {
@@ -105,10 +104,10 @@ export function prepareAccountsBrowseCommand({
   }
 
   const { presentation, options } = parsedOptionsResult.value;
-  if (accountName && (options.accountId !== undefined || options.platform || options.type)) {
+  if (accountSelector && (options.accountRef !== undefined || options.platform || options.type)) {
     return err(
       createCliFailure(
-        new Error('Account name lookup cannot be combined with --account-id, --platform, or --type'),
+        new Error('Account selector cannot be combined with --account-ref, --platform, or --type'),
         ExitCodes.INVALID_ARGS
       )
     );
@@ -116,12 +115,12 @@ export function prepareAccountsBrowseCommand({
 
   return ok({
     params: {
-      accountName,
-      accountId: options.accountId,
+      accountRef: options.accountRef,
+      accountSelector,
       platformKey: options.platform,
       accountType: options.type,
       showSessions: options.showSessions,
-      preselectInExplorer: accountName && presentation.mode === 'tui' ? true : undefined,
+      preselectInExplorer: accountSelector !== undefined && presentation.mode === 'tui' ? true : undefined,
     },
     presentation,
   });
@@ -217,8 +216,8 @@ function buildAccountsBrowseCompletion(
 
 function shouldCollapseAccountsExplorerWhenEmpty(params: AccountsBrowseParams): boolean {
   return (
-    params.accountName === undefined &&
-    params.accountId === undefined &&
+    params.accountSelector === undefined &&
+    params.accountRef === undefined &&
     params.platformKey === undefined &&
     params.accountType === undefined
   );

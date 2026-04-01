@@ -10,7 +10,6 @@ const ERROR_TIPS: Record<string, string> = {
   INVALID_ARGS: 'Check your command arguments and try again. Run with --help for usage information.',
   AUTHENTICATION_ERROR:
     'Check your API credentials in the .env file or pass them as arguments (--api-key YOUR_KEY --api-secret YOUR_SECRET).',
-  NOT_FOUND: 'The requested resource was not found. Double-check the name or ID and try again.',
   RATE_LIMIT:
     'You have exceeded the API rate limit. Wait a few minutes and try again, or configure rate limits in blockchain-explorers.json.',
 };
@@ -27,7 +26,7 @@ export function writeCliFailure(command: string, failure: CliFailure, format: 'j
 
   const tip = ERROR_TIPS[code];
   if (tip) {
-    process.stderr.write(`\n${pc.dim(tip)}\n`);
+    process.stderr.write(`${pc.dim(tip)}\n`);
   }
 }
 

@@ -17,6 +17,7 @@ export interface SessionViewItem {
  */
 export interface ChildAccountViewItem {
   id: number;
+  accountFingerprint: string;
   identifier: string;
   sessionCount: number | undefined;
   balanceProjectionStatus?: AccountBalanceProjectionStatus | undefined;
@@ -28,6 +29,7 @@ export interface ChildAccountViewItem {
  */
 export interface AccountViewItem {
   id: number;
+  accountFingerprint: string;
   accountType: AccountType;
   platformKey: string;
   name?: string | undefined;

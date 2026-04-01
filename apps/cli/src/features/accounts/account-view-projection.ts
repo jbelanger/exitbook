@@ -4,6 +4,7 @@ import type { AccountSummary, SessionSummary } from './query/account-query.js';
 export function toAccountViewItem(account: AccountSummary, sessions?: Map<number, SessionSummary[]>): AccountViewItem {
   const childAccounts: ChildAccountViewItem[] | undefined = account.childAccounts?.map((child) => ({
     id: child.id,
+    accountFingerprint: child.accountFingerprint,
     identifier: child.identifier,
     sessionCount: child.sessionCount,
     balanceProjectionStatus: child.balanceProjectionStatus,
@@ -20,6 +21,7 @@ export function toAccountViewItem(account: AccountSummary, sessions?: Map<number
 
   return {
     id: account.id,
+    accountFingerprint: account.accountFingerprint,
     accountType: account.accountType,
     platformKey: account.platformKey,
     name: account.name,

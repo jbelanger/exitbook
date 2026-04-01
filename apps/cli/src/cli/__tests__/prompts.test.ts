@@ -1,8 +1,51 @@
-import { describe, expect, it } from 'vitest';
+import pc from 'picocolors';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../prompts.js';
+const { mockConfirm, MockExitPromptError } = vi.hoisted(() => ({
+  mockConfirm: vi.fn(),
+  MockExitPromptError: class MockExitPromptError extends Error {},
+}));
+
+vi.mock('@inquirer/confirm', () => ({
+  default: mockConfirm,
+}));
+
+vi.mock('@inquirer/core', () => ({
+  ExitPromptError: MockExitPromptError,
+}));
+
+import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint, promptConfirmDecision } from '../prompts.js';
 
 describe('prompts utilities', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('promptConfirmDecision', () => {
+    it('passes a neutral prompt theme to inquirer confirm', async () => {
+      mockConfirm.mockResolvedValue(true);
+
+      await expect(promptConfirmDecision('Delete account foo?', false)).resolves.toBe('confirmed');
+
+      expect(mockConfirm).toHaveBeenCalledWith({
+        message: 'Delete account foo?',
+        default: false,
+        theme: {
+          prefix: {
+            idle: pc.dim('›'),
+            done: pc.dim('›'),
+          },
+        },
+      });
+    });
+
+    it('maps interrupted prompts to cancelled', async () => {
+      mockConfirm.mockRejectedValue(new MockExitPromptError('cancelled'));
+
+      await expect(promptConfirmDecision('Delete account foo?', false)).resolves.toBe('cancelled');
+    });
+  });
+
   describe('formatBlockchainName', () => {
     it('formats known blockchain names correctly', () => {
       expect(formatBlockchainName('bitcoin')).toBe('Bitcoin');

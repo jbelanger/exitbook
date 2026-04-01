@@ -16,19 +16,20 @@ export function createMockAccount(
   }
 ): Account {
   const profileId = options?.profileId ?? 1;
+  const accountId = options?.id ?? 1;
   const accountType = options?.accountType ?? 'blockchain';
   const platformKey = options?.platformKey ?? 'bitcoin';
   const identifier = options?.identifier ?? 'bc1qtest';
 
   return {
-    id: options?.id ?? 1,
+    id: accountId,
     profileId,
     name: options?.name,
     parentAccountId: options?.parentAccountId,
     accountType,
     platformKey,
     identifier,
-    accountFingerprint: options?.accountFingerprint ?? `acct:${profileId}:${accountType}:${platformKey}:${identifier}`,
+    accountFingerprint: options?.accountFingerprint ?? `${accountId}`.padStart(64, '0'),
     providerName: options?.providerName,
     credentials: options?.credentials,
     lastCursor: options?.lastCursor,

@@ -27,6 +27,7 @@ export interface AccountProjectionFreshness {
 
 export interface AccountSummary {
   id: number;
+  accountFingerprint: string;
   accountType: AccountType;
   platformKey: string;
   name?: string | undefined;
@@ -76,6 +77,7 @@ export function toAccountSummary(
 ): AccountSummary {
   return {
     id: account.id,
+    accountFingerprint: account.accountFingerprint,
     accountType: account.accountType,
     platformKey: account.platformKey,
     name: account.name,

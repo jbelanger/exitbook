@@ -1,6 +1,7 @@
 import type { AccountViewItem, TypeCounts } from '../accounts-view-model.js';
 
 export type AccountsStatusColor = 'green' | 'yellow' | 'red' | 'cyan' | 'dim';
+export const ACCOUNT_FINGERPRINT_REF_LENGTH = 10;
 
 export interface AccountsStatusDisplay {
   icon: string;
@@ -87,6 +88,14 @@ export function getSessionDisplay(status: string): { icon: string; iconColor: Ac
 
 export function formatImportCount(count: number): string {
   return `${count} import${count === 1 ? '' : 's'}`;
+}
+
+export function formatAccountFingerprintRef(accountFingerprint: string): string {
+  if (accountFingerprint.length <= ACCOUNT_FINGERPRINT_REF_LENGTH) {
+    return accountFingerprint;
+  }
+
+  return accountFingerprint.slice(0, ACCOUNT_FINGERPRINT_REF_LENGTH);
 }
 
 export function truncateIdentifier(identifier: string, accountType: string, maxWidth: number): string {

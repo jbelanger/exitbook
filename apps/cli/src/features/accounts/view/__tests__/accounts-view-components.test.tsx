@@ -10,8 +10,10 @@ const mockOnQuit = () => {
 };
 
 function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): AccountViewItem {
+  const accountId = overrides.id ?? 1;
   return {
-    id: overrides.id ?? 1,
+    id: accountId,
+    accountFingerprint: overrides.accountFingerprint ?? `${accountId}`.padStart(64, '0'),
     accountType: overrides.accountType ?? 'blockchain',
     balanceProjectionStatus: overrides.balanceProjectionStatus,
     platformKey: overrides.platformKey ?? 'bitcoin',
@@ -170,6 +172,7 @@ describe('AccountsViewApp', () => {
 
     expect(frame).toContain('kraken-main');
     expect(frame).toContain('abcdefghijk123');
+    expect(frame).toContain('Fingerprint:');
     expect(frame).toContain('Name: kraken-main');
   });
 
@@ -181,6 +184,7 @@ describe('AccountsViewApp', () => {
           childAccounts: [
             {
               id: 2,
+              accountFingerprint: '0000000000000000000000000000000000000000000000000000000000000002',
               identifier: 'bc1qchildaddress',
               sessionCount: 1,
               balanceProjectionStatus: 'fresh',

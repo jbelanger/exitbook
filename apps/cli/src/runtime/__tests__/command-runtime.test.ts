@@ -232,6 +232,7 @@ describe('renderApp', () => {
   });
 
   it('waits one event-loop turn before waiting for Ink exit', async () => {
+    vi.stubEnv('CI', '');
     setTTYFlags(true, true);
 
     const mockUnmount = vi.fn();
@@ -262,6 +263,7 @@ describe('renderApp', () => {
   });
 
   it('does not throw if the provided unmount callback is called before Ink instance assignment', async () => {
+    vi.stubEnv('CI', '');
     setTTYFlags(true, true);
 
     mockInkRender.mockReturnValue({

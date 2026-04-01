@@ -18,7 +18,9 @@ import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import {
+  ACCOUNT_FINGERPRINT_REF_LENGTH,
   buildTypeParts,
+  formatAccountFingerprintRef,
   formatAccountType,
   formatImportCount,
   formatTimestamp,
@@ -123,7 +125,11 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
   const { accounts, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
   const columns = createColumns(accounts, {
-    acctId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 5 },
+    accountRef: {
+      format: (item) => formatAccountFingerprintRef(item.accountFingerprint),
+      align: 'left',
+      minWidth: ACCOUNT_FINGERPRINT_REF_LENGTH,
+    },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
@@ -146,7 +152,7 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
         const actualIndex = startIndex + windowIndex;
         return (
           <AccountRow
-            key={item.id}
+            key={item.accountFingerprint}
             item={item}
             isSelected={actualIndex === selectedIndex}
             columns={columns}
@@ -168,11 +174,11 @@ const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const AccountRow: FC<{
-  columns: Columns<AccountViewItem, 'acctId' | 'platform' | 'type'>;
+  columns: Columns<AccountViewItem, 'accountRef' | 'platform' | 'type'>;
   isSelected: boolean;
   item: AccountViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const { acctId, platform, type } = columns.format(item);
+  const { accountRef, platform, type } = columns.format(item);
   const label = truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28);
   const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
   const imports = item.sessionCount !== undefined ? formatImportCount(item.sessionCount) : '';
@@ -182,7 +188,8 @@ const AccountRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      {acctId} <Text color="cyan">{platform}</Text> <Text dimColor>{type}</Text> <Text bold={!!item.name}>{label}</Text>
+      {accountRef} <Text color="cyan">{platform}</Text> <Text dimColor>{type}</Text>{' '}
+      <Text bold={!!item.name}>{label}</Text>
       {identifierSuffix ? (
         <>
           <Text> </Text>
@@ -225,11 +232,12 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
   const type = formatAccountType(selected.accountType);
   const verification = getVerificationDisplay(selected.verificationStatus);
   const projection = getProjectionDisplay(selected.balanceProjectionStatus);
-  const title = selected.name ? selected.name : `#${selected.id}`;
+  const fingerprintRef = formatAccountFingerprintRef(selected.accountFingerprint);
+  const title = selected.name ? selected.name : fingerprintRef;
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {title}</Text>
-      {selected.name ? <Text dimColor> #{selected.id}</Text> : null} <Text color="cyan">{selected.platformKey}</Text>{' '}
+      {selected.name ? <Text dimColor> {fingerprintRef}</Text> : null} <Text color="cyan">{selected.platformKey}</Text>{' '}
       <Text dimColor>{type}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
@@ -242,6 +250,11 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
       {'  '}
       <Text dimColor>Identifier: </Text>
       <Text>{selected.identifier}</Text>
+    </Text>,
+    <Text key="fingerprint">
+      {'  '}
+      <Text dimColor>Fingerprint: </Text>
+      <Text>{selected.accountFingerprint}</Text>
     </Text>,
     <Text key="provider">
       {'  '}
@@ -311,9 +324,11 @@ function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[]
       const projection = getProjectionDisplay(child.balanceProjectionStatus);
       const verification = getVerificationDisplay(child.verificationStatus);
       const imports = child.sessionCount !== undefined ? formatImportCount(child.sessionCount) : '';
+      const fingerprintRef = formatAccountFingerprintRef(child.accountFingerprint);
       return (
-        <Text key={`child-${child.id}`}>
-          {'    '}#{child.id} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{imports}</Text>{' '}
+        <Text key={`child-${child.accountFingerprint}`}>
+          {'    '}
+          {fingerprintRef} {truncateIdentifier(child.identifier, 'blockchain', 32)} <Text dimColor>{imports}</Text>{' '}
           <Text dimColor>proj:</Text>
           <Text color={projection.iconColor}>{projection.listLabel}</Text>
           <Text> </Text>

@@ -88,6 +88,7 @@ describe('account-query-utils', () => {
 
       expect(formatted).toMatchObject({
         id: 42,
+        accountFingerprint: '0000000000000000000000000000000000000000000000000000000000000042',
         accountType: 'exchange-api',
         platformKey: 'kraken',
         name: 'kraken-main',

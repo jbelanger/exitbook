@@ -6,6 +6,7 @@ type ProfileLifecycleStore = Pick<
 >;
 
 type AccountLifecycleStore = Pick<DataSession['accounts'], 'create' | 'findById' | 'findByName' | 'update'> & {
+  findByFingerprintRef: DataSession['accounts']['findByFingerprintRef'];
   findByIdentity: DataSession['accounts']['findByIdentity'];
   findChildren(parentAccountId: number, profileId: number): ReturnType<DataSession['accounts']['findAll']>;
   listTopLevel(profileId: number): ReturnType<DataSession['accounts']['findAll']>;
@@ -25,6 +26,7 @@ export function buildAccountLifecycleStore(db: DataSession): AccountLifecycleSto
   return {
     create: (input) => db.accounts.create(input),
     findById: (accountId) => db.accounts.findById(accountId),
+    findByFingerprintRef: (profileId, fingerprintRef) => db.accounts.findByFingerprintRef(profileId, fingerprintRef),
     findByIdentity: (input) => db.accounts.findByIdentity(input),
     findByName: (profileId, name) => db.accounts.findByName(profileId, name),
     findChildren: (parentAccountId, profileId) => db.accounts.findAll({ parentAccountId, profileId }),

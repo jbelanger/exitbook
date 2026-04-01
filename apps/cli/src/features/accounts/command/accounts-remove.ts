@@ -122,16 +122,22 @@ const AccountsRemoveCommandOptionsSchema = JsonFlagSchema.extend({
 });
 
 function outputRemovalPreview(accountName: string, preview: FlatAccountRemovePreview): void {
-  console.error(`This will remove account ${accountName}, delete attached imported data, and reset derived state:`);
-  if (preview.accounts > 0) console.error(`  - ${preview.accounts} account rows`);
-  if (preview.transactions > 0) console.error(`  - ${preview.transactions} processed transactions`);
-  if (preview.links > 0) console.error(`  - ${preview.links} transaction links`);
-  if (preview.assetReviewStates > 0) console.error(`  - ${preview.assetReviewStates} asset review states`);
-  if (preview.balanceSnapshots > 0) console.error(`  - ${preview.balanceSnapshots} balance snapshots`);
-  if (preview.balanceSnapshotAssets > 0) console.error(`  - ${preview.balanceSnapshotAssets} balance snapshot assets`);
-  if (preview.costBasisSnapshots > 0) {
-    console.error(`  - ${preview.costBasisSnapshots} global cost-basis snapshots`);
+  console.error(`Removing account ${accountName} will also delete its imported data and clear related derived data:`);
+  writeRemovalPreviewCount(preview.accounts, 'account row');
+  writeRemovalPreviewCount(preview.transactions, 'processed transaction');
+  writeRemovalPreviewCount(preview.links, 'transaction link');
+  writeRemovalPreviewCount(preview.assetReviewStates, 'asset review state');
+  writeRemovalPreviewCount(preview.balanceSnapshots, 'balance snapshot');
+  writeRemovalPreviewCount(preview.balanceSnapshotAssets, 'balance snapshot asset');
+  writeRemovalPreviewCount(preview.costBasisSnapshots, 'global cost-basis snapshot');
+  writeRemovalPreviewCount(preview.sessions, 'import session');
+  writeRemovalPreviewCount(preview.rawData, 'raw data item');
+}
+
+function writeRemovalPreviewCount(count: number, singularLabel: string, pluralLabel = `${singularLabel}s`): void {
+  if (count <= 0) {
+    return;
   }
-  if (preview.sessions > 0) console.error(`  - ${preview.sessions} import sessions`);
-  if (preview.rawData > 0) console.error(`  - ${preview.rawData} raw data items`);
+
+  console.error(`  - ${count} ${count === 1 ? singularLabel : pluralLabel}`);
 }

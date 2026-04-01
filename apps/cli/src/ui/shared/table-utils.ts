@@ -46,6 +46,12 @@ export interface Columns<T, K extends string> {
   format: (item: T) => Record<K, string>;
 }
 
+type TextTableColumnOrder<K extends string> = readonly K[];
+
+interface TextTableOptions {
+  gap?: string | undefined;
+}
+
 /**
  * Compute column widths and return a formatter that produces pre-padded strings.
  *
@@ -84,4 +90,31 @@ export function createColumns<T, K extends string>(items: T[], defs: Record<K, C
       return result;
     },
   };
+}
+
+export function buildTextTableHeader<K extends string>(
+  widths: Record<K, number>,
+  labels: Record<K, string>,
+  order: TextTableColumnOrder<K>,
+  options?: TextTableOptions
+): string {
+  return joinTextTableParts(
+    order.map((key) => labels[key].padEnd(widths[key])),
+    options
+  );
+}
+
+export function buildTextTableRow<K extends string>(
+  formatted: Record<K, string>,
+  order: TextTableColumnOrder<K>,
+  options?: TextTableOptions
+): string {
+  return joinTextTableParts(
+    order.map((key) => formatted[key]),
+    options
+  );
+}
+
+function joinTextTableParts(parts: string[], options?: TextTableOptions): string {
+  return parts.join(options?.gap ?? ' ').trimEnd();
 }

@@ -81,6 +81,15 @@ function createStore(initialAccounts: Account[] = []) {
       async findById(accountId: number) {
         return ok(accounts.find((account) => account.id === accountId));
       },
+      async findByFingerprintRef(profileId: number, fingerprintRef: string) {
+        const normalizedRef = fingerprintRef.trim().toLowerCase();
+        return ok(
+          accounts.find(
+            (account) =>
+              account.profileId === profileId && account.accountFingerprint.toLowerCase().startsWith(normalizedRef)
+          )
+        );
+      },
       async findByIdentity(input: {
         accountType: Account['accountType'];
         identifier: string;

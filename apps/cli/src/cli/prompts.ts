@@ -1,13 +1,22 @@
 import confirm from '@inquirer/confirm';
 import { ExitPromptError } from '@inquirer/core';
+import pc from 'picocolors';
 
 export type ConfirmationPromptDecision = 'cancelled' | 'confirmed' | 'declined';
+
+const confirmationPromptTheme = {
+  prefix: {
+    idle: pc.dim('›'),
+    done: pc.dim('›'),
+  },
+} as const;
 
 export async function promptConfirmDecision(message: string, initialValue = true): Promise<ConfirmationPromptDecision> {
   try {
     const confirmed = await confirm({
       message,
       default: initialValue,
+      theme: confirmationPromptTheme,
     });
 
     return confirmed ? 'confirmed' : 'declined';

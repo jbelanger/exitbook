@@ -8,8 +8,10 @@ import { buildAccountsBrowseOptionsHelpText } from '../accounts-browse-command.j
 import { registerAccountsCommand } from '../accounts.js';
 
 function createAccountSummary(overrides: Partial<AccountSummary> = {}): AccountSummary {
+  const accountId = overrides.id ?? 1;
   return {
-    id: overrides.id ?? 1,
+    id: accountId,
+    accountFingerprint: overrides.accountFingerprint ?? `${accountId}`.padStart(64, '0'),
     accountType: overrides.accountType ?? 'exchange-api',
     platformKey: overrides.platformKey ?? 'kraken',
     name: overrides.name,
@@ -55,6 +57,7 @@ describe('toAccountViewItem', () => {
 
     expect(result).toEqual({
       id: 1,
+      accountFingerprint: '0000000000000000000000000000000000000000000000000000000000000001',
       accountType: 'exchange-api',
       platformKey: 'kraken',
       name: undefined,
@@ -70,6 +73,7 @@ describe('toAccountViewItem', () => {
       childAccounts: [
         {
           id: 2,
+          accountFingerprint: '0000000000000000000000000000000000000000000000000000000000000002',
           identifier: 'child-2',
           sessionCount: 1,
           balanceProjectionStatus: 'fresh',
@@ -115,8 +119,8 @@ describe('registerAccountsCommand', () => {
     const help = buildAccountsBrowseOptionsHelpText();
 
     expect(help).not.toContain('Browse Options:');
-    expect(help).toContain('--account-id <number>');
-    expect(help).toContain('Filter by account ID');
+    expect(help).toContain('--account-ref <ref>');
+    expect(help).toContain('Filter by account fingerprint or unique fingerprint prefix');
     expect(help).toContain('--show-sessions');
     expect(help).toContain('Include import session details for each account');
     expect(help).toContain('--json');

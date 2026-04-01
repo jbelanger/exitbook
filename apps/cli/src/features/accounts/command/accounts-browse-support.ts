@@ -13,8 +13,9 @@ import { AccountQuery, type AccountQueryParams } from '../query/account-query.js
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
 
-export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId'> {
-  accountName?: string | undefined;
+export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId' | 'accountId'> {
+  accountRef?: string | undefined;
+  accountSelector?: string | undefined;
   preselectInExplorer?: boolean | undefined;
 }
 
@@ -35,8 +36,8 @@ export async function buildAccountsBrowsePresentation(
   return resultDoAsync(async function* () {
     const database = await ctx.database();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const selectedAccountId =
-      (yield* await resolveAccountIdByName(database, profile.id, params.accountName)) ?? params.accountId;
+    const selection = yield* await resolveSelectedAccount(database, profile.id, params);
+    const selectedAccountId = selection.accountId;
     const shouldPreselectAccount = params.preselectInExplorer === true && selectedAccountId !== undefined;
 
     const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
@@ -58,7 +59,7 @@ export async function buildAccountsBrowsePresentation(
 
     if (shouldPreselectAccount && viewItems.length > 0 && selectedIndex < 0) {
       return yield* cliErr(
-        `Account '${params.accountName ?? selectedAccountId}' is not visible in the explorer`,
+        `Account '${params.accountSelector ?? params.accountRef ?? selectedAccountId}' is not visible in the explorer`,
         ExitCodes.NOT_FOUND
       );
     }
@@ -70,8 +71,8 @@ export async function buildAccountsBrowsePresentation(
       showSessions: params.showSessions ?? false,
     };
     const jsonFilters = buildDefinedFilters({
-      accountName: params.accountName,
-      accountId: selectedAccountId,
+      accountName: selection.accountName,
+      accountRef: selection.accountRef,
       platform: params.platformKey,
       accountType: params.accountType,
     });
@@ -100,26 +101,65 @@ export async function buildAccountsBrowsePresentation(
   });
 }
 
-async function resolveAccountIdByName(
+interface ResolvedSelectedAccount {
+  accountId?: number | undefined;
+  accountName?: string | undefined;
+  accountRef?: string | undefined;
+}
+
+async function resolveSelectedAccount(
   database: DataSession,
   profileId: number,
-  accountName?: string
-): Promise<Result<number | undefined, CliFailure>> {
+  params: AccountsBrowseParams
+): Promise<Result<ResolvedSelectedAccount, CliFailure>> {
   return resultDoAsync(async function* () {
-    if (!accountName) {
-      return undefined;
+    const accountService = buildCliAccountLifecycleService(database);
+
+    if (params.accountSelector) {
+      const accountByName = yield* toCliResult(
+        await accountService.getByName(profileId, params.accountSelector),
+        ExitCodes.GENERAL_ERROR
+      );
+      if (accountByName) {
+        return {
+          accountId: accountByName.id,
+          accountName: accountByName.name ?? params.accountSelector.trim().toLowerCase(),
+        };
+      }
+
+      const accountByRef = yield* toCliResult(
+        await accountService.getByFingerprintRef(profileId, params.accountSelector),
+        ExitCodes.INVALID_ARGS
+      );
+      if (accountByRef) {
+        return {
+          accountId: accountByRef.id,
+          accountRef: params.accountSelector.trim().toLowerCase(),
+        };
+      }
+
+      return yield* cliErr(
+        `Account selector '${params.accountSelector.trim().toLowerCase()}' not found`,
+        ExitCodes.NOT_FOUND
+      );
+    }
+
+    if (!params.accountRef) {
+      return {};
     }
 
     const account = yield* toCliResult(
-      await buildCliAccountLifecycleService(database).getByName(profileId, accountName),
-      ExitCodes.GENERAL_ERROR
+      await accountService.getByFingerprintRef(profileId, params.accountRef),
+      ExitCodes.INVALID_ARGS
     );
-
     if (!account) {
-      return yield* cliErr(`Account '${accountName.trim().toLowerCase()}' not found`, ExitCodes.NOT_FOUND);
+      return yield* cliErr(`Account ref '${params.accountRef}' not found`, ExitCodes.NOT_FOUND);
     }
 
-    return account.id;
+    return {
+      accountId: account.id,
+      accountRef: params.accountRef,
+    };
   });
 }
 

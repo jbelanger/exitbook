@@ -294,6 +294,74 @@ describe('AccountRepository', () => {
     });
   });
 
+  describe('findByFingerprintRef', () => {
+    it('finds an account by a unique fingerprint prefix within a profile', async () => {
+      const first = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-one',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-wallet-one',
+        })
+      );
+      const second = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-two',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-wallet-two',
+        })
+      );
+
+      const uniquePrefixLength = findUniqueFingerprintPrefixLength(first.accountFingerprint, [
+        first.accountFingerprint,
+        second.accountFingerprint,
+      ]);
+      const found = assertOk(await repo.findByFingerprintRef(1, first.accountFingerprint.slice(0, uniquePrefixLength)));
+
+      expect(found?.id).toBe(first.id);
+    });
+
+    it('returns undefined when no fingerprint prefix matches', async () => {
+      const found = assertOk(await repo.findByFingerprintRef(1, 'deadbeef'));
+      expect(found).toBeUndefined();
+    });
+
+    it('rejects ambiguous fingerprint prefixes', async () => {
+      const createdFingerprints: string[] = [];
+
+      for (let index = 0; index < 17; index += 1) {
+        const created = assertOk(
+          await repo.create({
+            profileId: 1,
+            name: `wallet-${index}`,
+            accountType: 'blockchain',
+            platformKey: 'bitcoin',
+            identifier: `bc1q-wallet-${index}`,
+          })
+        );
+        createdFingerprints.push(created.accountFingerprint);
+      }
+
+      const prefixCounts = new Map<string, number>();
+      for (const fingerprint of createdFingerprints) {
+        const prefix = fingerprint.slice(0, 1);
+        prefixCounts.set(prefix, (prefixCounts.get(prefix) ?? 0) + 1);
+      }
+
+      const ambiguousPrefix = [...prefixCounts.entries()].find(([, count]) => count > 1)?.[0];
+      expect(ambiguousPrefix).toBeDefined();
+
+      const result = await repo.findByFingerprintRef(1, ambiguousPrefix!);
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain(`Account ref '${ambiguousPrefix}' is ambiguous`);
+      }
+    });
+  });
+
   describe('findAll', () => {
     it('returns all accounts for a profile', async () => {
       assertOk(
@@ -791,3 +859,15 @@ describe('AccountRepository', () => {
     });
   });
 });
+
+function findUniqueFingerprintPrefixLength(target: string, fingerprints: string[]): number {
+  for (let length = 1; length <= target.length; length += 1) {
+    const prefix = target.slice(0, length);
+    const matches = fingerprints.filter((fingerprint) => fingerprint.startsWith(prefix));
+    if (matches.length === 1) {
+      return length;
+    }
+  }
+
+  return target.length;
+}

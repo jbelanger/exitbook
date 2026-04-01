@@ -13,6 +13,6 @@ export { SelectableRow } from './selectable-row.jsx';
 export { StatusIcon, statusIcon, type OperationStatus } from './status-icon.jsx';
 export { TreeChars } from './tree-chars.js';
 
-export { createColumns, type Columns } from './table-utils.js';
+export { buildTextTableHeader, buildTextTableRow, createColumns, type Columns } from './table-utils.js';
 export { calculateChromeLines, calculateVisibleRows, conditionalLines } from './chrome-layout.js';
 export { getSelectionCursor } from './selection-cursor.js';

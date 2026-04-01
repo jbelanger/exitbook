@@ -1,10 +1,12 @@
 import pc from 'picocolors';
 
-import { createColumns } from '../../../ui/shared/table-utils.js';
+import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../accounts-view-model.js';
 
 import {
+  ACCOUNT_FINGERPRINT_REF_LENGTH,
   buildTypeParts,
+  formatAccountFingerprintRef,
   formatAccountType,
   formatImportCount,
   formatTimestamp,
@@ -16,6 +18,9 @@ import {
   type AccountsStatusColor,
 } from './accounts-view-formatters.js';
 import type { AccountsViewState } from './accounts-view-state.js';
+
+const STATIC_LIST_COLUMN_GAP = '  ';
+const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type'] as const;
 
 export function outputAccountsStaticList(state: AccountsViewState): void {
   process.stdout.write(buildAccountsStaticList(state));
@@ -30,12 +35,17 @@ export function buildAccountsStaticList(state: AccountsViewState): string {
   }
 
   const columns = createColumns(state.accounts, {
-    acctId: { format: (item) => `#${item.id}`, align: 'left' },
+    accountRef: {
+      format: (item) => formatAccountFingerprintRef(item.accountFingerprint),
+      align: 'left',
+      minWidth: ACCOUNT_FINGERPRINT_REF_LENGTH,
+    },
     name: { format: (item) => truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28) },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
   });
 
+  lines.push(buildListColumnHeader(columns));
   for (const item of state.accounts) {
     lines.push(buildAccountRow(item, columns));
   }
@@ -51,11 +61,13 @@ export function buildAccountStaticDetail(account: AccountViewItem): string {
   const type = formatAccountType(account.accountType);
   const verification = getVerificationDisplay(account.verificationStatus);
   const projection = getProjectionDisplay(account.balanceProjectionStatus);
-  const title = account.name ? account.name : `#${account.id}`;
+  const fingerprintRef = formatAccountFingerprintRef(account.accountFingerprint);
+  const title = account.name ? account.name : fingerprintRef;
   const lines: string[] = [
-    `${pc.bold(title)}${account.name ? ` ${pc.dim(`#${account.id}`)}` : ''} ${pc.cyan(account.platformKey)} ${pc.dim(type)}`,
+    `${pc.bold(title)}${account.name ? ` ${pc.dim(fingerprintRef)}` : ''} ${pc.cyan(account.platformKey)} ${pc.dim(type)}`,
     '',
     buildDetailLine('Name', account.name ?? pc.dim('—')),
+    buildDetailLine('Fingerprint', account.accountFingerprint),
     buildDetailLine('Identifier', account.identifier),
     buildDetailLine('Provider', account.providerName ? pc.cyan(account.providerName) : pc.dim('—')),
     buildDetailLine('Created', pc.dim(formatTimestamp(account.createdAt))),
@@ -110,20 +122,40 @@ function buildEmptyStateLines(state: AccountsViewState): string[] {
 
 function buildAccountRow(
   item: AccountViewItem,
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'acctId' | 'name' | 'platform' | 'type'>>
+  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type'>>
 ): string {
-  const { acctId, name, platform, type } = columns.format(item);
+  const formatted = columns.format(item);
+  const { name, platform, type } = formatted;
   const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
 
-  const parts = [
-    acctId,
-    item.name ? pc.bold(name) : name,
-    pc.cyan(platform),
-    pc.dim(type),
-    identifierSuffix ? pc.dim(identifierSuffix) : undefined,
-  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return buildTextTableRow(
+    {
+      ...formatted,
+      name: item.name ? pc.bold(name) : name,
+      platform: pc.cyan(platform),
+      type: pc.dim(type),
+    },
+    ACCOUNT_LIST_COLUMN_ORDER,
+    { gap: STATIC_LIST_COLUMN_GAP }
+  ).concat(identifierSuffix ? `${STATIC_LIST_COLUMN_GAP}${pc.dim(identifierSuffix)}` : '');
+}
 
-  return parts.join(' ');
+function buildListColumnHeader(
+  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type'>>
+): string {
+  return pc.dim(
+    buildTextTableHeader(
+      columns.widths,
+      {
+        accountRef: 'REF',
+        name: 'NAME',
+        platform: 'PLATFORM',
+        type: 'TYPE',
+      },
+      ACCOUNT_LIST_COLUMN_ORDER,
+      { gap: STATIC_LIST_COLUMN_GAP }
+    )
+  );
 }
 
 function buildDetailLine(label: string, value: string): string {
@@ -138,8 +170,9 @@ function buildChildAccountLines(children: ChildAccountViewItem[]): string[] {
       const projection = getProjectionDisplay(child.balanceProjectionStatus);
       const verification = getVerificationDisplay(child.verificationStatus);
       const imports = child.sessionCount !== undefined ? formatImportCount(child.sessionCount) : '';
+      const fingerprintRef = formatAccountFingerprintRef(child.accountFingerprint);
 
-      return `  #${child.id} ${truncateIdentifier(child.identifier, 'blockchain', 32)} ${pc.dim(imports)} ${pc.dim('proj:')}${colorStatus(projection.iconColor, projection.listLabel)} ${pc.dim('ver:')}${colorStatus(verification.iconColor, verification.listLabel)}`.trimEnd();
+      return `  ${fingerprintRef} ${truncateIdentifier(child.identifier, 'blockchain', 32)} ${pc.dim(imports)} ${pc.dim('proj:')}${colorStatus(projection.iconColor, projection.listLabel)} ${pc.dim('ver:')}${colorStatus(verification.iconColor, verification.listLabel)}`.trimEnd();
     })
   );
 

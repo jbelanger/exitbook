@@ -65,6 +65,15 @@ function normalizeAccountName(name: string): Result<string, Error> {
   return ok(normalized);
 }
 
+function normalizeAccountFingerprintRef(fingerprintRef: string): Result<string, Error> {
+  const normalized = fingerprintRef.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return err(new Error('Account fingerprint ref must not be empty'));
+  }
+
+  return ok(normalized);
+}
+
 function profilesMatch(leftProfileId: number, rightProfileId: number): boolean {
   return leftProfileId === rightProfileId;
 }
@@ -152,6 +161,38 @@ export class AccountRepository extends BaseRepository {
       },
       this,
       'Failed to find account by name'
+    );
+  }
+
+  async findByFingerprintRef(profileId: number, fingerprintRef: string): Promise<Result<Account | undefined, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        const normalizedRef = yield* normalizeAccountFingerprintRef(fingerprintRef);
+        const rows = await self
+          .baseAccountQuery()
+          .where('accounts.profile_id', '=', profileId)
+          .where('accounts.account_fingerprint', 'like', `${normalizedRef}%`)
+          .limit(4)
+          .execute();
+
+        if (rows.length === 0) {
+          return undefined;
+        }
+
+        if (rows.length > 1) {
+          const sampleMatches = rows
+            .slice(0, 3)
+            .map((row) => row.account_fingerprint)
+            .join(', ');
+          return yield* err(
+            `Account ref '${normalizedRef}' is ambiguous. Use a longer fingerprint prefix. Matches include: ${sampleMatches}`
+          );
+        }
+
+        return yield* toAccount(rows[0]!);
+      },
+      this,
+      'Failed to find account by fingerprint ref'
     );
   }
 

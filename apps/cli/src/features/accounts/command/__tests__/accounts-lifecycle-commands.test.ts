@@ -90,6 +90,10 @@ import { registerAccountsUpdateCommand } from '../accounts-update.js';
 
 const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
+function createAccountFingerprint(id: number): string {
+  return `${id}`.padStart(64, '0');
+}
+
 function createAccountsProgram(): Command {
   const program = new Command();
   const accounts = program.command('accounts');
@@ -172,6 +176,7 @@ describe('accounts lifecycle commands', () => {
     mockCreate.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'kraken-main',
         accountType: 'exchange-api',
         platformKey: 'kraken',
@@ -218,6 +223,7 @@ describe('accounts lifecycle commands', () => {
       {
         account: {
           id: 7,
+          accountFingerprint: createAccountFingerprint(7),
           name: 'kraken-main',
           accountType: 'exchange-api',
           platformKey: 'kraken',
@@ -237,6 +243,7 @@ describe('accounts lifecycle commands', () => {
     mockRename.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'kraken-primary',
         accountType: 'exchange-api',
         platformKey: 'kraken',
@@ -278,6 +285,7 @@ describe('accounts lifecycle commands', () => {
     mockCreate.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'theta-wallet',
         accountType: 'blockchain',
         platformKey: 'theta',
@@ -304,6 +312,7 @@ describe('accounts lifecycle commands', () => {
     mockRename.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'kraken-primary',
         accountType: 'exchange-api',
         platformKey: 'kraken',
@@ -327,6 +336,7 @@ describe('accounts lifecycle commands', () => {
       ok({
         id: 7,
         profileId: 1,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'kraken-main',
         parentAccountId: undefined,
         accountType: 'exchange-api',
@@ -353,6 +363,7 @@ describe('accounts lifecycle commands', () => {
     mockUpdate.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'kraken-main',
         accountType: 'exchange-api',
         platformKey: 'kraken',
@@ -392,6 +403,7 @@ describe('accounts lifecycle commands', () => {
       {
         account: {
           id: 7,
+          accountFingerprint: createAccountFingerprint(7),
           name: 'kraken-main',
           accountType: 'exchange-api',
           platformKey: 'kraken',
@@ -413,6 +425,7 @@ describe('accounts lifecycle commands', () => {
       ok({
         id: 7,
         profileId: 1,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'ethereum-main',
         parentAccountId: undefined,
         accountType: 'blockchain',
@@ -434,6 +447,7 @@ describe('accounts lifecycle commands', () => {
     mockUpdate.mockResolvedValue(
       ok({
         id: 7,
+        accountFingerprint: createAccountFingerprint(7),
         name: 'ethereum-main',
         accountType: 'blockchain',
         platformKey: 'ethereum',
@@ -595,6 +609,40 @@ describe('accounts lifecycle commands', () => {
     expect(consoleError).toHaveBeenCalledWith('Account removal cancelled');
     expect(mockProcessExit).toHaveBeenCalledWith(ExitCodes.CANCELLED);
 
+    consoleError.mockRestore();
+  });
+
+  it('renders singular removal preview copy for a single-account scope', async () => {
+    const program = createAccountsProgram();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    mockPrepareAccountRemoval.mockResolvedValue(
+      ok({
+        accountIds: [7],
+        accountName: 'injective-wallet',
+        preview: {
+          accounts: 1,
+          rawData: 0,
+          sessions: 0,
+          transactions: 0,
+          links: 0,
+          assetReviewStates: 0,
+          balanceSnapshots: 0,
+          balanceSnapshotAssets: 0,
+          costBasisSnapshots: 0,
+        },
+      })
+    );
+    mockPromptConfirmDecision.mockResolvedValue('declined');
+
+    await program.parseAsync(['accounts', 'remove', 'injective-wallet'], { from: 'user' });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'Removing account injective-wallet will also delete its imported data and clear related derived data:'
+    );
+    expect(consoleError).toHaveBeenCalledWith('  - 1 account row');
+    expect(consoleError).toHaveBeenCalledWith('Account removal cancelled');
+    expect(consoleError).not.toHaveBeenCalledWith('  - 1 account rows');
     consoleError.mockRestore();
   });
 });
