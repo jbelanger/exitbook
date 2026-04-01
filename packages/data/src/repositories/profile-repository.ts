@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/no-null -- db null handling required */
+
 import { DEFAULT_PROFILE_KEY, normalizeProfileDisplayName, normalizeProfileKey, type Profile } from '@exitbook/core';
 import { ProfileSchema } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
@@ -14,7 +16,7 @@ function currentTimestamp(): string {
   return new Date().toISOString();
 }
 
-function toProfile(row: Selectable<ProfilesTable>): Profile {
+function toProfile(row: Selectable<ProfilesTable>): Result<Profile, Error> {
   const parseResult = ProfileSchema.safeParse({
     id: row.id,
     profileKey: row.profile_key,
@@ -23,11 +25,25 @@ function toProfile(row: Selectable<ProfilesTable>): Profile {
   });
 
   if (!parseResult.success) {
-    throw new Error(`Invalid profile data: ${parseResult.error.message}`);
+    return err(new Error(`Invalid profile data: ${parseResult.error.message}`));
   }
 
-  return parseResult.data;
+  return ok(parseResult.data);
 }
+
+function toProfileSummary(row: Selectable<ProfilesTable> & { account_count: number }): Result<ProfileSummary, Error> {
+  const profileResult = toProfile(row);
+  if (profileResult.isErr()) {
+    return err(profileResult.error);
+  }
+
+  return ok({
+    ...profileResult.value,
+    accountCount: Number(row.account_count),
+  });
+}
+
+type ProfileSummary = Profile & { accountCount: number };
 
 export class ProfileRepository extends BaseRepository {
   constructor(db: KyselyDB) {
@@ -65,7 +81,12 @@ export class ProfileRepository extends BaseRepository {
         .returning(['id', 'profile_key', 'display_name', 'created_at'])
         .executeTakeFirstOrThrow();
 
-      return ok(toProfile(result));
+      const profileResult = toProfile(result);
+      if (profileResult.isErr()) {
+        return wrapError(profileResult.error, 'Failed to create profile');
+      }
+
+      return ok(profileResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to create profile');
     }
@@ -78,7 +99,12 @@ export class ProfileRepository extends BaseRepository {
         return ok(undefined);
       }
 
-      return ok(toProfile(row));
+      const profileResult = toProfile(row);
+      if (profileResult.isErr()) {
+        return wrapError(profileResult.error, 'Failed to find profile by ID');
+      }
+
+      return ok(profileResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to find profile by ID');
     }
@@ -100,7 +126,12 @@ export class ProfileRepository extends BaseRepository {
         return ok(undefined);
       }
 
-      return ok(toProfile(row));
+      const profileResult = toProfile(row);
+      if (profileResult.isErr()) {
+        return wrapError(profileResult.error, 'Failed to find profile by key');
+      }
+
+      return ok(profileResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to find profile by key');
     }
@@ -114,9 +145,55 @@ export class ProfileRepository extends BaseRepository {
         .orderBy(sql`lower(display_name)`)
         .orderBy('profile_key', 'asc')
         .execute();
-      return ok(rows.map((row) => toProfile(row)));
+      const profiles: Profile[] = [];
+      for (const row of rows) {
+        const profileResult = toProfile(row);
+        if (profileResult.isErr()) {
+          return wrapError(profileResult.error, 'Failed to list profiles');
+        }
+        profiles.push(profileResult.value);
+      }
+
+      return ok(profiles);
     } catch (error) {
       return wrapError(error, 'Failed to list profiles');
+    }
+  }
+
+  async listSummaries(): Promise<Result<ProfileSummary[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('profiles')
+        .leftJoin('accounts', (join) =>
+          join
+            .onRef('accounts.profile_id', '=', 'profiles.id')
+            .on('accounts.parent_account_id', 'is', null)
+            .on('accounts.name', 'is not', null)
+        )
+        .select([
+          'profiles.id',
+          'profiles.profile_key',
+          'profiles.display_name',
+          'profiles.created_at',
+          sql<number>`count(accounts.id)`.as('account_count'),
+        ])
+        .groupBy(['profiles.id', 'profiles.profile_key', 'profiles.display_name', 'profiles.created_at'])
+        .orderBy(sql`lower(profiles.display_name)`)
+        .orderBy('profiles.profile_key', 'asc')
+        .execute();
+
+      const summaries: ProfileSummary[] = [];
+      for (const row of rows) {
+        const summaryResult = toProfileSummary(row);
+        if (summaryResult.isErr()) {
+          return wrapError(summaryResult.error, 'Failed to list profile summaries');
+        }
+        summaries.push(summaryResult.value);
+      }
+
+      return ok(summaries);
+    } catch (error) {
+      return wrapError(error, 'Failed to list profile summaries');
     }
   }
 
@@ -145,9 +222,37 @@ export class ProfileRepository extends BaseRepository {
         return err(new Error(`Profile '${normalizedKeyResult.value}' not found`));
       }
 
-      return ok(toProfile(result));
+      const profileResult = toProfile(result);
+      if (profileResult.isErr()) {
+        return wrapError(profileResult.error, 'Failed to update profile display name');
+      }
+
+      return ok(profileResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to update profile display name');
+    }
+  }
+
+  async deleteByKey(profileKey: string): Promise<Result<Profile, Error>> {
+    try {
+      const normalizedKeyResult = normalizeProfileKey(profileKey);
+      if (normalizedKeyResult.isErr()) {
+        return err(normalizedKeyResult.error);
+      }
+
+      const existingResult = await this.findByKey(normalizedKeyResult.value);
+      if (existingResult.isErr()) {
+        return err(existingResult.error);
+      }
+      if (!existingResult.value) {
+        return err(new Error(`Profile '${normalizedKeyResult.value}' not found`));
+      }
+
+      await this.db.deleteFrom('profiles').where('profile_key', '=', normalizedKeyResult.value).executeTakeFirst();
+
+      return ok(existingResult.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to delete profile');
     }
   }
 
@@ -175,7 +280,12 @@ export class ProfileRepository extends BaseRepository {
         .returning(['id', 'profile_key', 'display_name', 'created_at'])
         .executeTakeFirstOrThrow();
 
-      const profile = toProfile(result);
+      const profileResult = toProfile(result);
+      if (profileResult.isErr()) {
+        return wrapError(profileResult.error, 'Failed to ensure default profile');
+      }
+
+      const profile = profileResult.value;
       this.logger.info({ profileId: profile.id }, 'Created default CLI profile');
       return ok(profile);
     } catch (error) {

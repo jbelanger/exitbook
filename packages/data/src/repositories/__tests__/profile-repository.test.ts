@@ -1,9 +1,13 @@
+/* eslint-disable unicorn/no-null -- db nulls required for repository fixtures */
+
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 import { ProfileRepository } from '../profile-repository.js';
+
+import { computeTestAccountFingerprint } from './helpers.js';
 
 describe('ProfileRepository', () => {
   let db: KyselyDB;
@@ -108,6 +112,157 @@ describe('ProfileRepository', () => {
 
       expect(profiles.map((profile) => profile.displayName)).toEqual(['Joel', 'Son']);
     });
+
+    it('returns an error when a persisted profile row is invalid', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          profile_key: 'broken',
+          display_name: '',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const result = await repo.list();
+
+      expect(result.isErr()).toBe(true);
+      if (!result.isErr()) {
+        return;
+      }
+
+      expect(result.error.message).toContain('Failed to list profiles: Invalid profile data:');
+    });
+  });
+
+  describe('listSummaries', () => {
+    it('lists profiles with top-level named account counts', async () => {
+      const defaultProfile = assertOk(await repo.create({ displayName: 'default', profileKey: 'default' }));
+      const businessProfile = assertOk(await repo.create({ displayName: 'Business', profileKey: 'business' }));
+
+      await db
+        .insertInto('accounts')
+        .values([
+          {
+            id: 101,
+            profile_id: defaultProfile.id,
+            name: 'wallet-main',
+            parent_account_id: null,
+            account_type: 'blockchain',
+            platform_key: 'bitcoin',
+            identifier: 'bc1q-parent',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: defaultProfile.id,
+              accountType: 'blockchain',
+              platformKey: 'bitcoin',
+              identifier: 'bc1q-parent',
+            }),
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          },
+          {
+            id: 102,
+            profile_id: defaultProfile.id,
+            name: null,
+            parent_account_id: null,
+            account_type: 'exchange-api',
+            platform_key: 'kraken',
+            identifier: 'api-key-default',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: defaultProfile.id,
+              accountType: 'exchange-api',
+              platformKey: 'kraken',
+              identifier: 'api-key-default',
+            }),
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          },
+          {
+            id: 103,
+            profile_id: defaultProfile.id,
+            name: null,
+            parent_account_id: 101,
+            account_type: 'blockchain',
+            platform_key: 'bitcoin',
+            identifier: 'bc1q-child',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: defaultProfile.id,
+              accountType: 'blockchain',
+              platformKey: 'bitcoin',
+              identifier: 'bc1q-child',
+            }),
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          },
+          {
+            id: 201,
+            profile_id: businessProfile.id,
+            name: 'kraken-main',
+            parent_account_id: null,
+            account_type: 'exchange-api',
+            platform_key: 'kraken',
+            identifier: 'api-key-business',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: businessProfile.id,
+              accountType: 'exchange-api',
+              platformKey: 'kraken',
+              identifier: 'api-key-business',
+            }),
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          },
+          {
+            id: 202,
+            profile_id: businessProfile.id,
+            name: 'coinbase-csv',
+            parent_account_id: null,
+            account_type: 'exchange-csv',
+            platform_key: 'coinbase',
+            identifier: '/tmp/coinbase',
+            account_fingerprint: await computeTestAccountFingerprint(db, {
+              profileId: businessProfile.id,
+              accountType: 'exchange-csv',
+              platformKey: 'coinbase',
+              identifier: '/tmp/coinbase',
+            }),
+            provider_name: null,
+            credentials: null,
+            last_cursor: null,
+            metadata: null,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          },
+        ])
+        .execute();
+
+      const summaries = assertOk(await repo.listSummaries());
+
+      expect(
+        summaries.map((summary) => ({
+          accountCount: summary.accountCount,
+          displayName: summary.displayName,
+          profileKey: summary.profileKey,
+        }))
+      ).toEqual([
+        { displayName: 'Business', profileKey: 'business', accountCount: 2 },
+        { displayName: 'default', profileKey: 'default', accountCount: 1 },
+      ]);
+    });
   });
 
   describe('updateDisplayName', () => {
@@ -118,6 +273,28 @@ describe('ProfileRepository', () => {
 
       expect(updated.profileKey).toBe('son');
       expect(updated.displayName).toBe('Son / Family');
+    });
+  });
+
+  describe('deleteByKey', () => {
+    it('deletes an existing profile by key', async () => {
+      const profile = assertOk(await repo.create({ displayName: 'son', profileKey: 'son' }));
+
+      const deleted = assertOk(await repo.deleteByKey('son'));
+
+      expect(deleted).toEqual(profile);
+      expect(assertOk(await repo.findByKey('son'))).toBeUndefined();
+    });
+
+    it('returns a not-found error for a missing profile', async () => {
+      const result = await repo.deleteByKey('missing');
+
+      expect(result.isErr()).toBe(true);
+      if (!result.isErr()) {
+        return;
+      }
+
+      expect(result.error.message).toBe("Profile 'missing' not found");
     });
   });
 

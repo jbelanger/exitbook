@@ -3,4 +3,4 @@ export {
   type CreateAccountInput,
   type UpdateAccountInput,
 } from './accounts/account-lifecycle-service.js';
-export { ProfileService } from './profiles/profile-service.js';
+export { ProfileService, type ProfileSummary, type UpdateProfileInput } from './profiles/profile-service.js';

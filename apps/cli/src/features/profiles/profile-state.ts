@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { DEFAULT_PROFILE_KEY, normalizeProfileKey } from '@exitbook/core';
@@ -89,6 +89,19 @@ export function writeCliStateFile(dataDir: string, profileKey: string): Result<v
     );
     return ok(undefined);
   } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+export function clearCliStateFile(dataDir: string): Result<void, Error> {
+  try {
+    unlinkSync(getCliStatePath(dataDir));
+    return ok(undefined);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return ok(undefined);
+    }
+
     return err(error instanceof Error ? error : new Error(String(error)));
   }
 }

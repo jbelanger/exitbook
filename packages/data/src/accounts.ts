@@ -2,7 +2,7 @@ import type { DataSession } from './data-session.js';
 
 type ProfileLifecycleStore = Pick<
   DataSession['profiles'],
-  'create' | 'findByKey' | 'findOrCreateDefault' | 'list' | 'updateDisplayName'
+  'create' | 'findByKey' | 'findOrCreateDefault' | 'list' | 'listSummaries' | 'updateDisplayName'
 >;
 
 type AccountLifecycleStore = Pick<DataSession['accounts'], 'create' | 'findById' | 'findByName' | 'update'> & {
@@ -18,6 +18,7 @@ export function buildProfileLifecycleStore(db: DataSession): ProfileLifecycleSto
     findByKey: (profileKey) => db.profiles.findByKey(profileKey),
     findOrCreateDefault: () => db.profiles.findOrCreateDefault(),
     list: () => db.profiles.list(),
+    listSummaries: () => db.profiles.listSummaries(),
     updateDisplayName: (profileKey, displayName) => db.profiles.updateDisplayName(profileKey, displayName),
   };
 }

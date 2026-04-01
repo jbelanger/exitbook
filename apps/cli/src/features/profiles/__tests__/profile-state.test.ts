@@ -3,7 +3,13 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getCliStatePath, readCliStateFile, resolveCliProfileSelection, writeCliStateFile } from '../profile-state.js';
+import {
+  clearCliStateFile,
+  getCliStatePath,
+  readCliStateFile,
+  resolveCliProfileSelection,
+  writeCliStateFile,
+} from '../profile-state.js';
 
 describe('profile-state', () => {
   const tempDirs: string[] = [];
@@ -71,5 +77,20 @@ describe('profile-state', () => {
     }
 
     expect(selectionResult.value).toEqual({ profileKey: 'son', source: 'state' });
+  });
+
+  it('clears shared profile state when present', () => {
+    const dataDir = createTempDir();
+
+    expect(writeCliStateFile(dataDir, 'son').isOk()).toBe(true);
+    expect(clearCliStateFile(dataDir).isOk()).toBe(true);
+
+    const selectionResult = resolveCliProfileSelection(dataDir);
+    expect(selectionResult.isOk()).toBe(true);
+    if (!selectionResult.isOk()) {
+      return;
+    }
+
+    expect(selectionResult.value).toEqual({ profileKey: 'default', source: 'default' });
   });
 });

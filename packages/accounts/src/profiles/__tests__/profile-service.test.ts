@@ -3,14 +3,16 @@ import { ok } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { ProfileService } from '../profile-service.js';
+import { ProfileService, type ProfileSummary } from '../profile-service.js';
 
 function createStore() {
   const profiles: Profile[] = [];
+  const summaries: ProfileSummary[] = [];
   let nextId = 1;
 
   return {
     profiles,
+    summaries,
     store: {
       async create(input: { displayName: string; profileKey: string }) {
         const profile: Profile = {
@@ -20,6 +22,10 @@ function createStore() {
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         };
         profiles.push(profile);
+        summaries.push({
+          ...profile,
+          accountCount: 0,
+        });
         return ok(profile);
       },
       async findByKey(profileKey: string) {
@@ -36,6 +42,9 @@ function createStore() {
       async list() {
         return ok([...profiles]);
       },
+      async listSummaries() {
+        return ok([...summaries]);
+      },
       async updateDisplayName(profileKey: string, displayName: string) {
         const profile = profiles.find((item) => item.profileKey === profileKey);
         if (!profile) {
@@ -43,6 +52,10 @@ function createStore() {
         }
 
         profile.displayName = displayName;
+        const summary = summaries.find((item) => item.profileKey === profileKey);
+        if (summary) {
+          summary.displayName = displayName;
+        }
         return ok(profile);
       },
     },
@@ -60,15 +73,63 @@ describe('ProfileService', () => {
     expect(profile.profileKey).toBe('business-2024');
   });
 
-  it('renames the display name without changing the stable key', async () => {
+  it('updates the display name without changing the stable key', async () => {
     const { store } = createStore();
     const service = new ProfileService(store);
 
     assertOk(await service.create('son'));
-    const profile = assertOk(await service.rename('son', 'Son / Family'));
+    const profile = assertOk(await service.update('son', { displayName: 'Son / Family' }));
 
     expect(profile.displayName).toBe('Son / Family');
     expect(profile.profileKey).toBe('son');
+  });
+
+  it('lists summaries with account counts', async () => {
+    const { store, summaries } = createStore();
+    const service = new ProfileService(store);
+
+    assertOk(await service.create('business'));
+    summaries[0]!.accountCount = 3;
+
+    const profiles = assertOk(await service.listSummaries());
+
+    expect(profiles).toEqual([
+      expect.objectContaining({
+        profileKey: 'business',
+        displayName: 'business',
+        accountCount: 3,
+      }),
+    ]);
+  });
+
+  it('rejects empty profile updates', async () => {
+    const { store } = createStore();
+    const service = new ProfileService(store);
+
+    assertOk(await service.create('son'));
+    const result = await service.update('son', {});
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toBe('No profile property changes were provided');
+  });
+
+  it('rejects no-op display-name updates', async () => {
+    const { store } = createStore();
+    const service = new ProfileService(store);
+
+    assertOk(await service.create('son'));
+    const result = await service.update('son', { displayName: 'son' });
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) {
+      return;
+    }
+
+    expect(result.error.message).toBe('No profile property changes were provided');
   });
 
   it('rejects invalid keys', async () => {

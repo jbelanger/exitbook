@@ -44,7 +44,7 @@ Rules:
 - `displayName` is the mutable display label
 - `profileKey` is the stable identity anchor used by deterministic fingerprints
 - `profiles add <profile>` creates the profile with `displayName === profileKey` initially
-- `profiles rename <profile> <display-name>` changes only the display label
+- `profiles update <profile> --name <display-name>` changes only the display label
 - commands use the active profile unless `--profile <profile>` overrides it
 
 ### Account

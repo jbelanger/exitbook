@@ -8,7 +8,7 @@ import { EventBus } from '../event-bus.js';
 
 // Helper to wait for microtasks to flush
 async function flushMicrotasks(): Promise<void> {
-  await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+  await new Promise<void>((resolve) => queueMicrotask(resolve));
 }
 
 type TestEvent = { type: 'event.a'; value: string } | { type: 'event.b'; value: number } | { type: 'event.c' };
