@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { FlatAccountRemovePreview } from './account-removal-service.js';
+import type { AccountRemovalImpactCounts } from './account-removal-service.js';
 import { flattenAccountRemovePreview } from './account-removal-service.js';
 import type { AccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
 import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
@@ -8,7 +8,7 @@ import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
 export interface AccountRemovalPreparation {
   accountIds: number[];
   accountName: string;
-  preview: FlatAccountRemovePreview;
+  preview: AccountRemovalImpactCounts;
 }
 
 export async function prepareAccountRemoval(

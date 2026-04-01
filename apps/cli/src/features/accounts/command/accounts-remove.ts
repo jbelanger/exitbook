@@ -15,7 +15,7 @@ import { promptConfirmDecision } from '../../../cli/prompts.js';
 import { formatSuccessLine } from '../../../cli/success.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
-import type { FlatAccountRemovePreview } from './account-removal-service.js';
+import type { AccountRemovalImpactCounts } from './account-removal-service.js';
 import { withAccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
 import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
 import { prepareAccountRemoval, runAccountRemoval } from './run-accounts-remove.js';
@@ -74,7 +74,7 @@ async function executeRemoveAccountCommand(name: string, rawOptions: unknown): P
               if (!context.prepared.confirm && !context.prepared.json) {
                 outputRemovalPreview(accountName, preview);
                 const decision = await promptConfirmDecision(
-                  `Delete account ${accountName} and all attached data?`,
+                  `Delete account ${accountName} and remove the data shown above?`,
                   false
                 );
                 if (decision !== 'confirmed') {
@@ -121,17 +121,41 @@ const AccountsRemoveCommandOptionsSchema = JsonFlagSchema.extend({
   confirm: z.boolean().optional(),
 });
 
-function outputRemovalPreview(accountName: string, preview: FlatAccountRemovePreview): void {
-  console.error(`Removing account ${accountName} will also delete its imported data and clear related derived data:`);
-  writeRemovalPreviewCount(preview.accounts, 'account row');
-  writeRemovalPreviewCount(preview.transactions, 'processed transaction');
-  writeRemovalPreviewCount(preview.links, 'transaction link');
-  writeRemovalPreviewCount(preview.assetReviewStates, 'asset review state');
-  writeRemovalPreviewCount(preview.balanceSnapshots, 'balance snapshot');
-  writeRemovalPreviewCount(preview.balanceSnapshotAssets, 'balance snapshot asset');
-  writeRemovalPreviewCount(preview.costBasisSnapshots, 'global cost-basis snapshot');
-  writeRemovalPreviewCount(preview.sessions, 'import session');
-  writeRemovalPreviewCount(preview.rawData, 'raw data item');
+function outputRemovalPreview(accountName: string, preview: AccountRemovalImpactCounts): void {
+  console.error(`Deleting account ${accountName} will remove:`);
+  writeRemovalPreviewCount(preview.accounts, 'account');
+
+  outputRemovalPreviewSection('Imported data', [
+    { count: preview.sessions, singularLabel: 'import session' },
+    { count: preview.rawData, singularLabel: 'raw import record' },
+  ]);
+
+  outputRemovalPreviewSection('Derived data to reset', [
+    { count: preview.transactions, singularLabel: 'processed transaction' },
+    { count: preview.links, singularLabel: 'transaction link' },
+    { count: preview.assetReviewStates, singularLabel: 'asset review item' },
+    {
+      count: preview.balanceSnapshots + preview.balanceSnapshotAssets,
+      singularLabel: 'saved balance record',
+    },
+    { count: preview.costBasisSnapshots, singularLabel: 'cost basis snapshot' },
+  ]);
+}
+
+function outputRemovalPreviewSection(
+  heading: string,
+  items: readonly { count: number; pluralLabel?: string | undefined; singularLabel: string; }[]
+): void {
+  const visibleItems = items.filter((item) => item.count > 0);
+  if (visibleItems.length === 0) {
+    return;
+  }
+
+  console.error('');
+  console.error(`${heading}:`);
+  for (const item of visibleItems) {
+    writeRemovalPreviewCount(item.count, item.singularLabel, item.pluralLabel);
+  }
 }
 
 function writeRemovalPreviewCount(count: number, singularLabel: string, pluralLabel = `${singularLabel}s`): void {

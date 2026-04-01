@@ -25,7 +25,7 @@ interface AccountRemovePreview {
   };
 }
 
-export interface FlatAccountRemovePreview {
+export interface AccountRemovalImpactCounts {
   transactions: number;
   links: number;
   assetReviewStates: number;
@@ -38,10 +38,10 @@ export interface FlatAccountRemovePreview {
 }
 
 interface AccountRemoveResult {
-  deleted: FlatAccountRemovePreview;
+  deleted: AccountRemovalImpactCounts;
 }
 
-export function flattenAccountRemovePreview(preview: AccountRemovePreview): FlatAccountRemovePreview {
+export function flattenAccountRemovePreview(preview: AccountRemovePreview): AccountRemovalImpactCounts {
   return {
     transactions: preview.deleted.processedTransactions.transactions,
     links: preview.deleted.links.links,

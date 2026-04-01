@@ -62,9 +62,11 @@ describe('buildAccountsStaticList', () => {
     expect(stripAnsi(output)).toContain('\nREF         NAME');
     expect(stripAnsi(output)).toContain('PLATFORM');
     expect(stripAnsi(output)).toContain('TYPE');
+    expect(stripAnsi(output)).toContain('IDENTIFIER');
     expect(stripAnsi(output)).toContain('\n1234567890  kraken-main');
     expect(stripAnsi(output)).toContain('1234567890  kraken-main');
     expect(stripAnsi(output)).toContain('kraken');
+    expect(stripAnsi(output)).toContain('acct-1');
     expect(stripAnsi(output)).not.toContain('imports');
     expect(stripAnsi(output)).not.toContain('proj:');
     expect(stripAnsi(output)).not.toContain('ver:');

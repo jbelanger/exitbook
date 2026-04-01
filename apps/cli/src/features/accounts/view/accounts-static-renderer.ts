@@ -20,7 +20,7 @@ import {
 import type { AccountsViewState } from './accounts-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
-const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type'] as const;
+const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'identifier'] as const;
 
 export function outputAccountsStaticList(state: AccountsViewState): void {
   process.stdout.write(buildAccountsStaticList(state));
@@ -43,6 +43,10 @@ export function buildAccountsStaticList(state: AccountsViewState): string {
     name: { format: (item) => truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28) },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
+    identifier: {
+      format: (item) => (item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : '—'),
+      minWidth: 16,
+    },
   });
 
   lines.push(buildListColumnHeader(columns));
@@ -122,32 +126,33 @@ function buildEmptyStateLines(state: AccountsViewState): string[] {
 
 function buildAccountRow(
   item: AccountViewItem,
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type'>>
+  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'identifier'>>
 ): string {
   const formatted = columns.format(item);
-  const { name, platform, type } = formatted;
-  const identifierSuffix = item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : undefined;
+  const { identifier, name, platform, type } = formatted;
 
   return buildTextTableRow(
     {
       ...formatted,
+      identifier: pc.dim(identifier),
       name: item.name ? pc.bold(name) : name,
       platform: pc.cyan(platform),
       type: pc.dim(type),
     },
     ACCOUNT_LIST_COLUMN_ORDER,
     { gap: STATIC_LIST_COLUMN_GAP }
-  ).concat(identifierSuffix ? `${STATIC_LIST_COLUMN_GAP}${pc.dim(identifierSuffix)}` : '');
+  );
 }
 
 function buildListColumnHeader(
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type'>>
+  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'identifier'>>
 ): string {
   return pc.dim(
     buildTextTableHeader(
       columns.widths,
       {
         accountRef: 'REF',
+        identifier: 'IDENTIFIER',
         name: 'NAME',
         platform: 'PLATFORM',
         type: 'TYPE',

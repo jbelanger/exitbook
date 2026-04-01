@@ -179,7 +179,7 @@ When an account is an xpub parent with derived addresses, append `+{n}` in dim a
 
 Child accounts (derived addresses) are NOT shown as separate rows in the main list — they appear only in the detail panel of their parent. This keeps the list clean and groups related accounts.
 
-Exception: when `--account-id` targets a specific child account, it appears as a standalone row.
+Exception: when `--account-ref` targets a specific child account, it appears as a standalone row.
 
 ---
 
@@ -349,10 +349,10 @@ exitbook accounts view --type exchange-api   # Only exchange API accounts
 exitbook accounts view --type exchange-csv   # Only exchange CSV accounts
 ```
 
-### Account ID (`--account-id`)
+### Account Ref (`--account-ref`)
 
 ```bash
-exitbook accounts view --account-id 4       # Specific account
+exitbook accounts view --account-ref 6f4c0d1a2b   # Specific account
 ```
 
 ### Show Sessions (`--show-sessions`)
@@ -617,7 +617,7 @@ AccountsViewApp
 exitbook accounts view [options]
 
 Options:
-  --account-id <number>    View specific account by ID
+  --account-ref <ref>      View specific account by fingerprint prefix
   --platform <name>        Filter by exchange or blockchain name
   --type <type>            Filter by account type (blockchain, exchange-api, exchange-csv)
   --show-sessions          Include import session history in detail panel
@@ -651,7 +651,7 @@ List rows further truncate for column width. Detail panel shows the full masked 
 
 - Parent xpub accounts show aggregated session counts (own + children)
 - Child accounts appear only in the parent's detail panel under "Derived Addresses"
-- When `--account-id` targets a child account, it shows standalone (existing service behavior)
+- When `--account-ref` targets a child account, it shows standalone (existing service behavior)
 
 ### Terminal Size
 

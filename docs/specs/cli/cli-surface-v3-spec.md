@@ -144,6 +144,24 @@ If a selector does not resolve, the command should fail before rendering.
 
 These forms may render differently on success, but they must not disagree about whether the selector exists.
 
+### Text-Mode Contract
+
+Text mode is every human-readable, non-JSON surface that is not an explorer.
+
+That includes:
+
+- static browse lists and detail cards
+- line-oriented workflow progress
+- terse mutation and export confirmations
+- prompt-first confirmation flows
+
+Human-readable text mode must be:
+
+- line-oriented and CI-safe
+- readable when stdout or stderr is piped or captured
+- free of cursor control, spinner-only feedback, or full-screen chrome
+- structured through headers, columns, bullets, and spacing rather than TUI affordances
+
 ### Workflow Rules
 
 Workflows are not browse commands. They should keep workflow semantics on both TTY and non-TTY terminals.
@@ -186,6 +204,14 @@ This is valid when the command meaning is inherently interactive, such as:
 - destructive confirmation before `clear`
 - guided input collection before a workflow starts
 
+When a prompt-first flow needs a preview before confirmation:
+
+- the preview must stay line-oriented
+- it may group impact into user-facing categories such as accounts, imports, transactions, or balances
+- it should omit zero-count groups
+- it should avoid storage-shaped labels such as rows, asset-row tables, or other internal implementation terms
+- the confirmation question should restate the durable action in one short line
+
 Prompt-first interaction does not create a generic TUI mode. It is still command-local workflow behavior.
 
 ### Mutation, Export, And Review Commands
@@ -193,6 +219,8 @@ Prompt-first interaction does not create a generic TUI mode. It is still command
 These remain text-first unless `--json` is requested.
 
 - mutation commands render terse line-oriented confirmations, not browse headers or cards
+- mutation success copy confirms the durable outcome in product terms
+- a second line is only justified when it adds durable context, such as a selector, profile, output path, or preview heading
 - export commands render compact success/failure output
 - explicit review commands may use TUI when the command itself is a review surface
 
@@ -205,6 +233,8 @@ Browse snapshots and static detail cards should follow these rules:
 - no blank line before the header
 - one blank line after the header when a real table or detail body follows
 - then immediately the primary table or detail card
+- when the body is a table, every repeated field must belong to a declared header column
+- do not append unlabeled row suffixes that behave like hidden columns
 - no controls footer
 - no quit hints
 - no master-detail imitation
@@ -263,7 +293,9 @@ If implementation helpers need to change, update those documents and modules wit
 - Explorer commands skip Ink only when there is no navigable explorer state, such as a truly empty initial collection or a missing selector.
 - Filtered-empty explorer states do not silently downgrade to static.
 - Static output never imitates master-detail.
+- Static text tables do not render unlabeled extra row fields outside their declared columns.
 - Browse snapshots do not render a leading or trailing blank line.
 - Mutation and export confirmations stay terse instead of borrowing browse layout.
+- Prompt-first destructive previews use user-facing group labels instead of storage-shaped terminology.
 - `--json` remains the only generic output override.
 - Workflow-specific flags are documented as input or execution flags, not presentation flags.

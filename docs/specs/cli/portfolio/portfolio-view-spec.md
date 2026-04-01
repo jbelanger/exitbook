@@ -531,7 +531,7 @@ Portfolio  0 assets
 
   Add and sync an account first:
   exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
-  exitbook import --account kucoin-main
+  exitbook import --account-name kucoin-main
 
 q quit
 ```

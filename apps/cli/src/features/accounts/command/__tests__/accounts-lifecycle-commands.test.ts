@@ -612,7 +612,7 @@ describe('accounts lifecycle commands', () => {
     consoleError.mockRestore();
   });
 
-  it('renders singular removal preview copy for a single-account scope', async () => {
+  it('renders user-facing removal preview copy for a single-account scope', async () => {
     const program = createAccountsProgram();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -637,12 +637,55 @@ describe('accounts lifecycle commands', () => {
 
     await program.parseAsync(['accounts', 'remove', 'injective-wallet'], { from: 'user' });
 
-    expect(consoleError).toHaveBeenCalledWith(
-      'Removing account injective-wallet will also delete its imported data and clear related derived data:'
-    );
-    expect(consoleError).toHaveBeenCalledWith('  - 1 account row');
+    expect(consoleError).toHaveBeenCalledWith('Deleting account injective-wallet will remove:');
+    expect(consoleError).toHaveBeenCalledWith('  - 1 account');
     expect(consoleError).toHaveBeenCalledWith('Account removal cancelled');
+    expect(mockPromptConfirmDecision).toHaveBeenCalledWith(
+      'Delete account injective-wallet and remove the data shown above?',
+      false
+    );
     expect(consoleError).not.toHaveBeenCalledWith('  - 1 account rows');
+    expect(consoleError).not.toHaveBeenCalledWith('Imported data:');
+    expect(consoleError).not.toHaveBeenCalledWith('Derived data to reset:');
+    consoleError.mockRestore();
+  });
+
+  it('groups imported and derived removal preview details under user-facing headings', async () => {
+    const program = createAccountsProgram();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    mockPrepareAccountRemoval.mockResolvedValue(
+      ok({
+        accountIds: [7],
+        accountName: 'kraken-main',
+        preview: {
+          accounts: 1,
+          rawData: 4,
+          sessions: 2,
+          transactions: 8,
+          links: 3,
+          assetReviewStates: 1,
+          balanceSnapshots: 1,
+          balanceSnapshotAssets: 5,
+          costBasisSnapshots: 6,
+        },
+      })
+    );
+    mockPromptConfirmDecision.mockResolvedValue('declined');
+
+    await program.parseAsync(['accounts', 'remove', 'kraken-main'], { from: 'user' });
+
+    expect(consoleError).toHaveBeenCalledWith('Imported data:');
+    expect(consoleError).toHaveBeenCalledWith('  - 2 import sessions');
+    expect(consoleError).toHaveBeenCalledWith('  - 4 raw import records');
+    expect(consoleError).toHaveBeenCalledWith('Derived data to reset:');
+    expect(consoleError).toHaveBeenCalledWith('  - 8 processed transactions');
+    expect(consoleError).toHaveBeenCalledWith('  - 3 transaction links');
+    expect(consoleError).toHaveBeenCalledWith('  - 1 asset review item');
+    expect(consoleError).toHaveBeenCalledWith('  - 6 saved balance records');
+    expect(consoleError).toHaveBeenCalledWith('  - 6 cost basis snapshots');
+    expect(consoleError).not.toHaveBeenCalledWith('  - 1 balance snapshot');
+    expect(consoleError).not.toHaveBeenCalledWith('  - 5 balance snapshot assets');
     consoleError.mockRestore();
   });
 });

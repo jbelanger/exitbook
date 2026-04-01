@@ -76,7 +76,7 @@ Blockchains  13 total · 7 evm · 3 substrate · 1 utxo · 1 solana · 1 cosmos 
     ⊘  polygonscan    txs · balance             5/sec
 
   Example: exitbook accounts add polygon-main --blockchain polygon --address 0x742d35Cc...
-           exitbook import --account polygon-main
+           exitbook import --account-name polygon-main
 
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
@@ -176,7 +176,7 @@ The detail panel shows full provider information for the selected blockchain.
     ...
 
   Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
-           exitbook import --account {name}-main
+           exitbook import --account-name {name}-main
 ```
 
 ### Detail Panel Elements
@@ -231,7 +231,7 @@ When a blockchain has zero registered providers:
   No providers registered for this blockchain.
 
   Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
-           exitbook import --account {name}-main
+           exitbook import --account-name {name}-main
 ```
 
 ---
