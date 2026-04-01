@@ -128,8 +128,7 @@ They yield one batch at a time so the workflow stays memory-bounded.
 
 The CLI resolves profile scope first, then resolves the target account within that profile:
 
-- `import --account <name>`
-- `import --account-id <id>`
+- `import <selector>`
 - `import --all`
 
 `import --all` enumerates top-level accounts for one profile and runs each sync sequentially.
@@ -197,13 +196,13 @@ The CLI no longer supports `import --exchange ...` or `import --blockchain ...` 
 That keeps one clear path:
 
 1. `accounts add`
-2. `import --account` or `import --all`
+2. `import <selector>` or `import --all`
 
 ## Key Files
 
 | File                                                        | Role                                                         |
 | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| `apps/cli/src/features/import/command/import.ts`            | CLI surface for `import --account`, `--account-id`, `--all`  |
+| `apps/cli/src/features/import/command/import.ts`            | CLI surface for `import <selector>` and `--all`              |
 | `apps/cli/src/features/import/command/run-import.ts`        | CLI orchestration for single-account and batch import runs   |
 | `packages/ingestion/src/features/import/import-workflow.ts` | Capability-owned import execution workflow                   |
 | `packages/data/src/ingestion/import-ports.ts`               | Data adapters for import sessions, raw transactions, cursors |

@@ -19,7 +19,7 @@ Examples:
   $ exitbook accounts view kraken-main            # Open the explorer focused on a named account
   $ exitbook accounts view 1a2b3c4d               # Open the explorer focused on a fingerprint ref
   $ exitbook accounts view --platform kraken      # Explore Kraken accounts
-  $ exitbook accounts view --account-ref 1a2b3c4d # Open a filtered explorer by fingerprint ref
+  $ exitbook accounts view --account 1a2b3c4d     # Open a filtered explorer by selector
   $ exitbook accounts view --type blockchain      # Explore blockchain accounts only
   $ exitbook accounts view --show-sessions        # Include session details for each account
   $ exitbook accounts view --json                 # Output JSON

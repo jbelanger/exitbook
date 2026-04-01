@@ -51,9 +51,7 @@ function describeBalanceFreshness(params: {
 
 export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFreshnessMessageParams): string {
   const requestedScopeHint =
-    params.requestedAccountRef === params.scopeAccountRef
-      ? `--account-ref ${params.scopeAccountRef}`
-      : `--account-ref ${params.requestedAccountRef}`;
+    params.requestedAccountRef === params.scopeAccountRef ? params.scopeAccountRef : params.requestedAccountRef;
 
   if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
     return (
@@ -84,7 +82,7 @@ export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParam
   if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
     return (
       `Assets view requires a stored balance snapshot. Scope account ${params.scopeAccountRef} ` +
-      `has not been built yet. Run "exitbook balance refresh --account-ref ${params.scopeAccountRef}" or ` +
+      `has not been built yet. Run "exitbook balance refresh ${params.scopeAccountRef}" or ` +
       '"exitbook balance refresh" to build it.'
     );
   }
@@ -96,14 +94,14 @@ export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParam
       `Assets view requires fresh balance snapshots. Scope account ${params.scopeAccountRef} ` +
       `is ${params.status} because ${description.text}. ` +
       `Run "exitbook balance refresh" to rebuild all stored balances, or ` +
-      `"exitbook balance refresh --account-ref ${params.scopeAccountRef}" to rebuild only this scope.`
+      `"exitbook balance refresh ${params.scopeAccountRef}" to rebuild only this scope.`
     );
   }
 
   return (
     `Assets view requires fresh balance snapshots. Scope account ${params.scopeAccountRef} ` +
     `is ${params.status} because ${description.text}. ` +
-    `Run "exitbook balance refresh --account-ref ${params.scopeAccountRef}" or "exitbook balance refresh" ` +
+    `Run "exitbook balance refresh ${params.scopeAccountRef}" or "exitbook balance refresh" ` +
     'to rebuild stored balances.'
   );
 }

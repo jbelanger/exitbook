@@ -177,7 +177,7 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
 
     expect(error.message).toContain('scope account 1aaaaaaaaa');
     expect(error.message).toContain('has not been built yet');
-    expect(error.message).toContain('balance refresh --account-ref 2aaaaaaaaa');
+    expect(error.message).toContain('balance refresh 2aaaaaaaaa');
     expect(error.message).not.toContain('is stale');
   });
 
@@ -281,7 +281,7 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
     const error = assertErr(result);
 
     expect(error.message).toContain('has not been built yet');
-    expect(error.message).toContain('balance refresh --account-ref 1aaaaaaaaa');
+    expect(error.message).toContain('balance refresh 1aaaaaaaaa');
     expect(error.message).not.toContain('invalidated stored balance snapshots for all scopes');
   });
 
@@ -300,7 +300,7 @@ describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
     expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
-    expect(error.message).toContain('exitbook balance refresh --account-ref 1aaaaaaaaa');
+    expect(error.message).toContain('exitbook balance refresh 1aaaaaaaaa');
   });
 
   it('rebuilds stale stored snapshots automatically when a workflow is available', async () => {

@@ -174,7 +174,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           const accountName = account?.name;
           expect(accountName).toBeTruthy();
 
-          const balanceArgs = ['balance', '--account-name', String(accountName)];
+          const balanceArgs = ['balance', 'refresh', String(accountName)];
 
           const balanceResult = executeCLI(balanceArgs);
 

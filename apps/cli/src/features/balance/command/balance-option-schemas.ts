@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { OptionalAccountSelectorSchema } from '../../accounts/account-selector.js';
+import { OptionalBareAccountSelectorSchema } from '../../accounts/account-selector.js';
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
-export const BalanceViewCommandOptionsSchema = OptionalAccountSelectorSchema.extend(JsonFlagSchema.shape);
+export const BalanceViewCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(JsonFlagSchema.shape);
 
-export const BalanceRefreshCommandOptionsSchema = OptionalAccountSelectorSchema.extend(
+export const BalanceRefreshCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(
   z.object({
     apiKey: z.string().min(1).optional(),
     apiSecret: z.string().min(1).optional(),
@@ -26,12 +26,12 @@ export const BalanceRefreshCommandOptionsSchema = OptionalAccountSelectorSchema.
   )
   .refine(
     (data) => {
-      if ((data.apiKey || data.apiSecret) && !data.accountName && !data.accountRef) {
+      if ((data.apiKey || data.apiSecret) && !data.selector) {
         return false;
       }
       return true;
     },
     {
-      message: '--api-key/--api-secret require --account-name or --account-ref',
+      message: '--api-key/--api-secret require an account selector',
     }
   );

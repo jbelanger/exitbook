@@ -124,10 +124,11 @@ Do not add near-synonyms unless the workflow is materially different.
 
 ### Identifier Rules
 
-Use the same option name for the same kind of input across commands:
+Use the same input shape for the same kind of target across commands:
 
-- `--account-name` for a human-facing account name
-- `--account-ref` for a canonical account fingerprint prefix
+- bare `<selector>` for direct existing-account targeting
+- account selectors resolve account name first, then unique fingerprint prefix
+- `--account <selector>` only when a command intentionally exposes account filtering instead of direct target selection
 - `--asset` for a user-facing asset symbol filter
 - `--asset-id` for a canonical asset identity
 - `--blockchain` and `--provider` for registry keys

@@ -167,7 +167,7 @@ const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
       <Text> </Text>
       <Text>{'  '}Add an account, then sync it:</Text>
       <Text dimColor>{'  '}exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin</Text>
-      <Text dimColor>{'  '}exitbook import --account-name kucoin-main</Text>
+      <Text dimColor>{'  '}exitbook import kucoin-main</Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>

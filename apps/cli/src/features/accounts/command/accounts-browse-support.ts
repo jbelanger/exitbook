@@ -11,7 +11,6 @@ import {
   formatResolvedAccountSelectorInput,
   getAccountSelectorErrorExitCode,
   resolveOwnedAccountSelector,
-  resolveOwnedBrowseAccountSelector,
   type ResolvedAccountSelector,
 } from '../account-selector.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
@@ -22,7 +21,7 @@ import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
 
 export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId' | 'accountId'> {
-  accountRef?: string | undefined;
+  account?: string | undefined;
   accountSelector?: string | undefined;
   preselectInExplorer?: boolean | undefined;
 }
@@ -121,33 +120,14 @@ async function resolveSelectedAccount(
 ): Promise<Result<ResolvedSelectedAccount, CliFailure>> {
   return resultDoAsync(async function* () {
     const accountService = createCliAccountLifecycleService(database);
-
-    if (params.accountSelector) {
-      const selectorResult = await resolveOwnedBrowseAccountSelector(accountService, profileId, params.accountSelector);
-      if (selectorResult.isErr()) {
-        return yield* cliErr(selectorResult.error, getAccountSelectorErrorExitCode(selectorResult.error));
-      }
-
-      const selector = selectorResult.value;
-      return {
-        accountId: selector.account.id,
-        requestedLabel: formatResolvedAccountSelectorInput(selector),
-        selector,
-      };
-    }
-
-    if (!params.accountRef) {
+    const requestedSelector = params.accountSelector ?? params.account;
+    if (!requestedSelector) {
       return {};
     }
 
-    const selectorResult = await resolveOwnedAccountSelector(accountService, profileId, {
-      accountRef: params.accountRef,
-    });
+    const selectorResult = await resolveOwnedAccountSelector(accountService, profileId, requestedSelector);
     if (selectorResult.isErr()) {
       return yield* cliErr(selectorResult.error, getAccountSelectorErrorExitCode(selectorResult.error));
-    }
-    if (!selectorResult.value) {
-      return yield* cliErr(`Account ref '${params.accountRef}' not found`, ExitCodes.NOT_FOUND);
     }
     const selector = selectorResult.value;
 

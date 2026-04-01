@@ -186,7 +186,7 @@ describe('balance command JSON mode', () => {
     mockRunBalanceView.mockImplementation(viewStoredSnapshots);
     mockGetByFingerprintRef.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['view', '--account-ref', '2bc1c1d0aa', '--json'], { from: 'user' });
+    await program.parseAsync(['view', '2bc1c1d0aa', '--json'], { from: 'user' });
 
     expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
       mockCtx,
@@ -233,7 +233,7 @@ describe('balance command JSON mode', () => {
       {
         totalAccounts: 1,
         mode: 'view',
-        filters: { accountRef: '2bc1c1d0aa' },
+        selector: { kind: 'ref', value: '2bc1c1d0aa' },
       }
     );
   });
@@ -265,9 +265,9 @@ describe('balance command JSON mode', () => {
 
     mockGetByName.mockResolvedValue(ok(createAccount({ id: 2, identifier: 'bc1-child', name: 'wallet-child' })));
 
-    await expect(
-      program.parseAsync(['view', '--account-name', 'wallet-child', '--json'], { from: 'user' })
-    ).rejects.toThrow('CLI:balance-view:json:stored snapshot read failed:1');
+    await expect(program.parseAsync(['view', 'wallet-child', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:balance-view:json:stored snapshot read failed:1'
+    );
 
     expect(viewStoredSnapshots).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -323,7 +323,7 @@ describe('balance command JSON mode', () => {
       )
     );
 
-    await program.parseAsync(['view', '--account-ref', '9abcde0000'], { from: 'user' });
+    await program.parseAsync(['view', '9abcde0000'], { from: 'user' });
 
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
@@ -399,7 +399,7 @@ describe('balance command JSON mode', () => {
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
     mockGetByName.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['refresh', '--account-name', 'wallet-child', '--json'], { from: 'user' });
+    await program.parseAsync(['refresh', 'wallet-child', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -499,7 +499,7 @@ describe('balance command JSON mode', () => {
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
     mockGetByFingerprintRef.mockResolvedValue(ok(scopeAccount));
 
-    await program.parseAsync(['refresh', '--account-ref', '74abcde000', '--json'], { from: 'user' });
+    await program.parseAsync(['refresh', '74abcde000', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({

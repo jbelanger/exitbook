@@ -217,7 +217,7 @@ describe('clear command', () => {
       create(() => undefined);
     });
 
-    await program.parseAsync(['clear', '--account-name', 'wallet-main'], { from: 'user' });
+    await program.parseAsync(['clear', 'wallet-main'], { from: 'user' });
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'wallet-main');
     expect(mockCreateClearViewState).toHaveBeenCalledWith(
@@ -294,7 +294,7 @@ describe('clear command', () => {
     const program = createProgram();
 
     await expect(
-      program.parseAsync(['clear', '--account-name', 'wallet-main', '--platform', 'kraken', '--json'], {
+      program.parseAsync(['clear', 'wallet-main', '--platform', 'kraken', '--json'], {
         from: 'user',
       })
     ).rejects.toThrow('CLI:clear:json:Cannot specify both an account selector and --platform:2');

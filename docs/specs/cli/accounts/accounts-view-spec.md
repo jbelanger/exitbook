@@ -1,667 +1,427 @@
-# Accounts View — Interactive TUI Spec
+# Accounts Browse Spec
 
-## Overview
+## Scope
 
-`exitbook accounts view` is a read-only TUI for browsing accounts and inspecting their import, projection, and verification status.
+This document defines the accounts browse family:
 
-Single-mode design: a scrollable list of accounts with a detail panel showing the selected account's full metadata (identifier, provider, projection freshness, verification status, import sessions, child accounts for xpubs). Filters narrow the dataset via CLI flags.
+- `exitbook accounts`
+- `exitbook accounts <selector>`
+- `exitbook accounts view`
+- `exitbook accounts view <selector>`
 
-`--json` bypasses the TUI.
+It specializes the cross-command rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md). The V3 browse ladder is normative. This file defines what the accounts family renders on each surface.
 
----
+## Command Shapes
 
-## Two-Panel Layout
+| Shape                       | Meaning                                        | Human surface      |
+| --------------------------- | ---------------------------------------------- | ------------------ |
+| `accounts`                  | Quick browse of accounts in the active profile | Static list        |
+| `accounts <selector>`       | Focused inspection of one account              | Static detail card |
+| `accounts view`             | Full explorer                                  | TUI explorer       |
+| `accounts view <selector>`  | Explorer pre-selected on one account           | TUI explorer       |
+| Any of the above + `--json` | Machine output for the same semantic target    | JSON               |
 
-List (top) and detail panel (bottom), separated by a full-width dim `─` divider. Same shared behavior as prices-view, links-view, and transactions-view.
+On a non-interactive terminal:
 
-### Scrolling
+- `accounts view` falls back to the same static list as `accounts`
+- `accounts view <selector>` falls back to the same static detail card as `accounts <selector>`
 
-When the list exceeds the visible height:
+`view` does not define a separate text schema or JSON schema.
 
-- Visible window scrolls to keep the selected row in view
-- `▲` / `▼` dim indicators appear when more items exist above/below
-- No explicit scroll bar
+## Selectors And Filters
+
+### Bare selector
+
+`<selector>` is a command-shape selector, not a generic filter flag.
+
+Resolution order:
+
+1. account name
+2. unique fingerprint prefix
+
+Behavior:
+
+- bare selector misses fail with `Account selector '<value>' not found`
+- bare selectors cannot be combined with `--account`, `--platform`, or `--type`
+- bare selectors may target child accounts when the fingerprint prefix resolves to a child account
+
+### Filter flags
+
+Supported browse options:
+
+- `--account <selector>`: filter by account name or unique fingerprint prefix
+- `--platform <name>`: filter by platform key
+- `--type <type>`: filter by account type (`blockchain`, `exchange-api`, `exchange-csv`)
+- `--show-sessions`: include recent import session details in detail surfaces and JSON
+- `--json`: output JSON
+
+`--account` is a filter option, not a command-shape detail selector. For example, `accounts --account <selector>` still resolves to the static list surface, even if the filtered result is a single account.
+
+## Shared Data Semantics
+
+### Hierarchy
+
+Accounts are rendered as top-level rows by default.
+
+- top-level parents appear in list surfaces
+- child accounts appear under `Derived addresses` in detail surfaces
+- when the selected account is itself a child account, detail surfaces show that child directly
+
+### Counts
+
+Parent rows aggregate child import counts.
+
+- a parent account's `Imports` value includes its own sessions plus child sessions
+- `Derived addresses` rows show per-child import counts
+
+Current header behavior:
+
+- `total` counts every account in scope, including nested child accounts
+- type counts summarize the displayed top-level rows
+
+This means the `total` count can exceed the sum of the type counts when derived child accounts are present.
+
+## Static List Surface
+
+Applies to:
+
+- `exitbook accounts`
+- `exitbook accounts view` off-TTY
+
+### Header
+
+Format:
+
+```text
+Accounts{optional filter label} {total} total · {type counts...}
+```
+
+Rules:
+
+- `Accounts` is bold
+- metadata is dim
+- only non-zero type counts are shown
+- filter label is `({platform})` or `({type})`
+- no blank line before the header
+- one blank line follows the header before the table or empty state
+
+Examples:
+
+```text
+Accounts 6 total · 2 blockchain · 3 exchange-api · 1 exchange-csv
+```
+
+```text
+Accounts (kraken) 2 total · 1 exchange-api · 1 exchange-csv
+```
+
+### Table
+
+Static list output is a real headered table.
+
+Columns:
+
+| Column       | Meaning                                                                  |
+| ------------ | ------------------------------------------------------------------------ |
+| `REF`        | First 10 characters of the account fingerprint                           |
+| `NAME`       | Account name when present; otherwise the full display label              |
+| `PLATFORM`   | Platform key                                                             |
+| `TYPE`       | Account type                                                             |
+| `IDENTIFIER` | Truncated identifier when the account has a separate name; otherwise `—` |
+
+Example:
+
+```text
+Accounts 1 total · 1 blockchain
+
+REF         NAME         PLATFORM      TYPE           IDENTIFIER
+61637d8a6e  inj-wallet   injective     blockchain     inj1zk...pty4rau
+```
+
+Rules:
+
+- no controls footer
+- no quit hint
+- no selected-row expansion
+- no side-by-side detail panel
+- every repeated field belongs to a declared header column
+- child accounts do not appear as separate rows unless the query resolves directly to a child account
+
+The static list intentionally omits import counts and projection / verification status to stay compact in scrollback.
+
+### Empty states
+
+Unfiltered empty state:
+
+```text
+Accounts 0 total
+
+No accounts found.
+
+Tip: exitbook accounts add my-wallet --blockchain ethereum --address 0x...
+```
+
+Filtered empty state:
+
+```text
+Accounts (kraken) 0 total
+
+No accounts found for kraken.
+```
+
+## Static Detail Surface
+
+Applies to:
+
+- `exitbook accounts <selector>`
+- `exitbook accounts view <selector>` off-TTY
+
+### Header line
+
+The first line is a compact title, not a boxed card title.
+
+Format:
+
+```text
+{title} {ref?} {platform} {type}
+```
+
+Where:
+
+- `{title}` is the account name when present, otherwise the fingerprint ref
+- `{ref}` is shown only when the account has a separate name
+- `{platform}` is cyan
+- `{type}` is dim
+
+Example:
+
+```text
+kraken-main 1234567890 kraken exchange-api
+```
+
+### Body
+
+Field order:
+
+1. `Name`
+2. `Fingerprint`
+3. `Identifier`
+4. `Provider`
+5. `Created`
+6. `Verification` / `Projection`
+7. optional `Last refresh`
+8. optional `Imports`
+9. optional `Derived addresses`
+10. optional `Recent sessions`
+
+Example:
+
+```text
+kraken-main 1234567890 kraken exchange-api
+
+Name: kraken-main
+Fingerprint: 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+Identifier: acct-1
+Provider: kraken-api
+Created: 2026-01-01 00:00:00
+
+Verification: ✓ verified · Projection: ✓ fresh
+Last refresh: 2026-03-12 12:30:00
+Imports: 2 imports
+```
+
+Optional sections:
+
+- `Derived addresses ({n})`
+- `Recent sessions`
+
+Rules:
+
+- child rows are capped at 5 visible lines, then `...and N more`
+- session rows are capped at 5 visible lines, then `...and N more`
+- no controls footer
+- no quit hint
+- no extra trailing blank line after the final rendered line
+
+### Detail-specific display rules
+
+- `Provider` shows `—` when unset
+- `Identifier` uses the full display identifier stored in the view model
+- `Imports` uses `N import` / `N imports`
+- verification labels are `verified`, `warning`, `mismatch`, `unavailable`, `never checked`
+- projection labels are `fresh`, `stale`, `building`, `failed`, `never built`
+
+## Explorer Surface
+
+Applies to:
+
+- `exitbook accounts view`
+- `exitbook accounts view <selector>`
+
+The explorer is a master-detail Ink app.
+
+### Layout
+
+The explorer renders:
+
+1. a blank line
+2. the shared header
+3. a blank line
+4. a selectable account list
+5. a divider
+6. a fixed-height detail panel
+7. a blank line
+8. a controls bar
+
+The header matches the static surface and adds `· sessions visible` when `--show-sessions` is set.
+
+### List rows
+
+Explorer rows are not the static table.
+
+Each row contains:
+
+- fingerprint ref
+- platform
+- type
+- name or label
+- optional identifier suffix when the account has a separate name
+- import summary
+- optional `+N derived` suffix for parent accounts
+- projection status as `proj:<label>`
+- verification status as `ver:<label>`
+
+Example:
+
+```text
+▸ 1234567890 kraken       exchange-api  kraken-main acct-1  2 imports proj:fresh ver:ok
+```
+
+Status labels:
+
+- projection: `fresh`, `stale`, `build`, `fail`, `—`, `?`
+- verification: `ok`, `warn`, `fail`, `n/a`, `—`, `?`
+
+### Detail panel
+
+The explorer detail panel uses the same underlying fields as the static detail card, but:
+
+- prefixes the title with `▸`
+- is height-limited
+- shows an overflow line when more detail exists than can fit
+
+Overflow copy:
+
+```text
+... N more detail line(s). Rerun with --json for full details.
+```
 
 ### Navigation
 
-| Key               | Action           | When   |
-| ----------------- | ---------------- | ------ |
-| `↑` / `k`         | Move cursor up   | Always |
-| `↓` / `j`         | Move cursor down | Always |
-| `PgUp` / `Ctrl-U` | Page up          | Always |
-| `PgDn` / `Ctrl-D` | Page down        | Always |
-| `Home`            | Jump to first    | Always |
-| `End`             | Jump to last     | Always |
-| `q` / `Esc`       | Quit             | Always |
+| Key               | Action            |
+| ----------------- | ----------------- |
+| `↑` / `k`         | Move up           |
+| `↓` / `j`         | Move down         |
+| `PgUp` / `Ctrl-U` | Page up           |
+| `PgDn` / `Ctrl-D` | Page down         |
+| `Home`            | Jump to first row |
+| `End`             | Jump to last row  |
+| `q` / `Esc`       | Quit              |
 
-### Controls Bar
+Controls bar:
 
-Bottom line, dim. Read-only — no action keys.
-
-### Loading State
-
-```
-⠋ Loading accounts...
-```
-
-Brief spinner, then TUI appears.
-
----
-
-## Visual Example
-
-```
-Accounts  6 total · 2 blockchain · 3 exchange-api · 1 exchange-csv
-
-  #1   kraken      exchange-api   OhPz8e0p***   3 sessions   ✓proj ✓ver
-  #2   kucoin      exchange-api   Kc9xR4mq***   2 sessions   ✓proj ✓ver
-  #3   coinbase    exchange-api   Cb2nL7wk***   1 session    ⊘proj ⊘ver
-▸ #4   bitcoin     blockchain     xpub6CUG...   5 sessions +3 ✓proj ✓ver
-  #5   ethereum    blockchain     0x742d...bD38  4 sessions   !proj ✗ver
-  #6   kraken      exchange-csv   /exports/kra   0 sessions   ⊘proj ⊘ver
-
-────────────────────────────────────────────────────────────────────────────────
-▸ #4  bitcoin  blockchain  xpub account (3 derived addresses)
-
-  Identifier: xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz
-  Provider: mempool
-
-  Verification: ✓ verified · Projection: ✓ fresh
-  Last refresh: 2024-12-15 08:30:00
-  Created: 2024-06-12 14:23:00
-  Sessions: 5
-
-  Derived Addresses
-    #7   bc1q84x...w9nk   2 sessions   ✓proj ✓ver
-    #8   bc1qxy2...s9me   2 sessions   ✓proj ✓ver
-    #9   bc1qar0...ejfh   1 session    ⊘proj ⊘ver
-
+```text
 ↑↓/j/k · ^U/^D page · Home/End · q/esc quit
 ```
 
----
+### Empty explorer behavior
 
-## Header
+Explorer empties follow the V3 rules:
 
-```
-Accounts  {total} total · {blockchain} blockchain · {exchangeApi} exchange-api · {exchangeCsv} exchange-csv
-```
+- `accounts view` with a truly empty unfiltered collection collapses to the static empty state
+- filtered-empty explorer requests stay on the explorer code path instead of silently downgrading to static output
+- selector misses fail before any renderer mounts
 
-- Title: white/bold
-- Total count: white
-- Type counts: white
-- Type labels: dim
-- Dot separators: dim
-- Only show types with count > 0
+## JSON
 
-When filtered:
+JSON follows the same semantic target regardless of whether the command uses `view`.
 
-```
-Accounts (kraken)  2 total · 1 exchange-api · 1 exchange-csv
-```
+- `accounts --json` and `accounts view --json` return the same list payload shape
+- `accounts <selector> --json` and `accounts view <selector> --json` return the same detail payload shape
 
-```
-Accounts (blockchain)  2 total
-```
-
----
-
-## List Columns
-
-```text
-{cursor} #{id}  {source}  {type}  {identifier}  {sessions}  {projectionStatus}  {verificationStatus}
-```
-
-| Column       | Width | Alignment | Content                                      |
-| ------------ | ----- | --------- | -------------------------------------------- |
-| Cursor       | 1     | —         | `▸` for selected, space otherwise            |
-| ID           | 4     | right     | `#{id}` prefixed                             |
-| Source       | 10    | left      | Exchange or blockchain name, truncated       |
-| Type         | 12    | left      | `blockchain`, `exchange-api`, `exchange-csv` |
-| Identifier   | 14    | left      | Masked/truncated identifier                  |
-| Sessions     | 12    | right     | `{n} session(s)` plus `+{children}` when any |
-| Projection   | 6     | left      | `✓proj`, `!proj`, `~proj`, `✗proj`, `⊘proj`  |
-| Verification | 5     | left      | `✓ver`, `!ver`, `✗ver`, `?ver`, `⊘ver`       |
-
-### Identifier Display
-
-- **exchange-api**: first 8 chars + `***` (API key masking)
-- **exchange-csv**: path truncated to 14 chars
-- **blockchain**: truncated to `{first6}...{last4}` for addresses, `xpub6CUG...` for xpubs
-
-### Projection Status Text
-
-| Status      | Text    | Color  |
-| ----------- | ------- | ------ |
-| fresh       | `✓proj` | green  |
-| stale       | `!proj` | yellow |
-| building    | `~proj` | cyan   |
-| failed      | `✗proj` | red    |
-| never-built | `⊘proj` | dim    |
-
-### Verification Status Text
-
-| Status        | Text   | Color  |
-| ------------- | ------ | ------ |
-| match         | `✓ver` | green  |
-| warning       | `!ver` | yellow |
-| mismatch      | `✗ver` | red    |
-| unavailable   | `?ver` | yellow |
-| never-checked | `⊘ver` | dim    |
-
-### Row Colors
-
-| Row State         | Color                     |
-| ----------------- | ------------------------- |
-| Selected (cursor) | white/bold for entire row |
-| Normal            | standard color scheme     |
-
-### Standard Row Color Scheme
-
-| Element       | Color |
-| ------------- | ----- |
-| ID            | white |
-| Source        | cyan  |
-| Type          | dim   |
-| Identifier    | dim   |
-| Session count | white |
-| `session(s)`  | dim   |
-
-### Xpub Parent Rows
-
-When an account is an xpub parent with derived addresses, append `+{n}` in dim after the session count.
-
-```text
-▸ #4   bitcoin     blockchain     xpub6CUG...   5 sessions +3 ✓proj ✓ver
-```
-
-### Child Account Rows
-
-Child accounts (derived addresses) are NOT shown as separate rows in the main list — they appear only in the detail panel of their parent. This keeps the list clean and groups related accounts.
-
-Exception: when `--account-ref` targets a specific child account, it appears as a standalone row.
-
----
-
-## Detail Panel
-
-The detail panel adapts based on account type and whether it has child accounts.
-
-### Exchange API Account
-
-```
-▸ #1  kraken  exchange-api
-
-  Identifier: OhPz8e0p***
-  Provider: —
-
-  Verification: ✓ verified · Projection: ✓ fresh
-  Last refresh: 2024-12-20 14:30:00
-  Created: 2024-01-15 09:00:00
-  Sessions: 3
-```
-
-### Blockchain Account (Simple Address)
-
-```
-▸ #5  ethereum  blockchain
-
-  Identifier: 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38
-  Provider: alchemy
-
-  Verification: ✗ mismatch · Projection: ! stale
-  Last refresh: 2024-12-18 11:00:00
-  Created: 2024-03-22 16:45:00
-  Sessions: 4
-```
-
-### Blockchain Account (Xpub Parent)
-
-```
-▸ #4  bitcoin  blockchain  xpub account (3 derived addresses)
-
-  Identifier: xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz
-  Provider: mempool
-
-  Verification: ✓ verified · Projection: ✓ fresh
-  Last refresh: 2024-12-15 08:30:00
-  Created: 2024-06-12 14:23:00
-  Sessions: 5
-
-  Derived Addresses
-    #7   bc1q84x...w9nk   2 sessions   ✓proj ✓ver
-    #8   bc1qxy2...s9me   2 sessions   ✓proj ✓ver
-    #9   bc1qar0...ejfh   1 session    ⊘proj ⊘ver
-```
-
-### Exchange CSV Account
-
-```
-▸ #6  kraken  exchange-csv
-
-  Identifier: /exports/kraken
-  Provider: —
-
-  Verification: ⊘ never checked · Projection: ⊘ never built
-  Created: 2024-11-01 10:00:00
-  Sessions: 0
-```
-
-### Detail Panel Elements
-
-| Element                      | Color                     |
-| ---------------------------- | ------------------------- |
-| Account ID                   | white/bold                |
-| Source name                  | cyan                      |
-| Account type                 | dim                       |
-| `xpub account ({n} derived)` | dim                       |
-| `Identifier:` label          | dim                       |
-| Identifier value             | white                     |
-| `Provider:` label            | dim                       |
-| Provider name                | cyan                      |
-| `—` (no provider)            | dim                       |
-| `Verification:` label        | dim                       |
-| Verification text            | green/yellow/red/dim      |
-| `Projection:` label          | dim                       |
-| Projection text              | green/cyan/yellow/red/dim |
-| `Last refresh:` label        | dim                       |
-| Last refresh timestamp       | dim                       |
-| `Created:` label             | dim                       |
-| Created timestamp            | dim                       |
-| `Sessions:` label            | dim                       |
-| Session count                | white                     |
-| `Derived Addresses` label    | white/bold                |
-| Child account ID             | white                     |
-| Child identifier             | dim                       |
-| Child session count          | white                     |
-
-### Identifier Display in Detail Panel
-
-Detail panel shows the **full** identifier (not truncated), except:
-
-- **exchange-api**: still masked (`OhPz8e0p***`) for security
-- Long xpubs: shown in full (they wrap naturally)
-
-### Session Detail (--show-sessions)
-
-When `--show-sessions` is passed, sessions expand below the session count:
-
-```
-▸ #1  kraken  exchange-api
-
-  Identifier: OhPz8e0p***
-  Provider: —
-
-  Verification: ✓ verified · Projection: ✓ fresh
-  Last refresh: 2024-12-20 14:30:00
-  Created: 2024-01-15 09:00:00
-  Sessions: 3
-
-  Import History
-    ✓  #12  completed  2024-12-20 14:00 → 2024-12-20 14:30
-    ✓  #8   completed  2024-11-15 10:00 → 2024-11-15 10:15
-    ✗  #3   failed     2024-10-01 09:00 → 2024-10-01 09:02
-```
-
-### Session Status Icons
-
-| Status    | Icon | Color  |
-| --------- | ---- | ------ |
-| completed | `✓`  | green  |
-| failed    | `✗`  | red    |
-| started   | `⏳` | yellow |
-| cancelled | `⊘`  | dim    |
-
-### Session Line Format
-
-```
-{icon}  #{sessionId}  {status}  {startedAt} → {completedAt}
-```
-
-- Session ID: white
-- Status: matches icon color
-- Timestamps: dim
-- Arrow `→`: dim
-- If no `completedAt`: show `→ —`
-
----
-
-## Sorting
-
-Default: by account ID ascending.
-
----
-
-## Filters
-
-### Platform Filter (`--platform`)
-
-```bash
-exitbook accounts view --platform kraken    # Only Kraken accounts
-exitbook accounts view --platform bitcoin   # Only Bitcoin accounts
-```
-
-### Type Filter (`--type`)
-
-```bash
-exitbook accounts view --type blockchain     # Only blockchain accounts
-exitbook accounts view --type exchange-api   # Only exchange API accounts
-exitbook accounts view --type exchange-csv   # Only exchange CSV accounts
-```
-
-### Account Ref (`--account-ref`)
-
-```bash
-exitbook accounts view --account-ref 6f4c0d1a2b   # Specific account
-```
-
-### Show Sessions (`--show-sessions`)
-
-```bash
-exitbook accounts view --show-sessions      # Include import session history
-```
-
----
-
-## Empty States
-
-### No Accounts
-
-```
-Accounts  0 total
-
-  No accounts found.
-
-  Add an account first:
-  exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
-
-q quit
-```
-
-### No Accounts Matching Filter
-
-```
-Accounts (kraken)  0 total
-
-  No accounts found for kraken.
-
-q quit
-```
-
----
-
-## JSON Mode (`--json`)
-
-Bypasses the TUI. Returns structured account data.
+JSON output uses the standard CLI success envelope:
 
 ```json
 {
+  "success": true,
+  "command": "accounts",
+  "timestamp": "2026-04-01T12:00:00.000Z",
   "data": {
-    "accounts": [
-      {
-        "id": 1,
-        "accountType": "exchange-api",
-        "platformKey": "kraken",
-        "identifier": "OhPz8e0p***",
-        "providerName": null,
-        "balanceProjectionStatus": "fresh",
-        "lastCalculatedAt": "2024-12-20T14:28:00Z",
-        "lastRefreshAt": "2024-12-20T14:30:00Z",
-        "verificationStatus": "match",
-        "sessionCount": 3,
-        "childAccounts": null,
-        "createdAt": "2024-01-15T09:00:00Z"
-      },
-      {
-        "id": 4,
-        "accountType": "blockchain",
-        "platformKey": "bitcoin",
-        "identifier": "xpub6CUG...",
-        "providerName": "mempool",
-        "balanceProjectionStatus": "stale",
-        "lastCalculatedAt": "2024-12-15T08:20:00Z",
-        "lastRefreshAt": "2024-12-15T08:30:00Z",
-        "verificationStatus": "match",
-        "sessionCount": 5,
-        "childAccounts": [
-          {
-            "id": 7,
-            "accountType": "blockchain",
-            "platformKey": "bitcoin",
-            "identifier": "bc1q84x...w9nk",
-            "providerName": null,
-            "balanceProjectionStatus": "never-built",
-            "lastCalculatedAt": null,
-            "lastRefreshAt": null,
-            "verificationStatus": "never-checked",
-            "sessionCount": 2,
-            "childAccounts": null,
-            "createdAt": "2024-06-12T14:23:00Z"
-          }
-        ],
-        "createdAt": "2024-06-12T14:23:00Z"
-      }
-    ],
-    "sessions": {
-      "1": [
-        {
-          "id": 12,
-          "status": "completed",
-          "startedAt": "2024-12-20T14:00:00Z",
-          "completedAt": "2024-12-20T14:30:00Z"
-        }
-      ]
-    }
-  },
-  "meta": {
-    "total": 6,
-    "filters": {}
+    "...": "command payload"
   }
 }
 ```
 
-`sessions` key only present when `--show-sessions` is passed.
+Inner list payload example:
 
----
-
-## Color Specification
-
-### Three-Tier Hierarchy
-
-Same conventions as all other TUI views.
-
-**Signal tier (icons + cursor):**
-
-| Icon | Color  | Meaning                    |
-| ---- | ------ | -------------------------- |
-| `✓`  | green  | Verified / session success |
-| `!`  | yellow | Warning                    |
-| `✗`  | red    | Mismatch / session failed  |
-| `?`  | yellow | Unavailable                |
-| `⊘`  | dim    | Never checked / cancelled  |
-| `⏳` | yellow | Session in progress        |
-| `▸`  | —      | Cursor (bold)              |
-
-**Content tier (what you read):**
-
-| Element        | Color |
-| -------------- | ----- |
-| Account IDs    | white |
-| Source names   | cyan  |
-| Provider names | cyan  |
-| Session counts | white |
-| Session IDs    | white |
-
-**Context tier (recedes):**
-
-| Element                                   | Color |
-| ----------------------------------------- | ----- |
-| Account types                             | dim   |
-| Identifiers (list rows)                   | dim   |
-| Timestamps                                | dim   |
-| Divider `─`                               | dim   |
-| Dot separator `·`                         | dim   |
-| Labels (`Identifier:`, `Provider:`, etc.) | dim   |
-| `session(s)` label                        | dim   |
-| Arrow `→` in sessions                     | dim   |
-| `—` (no provider / no timestamp)          | dim   |
-| Controls bar                              | dim   |
-| Scroll indicators                         | dim   |
-
----
-
-## State Model
-
-```typescript
-interface AccountsViewState {
-  // Data
-  accounts: AccountViewItem[];
-  typeCounts: {
-    blockchain: number;
-    exchangeApi: number;
-    exchangeCsv: number;
-  };
-  totalCount: number;
-
-  // Navigation
-  selectedIndex: number;
-  scrollOffset: number;
-
-  // Filters (applied from CLI args, read-only in TUI)
-  sourceFilter?: string | undefined;
-  typeFilter?: string | undefined;
-  showSessions: boolean;
-}
-
-/** Per-account display item */
-interface AccountViewItem {
-  id: number;
-  accountType: 'blockchain' | 'exchange-api' | 'exchange-csv';
-  platformKey: string;
-  identifier: string; // masked/truncated for display
-  fullIdentifier: string; // full value for detail panel (still masked for exchange-api)
-  providerName: string | null;
-
-  // Balance projection
-  balanceProjectionStatus: 'fresh' | 'stale' | 'building' | 'failed' | 'never-built';
-  lastCalculatedAt: string | null;
-  lastRefreshAt: string | null;
-
-  // Verification
-  verificationStatus: 'match' | 'warning' | 'mismatch' | 'unavailable' | 'never-checked';
-
-  // Sessions
-  sessionCount: number;
-  sessions?: SessionViewItem[] | undefined; // only when --show-sessions
-
-  // Hierarchy
-  childAccounts?: ChildAccountViewItem[] | undefined;
-
-  createdAt: string;
-}
-
-/** Child account (derived address) for display in detail panel */
-interface ChildAccountViewItem {
-  id: number;
-  identifier: string; // truncated address
-  sessionCount: number;
-}
-
-/** Session display item */
-interface SessionViewItem {
-  id: number;
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
-  startedAt: string;
-  completedAt: string | null;
+```json
+{
+  "data": {
+    "data": [
+      {
+        "id": 1,
+        "accountFingerprint": "0000000000000000000000000000000000000000000000000000000000000001",
+        "accountType": "exchange-api",
+        "platformKey": "kraken",
+        "name": "kraken-main",
+        "identifier": "acct-1",
+        "providerName": "kraken-api",
+        "balanceProjectionStatus": "fresh",
+        "lastCalculatedAt": "2026-03-12T12:00:00.000Z",
+        "lastRefreshAt": "2026-03-12T12:30:00.000Z",
+        "verificationStatus": "match",
+        "sessionCount": 2,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "meta": {
+      "count": 1,
+      "offset": 0,
+      "limit": 1,
+      "hasMore": false,
+      "filters": {
+        "platform": "kraken"
+      }
+    }
+  }
 }
 ```
 
-### Actions
+Detail payload:
 
-```typescript
-type AccountsViewAction =
-  // Navigation
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number };
-```
+- the outer `command` field is `accounts` or `accounts-view`
+- the inner `data` field is a single `AccountViewItem`
+- the inner `meta.filters` includes the resolved selector filter under `account`
 
-Read-only view — no mutation actions.
+Notes:
 
----
+- `sessions` is only populated when `--show-sessions` is passed
+- `childAccounts` is nested under the selected account when child accounts exist
+- there is no explorer-specific JSON envelope
+- undefined properties are omitted from serialized JSON
 
-## Component Structure
+## Errors And Help
 
-```
-AccountsViewApp
-├── Header (total + type counts + filter labels)
-├── AccountList
-│   └── AccountRow
-├── Divider
-├── AccountDetailPanel
-│   ├── IdentifierSection
-│   ├── VerificationSection
-│   ├── DerivedAddressesSection (xpub parents only)
-│   └── SessionHistorySection (--show-sessions only)
-└── ControlsBar
-```
+Expected browse-family errors:
 
----
+- `Use bare "accounts" instead of "accounts list".`
+- `Account selector '<value>' not found`
+- `Account ref '<value>' is ambiguous. Use a longer fingerprint prefix. Matches include: ...`
+- `Account selector cannot be combined with --account, --platform, or --type`
 
-## Command Options
+Help copy should keep the V3 mental model explicit:
 
-```
-exitbook accounts view [options]
-
-Options:
-  --account-ref <ref>      View specific account by fingerprint prefix
-  --platform <name>        Filter by exchange or blockchain name
-  --type <type>            Filter by account type (blockchain, exchange-api, exchange-csv)
-  --show-sessions          Include import session history in detail panel
-  --json                   Output JSON, bypass TUI
-  -h, --help               Display help
-```
-
----
-
-## Implementation Notes
-
-### Data Flow
-
-1. Parse and validate CLI options at the boundary
-2. Initialize database, fetch accounts via `AccountService.viewAccounts(params)`
-3. Transform `FormattedAccount[]` into `AccountViewItem[]` (mask identifiers, truncate, resolve hierarchy)
-4. Compute type counts
-5. Render Ink TUI with dataset in memory
-6. Close database (read-only, no open connection needed during browsing)
-
-### Identifier Masking
-
-Uses existing `maskIdentifier()` from `account-service-utils.ts`:
-
-- `exchange-api`: first 8 chars + `***`
-- `blockchain` / `exchange-csv`: full identifier
-
-List rows further truncate for column width. Detail panel shows the full masked value.
-
-### Xpub Hierarchy
-
-- Parent xpub accounts show aggregated session counts (own + children)
-- Child accounts appear only in the parent's detail panel under "Derived Addresses"
-- When `--account-ref` targets a child account, it shows standalone (existing service behavior)
-
-### Terminal Size
-
-- List panel: fills available height minus fixed chrome (header ~3, divider 1, detail panel ~8, controls ~2, scroll indicators ~2 = ~16 lines)
-- Xpub detail panels are taller (derived addresses add ~4–8 lines)
-- `--show-sessions` adds ~4–6 lines to the detail panel
-- Minimum terminal width: 80 columns
-
-### Accessibility
-
-- Vim keys (`j`/`k`) alongside arrows
-- No color-only information — icons and text labels always accompany colors
-- Verification status always shown as text + icon, not just color-coded
+- bare `accounts` is for quick list and detail access
+- `accounts view` is the explorer
+- selectors are names or fingerprint prefixes
+- `--json` is the only generic output override

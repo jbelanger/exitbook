@@ -705,7 +705,7 @@ Cost Basis (FIFO · CA · 2024 · CAD)  0 disposals
 
   Add and sync an account first:
   exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
-  exitbook import --account-name kucoin-main
+  exitbook import kucoin-main
 
 q quit
 ```

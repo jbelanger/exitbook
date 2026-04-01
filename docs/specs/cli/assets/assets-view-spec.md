@@ -121,7 +121,7 @@ Before loading current holdings, the command:
 Error shape:
 
 ```text
-Assets view requires fresh balance snapshots. Scope account <ref> is <status> because <reason>. Run "exitbook balance refresh --account-ref <ref>" or "exitbook balance refresh" to rebuild stored balances.
+Assets view requires fresh balance snapshots. Scope account <ref> is <status> because <reason>. Run "exitbook balance refresh <ref>" or "exitbook balance refresh" to rebuild stored balances.
 ```
 
 When the reason is a processed-transactions rebuild/reset, the message must explicitly say that stored balance snapshots for all scopes were invalidated and prefer `exitbook balance refresh` as the primary rebuild hint.

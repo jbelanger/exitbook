@@ -119,8 +119,8 @@ describe('registerAccountsCommand', () => {
     const help = buildAccountsBrowseOptionsHelpText();
 
     expect(help).not.toContain('Browse Options:');
-    expect(help).toContain('--account-ref <ref>');
-    expect(help).toContain('Filter by account fingerprint or unique fingerprint prefix');
+    expect(help).toContain('--account <selector>');
+    expect(help).toContain('Filter by account name or unique fingerprint prefix');
     expect(help).toContain('--show-sessions');
     expect(help).toContain('Include import session details for each account');
     expect(help).toContain('--json');

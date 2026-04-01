@@ -12,12 +12,16 @@ import {
   toCliResult,
   type CliCommandResult,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import {
+  detectCliOutputFormat,
+  type CliOutputFormat,
+  parseCliCommandOptionsWithOverridesResult,
+} from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
-  hasAccountSelector,
   getAccountSelectorErrorExitCode,
+  hasAccountSelectorArgument,
   resolveRequiredOwnedAccountSelector,
 } from '../../accounts/account-selector.js';
 import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
@@ -47,13 +51,14 @@ export function registerReprocessCommand(program: Command, appRuntime: CliAppRun
   program
     .command('reprocess')
     .description('Rebuild derived data from saved raw imports')
+    .argument('[selector]', 'Account selector (name or fingerprint prefix)')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook reprocess
-  $ exitbook reprocess --account-name kraken-main
-  $ exitbook reprocess --account-ref 6f4c0d1a2b
+  $ exitbook reprocess kraken-main
+  $ exitbook reprocess 6f4c0d1a2b
   $ exitbook reprocess --json
 
 Notes:
@@ -61,13 +66,17 @@ Notes:
   - Reprocess uses stored raw imports only. Run "exitbook import" first if raw data itself is stale.
 `
     )
-    .option('--account-name <name>', 'Reprocess only a specific named account')
-    .option('--account-ref <ref>', 'Reprocess only a specific account fingerprint prefix')
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeReprocessCommand(rawOptions, appRuntime));
+    .action((selector: string | undefined, rawOptions: unknown) =>
+      executeReprocessCommand(selector, rawOptions, appRuntime)
+    );
 }
 
-async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
+async function executeReprocessCommand(
+  selector: string | undefined,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
@@ -76,7 +85,11 @@ async function executeReprocessCommand(rawOptions: unknown, appRuntime: CliAppRu
     appRuntime,
     prepare: async () =>
       resultDoAsync(async function* () {
-        return yield* parseCliCommandOptionsResult(rawOptions, ReprocessCommandOptionsSchema);
+        return yield* parseCliCommandOptionsWithOverridesResult(
+          rawOptions,
+          { selector },
+          ReprocessCommandOptionsSchema
+        );
       }),
     action: async (context) => executeReprocessCommandResult(context.runtime, context.prepared, format),
   });
@@ -109,7 +122,7 @@ async function resolveSelectedReprocessAccountId(
   ctx: CommandRuntime,
   options: ReprocessCommandOptions
 ): Promise<Result<number | undefined, Error>> {
-  if (!hasAccountSelector(options)) {
+  if (!hasAccountSelectorArgument(options)) {
     return ok(undefined);
   }
 
@@ -119,8 +132,8 @@ async function resolveSelectedReprocessAccountId(
     const selection = yield* await resolveRequiredOwnedAccountSelector(
       createCliAccountLifecycleService(database),
       profile.id,
-      options,
-      'Reprocess requires --account-name or --account-ref'
+      options.selector,
+      'Reprocess requires an account selector'
     );
 
     return selection.account.id;

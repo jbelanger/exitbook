@@ -270,7 +270,7 @@ When no stats exist (provider never used):
 
   No usage data. Add and sync an account to generate stats:
   exitbook accounts add {blockchain}-main --blockchain {blockchain} --address {placeholder}
-  exitbook import --account-name {blockchain}-main
+  exitbook import {blockchain}-main
 ```
 
 ### Last Error

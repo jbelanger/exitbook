@@ -34,6 +34,17 @@ export function detectCliTokenOutputFormat(tokens: string[] | undefined): CliOut
   return tokens?.some((token) => token === '--json' || token.startsWith('--json=')) ? 'json' : 'text';
 }
 
+function mergeCliRawOptions(rawOptions: unknown, overrides: Record<string, unknown>): Record<string, unknown> {
+  const baseOptions =
+    typeof rawOptions === 'object' && rawOptions !== null ? { ...(rawOptions as Record<string, unknown>) } : {};
+  const definedOverrides = Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined));
+
+  return {
+    ...baseOptions,
+    ...definedOverrides,
+  };
+}
+
 export function parseCliBrowseRootInvocationResult(
   tokens: string[] | undefined,
   registerBrowseOptions: (command: Command) => Command,
@@ -82,6 +93,15 @@ export function parseCliCommandOptionsResult<T>(
   }
 
   return ok(parseResult.data);
+}
+
+export function parseCliCommandOptionsWithOverridesResult<T>(
+  rawOptions: unknown,
+  overrides: Record<string, unknown>,
+  schema: z.ZodType<T>,
+  invalidExitCode: ExitCode = ExitCodes.INVALID_ARGS
+): Result<T, CliFailure> {
+  return parseCliCommandOptionsResult(mergeCliRawOptions(rawOptions, overrides), schema, invalidExitCode);
 }
 
 export function parseCliBrowseOptionsResult<T>(

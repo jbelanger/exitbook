@@ -529,7 +529,7 @@ Transactions  0 total
 
   Add and sync an account first:
   exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
-  exitbook import --account-name kucoin-main
+  exitbook import kucoin-main
 
 q quit
 ```

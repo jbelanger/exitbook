@@ -2,7 +2,10 @@ import { resultDoAsync } from '@exitbook/foundation';
 
 import { cliErr, type CliCommandResult } from '../../../cli/command.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { getAccountSelectorErrorExitCode, resolveOwnedAccountSelector } from '../../accounts/account-selector.js';
+import {
+  getAccountSelectorErrorExitCode,
+  resolveOwnedOptionalAccountSelector,
+} from '../../accounts/account-selector.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 
 import { withClearCommandScope } from './clear-command-scope.js';
@@ -20,7 +23,11 @@ export async function runClearTerminalFlow(
   return resultDoAsync(async function* () {
     const completion = await withClearCommandScope(runtime, async (scope) =>
       resultDoAsync(async function* () {
-        const selection = yield* await resolveOwnedAccountSelector(scope.accountService, scope.profile.id, options);
+        const selection = yield* await resolveOwnedOptionalAccountSelector(
+          scope.accountService,
+          scope.profile.id,
+          options.selector
+        );
         const params = buildClearParams(scope, options, selection?.account.id);
         const preview = yield* await previewClear(scope, params);
         const flat = flattenPreview(preview);

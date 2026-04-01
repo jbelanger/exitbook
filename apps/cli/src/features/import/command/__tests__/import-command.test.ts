@@ -171,13 +171,11 @@ beforeEach(() => {
 });
 
 describe('ImportCommandOptionsSchema', () => {
-  it('requires exactly one of --account-name, --account-ref, or --all', () => {
+  it('requires exactly one of <selector> or --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({});
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Specify exactly one of --account-name, --account-ref, or --all'
-      );
+      expect(result.error.issues.map((issue) => issue.message)).toContain('Specify exactly one of <selector> or --all');
     }
   });
 
@@ -189,16 +187,14 @@ describe('ImportCommandOptionsSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects providing both --account-name and --all', () => {
+  it('rejects providing both <selector> and --all', () => {
     const result = ImportCommandOptionsSchema.safeParse({
-      accountName: 'kraken-main',
+      selector: 'kraken-main',
       all: true,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.map((issue) => issue.message)).toContain(
-        'Specify exactly one of --account-name, --account-ref, or --all'
-      );
+      expect(result.error.issues.map((issue) => issue.message)).toContain('Specify exactly one of <selector> or --all');
     }
   });
 });
@@ -214,7 +210,7 @@ describe('import command', () => {
   it('resolves an account name and outputs JSON results', async () => {
     const program = createImportProgram();
 
-    await program.parseAsync(['import', '--account-name', 'kraken-main', '--json'], { from: 'user' });
+    await program.parseAsync(['import', 'kraken-main', '--json'], { from: 'user' });
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
     expect(mockRunImport).toHaveBeenCalledWith(
@@ -259,19 +255,21 @@ describe('import command', () => {
 
   it('rejects an account ref that the command runner cannot resolve', async () => {
     const program = createImportProgram();
+    mockGetByName.mockResolvedValue(ok(undefined));
     mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
 
-    await expect(
-      program.parseAsync(['import', '--account-ref', '42deadbeef', '--json'], { from: 'user' })
-    ).rejects.toThrow("CLI:import:json:Account ref '42deadbeef' not found:4");
+    await expect(program.parseAsync(['import', '42deadbeef', '--json'], { from: 'user' })).rejects.toThrow(
+      "CLI:import:json:Account selector '42deadbeef' not found:4"
+    );
 
     expect(mockRunImport).not.toHaveBeenCalled();
   });
 
   it('resolves an account ref and runs a single import', async () => {
     const program = createImportProgram();
+    mockGetByName.mockResolvedValue(ok(undefined));
 
-    await program.parseAsync(['import', '--account-ref', '6f4c0d1a2b', '--json'], { from: 'user' });
+    await program.parseAsync(['import', '6f4c0d1a2b', '--json'], { from: 'user' });
 
     expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, '6f4c0d1a2b');
 
@@ -417,7 +415,7 @@ describe('import command', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockRunImport.mockResolvedValue(ok({ kind: 'cancelled' }));
 
-    await program.parseAsync(['import', '--account-name', 'kraken-main'], { from: 'user' });
+    await program.parseAsync(['import', 'kraken-main'], { from: 'user' });
 
     expect(mockExitCliFailure).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith('Import cancelled by user');

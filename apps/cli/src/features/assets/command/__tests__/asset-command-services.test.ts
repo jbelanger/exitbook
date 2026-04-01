@@ -533,7 +533,7 @@ describe('asset command services', () => {
     const error = assertErr(result);
 
     expect(error.message).toContain('Assets view requires fresh balance snapshots');
-    expect(error.message).toContain('balance refresh --account-ref 1aaaaaaaaa');
+    expect(error.message).toContain('balance refresh 1aaaaaaaaa');
     expect(mockDb.accounts.findById).not.toHaveBeenCalled();
   });
 
@@ -552,7 +552,7 @@ describe('asset command services', () => {
 
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
     expect(error.message).toContain('exitbook balance refresh" to rebuild all stored balances');
-    expect(error.message).toContain('exitbook balance refresh --account-ref 1aaaaaaaaa');
+    expect(error.message).toContain('exitbook balance refresh 1aaaaaaaaa');
   });
 
   it('resolves symbols from snapshot-only holdings', async () => {

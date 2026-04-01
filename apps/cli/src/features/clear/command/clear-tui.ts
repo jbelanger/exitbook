@@ -7,7 +7,7 @@ import { renderApp } from '../../../runtime/command-runtime.js';
 import {
   formatAccountSelectorLabel,
   getAccountSelectorErrorExitCode,
-  resolveOwnedAccountSelector,
+  resolveOwnedOptionalAccountSelector,
 } from '../../accounts/account-selector.js';
 import { ClearViewApp } from '../view/clear-view-components.jsx';
 import { createClearViewState } from '../view/clear-view-state.js';
@@ -25,7 +25,11 @@ export async function runClearTuiFlow(
   return resultDoAsync(async function* () {
     const completion = await withClearCommandScope(runtime, async (scope) =>
       resultDoAsync(async function* () {
-        const selection = yield* await resolveOwnedAccountSelector(scope.accountService, scope.profile.id, options);
+        const selection = yield* await resolveOwnedOptionalAccountSelector(
+          scope.accountService,
+          scope.profile.id,
+          options.selector
+        );
         const params = buildClearParams(scope, options, selection?.account.id);
 
         const [previewWithoutRawResult, previewWithRawResult] = await Promise.all([

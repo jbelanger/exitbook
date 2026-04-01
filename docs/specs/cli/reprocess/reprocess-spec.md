@@ -25,8 +25,7 @@ Purpose:
 
 Options:
 
-- `--account-name <name>`: rebuild one named account scope only
-- `--account-ref <ref>`: rebuild one account scope by fingerprint prefix
+- `[selector]`: rebuild one account scope by name or fingerprint prefix
 - `--json`: emit structured results instead of human progress output
 
 ## User Mental Model
@@ -53,7 +52,7 @@ With no account selector, the command prepares a reprocess plan for all eligible
 
 ### Scoped Rebuild
 
-With `--account-name` or `--account-ref`, the command rebuilds only the selected account scope.
+With a bare account selector, the command rebuilds only the selected account scope.
 
 The scope selection must happen before any destructive reset.
 

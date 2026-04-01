@@ -51,8 +51,8 @@ interface AccountsBrowseOptionDefinition {
 
 const ACCOUNTS_BROWSE_OPTION_DEFINITIONS: AccountsBrowseOptionDefinition[] = [
   {
-    flags: '--account-ref <ref>',
-    description: 'Filter by account fingerprint or unique fingerprint prefix',
+    flags: '--account <selector>',
+    description: 'Filter by account name or unique fingerprint prefix',
   },
   {
     flags: '--platform <name>',
@@ -104,10 +104,10 @@ export function prepareAccountsBrowseCommand({
   }
 
   const { presentation, options } = parsedOptionsResult.value;
-  if (accountSelector && (options.accountRef !== undefined || options.platform || options.type)) {
+  if (accountSelector && (options.account !== undefined || options.platform || options.type)) {
     return err(
       createCliFailure(
-        new Error('Account selector cannot be combined with --account-ref, --platform, or --type'),
+        new Error('Account selector cannot be combined with --account, --platform, or --type'),
         ExitCodes.INVALID_ARGS
       )
     );
@@ -115,7 +115,7 @@ export function prepareAccountsBrowseCommand({
 
   return ok({
     params: {
-      accountRef: options.accountRef,
+      account: options.account,
       accountSelector,
       platformKey: options.platform,
       accountType: options.type,
@@ -217,7 +217,7 @@ function buildAccountsBrowseCompletion(
 function shouldCollapseAccountsExplorerWhenEmpty(params: AccountsBrowseParams): boolean {
   return (
     params.accountSelector === undefined &&
-    params.accountRef === undefined &&
+    params.account === undefined &&
     params.platformKey === undefined &&
     params.accountType === undefined
   );

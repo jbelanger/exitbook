@@ -4,12 +4,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
-const { mockCtx, mockExitCliFailure, mockOutputSuccess, mockRunCommand, mockRunReprocess } = vi.hoisted(() => ({
+const {
+  mockCreateCliAccountLifecycleService,
+  mockCtx,
+  mockExitCliFailure,
+  mockGetByFingerprintRef,
+  mockGetByName,
+  mockOutputSuccess,
+  mockResolveCommandProfile,
+  mockRunCommand,
+  mockRunReprocess,
+} = vi.hoisted(() => ({
+  mockCreateCliAccountLifecycleService: vi.fn(),
   mockCtx: {
     database: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
+  mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunReprocess: vi.fn(),
 }));
@@ -25,6 +39,14 @@ vi.mock('../../../../cli/error.js', () => ({
 
 vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
+}));
+
+vi.mock('../../../profiles/profile-resolution.js', () => ({
+  resolveCommandProfile: mockResolveCommandProfile,
+}));
+
+vi.mock('../../../accounts/account-service.js', () => ({
+  createCliAccountLifecycleService: mockCreateCliAccountLifecycleService,
 }));
 
 vi.mock('../run-reprocess.js', () => ({
@@ -57,6 +79,15 @@ beforeEach(() => {
       runStats: { totalRequests: 0 },
     })
   );
+  mockResolveCommandProfile.mockResolvedValue(
+    ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-01-01T00:00:00.000Z') })
+  );
+  mockCreateCliAccountLifecycleService.mockReturnValue({
+    getByFingerprintRef: mockGetByFingerprintRef,
+    getByName: mockGetByName,
+  });
+  mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+  mockGetByName.mockResolvedValue(ok(undefined));
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -96,16 +127,33 @@ describe('reprocess command', () => {
     expect(payload.reprocess.counts.processed).toBe(5);
   });
 
-  it('treats conflicting account selectors as invalid-args failures', async () => {
+  it('resolves a reprocess selector and passes the selected account id to the workflow', async () => {
+    const program = createProgram();
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        name: 'kraken-main',
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+        accountFingerprint: '7aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      })
+    );
+
+    await program.parseAsync(['reprocess', 'kraken-main', '--json'], { from: 'user' });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
+    expect(mockRunReprocess).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { accountId: 7 });
+  });
+
+  it('surfaces selector misses as not-found failures', async () => {
     const program = createProgram();
 
-    await expect(
-      program.parseAsync(['reprocess', '--account-name', 'kraken-main', '--account-ref', '6f4c0d1a2b', '--json'], {
-        from: 'user',
-      })
-    ).rejects.toThrow('CLI:reprocess:json:Cannot specify both --account-name and --account-ref:2');
-
-    expect(mockRunCommand).not.toHaveBeenCalled();
+    await expect(program.parseAsync(['reprocess', 'ghost-wallet', '--json'], { from: 'user' })).rejects.toThrow(
+      "CLI:reprocess:json:Account selector 'ghost-wallet' not found:4"
+    );
   });
 
   it('renders warning text after a successful text-mode reprocess with processing errors', async () => {

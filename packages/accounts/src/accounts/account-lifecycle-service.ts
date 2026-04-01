@@ -203,6 +203,16 @@ export class AccountLifecycleService {
     if (accountResult.isErr()) {
       return err(accountResult.error);
     }
+
+    return this.renameOwned(profileId, accountResult.value.id, nextName);
+  }
+
+  async renameOwned(profileId: number, accountId: number, nextName: string): Promise<Result<Account, Error>> {
+    const accountResult = await this.requireOwned(profileId, accountId);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+
     const nextNameResult = this.normalizeAccountName(nextName);
     if (nextNameResult.isErr()) {
       return err(nextNameResult.error);
@@ -231,6 +241,19 @@ export class AccountLifecycleService {
     }
 
     const accountResult = await this.requireNamedAccount(profileId, name);
+    if (accountResult.isErr()) {
+      return err(accountResult.error);
+    }
+
+    return this.updateOwned(profileId, accountResult.value.id, input);
+  }
+
+  async updateOwned(profileId: number, accountId: number, input: UpdateAccountInput): Promise<Result<Account, Error>> {
+    if (!hasAccountConfigChanges(input)) {
+      return err(new Error('No account config changes were provided'));
+    }
+
+    const accountResult = await this.requireOwned(profileId, accountId);
     if (accountResult.isErr()) {
       return err(accountResult.error);
     }

@@ -12,7 +12,11 @@ import {
   textSuccess,
   type CliCommandResult,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import {
+  detectCliOutputFormat,
+  type CliOutputFormat,
+  parseCliCommandOptionsWithOverridesResult,
+} from '../../../cli/options.js';
 import { promptConfirmDecision } from '../../../cli/prompts.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -105,24 +109,30 @@ export function registerImportCommand(program: Command, appRuntime: CliAppRuntim
   program
     .command('import')
     .description('Sync raw data for an existing account')
-    .option('--account-name <name>', 'Named account to sync')
-    .option('--account-ref <ref>', 'Account fingerprint prefix to sync')
+    .argument('[selector]', 'Account selector (name or fingerprint prefix)')
     .option('--all', 'Sync all top-level accounts in the selected profile')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook import --account-name kraken-main
-  $ exitbook import --account-name wallet-main
+  $ exitbook import kraken-main
+  $ exitbook import wallet-main
+  $ exitbook import 6f4c0d1a2b
   $ exitbook import --all
-  $ exitbook import --account-ref 6f4c0d1a2b --json
+  $ exitbook import kraken-main --json
 `
     )
-    .action((rawOptions: unknown) => executeImportCommand(rawOptions, appRuntime));
+    .action((selector: string | undefined, rawOptions: unknown) =>
+      executeImportCommand(selector, rawOptions, appRuntime)
+    );
 }
 
-async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
+async function executeImportCommand(
+  selector: string | undefined,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   const command = 'import';
   const format = detectCliOutputFormat(rawOptions);
 
@@ -132,7 +142,7 @@ async function executeImportCommand(rawOptions: unknown, appRuntime: CliAppRunti
     appRuntime,
     prepare: async () =>
       resultDoAsync(async function* () {
-        return yield* parseCliCommandOptionsResult(rawOptions, ImportCommandOptionsSchema);
+        return yield* parseCliCommandOptionsWithOverridesResult(rawOptions, { selector }, ImportCommandOptionsSchema);
       }),
     action: async (context) => executeImportCommandResult(context.runtime, context.prepared, format),
   });
@@ -157,8 +167,8 @@ async function executeImportCommandResult(
         const accountSelection = yield* await resolveRequiredOwnedAccountSelector(
           scope.accountService,
           scope.profile.id,
-          options,
-          'Import requires --account-name or --account-ref'
+          options.selector,
+          'Import requires an account selector or --all'
         );
         const account = accountSelection.account;
         const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
@@ -203,7 +213,7 @@ function buildSingleImportParams(account: Account, format: CliOutputFormat) {
       process.stderr.write(
         `  $ exitbook accounts add wallet-xpub --blockchain ${account.platformKey} --address xpub... --xpub-gap 20\n`
       );
-      process.stderr.write('  $ exitbook import --account-name wallet-xpub\n\n');
+      process.stderr.write('  $ exitbook import wallet-xpub\n\n');
       process.stderr.write('Note: xpub imports reveal all wallet addresses (privacy trade-off)\n\n');
       return await promptConfirmDecision('Continue with single address import?', false);
     },

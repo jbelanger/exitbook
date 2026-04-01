@@ -7,8 +7,9 @@ import {
   buildAccountSelectorFilters,
   formatResolvedAccountSelectorInput,
   getAccountSelectorErrorExitCode,
+  hasAccountSelectorArgument,
   resolveOwnedAccountSelector,
-  resolveOwnedBrowseAccountSelector,
+  resolveOwnedOptionalAccountSelector,
   resolveRequiredOwnedAccountSelector,
 } from '../account-selector.js';
 
@@ -40,7 +41,7 @@ describe('account-selector helpers', () => {
       getByFingerprintRef: vi.fn(),
     };
 
-    const result = await resolveOwnedAccountSelector(service, 1, { accountName: 'kraken-main' });
+    const result = await resolveOwnedAccountSelector(service, 1, 'kraken-main');
 
     expect(result.isErr()).toBe(false);
     if (result.isErr()) {
@@ -55,8 +56,8 @@ describe('account-selector helpers', () => {
       kind: 'name',
       value: 'kraken-main',
     });
-    expect(buildAccountSelectorFilters(result.value)).toEqual({ accountName: 'kraken-main' });
-    expect(formatResolvedAccountSelectorInput(result.value)).toBe("Account name 'kraken-main'");
+    expect(buildAccountSelectorFilters(result.value)).toEqual({ account: 'kraken-main' });
+    expect(formatResolvedAccountSelectorInput(result.value)).toBe("Account selector 'kraken-main'");
   });
 
   it('falls back from a bare selector name lookup to fingerprint ref lookup', async () => {
@@ -66,7 +67,7 @@ describe('account-selector helpers', () => {
       getByFingerprintRef: vi.fn().mockResolvedValue(ok(account)),
     };
 
-    const result = await resolveOwnedBrowseAccountSelector(service, 1, '1aaaaaaaaa');
+    const result = await resolveOwnedAccountSelector(service, 1, '1aaaaaaaaa');
 
     expect(result.isErr()).toBe(false);
     if (result.isErr()) {
@@ -82,13 +83,33 @@ describe('account-selector helpers', () => {
     expect(service.getByFingerprintRef).toHaveBeenCalledWith(1, '1aaaaaaaaa');
   });
 
+  it('treats a missing bare selector as an omitted selection', async () => {
+    const service = {
+      getByName: vi.fn(),
+      getByFingerprintRef: vi.fn(),
+    };
+
+    const result = await resolveOwnedOptionalAccountSelector(service, 1, undefined);
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toBeUndefined();
+    expect(hasAccountSelectorArgument({})).toBe(false);
+    expect(hasAccountSelectorArgument({ selector: 'kraken-main' })).toBe(true);
+    expect(service.getByName).not.toHaveBeenCalled();
+    expect(service.getByFingerprintRef).not.toHaveBeenCalled();
+  });
+
   it('rewrites a bare selector miss into selector-specific not-found copy', async () => {
     const service = {
       getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi.fn().mockResolvedValue(ok(undefined)),
     };
 
-    const result = await resolveOwnedBrowseAccountSelector(service, 1, 'ghost-wallet');
+    const result = await resolveOwnedAccountSelector(service, 1, 'ghost-wallet');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -98,7 +119,7 @@ describe('account-selector helpers', () => {
     }
   });
 
-  it('treats required-selector misses as invalid arguments', async () => {
+  it('treats missing required selectors as invalid arguments', async () => {
     const service = {
       getByName: vi.fn(),
       getByFingerprintRef: vi.fn(),
@@ -107,27 +128,27 @@ describe('account-selector helpers', () => {
     const result = await resolveRequiredOwnedAccountSelector(
       service,
       1,
-      {},
-      'Import requires --account-name or --account-ref'
+      undefined,
+      'Import requires an account selector or --all'
     );
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(AccountSelectorResolutionError);
-      expect(result.error.message).toBe('Import requires --account-name or --account-ref');
+      expect(result.error.message).toBe('Import requires an account selector or --all');
       expect(getAccountSelectorErrorExitCode(result.error)).toBe(2);
     }
   });
 
   it('maps ambiguous fingerprint refs to invalid-args semantics', async () => {
     const service = {
-      getByName: vi.fn(),
+      getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi
         .fn()
         .mockResolvedValue(err(new AmbiguousAccountFingerprintRefError('1aaa', ['1aaa0', '1aaa1']))),
     };
 
-    const result = await resolveOwnedAccountSelector(service, 1, { accountRef: '1aaa' });
+    const result = await resolveOwnedAccountSelector(service, 1, '1aaa');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {

@@ -5,25 +5,13 @@ import { z } from 'zod';
 import { ExitCodes, type ExitCode } from '../../cli/exit-codes.js';
 
 export const ACCOUNT_FINGERPRINT_REF_LENGTH = 10;
-export const ACCOUNT_REF_OPTION_ERROR = '--account-ref must be a fingerprint or unique fingerprint prefix';
+export const AccountSelectorValueSchema = z.string().trim().min(1);
 
-export const AccountRefOptionSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .regex(/^[a-f0-9]+$/i, ACCOUNT_REF_OPTION_ERROR)
-  .transform((value) => value.toLowerCase());
+export const OptionalBareAccountSelectorSchema = z.object({
+  selector: AccountSelectorValueSchema.optional(),
+});
 
-export const OptionalAccountSelectorSchema = z
-  .object({
-    accountName: z.string().trim().min(1).optional(),
-    accountRef: AccountRefOptionSchema.optional(),
-  })
-  .refine((data) => !(data.accountName && data.accountRef), {
-    message: 'Cannot specify both --account-name and --account-ref',
-  });
-
-export type OptionalAccountSelector = z.infer<typeof OptionalAccountSelectorSchema>;
+export type OptionalBareAccountSelector = z.infer<typeof OptionalBareAccountSelectorSchema>;
 
 interface AccountSelectorService {
   getByFingerprintRef(profileId: number, fingerprintRef: string): Promise<Result<Account | undefined, Error>>;
@@ -37,9 +25,9 @@ export interface ResolvedAccountSelector {
 }
 
 export class AccountSelectorResolutionError extends Error {
-  readonly kind: 'ambiguous' | 'conflict' | 'missing' | 'not-found';
+  readonly kind: 'ambiguous' | 'missing' | 'not-found';
 
-  constructor(kind: 'ambiguous' | 'conflict' | 'missing' | 'not-found', message: string) {
+  constructor(kind: 'ambiguous' | 'missing' | 'not-found', message: string) {
     super(message);
     this.kind = kind;
     this.name = 'AccountSelectorResolutionError';
@@ -104,8 +92,8 @@ async function resolveAccountRefSelector(
   return ok(buildResolvedAccountSelector(accountResult.value, 'ref', normalizedRef));
 }
 
-export function hasAccountSelector(selector: OptionalAccountSelector): boolean {
-  return selector.accountName !== undefined || selector.accountRef !== undefined;
+export function hasAccountSelectorArgument(selector: OptionalBareAccountSelector): boolean {
+  return selector.selector !== undefined;
 }
 
 export function formatAccountFingerprintRef(accountFingerprint: string): string {
@@ -120,25 +108,27 @@ export function formatAccountSelectorLabel(account: Pick<Account, 'accountFinger
   return account.name ?? formatAccountFingerprintRef(account.accountFingerprint);
 }
 
-export function formatResolvedAccountSelectorInput(selector: Pick<ResolvedAccountSelector, 'kind' | 'value'>): string {
-  return selector.kind === 'name' ? `Account name '${selector.value}'` : `Account ref '${selector.value}'`;
+export function formatResolvedAccountSelectorInput(selector: Pick<ResolvedAccountSelector, 'value'>): string {
+  return `Account selector '${selector.value}'`;
 }
 
-export function buildAccountSelectorFilters(selector: ResolvedAccountSelector | undefined): OptionalAccountSelector {
+export function buildAccountSelectorFilters(selector: ResolvedAccountSelector | undefined): {
+  account?: string | undefined;
+} {
   if (!selector) {
     return {};
   }
 
-  return selector.kind === 'name' ? { accountName: selector.value } : { accountRef: selector.value };
+  return { account: selector.value };
 }
 
-export async function resolveOwnedBrowseAccountSelector(
+export async function resolveOwnedAccountSelector(
   accountService: AccountSelectorService,
   profileId: number,
-  accountSelector: string
+  selector: string
 ): Promise<Result<ResolvedAccountSelector, Error>> {
-  const normalizedSelector = normalizeAccountSelectorValue(accountSelector);
-  const accountByNameResult = await resolveAccountNameSelector(accountService, profileId, accountSelector);
+  const normalizedSelector = normalizeAccountSelectorValue(selector);
+  const accountByNameResult = await resolveAccountNameSelector(accountService, profileId, selector);
   if (accountByNameResult.isOk()) {
     return accountByNameResult;
   }
@@ -154,6 +144,18 @@ export async function resolveOwnedBrowseAccountSelector(
   return accountByRefResult;
 }
 
+export async function resolveOwnedOptionalAccountSelector(
+  accountService: AccountSelectorService,
+  profileId: number,
+  selector: string | undefined
+): Promise<Result<ResolvedAccountSelector | undefined, Error>> {
+  if (!selector) {
+    return ok(undefined);
+  }
+
+  return resolveOwnedAccountSelector(accountService, profileId, selector);
+}
+
 export function getAccountSelectorErrorExitCode(error: Error): ExitCode {
   if (!(error instanceof AccountSelectorResolutionError)) {
     return ExitCodes.GENERAL_ERROR;
@@ -163,39 +165,18 @@ export function getAccountSelectorErrorExitCode(error: Error): ExitCode {
     case 'not-found':
       return ExitCodes.NOT_FOUND;
     case 'ambiguous':
-    case 'conflict':
     case 'missing':
       return ExitCodes.INVALID_ARGS;
   }
 }
 
-export async function resolveOwnedAccountSelector(
-  accountService: AccountSelectorService,
-  profileId: number,
-  selector: OptionalAccountSelector
-): Promise<Result<ResolvedAccountSelector | undefined, Error>> {
-  if (selector.accountName && selector.accountRef) {
-    return err(new AccountSelectorResolutionError('conflict', 'Cannot specify both --account-name and --account-ref'));
-  }
-
-  if (selector.accountName) {
-    return resolveAccountNameSelector(accountService, profileId, selector.accountName);
-  }
-
-  if (selector.accountRef) {
-    return resolveAccountRefSelector(accountService, profileId, selector.accountRef);
-  }
-
-  return ok(undefined);
-}
-
 export async function resolveRequiredOwnedAccountSelector(
   accountService: AccountSelectorService,
   profileId: number,
-  selector: OptionalAccountSelector,
+  selector: string | undefined,
   missingMessage: string
 ): Promise<Result<ResolvedAccountSelector, Error>> {
-  const selectionResult = await resolveOwnedAccountSelector(accountService, profileId, selector);
+  const selectionResult = await resolveOwnedOptionalAccountSelector(accountService, profileId, selector);
   if (selectionResult.isErr()) {
     return err(selectionResult.error);
   }

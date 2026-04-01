@@ -7,10 +7,10 @@ import {
   JsonFlagSchema,
   SourceSelectionSchema,
 } from '../../shared/option-schema-primitives.js';
-import { AccountRefOptionSchema } from '../account-selector.js';
+import { AccountSelectorValueSchema } from '../account-selector.js';
 
 export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({
-  accountRef: AccountRefOptionSchema.optional(),
+  account: AccountSelectorValueSchema.optional(),
   platform: z.string().optional(),
   type: AccountTypeSchema.optional(),
   showSessions: z.boolean().optional(),

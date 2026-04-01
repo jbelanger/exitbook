@@ -165,11 +165,11 @@ The "items" count shows only items that WILL be deleted (excludes preserved).
 
 ### Scope Labels
 
-| Filter Type                        | Display             | Example                     |
-| ---------------------------------- | ------------------- | --------------------------- |
-| None                               | `all accounts`      | `Clear data — all accounts` |
-| `--platform`                       | `({platform})`      | `Clear data — (kraken)`     |
-| `--account-name` / `--account-ref` | account label / ref | `Clear data — bitcoin-main` |
+| Filter Type  | Display             | Example                     |
+| ------------ | ------------------- | --------------------------- |
+| None         | `all accounts`      | `Clear data — all accounts` |
+| `--platform` | `({platform})`      | `Clear data — (kraken)`     |
+| `[selector]` | account label / ref | `Clear data — bitcoin-main` |
 
 ---
 
@@ -225,7 +225,7 @@ The "items" count shows only items that WILL be deleted (excludes preserved).
 
 When `includeRaw` is off, raw data rows always show the ACTUAL item counts (from the pre-fetched include-raw preview) with the `preserved` label. This tells the user "this data exists and is safe." When `includeRaw` is on, the same counts display as "will delete" with red icons.
 
-The `Accounts` row is special: it only shows a count when both `includeRaw` is on AND a scoped filter (`--account-name`, `--account-ref`, or `--platform`) is applied. For unscoped clear, accounts are never deleted — the row shows 0 and `·` dim.
+The `Accounts` row is special: it only shows a count when both `includeRaw` is on AND a scoped selector (`[selector]` or `--platform`) is applied. For unscoped clear, accounts are never deleted — the row shows 0 and `·` dim.
 
 ---
 
@@ -446,11 +446,11 @@ Deleted: {summary}
 
 Recovery hints by scenario:
 
-| Scenario                  | Hint                                                                                                             |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Without include-raw       | `Run \`exitbook reprocess\` to reprocess from preserved raw data.`                                               |
-| With include-raw          | `Re-sync saved accounts to restore data:`<br>`  exitbook import --account-name <name>`                           |
-| With include-raw + source | `Re-sync saved accounts in that profile after recreating raw data:`<br>`  exitbook import --account-name <name>` |
+| Scenario                  | Hint                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Without include-raw       | `Run \`exitbook reprocess\` to reprocess from preserved raw data.`                                    |
+| With include-raw          | `Re-sync saved accounts to restore data:`<br>`  exitbook import <selector>`                           |
+| With include-raw + source | `Re-sync saved accounts in that profile after recreating raw data:`<br>`  exitbook import <selector>` |
 
 ### Complete Phase Navigation
 
@@ -469,7 +469,7 @@ Clear Data  0 items
 
   Add and sync an account first:
   exitbook accounts add kucoin-main --exchange kucoin --csv-dir ./exports/kucoin
-  exitbook import --account-name kucoin-main
+  exitbook import kucoin-main
 
 q/esc quit
 ```
@@ -767,11 +767,10 @@ ClearApp
 ## Command Options
 
 ```
-exitbook clear [options]
+exitbook clear [selector] [options]
 
 Options:
-  --account-name <name>    Clear data for a specific named account
-  --account-ref <ref>      Clear data for a specific account fingerprint prefix
+  [selector]               Clear data for a specific account by name or fingerprint prefix
   --platform <name>    Clear data for all accounts with this platform name
   --include-raw        Also delete raw imported data (WARNING: requires re-import)
   --confirm            Skip TUI, execute immediately
@@ -817,7 +816,7 @@ The `previewDeletion` service only returns non-zero raw data counts when `includ
 
 ### Accounts Row Behavior
 
-Accounts are only deleted when `includeRaw: true` AND a scoped filter (`--account-name`, `--account-ref`, or `--platform`) is applied. For unscoped clear-all, `previewWithRaw.accounts` is always 0 (the service preserves accounts for future imports). The accounts row reflects this — it shows 0 with `·` dim icon for unscoped clear regardless of the include-raw toggle.
+Accounts are only deleted when `includeRaw: true` AND a scoped selector (`[selector]` or `--platform`) is applied. For unscoped clear-all, `previewWithRaw.accounts` is always 0 (the service preserves accounts for future imports). The accounts row reflects this — it shows 0 with `·` dim icon for unscoped clear regardless of the include-raw toggle.
 
 ### Terminal Size
 

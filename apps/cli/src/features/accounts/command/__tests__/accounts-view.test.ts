@@ -158,23 +158,27 @@ beforeEach(() => {
     getByName: mockGetByName,
   });
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
-  mockGetByName.mockResolvedValue(
-    ok({
-      id: 1,
-      profileId: 1,
-      accountFingerprint: createAccountFingerprint(1),
-      name: 'kraken-main',
-      parentAccountId: undefined,
-      accountType: 'exchange-api',
-      platformKey: 'kraken',
-      identifier: 'acct-1',
-      providerName: 'kraken-api',
-      credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
-      lastCursor: undefined,
-      metadata: undefined,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: undefined,
-    })
+  mockGetByName.mockImplementation(async (_profileId: number, name: string) =>
+    ok(
+      name === 'kraken-main'
+        ? {
+            id: 1,
+            profileId: 1,
+            accountFingerprint: createAccountFingerprint(1),
+            name: 'kraken-main',
+            parentAccountId: undefined,
+            accountType: 'exchange-api',
+            platformKey: 'kraken',
+            identifier: 'acct-1',
+            providerName: 'kraken-api',
+            credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
+            lastCursor: undefined,
+            metadata: undefined,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: undefined,
+          }
+        : undefined
+    )
   );
   mockResolveCommandProfile.mockResolvedValue(
     ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2025-01-01T00:00:00.000Z') })
@@ -373,7 +377,7 @@ describe('accounts browse commands', () => {
           limit: 1,
           hasMore: false,
           filters: {
-            accountName: 'kraken-main',
+            account: 'kraken-main',
           },
         },
       },
@@ -499,7 +503,7 @@ describe('accounts browse commands', () => {
       [
         'accounts',
         'view',
-        '--account-ref',
+        '--account',
         '000000000000',
         '--platform',
         'kraken',
@@ -567,7 +571,7 @@ describe('accounts browse commands', () => {
           limit: 1,
           hasMore: false,
           filters: {
-            accountRef: '000000000000',
+            account: '000000000000',
             platform: 'kraken',
             accountType: 'exchange-api',
           },
@@ -903,7 +907,7 @@ describe('accounts browse commands', () => {
           limit: 1,
           hasMore: false,
           filters: {
-            accountName: 'kraken-main',
+            account: 'kraken-main',
           },
         },
       },
@@ -913,7 +917,7 @@ describe('accounts browse commands', () => {
     const payload: unknown = mockOutputSuccess.mock.calls[0]?.[1];
     expect(payload).toBeDefined();
     expect((payload as { meta?: { filters?: Record<string, unknown> } }).meta?.filters).toEqual({
-      accountName: 'kraken-main',
+      account: 'kraken-main',
     });
   });
 
@@ -943,27 +947,27 @@ describe('accounts browse commands', () => {
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it('routes conflicting account-name filters through the text error path', async () => {
+  it('routes conflicting account filters through the text error path', async () => {
     const program = createAccountsProgram();
 
     await expect(
       program.parseAsync(['accounts', 'view', 'kraken-main', '--platform', 'kraken'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:accounts-view:text:Account selector cannot be combined with --account-ref, --platform, or --type:2'
+      'CLI:accounts-view:text:Account selector cannot be combined with --account, --platform, or --type:2'
     );
 
     expect(mockRunCommand).not.toHaveBeenCalled();
   });
 
-  it('routes invalid CLI options through the text error path', async () => {
+  it('routes missing account filters through the text error path', async () => {
     const program = createAccountsProgram();
+    mockGetByName.mockResolvedValue(ok(undefined));
 
     await expect(
-      program.parseAsync(['accounts', 'view', '--account-ref', 'not-a-ref'], { from: 'user' })
-    ).rejects.toThrow('CLI:accounts-view:text:--account-ref must be a fingerprint or unique fingerprint prefix:2');
+      program.parseAsync(['accounts', 'view', '--account', 'ghost-wallet'], { from: 'user' })
+    ).rejects.toThrow("CLI:accounts-view:text:Account selector 'ghost-wallet' not found:4");
 
-    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 2 }), 'text');
-    expect(mockRunCommand).not.toHaveBeenCalled();
+    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts-view', expect.objectContaining({ exitCode: 4 }), 'text');
   });
 
   it('routes ambiguous account refs through invalid-args semantics', async () => {
@@ -973,7 +977,7 @@ describe('accounts browse commands', () => {
       err(new AmbiguousAccountFingerprintRefError('0000', ['0000aaaa', '0000bbbb']))
     );
 
-    await expect(program.parseAsync(['accounts', 'view', '--account-ref', '0000'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['accounts', 'view', '--account', '0000'], { from: 'user' })).rejects.toThrow(
       "CLI:accounts-view:text:Account ref '0000' is ambiguous. Use a longer fingerprint prefix. Matches include: 0000aaaa, 0000bbbb:2"
     );
 

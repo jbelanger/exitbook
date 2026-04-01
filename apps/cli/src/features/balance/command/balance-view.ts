@@ -11,14 +11,17 @@ import {
   type CliCommandResult,
   type CliCompletion,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import {
+  detectCliOutputFormat,
+  type CliOutputFormat,
+  parseCliCommandOptionsWithOverridesResult,
+} from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
-  buildAccountSelectorFilters,
   formatResolvedAccountSelectorInput,
   getAccountSelectorErrorExitCode,
-  resolveOwnedAccountSelector,
+  resolveOwnedOptionalAccountSelector,
   type ResolvedAccountSelector,
 } from '../../accounts/account-selector.js';
 import { BalanceApp } from '../view/balance-view-components.jsx';
@@ -36,16 +39,15 @@ export function registerBalanceViewCommand(balanceCommand: Command, appRuntime: 
   balanceCommand
     .command('view')
     .description('View stored balance snapshots without calling live providers')
-    .option('--account-name <name>', 'View one named balance scope')
-    .option('--account-ref <ref>', 'View one balance scope by account fingerprint prefix')
+    .argument('[selector]', 'Account selector (name or fingerprint prefix)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook balance view
-  $ exitbook balance view --account-name kraken-main
-  $ exitbook balance view --account-ref 6f4c0d1a2b
+  $ exitbook balance view kraken-main
+  $ exitbook balance view 6f4c0d1a2b
   $ exitbook balance view --json
 
 Notes:
@@ -56,10 +58,16 @@ Notes:
   - Use "exitbook balance refresh" when you want live verification.
 `
     )
-    .action((rawOptions: unknown) => executeBalanceViewCommand(rawOptions, appRuntime));
+    .action((selector: string | undefined, rawOptions: unknown) =>
+      executeBalanceViewCommand(selector, rawOptions, appRuntime)
+    );
 }
 
-async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
+async function executeBalanceViewCommand(
+  selector: string | undefined,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
@@ -68,7 +76,11 @@ async function executeBalanceViewCommand(rawOptions: unknown, appRuntime: CliApp
     appRuntime,
     prepare: async () =>
       resultDoAsync(async function* () {
-        return yield* parseCliCommandOptionsResult(rawOptions, BalanceViewCommandOptionsSchema);
+        return yield* parseCliCommandOptionsWithOverridesResult(
+          rawOptions,
+          { selector },
+          BalanceViewCommandOptionsSchema
+        );
       }),
     action: async (context) => executeBalanceViewCommandResult(context.runtime, context.prepared, format),
   });
@@ -88,10 +100,11 @@ async function executeBalanceViewCommandResult(
         prepareStoredSnapshots: true,
       },
       async (scope) => {
-        const selectionResult = await resolveOwnedAccountSelector(scope.accountService, scope.profile.id, {
-          accountName: options.accountName,
-          accountRef: options.accountRef,
-        });
+        const selectionResult = await resolveOwnedOptionalAccountSelector(
+          scope.accountService,
+          scope.profile.id,
+          options.selector
+        );
         if (selectionResult.isErr()) {
           return err(selectionResult.error);
         }
@@ -151,7 +164,12 @@ function buildBalanceViewJsonCompletion(
     {
       totalAccounts: result.accounts.length,
       mode: 'view',
-      filters: buildAccountSelectorFilters(selection),
+      ...(selection && {
+        selector: {
+          kind: selection.kind,
+          value: selection.value,
+        },
+      }),
     }
   );
 }

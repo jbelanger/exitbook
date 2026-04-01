@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ExitCodes } from '../../../../cli/exit-codes.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import { AccountRemovalTargetNotFoundError } from '../accounts-remove-errors.js';
+import { AccountSelectorResolutionError } from '../../account-selector.js';
 
 const {
   mockcreateCliAccountLifecycleService,
@@ -13,15 +13,16 @@ const {
   mockCreate,
   mockCtx,
   mockExitCliFailure,
+  mockGetByFingerprintRef,
   mockGetByName,
   mockOutputSuccess,
   mockPrepareAccountRemoval,
   mockPromptConfirmDecision,
-  mockRename,
+  mockRenameOwned,
   mockResolveCommandProfile,
   mockRunAccountRemoval,
   mockRunCommand,
-  mockUpdate,
+  mockUpdateOwned,
   mockWithAccountsRemoveCommandScope,
 } = vi.hoisted(() => ({
   mockcreateCliAccountLifecycleService: vi.fn(),
@@ -32,15 +33,16 @@ const {
     database: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockGetByFingerprintRef: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPrepareAccountRemoval: vi.fn(),
   mockPromptConfirmDecision: vi.fn(),
-  mockRename: vi.fn(),
+  mockRenameOwned: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunAccountRemoval: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockUpdate: vi.fn(),
+  mockUpdateOwned: vi.fn(),
   mockWithAccountsRemoveCommandScope: vi.fn(),
 }));
 
@@ -123,10 +125,13 @@ beforeEach(() => {
   );
   mockcreateCliAccountLifecycleService.mockReturnValue({
     create: mockCreate,
-    rename: mockRename,
+    renameOwned: mockRenameOwned,
+    getByFingerprintRef: mockGetByFingerprintRef,
     getByName: mockGetByName,
-    update: mockUpdate,
+    updateOwned: mockUpdateOwned,
   });
+  mockGetByName.mockResolvedValue(ok(undefined));
+  mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
   mockWithAccountsRemoveCommandScope.mockImplementation(
     async (
       _ctx: unknown,
@@ -240,7 +245,21 @@ describe('accounts lifecycle commands', () => {
   it('renames an account in JSON mode', async () => {
     const program = createAccountsProgram();
 
-    mockRename.mockResolvedValue(
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        accountFingerprint: createAccountFingerprint(7),
+        name: 'kraken-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockRenameOwned.mockResolvedValue(
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
@@ -254,7 +273,8 @@ describe('accounts lifecycle commands', () => {
 
     await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary', '--json'], { from: 'user' });
 
-    expect(mockRename).toHaveBeenCalledWith(1, 'kraken-main', 'kraken-primary');
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
+    expect(mockRenameOwned).toHaveBeenCalledWith(1, 7, 'kraken-primary');
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'accounts-rename',
       {
@@ -309,7 +329,21 @@ describe('accounts lifecycle commands', () => {
     const program = createAccountsProgram();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
-    mockRename.mockResolvedValue(
+    mockGetByFingerprintRef.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        accountFingerprint: createAccountFingerprint(7),
+        name: 'kraken-main',
+        parentAccountId: undefined,
+        accountType: 'exchange-api',
+        platformKey: 'kraken',
+        identifier: 'api-key-1',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockRenameOwned.mockResolvedValue(
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
@@ -321,11 +355,15 @@ describe('accounts lifecycle commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'rename', 'kraken-main', 'kraken-primary'], { from: 'user' });
+    await program.parseAsync(['accounts', 'rename', createAccountFingerprint(7).slice(0, 10), 'kraken-primary'], {
+      from: 'user',
+    });
 
     expect(consoleLog).toHaveBeenCalledOnce();
     expect(consoleLog.mock.calls[0]?.[0]).toContain('✓');
-    expect(consoleLog.mock.calls[0]?.[0]).toContain('Renamed account kraken-main to kraken-primary');
+    expect(consoleLog.mock.calls[0]?.[0]).toContain(
+      `Renamed account ${createAccountFingerprint(7).slice(0, 10)} to kraken-primary`
+    );
     consoleLog.mockRestore();
   });
 
@@ -360,7 +398,7 @@ describe('accounts lifecycle commands', () => {
         resetCursor: true,
       })
     );
-    mockUpdate.mockResolvedValue(
+    mockUpdateOwned.mockResolvedValue(
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
@@ -390,9 +428,9 @@ describe('accounts lifecycle commands', () => {
       }),
       {}
     );
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateOwned).toHaveBeenCalledWith(
       1,
-      'kraken-main',
+      7,
       expect.objectContaining({
         identifier: 'new-key',
         resetCursor: true,
@@ -444,7 +482,7 @@ describe('accounts lifecycle commands', () => {
         providerName: 'alchemy',
       })
     );
-    mockUpdate.mockResolvedValue(
+    mockUpdateOwned.mockResolvedValue(
       ok({
         id: 7,
         accountFingerprint: createAccountFingerprint(7),
@@ -472,7 +510,7 @@ describe('accounts lifecycle commands', () => {
 
     await expect(
       program.parseAsync(['accounts', 'update', 'ghost-wallet', '--provider', 'alchemy'], { from: 'user' })
-    ).rejects.toThrow("CLI:accounts-update:text:Account 'ghost-wallet' not found:4");
+    ).rejects.toThrow("CLI:accounts-update:text:Account selector 'ghost-wallet' not found:4");
     expect(mockExitCliFailure).toHaveBeenCalledWith(
       'accounts-update',
       expect.objectContaining({ exitCode: 4 }),
@@ -493,11 +531,13 @@ describe('accounts lifecycle commands', () => {
   it('preserves not-found semantics for account removal', async () => {
     const program = createAccountsProgram();
 
-    mockPrepareAccountRemoval.mockResolvedValue(err(new AccountRemovalTargetNotFoundError('ghost-wallet')));
+    mockPrepareAccountRemoval.mockResolvedValue(
+      err(new AccountSelectorResolutionError('not-found', "Account selector 'ghost-wallet' not found"))
+    );
 
     await expect(
       program.parseAsync(['accounts', 'remove', 'ghost-wallet', '--confirm'], { from: 'user' })
-    ).rejects.toThrow("CLI:accounts-remove:text:Account 'ghost-wallet' not found:4");
+    ).rejects.toThrow("CLI:accounts-remove:text:Account selector 'ghost-wallet' not found:4");
 
     expect(mockExitCliFailure).toHaveBeenCalledWith(
       'accounts-remove',
@@ -512,8 +552,8 @@ describe('accounts lifecycle commands', () => {
 
     mockPrepareAccountRemoval.mockResolvedValue(
       ok({
+        accountLabel: 'kraken-main',
         accountIds: [7],
-        accountName: 'kraken-main',
         preview: {
           accounts: 1,
           rawData: 4,
@@ -562,7 +602,7 @@ describe('accounts lifecycle commands', () => {
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'accounts-remove',
       {
-        accountName: 'kraken-main',
+        accountLabel: 'kraken-main',
         deleted: {
           accounts: 1,
           rawData: 4,
@@ -586,8 +626,8 @@ describe('accounts lifecycle commands', () => {
 
     mockPrepareAccountRemoval.mockResolvedValue(
       ok({
+        accountLabel: 'kraken-main',
         accountIds: [7],
-        accountName: 'kraken-main',
         preview: {
           accounts: 1,
           rawData: 4,
@@ -618,8 +658,8 @@ describe('accounts lifecycle commands', () => {
 
     mockPrepareAccountRemoval.mockResolvedValue(
       ok({
+        accountLabel: 'injective-wallet',
         accountIds: [7],
-        accountName: 'injective-wallet',
         preview: {
           accounts: 1,
           rawData: 0,
@@ -641,7 +681,7 @@ describe('accounts lifecycle commands', () => {
     expect(consoleError).toHaveBeenCalledWith('  - 1 account');
     expect(consoleError).toHaveBeenCalledWith('Account removal cancelled');
     expect(mockPromptConfirmDecision).toHaveBeenCalledWith(
-      'Delete account injective-wallet and remove the data shown above?',
+      'Delete account injective-wallet and the data shown above?',
       false
     );
     expect(consoleError).not.toHaveBeenCalledWith('  - 1 account rows');
@@ -656,8 +696,8 @@ describe('accounts lifecycle commands', () => {
 
     mockPrepareAccountRemoval.mockResolvedValue(
       ok({
+        accountLabel: 'kraken-main',
         accountIds: [7],
-        accountName: 'kraken-main',
         preview: {
           accounts: 1,
           rawData: 4,
@@ -677,12 +717,12 @@ describe('accounts lifecycle commands', () => {
 
     expect(consoleError).toHaveBeenCalledWith('Imported data:');
     expect(consoleError).toHaveBeenCalledWith('  - 2 import sessions');
-    expect(consoleError).toHaveBeenCalledWith('  - 4 raw import records');
-    expect(consoleError).toHaveBeenCalledWith('Derived data to reset:');
-    expect(consoleError).toHaveBeenCalledWith('  - 8 processed transactions');
+    expect(consoleError).toHaveBeenCalledWith('  - 4 raw import data items');
+    expect(consoleError).toHaveBeenCalledWith('Derived data:');
+    expect(consoleError).toHaveBeenCalledWith('  - 8 transactions');
     expect(consoleError).toHaveBeenCalledWith('  - 3 transaction links');
-    expect(consoleError).toHaveBeenCalledWith('  - 1 asset review item');
-    expect(consoleError).toHaveBeenCalledWith('  - 6 saved balance records');
+    expect(consoleError).toHaveBeenCalledWith('  - 1 review item');
+    expect(consoleError).toHaveBeenCalledWith('  - 6 balances');
     expect(consoleError).toHaveBeenCalledWith('  - 6 cost basis snapshots');
     expect(consoleError).not.toHaveBeenCalledWith('  - 1 balance snapshot');
     expect(consoleError).not.toHaveBeenCalledWith('  - 5 balance snapshot assets');

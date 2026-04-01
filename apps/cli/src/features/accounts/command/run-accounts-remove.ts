@@ -1,29 +1,32 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
+import { formatAccountSelectorLabel, resolveRequiredOwnedAccountSelector } from '../account-selector.js';
+
 import type { AccountRemovalImpactCounts } from './account-removal-service.js';
 import { flattenAccountRemovePreview } from './account-removal-service.js';
 import type { AccountsRemoveCommandScope } from './accounts-remove-command-scope.js';
-import { AccountRemovalTargetNotFoundError } from './accounts-remove-errors.js';
 
 export interface AccountRemovalPreparation {
+  accountLabel: string;
   accountIds: number[];
-  accountName: string;
   preview: AccountRemovalImpactCounts;
 }
 
 export async function prepareAccountRemoval(
   scope: AccountsRemoveCommandScope,
-  accountName: string
+  selector: string
 ): Promise<Result<AccountRemovalPreparation, Error>> {
-  const accountResult = await scope.accountService.getByName(scope.profile.id, accountName);
-  if (accountResult.isErr()) {
-    return err(accountResult.error);
-  }
-  if (!accountResult.value) {
-    return err(new AccountRemovalTargetNotFoundError(accountName));
+  const selection = await resolveRequiredOwnedAccountSelector(
+    scope.accountService,
+    scope.profile.id,
+    selector,
+    'Account removal requires an account selector'
+  );
+  if (selection.isErr()) {
+    return err(selection.error);
   }
 
-  const hierarchyResult = await scope.accountService.collectHierarchy(scope.profile.id, accountResult.value.id);
+  const hierarchyResult = await scope.accountService.collectHierarchy(scope.profile.id, selection.value.account.id);
   if (hierarchyResult.isErr()) {
     return err(hierarchyResult.error);
   }
@@ -35,8 +38,8 @@ export async function prepareAccountRemoval(
   }
 
   return ok({
+    accountLabel: formatAccountSelectorLabel(selection.value.account),
     accountIds,
-    accountName: accountResult.value.name ?? accountName.trim().toLowerCase(),
     preview: flattenAccountRemovePreview(previewResult.value),
   });
 }

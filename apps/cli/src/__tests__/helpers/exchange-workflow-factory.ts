@@ -162,7 +162,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         expect(accountName).toBeTruthy();
 
         // Build balance command arguments
-        const balanceArgs = ['balance', '--account-name', String(accountName)];
+        const balanceArgs = ['balance', 'refresh', String(accountName)];
 
         // Add required credentials (assuming first two are key/secret pattern)
         const [apiKeyVar, apiSecretVar] = requiredEnvVars;

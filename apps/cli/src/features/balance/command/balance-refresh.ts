@@ -11,12 +11,12 @@ import {
   type CliCommandResult,
   type CliCompletion,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import { detectCliOutputFormat, parseCliCommandOptionsWithOverridesResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import {
-  hasAccountSelector,
+  hasAccountSelectorArgument,
   getAccountSelectorErrorExitCode,
   resolveRequiredOwnedAccountSelector,
 } from '../../accounts/account-selector.js';
@@ -52,8 +52,7 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
   balanceCommand
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
-    .option('--account-name <name>', 'Refresh one named balance scope')
-    .option('--account-ref <ref>', 'Refresh one balance scope by account fingerprint prefix')
+    .argument('[selector]', 'Account selector (name or fingerprint prefix)')
     .option('--api-key <key>', 'API key for exchange (overrides .env)')
     .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
     .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
@@ -63,8 +62,8 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
       `
 Examples:
   $ exitbook balance refresh
-  $ exitbook balance refresh --account-name kraken-main
-  $ exitbook balance refresh --account-ref 6f4c0d1a2b --api-key KEY --api-secret SECRET
+  $ exitbook balance refresh kraken-main
+  $ exitbook balance refresh 6f4c0d1a2b --api-key KEY --api-secret SECRET
   $ exitbook balance refresh --json
 
 Notes:
@@ -73,10 +72,16 @@ Notes:
   - For child accounts, refresh operates on the owning parent balance scope.
 `
     )
-    .action((rawOptions: unknown) => executeBalanceRefreshCommand(rawOptions, appRuntime));
+    .action((selector: string | undefined, rawOptions: unknown) =>
+      executeBalanceRefreshCommand(selector, rawOptions, appRuntime)
+    );
 }
 
-async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
+async function executeBalanceRefreshCommand(
+  selector: string | undefined,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
@@ -85,7 +90,11 @@ async function executeBalanceRefreshCommand(rawOptions: unknown, appRuntime: Cli
     appRuntime,
     prepare: async () =>
       resultDoAsync(async function* () {
-        return yield* parseCliCommandOptionsResult(rawOptions, BalanceRefreshCommandOptionsSchema);
+        return yield* parseCliCommandOptionsWithOverridesResult(
+          rawOptions,
+          { selector },
+          BalanceRefreshCommandOptionsSchema
+        );
       }),
     action: async (context) => executeBalanceRefreshCommandResult(context.runtime, context.prepared, format),
   });
@@ -97,12 +106,12 @@ async function executeBalanceRefreshCommandResult(
   format: 'json' | 'text'
 ): Promise<CliCommandResult> {
   if (format === 'json') {
-    return hasAccountSelector(options)
+    return hasAccountSelectorArgument(options)
       ? executeBalanceRefreshSingleJsonCommand(ctx, options)
       : executeBalanceRefreshAllJsonCommand(ctx);
   }
 
-  return hasAccountSelector(options)
+  return hasAccountSelectorArgument(options)
     ? executeBalanceRefreshSingleTuiCommand(ctx, options)
     : executeBalanceRefreshAllTuiCommand(ctx);
 }
@@ -116,8 +125,8 @@ async function executeBalanceRefreshSingleJsonCommand(
       const selection = await resolveRequiredOwnedAccountSelector(
         scope.accountService,
         scope.profile.id,
-        options,
-        'Balance refresh requires --account-name or --account-ref'
+        options.selector,
+        'Balance refresh requires an account selector'
       );
       if (selection.isErr()) {
         return err(selection.error);
@@ -170,8 +179,8 @@ async function executeBalanceRefreshSingleTuiCommand(
       const selection = await resolveRequiredOwnedAccountSelector(
         scope.accountService,
         scope.profile.id,
-        options,
-        'Balance refresh requires --account-name or --account-ref'
+        options.selector,
+        'Balance refresh requires an account selector'
       );
       if (selection.isErr()) {
         return err(selection.error);
