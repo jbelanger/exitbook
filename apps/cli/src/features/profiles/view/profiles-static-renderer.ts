@@ -50,7 +50,7 @@ export function buildProfilesStaticList(state: ProfilesStaticListState): string 
           label: 'LABEL',
         },
         PROFILE_LIST_COLUMN_ORDER,
-        { gap: PROFILE_LIST_COLUMN_GAP }
+        { alignments: columns.alignments, gap: PROFILE_LIST_COLUMN_GAP }
       )
     )
   );

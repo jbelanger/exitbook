@@ -42,13 +42,15 @@ interface ColumnDef<T> {
 }
 
 export interface Columns<T, K extends string> {
+  alignments: Record<K, Align>;
   widths: Record<K, number>;
   format: (item: T) => Record<K, string>;
 }
 
 type TextTableColumnOrder<K extends string> = readonly K[];
 
-interface TextTableOptions {
+interface TextTableOptions<K extends string> {
+  alignments?: Partial<Record<K, Align>> | undefined;
   gap?: string | undefined;
 }
 
@@ -69,15 +71,18 @@ interface TextTableOptions {
  * ```
  */
 export function createColumns<T, K extends string>(items: T[], defs: Record<K, ColumnDef<T>>): Columns<T, K> {
+  const alignments = {} as Record<K, Align>;
   const widths = {} as Record<K, number>;
   const entries = Object.entries(defs) as [K, ColumnDef<T>][];
 
   for (const [key, def] of entries) {
+    alignments[key] = def.align ?? 'left';
     const rawWidth = computeColumnWidth(items, def.format, def.minWidth ?? 0);
     widths[key] = def.maxWidth !== undefined ? Math.min(rawWidth, def.maxWidth) : rawWidth;
   }
 
   return {
+    alignments,
     widths,
     format(item: T): Record<K, string> {
       const result = {} as Record<K, string>;
@@ -85,7 +90,7 @@ export function createColumns<T, K extends string>(items: T[], defs: Record<K, C
         const raw = def.format(item);
         const width = widths[key];
         const clipped = raw.length > width ? raw.substring(0, width) : raw;
-        result[key] = def.align === 'right' ? clipped.padStart(width) : clipped.padEnd(width);
+        result[key] = alignTablePart(clipped, width, alignments[key]);
       }
       return result;
     },
@@ -96,10 +101,10 @@ export function buildTextTableHeader<K extends string>(
   widths: Record<K, number>,
   labels: Record<K, string>,
   order: TextTableColumnOrder<K>,
-  options?: TextTableOptions
+  options?: TextTableOptions<K>
 ): string {
   return joinTextTableParts(
-    order.map((key) => labels[key].padEnd(widths[key])),
+    order.map((key) => alignTablePart(labels[key], widths[key], options?.alignments?.[key] ?? 'left')),
     options
   );
 }
@@ -107,7 +112,7 @@ export function buildTextTableHeader<K extends string>(
 export function buildTextTableRow<K extends string>(
   formatted: Record<K, string>,
   order: TextTableColumnOrder<K>,
-  options?: TextTableOptions
+  options?: TextTableOptions<K>
 ): string {
   return joinTextTableParts(
     order.map((key) => formatted[key]),
@@ -115,6 +120,10 @@ export function buildTextTableRow<K extends string>(
   );
 }
 
-function joinTextTableParts(parts: string[], options?: TextTableOptions): string {
+function alignTablePart(value: string, width: number, align: Align): string {
+  return align === 'right' ? value.padStart(width) : value.padEnd(width);
+}
+
+function joinTextTableParts(parts: string[], options?: { gap?: string | undefined }): string {
   return parts.join(options?.gap ?? ' ').trimEnd();
 }

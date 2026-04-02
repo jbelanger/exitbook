@@ -158,7 +158,7 @@ function buildListColumnHeader(
         type: 'TYPE',
       },
       ACCOUNT_LIST_COLUMN_ORDER,
-      { gap: STATIC_LIST_COLUMN_GAP }
+      { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
     )
   );
 }

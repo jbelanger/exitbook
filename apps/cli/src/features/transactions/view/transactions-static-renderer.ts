@@ -85,7 +85,7 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
           transactionRef: 'REF',
         },
         TRANSACTION_LIST_COLUMN_ORDER,
-        { gap: STATIC_LIST_COLUMN_GAP }
+        { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
       )
     )
   );
@@ -205,11 +205,7 @@ function buildDetailLine(label: string, value: string): string {
   return `${pc.dim(`${label}:`)} ${value}`;
 }
 
-function buildMovementLines(
-  label: string,
-  prefix: '+' | '-',
-  movements: TransactionViewItem['inflows']  
-): string[] {
+function buildMovementLines(label: string, prefix: '+' | '-', movements: TransactionViewItem['inflows']): string[] {
   const lines = [pc.dim(`${label} (${movements.length})`)];
   lines.push(
     ...movements.map((movement) => {
