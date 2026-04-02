@@ -1,19 +1,13 @@
 // Utilities and types for view transactions command
 
-import type { AssetMovementDraft, FeeMovementDraft, Transaction } from '@exitbook/core';
-import { computePrimaryMovement } from '@exitbook/core';
-import { isFiat, type Currency } from '@exitbook/foundation';
+import type { Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import { parseDate } from '../../shared/view-utils.js';
+import { buildDefinedFilters, parseDate } from '../../shared/view-utils.js';
 import type { CommonViewFilters } from '../../shared/view-utils.js';
+import { getTransactionPriceStatus } from '../transaction-view-projection.js';
 import type { ExportFormat } from '../transactions-export-model.js';
-import type {
-  FeeDisplayItem,
-  MovementDisplayItem,
-  TransactionViewItem,
-  TransactionsViewFilters,
-} from '../transactions-view-model.js';
+import type { TransactionsViewFilters } from '../transactions-view-model.js';
 
 /**
  * Parameters for view transactions command.
@@ -61,7 +55,7 @@ export function applyTransactionFilters(
   // Filter by missing price data
   if (params.noPrice) {
     filtered = filtered.filter((tx) => {
-      const status = computePriceStatus(tx);
+      const status = getTransactionPriceStatus(tx);
       return status === 'none' || status === 'partial';
     });
   }
@@ -69,110 +63,54 @@ export function applyTransactionFilters(
   return ok(filtered);
 }
 
-// ─── TUI Transformation Utilities ───────────────────────────────────────────
-
-function isFiatAsset(assetSymbol: string): boolean {
-  return isFiat(assetSymbol as Currency);
-}
-
-function toMovementDisplayItem(m: AssetMovementDraft): MovementDisplayItem {
-  return {
-    assetSymbol: m.assetSymbol,
-    amount: m.grossAmount.toFixed(),
-    priceAtTxTime: m.priceAtTxTime
-      ? { price: `$${m.priceAtTxTime.price.amount.toFixed(2)}`, source: m.priceAtTxTime.source }
-      : undefined,
-  };
-}
-
-function toFeeDisplayItem(f: FeeMovementDraft): FeeDisplayItem {
-  return {
-    assetSymbol: f.assetSymbol,
-    amount: f.amount.toFixed(),
-    scope: f.scope,
-    settlement: f.settlement,
-    priceAtTxTime: f.priceAtTxTime
-      ? { price: `$${f.priceAtTxTime.price.amount.toFixed(2)}`, source: f.priceAtTxTime.source }
-      : undefined,
-  };
-}
-
-/**
- * Compute the price status for a transaction.
- *
- * - `all`: every non-fiat movement has priceAtTxTime
- * - `partial`: some have it, some don't
- * - `none`: no non-fiat movement has priceAtTxTime
- * - `not-needed`: all movements are fiat
- */
-function computePriceStatus(tx: Transaction): 'all' | 'partial' | 'none' | 'not-needed' {
-  const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
-
-  // Filter to non-fiat movements only (fiat doesn't need pricing)
-  const nonFiat = allMovements.filter((m) => !isFiatAsset(m.assetSymbol));
-
-  if (nonFiat.length === 0) {
-    return 'not-needed';
+export function parseSinceToUnixSeconds(since: string | undefined): Result<number | undefined, Error> {
+  if (!since) {
+    return ok(undefined);
   }
 
-  const priced = nonFiat.filter((m) => m.priceAtTxTime !== undefined);
+  const sinceResult = parseDate(since);
+  if (sinceResult.isErr()) {
+    return err(sinceResult.error);
+  }
 
-  if (priced.length === nonFiat.length) return 'all';
-  if (priced.length === 0) return 'none';
-  return 'partial';
+  return ok(Math.floor(sinceResult.value.getTime() / 1000));
 }
 
-/**
- * Transform a Transaction into a TransactionViewItem for TUI display.
- */
-export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
-  const primary = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
+export function validateUntilDate(until: string | undefined): Result<void, Error> {
+  if (!until) {
+    return ok(undefined);
+  }
 
-  const inflows = (tx.movements.inflows ?? []).map(toMovementDisplayItem);
-  const outflows = (tx.movements.outflows ?? []).map(toMovementDisplayItem);
-  const fees = (tx.fees ?? []).map(toFeeDisplayItem);
+  const untilResult = parseDate(until);
+  if (untilResult.isErr()) {
+    return err(untilResult.error);
+  }
 
+  return ok(undefined);
+}
+
+export function buildTransactionsViewFilters(
+  params: Pick<ViewTransactionsParams, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
+): TransactionsViewFilters {
   return {
-    id: tx.id,
-    platformKey: tx.platformKey,
-    platformKind: tx.blockchain ? 'blockchain' : 'exchange',
-    txFingerprint: tx.txFingerprint,
-    datetime: tx.datetime,
-
-    operationCategory: tx.operation.category,
-    operationType: tx.operation.type,
-
-    primaryAsset: primary?.assetSymbol ?? undefined,
-    primaryAmount: primary?.amount.toFixed() ?? undefined,
-    primaryDirection: primary?.direction === 'neutral' ? undefined : (primary?.direction ?? undefined),
-
-    inflows,
-    outflows,
-    fees,
-
-    priceStatus: computePriceStatus(tx),
-
-    blockchain: tx.blockchain
-      ? {
-          name: tx.blockchain.name,
-          blockHeight: tx.blockchain.block_height,
-          transactionHash: tx.blockchain.transaction_hash,
-          isConfirmed: tx.blockchain.is_confirmed,
-        }
-      : undefined,
-
-    from: tx.from ?? undefined,
-    to: tx.to ?? undefined,
-
-    notes: (tx.notes ?? []).map((n) => ({
-      type: n.type,
-      message: n.message,
-      severity: n.severity,
-    })),
-
-    excludedFromAccounting: tx.excludedFromAccounting ?? false,
-    isSpam: tx.isSpam ?? false,
+    platformFilter: params.platform,
+    assetFilter: params.assetSymbol,
+    operationTypeFilter: params.operationType,
+    noPriceFilter: params.noPrice,
   };
+}
+
+export function buildTransactionsJsonFilters(
+  params: Pick<ViewTransactionsParams, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'>
+): Record<string, unknown> | undefined {
+  return buildDefinedFilters({
+    platform: params.platform,
+    asset: params.assetSymbol,
+    since: params.since,
+    until: params.until,
+    operationType: params.operationType,
+    noPrice: params.noPrice ? true : undefined,
+  });
 }
 
 /**

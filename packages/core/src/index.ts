@@ -97,6 +97,7 @@ export {
   type TransactionLink,
   type NewTransactionLink,
 } from './transaction/index.js';
+export { AmbiguousTransactionFingerprintRefError } from './transaction/transaction-selector-errors.js';
 
 export {
   ScopeSchema,

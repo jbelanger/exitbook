@@ -21,19 +21,22 @@ import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildDefinedFilters, buildViewMeta, parseDate } from '../../shared/view-utils.js';
-import type {
-  ExportCallbackResult,
-  OnExport,
-  TransactionViewItem,
-  TransactionsViewFilters,
-} from '../transactions-view-model.js';
+import { buildViewMeta } from '../../shared/view-utils.js';
+import { toTransactionViewItem } from '../transaction-view-projection.js';
+import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 
+import { registerTransactionsViewOptions } from './transactions-browse-command.js';
 import { TransactionsViewCommandOptionsSchema } from './transactions-option-schemas.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
-import { generateDefaultPath, toTransactionViewItem } from './transactions-view-utils.js';
+import {
+  buildTransactionsJsonFilters,
+  buildTransactionsViewFilters,
+  generateDefaultPath,
+  parseSinceToUnixSeconds,
+  validateUntilDate,
+} from './transactions-view-utils.js';
 
 type TransactionsViewCommandOptions = z.infer<typeof TransactionsViewCommandOptionsSchema>;
 type ViewTransactionsCommandParams = Omit<ViewTransactionsParams, 'limit'> & { limit: number };
@@ -41,12 +44,13 @@ type ViewTransactionsCommandParams = Omit<ViewTransactionsParams, 'limit'> & { l
 type ViewTransactionsCommandResult = ViewCommandResult<TransactionViewItem[]>;
 
 export function registerTransactionsViewCommand(transactionsCommand: Command): void {
-  transactionsCommand
-    .command('view')
-    .description('View processed transactions')
-    .addHelpText(
-      'after',
-      `
+  registerTransactionsViewOptions(
+    transactionsCommand
+      .command('view')
+      .description('View processed transactions')
+      .addHelpText(
+        'after',
+        `
 Examples:
   $ exitbook transactions view                            # View latest 50 transactions
   $ exitbook transactions view --limit 100                # View latest 100 transactions
@@ -62,16 +66,8 @@ Common Usage:
   - Identify transactions that need price data
   - Verify imported data accuracy
 `
-    )
-    .option('--platform <name>', 'Filter by exchange or blockchain platform')
-    .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH)')
-    .option('--since <date>', 'Filter by date (ISO 8601 format, e.g., 2024-01-01)')
-    .option('--until <date>', 'Filter by date (ISO 8601 format, e.g., 2024-12-31)')
-    .option('--operation-type <type>', 'Filter by operation type')
-    .option('--no-price', 'Show only transactions without price data')
-    .option('--limit <number>', 'Maximum number of transactions to return', parseInt)
-    .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeViewTransactionsCommand(rawOptions));
+      )
+  ).action((rawOptions: unknown) => executeViewTransactionsCommand(rawOptions));
 }
 
 async function executeViewTransactionsCommand(rawOptions: unknown): Promise<void> {
@@ -142,20 +138,7 @@ function buildTransactionsViewJsonCompletion(
   const viewItems = limitedTransactions.map(toTransactionViewItem);
   const resultData: ViewTransactionsCommandResult = {
     data: viewItems,
-    meta: buildViewMeta(
-      viewItems.length,
-      0,
-      params.limit,
-      transactions.length,
-      buildDefinedFilters({
-        platform: params.platform,
-        asset: params.assetSymbol,
-        since: params.since,
-        until: params.until,
-        operationType: params.operationType,
-        noPrice: params.noPrice ? true : undefined,
-      })
-    ),
+    meta: buildViewMeta(viewItems.length, 0, params.limit, transactions.length, buildTransactionsJsonFilters(params)),
   };
 
   return jsonSuccess(resultData);
@@ -225,39 +208,4 @@ async function buildTransactionsViewTuiCompletion(
   }
 
   return ok(silentSuccess());
-}
-
-function parseSinceToUnixSeconds(since: string | undefined): Result<number | undefined, Error> {
-  if (!since) {
-    return ok(undefined);
-  }
-
-  const sinceResult = parseDate(since);
-  if (sinceResult.isErr()) {
-    return err(sinceResult.error);
-  }
-
-  return ok(Math.floor(sinceResult.value.getTime() / 1000));
-}
-
-function validateUntilDate(until: string | undefined): Result<void, Error> {
-  if (!until) {
-    return ok(undefined);
-  }
-
-  const untilResult = parseDate(until);
-  if (untilResult.isErr()) {
-    return err(untilResult.error);
-  }
-
-  return ok(undefined);
-}
-
-function buildTransactionsViewFilters(params: ViewTransactionsCommandParams): TransactionsViewFilters {
-  return {
-    platformFilter: params.platform,
-    assetFilter: params.assetSymbol,
-    operationTypeFilter: params.operationType,
-    noPriceFilter: params.noPrice,
-  };
 }

@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import type { Transaction, TransactionDraft } from '@exitbook/core';
+import { AmbiguousTransactionFingerprintRefError, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -1371,6 +1371,104 @@ describe('TransactionRepository', () => {
 
       expect(sameProfile?.id).toBe(transactionId);
       expect(otherProfile).toBeUndefined();
+    });
+
+    it('resolves a transaction by fingerprint ref within the requested profile', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            identityReference: 'default-kraken-ref',
+          }),
+          1
+        )
+      );
+
+      assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            identityReference: 'audit-kraken-ref',
+          }),
+          2
+        )
+      );
+
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const fingerprintRef = transaction?.txFingerprint.slice(0, 12);
+
+      const resolved = assertOk(await repo.findByFingerprintRef(1, fingerprintRef!));
+
+      expect(resolved?.id).toBe(transactionId);
+    });
+
+    it('returns undefined when a fingerprint ref only matches another profile', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            identityReference: 'audit-only-ref',
+          }),
+          2
+        )
+      );
+
+      const transaction = assertOk(await repo.findById(transactionId, 2));
+      const fingerprintRef = transaction?.txFingerprint.slice(0, 12);
+
+      const resolved = assertOk(await repo.findByFingerprintRef(1, fingerprintRef!));
+
+      expect(resolved).toBeUndefined();
+    });
+
+    it('returns an ambiguity error when multiple transactions share the same fingerprint prefix', async () => {
+      const sharedPrefix = 'abc123def456';
+      const firstFingerprint = `${sharedPrefix}${'1'.repeat(64 - sharedPrefix.length)}`;
+      const secondFingerprint = `${sharedPrefix}${'2'.repeat(64 - sharedPrefix.length)}`;
+
+      await db
+        .insertInto('transactions')
+        .values([
+          {
+            id: 101,
+            account_id: 1,
+            platform_key: 'kraken',
+            platform_kind: 'exchange',
+            tx_fingerprint: firstFingerprint,
+            transaction_status: 'success',
+            transaction_datetime: '2025-01-01T00:00:00.000Z',
+            is_spam: false,
+            excluded_from_accounting: false,
+            operation_type: 'deposit',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          {
+            id: 102,
+            account_id: 1,
+            platform_key: 'kraken',
+            platform_kind: 'exchange',
+            tx_fingerprint: secondFingerprint,
+            transaction_status: 'success',
+            transaction_datetime: '2025-01-02T00:00:00.000Z',
+            is_spam: false,
+            excluded_from_accounting: false,
+            operation_type: 'deposit',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .execute();
+
+      const result = await repo.findByFingerprintRef(1, sharedPrefix);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error).toBeInstanceOf(AmbiguousTransactionFingerprintRefError);
+      }
     });
 
     it('loads full transactions across multiple movement lookup batches', async () => {

@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,7 +60,70 @@ vi.mock('../transactions-read-support.js', () => ({
 }));
 
 vi.mock('../transactions-view-utils.js', () => ({
+  buildTransactionsJsonFilters: vi.fn(
+    (params: {
+      assetSymbol?: string | undefined;
+      noPrice?: boolean | undefined;
+      operationType?: string | undefined;
+      platform?: string | undefined;
+      since?: string | undefined;
+      until?: string | undefined;
+    }) => {
+      const filters = Object.fromEntries(
+        Object.entries({
+          platform: params.platform,
+          asset: params.assetSymbol,
+          since: params.since,
+          until: params.until,
+          operationType: params.operationType,
+          noPrice: params.noPrice ? true : undefined,
+        }).filter(([, value]) => value !== undefined)
+      );
+
+      return Object.keys(filters).length > 0 ? filters : undefined;
+    }
+  ),
+  buildTransactionsViewFilters: vi.fn(
+    (params: {
+      assetSymbol?: string | undefined;
+      noPrice?: boolean | undefined;
+      operationType?: string | undefined;
+      platform?: string | undefined;
+    }) => ({
+      platformFilter: params.platform,
+      assetFilter: params.assetSymbol,
+      operationTypeFilter: params.operationType,
+      noPriceFilter: params.noPrice,
+    })
+  ),
   generateDefaultPath: vi.fn(() => 'data/kraken-transactions.json'),
+  parseSinceToUnixSeconds: vi.fn((since: string | undefined) => {
+    if (!since) {
+      return ok(undefined);
+    }
+
+    const date = new Date(since);
+    if (Number.isNaN(date.getTime())) {
+      return err(new Error(`Invalid date format: ${since}`));
+    }
+
+    return ok(Math.floor(date.getTime() / 1000));
+  }),
+  validateUntilDate: vi.fn((until: string | undefined) => {
+    if (!until) {
+      return ok(undefined);
+    }
+
+    const date = new Date(until);
+    if (Number.isNaN(date.getTime())) {
+      return err(new Error(`Invalid date format: ${until}`));
+    }
+
+    return ok(undefined);
+  }),
+}));
+
+vi.mock('../../transaction-view-projection.js', () => ({
   toTransactionViewItem: mockToTransactionViewItem,
 }));
 

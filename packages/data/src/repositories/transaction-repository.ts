@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
-import { type Transaction, type TransactionDraft } from '@exitbook/core';
+import { AmbiguousTransactionFingerprintRefError, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
@@ -24,6 +24,15 @@ import {
 import { countTransactionRows, findTransactionRows, type TransactionQueryParams } from './transaction-query-support.js';
 
 const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
+
+function normalizeTransactionFingerprintRef(fingerprintRef: string): Result<string, Error> {
+  const normalized = fingerprintRef.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return err(new Error('Transaction fingerprint ref must not be empty'));
+  }
+
+  return ok(normalized);
+}
 
 export class TransactionRepository extends BaseRepository {
   constructor(db: KyselyDB) {
@@ -226,6 +235,59 @@ export class TransactionRepository extends BaseRepository {
       return ok(result.value);
     } catch (error) {
       return wrapError(error, 'Failed to retrieve transaction by ID');
+    }
+  }
+
+  async findByFingerprintRef(
+    profileId: number,
+    fingerprintRef: string
+  ): Promise<Result<Transaction | undefined, Error>> {
+    const normalizedRefResult = normalizeTransactionFingerprintRef(fingerprintRef);
+    if (normalizedRefResult.isErr()) {
+      return err(normalizedRefResult.error);
+    }
+
+    const normalizedRef = normalizedRefResult.value;
+
+    try {
+      const rows = await this.db
+        .selectFrom('transactions')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .selectAll('transactions')
+        .where('accounts.profile_id', '=', profileId)
+        .where('transactions.tx_fingerprint', 'like', `${normalizedRef}%`)
+        .orderBy('transactions.tx_fingerprint', 'asc')
+        .limit(4)
+        .execute();
+
+      if (rows.length === 0) {
+        return ok(undefined);
+      }
+
+      if (rows.length > 1) {
+        return err(
+          new AmbiguousTransactionFingerprintRefError(
+            normalizedRef,
+            rows.slice(0, 3).map((row) => row.tx_fingerprint)
+          )
+        );
+      }
+
+      const transactionId = rows[0]!.id;
+      const movementsResult = await this.findMovementsForIds([transactionId]);
+      if (movementsResult.isErr()) {
+        return err(movementsResult.error);
+      }
+
+      const movementRows = movementsResult.value.get(transactionId) ?? [];
+      const transactionResult = rowToTransaction(rows[0]!, movementRows, this.logger);
+      if (transactionResult.isErr()) {
+        return err(transactionResult.error);
+      }
+
+      return ok(transactionResult.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to find transaction by fingerprint ref');
     }
   }
 

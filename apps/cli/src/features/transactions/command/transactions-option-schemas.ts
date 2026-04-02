@@ -19,13 +19,20 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
   }
 });
 
-export const TransactionsViewCommandOptionsSchema = z.object({
+const TransactionsFilterOptionsSchema = z.object({
   platform: z.string().optional(),
   asset: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
   operationType: z.string().optional(),
   noPrice: z.boolean().optional(),
+});
+
+export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
+  json: z.boolean().optional(),
+});
+
+export const TransactionsViewCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
 });

@@ -1,0 +1,217 @@
+import { err, ok, type Result } from '@exitbook/foundation';
+import type { Command } from 'commander';
+import type { z } from 'zod';
+
+import {
+  createCliFailure,
+  ExitCodes,
+  jsonSuccess,
+  textSuccess,
+  toCliValue,
+  type CliCommandResult,
+  type CliCompletion,
+  type CliFailure,
+} from '../../../cli/command.js';
+import { parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { type CommandRuntime } from '../../../runtime/command-runtime.js';
+import type { TransactionViewItem } from '../transactions-view-model.js';
+import type { TransactionsViewState } from '../view/index.js';
+import { outputTransactionStaticDetail, outputTransactionsStaticList } from '../view/transactions-static-renderer.js';
+
+import {
+  buildTransactionsBrowsePresentation,
+  type TransactionsBrowseJsonDetailResult,
+  type TransactionsBrowseJsonListResult,
+  type TransactionsBrowseParams,
+} from './transactions-browse-support.js';
+import { TransactionsBrowseCommandOptionsSchema } from './transactions-option-schemas.js';
+
+type TransactionsBrowseCommandOptions = z.infer<typeof TransactionsBrowseCommandOptionsSchema>;
+
+interface ExecuteTransactionsBrowseCommandInput {
+  rawOptions: unknown;
+  transactionSelector?: string | undefined;
+}
+
+export interface PreparedTransactionsBrowseCommand {
+  params: TransactionsBrowseParams;
+  surfaceKind: 'detail' | 'list';
+}
+
+interface TransactionsBrowseOptionDefinition {
+  description: string;
+  flags: string;
+  parser?: ((value: string) => unknown) | undefined;
+}
+
+const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
+  {
+    flags: '--platform <name>',
+    description: 'Filter by exchange or blockchain platform',
+  },
+  {
+    flags: '--asset <currency>',
+    description: 'Filter by asset (e.g., BTC, ETH)',
+  },
+  {
+    flags: '--since <date>',
+    description: 'Filter by date (ISO 8601 format, e.g., 2024-01-01)',
+  },
+  {
+    flags: '--until <date>',
+    description: 'Filter by date (ISO 8601 format, e.g., 2024-12-31)',
+  },
+  {
+    flags: '--operation-type <type>',
+    description: 'Filter by operation type',
+  },
+  {
+    flags: '--no-price',
+    description: 'Show only transactions without price data',
+  },
+  {
+    flags: '--json',
+    description: 'Output JSON format',
+  },
+];
+
+const TRANSACTIONS_VIEW_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
+  {
+    flags: '--limit <number>',
+    description: 'Maximum number of transactions to return',
+    parser: (value: string) => Number.parseInt(value, 10),
+  },
+];
+
+export function registerTransactionsBrowseOptions(command: Command): Command {
+  return registerOptionDefinitions(command, TRANSACTIONS_FILTER_OPTION_DEFINITIONS);
+}
+
+export function registerTransactionsViewOptions(command: Command): Command {
+  return registerOptionDefinitions(command, [
+    ...TRANSACTIONS_FILTER_OPTION_DEFINITIONS,
+    ...TRANSACTIONS_VIEW_ONLY_OPTION_DEFINITIONS,
+  ]);
+}
+
+export function buildTransactionsBrowseOptionsHelpText(): string {
+  const flagsColumnWidth =
+    TRANSACTIONS_FILTER_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
+
+  return TRANSACTIONS_FILTER_OPTION_DEFINITIONS.map((option) => {
+    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
+  }).join('\n');
+}
+
+export function prepareTransactionsBrowseCommand(
+  input: ExecuteTransactionsBrowseCommandInput
+): Result<PreparedTransactionsBrowseCommand, CliFailure> {
+  const optionsResult = parseCliCommandOptionsResult(input.rawOptions, TransactionsBrowseCommandOptionsSchema);
+  if (optionsResult.isErr()) {
+    return err(optionsResult.error);
+  }
+
+  const options = optionsResult.value;
+  if (input.transactionSelector && hasBrowseFilters(options)) {
+    return err(
+      createCliFailure(
+        new Error(
+          'Transaction selector cannot be combined with --platform, --asset, --since, --until, --operation-type, or --no-price'
+        ),
+        ExitCodes.INVALID_ARGS
+      )
+    );
+  }
+
+  return ok({
+    params: {
+      transactionSelector: input.transactionSelector,
+      platform: options.platform,
+      assetSymbol: options.asset,
+      since: options.since,
+      until: options.until,
+      operationType: options.operationType,
+      noPrice: options.noPrice,
+    },
+    surfaceKind: input.transactionSelector ? 'detail' : 'list',
+  });
+}
+
+export async function executePreparedTransactionsBrowseCommand(
+  ctx: CommandRuntime,
+  prepared: PreparedTransactionsBrowseCommand,
+  format: CliOutputFormat
+): Promise<CliCommandResult> {
+  const presentationResult = await buildTransactionsBrowsePresentation(ctx, prepared.params);
+  if (presentationResult.isErr()) {
+    return err(presentationResult.error);
+  }
+
+  return buildTransactionsBrowseCompletion(
+    presentationResult.value.listJsonResult,
+    presentationResult.value.detailJsonResult,
+    presentationResult.value.initialState,
+    presentationResult.value.selectedTransaction,
+    prepared.surfaceKind,
+    format
+  );
+}
+
+function buildTransactionsBrowseCompletion(
+  listJsonResult: TransactionsBrowseJsonListResult,
+  detailJsonResult: TransactionsBrowseJsonDetailResult | undefined,
+  initialState: TransactionsViewState,
+  selectedTransaction: TransactionViewItem | undefined,
+  surfaceKind: 'detail' | 'list',
+  format: CliOutputFormat
+): Result<CliCompletion, CliFailure> {
+  if (format === 'json') {
+    return ok(jsonSuccess(surfaceKind === 'detail' ? (detailJsonResult ?? listJsonResult) : listJsonResult));
+  }
+
+  if (surfaceKind === 'detail') {
+    const transactionResult = toCliValue(
+      selectedTransaction,
+      new Error('Expected a selected transaction for detail presentation'),
+      ExitCodes.GENERAL_ERROR
+    );
+    if (transactionResult.isErr()) {
+      return err(transactionResult.error);
+    }
+
+    return ok(
+      textSuccess(() => {
+        outputTransactionStaticDetail(transactionResult.value);
+      })
+    );
+  }
+
+  return ok(
+    textSuccess(() => {
+      outputTransactionsStaticList(initialState);
+    })
+  );
+}
+
+function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
+  return (
+    options.platform !== undefined ||
+    options.asset !== undefined ||
+    options.since !== undefined ||
+    options.until !== undefined ||
+    options.operationType !== undefined ||
+    options.noPrice === true
+  );
+}
+
+function registerOptionDefinitions(command: Command, definitions: TransactionsBrowseOptionDefinition[]): Command {
+  for (const option of definitions) {
+    if (option.parser) {
+      command.option(option.flags, option.description, option.parser);
+    } else {
+      command.option(option.flags, option.description);
+    }
+  }
+
+  return command;
+}

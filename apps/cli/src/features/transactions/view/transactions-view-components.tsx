@@ -16,19 +16,20 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type {
-  CategoryCounts,
-  FeeDisplayItem,
-  MovementDisplayItem,
-  OnExport,
-  TransactionViewItem,
-} from '../transactions-view-model.js';
+import type { FeeDisplayItem, MovementDisplayItem, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 
 import {
   FORMAT_OPTIONS,
   handleTransactionsKeyboardInput,
   transactionsViewReducer,
 } from './transactions-view-controller.js';
+import {
+  buildCategoryParts,
+  formatTransactionAmount,
+  formatTransactionOperation,
+  formatTransactionTimestamp,
+  getTransactionPriceStatusDisplay,
+} from './transactions-view-formatters.js';
 import type { ExportPanelState, TransactionsViewPhase, TransactionsViewState } from './transactions-view-state.js';
 
 const TRANSACTION_DETAIL_LINES = 9;
@@ -157,15 +158,6 @@ const TransactionsHeader: FC<{ state: TransactionsViewState }> = ({ state }) => 
   );
 };
 
-function buildCategoryParts(counts: CategoryCounts): { count: number; label: string }[] {
-  const parts: { count: number; label: string }[] = [];
-  if (counts.trade > 0) parts.push({ label: 'trade', count: counts.trade });
-  if (counts.transfer > 0) parts.push({ label: 'transfer', count: counts.transfer });
-  if (counts.staking > 0) parts.push({ label: 'staking', count: counts.staking });
-  if (counts.other > 0) parts.push({ label: 'other', count: counts.other });
-  return parts;
-}
-
 // ─── List ───────────────────────────────────────────────────────────────────
 
 const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
@@ -176,9 +168,16 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
       createColumns(transactions, {
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
         platform: { format: (item) => item.platformKey, minWidth: 10 },
-        operation: { format: (item) => formatOperationShort(item.operationCategory, item.operationType), minWidth: 15 },
+        operation: {
+          format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
+          minWidth: 15,
+        },
         asset: { format: (item) => item.primaryAsset ?? '', minWidth: 10 },
-        amount: { format: (item) => formatAmount(item.primaryAmount ?? '', 12), align: 'right', minWidth: 12 },
+        amount: {
+          format: (item) => formatTransactionAmount(item.primaryAmount ?? '', 12),
+          align: 'right',
+          minWidth: 12,
+        },
       }),
     [transactions]
   );
@@ -225,9 +224,9 @@ const TransactionRow: FC<{
   item: TransactionViewItem;
 }> = ({ item, isSelected, columns }) => {
   const { txId, platform, operation, asset, amount } = columns.format(item);
-  const timestamp = item.datetime.substring(0, 16).replace('T', ' ');
+  const timestamp = formatTransactionTimestamp(item.datetime).slice(0, 16);
   const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
-  const { icon, iconColor } = getPriceStatusIcon(item.priceStatus);
+  const { icon, iconColor } = getTransactionPriceStatusDisplay(item.priceStatus);
 
   const isExcluded = item.excludedFromAccounting;
 
@@ -268,8 +267,8 @@ const TransactionDetailPanel: FC<{ state: TransactionsViewState }> = ({ state })
 };
 
 function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement[] {
-  const operation = formatOperationShort(selected.operationCategory, selected.operationType);
-  const fullTimestamp = selected.datetime.replace('T', ' ').replace('Z', '');
+  const operation = formatTransactionOperation(selected.operationCategory, selected.operationType);
+  const fullTimestamp = formatTransactionTimestamp(selected.datetime);
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.platformKey}</Text>{' '}
@@ -670,40 +669,6 @@ const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state })
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatOperationShort(category: string, type: string): string {
-  // Abbreviate common category names for list view
-  const catShort =
-    category === 'transfer'
-      ? 'transfer'
-      : category === 'staking'
-        ? 'staking'
-        : category === 'trade'
-          ? 'trade'
-          : category;
-  return `${catShort}/${type}`;
-}
-
-function formatAmount(amount: string, width: number): string {
-  const num = parseFloat(amount);
-  if (isNaN(num)) return amount.padStart(width);
-  return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 }).padStart(width);
-}
-
-function getPriceStatusIcon(status: string): { icon: string; iconColor: string } {
-  switch (status) {
-    case 'all':
-      return { icon: '✓', iconColor: 'green' };
-    case 'partial':
-      return { icon: '⚠', iconColor: 'yellow' };
-    case 'none':
-      return { icon: '✗', iconColor: 'red' };
-    case 'not-needed':
-      return { icon: '·', iconColor: 'dim' };
-    default:
-      return { icon: '·', iconColor: 'dim' };
-  }
-}
 
 function truncateHash(hash: string): string {
   if (hash.length <= 12) return hash;
