@@ -2,8 +2,6 @@ import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import {
@@ -16,6 +14,7 @@ import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
 
+import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
 import {
@@ -40,13 +39,15 @@ export interface TransactionsBrowsePresentation {
 }
 
 export async function buildTransactionsBrowsePresentation(
-  ctx: CommandRuntime,
+  scope: TransactionsCommandScope,
   params: TransactionsBrowseParams
 ): Promise<Result<TransactionsBrowsePresentation, CliFailure>> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const selector = yield* await resolveSelectedTransaction(database, profile.id, params.transactionSelector);
+    const selector = yield* await resolveSelectedTransaction(
+      scope.database,
+      scope.profile.id,
+      params.transactionSelector
+    );
 
     if (selector) {
       return buildDetailPresentation(selector);
@@ -57,8 +58,8 @@ export async function buildTransactionsBrowsePresentation(
 
     const transactions = yield* toCliResult(
       await readTransactionsForCommand({
-        db: database,
-        profileId: profile.id,
+        db: scope.database,
+        profileId: scope.profile.id,
         platformKey: params.platform,
         since,
         until: params.until,

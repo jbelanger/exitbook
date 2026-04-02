@@ -12,9 +12,9 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 
+import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsExportCommandOptionsSchema } from './transactions-option-schemas.js';
 
 type TransactionsExportCommandOptions = z.infer<typeof TransactionsExportCommandOptionsSchema>;
@@ -69,17 +69,16 @@ async function executeTransactionsExportCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
-    const exportHandler = new TransactionsExportHandler(database);
     const exportFormat = options.format ?? 'csv';
     const csvFormat = options.csvFormat ?? (exportFormat === 'csv' ? 'normalized' : undefined);
     const outputPath = options.output ?? `data/transactions.${exportFormat === 'json' ? 'json' : 'csv'}`;
+    const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
+    const { TransactionsExportHandler } = await import('./transactions-export-handler.js');
+    const exportHandler = new TransactionsExportHandler(scope.database);
 
     const result = yield* toCliResult(
       await exportHandler.execute({
-        profileId: profile.id,
+        profileId: scope.profile.id,
         format: exportFormat,
         csvFormat,
         outputPath,

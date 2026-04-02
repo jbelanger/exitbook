@@ -14,20 +14,18 @@ const {
   mockOutputSuccess,
   mockOutputTransactionStaticDetail,
   mockOutputTransactionsStaticList,
+  mockPrepareTransactionsCommandScope,
   mockReadTransactionsForCommand,
-  mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
-  mockCtx: {
-    database: vi.fn(),
-  },
+  mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
   mockFindByFingerprintRef: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOutputTransactionStaticDetail: vi.fn(),
   mockOutputTransactionsStaticList: vi.fn(),
+  mockPrepareTransactionsCommandScope: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
 
@@ -44,8 +42,8 @@ vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../transactions-command-scope.js', () => ({
+  prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
 vi.mock('../transactions-read-support.js', () => ({
@@ -121,14 +119,6 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
 describe('transactions root command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCtx.database.mockResolvedValue({
-      transactions: {
-        findByFingerprintRef: mockFindByFingerprintRef,
-      },
-    });
-    mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -136,6 +126,21 @@ describe('transactions root command', () => {
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
+    );
+    mockPrepareTransactionsCommandScope.mockResolvedValue(
+      ok({
+        database: {
+          transactions: {
+            findByFingerprintRef: mockFindByFingerprintRef,
+          },
+        },
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      })
     );
     mockReadTransactionsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
@@ -150,6 +155,7 @@ describe('transactions root command', () => {
 
     await program.parseAsync(['transactions'], { from: 'user' });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
       db: expect.objectContaining({
         transactions: expect.objectContaining({
@@ -203,6 +209,7 @@ describe('transactions root command', () => {
 
     await program.parseAsync(['transactions', '--json'], { from: 'user' });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'transactions',
       expect.objectContaining({
@@ -258,6 +265,7 @@ describe('transactions root command', () => {
     );
 
     expect(mockFindByFingerprintRef).not.toHaveBeenCalled();
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
   });
 });

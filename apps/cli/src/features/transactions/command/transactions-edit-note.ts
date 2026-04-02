@@ -15,8 +15,8 @@ import {
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
+import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsEditHandler, type TransactionNoteEditResult } from './transactions-edit-handler.js';
 import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
 
@@ -78,16 +78,15 @@ async function executeTransactionsEditNoteCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
     const overrideStore = new OverrideStore(ctx.dataDir);
-    const handler = new TransactionsEditHandler(database, overrideStore);
+    const handler = new TransactionsEditHandler(scope.database, overrideStore);
 
     const result = options.clear
       ? yield* toCliResult(
           await handler.clearNote({
-            profileId: profile.id,
-            profileKey: profile.profileKey,
+            profileId: scope.profile.id,
+            profileKey: scope.profile.profileKey,
             transactionId,
             reason: options.reason,
           }),
@@ -95,8 +94,8 @@ async function executeTransactionsEditNoteCommandResult(
         )
       : yield* toCliResult(
           await handler.setNote({
-            profileId: profile.id,
-            profileKey: profile.profileKey,
+            profileId: scope.profile.id,
+            profileKey: scope.profile.profileKey,
             transactionId,
             message: yield* toCliValue(
               options.message,

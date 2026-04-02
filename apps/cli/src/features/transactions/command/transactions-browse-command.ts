@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -7,6 +7,7 @@ import {
   ExitCodes,
   jsonSuccess,
   textSuccess,
+  toCliResult,
   toCliValue,
   type CliCommandResult,
   type CliCompletion,
@@ -24,6 +25,7 @@ import {
   type TransactionsBrowseJsonListResult,
   type TransactionsBrowseParams,
 } from './transactions-browse-support.js';
+import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsBrowseCommandOptionsSchema } from './transactions-option-schemas.js';
 
 type TransactionsBrowseCommandOptions = z.infer<typeof TransactionsBrowseCommandOptionsSchema>;
@@ -142,19 +144,19 @@ export async function executePreparedTransactionsBrowseCommand(
   prepared: PreparedTransactionsBrowseCommand,
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
-  const presentationResult = await buildTransactionsBrowsePresentation(ctx, prepared.params);
-  if (presentationResult.isErr()) {
-    return err(presentationResult.error);
-  }
+  return resultDoAsync(async function* () {
+    const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
+    const presentation = yield* await buildTransactionsBrowsePresentation(scope, prepared.params);
 
-  return buildTransactionsBrowseCompletion(
-    presentationResult.value.listJsonResult,
-    presentationResult.value.detailJsonResult,
-    presentationResult.value.initialState,
-    presentationResult.value.selectedTransaction,
-    prepared.surfaceKind,
-    format
-  );
+    return yield* buildTransactionsBrowseCompletion(
+      presentation.listJsonResult,
+      presentation.detailJsonResult,
+      presentation.initialState,
+      presentation.selectedTransaction,
+      prepared.surfaceKind,
+      format
+    );
+  });
 }
 
 function buildTransactionsBrowseCompletion(

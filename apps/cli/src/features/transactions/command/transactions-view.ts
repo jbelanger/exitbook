@@ -18,7 +18,6 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
@@ -27,6 +26,7 @@ import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../tra
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 
 import { registerTransactionsViewOptions } from './transactions-browse-command.js';
+import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsViewCommandOptionsSchema } from './transactions-option-schemas.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 import type { ViewTransactionsParams } from './transactions-view-utils.js';
@@ -91,15 +91,14 @@ async function executeTransactionsViewCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const since = yield* toCliResult(parseSinceToUnixSeconds(params.since), ExitCodes.INVALID_ARGS);
     yield* toCliResult(validateUntilDate(params.until), ExitCodes.INVALID_ARGS);
+    const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
 
     const transactions = yield* toCliResult(
       await readTransactionsForCommand({
-        db: database,
-        profileId: profile.id,
+        db: scope.database,
+        profileId: scope.profile.id,
         platformKey: params.platform,
         since,
         until: params.until,
@@ -114,7 +113,14 @@ async function executeTransactionsViewCommandResult(
       return buildTransactionsViewJsonCompletion(transactions, params);
     }
 
-    return yield* await buildTransactionsViewTuiCompletion(ctx, database, profile.id, transactions, since, params);
+    return yield* await buildTransactionsViewTuiCompletion(
+      ctx,
+      scope.database,
+      scope.profile.id,
+      transactions,
+      since,
+      params
+    );
   });
 }
 

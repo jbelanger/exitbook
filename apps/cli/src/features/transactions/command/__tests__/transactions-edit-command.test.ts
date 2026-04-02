@@ -9,7 +9,7 @@ const {
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
-  mockResolveCommandProfile,
+  mockPrepareTransactionsCommandScope,
   mockRunCommand,
   mockSetNote,
   mockTransactionsEditHandlerConstructor,
@@ -17,13 +17,13 @@ const {
   mockClearNote: vi.fn(),
   mockCtx: {
     dataDir: '/tmp/exitbook-transactions',
-    database: vi.fn(),
+    tag: 'command-runtime',
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
-  mockResolveCommandProfile: vi.fn(),
+  mockPrepareTransactionsCommandScope: vi.fn(),
   mockRunCommand: vi.fn(),
   mockSetNote: vi.fn(),
   mockTransactionsEditHandlerConstructor: vi.fn(),
@@ -51,8 +51,8 @@ vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../transactions-command-scope.js', () => ({
+  prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
 vi.mock('../transactions-edit-handler.js', () => ({
@@ -79,10 +79,6 @@ describe('transactions edit command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCtx.database.mockResolvedValue({ tag: 'db' });
-    mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -90,6 +86,17 @@ describe('transactions edit command', () => {
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
+    );
+    mockPrepareTransactionsCommandScope.mockResolvedValue(
+      ok({
+        database: { tag: 'db' },
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      })
     );
     consoleLogSpy.mockClear();
   });
@@ -116,6 +123,7 @@ describe('transactions edit command', () => {
     );
 
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-transactions');
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, mockOverrideStoreInstance);
     expect(mockSetNote).toHaveBeenCalledWith({
       profileId: 1,
@@ -146,6 +154,7 @@ describe('transactions edit command', () => {
       from: 'user',
     });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
     expect(mockClearNote).toHaveBeenCalledWith({
       profileId: 1,
       profileKey: PROFILE_KEY,
@@ -163,6 +172,7 @@ describe('transactions edit command', () => {
       'CLI:transactions-edit-note:text:Either --message or --clear is required:2'
     );
 
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockSetNote).not.toHaveBeenCalled();
     expect(mockClearNote).not.toHaveBeenCalled();
   });
@@ -174,6 +184,7 @@ describe('transactions edit command', () => {
       program.parseAsync(['transactions', 'edit', 'note', 'not-a-number', '--message', 'Memo'], { from: 'user' })
     ).rejects.toThrow('CLI:transactions-edit-note:text:Invalid input: expected number, received NaN:2');
 
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockSetNote).not.toHaveBeenCalled();
   });
 });

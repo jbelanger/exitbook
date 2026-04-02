@@ -7,17 +7,15 @@ const {
   mockExitCliFailure,
   mockExportExecute,
   mockOutputSuccess,
-  mockResolveCommandProfile,
+  mockPrepareTransactionsCommandScope,
   mockRunCommand,
   mockWriteFilesWithAtomicRenames,
 } = vi.hoisted(() => ({
-  mockCtx: {
-    database: vi.fn(),
-  },
+  mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
   mockExportExecute: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
+  mockPrepareTransactionsCommandScope: vi.fn(),
   mockRunCommand: vi.fn(),
   mockWriteFilesWithAtomicRenames: vi.fn(),
 }));
@@ -39,8 +37,8 @@ vi.mock('../../../shared/file-utils.js', () => ({
   writeFilesWithAtomicRenames: mockWriteFilesWithAtomicRenames,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../transactions-command-scope.js', () => ({
+  prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
 vi.mock('../transactions-export-handler.js', () => ({
@@ -62,10 +60,6 @@ describe('transactions export command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCtx.database.mockResolvedValue({ tag: 'db' });
-    mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -73,6 +67,17 @@ describe('transactions export command', () => {
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
+    );
+    mockPrepareTransactionsCommandScope.mockResolvedValue(
+      ok({
+        database: { tag: 'db' },
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      })
     );
     mockExportExecute.mockResolvedValue(
       ok({
@@ -91,6 +96,7 @@ describe('transactions export command', () => {
 
     await program.parseAsync(['transactions', 'export', '--format', 'json', '--json'], { from: 'user' });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
     expect(mockExportExecute).toHaveBeenCalledWith({
       profileId: 1,
       format: 'json',
@@ -138,6 +144,7 @@ describe('transactions export command', () => {
       })
     ).rejects.toThrow('CLI:transactions-export:json:--csv-format is only supported when --format csv is selected:2');
 
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockRunCommand).not.toHaveBeenCalled();
   });
 

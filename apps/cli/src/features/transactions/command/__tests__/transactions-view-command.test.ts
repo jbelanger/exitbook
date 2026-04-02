@@ -10,24 +10,22 @@ const {
   mockExitCliFailure,
   mockExportExecute,
   mockOutputSuccess,
+  mockPrepareTransactionsCommandScope,
   mockReadTransactionsForCommand,
   mockRenderApp,
-  mockResolveCommandProfile,
   mockRunCommand,
   mockToTransactionViewItem,
   mockWriteFilesWithAtomicRenames,
 } = vi.hoisted(() => ({
   mockComputeCategoryCounts: vi.fn(),
   mockCreateTransactionsViewState: vi.fn(),
-  mockCtx: {
-    database: vi.fn(),
-  },
+  mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
   mockExportExecute: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockPrepareTransactionsCommandScope: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
   mockRenderApp: vi.fn(),
-  mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockToTransactionViewItem: vi.fn(),
   mockWriteFilesWithAtomicRenames: vi.fn(),
@@ -51,8 +49,8 @@ vi.mock('../../../shared/file-utils.js', () => ({
   writeFilesWithAtomicRenames: mockWriteFilesWithAtomicRenames,
 }));
 
-vi.mock('../../../profiles/profile-resolution.js', () => ({
-  resolveCommandProfile: mockResolveCommandProfile,
+vi.mock('../transactions-command-scope.js', () => ({
+  prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
 vi.mock('../transactions-read-support.js', () => ({
@@ -150,10 +148,6 @@ function createProgram(): Command {
 describe('transactions view command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCtx.database.mockResolvedValue({ tag: 'db' });
-    mockResolveCommandProfile.mockResolvedValue(
-      ok({ id: 1, profileKey: 'default', displayName: 'default', createdAt: new Date('2026-03-01T00:00:00.000Z') })
-    );
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -161,6 +155,17 @@ describe('transactions view command', () => {
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
+    );
+    mockPrepareTransactionsCommandScope.mockResolvedValue(
+      ok({
+        database: { tag: 'db' },
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      })
     );
     mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }, { id: 2 }]));
     mockToTransactionViewItem.mockImplementation((transaction: { id: number }) => ({
@@ -185,6 +190,7 @@ describe('transactions view command', () => {
 
     await program.parseAsync(['transactions', 'view', '--platform', 'kraken', '--json'], { from: 'user' });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
       db: { tag: 'db' },
       profileId: 1,
@@ -223,6 +229,7 @@ describe('transactions view command', () => {
       program.parseAsync(['transactions', 'view', '--until', 'not-a-date', '--json'], { from: 'user' })
     ).rejects.toThrow('CLI:transactions-view:json:Invalid date format: not-a-date:2');
 
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
   });
 
@@ -238,6 +245,7 @@ describe('transactions view command', () => {
       from: 'user',
     });
 
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('TransactionsViewApp');
     const appElement = renderedElement as ReactElement<{
