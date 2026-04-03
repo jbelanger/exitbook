@@ -172,7 +172,7 @@ Examples:
 - `reprocess`
 - `links run`
 - `prices enrich`
-- `balance refresh`
+- `accounts refresh`
 - `providers benchmark`
 - `clear`
 

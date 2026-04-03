@@ -281,7 +281,7 @@ The readiness API walks `rebuildPlan(target)` then the target itself, checking f
 `balances` is intentionally different:
 
 - `balance view` reads stored balance snapshots and fails closed when the scoped balance projection is not fresh
-- `balance refresh` is the explicit rebuild-and-refresh path for `balances`
+- `accounts refresh` is the explicit rebuild-and-refresh path for `balances`
 - `assets view` requires fresh balance snapshots separately from asset-review readiness
 
 ## Invariants

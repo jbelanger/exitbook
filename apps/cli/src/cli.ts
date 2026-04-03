@@ -112,7 +112,7 @@ Notes:
   registerPricesCommand(program, appRuntime);
   registerClearCommand(program);
   registerCostBasisCommand(program, appRuntime);
-  registerBalanceCommand(program, appRuntime);
+  registerBalanceCommand(program);
   registerBlockchainsCommand(program, appRuntime);
   registerProvidersCommand(program, appRuntime);
   registerPortfolioCommand(program, appRuntime);

@@ -15,85 +15,81 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 1: `accounts refresh` As The Canonical Workflow Command
+### Phase 2: Remove The Legacy `balance refresh` Workflow Alias
 
 Status: `completed`
 
 Intent:
 
-- make `accounts refresh` the primary balance refresh workflow surface
-- keep `balance refresh` only as a compatibility alias
-- switch refresh text output to line-oriented workflow progress instead of workflow TUI rendering
-- retarget stale snapshot guidance and help text toward `accounts refresh`
-- reserve `refresh` as an account name so the command surface stays unambiguous
+- make `accounts refresh` the only refresh workflow command
+- remove the remaining legacy `balance refresh` alias
+- move refresh command support under `accounts`, where the workflow now belongs
+- leave `balance` as a browse-only surface until read-surface consolidation is ready
 
 Why this slice came next:
 
-- the credential ownership boundary was already corrected in phase 0
-- refresh is the cleanest workflow boundary to move first without forcing browse-surface consolidation
-- V3 workflow guidance fits line-oriented progress better than explorer-style workflow UI
+- the workflow boundary was already moved to `accounts refresh`
+- keeping the alias was now pure surface debt, not a capability requirement
+- the shared refresh helper was stranded under `balance` even though only `accounts` should own the workflow
 
 What landed:
 
-- `accounts refresh` now exists as a first-class command.
-- `balance refresh` now delegates to the same shared refresh executor as a compatibility alias.
-- Text refresh output now reports line-oriented progress and completion summaries for both single-account and all-account runs.
-- Browse/detail guidance now points users to `exitbook accounts refresh` when stored balances are missing or stale.
-- `refresh` is now treated as a reserved account name.
+- `balance refresh` was removed.
+- `accounts refresh` now owns its command support module directly.
+- `balance` is now browse-only and exposes only root browse plus `balance view`.
+- Refresh CLI tests now exercise `accounts refresh` directly instead of a legacy alias.
+- Current canonical docs now describe `accounts refresh` as the rebuild-and-verify path for stored balances.
 
 ## Verified Current Facts
 
-- `accounts` now owns the canonical refresh workflow entrypoint in [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts).
-- `balance refresh` still exists, but only as a compatibility alias over the shared executor in [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts) and [balance-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh-command-support.ts).
-- Refresh JSON output still uses the existing structured response contract, while text mode now uses line-oriented workflow progress instead of rendering the workflow app.
-- Stored balance freshness guidance now points to `exitbook accounts refresh` in [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts).
-- `refresh` is reserved alongside other account subcommands in [account-lifecycle-service.ts](/Users/joel/Dev/exitbook/packages/accounts/src/accounts/account-lifecycle-service.ts).
+- `accounts refresh` is the only CLI workflow entrypoint for rebuilding stored balances and verifying live data in [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts) and [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts).
+- `balance` is now a browse-only namespace in [balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance.ts).
+- The refresh execution engine still reuses balance workflow runtime/services from the balance feature, but no longer exposes a `balance refresh` command.
+- Stored balance freshness messaging and related read surfaces direct users to `exitbook accounts refresh`.
+- `refresh` remains reserved as an account name.
 
-## Phase 1 Exit Criteria
+## Phase 2 Exit Criteria
 
-- `accounts refresh` exists as a documented, tested command.
-- `balance refresh` delegates to shared refresh execution instead of owning a separate workflow implementation.
-- Text refresh mode no longer depends on the workflow TUI shell.
-- CLI help text and freshness messaging prefer `accounts refresh`.
-- Account naming rules reserve `refresh`.
-- Tests cover the new command registration path and the line-oriented refresh text flow.
+- `balance refresh` no longer exists in the command tree.
+- `accounts refresh` remains fully tested for JSON and text workflow output.
+- `balance` help and tests describe a browse-only surface.
+- Refresh command support no longer lives under `apps/cli/src/features/balance/command/`.
+- Current canonical docs no longer describe `balance refresh` as a live command.
 
-Phase 1 result:
+Phase 2 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [accounts.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts.ts)
 - [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts)
+- [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts)
+- [accounts.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts.ts)
 - [balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance.ts)
-- [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts)
-- [balance-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh-command-support.ts)
-- [run-balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/run-balance.ts)
-- [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts)
-- refresh command tests under `apps/cli/src/features/accounts/command/__tests__/` and `apps/cli/src/features/balance/command/__tests__/`
-- account lifecycle rules in `packages/accounts/src/accounts/`
+- refresh command tests under `apps/cli/src/features/accounts/command/__tests__/`
+- balance browse tests under `apps/cli/src/features/balance/command/__tests__/`
+- current CLI specs under `docs/specs/cli/`
 
 ## Slice Notes
 
 Constraints that shaped the implementation:
 
-- keep the existing refresh execution engine rather than duplicating workflow logic under `accounts`
-- preserve the current JSON contract while changing only the text workflow presentation
-- keep `balance refresh` operational so existing scripts do not break during surface consolidation
+- keep `balance` browse/view because `accounts` still does not absorb the stored-balance explorer yet
+- remove only the workflow alias, not the still-distinct browse surface
+- update canonical docs in the same slice so the live surface and spec remain aligned
 
 Post-slice reassessment notes:
 
-- the workflow boundary is now cleaner, but browse/detail duplication between `accounts` and `balance` still exists
-- `balance` still owns the richer stored-balance asset drilldown components that `accounts view` does not yet reuse
-- the next slice should improve the read surface, not add more workflow variants
+- the workflow boundary is now clean
+- the remaining duplication is almost entirely in read surfaces and renderers
+- the next slice should consolidate browse/detail behavior, not touch workflow naming again
 
 ## Reassessment Gate
 
 Before starting the next slice:
 
 1. Re-read the current `accounts` spec.
-2. Re-inspect both `accounts` and `balance` read surfaces as they exist after phase 1.
+2. Re-inspect the `accounts` and `balance` read surfaces as they exist after phase 2.
 3. Pick the single best read-surface consolidation slice from current code, not from prior assumptions.
 
 Likely next reassessment candidates:
@@ -106,7 +102,8 @@ Do not commit to one of these until the code is re-read and the best slice is co
 
 ## Progress Log
 
-| Slice                                                            | Status      | Notes                                                                                                                                                           |
-| ---------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 0: account-owned provider credentials and refresh boundary | `completed` | CSV accounts can store provider credentials; refresh uses stored account credentials only; CLI/env overrides removed.                                           |
-| Phase 1: `accounts refresh` as canonical workflow command        | `completed` | Added `accounts refresh`; `balance refresh` now delegates as an alias; text refresh is line-oriented progress; stale guidance now points to `accounts refresh`. |
+| Slice                                                            | Status      | Notes                                                                                                                 |
+| ---------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| Phase 0: account-owned provider credentials and refresh boundary | `completed` | CSV accounts can store provider credentials; refresh uses stored account credentials only; CLI/env overrides removed. |
+| Phase 1: `accounts refresh` as canonical workflow command        | `completed` | Added `accounts refresh`; refresh text is line-oriented progress; stale guidance now points to `accounts refresh`.    |
+| Phase 2: remove legacy `balance refresh` alias                   | `completed` | Deleted `balance refresh`; moved refresh command support under `accounts`; `balance` is now browse-only.              |

@@ -1,23 +1,18 @@
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
 
-import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { registerBalanceCommand } from '../balance.js';
 
-const appRuntime = {
-  blockchainExplorersConfig: {},
-} as CliAppRuntime;
-
 describe('registerBalanceCommand', () => {
-  it('registers the balance namespace with a bare browse entrypoint plus view and refresh subcommands', () => {
+  it('registers the balance namespace with a bare browse entrypoint plus a view subcommand', () => {
     const program = new Command();
 
-    registerBalanceCommand(program, appRuntime);
+    registerBalanceCommand(program);
 
     const balanceCommand = program.commands.find((command) => command.name() === 'balance');
     expect(balanceCommand).toBeDefined();
-    expect(balanceCommand?.description()).toBe('Browse stored balance snapshots or refresh live verification');
+    expect(balanceCommand?.description()).toBe('Browse stored balance snapshots');
     expect(balanceCommand?.usage()).toBe('[selector] [options]');
-    expect(balanceCommand?.commands.map((command) => command.name())).toEqual(['view', 'refresh']);
+    expect(balanceCommand?.commands.map((command) => command.name())).toEqual(['view']);
   });
 });

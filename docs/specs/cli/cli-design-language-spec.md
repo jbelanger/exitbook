@@ -28,7 +28,7 @@ Every command should clearly belong to one of those questions.
 | Journey              | User question                                | Primary commands                                                                 |
 | -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
 | Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                               |
-| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `balance refresh`           |
+| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh`          |
 | Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`, `balance` |
 | Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`            |
 | Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                          |
@@ -208,7 +208,7 @@ Errors must answer three things quickly:
 
 When a better next step exists, name the exact command:
 
-- "Run `exitbook balance refresh` first"
+- "Run `exitbook accounts refresh` first"
 - "Run `exitbook import` before `exitbook reprocess` if raw data is stale"
 
 Error rendering should stay product-like:

@@ -16,7 +16,7 @@ How Exitbook persists current balance snapshots, scopes them to owning accounts,
 | Scope ownership   | Every balance snapshot is keyed by the owning root account scope                                          |
 | Projection id     | Balance freshness lives in `projection_state` under `projection_id='balances'`                            |
 | Scope key         | Scoped state rows use `balance:<scopeAccountId>`                                                          |
-| Live fetches      | `balance refresh` is the only CLI command that calls live providers                                       |
+| Live fetches      | `accounts refresh` is the only CLI command that calls live providers for balances                         |
 | Read policy       | `balance view` and `assets view` read stored snapshots only and fail closed when freshness is not `fresh` |
 | Account summaries | `accounts view` shows projection freshness separately from verification outcome                           |
 
@@ -110,7 +110,7 @@ Unlike global projections, freshness and resets are scoped per owning balance ac
 ### Scope Ownership
 
 - One owning scope account has one current balance snapshot.
-- Child accounts do not create independent snapshot rows during normal balance refresh or view flows.
+- Child accounts do not create independent snapshot rows during normal refresh or view flows.
 - Workflow orchestration, account summaries, and CLI views all resolve the same owning scope before reading or writing snapshot state.
 
 ### Build And Refresh Flows
@@ -120,7 +120,7 @@ The balance workflow has two persisted paths:
 - a calculated rebuild path that writes calculated balances and a summary with `verificationStatus = 'never-run'`
 - a refresh path that recalculates balances, fetches live balances when supported, compares them, and overwrites the scope snapshot
 
-If live verification is unsupported for a scope, `balance refresh` still persists the rebuilt calculated balances but stores `verificationStatus = 'unavailable'` plus operator-facing warning metadata instead of failing the scope.
+If live verification is unsupported for a scope, `accounts refresh` still persists the rebuilt calculated balances but stores `verificationStatus = 'unavailable'` plus operator-facing warning metadata instead of failing the scope.
 
 Persistence errors are surfaced as command failures; the workflow does not silently report success when snapshot writes fail.
 
@@ -133,9 +133,9 @@ Persistence errors are surfaced as command failures; the workflow does not silen
 - Requires the owning scope snapshot to be readable and fresh.
 - Fails closed when the scope is missing a snapshot or the scoped projection state is `stale`, `building`, or `failed`.
 
-#### `balance refresh`
+#### `accounts refresh`
 
-- Is the only balance CLI command that attempts live providers.
+- Is the only CLI command that attempts live providers for balances.
 - Resolves child requests upward to the owning scope.
 - Persists the refreshed snapshot back onto the owning scope.
 - Falls back to a calculated-only persisted snapshot with `verificationStatus = 'unavailable'` when live verification is unsupported for that scope.
@@ -274,7 +274,7 @@ graph TD
 ## Known Limitations (Current Implementation)
 
 - Balance history is not stored; only the latest scope snapshot exists.
-- Generic projection readiness does not auto-build `balances`; the explicit user-facing rebuild path is `balance refresh`.
+- Generic projection readiness does not auto-build `balances`; the explicit user-facing rebuild path is `accounts refresh`.
 - `assets view` still loads transactions for historical counts and symbol lookup even though current quantity comes from balance snapshots.
 
 ## Related Specs
