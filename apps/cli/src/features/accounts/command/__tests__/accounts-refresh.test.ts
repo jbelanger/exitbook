@@ -98,6 +98,114 @@ function createAccount(overrides: {
   };
 }
 
+function createVerificationComparison(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    assetId: 'blockchain:bitcoin:native',
+    assetSymbol: 'BTC',
+    calculatedBalance: '1.25',
+    liveBalance: '1.25',
+    difference: '0',
+    percentageDiff: 0,
+    status: 'match',
+    diagnostics: { txCount: 4 },
+    ...overrides,
+  };
+}
+
+function createVerificationCoverage(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    status: 'complete',
+    confidence: 'high',
+    requestedAddresses: 1,
+    successfulAddresses: 1,
+    failedAddresses: 0,
+    totalAssets: 1,
+    parsedAssets: 1,
+    failedAssets: 0,
+    overallCoverageRatio: 1,
+    ...overrides,
+  };
+}
+
+function createVerificationResult(
+  overrides: {
+    [key: string]: unknown;
+    coverage?: Record<string, unknown>;
+    summary?: Record<string, unknown>;
+  } = {}
+): Record<string, unknown> {
+  const { summary = {}, coverage = {}, ...result } = overrides;
+
+  return {
+    mode: 'verification',
+    timestamp: '2026-03-12T18:10:00.000Z',
+    status: 'match',
+    summary: {
+      matches: 1,
+      mismatches: 0,
+      warnings: 0,
+      totalAssets: 1,
+      ...summary,
+    },
+    coverage: createVerificationCoverage(coverage),
+    suggestion: 'Balances match',
+    partialFailures: undefined,
+    warnings: undefined,
+    ...result,
+  };
+}
+
+function createCalculatedOnlyVerificationResult(
+  overrides: {
+    [key: string]: unknown;
+    coverage?: Record<string, unknown>;
+    summary?: Record<string, unknown>;
+    warnings?: string[] | undefined;
+  } = {}
+): Record<string, unknown> {
+  const { summary = {}, coverage = {}, ...result } = overrides;
+
+  return {
+    mode: 'calculated-only',
+    timestamp: '2026-03-12T18:10:00.000Z',
+    status: 'warning',
+    summary: {
+      matches: 0,
+      mismatches: 0,
+      warnings: 0,
+      totalCurrencies: 1,
+      ...summary,
+    },
+    coverage: {
+      status: 'partial',
+      confidence: 'low',
+      requestedAddresses: 1,
+      successfulAddresses: 0,
+      failedAddresses: 1,
+      totalAssets: 1,
+      parsedAssets: 0,
+      failedAssets: 1,
+      overallCoverageRatio: 0,
+      ...coverage,
+    },
+    suggestion:
+      'Stored calculated balances only. Add a balance-capable provider for lukso to enable live verification.',
+    partialFailures: undefined,
+    warnings: [
+      'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
+    ],
+    ...result,
+  };
+}
+
+function createTextVerificationResult(): Record<string, unknown> {
+  return createVerificationResult({
+    summary: {
+      totalCurrencies: 1,
+    },
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockCtx.database.mockResolvedValue({});
@@ -147,19 +255,7 @@ describe('accounts refresh command', () => {
       identifier: 'bc1-child',
       name: 'wallet-child',
     });
-
-    const comparisons = [
-      {
-        assetId: 'blockchain:bitcoin:native',
-        assetSymbol: 'BTC',
-        calculatedBalance: '1.25',
-        liveBalance: '1.25',
-        difference: '0',
-        percentageDiff: 0,
-        status: 'match',
-        diagnostics: { txCount: 4 },
-      },
-    ];
+    const comparisons = [createVerificationComparison()];
 
     mockRunBalanceRefreshSingle.mockResolvedValue(
       ok({
@@ -167,31 +263,7 @@ describe('accounts refresh command', () => {
         account: scopeAccount,
         requestedAccount,
         comparisons,
-        verificationResult: {
-          mode: 'verification',
-          timestamp: '2026-03-12T18:10:00.000Z',
-          status: 'match',
-          summary: {
-            matches: 1,
-            mismatches: 0,
-            warnings: 0,
-            totalAssets: 1,
-          },
-          coverage: {
-            status: 'complete',
-            confidence: 'high',
-            requestedAddresses: 1,
-            successfulAddresses: 1,
-            failedAddresses: 0,
-            totalAssets: 1,
-            parsedAssets: 1,
-            failedAssets: 0,
-            overallCoverageRatio: 1,
-          },
-          suggestion: 'Balances match',
-          partialFailures: undefined,
-          warnings: undefined,
-        },
+        verificationResult: createVerificationResult(),
         streamMetadata: {
           normal: {
             totalFetched: 4,
@@ -268,34 +340,7 @@ describe('accounts refresh command', () => {
             diagnostics: { txCount: 4 },
           },
         ],
-        verificationResult: {
-          mode: 'calculated-only',
-          timestamp: '2026-03-12T18:10:00.000Z',
-          status: 'warning',
-          summary: {
-            matches: 0,
-            mismatches: 0,
-            warnings: 0,
-            totalCurrencies: 1,
-          },
-          coverage: {
-            status: 'partial',
-            confidence: 'low',
-            requestedAddresses: 1,
-            successfulAddresses: 0,
-            failedAddresses: 1,
-            totalAssets: 1,
-            parsedAssets: 0,
-            failedAssets: 1,
-            overallCoverageRatio: 0,
-          },
-          suggestion:
-            'Stored calculated balances only. Add a balance-capable provider for lukso to enable live verification.',
-          partialFailures: undefined,
-          warnings: [
-            'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
-          ],
-        },
+        verificationResult: createCalculatedOnlyVerificationResult(),
       })
     );
     mockGetByFingerprintRef.mockResolvedValue(ok(scopeAccount));
@@ -347,42 +392,14 @@ describe('accounts refresh command', () => {
         account: scopeAccount,
         requestedAccount: undefined,
         comparisons: [
-          {
+          createVerificationComparison({
             assetId: 'exchange:kraken:btc',
-            assetSymbol: 'BTC',
             calculatedBalance: '0.42',
             liveBalance: '0.42',
-            difference: '0',
-            percentageDiff: 0,
-            status: 'match',
             diagnostics: { txCount: 2 },
-          },
+          }),
         ],
-        verificationResult: {
-          mode: 'verification',
-          timestamp: '2026-03-12T18:10:00.000Z',
-          status: 'match',
-          summary: {
-            matches: 1,
-            mismatches: 0,
-            warnings: 0,
-            totalCurrencies: 1,
-          },
-          coverage: {
-            status: 'complete',
-            confidence: 'high',
-            requestedAddresses: 1,
-            successfulAddresses: 1,
-            failedAddresses: 0,
-            totalAssets: 1,
-            parsedAssets: 1,
-            failedAssets: 0,
-            overallCoverageRatio: 1,
-          },
-          suggestion: 'Balances match',
-          partialFailures: undefined,
-          warnings: undefined,
-        },
+        verificationResult: createTextVerificationResult(),
         streamMetadata: undefined,
       })
     );

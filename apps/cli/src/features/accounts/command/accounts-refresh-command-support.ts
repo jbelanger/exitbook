@@ -21,7 +21,7 @@ import type {
   AllAccountsVerificationResult,
   SingleRefreshResult,
 } from '../../balance/command/balance-handler-types.js';
-import { BalanceRefreshCommandOptionsSchema } from '../../balance/command/balance-option-schemas.js';
+import { BalanceRefreshCommandOptionsSchema as AccountsRefreshCommandOptionsSchema } from '../../balance/command/balance-option-schemas.js';
 import {
   abortBalanceVerification,
   awaitBalanceVerificationStream,
@@ -38,7 +38,7 @@ import {
   resolveRequiredOwnedAccountSelector,
 } from '../account-selector.js';
 
-type AccountsRefreshCommandOptions = z.infer<typeof BalanceRefreshCommandOptionsSchema>;
+type AccountsRefreshCommandOptions = z.infer<typeof AccountsRefreshCommandOptionsSchema>;
 
 const ACCOUNTS_REFRESH_COMMAND_ID = 'accounts-refresh';
 const ACCOUNTS_REFRESH_SELECTOR_REQUIRED_MESSAGE = 'Accounts refresh requires an account selector';
@@ -85,7 +85,7 @@ export async function executeAccountsRefreshCommand(input: ExecuteAccountsRefres
         return yield* parseCliCommandOptionsWithOverridesResult(
           input.rawOptions,
           { selector: input.selector },
-          BalanceRefreshCommandOptionsSchema
+          AccountsRefreshCommandOptionsSchema
         );
       }),
     action: async (context) => executeAccountsRefreshCommandResult(context.runtime, context.prepared, format),
@@ -114,19 +114,7 @@ async function executeAccountsRefreshSingleJsonCommand(
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
     const completion = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
-      const selection = await resolveRequiredOwnedAccountSelector(
-        scope.accountService,
-        scope.profile.id,
-        options.selector,
-        ACCOUNTS_REFRESH_SELECTOR_REQUIRED_MESSAGE
-      );
-      if (selection.isErr()) {
-        return err(selection.error);
-      }
-
-      const result = await runBalanceRefreshSingle(scope, {
-        accountId: selection.value.account.id,
-      });
+      const result = await runSingleAccountsRefresh(scope, options.selector);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -167,21 +155,8 @@ async function executeAccountsRefreshSingleTextCommand(
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
     const completion = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) => {
-      const selection = await resolveRequiredOwnedAccountSelector(
-        scope.accountService,
-        scope.profile.id,
-        options.selector,
-        ACCOUNTS_REFRESH_SELECTOR_REQUIRED_MESSAGE
-      );
-      if (selection.isErr()) {
-        return err(selection.error);
-      }
-
-      const requestedAccount = selection.value.account;
-      console.log(pc.dim(`Refreshing ${formatRefreshAccountLabel(requestedAccount)}...`));
-
-      const result = await runBalanceRefreshSingle(scope, {
-        accountId: requestedAccount.id,
+      const result = await runSingleAccountsRefresh(scope, options.selector, (requestedAccount) => {
+        console.log(pc.dim(`Refreshing ${formatRefreshAccountLabel(requestedAccount)}...`));
       });
       if (result.isErr()) {
         return err(result.error);
@@ -196,6 +171,27 @@ async function executeAccountsRefreshSingleTextCommand(
     }
 
     return completion.value;
+  });
+}
+
+async function runSingleAccountsRefresh(
+  scope: BalanceCommandScope,
+  selector: string | undefined,
+  onSelectedAccount?: (account: Account) => void
+): Promise<Result<SingleRefreshResult, Error>> {
+  const selection = await resolveRequiredOwnedAccountSelector(
+    scope.accountService,
+    scope.profile.id,
+    selector,
+    ACCOUNTS_REFRESH_SELECTOR_REQUIRED_MESSAGE
+  );
+  if (selection.isErr()) {
+    return err(selection.error);
+  }
+
+  onSelectedAccount?.(selection.value.account);
+  return runBalanceRefreshSingle(scope, {
+    accountId: selection.value.account.id,
   });
 }
 
