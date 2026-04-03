@@ -6,6 +6,7 @@ import type { Account, AccountType, BalanceSnapshot, ExchangeCredentials } from 
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
+import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 import type { BalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 
 import type {
@@ -156,12 +157,18 @@ export function buildStoredSnapshotAssetItem(
   assetId: string,
   assetSymbol: string,
   calculatedBalance: Decimal,
-  diagnostics: AssetDiagnostics
+  diagnostics: AssetDiagnostics,
+  options?: {
+    comparisonStatus?: StoredBalanceAssetViewItem['comparisonStatus'] | undefined;
+    liveBalance?: string | undefined;
+  }
 ): StoredSnapshotAssetItem {
   return {
     assetId,
     assetSymbol,
     calculatedBalance: calculatedBalance.toFixed(),
+    liveBalance: options?.liveBalance,
+    comparisonStatus: options?.comparisonStatus,
     isNegative: calculatedBalance.isNegative(),
     diagnostics,
   };

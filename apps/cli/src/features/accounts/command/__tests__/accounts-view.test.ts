@@ -5,13 +5,16 @@ import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+import type { AccountViewItem } from '../../accounts-view-model.js';
 
 const {
   mockcreateCliAccountLifecycleService,
+  mockBuildAccountDetailViewItem,
   mockBuildAccountQueryPorts,
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
+  mockFindById,
   mockGetByName,
   mockList,
   mockOutputAccountStaticDetail,
@@ -22,6 +25,7 @@ const {
   mockRunCommand,
 } = vi.hoisted(() => ({
   mockcreateCliAccountLifecycleService: vi.fn(),
+  mockBuildAccountDetailViewItem: vi.fn(),
   mockBuildAccountQueryPorts: vi.fn(),
   mockCtx: {
     activeProfileKey: 'default',
@@ -31,6 +35,7 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
+  mockFindById: vi.fn(),
   mockGetByName: vi.fn(),
   mockList: vi.fn(),
   mockOutputAccountStaticDetail: vi.fn(),
@@ -67,6 +72,10 @@ vi.mock('../../query/build-account-query-ports.js', () => ({
 
 vi.mock('../../account-service.js', () => ({
   createCliAccountLifecycleService: mockcreateCliAccountLifecycleService,
+}));
+
+vi.mock('../accounts-detail-support.js', () => ({
+  buildAccountDetailViewItem: mockBuildAccountDetailViewItem,
 }));
 
 vi.mock('../../query/account-query.js', () => ({
@@ -151,6 +160,82 @@ function createBaseAccountSummary() {
   };
 }
 
+function createAccountDetail(overrides: Partial<ReturnType<typeof createBaseAccountDetail>> = {}) {
+  return {
+    ...createBaseAccountDetail(),
+    ...overrides,
+  };
+}
+
+function createBaseAccountDetail() {
+  return {
+    id: 1,
+    accountFingerprint: createAccountFingerprint(1),
+    accountType: 'exchange-api' as const,
+    platformKey: 'kraken',
+    name: 'kraken-main',
+    identifier: 'acct-1',
+    parentAccountId: undefined,
+    providerName: 'kraken-api',
+    balanceProjectionStatus: 'fresh' as const,
+    balanceProjectionReason: undefined,
+    lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+    lastRefreshAt: '2026-03-12T12:30:00.000Z',
+    storedAssetCount: 3,
+    storedBalanceStatusReason: undefined,
+    storedBalanceSuggestion: undefined,
+    verificationStatus: 'match' as const,
+    sessionCount: 2,
+    childAccounts: [
+      {
+        id: 2,
+        accountFingerprint: createAccountFingerprint(2),
+        identifier: 'acct-child',
+        sessionCount: 1,
+        balanceProjectionStatus: 'fresh' as const,
+        verificationStatus: 'warning' as const,
+      },
+    ],
+    sessions: undefined,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    requestedAccount: undefined,
+    balance: {
+      readable: true as const,
+      scopeAccount: {
+        id: 1,
+        accountFingerprint: createAccountFingerprint(1),
+        accountType: 'exchange-api' as const,
+        platformKey: 'kraken',
+        identifier: 'acct-1',
+        name: 'kraken-main',
+      },
+      verificationStatus: 'match' as const,
+      statusReason: undefined,
+      suggestion: undefined,
+      lastRefreshAt: '2026-03-12T12:30:00.000Z',
+      assets: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC',
+          calculatedBalance: '0.42000000',
+          liveBalance: '0.42000000',
+          comparisonStatus: 'match' as const,
+          isNegative: false,
+          diagnostics: {
+            txCount: 2,
+            totals: {
+              fees: '0.00000000',
+              inflows: '0.50000000',
+              net: '0.42000000',
+              outflows: '0.08000000',
+            },
+          },
+        },
+      ],
+    },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('CI', '');
@@ -160,9 +245,35 @@ beforeEach(() => {
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
   mockcreateCliAccountLifecycleService.mockReturnValue({
+    findById: mockFindById,
     getByFingerprintRef: mockGetByFingerprintRef,
     getByName: mockGetByName,
   });
+  mockBuildAccountDetailViewItem.mockImplementation(async ({ summary }: { summary: AccountViewItem }) =>
+    ok(createAccountDetail(summary as Partial<ReturnType<typeof createBaseAccountDetail>>))
+  );
+  mockFindById.mockImplementation(async (accountId: number) =>
+    ok(
+      accountId === 1
+        ? {
+            id: 1,
+            profileId: 1,
+            accountFingerprint: createAccountFingerprint(1),
+            name: 'kraken-main',
+            parentAccountId: undefined,
+            accountType: 'exchange-api',
+            platformKey: 'kraken',
+            identifier: 'acct-1',
+            providerName: 'kraken-api',
+            credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
+            lastCursor: undefined,
+            metadata: undefined,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: undefined,
+          }
+        : undefined
+    )
+  );
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
   mockGetByName.mockImplementation(async (_profileId: number, name: string) =>
     ok(
@@ -264,6 +375,48 @@ describe('accounts browse commands', () => {
       platformKey: undefined,
       showSessions: undefined,
     });
+    const detailArgs = mockBuildAccountDetailViewItem.mock.calls[0]?.[0] as
+      | {
+          accountId: number;
+          accountService: { findById: unknown };
+          database: { tag: string };
+          profileId: number;
+          summary: {
+            accountFingerprint: string;
+            childAccounts: {
+              accountFingerprint: string;
+              balanceProjectionStatus: string;
+              id: number;
+              identifier: string;
+              sessionCount: number;
+              verificationStatus: string;
+            }[];
+            id: number;
+            sessions?: unknown;
+          };
+        }
+      | undefined;
+
+    expect(detailArgs).toBeDefined();
+    expect(detailArgs?.accountId).toBe(1);
+    expect(detailArgs?.accountService.findById).toBe(mockFindById);
+    expect(detailArgs?.database).toEqual({ tag: 'db' });
+    expect(detailArgs?.profileId).toBe(1);
+    expect(detailArgs?.summary).toMatchObject({
+      id: 1,
+      accountFingerprint: createAccountFingerprint(1),
+      childAccounts: [
+        {
+          id: 2,
+          accountFingerprint: createAccountFingerprint(2),
+          identifier: 'acct-child',
+          sessionCount: 1,
+          balanceProjectionStatus: 'fresh',
+          verificationStatus: 'warning',
+        },
+      ],
+      sessions: undefined,
+    });
     expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
     expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
     expect(mockRenderApp).not.toHaveBeenCalled();
@@ -352,37 +505,7 @@ describe('accounts browse commands', () => {
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'accounts',
       {
-        data: {
-          id: 1,
-          accountFingerprint: createAccountFingerprint(1),
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          name: 'kraken-main',
-          identifier: 'acct-1',
-          parentAccountId: undefined,
-          providerName: 'kraken-api',
-          balanceProjectionStatus: 'fresh',
-          balanceProjectionReason: undefined,
-          lastCalculatedAt: '2026-03-12T12:00:00.000Z',
-          lastRefreshAt: '2026-03-12T12:30:00.000Z',
-          storedAssetCount: 3,
-          storedBalanceStatusReason: undefined,
-          storedBalanceSuggestion: undefined,
-          verificationStatus: 'match',
-          sessionCount: 2,
-          childAccounts: [
-            {
-              id: 2,
-              accountFingerprint: createAccountFingerprint(2),
-              identifier: 'acct-child',
-              sessionCount: 1,
-              balanceProjectionStatus: 'fresh',
-              verificationStatus: 'warning',
-            },
-          ],
-          sessions: undefined,
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
+        data: createAccountDetail(),
         meta: {
           count: 1,
           offset: 0,
@@ -466,6 +589,7 @@ describe('accounts browse commands', () => {
       platformKey: undefined,
       showSessions: undefined,
     });
+    expect(mockBuildAccountDetailViewItem).toHaveBeenCalledOnce();
     expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
   });
 
@@ -819,37 +943,7 @@ describe('accounts browse commands', () => {
       platformKey: undefined,
       showSessions: undefined,
     });
-    expect(mockOutputAccountStaticDetail).toHaveBeenCalledWith({
-      id: 1,
-      accountFingerprint: createAccountFingerprint(1),
-      accountType: 'exchange-api',
-      platformKey: 'kraken',
-      name: 'kraken-main',
-      identifier: 'acct-1',
-      parentAccountId: undefined,
-      providerName: 'kraken-api',
-      balanceProjectionStatus: 'fresh',
-      balanceProjectionReason: undefined,
-      lastCalculatedAt: '2026-03-12T12:00:00.000Z',
-      lastRefreshAt: '2026-03-12T12:30:00.000Z',
-      storedAssetCount: 3,
-      storedBalanceStatusReason: undefined,
-      storedBalanceSuggestion: undefined,
-      verificationStatus: 'match',
-      sessionCount: 2,
-      childAccounts: [
-        {
-          id: 2,
-          accountFingerprint: createAccountFingerprint(2),
-          identifier: 'acct-child',
-          sessionCount: 1,
-          balanceProjectionStatus: 'fresh',
-          verificationStatus: 'warning',
-        },
-      ],
-      sessions: undefined,
-      createdAt: '2026-01-01T00:00:00.000Z',
-    });
+    expect(mockOutputAccountStaticDetail).toHaveBeenCalledWith(createAccountDetail());
     expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
@@ -882,37 +976,7 @@ describe('accounts browse commands', () => {
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'accounts-view',
       {
-        data: {
-          id: 1,
-          accountFingerprint: createAccountFingerprint(1),
-          accountType: 'exchange-api',
-          platformKey: 'kraken',
-          name: 'kraken-main',
-          identifier: 'acct-1',
-          parentAccountId: undefined,
-          providerName: 'kraken-api',
-          balanceProjectionStatus: 'fresh',
-          balanceProjectionReason: undefined,
-          lastCalculatedAt: '2026-03-12T12:00:00.000Z',
-          lastRefreshAt: '2026-03-12T12:30:00.000Z',
-          storedAssetCount: 3,
-          storedBalanceStatusReason: undefined,
-          storedBalanceSuggestion: undefined,
-          verificationStatus: 'match',
-          sessionCount: 2,
-          childAccounts: [
-            {
-              id: 2,
-              accountFingerprint: createAccountFingerprint(2),
-              identifier: 'acct-child',
-              sessionCount: 1,
-              balanceProjectionStatus: 'fresh',
-              verificationStatus: 'warning',
-            },
-          ],
-          sessions: undefined,
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
+        data: createAccountDetail(),
         meta: {
           count: 1,
           offset: 0,

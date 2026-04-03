@@ -5,21 +5,11 @@
 import type { AccountType, BalanceSnapshotVerificationStatus } from '@exitbook/core';
 
 import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
-import type { DateRange } from '../shared/balance-diagnostics.js';
+import type { StoredBalanceAssetDiagnostics, StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────────
 
-export interface AssetDiagnostics {
-  txCount: number;
-  dateRange?: DateRange | undefined;
-  totals: {
-    fees: string;
-    inflows: string;
-    net: string;
-    outflows: string;
-  };
-  unexplainedDelta?: string | undefined;
-}
+export type AssetDiagnostics = StoredBalanceAssetDiagnostics;
 
 // ─── Asset Items ─────────────────────────────────────────────────────────────
 
@@ -34,13 +24,7 @@ export interface AssetComparisonItem {
   diagnostics: AssetDiagnostics;
 }
 
-export interface StoredSnapshotAssetItem {
-  assetId: string;
-  assetSymbol: string;
-  calculatedBalance: string;
-  isNegative: boolean;
-  diagnostics: AssetDiagnostics;
-}
+export type StoredSnapshotAssetItem = StoredBalanceAssetViewItem;
 
 // ─── Account Items ───────────────────────────────────────────────────────────
 

@@ -129,6 +129,40 @@ describe('buildAccountStaticDetail', () => {
       storedBalanceSuggestion: 'Run accounts refresh again',
       verificationStatus: 'match',
       sessionCount: 2,
+      balance: {
+        readable: true,
+        scopeAccount: {
+          id: 1,
+          accountFingerprint: parentFingerprint,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'acct-1',
+          name: 'kraken-main',
+        },
+        verificationStatus: 'match',
+        statusReason: 'Provider coverage incomplete',
+        suggestion: 'Run accounts refresh again',
+        lastRefreshAt: '2026-03-12T12:30:00.000Z',
+        assets: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC',
+            calculatedBalance: '0.42000000',
+            liveBalance: '0.42000000',
+            comparisonStatus: 'match',
+            isNegative: false,
+            diagnostics: {
+              txCount: 2,
+              totals: {
+                fees: '0.00000000',
+                inflows: '0.50000000',
+                net: '0.42000000',
+                outflows: '0.08000000',
+              },
+            },
+          },
+        ],
+      },
       childAccounts: [
         {
           id: 2,
@@ -156,10 +190,16 @@ describe('buildAccountStaticDetail', () => {
     expect(stripAnsi(output)).toContain('Identifier: acct-1');
     expect(stripAnsi(output)).toContain('Provider: kraken-api');
     expect(stripAnsi(output)).toContain('Verification: ✓ verified · Projection: ✓ fresh');
-    expect(stripAnsi(output)).toContain('Balances');
-    expect(stripAnsi(output)).toContain('Stored assets: 3');
-    expect(stripAnsi(output)).toContain('Stored status: Provider coverage incomplete');
+    expect(stripAnsi(output)).toContain('Last calculated: 2026-03-12 12:00:00');
+    expect(stripAnsi(output)).toContain('Imports: 2 imports');
+    expect(stripAnsi(output)).toContain('Balances (1)');
+    expect(stripAnsi(output)).toContain('Status: Provider coverage incomplete');
     expect(stripAnsi(output)).toContain('Suggestion: Run accounts refresh again');
+    expect(stripAnsi(output)).toContain('LAST VERIFIED LIVE');
+    expect(stripAnsi(output)).toContain('STATUS');
+    expect(stripAnsi(output)).toContain('BTC');
+    expect(stripAnsi(output)).toContain('0.42000000');
+    expect(stripAnsi(output)).toContain('match');
     expect(stripAnsi(output)).toContain('Derived addresses (1)');
     expect(stripAnsi(output)).toContain('abcdef1234 acct-child');
     expect(stripAnsi(output)).toContain('Recent sessions');

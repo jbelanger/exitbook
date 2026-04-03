@@ -1,4 +1,6 @@
-import type { AccountType } from '@exitbook/core';
+import type { AccountType, BalanceSnapshotVerificationStatus } from '@exitbook/core';
+
+import type { StoredBalanceAssetViewItem } from '../shared/stored-balance-view.js';
 
 import type { AccountBalanceProjectionStatus, AccountVerificationStatus } from './query/account-query.js';
 
@@ -48,6 +50,41 @@ export interface AccountViewItem {
   childAccounts?: ChildAccountViewItem[] | undefined;
   sessions?: SessionViewItem[] | undefined;
   createdAt: string;
+}
+
+export interface AccountScopeViewItem {
+  id: number;
+  accountFingerprint: string;
+  accountType: AccountType;
+  platformKey: string;
+  identifier: string;
+  name?: string | undefined;
+}
+
+export interface ReadableAccountStoredBalanceDetailView {
+  readable: true;
+  scopeAccount: AccountScopeViewItem;
+  verificationStatus?: BalanceSnapshotVerificationStatus | undefined;
+  statusReason?: string | undefined;
+  suggestion?: string | undefined;
+  lastRefreshAt?: string | undefined;
+  assets: StoredBalanceAssetViewItem[];
+}
+
+export interface UnreadableAccountStoredBalanceDetailView {
+  readable: false;
+  scopeAccount: AccountScopeViewItem;
+  reason: string;
+  hint: string;
+}
+
+export type AccountStoredBalanceDetailView =
+  | ReadableAccountStoredBalanceDetailView
+  | UnreadableAccountStoredBalanceDetailView;
+
+export interface AccountDetailViewItem extends AccountViewItem {
+  requestedAccount?: AccountScopeViewItem | undefined;
+  balance: AccountStoredBalanceDetailView;
 }
 
 /**

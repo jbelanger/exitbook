@@ -33,7 +33,11 @@ export class BalanceAssetDetailsBuilder {
           asset.assetId,
           assetSymbol,
           parseDecimal(asset.calculatedBalance),
-          diagnostics
+          diagnostics,
+          {
+            liveBalance: asset.liveBalance,
+            comparisonStatus: asset.comparisonStatus,
+          }
         );
       })
     );

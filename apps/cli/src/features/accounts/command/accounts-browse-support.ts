@@ -15,10 +15,12 @@ import {
 } from '../account-selector.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
 import { toAccountViewItem } from '../account-view-projection.js';
-import type { AccountViewItem } from '../accounts-view-model.js';
+import type { AccountDetailViewItem, AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
 import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
+
+import { buildAccountDetailViewItem } from './accounts-detail-support.js';
 
 export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId' | 'accountId'> {
   accountSelector?: string | undefined;
@@ -26,11 +28,11 @@ export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileI
 }
 
 export type AccountsBrowseJsonListResult = ViewCommandResult<AccountViewItem[]>;
-export type AccountsBrowseJsonDetailResult = ViewCommandResult<AccountViewItem>;
+export type AccountsBrowseJsonDetailResult = ViewCommandResult<AccountDetailViewItem>;
 
 export interface AccountsBrowsePresentation {
   initialState: AccountsViewState;
-  selectedAccount?: AccountViewItem | undefined;
+  selectedAccount?: AccountDetailViewItem | undefined;
   listJsonResult: AccountsBrowseJsonListResult;
   detailJsonResult?: AccountsBrowseJsonDetailResult | undefined;
 }
@@ -70,7 +72,7 @@ export async function buildAccountsBrowsePresentation(
       );
     }
 
-    const selectedAccount = selectedIndex >= 0 ? viewItems[selectedIndex] : undefined;
+    const selectedAccountSummary = selectedIndex >= 0 ? viewItems[selectedIndex] : undefined;
     const filters = {
       platformFilter: params.platformKey,
       typeFilter: params.accountType,
@@ -81,6 +83,20 @@ export async function buildAccountsBrowsePresentation(
       platform: params.platformKey,
       accountType: params.accountType,
     });
+
+    const selectedAccount =
+      selectedAccountId !== undefined && shouldPreselectAccount !== true && selectedAccountSummary !== undefined
+        ? yield* toCliResult(
+            await buildAccountDetailViewItem({
+              accountId: selectedAccountId,
+              accountService: createCliAccountLifecycleService(database),
+              database,
+              profileId: profile.id,
+              summary: selectedAccountSummary,
+            }),
+            ExitCodes.GENERAL_ERROR
+          )
+        : undefined;
 
     return {
       initialState: createAccountsViewState(

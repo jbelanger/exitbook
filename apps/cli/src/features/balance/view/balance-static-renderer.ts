@@ -1,8 +1,11 @@
-import type { AccountType } from '@exitbook/core';
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
+import {
+  buildStoredBalanceAssetSectionLines,
+  formatStoredBalanceScopeAccountLine,
+} from '../../shared/stored-balance-static-renderer.js';
 import type { StoredSnapshotAccountResult } from '../command/balance-handler-types.js';
 
 import {
@@ -14,7 +17,6 @@ import type { BalanceStoredSnapshotState } from './balance-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
 const BALANCE_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'assets', 'verification'] as const;
-const BALANCE_ASSET_COLUMN_ORDER = ['asset', 'balance', 'transactions'] as const;
 
 export function outputBalanceStaticList(state: BalanceStoredSnapshotState): void {
   process.stdout.write(buildBalanceStaticList(state));
@@ -112,10 +114,10 @@ export function buildBalanceStaticDetail(result: StoredSnapshotAccountResult): s
   ];
 
   if (requestedAccount && requestedAccount.id !== account.id) {
-    lines.push(buildDetailLine('Requested', formatAccountLine(requestedAccount)));
-    lines.push(buildDetailLine('Scope', formatAccountLine(account)));
+    lines.push(buildDetailLine('Requested', formatStoredBalanceScopeAccountLine(requestedAccount)));
+    lines.push(buildDetailLine('Scope', formatStoredBalanceScopeAccountLine(account)));
   } else {
-    lines.push(buildDetailLine('Account', formatAccountLine(account)));
+    lines.push(buildDetailLine('Account', formatStoredBalanceScopeAccountLine(account)));
   }
 
   lines.push(buildDetailLine('Fingerprint', account.accountFingerprint));
@@ -139,59 +141,12 @@ export function buildBalanceStaticDetail(result: StoredSnapshotAccountResult): s
     lines.push(buildDetailLine('Suggestion', pc.dim(snapshot.suggestion)));
   }
 
-  lines.push('', pc.dim(`Assets (${assets.length})`));
-
-  if (assets.length === 0) {
-    lines.push('No stored assets found.');
-    return `${lines.join('\n')}\n`;
-  }
-
-  const assetColumns = createColumns(assets, {
-    asset: {
-      format: (asset) => asset.assetSymbol,
-      minWidth: 'ASSET'.length,
-    },
-    balance: {
-      align: 'right',
-      format: (asset) => asset.calculatedBalance,
-      minWidth: 'BALANCE'.length,
-    },
-    transactions: {
-      align: 'right',
-      format: (asset) => `${asset.diagnostics.txCount}`,
-      minWidth: 'TXS'.length,
-    },
-  });
-
   lines.push(
-    pc.dim(
-      buildTextTableHeader(
-        assetColumns.widths,
-        {
-          asset: 'ASSET',
-          balance: 'BALANCE',
-          transactions: 'TXS',
-        },
-        BALANCE_ASSET_COLUMN_ORDER,
-        { alignments: assetColumns.alignments, gap: STATIC_LIST_COLUMN_GAP }
-      )
-    )
+    '',
+    ...buildStoredBalanceAssetSectionLines(assets, {
+      title: 'Assets',
+    })
   );
-
-  for (const asset of assets) {
-    const formatted = assetColumns.format(asset);
-    lines.push(
-      buildTextTableRow(
-        {
-          ...formatted,
-          balance: asset.isNegative ? pc.red(formatted.balance) : pc.green(formatted.balance),
-          transactions: pc.dim(formatted.transactions),
-        },
-        BALANCE_ASSET_COLUMN_ORDER,
-        { gap: STATIC_LIST_COLUMN_GAP }
-      )
-    );
-  }
 
   return `${lines.join('\n')}\n`;
 }
@@ -213,17 +168,6 @@ function buildEmptyStateLines(): string[] {
 
 function buildDetailLine(label: string, value: string): string {
   return `${pc.dim(`${label}:`)} ${value}`;
-}
-
-function formatAccountLine(account: {
-  accountFingerprint: string;
-  accountType: AccountType;
-  identifier: string;
-  name?: string | undefined;
-  platformKey: string;
-}): string {
-  const label = account.name ?? account.identifier;
-  return `${label} ${pc.dim(`(${formatAccountFingerprintRef(account.accountFingerprint)})`)} ${pc.cyan(account.platformKey)} ${pc.dim(account.accountType)}`;
 }
 
 function truncateValue(value: string, maxWidth: number): string {

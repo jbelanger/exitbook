@@ -22,6 +22,11 @@ interface BalanceFreshnessDescription {
   text: string;
 }
 
+interface BalanceSnapshotUnreadableDetail {
+  hint: string;
+  reason: string;
+}
+
 function describeBalanceFreshness(params: {
   reason?: string | undefined;
   status: ProjectionStatus;
@@ -51,32 +56,39 @@ function describeBalanceFreshness(params: {
 }
 
 export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFreshnessMessageParams): string {
+  const detail = buildBalanceSnapshotUnreadableDetail(params);
+  const scopePrefix = `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName})`;
+
+  return `${scopePrefix} is not readable because ${detail.reason}. ${capitalizeFirst(detail.hint)}.`;
+}
+
+export function buildBalanceSnapshotUnreadableDetail(
+  params: BalanceSnapshotFreshnessMessageParams
+): BalanceSnapshotUnreadableDetail {
   const requestedScopeHint =
     params.requestedAccountRef === params.scopeAccountRef ? params.scopeAccountRef : params.requestedAccountRef;
 
   if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
-    return (
-      `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
-      'has not been built yet. ' +
-      `Run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to build it.`
-    );
+    return {
+      reason: `scope account ${params.scopeAccountRef} (${params.scopeSourceName}) has not been built yet`,
+      hint: `run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to build it`,
+    };
   }
 
   const description = describeBalanceFreshness({ reason: params.reason, status: params.status });
   if (description.affectsAllScopes) {
-    return (
-      `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
-      `is ${params.status} because ${description.text}. ` +
-      `Run "${ACCOUNTS_REFRESH_COMMAND}" to rebuild all stored balances, or ` +
-      `"${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild only the requested scope.`
-    );
+    return {
+      reason: `${description.text}`,
+      hint:
+        `run "${ACCOUNTS_REFRESH_COMMAND}" to rebuild all stored balances, or ` +
+        `"${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild only the requested scope`,
+    };
   }
 
-  return (
-    `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
-    `is ${params.status} because ${description.text}. ` +
-    `Run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild it.`
-  );
+  return {
+    reason: `${description.text}`,
+    hint: `run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild it`,
+  };
 }
 
 export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParams): string {
@@ -105,4 +117,8 @@ export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParam
     `Run "${ACCOUNTS_REFRESH_COMMAND} ${params.scopeAccountRef}" or "${ACCOUNTS_REFRESH_COMMAND}" ` +
     'to rebuild stored balances.'
   );
+}
+
+function capitalizeFirst(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }

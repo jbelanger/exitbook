@@ -1,7 +1,16 @@
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
-import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../accounts-view-model.js';
+import {
+  buildStoredBalanceAssetSectionLines,
+  formatStoredBalanceScopeAccountLine,
+} from '../../shared/stored-balance-static-renderer.js';
+import type {
+  AccountDetailViewItem,
+  AccountViewItem,
+  ChildAccountViewItem,
+  SessionViewItem,
+} from '../accounts-view-model.js';
 
 import {
   ACCOUNT_FINGERPRINT_REF_LENGTH,
@@ -62,11 +71,11 @@ export function buildAccountsStaticList(state: AccountsViewState): string {
   return `${lines.join('\n')}\n`;
 }
 
-export function outputAccountStaticDetail(account: AccountViewItem): void {
+export function outputAccountStaticDetail(account: AccountDetailViewItem): void {
   process.stdout.write(buildAccountStaticDetail(account));
 }
 
-export function buildAccountStaticDetail(account: AccountViewItem): string {
+export function buildAccountStaticDetail(account: AccountDetailViewItem): string {
   const type = formatAccountType(account.accountType);
   const verification = getVerificationDisplay(account.verificationStatus);
   const projection = getProjectionDisplay(account.balanceProjectionStatus);
@@ -84,13 +93,20 @@ export function buildAccountStaticDetail(account: AccountViewItem): string {
     `${pc.dim('Verification:')} ${colorStatus(verification.iconColor, `${verification.icon} ${verification.label}`)}${pc.dim(' · Projection: ')}${colorStatus(projection.iconColor, `${projection.icon} ${projection.label}`)}`,
   ];
 
+  if (account.lastCalculatedAt) {
+    lines.push(buildDetailLine('Last calculated', pc.dim(formatTimestamp(account.lastCalculatedAt))));
+  }
   if (account.lastRefreshAt) {
     lines.push(buildDetailLine('Last refresh', pc.dim(formatTimestamp(account.lastRefreshAt))));
   }
-  lines.push('', ...buildStoredBalanceLines(account));
   if (account.sessionCount !== undefined) {
     lines.push(buildDetailLine('Imports', formatImportCount(account.sessionCount)));
   }
+  if (account.requestedAccount) {
+    lines.push(buildDetailLine('Requested', formatStoredBalanceScopeAccountLine(account.requestedAccount)));
+    lines.push(buildDetailLine('Balance scope', formatStoredBalanceScopeAccountLine(account.balance.scopeAccount)));
+  }
+  lines.push('', ...buildStoredBalanceLines(account));
   if (account.childAccounts && account.childAccounts.length > 0) {
     lines.push('', ...buildChildAccountLines(account.childAccounts));
   }
@@ -179,26 +195,31 @@ function buildDetailLine(label: string, value: string): string {
   return `${pc.dim(`${label}:`)} ${value}`;
 }
 
-function buildStoredBalanceLines(account: AccountViewItem): string[] {
-  const lines = [pc.dim('Balances')];
-  const isReadable = account.balanceProjectionStatus === 'fresh' && account.storedAssetCount !== undefined;
-
-  if (!isReadable) {
-    lines.push(buildDetailLine('Stored snapshot', pc.dim('unreadable')));
-    if (account.balanceProjectionReason) {
-      lines.push(buildDetailLine('Reason', pc.dim(account.balanceProjectionReason)));
-    }
-    return lines;
+function buildStoredBalanceLines(account: AccountDetailViewItem): string[] {
+  if (!account.balance.readable) {
+    return [
+      pc.dim('Balances'),
+      `Stored balance snapshot is not readable: ${account.balance.reason}.`,
+      `Hint: ${account.balance.hint}.`,
+    ];
   }
 
-  lines.push(buildDetailLine('Stored assets', `${account.storedAssetCount}`));
+  const lines = buildStoredBalanceAssetSectionLines(account.balance.assets, {
+    title: 'Balances',
+    includeLiveBalance: true,
+    includeStatus: true,
+  });
 
-  if (account.storedBalanceStatusReason) {
-    lines.push(buildDetailLine('Stored status', pc.yellow(account.storedBalanceStatusReason)));
+  if (account.balance.statusReason) {
+    lines.splice(1, 0, buildDetailLine('Status', pc.yellow(account.balance.statusReason)));
   }
 
-  if (account.storedBalanceSuggestion) {
-    lines.push(buildDetailLine('Suggestion', pc.dim(account.storedBalanceSuggestion)));
+  if (account.balance.suggestion) {
+    lines.splice(
+      account.balance.statusReason ? 2 : 1,
+      0,
+      buildDetailLine('Suggestion', pc.dim(account.balance.suggestion))
+    );
   }
 
   return lines;
@@ -208,7 +229,7 @@ function buildChildAccountLines(children: ChildAccountViewItem[]): string[] {
   const lines = [pc.dim(`Derived addresses (${children.length})`)];
 
   lines.push(
-    ...children.slice(0, 5).map((child) => {
+    ...children.map((child) => {
       const projection = getProjectionDisplay(child.balanceProjectionStatus);
       const verification = getVerificationDisplay(child.verificationStatus);
       const imports = child.sessionCount !== undefined ? formatImportCount(child.sessionCount) : '';
@@ -218,10 +239,6 @@ function buildChildAccountLines(children: ChildAccountViewItem[]): string[] {
     })
   );
 
-  if (children.length > 5) {
-    lines.push(pc.dim(`  ...and ${children.length - 5} more`));
-  }
-
   return lines;
 }
 
@@ -229,16 +246,12 @@ function buildSessionLines(sessions: SessionViewItem[]): string[] {
   const lines = [pc.dim('Recent sessions')];
 
   lines.push(
-    ...sessions.slice(0, 5).map((session) => {
+    ...sessions.map((session) => {
       const { icon, iconColor } = getSessionDisplay(session.status);
       const completed = session.completedAt ? ` -> ${formatTimestamp(session.completedAt)}` : ' -> -';
       return `  ${colorStatus(iconColor, icon)} #${session.id} ${colorStatus(iconColor, session.status)} ${pc.dim(`${formatTimestamp(session.startedAt)}${completed}`)}`;
     })
   );
-
-  if (sessions.length > 5) {
-    lines.push(pc.dim(`  ...and ${sessions.length - 5} more`));
-  }
 
   return lines;
 }
