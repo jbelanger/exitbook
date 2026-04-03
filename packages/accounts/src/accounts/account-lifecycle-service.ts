@@ -56,7 +56,7 @@ export interface UpdateAccountInput {
   resetCursor?: boolean | undefined;
 }
 
-const RESERVED_ACCOUNT_NAMES = new Set(['add', 'list', 'remove', 'update', 'view']);
+const RESERVED_ACCOUNT_NAMES = new Set(['add', 'list', 'refresh', 'remove', 'update', 'view']);
 
 function normalizeAccountName(name: string): Result<string, Error> {
   const normalized = name.trim().toLowerCase();

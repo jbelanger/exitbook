@@ -1,33 +1,32 @@
 import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-
 import {
   buildStoredBalanceRefreshHelpText,
   executeStoredBalanceRefreshCommand,
-} from './balance-refresh-command-support.js';
+} from '../../balance/command/balance-refresh-command-support.js';
 
-export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntime: CliAppRuntime): void {
-  balanceCommand
+export function registerAccountsRefreshCommand(accountsCommand: Command, appRuntime: CliAppRuntime): void {
+  accountsCommand
     .command('refresh')
-    .description('Refresh stored balances (compatibility alias for accounts refresh)')
+    .description('Refresh stored balances and verify live data when providers support it')
     .argument('[selector]', 'Account selector (name or fingerprint prefix)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       buildStoredBalanceRefreshHelpText({
         canonicalCommandPath: 'exitbook accounts refresh',
-        examplesCommandPath: 'exitbook balance refresh',
-        preferCanonical: false,
+        examplesCommandPath: 'exitbook accounts refresh',
+        preferCanonical: true,
       })
     )
     .action((selector: string | undefined, rawOptions: unknown) =>
       executeStoredBalanceRefreshCommand({
         appRuntime,
-        commandId: 'balance-refresh',
+        commandId: 'accounts-refresh',
         rawOptions,
         selector,
-        selectorRequiredMessage: 'Balance refresh requires an account selector',
+        selectorRequiredMessage: 'Accounts refresh requires an account selector',
       })
     );
 }

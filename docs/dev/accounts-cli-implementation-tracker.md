@@ -2,7 +2,7 @@
 
 Tracks implementation progress for the `accounts` family redesign defined in [Accounts CLI Spec](/Users/joel/Dev/exitbook/docs/specs/cli/accounts/accounts-view-spec.md).
 
-This is not a full roadmap. It is a working tracker for the current best next slice. After each meaningful implementation step, stop, re-analyze the codebase, and update this document before committing to the next slice.
+This is a working tracker, not a speculative roadmap. After each coherent slice lands, stop, re-read the code, and update this document from facts.
 
 ## Working Rules
 
@@ -11,108 +11,102 @@ This is not a full roadmap. It is a working tracker for the current best next sl
 - Do not preserve obsolete command boundaries or helper shapes just to minimize diffs.
 - If something must be deferred, add a `TODO:` in code with a concrete follow-up, then re-assess it regularly.
 - Do not carry speculative future work here unless it is the immediate next reassessment candidate.
-- Every completed slice must leave the codebase in a coherent state with tests and help text aligned.
+- Every completed slice must leave the codebase coherent, documented, and validated with `pnpm lint`, `pnpm build`, and `pnpm test`.
 
 ## Current Slice
 
-### Phase 0: Account-Owned Provider Credentials And Refresh Boundary
+### Phase 1: `accounts refresh` As The Canonical Workflow Command
 
 Status: `completed`
 
 Intent:
 
-- provider credentials belong to account configuration
-- refresh commands must stop accepting credential override flags
-- refresh logic must resolve credentials only from stored account data
-- account data model and docs must stop implying credentials are exclusive to `exchange-api` accounts
+- make `accounts refresh` the primary balance refresh workflow surface
+- keep `balance refresh` only as a compatibility alias
+- switch refresh text output to line-oriented workflow progress instead of workflow TUI rendering
+- retarget stale snapshot guidance and help text toward `accounts refresh`
+- reserve `refresh` as an account name so the command surface stays unambiguous
 
-Why this is first:
+Why this slice came next:
 
-- it removes a cross-cutting ownership smell before command consolidation starts
-- it reduces the risk of building `accounts refresh` on top of the wrong credential boundary
-- it narrows later work by making refresh a pure workflow over stored account configuration
+- the credential ownership boundary was already corrected in phase 0
+- refresh is the cleanest workflow boundary to move first without forcing browse-surface consolidation
+- V3 workflow guidance fits line-oriented progress better than explorer-style workflow UI
 
 What landed:
 
-- `accounts add` and `accounts update` now allow stored provider credentials on `exchange-csv` accounts.
-- `balance refresh` no longer accepts `--api-key`, `--api-secret`, or `--api-passphrase`.
-- Refresh credential resolution no longer falls back to environment variables.
-- Single-account and all-account refresh both resolve credentials from the stored account record.
-- The CLI-only override helper module was removed.
+- `accounts refresh` now exists as a first-class command.
+- `balance refresh` now delegates to the same shared refresh executor as a compatibility alias.
+- Text refresh output now reports line-oriented progress and completion summaries for both single-account and all-account runs.
+- Browse/detail guidance now points users to `exitbook accounts refresh` when stored balances are missing or stale.
+- `refresh` is now treated as a reserved account name.
 
 ## Verified Current Facts
 
-- Browse and workflow responsibilities are split across `accounts` and `balance`, but refresh currently still owns credential override handling in [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts).
-- `accounts add` and `accounts update` already own the CLI surface for writing credentials in [accounts-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-option-schemas.ts) and [account-draft-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/account-draft-utils.ts).
-- Core and data-layer comments still describe `credentials` as exchange-API-only in [account.ts](/Users/joel/Dev/exitbook/packages/core/src/account/account.ts), [001_initial_schema.ts](/Users/joel/Dev/exitbook/packages/data/src/migrations/001_initial_schema.ts), and [database-schema.ts](/Users/joel/Dev/exitbook/packages/data/src/database-schema.ts).
-- Balance refresh still accepts `--api-key`, `--api-secret`, and `--api-passphrase`, and passes built credentials into refresh execution in [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts).
-- Balance verification runners already support stored per-account credential resolution for all-account refresh in [balance-verification-runner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-verification-runner.ts).
+- `accounts` now owns the canonical refresh workflow entrypoint in [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts).
+- `balance refresh` still exists, but only as a compatibility alias over the shared executor in [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts) and [balance-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh-command-support.ts).
+- Refresh JSON output still uses the existing structured response contract, while text mode now uses line-oriented workflow progress instead of rendering the workflow app.
+- Stored balance freshness guidance now points to `exitbook accounts refresh` in [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts).
+- `refresh` is reserved alongside other account subcommands in [account-lifecycle-service.ts](/Users/joel/Dev/exitbook/packages/accounts/src/accounts/account-lifecycle-service.ts).
 
-## Phase 0 Exit Criteria
+## Phase 1 Exit Criteria
 
-- `balance refresh` no longer accepts credential override flags.
-- Single-account refresh resolves credentials only from the stored account record.
-- All-account refresh keeps using stored per-account credential resolution.
-- Domain comments, schema comments, and help text no longer claim credentials are exchange-API-only.
-- CSV-backed exchange accounts remain valid places to store provider credentials for verification.
-- Tests cover stored-credential refresh behavior without CLI credential overrides.
-- Any residual mismatch that cannot be removed immediately is called out with a concrete `TODO:` in code.
+- `accounts refresh` exists as a documented, tested command.
+- `balance refresh` delegates to shared refresh execution instead of owning a separate workflow implementation.
+- Text refresh mode no longer depends on the workflow TUI shell.
+- CLI help text and freshness messaging prefer `accounts refresh`.
+- Account naming rules reserve `refresh`.
+- Tests cover the new command registration path and the line-oriented refresh text flow.
 
-Phase 0 result:
+Phase 1 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [account.ts](/Users/joel/Dev/exitbook/packages/core/src/account/account.ts)
-- [001_initial_schema.ts](/Users/joel/Dev/exitbook/packages/data/src/migrations/001_initial_schema.ts)
-- [database-schema.ts](/Users/joel/Dev/exitbook/packages/data/src/database-schema.ts)
-- [accounts-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-option-schemas.ts)
-- [account-draft-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/account-draft-utils.ts)
-- [accounts-update.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-update.ts)
+- [accounts.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts.ts)
+- [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts)
+- [balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance.ts)
 - [balance-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh.ts)
-- [balance-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-option-schemas.ts)
-- [balance-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-utils.ts)
-- balance refresh command tests under `apps/cli/src/features/balance/command/__tests__/`
-- account lifecycle and draft tests under `apps/cli/src/features/accounts/command/__tests__/`
+- [balance-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-refresh-command-support.ts)
+- [run-balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/run-balance.ts)
+- [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts)
+- refresh command tests under `apps/cli/src/features/accounts/command/__tests__/` and `apps/cli/src/features/balance/command/__tests__/`
+- account lifecycle rules in `packages/accounts/src/accounts/`
 
 ## Slice Notes
 
-Constraints:
+Constraints that shaped the implementation:
 
-- Keep refresh behavior correct for both single-account and all-account flows.
-- Do not introduce a compatibility layer that silently falls back to env-based overrides.
-- If naming changes are required, prefer a clean rename over adding parallel terms.
-
-Open design point to resolve during implementation:
-
-- whether `credentials` should be renamed now to something broader such as `providerCredentials`, or whether phase 0 should only fix ownership semantics and defer renaming to a later reassessment
+- keep the existing refresh execution engine rather than duplicating workflow logic under `accounts`
+- preserve the current JSON contract while changing only the text workflow presentation
+- keep `balance refresh` operational so existing scripts do not break during surface consolidation
 
 Post-slice reassessment notes:
 
-- The ownership boundary is now correct enough to evaluate command consolidation from a clean base.
-- `balance refresh` still exists as the workflow entrypoint, but it now behaves like a pure workflow over stored account config rather than a credential-taking special case.
-- The `credentials` field name is now semantically broader than its old comment/docs, but the name itself may still be too generic.
+- the workflow boundary is now cleaner, but browse/detail duplication between `accounts` and `balance` still exists
+- `balance` still owns the richer stored-balance asset drilldown components that `accounts view` does not yet reuse
+- the next slice should improve the read surface, not add more workflow variants
 
 ## Reassessment Gate
 
-When phase 0 is complete:
+Before starting the next slice:
 
 1. Re-read the current `accounts` spec.
-2. Re-inspect the command boundaries in code.
-3. Decide the next single best slice based on the code as it exists then, not on assumptions made today.
+2. Re-inspect both `accounts` and `balance` read surfaces as they exist after phase 1.
+3. Pick the single best read-surface consolidation slice from current code, not from prior assumptions.
 
 Likely next reassessment candidates:
 
-- introduce `accounts refresh` as the canonical workflow command
-- add the `ASSETS` count to `accounts` static list output
-- unify account detail with stored balance detail
-- reuse balance asset drilldown inside `accounts view`
+- add the `ASSETS` count to the static `accounts` list
+- unify `accounts` static detail with stored balance detail
+- reuse stored balance asset drilldown inside `accounts view`
 
-Do not commit to one of these until phase 0 lands and the codebase is re-evaluated.
+Do not commit to one of these until the code is re-read and the best slice is confirmed again.
 
 ## Progress Log
 
-| Slice                                                            | Status      | Notes                                                                                                                                                               |
-| ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 0: account-owned provider credentials and refresh boundary | `completed` | CSV accounts can store provider credentials; refresh uses stored account credentials only; CLI/env overrides removed; validated with focused tests and `pnpm build` |
+| Slice                                                            | Status      | Notes                                                                                                                                                           |
+| ---------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0: account-owned provider credentials and refresh boundary | `completed` | CSV accounts can store provider credentials; refresh uses stored account credentials only; CLI/env overrides removed.                                           |
+| Phase 1: `accounts refresh` as canonical workflow command        | `completed` | Added `accounts refresh`; `balance refresh` now delegates as an alias; text refresh is line-oriented progress; stale guidance now points to `accounts refresh`. |

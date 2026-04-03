@@ -21,8 +21,8 @@ Examples:
   $ exitbook balance kraken-main
   $ exitbook balance view
   $ exitbook balance view kraken-main
-  $ exitbook balance refresh
-  $ exitbook balance refresh 6f4c0d1a2b --json
+  $ exitbook accounts refresh
+  $ exitbook accounts refresh 6f4c0d1a2b --json
 
 Browse Options:
 ${buildBalanceBrowseOptionsHelpText()}
@@ -31,7 +31,8 @@ Notes:
   - Use bare "balance" for quick stored-snapshot lists and single-account details.
   - "balance view" reads stored snapshots only.
   - "balance view" opens the explorer on interactive terminals and falls back to the same static output off-TTY.
-  - "balance refresh" recalculates balances and verifies live data when providers support it.
+  - Use "accounts refresh" for balance refresh workflows.
+  - "balance refresh" remains supported as a compatibility alias.
 `
     );
 

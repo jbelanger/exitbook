@@ -1,6 +1,7 @@
 import type { ProjectionStatus } from '@exitbook/core';
 
 export const BALANCE_SNAPSHOT_NEVER_BUILT_REASON = 'balance snapshot has never been built';
+const ACCOUNTS_REFRESH_COMMAND = 'exitbook accounts refresh';
 
 interface BalanceSnapshotFreshnessMessageParams {
   requestedAccountRef: string;
@@ -57,7 +58,7 @@ export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFre
     return (
       `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
       'has not been built yet. ' +
-      `Run "exitbook balance refresh ${requestedScopeHint}" to build it.`
+      `Run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to build it.`
     );
   }
 
@@ -66,15 +67,15 @@ export function formatBalanceSnapshotFreshnessMessage(params: BalanceSnapshotFre
     return (
       `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
       `is ${params.status} because ${description.text}. ` +
-      `Run "exitbook balance refresh" to rebuild all stored balances, or ` +
-      `"exitbook balance refresh ${requestedScopeHint}" to rebuild only the requested scope.`
+      `Run "${ACCOUNTS_REFRESH_COMMAND}" to rebuild all stored balances, or ` +
+      `"${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild only the requested scope.`
     );
   }
 
   return (
     `Stored balance snapshot for scope account ${params.scopeAccountRef} (${params.scopeSourceName}) ` +
     `is ${params.status} because ${description.text}. ` +
-    `Run "exitbook balance refresh ${requestedScopeHint}" to rebuild it.`
+    `Run "${ACCOUNTS_REFRESH_COMMAND} ${requestedScopeHint}" to rebuild it.`
   );
 }
 
@@ -82,8 +83,8 @@ export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParam
   if (params.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON) {
     return (
       `Assets view requires a stored balance snapshot. Scope account ${params.scopeAccountRef} ` +
-      `has not been built yet. Run "exitbook balance refresh ${params.scopeAccountRef}" or ` +
-      '"exitbook balance refresh" to build it.'
+      `has not been built yet. Run "${ACCOUNTS_REFRESH_COMMAND} ${params.scopeAccountRef}" or ` +
+      `"${ACCOUNTS_REFRESH_COMMAND}" to build it.`
     );
   }
 
@@ -93,15 +94,15 @@ export function formatAssetsFreshnessMessage(params: AssetsFreshnessMessageParam
     return (
       `Assets view requires fresh balance snapshots. Scope account ${params.scopeAccountRef} ` +
       `is ${params.status} because ${description.text}. ` +
-      `Run "exitbook balance refresh" to rebuild all stored balances, or ` +
-      `"exitbook balance refresh ${params.scopeAccountRef}" to rebuild only this scope.`
+      `Run "${ACCOUNTS_REFRESH_COMMAND}" to rebuild all stored balances, or ` +
+      `"${ACCOUNTS_REFRESH_COMMAND} ${params.scopeAccountRef}" to rebuild only this scope.`
     );
   }
 
   return (
     `Assets view requires fresh balance snapshots. Scope account ${params.scopeAccountRef} ` +
     `is ${params.status} because ${description.text}. ` +
-    `Run "exitbook balance refresh ${params.scopeAccountRef}" or "exitbook balance refresh" ` +
+    `Run "${ACCOUNTS_REFRESH_COMMAND} ${params.scopeAccountRef}" or "${ACCOUNTS_REFRESH_COMMAND}" ` +
     'to rebuild stored balances.'
   );
 }

@@ -806,7 +806,7 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
       : 'No transactions found for this account.';
   const followupMessage =
     state.mode === 'stored-snapshot'
-      ? 'Run "exitbook balance refresh" if you expected balances for this scope.'
+      ? 'Run "exitbook accounts refresh" if you expected balances for this scope.'
       : 'Import transactions first:';
 
   return (

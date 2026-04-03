@@ -5,8 +5,11 @@ import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+import type { EventRelay } from '../../../../ui/shared/event-relay.js';
+import type { BalanceEvent } from '../../view/balance-view-state.js';
 
 const {
+  mockAwaitBalanceVerificationStream,
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
@@ -22,6 +25,7 @@ const {
   mockStartBalanceVerificationStream,
   mockWithBalanceCommandScope,
 } = vi.hoisted(() => ({
+  mockAwaitBalanceVerificationStream: vi.fn(),
   mockCtx: {
     closeDatabase: vi.fn(),
     database: vi.fn(),
@@ -64,6 +68,7 @@ vi.mock('../balance-command-scope.js', () => ({
 
 vi.mock('../run-balance.js', () => ({
   abortBalanceVerification: vi.fn(),
+  awaitBalanceVerificationStream: mockAwaitBalanceVerificationStream,
   loadBalanceVerificationAccounts: mockLoadBalanceVerificationAccounts,
   runBalanceRefreshAll: vi.fn(),
   runBalanceRefreshSingle: mockRunBalanceRefreshSingle,
@@ -150,6 +155,7 @@ beforeEach(() => {
   );
   mockGetByName.mockResolvedValue(ok(undefined));
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+  mockAwaitBalanceVerificationStream.mockResolvedValue(undefined);
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -636,14 +642,86 @@ describe('balance command JSON mode', () => {
     );
   });
 
-  it('renders the refresh-all TUI and wires the verification stream through the runtime', async () => {
+  it('prints a text progress summary for single-account refresh', async () => {
     const program = createBalanceCommand();
-    let renderedElement: ReactElement | undefined;
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const scopeAccount = createAccount({
+      id: 21,
+      identifier: 'kraken-root',
+      name: 'kraken-main',
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+    });
+
+    mockRunBalanceRefreshSingle.mockResolvedValue(
+      ok({
+        mode: 'verification',
+        account: scopeAccount,
+        requestedAccount: undefined,
+        comparisons: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC',
+            calculatedBalance: '0.42',
+            liveBalance: '0.42',
+            difference: '0',
+            percentageDiff: 0,
+            status: 'match',
+            diagnostics: { txCount: 2 },
+          },
+        ],
+        verificationResult: {
+          mode: 'verification',
+          timestamp: '2026-03-12T18:10:00.000Z',
+          status: 'match',
+          summary: {
+            matches: 1,
+            mismatches: 0,
+            warnings: 0,
+            totalCurrencies: 1,
+          },
+          coverage: {
+            status: 'complete',
+            confidence: 'high',
+            requestedAddresses: 1,
+            successfulAddresses: 1,
+            failedAddresses: 0,
+            totalAssets: 1,
+            parsedAssets: 1,
+            failedAssets: 0,
+            overallCoverageRatio: 1,
+          },
+          suggestion: 'Balances match',
+          partialFailures: undefined,
+          warnings: undefined,
+        },
+        streamMetadata: undefined,
+      })
+    );
+    mockGetByName.mockResolvedValue(ok(scopeAccount));
+
+    await program.parseAsync(['balance', 'refresh', 'kraken-main'], { from: 'user' });
+
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refreshing kraken-main (kraken)...'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('kraken-main (kraken): match'));
+    consoleLog.mockRestore();
+  });
+
+  it('prints all-account refresh progress and wires the verification stream through the runtime', async () => {
+    const program = createBalanceCommand();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     mockLoadBalanceVerificationAccounts.mockResolvedValue(
       ok([
         {
-          account: createAccount({ id: 21, identifier: 'kraken-root', accountType: 'exchange-api' }),
+          account: createAccount({
+            id: 21,
+            identifier: 'kraken-root',
+            accountType: 'exchange-api',
+            name: 'kraken',
+            platformKey: 'kraken',
+          }),
           accountId: 21,
           platformKey: 'kraken',
           accountType: 'exchange-api',
@@ -651,8 +729,23 @@ describe('balance command JSON mode', () => {
         },
       ])
     );
-    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
-      renderedElement = create(() => undefined);
+    mockStartBalanceVerificationStream.mockImplementation((_scope, _accounts, relay: EventRelay<BalanceEvent>) => {
+      relay.push({ type: 'VERIFICATION_STARTED', accountId: 21 });
+      relay.push({
+        type: 'VERIFICATION_COMPLETED',
+        accountId: 21,
+        result: {
+          accountId: 21,
+          platformKey: 'kraken',
+          accountType: 'exchange-api',
+          status: 'success',
+          assetCount: 1,
+          matchCount: 1,
+          mismatchCount: 0,
+          warningCount: 0,
+        },
+      });
+      relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
     });
 
     await program.parseAsync(['balance', 'refresh'], { from: 'user' });
@@ -663,9 +756,13 @@ describe('balance command JSON mode', () => {
       })
     );
     expect(mockStartBalanceVerificationStream).toHaveBeenCalledOnce();
+    expect(mockAwaitBalanceVerificationStream).toHaveBeenCalledOnce();
     expect(mockCtx.onAbort).toHaveBeenCalledOnce();
-    expect(mockRenderApp).toHaveBeenCalledOnce();
-    expect(renderedElement?.type).toBe('BalanceApp');
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refreshing balances for 1 account'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('kraken (kraken): success'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh complete: 1 total'));
+    consoleLog.mockRestore();
   });
 });
 

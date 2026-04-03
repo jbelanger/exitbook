@@ -55,6 +55,10 @@ export function startBalanceVerificationStream(
   scope.verificationRunner.startStream(accounts, relay);
 }
 
+export async function awaitBalanceVerificationStream(scope: BalanceCommandScope): Promise<void> {
+  await scope.verificationRunner.awaitStream();
+}
+
 export function abortBalanceVerification(scope: BalanceCommandScope): void {
   scope.verificationRunner.abort();
 }

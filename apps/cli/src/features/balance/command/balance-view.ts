@@ -23,7 +23,7 @@ Notes:
   - Reprocesses derived transactions automatically if they are missing or stale.
   - Rebuilds stored calculated snapshots automatically when they are missing or stale.
   - Does not fetch live balances.
-  - Use "exitbook balance refresh" when you want live verification.
+  - Use "exitbook accounts refresh" when you want live verification.
 `
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {

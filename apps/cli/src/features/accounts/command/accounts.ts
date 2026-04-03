@@ -13,6 +13,7 @@ import {
   prepareAccountsBrowseCommand,
   registerAccountsBrowseOptions,
 } from './accounts-browse-command.js';
+import { registerAccountsRefreshCommand } from './accounts-refresh.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
 import { registerAccountsUpdateCommand } from './accounts-update.js';
 import { registerAccountsViewCommand } from './accounts-view.js';
@@ -27,6 +28,7 @@ const ACCOUNTS_LIST_ALIAS = 'list';
  *   accounts                 - Static account list/table
  *   accounts <name>          - Static account detail card
  *   accounts view [name]     - Accounts explorer
+ *   accounts refresh [name]  - Refresh stored balances and verify live data
  *   accounts add             - Create an account
  *   accounts update          - Update account properties
  *   accounts remove          - Remove an account and all attached data
@@ -48,6 +50,8 @@ Examples:
   $ exitbook accounts --platform kraken
   $ exitbook accounts view
   $ exitbook accounts view kraken-main
+  $ exitbook accounts refresh
+  $ exitbook accounts refresh kraken-main
   $ exitbook accounts view 1a2b3c4d
   $ exitbook accounts --json
 
@@ -57,8 +61,9 @@ ${buildAccountsBrowseOptionsHelpText()}
 Notes:
   - Use bare "accounts" for quick account lists and single-account details.
   - Use "accounts view" for the interactive explorer.
+  - Use "accounts refresh" to rebuild stored balances and verify live data.
   - Bare selectors may be account names or account fingerprint prefixes.
-  - Account selectors cannot use reserved command words such as add, list, remove, update, or view.
+  - Account selectors cannot use reserved command words such as add, list, refresh, remove, update, or view.
 `
     );
 
@@ -90,6 +95,7 @@ Notes:
 
   registerAccountsAddCommand(accounts, appRuntime);
   registerAccountsViewCommand(accounts);
+  registerAccountsRefreshCommand(accounts, appRuntime);
   registerAccountsUpdateCommand(accounts, appRuntime);
   registerAccountsRemoveCommand(accounts);
 }

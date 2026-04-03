@@ -27,6 +27,7 @@ Examples:
 Common Usage:
   - Monitor account verification status
   - Check last stored balance refresh timestamp
+  - Use "exitbook accounts refresh" to rebuild and verify balances
   - Review account activity and import history
   - Identify which platforms have been imported
 
