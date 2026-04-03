@@ -39,6 +39,7 @@ Examples:
   $ exitbook accounts update kraken-main --api-key NEW_KEY --api-secret NEW_SECRET
   $ exitbook accounts update kraken-main --name kraken-primary --api-key NEW_KEY --api-secret NEW_SECRET
   $ exitbook accounts update kucoin-csv --csv-dir ./exports/kucoin-2026
+  $ exitbook accounts update kucoin-csv --api-key KEY --api-secret SECRET --api-passphrase PASSPHRASE
   $ exitbook accounts update 6f4c0d1a2b --provider blockchair
   $ exitbook accounts update wallet-main --provider blockchair
   $ exitbook accounts update wallet-xpub --xpub-gap 30
@@ -52,9 +53,9 @@ Notes:
     )
     .argument('<selector>', 'Account selector (name or fingerprint prefix)')
     .option('--name <name>', 'New account name')
-    .option('--api-key <key>', 'New API key for exchange API accounts')
-    .option('--api-secret <secret>', 'New API secret for exchange API accounts')
-    .option('--api-passphrase <passphrase>', 'New API passphrase for exchange API accounts')
+    .option('--api-key <key>', 'New stored API key for exchange accounts')
+    .option('--api-secret <secret>', 'New stored API secret for exchange accounts')
+    .option('--api-passphrase <passphrase>', 'New stored API passphrase for exchange accounts')
     .option('--csv-dir <path>', 'New CSV directory for exchange CSV accounts')
     .option('--provider <name>', 'New preferred blockchain provider for blockchain accounts')
     .option('--xpub-gap <number>', 'Increase the xpub gap limit for xpub accounts', parseInt)

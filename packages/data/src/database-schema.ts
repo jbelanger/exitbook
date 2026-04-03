@@ -46,7 +46,7 @@ export interface AccountsTable {
   identifier: string; // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
   account_fingerprint: string; // Canonical persisted account identity
   provider_name: string | null; // preferred provider for blockchain imports
-  credentials: JSONString | null; // JSON: ExchangeCredentials for exchange-api accounts only
+  credentials: JSONString | null; // JSON: stored provider credentials for exchange accounts
   last_cursor: JSONString | null; // JSON: Record<operationType, CursorState>
   metadata: JSONString | null; // JSON: Account metadata (e.g., xpub derivation info)
   created_at: DateTime;

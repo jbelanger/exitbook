@@ -7,6 +7,12 @@ import { isUtxoAdapter, type AdapterRegistry } from '@exitbook/ingestion/adapter
 
 import type { AccountAddCommandOptions, AccountUpdateCommandOptions } from './accounts-option-schemas.js';
 
+interface ExchangeCredentialOptionFields {
+  apiKey?: string | undefined;
+  apiPassphrase?: string | undefined;
+  apiSecret?: string | undefined;
+}
+
 function normalizeCsvDir(csvDir: string): string {
   return path.normalize(csvDir).replace(/[/\\]+$/, '');
 }
@@ -18,6 +24,64 @@ function buildUnknownBlockchainError(name: string): Error {
 function buildUnknownExchangeError(name: string, registry: AdapterRegistry): Error {
   const supportedExchanges = registry.getAllExchanges();
   return new Error(`Unknown exchange: ${name}. Supported exchanges: ${supportedExchanges.join(', ')}`);
+}
+
+function buildProvidedExchangeCredentials(
+  options: ExchangeCredentialOptionFields
+): Result<ExchangeCredentials | undefined, Error> {
+  if (options.apiPassphrase !== undefined && (options.apiKey === undefined || options.apiSecret === undefined)) {
+    return err(new Error('--api-passphrase requires --api-key and --api-secret'));
+  }
+
+  if (options.apiKey === undefined && options.apiSecret === undefined) {
+    return ok(undefined);
+  }
+
+  if (options.apiKey === undefined || options.apiSecret === undefined) {
+    return err(new Error('--api-key and --api-secret must be provided together'));
+  }
+
+  return ok({
+    apiKey: options.apiKey,
+    apiSecret: options.apiSecret,
+    ...(options.apiPassphrase !== undefined ? { apiPassphrase: options.apiPassphrase } : {}),
+  });
+}
+
+function mergeExchangeCredentials(
+  current: ExchangeCredentials | undefined,
+  options: ExchangeCredentialOptionFields
+): Result<ExchangeCredentials | undefined, Error> {
+  const nextApiKey = options.apiKey ?? current?.apiKey;
+  const nextApiSecret = options.apiSecret ?? current?.apiSecret;
+  const nextApiPassphrase = options.apiPassphrase ?? current?.apiPassphrase;
+
+  if (nextApiKey === undefined && nextApiSecret === undefined && nextApiPassphrase === undefined) {
+    return ok(undefined);
+  }
+
+  if (nextApiKey === undefined || nextApiSecret === undefined) {
+    return err(
+      new Error('Stored exchange credentials require both apiKey and apiSecret after applying the requested changes')
+    );
+  }
+
+  return ok({
+    apiKey: nextApiKey,
+    apiSecret: nextApiSecret,
+    ...(nextApiPassphrase !== undefined ? { apiPassphrase: nextApiPassphrase } : {}),
+  });
+}
+
+function areExchangeCredentialsEqual(
+  left: ExchangeCredentials | undefined,
+  right: ExchangeCredentials | undefined
+): boolean {
+  return (
+    left?.apiKey === right?.apiKey &&
+    left?.apiSecret === right?.apiSecret &&
+    left?.apiPassphrase === right?.apiPassphrase
+  );
 }
 
 export function buildCreateAccountInput(
@@ -76,6 +140,11 @@ export function buildCreateAccountInput(
     return err(buildUnknownExchangeError(options.exchange, registry));
   }
   const exchangeAdapter = exchangeAdapterResult.value;
+  const credentialsResult = buildProvidedExchangeCredentials(options);
+  if (credentialsResult.isErr()) {
+    return err(credentialsResult.error);
+  }
+  const credentials = credentialsResult.value;
 
   if (options.csvDir) {
     if (!exchangeAdapter.capabilities.supportsCsv) {
@@ -88,22 +157,15 @@ export function buildCreateAccountInput(
       accountType: 'exchange-csv',
       platformKey: options.exchange,
       identifier: normalizeCsvDir(options.csvDir),
+      credentials,
     });
   }
 
   if (!exchangeAdapter.capabilities.supportsApi) {
     return err(new Error(`Exchange "${options.exchange}" does not support API import`));
   }
-  if (!options.apiKey || !options.apiSecret) {
+  if (!credentials) {
     return err(new Error('--api-key and --api-secret are required for exchange API accounts'));
-  }
-
-  const credentials: ExchangeCredentials = {
-    apiKey: options.apiKey,
-    apiSecret: options.apiSecret,
-  };
-  if (options.apiPassphrase !== undefined) {
-    credentials.apiPassphrase = options.apiPassphrase;
   }
 
   return ok({
@@ -111,7 +173,7 @@ export function buildCreateAccountInput(
     name,
     accountType: 'exchange-api',
     platformKey: options.exchange,
-    identifier: options.apiKey,
+    identifier: credentials.apiKey,
     credentials,
   });
 }
@@ -146,51 +208,56 @@ export function buildUpdateAccountInput(
         );
       }
 
-      const nextApiKey = options.apiKey ?? account.credentials?.apiKey;
-      const nextApiSecret = options.apiSecret ?? account.credentials?.apiSecret;
-      const nextApiPassphrase = options.apiPassphrase ?? account.credentials?.apiPassphrase;
+      const credentialsResult = mergeExchangeCredentials(account.credentials, options);
+      if (credentialsResult.isErr()) {
+        return err(credentialsResult.error);
+      }
+      const nextCredentials = credentialsResult.value;
 
-      if (!nextApiKey || !nextApiSecret) {
+      if (!nextCredentials) {
         return err(new Error('exchange-api accounts require both apiKey and apiSecret'));
       }
 
-      const credentialsChanged =
-        nextApiKey !== account.credentials?.apiKey ||
-        nextApiSecret !== account.credentials?.apiSecret ||
-        nextApiPassphrase !== account.credentials?.apiPassphrase;
+      const credentialsChanged = !areExchangeCredentialsEqual(nextCredentials, account.credentials);
       if (!credentialsChanged && updates.name === undefined) {
         return err(new Error('No account property changes were provided'));
       }
 
       if (credentialsChanged) {
-        const credentials: ExchangeCredentials = {
-          apiKey: nextApiKey,
-          apiSecret: nextApiSecret,
-        };
-        if (nextApiPassphrase !== undefined) {
-          credentials.apiPassphrase = nextApiPassphrase;
-        }
-
-        updates.credentials = credentials;
-        updates.identifier = nextApiKey;
-        updates.resetCursor = nextApiKey !== account.identifier;
+        updates.credentials = nextCredentials;
+        updates.identifier = nextCredentials.apiKey;
+        updates.resetCursor = nextCredentials.apiKey !== account.identifier;
       }
 
       return ok(updates);
     }
 
     case 'exchange-csv': {
-      if (hasApiFlags || hasProvider || hasXpubGap) {
-        return err(new Error('exchange-csv accounts can only be updated with --name and --csv-dir'));
+      if (hasProvider || hasXpubGap) {
+        return err(
+          new Error(
+            'exchange-csv accounts can only be updated with --name, --csv-dir, and stored API credential flags (--api-key, --api-secret, --api-passphrase)'
+          )
+        );
       }
+
+      const credentialsResult = mergeExchangeCredentials(account.credentials, options);
+      if (credentialsResult.isErr()) {
+        return err(credentialsResult.error);
+      }
+      const nextCredentials = credentialsResult.value;
+      const credentialsChanged = !areExchangeCredentialsEqual(nextCredentials, account.credentials);
+
       if (options.csvDir) {
         const identifier = normalizeCsvDir(options.csvDir);
         if (identifier !== account.identifier) {
           updates.identifier = identifier;
           updates.resetCursor = identifier !== account.identifier;
         }
-      } else if (updates.name === undefined) {
-        return err(new Error('--csv-dir is required to update exchange-csv accounts'));
+      }
+
+      if (credentialsChanged) {
+        updates.credentials = nextCredentials;
       }
 
       if (Object.keys(updates).length === 0) {

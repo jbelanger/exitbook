@@ -1,4 +1,3 @@
-import type { ExchangeCredentials } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
@@ -28,12 +27,10 @@ export async function runBalanceRefreshSingle(
   scope: BalanceCommandScope,
   params: {
     accountId: number;
-    credentials?: ExchangeCredentials | undefined;
   }
 ): Promise<Result<SingleRefreshResult, Error>> {
   return scope.verificationRunner.refreshSingleScope({
     accountId: params.accountId,
-    credentials: params.credentials,
     profileId: scope.profile.id,
   });
 }

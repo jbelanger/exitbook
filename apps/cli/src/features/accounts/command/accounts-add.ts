@@ -24,11 +24,13 @@ export function registerAccountsAddCommand(accountsCommand: Command, appRuntime:
 Examples:
   $ exitbook accounts add kraken-main --exchange kraken --api-key KEY --api-secret SECRET
   $ exitbook accounts add kucoin-csv --exchange kucoin --csv-dir ./exports/kucoin
+  $ exitbook accounts add kucoin-csv --exchange kucoin --csv-dir ./exports/kucoin --api-key KEY --api-secret SECRET --api-passphrase PASSPHRASE
   $ exitbook accounts add wallet-main --blockchain ethereum --address 0xabc...
   $ exitbook accounts add wallet-xpub --blockchain bitcoin --address xpub... --xpub-gap 20
 
 Notes:
   - Create exactly one account type per command: exchange API, exchange CSV, or blockchain wallet.
+  - Exchange CSV accounts may also store provider credentials for live balance refresh.
   - Use --provider and --xpub-gap only for blockchain accounts.
   - Account names cannot use reserved command words such as add, list, remove, update, or view.
 `
@@ -40,9 +42,9 @@ Notes:
     .option('--address <address>', 'Wallet address or xpub for blockchain accounts')
     .option('--provider <name>', 'Preferred blockchain provider')
     .option('--xpub-gap <number>', 'Gap limit for xpub derivation', parseInt)
-    .option('--api-key <key>', 'API key for exchange API accounts')
-    .option('--api-secret <secret>', 'API secret for exchange API accounts')
-    .option('--api-passphrase <passphrase>', 'API passphrase for exchange API accounts')
+    .option('--api-key <key>', 'API key to store on an exchange account for provider-backed verification')
+    .option('--api-secret <secret>', 'API secret to store on an exchange account for provider-backed verification')
+    .option('--api-passphrase <passphrase>', 'API passphrase to store on an exchange account when required')
     .option('--json', 'Output results in JSON format')
     .action(async (name: string, rawOptions: unknown) => {
       await executeAddAccountCommand(name, rawOptions, appRuntime);

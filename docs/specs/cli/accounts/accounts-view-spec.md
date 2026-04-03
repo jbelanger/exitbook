@@ -1,34 +1,68 @@
-# Accounts Browse Spec
+# Accounts CLI Spec
 
 ## Scope
 
-This document defines the accounts browse family:
+This document defines the `accounts` command family:
 
 - `exitbook accounts`
 - `exitbook accounts <selector>`
 - `exitbook accounts view`
 - `exitbook accounts view <selector>`
+- `exitbook accounts refresh`
+- `exitbook accounts refresh <selector>`
 
-It specializes the cross-command rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md). The V3 browse ladder is normative. This file defines what the accounts family renders on each surface.
+It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md). The browse ladder remains normative. This file defines what the `accounts` family renders and how its workflow command behaves.
 
-## Command Shapes
+Out of scope:
 
-| Shape                       | Meaning                                        | Human surface      |
-| --------------------------- | ---------------------------------------------- | ------------------ |
-| `accounts`                  | Quick browse of accounts in the active profile | Static list        |
-| `accounts <selector>`       | Focused inspection of one account              | Static detail card |
-| `accounts view`             | Full explorer                                  | TUI explorer       |
-| `accounts view <selector>`  | Explorer pre-selected on one account           | TUI explorer       |
-| Any of the above + `--json` | Machine output for the same semantic target    | JSON               |
+- `accounts add`
+- `accounts update`
+- `accounts remove`
+
+## Family Model
+
+The `accounts` family has two distinct responsibilities:
+
+- browse commands inspect stored account and balance data
+- refresh commands rebuild and verify balances, then persist refreshed snapshots
+
+Rules:
+
+- browse commands are read-only and never call live providers
+- refresh commands are workflow commands and may call live providers
+- provider credentials are owned by account configuration, not by refresh flags
+- exchange accounts imported from CSV may still store provider credentials for balance verification
+
+## Command Surface
+
+### Browse shapes
+
+| Shape                       | Meaning                                                           | Human surface      |
+| --------------------------- | ----------------------------------------------------------------- | ------------------ |
+| `accounts`                  | Quick browse of accounts in the active profile                    | Static list        |
+| `accounts <selector>`       | Focused inspection of one account and its stored balance snapshot | Static detail card |
+| `accounts view`             | Full accounts explorer                                            | TUI explorer       |
+| `accounts view <selector>`  | Explorer pre-selected on one account                              | TUI explorer       |
+| Any of the above + `--json` | Machine output for the same semantic target                       | JSON               |
 
 On a non-interactive terminal:
 
 - `accounts view` falls back to the same static list as `accounts`
-- `accounts view <selector>` falls back to the same static detail card as `accounts <selector>`
+- `accounts view <selector>` falls back to the same static detail as `accounts <selector>`
 
 `view` does not define a separate text schema or JSON schema.
 
-## Selectors And Filters
+### Refresh shapes
+
+| Shape                         | Meaning                                                           | Human surface |
+| ----------------------------- | ----------------------------------------------------------------- | ------------- |
+| `accounts refresh`            | Refresh all eligible account balance scopes in the active profile | Text-progress |
+| `accounts refresh <selector>` | Refresh one requested account's owning balance scope              | Text-progress |
+| Any of the above + `--json`   | Machine output for the same workflow target                       | JSON          |
+
+Refresh never prints the full account detail card. Users inspect refreshed data through the browse surfaces after the workflow completes.
+
+## Selectors And Options
 
 ### Bare selector
 
@@ -45,7 +79,7 @@ Behavior:
 - bare selectors cannot be combined with `--platform` or `--type`
 - bare selectors may target child accounts when the fingerprint prefix resolves to a child account
 
-### Filter flags
+### Browse options
 
 Supported browse options:
 
@@ -54,38 +88,101 @@ Supported browse options:
 - `--show-sessions`: include recent import session details in detail surfaces and JSON
 - `--json`: output JSON
 
+### Refresh options
+
+Supported refresh options:
+
+- `--json`: output JSON
+
+Refresh intentionally does not accept:
+
+- `--api-key`
+- `--api-secret`
+- `--api-passphrase`
+- `--platform`
+- `--type`
+
+Credential lookup for refresh is resolved entirely from stored account configuration.
+
 ## Shared Data Semantics
 
-### Hierarchy
+### Hierarchy And Counts
 
 Accounts are rendered as top-level rows by default.
+
+Rules:
 
 - top-level parents appear in list surfaces
 - child accounts appear under `Derived addresses` in detail surfaces
 - when the selected account is itself a child account, detail surfaces show that child directly
-
-### Counts
-
-Parent rows aggregate child import counts.
-
 - a parent account's `Imports` value includes its own sessions plus child sessions
 - `Derived addresses` rows show per-child import counts
-
-Current header behavior:
-
 - `total` counts every account in scope, including nested child accounts
 - type counts summarize the displayed top-level rows
 
 This means the `total` count can exceed the sum of the type counts when derived child accounts are present.
 
-## Static List Surface
+### Requested Account vs Balance Scope
+
+Account detail is always anchored on the requested account.
+
+Balance data may resolve to a different owning scope account when the selected account is a child account.
+
+Rules:
+
+- browse detail identifies the requested account first
+- when balance resolution climbs to a parent scope, the balance section renders both `Requested` and `Balance scope`
+- refresh operates on the owning balance scope, not necessarily the requested child account
+- JSON includes both the requested account and the resolved balance scope when they differ
+
+### Stored Balance Semantics
+
+Browse detail uses stored balance data only.
+
+Stored balance detail may include:
+
+- calculated balances
+- last verified live balances from the stored snapshot
+- per-asset comparison status
+- snapshot verification status
+- projection freshness
+- last calculated and last refresh timestamps
+- stored status reason and suggestion text
+
+Rules:
+
+- stored live balances are never labeled as current live balances
+- stored live balances are labeled `last verified live`
+- `Last refresh` refers to the timestamp of the stored snapshot refresh, not the current wall clock
+
+### Unreadable Stored Snapshots
+
+Accounts browse detail is not fail-closed for balance display.
+
+If a stored snapshot is missing, stale, building, or failed:
+
+- the account detail still renders
+- the balance section renders the concrete reason instead of an asset table
+- the surface includes a concrete refresh hint
+
+Example:
+
+```text
+Balances
+Stored balance snapshot is not readable: processed transactions were rebuilt after the last balance snapshot.
+Hint: run "exitbook accounts refresh injective-wallet".
+```
+
+## Browse Surfaces
+
+### Static List Surface
 
 Applies to:
 
 - `exitbook accounts`
 - `exitbook accounts view` off-TTY
 
-### Header
+#### Header
 
 Format:
 
@@ -112,9 +209,9 @@ Accounts 6 total · 2 blockchain · 3 exchange-api · 1 exchange-csv
 Accounts (kraken) 2 total · 1 exchange-api · 1 exchange-csv
 ```
 
-### Table
+#### Table
 
-Static list output is a real headered table.
+Static list output is account-first. It is for discovery, but it may include a compact stored balance count.
 
 Columns:
 
@@ -124,6 +221,7 @@ Columns:
 | `NAME`       | Account name when present; otherwise the full display label              |
 | `PLATFORM`   | Platform key                                                             |
 | `TYPE`       | Account type                                                             |
+| `ASSETS`     | Stored asset count for the owning balance scope when readable            |
 | `IDENTIFIER` | Truncated identifier when the account has a separate name; otherwise `—` |
 
 Example:
@@ -131,8 +229,8 @@ Example:
 ```text
 Accounts 1 total · 1 blockchain
 
-REF         NAME         PLATFORM      TYPE           IDENTIFIER
-61637d8a6e  inj-wallet   injective     blockchain     inj1zk...pty4rau
+REF         NAME         PLATFORM      TYPE           ASSETS   IDENTIFIER
+61637d8a6e  inj-wallet   injective     blockchain          1   inj1zk...pty4rau
 ```
 
 Rules:
@@ -141,12 +239,12 @@ Rules:
 - no quit hint
 - no selected-row expansion
 - no side-by-side detail panel
-- every repeated field belongs to a declared header column
+- `ASSETS` renders the stored asset count for the resolved owning scope
+- when the stored snapshot is unreadable, `ASSETS` renders `—`
 - child accounts do not appear as separate rows unless the query resolves directly to a child account
+- static list does not render per-asset balance rows
 
-The static list intentionally omits import counts and projection / verification status to stay compact in scrollback.
-
-### Empty states
+#### Empty states
 
 Unfiltered empty state:
 
@@ -166,14 +264,14 @@ Accounts (kraken) 0 total
 No accounts found for kraken.
 ```
 
-## Static Detail Surface
+### Static Detail Surface
 
 Applies to:
 
 - `exitbook accounts <selector>`
 - `exitbook accounts view <selector>` off-TTY
 
-### Header line
+#### Header line
 
 The first line is a compact title, not a boxed card title.
 
@@ -193,10 +291,10 @@ Where:
 Example:
 
 ```text
-kraken-main 1234567890 kraken exchange-api
+injective-wallet 61637d8a6e injective blockchain
 ```
 
-### Body
+#### Body
 
 Field order:
 
@@ -206,60 +304,85 @@ Field order:
 4. `Provider`
 5. `Created`
 6. `Verification` / `Projection`
-7. optional `Last refresh`
-8. optional `Imports`
-9. optional `Derived addresses`
-10. optional `Recent sessions`
+7. optional `Last calculated`
+8. optional `Last refresh`
+9. optional `Imports`
+10. optional `Requested`
+11. optional `Balance scope`
+12. `Balances`
+13. optional `Derived addresses`
+14. optional `Recent sessions`
 
 Example:
 
 ```text
-kraken-main 1234567890 kraken exchange-api
+injective-wallet 61637d8a6e injective blockchain
 
-Name: kraken-main
-Fingerprint: 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
-Identifier: acct-1
-Provider: kraken-api
-Created: 2026-01-01 00:00:00
+Name: injective-wallet
+Fingerprint: 61637d8a6e50994899173aac3ad017eba84d83933982864fc7198a8e42287251
+Identifier: inj1zk3259rhsxcg5og96eursm4x8ek2qc5pty4rau
+Provider: —
+Created: 2026-04-02 13:50:15
 
 Verification: ✓ verified · Projection: ✓ fresh
-Last refresh: 2026-03-12 12:30:00
-Imports: 2 imports
+Last calculated: 2026-04-03 11:47:26
+Last refresh: 2026-04-03 11:47:26
+Imports: 1 import
+
+Balances (1)
+ASSET   CALCULATED               LAST VERIFIED LIVE       STATUS   TXS
+INJ     70.72654510000000000002  70.72654510000000000002  match    6
 ```
 
-Optional sections:
+#### Balance section rules
+
+Columns:
+
+| Column               | Meaning                                                   |
+| -------------------- | --------------------------------------------------------- |
+| `ASSET`              | Asset symbol                                              |
+| `CALCULATED`         | Stored calculated balance                                 |
+| `LAST VERIFIED LIVE` | Stored live balance from the last successful verification |
+| `STATUS`             | Stored comparison status                                  |
+| `TXS`                | Transaction count from diagnostics                        |
+
+Rules:
+
+- when no stored live verification value exists, `LAST VERIFIED LIVE` renders `—`
+- `STATUS` renders `match`, `warning`, `mismatch`, `unavailable`, or `—`
+- `TXS` comes from stored transaction diagnostics
+- if the snapshot is unreadable, the table is replaced by a reason block plus refresh hint
+- no extra trailing blank line after the final rendered line
+
+#### Optional sections
 
 - `Derived addresses ({n})`
 - `Recent sessions`
 
 Rules:
 
-- child rows are capped at 5 visible lines, then `...and N more`
-- session rows are capped at 5 visible lines, then `...and N more`
-- no controls footer
-- no quit hint
-- no extra trailing blank line after the final rendered line
-
-### Detail-specific display rules
-
+- static detail does not artificially cap child rows, session rows, or asset rows
 - `Provider` shows `—` when unset
 - `Identifier` uses the full display identifier stored in the view model
 - `Imports` uses `N import` / `N imports`
 - verification labels are `verified`, `warning`, `mismatch`, `unavailable`, `never checked`
 - projection labels are `fresh`, `stale`, `building`, `failed`, `never built`
 
-## Explorer Surface
+### Explorer Surface
 
 Applies to:
 
 - `exitbook accounts view`
 - `exitbook accounts view <selector>`
 
-The explorer is a master-detail Ink app.
+The explorer is a master-detail Ink app with two views:
 
-### Layout
+- `accounts`: account list plus account detail
+- `assets`: asset drilldown for the selected account
 
-The explorer renders:
+#### Accounts view layout
+
+The accounts view renders:
 
 1. a blank line
 2. the shared header
@@ -272,7 +395,7 @@ The explorer renders:
 
 The header matches the static surface and adds `· sessions visible` when `--show-sessions` is set.
 
-### List rows
+#### Accounts view rows
 
 Explorer rows are not the static table.
 
@@ -291,7 +414,7 @@ Each row contains:
 Example:
 
 ```text
-▸ 1234567890 kraken       exchange-api  kraken-main acct-1  2 imports proj:fresh ver:ok
+▸ 61637d8a6e injective  blockchain  injective-wallet  1 import  proj:fresh  ver:ok
 ```
 
 Status labels:
@@ -299,12 +422,13 @@ Status labels:
 - projection: `fresh`, `stale`, `build`, `fail`, `—`, `?`
 - verification: `ok`, `warn`, `fail`, `n/a`, `—`, `?`
 
-### Detail panel
+#### Accounts detail panel
 
-The explorer detail panel uses the same underlying fields as the static detail card, but:
+The accounts detail panel uses the same underlying fields as the static detail card, but:
 
 - prefixes the title with `▸`
 - is height-limited
+- may truncate the balance preview and optional sections
 - shows an overflow line when more detail exists than can fit
 
 Overflow copy:
@@ -313,25 +437,55 @@ Overflow copy:
 ... N more detail line(s). Rerun with --json for full details.
 ```
 
-### Navigation
+#### Asset drilldown
 
-| Key               | Action            |
-| ----------------- | ----------------- |
-| `↑` / `k`         | Move up           |
-| `↓` / `j`         | Move down         |
-| `PgUp` / `Ctrl-U` | Page up           |
-| `PgDn` / `Ctrl-D` | Page down         |
-| `Home`            | Jump to first row |
-| `End`             | Jump to last row  |
-| `q` / `Esc`       | Quit              |
+`Enter` drills from the selected account into the selected account's asset view when balance data is available.
 
-Controls bar:
+Asset drilldown uses stored snapshot data only.
+
+The asset view shows:
+
+- calculated balances
+- last verified live balances when present
+- comparison status
+- per-asset diagnostics
+
+If no balance data is available:
+
+- the explorer stays in the accounts view
+- the account detail panel shows the concrete reason and refresh hint
+
+#### Explorer navigation
+
+| Key               | Action                               |
+| ----------------- | ------------------------------------ |
+| `↑` / `k`         | Move up                              |
+| `↓` / `j`         | Move down                            |
+| `PgUp` / `Ctrl-U` | Page up                              |
+| `PgDn` / `Ctrl-D` | Page down                            |
+| `Home`            | Jump to first row                    |
+| `End`             | Jump to last row                     |
+| `Enter`           | Drill into assets from accounts view |
+| `Backspace`       | Return from asset view               |
+| `q` / `Esc`       | Quit, or return when drilled down    |
+
+Accounts view controls bar:
 
 ```text
-↑↓/j/k · ^U/^D page · Home/End · q/esc quit
+↑↓/j/k · ^U/^D page · Home/End · Enter balances · q/esc quit
 ```
 
-### Empty explorer behavior
+Asset view controls bar:
+
+```text
+↑↓/j/k · ^U/^D page · Home/End · Enter/backspace back · q/esc back
+```
+
+#### Selector behavior
+
+`accounts view <selector>` opens the explorer pre-selected on the requested account.
+
+#### Empty explorer behavior
 
 Explorer empties follow the V3 rules:
 
@@ -339,12 +493,113 @@ Explorer empties follow the V3 rules:
 - filtered-empty explorer requests stay on the explorer code path instead of silently downgrading to static output
 - selector misses fail before any renderer mounts
 
+## Refresh Workflow
+
+### Purpose
+
+`accounts refresh` rebuilds stored balance snapshots and verifies them against live providers when supported.
+
+Rules:
+
+- refresh persists the refreshed snapshot before returning
+- refresh uses provider credentials stored on accounts
+- refresh never accepts credential overrides through CLI flags
+- when a provider does not support live verification for a scope, refresh persists a calculated-only snapshot and marks verification unavailable
+
+### Single-account refresh
+
+Applies to:
+
+- `exitbook accounts refresh <selector>`
+
+Behavior:
+
+- resolve the requested account
+- resolve the owning balance scope
+- run refresh for that scope
+- persist the refreshed snapshot
+- print a compact workflow summary, not the account detail card
+
+Example:
+
+```text
+Refreshing injective-wallet 61637d8a6e injective blockchain...
+Resolving balance scope...
+Rebuilding calculated balances...
+Fetching live balances from injective...
+Verified 1 asset · 1 match
+Stored snapshot updated: 2026-04-03 11:47:26
+
+Inspect with: exitbook accounts injective-wallet
+```
+
+Rules:
+
+- if the requested account resolves upward to a parent scope, the summary renders both `Requested` and `Balance scope`
+- single-account refresh may surface warnings, partial coverage, and suggestion text
+- single-account refresh uses the same text-progress model as all-accounts refresh
+- single-account refresh does not open the browse explorer
+
+### All-accounts refresh
+
+Applies to:
+
+- `exitbook accounts refresh`
+
+Behavior:
+
+- load top-level accounts eligible for verification
+- resolve per-account stored credentials
+- skip accounts that cannot be refreshed
+- refresh remaining scopes sequentially
+- persist each refreshed snapshot as it completes
+
+On an interactive terminal without `--json`, all-accounts refresh remains line-oriented. It does not mount a browse-style TUI.
+
+Progress output may include:
+
+- an initial eligibility summary
+- one line when an account starts verification
+- one line when an account is skipped
+- one line when an account completes
+- periodic provider or call-stat summaries for long-running work
+- a final outcome summary
+
+Rules:
+
+- output must remain legible in scrollback, pipes, and CI
+- no full-screen Ink chrome
+- no cursor-control progress UI
+- no spinner-only feedback
+- spinners may appear only as a supplemental prefix to a normal progress line, never as the sole indication of work
+- provider call stats, failure counts, fallback counts, and coverage summaries are allowed when they help explain latency or degraded verification quality
+
+Example:
+
+```text
+Refreshing 6 account scopes...
+kraken-main: skipped (stored provider credentials missing)
+injective-wallet: verifying with injective...
+injective-wallet: match · 1 asset
+bitcoin-main: verifying with mempool-space...
+bitcoin-main: warning · 2 assets · 1 partial parse failure
+Provider stats: 14 calls · 1 fallback · 0 circuit-open
+
+Accounts refresh complete
+
+6 total · 5 verified · 1 skipped
+4 match · 1 mismatch
+```
+
+Per-account result statuses:
+
+- `success`
+- `warning`
+- `failed`
+- `skipped`
+- `error`
+
 ## JSON
-
-JSON follows the same semantic target regardless of whether the command uses `view`.
-
-- `accounts --json` and `accounts view --json` return the same list payload shape
-- `accounts <selector> --json` and `accounts view <selector> --json` return the same detail payload shape
 
 JSON output uses the standard CLI success envelope:
 
@@ -359,53 +614,132 @@ JSON output uses the standard CLI success envelope:
 }
 ```
 
-Inner list payload example:
+### Browse JSON
+
+JSON follows the same semantic target regardless of whether the command uses `view`.
+
+- `accounts --json` and `accounts view --json` return the same list payload shape
+- `accounts <selector> --json` and `accounts view <selector> --json` return the same detail payload shape
+
+#### List payload
+
+List payload is summary-shaped.
+
+Rules:
+
+- list items include account summary fields, verification summary fields, and timestamps
+- list items do not inline full asset arrays
+- `sessions` is only populated when `--show-sessions` is passed
+
+#### Detail payload
+
+Detail payload extends the account summary with a nested `balance` object.
+
+Example:
 
 ```json
 {
   "data": {
-    "data": [
-      {
+    "id": 1,
+    "accountFingerprint": "61637d8a6e50994899173aac3ad017eba84d83933982864fc7198a8e42287251",
+    "accountType": "blockchain",
+    "platformKey": "injective",
+    "name": "injective-wallet",
+    "identifier": "inj1zk3259rhsxcg5og96eursm4x8ek2qc5pty4rau",
+    "balanceProjectionStatus": "fresh",
+    "lastCalculatedAt": "2026-04-03T15:47:26.000Z",
+    "lastRefreshAt": "2026-04-03T15:47:26.000Z",
+    "verificationStatus": "match",
+    "sessionCount": 1,
+    "createdAt": "2026-04-02T17:50:15.000Z",
+    "balance": {
+      "scopeAccount": {
         "id": 1,
-        "accountFingerprint": "0000000000000000000000000000000000000000000000000000000000000001",
-        "accountType": "exchange-api",
-        "platformKey": "kraken",
-        "name": "kraken-main",
-        "identifier": "acct-1",
-        "providerName": "kraken-api",
-        "balanceProjectionStatus": "fresh",
-        "lastCalculatedAt": "2026-03-12T12:00:00.000Z",
-        "lastRefreshAt": "2026-03-12T12:30:00.000Z",
-        "verificationStatus": "match",
-        "sessionCount": 2,
-        "createdAt": "2026-01-01T00:00:00.000Z"
-      }
-    ],
-    "meta": {
-      "count": 1,
-      "offset": 0,
-      "limit": 1,
-      "hasMore": false,
-      "filters": {
-        "platform": "kraken"
-      }
+        "accountFingerprint": "61637d8a6e50994899173aac3ad017eba84d83933982864fc7198a8e42287251",
+        "accountType": "blockchain",
+        "platformKey": "injective",
+        "identifier": "inj1zk3259rhsxcg5og96eursm4x8ek2qc5pty4rau"
+      },
+      "assets": [
+        {
+          "assetId": "blockchain:injective:native",
+          "assetSymbol": "INJ",
+          "calculatedBalance": "70.72654510000000000002",
+          "liveBalance": "70.72654510000000000002",
+          "comparisonStatus": "match",
+          "diagnostics": {
+            "txCount": 6
+          }
+        }
+      ]
     }
   }
 }
 ```
 
-Detail payload:
+Rules:
 
-- the outer `command` field is `accounts` or `accounts-view`
-- the inner `data` field is a single `AccountViewItem`
-- the inner `meta.filters` includes the resolved selector filter under `account`
-
-Notes:
-
-- `sessions` is only populated when `--show-sessions` is passed
-- `childAccounts` is nested under the selected account when child accounts exist
-- there is no explorer-specific JSON envelope
+- `liveBalance` in browse JSON means the last verified live balance captured in the stored snapshot
+- when a child request resolves to a parent balance scope, detail JSON includes both `requestedAccount` and `balance.scopeAccount`
 - undefined properties are omitted from serialized JSON
+
+### Refresh JSON
+
+Refresh JSON is workflow-shaped.
+
+#### Single-account refresh JSON
+
+Shape:
+
+```json
+{
+  "data": {
+    "account": {
+      "id": 1,
+      "platformKey": "injective",
+      "accountType": "blockchain"
+    },
+    "requestedAccount": {
+      "id": 1,
+      "platformKey": "injective",
+      "accountType": "blockchain"
+    },
+    "status": "match",
+    "summary": {
+      "totalAssets": 1,
+      "matches": 1,
+      "warnings": 0,
+      "mismatches": 0
+    },
+    "coverage": {
+      "status": "full"
+    },
+    "warnings": [],
+    "partialFailures": [],
+    "suggestion": "Balances match"
+  }
+}
+```
+
+#### All-accounts refresh JSON
+
+Shape:
+
+```json
+{
+  "data": {
+    "accounts": []
+  },
+  "meta": {
+    "totalAccounts": 6,
+    "verified": 5,
+    "skipped": 1,
+    "matches": 4,
+    "mismatches": 1,
+    "timestamp": "2026-04-03T15:47:26.000Z"
+  }
+}
+```
 
 ## Errors And Help
 
@@ -414,11 +748,19 @@ Expected browse-family errors:
 - `Use bare "accounts" instead of "accounts list".`
 - `Account selector '<value>' not found`
 - `Account selector '<value>' is ambiguous. Use a longer fingerprint prefix. Matches include: ...`
-- `Account selector cannot be combined with --account, --platform, or --type`
+- `Account selector cannot be combined with --platform or --type`
 
-Help copy should keep the V3 mental model explicit:
+Expected refresh-family errors:
 
-- bare `accounts` is for quick list and detail access
+- `Account selector '<value>' not found`
+- `Account selector '<value>' is ambiguous. Use a longer fingerprint prefix. Matches include: ...`
+- `Stored provider credentials are missing for <account>`
+
+Help copy should keep the family model explicit:
+
+- bare `accounts` is for quick list access
+- bare `accounts <selector>` is the canonical account detail surface
 - `accounts view` is the explorer
-- selectors are names or fingerprint prefixes
-- `--json` is the only generic output override
+- `accounts refresh` is the workflow command
+- refresh uses credentials stored on accounts
+- refresh never accepts API key flags

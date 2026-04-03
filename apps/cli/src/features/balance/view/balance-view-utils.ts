@@ -6,7 +6,6 @@ import type { Account, AccountType, BalanceSnapshot, ExchangeCredentials } from 
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import { getExchangeCredentialsFromEnv } from '../command/balance-utils.js';
 import type { BalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 
 import type {
@@ -132,7 +131,7 @@ interface CredentialResolution {
 
 /**
  * Resolve credentials for an account.
- * Resolution order: stored → env → skip.
+ * Resolution order: stored → skip.
  */
 export function resolveAccountCredentials(account: Account): CredentialResolution {
   // Blockchain accounts need no credentials
@@ -140,18 +139,12 @@ export function resolveAccountCredentials(account: Account): CredentialResolutio
     return {};
   }
 
-  // Stored credentials (exchange-api accounts)
+  // Stored credentials for exchange accounts
   if (account.credentials) {
     return { credentials: account.credentials };
   }
 
-  // Environment variables
-  const envResult = getExchangeCredentialsFromEnv(account.platformKey);
-  if (envResult.isOk()) {
-    return { credentials: envResult.value };
-  }
-
-  return { skipReason: 'no credentials' };
+  return { skipReason: 'no stored provider credentials' };
 }
 
 // ─── Stored Snapshot Item Builder ────────────────────────────────────────────
@@ -184,8 +177,11 @@ export function buildStoredSnapshotAccountItem(
 ): StoredSnapshotAccountItem {
   return {
     accountId: account.id,
+    accountFingerprint: account.accountFingerprint,
     platformKey: account.platformKey,
     accountType: account.accountType,
+    identifier: account.identifier,
+    name: account.name,
     assetCount: assets.length,
     assets,
     verificationStatus: snapshot?.verificationStatus,

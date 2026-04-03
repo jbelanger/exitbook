@@ -2,7 +2,7 @@
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
@@ -12,6 +12,8 @@ const {
   mockGetByFingerprintRef,
   mockGetByName,
   mockLoadBalanceVerificationAccounts,
+  mockOutputBalanceStaticDetail,
+  mockOutputBalanceStaticList,
   mockOutputSuccess,
   mockRenderApp,
   mockRunBalanceRefreshSingle,
@@ -29,6 +31,8 @@ const {
   mockGetByFingerprintRef: vi.fn(),
   mockGetByName: vi.fn(),
   mockLoadBalanceVerificationAccounts: vi.fn(),
+  mockOutputBalanceStaticDetail: vi.fn(),
+  mockOutputBalanceStaticList: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunBalanceRefreshSingle: vi.fn(),
@@ -37,6 +41,9 @@ const {
   mockStartBalanceVerificationStream: vi.fn(),
   mockWithBalanceCommandScope: vi.fn(),
 }));
+
+const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
@@ -68,8 +75,12 @@ vi.mock('../../view/balance-view-components.jsx', () => ({
   BalanceApp: 'BalanceApp',
 }));
 
-import { registerBalanceRefreshCommand } from '../balance-refresh.js';
-import { registerBalanceViewCommand } from '../balance-view.js';
+vi.mock('../../view/balance-static-renderer.js', () => ({
+  outputBalanceStaticDetail: mockOutputBalanceStaticDetail,
+  outputBalanceStaticList: mockOutputBalanceStaticList,
+}));
+
+import { registerBalanceCommand } from '../balance.js';
 
 const appRuntime = {
   blockchainExplorersConfig: {},
@@ -77,8 +88,7 @@ const appRuntime = {
 
 function createBalanceCommand(): Command {
   const program = new Command();
-  registerBalanceViewCommand(program, appRuntime);
-  registerBalanceRefreshCommand(program, appRuntime);
+  registerBalanceCommand(program, appRuntime);
   return program;
 }
 
@@ -112,6 +122,8 @@ function createAccount(overrides: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('CI', '');
+  setTTYFlags(true, true);
   mockCtx.database.mockResolvedValue({});
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
@@ -148,8 +160,58 @@ beforeEach(() => {
   });
 });
 
+afterAll(() => {
+  vi.unstubAllEnvs();
+  restoreTTYFlags();
+});
+
 describe('balance command JSON mode', () => {
-  it('outputs stored snapshot JSON including requestedAccount for child scope requests', async () => {
+  it('renders the stored snapshot static list for bare balance', async () => {
+    const program = createBalanceCommand();
+
+    mockRunBalanceView.mockResolvedValue(
+      ok({
+        accounts: [
+          {
+            account: createAccount({ id: 1, identifier: 'xpub-root', name: 'root-wallet' }),
+            snapshot: {
+              verificationStatus: 'match',
+              statusReason: undefined,
+              suggestion: undefined,
+              lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
+            },
+            assets: [
+              {
+                assetId: 'blockchain:bitcoin:native',
+                assetSymbol: 'BTC',
+                calculatedBalance: '1.25',
+                diagnostics: { txCount: 4 },
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    await program.parseAsync(['balance'], { from: 'user' });
+
+    expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
+      mockCtx,
+      { format: 'text', needsWorkflow: false, prepareStoredSnapshots: true },
+      expect.any(Function)
+    );
+    expect(mockRunBalanceView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ id: 1 }),
+      }),
+      { accountId: undefined }
+    );
+    expect(mockOutputBalanceStaticList).toHaveBeenCalledOnce();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('outputs stored snapshot JSON including requestedAccount for a bare child-scope selector', async () => {
     const program = createBalanceCommand();
     const scopeAccount = createAccount({ id: 1, identifier: 'xpub-root' });
     const requestedAccount = createAccount({
@@ -186,11 +248,11 @@ describe('balance command JSON mode', () => {
     mockRunBalanceView.mockImplementation(viewStoredSnapshots);
     mockGetByFingerprintRef.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['view', '2bc1c1d0aa', '--json'], { from: 'user' });
+    await program.parseAsync(['balance', '2bc1c1d0aa', '--json'], { from: 'user' });
 
     expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
       mockCtx,
-      { format: 'json', needsWorkflow: true, prepareStoredSnapshots: true },
+      { format: 'json', needsWorkflow: false, prepareStoredSnapshots: true },
       expect.any(Function)
     );
     expect(viewStoredSnapshots).toHaveBeenCalledWith(
@@ -201,7 +263,7 @@ describe('balance command JSON mode', () => {
     );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'balance-view',
+      'balance',
       {
         accounts: [
           {
@@ -244,7 +306,7 @@ describe('balance command JSON mode', () => {
 
     mockWithBalanceCommandScope.mockResolvedValue(err(prerequisiteError));
 
-    await expect(program.parseAsync(['view', '--json'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['balance', 'view', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:balance-view:json:processing failed:1'
     );
 
@@ -265,7 +327,7 @@ describe('balance command JSON mode', () => {
 
     mockGetByName.mockResolvedValue(ok(createAccount({ id: 2, identifier: 'bc1-child', name: 'wallet-child' })));
 
-    await expect(program.parseAsync(['view', 'wallet-child', '--json'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['balance', 'view', 'wallet-child', '--json'], { from: 'user' })).rejects.toThrow(
       'CLI:balance-view:json:stored snapshot read failed:1'
     );
 
@@ -323,12 +385,57 @@ describe('balance command JSON mode', () => {
       )
     );
 
-    await program.parseAsync(['view', '9abcde0000'], { from: 'user' });
+    await program.parseAsync(['balance', 'view', '9abcde0000'], { from: 'user' });
 
+    expect(mockWithBalanceCommandScope).toHaveBeenCalledWith(
+      mockCtx,
+      { format: 'text', needsWorkflow: false, prepareStoredSnapshots: true },
+      expect.any(Function)
+    );
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('BalanceApp');
     expect(mockOutputSuccess).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the static list when balance view runs off-TTY', async () => {
+    const program = createBalanceCommand();
+
+    setTTYFlags(true, false);
+    mockRunBalanceView.mockResolvedValue(
+      ok({
+        accounts: [
+          {
+            account: createAccount({
+              id: 5,
+              identifier: 'kraken-root',
+              name: 'kraken-main',
+              accountType: 'exchange-api',
+            }),
+            snapshot: {
+              verificationStatus: 'warning',
+              statusReason: 'Provider coverage incomplete',
+              suggestion: 'Run refresh again',
+              lastRefreshAt: new Date('2026-03-12T18:10:00.000Z'),
+            },
+            assets: [
+              {
+                assetId: 'exchange:kraken:btc',
+                assetSymbol: 'BTC',
+                calculatedBalance: '0.42',
+                diagnostics: { txCount: 2 },
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    await program.parseAsync(['balance', 'view'], { from: 'user' });
+
+    expect(mockOutputBalanceStaticList).toHaveBeenCalledOnce();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
   });
 
   it('outputs refresh JSON including requestedAccount when a child request resolves to the parent scope', async () => {
@@ -399,13 +506,13 @@ describe('balance command JSON mode', () => {
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
     mockGetByName.mockResolvedValue(ok(requestedAccount));
 
-    await program.parseAsync(['refresh', 'wallet-child', '--json'], { from: 'user' });
+    await program.parseAsync(['balance', 'refresh', 'wallet-child', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
-      { accountId: 2, credentials: undefined }
+      { accountId: 2 }
     );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
@@ -499,13 +606,13 @@ describe('balance command JSON mode', () => {
     mockRunBalanceRefreshSingle.mockImplementation(refreshSingleScope);
     mockGetByFingerprintRef.mockResolvedValue(ok(scopeAccount));
 
-    await program.parseAsync(['refresh', '74abcde000', '--json'], { from: 'user' });
+    await program.parseAsync(['balance', 'refresh', '74abcde000', '--json'], { from: 'user' });
 
     expect(refreshSingleScope).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
-      { accountId: 74, credentials: undefined }
+      { accountId: 74 }
     );
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
@@ -548,7 +655,7 @@ describe('balance command JSON mode', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['refresh'], { from: 'user' });
+    await program.parseAsync(['balance', 'refresh'], { from: 'user' });
 
     expect(mockLoadBalanceVerificationAccounts).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -561,3 +668,24 @@ describe('balance command JSON mode', () => {
     expect(renderedElement?.type).toBe('BalanceApp');
   });
 });
+
+function restoreTTYFlags(): void {
+  if (originalStdinTTYDescriptor) {
+    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
+  }
+
+  if (originalStdoutTTYDescriptor) {
+    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
+  }
+}
+
+function setTTYFlags(stdinIsTTY: boolean, stdoutIsTTY: boolean): void {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    configurable: true,
+    value: stdinIsTTY,
+  });
+  Object.defineProperty(process.stdout, 'isTTY', {
+    configurable: true,
+    value: stdoutIsTTY,
+  });
+}

@@ -37,7 +37,6 @@ import type {
   SingleRefreshResult,
 } from './balance-handler-types.js';
 import { BalanceRefreshCommandOptionsSchema } from './balance-option-schemas.js';
-import { buildCliExchangeCredentials } from './balance-utils.js';
 import {
   abortBalanceVerification,
   loadBalanceVerificationAccounts,
@@ -53,9 +52,6 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
     .command('refresh')
     .description('Rebuild calculated balances and verify them against live provider data when available')
     .argument('[selector]', 'Account selector (name or fingerprint prefix)')
-    .option('--api-key <key>', 'API key for exchange (overrides .env)')
-    .option('--api-secret <secret>', 'API secret for exchange (overrides .env)')
-    .option('--api-passphrase <passphrase>', 'API passphrase for exchange (if required)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
@@ -63,11 +59,11 @@ export function registerBalanceRefreshCommand(balanceCommand: Command, appRuntim
 Examples:
   $ exitbook balance refresh
   $ exitbook balance refresh kraken-main
-  $ exitbook balance refresh 6f4c0d1a2b --api-key KEY --api-secret SECRET
   $ exitbook balance refresh --json
 
 Notes:
   - Refresh is the only command that attempts live balance verification.
+  - Exchange refresh uses provider credentials stored on the account itself.
   - If no live balance provider exists for a scope, refresh persists calculated balances and marks verification unavailable.
   - For child accounts, refresh operates on the owning parent balance scope.
 `
@@ -134,7 +130,6 @@ async function executeBalanceRefreshSingleJsonCommand(
 
       const result = await runBalanceRefreshSingle(scope, {
         accountId: selection.value.account.id,
-        credentials: buildCliExchangeCredentials(options),
       });
       if (result.isErr()) {
         return err(result.error);
@@ -188,7 +183,6 @@ async function executeBalanceRefreshSingleTuiCommand(
 
       const result = await runBalanceRefreshSingle(scope, {
         accountId: selection.value.account.id,
-        credentials: buildCliExchangeCredentials(options),
       });
       if (result.isErr()) {
         return err(result.error);

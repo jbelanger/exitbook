@@ -61,8 +61,11 @@ export interface AccountVerificationItem {
 
 export interface StoredSnapshotAccountItem {
   accountId: number;
+  accountFingerprint: string;
   platformKey: string;
   accountType: AccountType;
+  identifier: string;
+  name?: string | undefined;
   assetCount: number;
   assets: StoredSnapshotAssetItem[];
   verificationStatus?: BalanceSnapshotVerificationStatus | undefined;

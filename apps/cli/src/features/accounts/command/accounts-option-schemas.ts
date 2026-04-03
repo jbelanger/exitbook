@@ -25,6 +25,8 @@ export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(Block
   .extend(CsvImportSchema.shape)
   .extend(JsonFlagSchema.shape)
   .superRefine((data, ctx) => {
+    const hasApiPair = data.apiKey !== undefined && data.apiSecret !== undefined;
+
     if (data.blockchain && !data.address) {
       ctx.addIssue({
         code: 'custom',
@@ -34,19 +36,19 @@ export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(Block
 
     if (data.exchange) {
       const hasCsv = !!data.csvDir;
-      const hasApi = !!(data.apiKey && data.apiSecret);
-      if (!hasCsv && !hasApi) {
+      if (!hasCsv && !hasApiPair) {
         ctx.addIssue({
           code: 'custom',
-          message: 'Either --csv-dir or API credentials (--api-key, --api-secret) are required for exchange accounts',
+          message: 'Exchange accounts require --csv-dir, API credentials (--api-key, --api-secret), or both',
         });
       }
-      if (hasCsv && hasApi) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Cannot specify both --csv-dir and API credentials',
-        });
-      }
+    }
+
+    if (data.apiPassphrase !== undefined && !hasApiPair) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '--api-passphrase requires --api-key and --api-secret',
+      });
     }
   })
   .refine(

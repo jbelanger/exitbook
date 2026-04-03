@@ -30,7 +30,7 @@ export const AccountSchema = z.object({
   identifier: z.string(), // address/xpub for blockchain, apiKey for exchange-api, CSV directory path for exchange-csv
   accountFingerprint: z.string().min(1),
   providerName: z.string().optional(), // preferred provider for blockchain imports
-  credentials: ExchangeCredentialsSchema.optional(), // exchange-api credentials only
+  credentials: ExchangeCredentialsSchema.optional(), // stored provider credentials for exchange accounts
   lastCursor: z.record(z.string(), CursorStateSchema).optional(), // Record<operationType, CursorState>
   metadata: z
     .object({

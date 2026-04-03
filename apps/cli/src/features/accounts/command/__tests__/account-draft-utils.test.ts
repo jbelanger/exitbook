@@ -1,5 +1,5 @@
 import type { Account } from '@exitbook/core';
-import { err } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -70,6 +70,49 @@ describe('buildCreateAccountInput', () => {
       expect(result.error.message).toBe('Unknown exchange: fakeex. Supported exchanges: coinbase, kraken, kucoin');
     }
   });
+
+  it('stores provider credentials on exchange-csv accounts when supplied', () => {
+    const result = buildCreateAccountInput(
+      'kucoin-csv',
+      1,
+      {
+        exchange: 'kucoin',
+        csvDir: './exports/kucoin/',
+        apiKey: 'csv-key',
+        apiSecret: 'csv-secret',
+        apiPassphrase: 'csv-passphrase',
+      },
+      createRegistry({
+        getExchange: vi.fn().mockReturnValue(
+          ok({
+            capabilities: {
+              supportsApi: false,
+              supportsCsv: true,
+            },
+            exchange: 'kucoin',
+          })
+        ),
+      })
+    );
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toEqual({
+      profileId: 1,
+      name: 'kucoin-csv',
+      accountType: 'exchange-csv',
+      platformKey: 'kucoin',
+      identifier: 'exports/kucoin',
+      credentials: {
+        apiKey: 'csv-key',
+        apiSecret: 'csv-secret',
+        apiPassphrase: 'csv-passphrase',
+      },
+    });
+  });
 });
 
 describe('buildUpdateAccountInput', () => {
@@ -127,6 +170,38 @@ describe('buildUpdateAccountInput', () => {
         apiSecret: 'new-secret',
       },
       resetCursor: true,
+    });
+  });
+
+  it('updates stored provider credentials on an exchange-csv account', () => {
+    const result = buildUpdateAccountInput(
+      createAccount({
+        accountType: 'exchange-csv',
+        platformKey: 'kucoin',
+        identifier: 'exports/kucoin',
+        credentials: {
+          apiKey: 'old-key',
+          apiSecret: 'old-secret',
+        },
+      }),
+      {
+        apiSecret: 'new-secret',
+        apiPassphrase: 'new-passphrase',
+      },
+      createRegistry()
+    );
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toEqual({
+      credentials: {
+        apiKey: 'old-key',
+        apiSecret: 'new-secret',
+        apiPassphrase: 'new-passphrase',
+      },
     });
   });
 });

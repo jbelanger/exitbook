@@ -17,6 +17,7 @@ function createAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: overrides.id ?? 1,
     profileId,
+    name: overrides.name,
     accountType,
     platformKey,
     identifier,
@@ -160,6 +161,35 @@ function createBalanceServices(
     }),
   };
 }
+
+describe('BalanceVerificationRunner.refreshSingleScope', () => {
+  it('fails fast when an exchange account has no stored provider credentials', async () => {
+    const account = createAccount({
+      id: 21,
+      name: 'kucoin-csv',
+      accountType: 'exchange-csv',
+      platformKey: 'kucoin',
+      identifier: 'exports/kucoin',
+      credentials: undefined,
+    });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshots: [],
+      snapshotAssets: [],
+    });
+    const balanceOperation = {
+      refreshVerification: vi.fn(),
+    };
+
+    const { verificationRunner } = createBalanceServices(mockDb, balanceOperation, mockDb.accountService);
+    const result = await verificationRunner.refreshSingleScope({ accountId: account.id, profileId: 1 });
+    const error = assertErr(result);
+
+    expect(error.message).toContain('kucoin-csv');
+    expect(error.message).toContain('no stored provider credentials');
+    expect(balanceOperation.refreshVerification).not.toHaveBeenCalled();
+  });
+});
 
 describe('BalanceStoredSnapshotReader.viewStoredSnapshots', () => {
   it('does not fall back to child snapshot rows when the owning scope snapshot is missing', async () => {

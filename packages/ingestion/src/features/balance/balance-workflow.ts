@@ -449,7 +449,7 @@ export class BalanceWorkflow {
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     if (!credentials && !account.credentials) {
       return err(
-        new Error(`No credentials found for account ${account.id}. This should not happen for exchange-api accounts.`)
+        new Error(`No stored provider credentials found for exchange account ${account.id} (${account.platformKey}).`)
       );
     }
     const clientResult = createExchangeClient(

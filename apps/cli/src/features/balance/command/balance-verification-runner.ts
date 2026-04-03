@@ -1,10 +1,11 @@
 import type { AccountLifecycleService } from '@exitbook/accounts';
-import type { Account, ExchangeCredentials } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
+import { formatAccountSelectorLabel } from '../../accounts/account-selector.js';
 import type { BalanceEvent } from '../view/balance-view-state.js';
 import { resolveAccountCredentials, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
 
@@ -16,6 +17,12 @@ import type {
 } from './balance-handler-types.js';
 
 const logger = getLogger('BalanceVerificationRunner');
+
+function buildStoredCredentialMissingError(account: Account, reason: string): Error {
+  return new Error(
+    `Account ${formatAccountSelectorLabel(account)} has ${reason}. Store provider credentials on the account before refreshing live balances.`
+  );
+}
 
 interface BalanceVerificationRunnerDeps {
   accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
@@ -73,17 +80,21 @@ export class BalanceVerificationRunner {
 
   async refreshSingleScope(params: {
     accountId: number;
-    credentials?: ExchangeCredentials | undefined;
     profileId: number;
   }): Promise<Result<SingleRefreshResult, Error>> {
     const operation = this.requireBalanceWorkflow();
 
     try {
       const requestedAccount = await this.loadSingleAccountOrFail(params.profileId, params.accountId);
+      const { credentials, skipReason } = resolveAccountCredentials(requestedAccount);
+
+      if (skipReason) {
+        return err(buildStoredCredentialMissingError(requestedAccount, skipReason));
+      }
 
       const result = await operation.refreshVerification({
         accountId: requestedAccount.id,
-        credentials: params.credentials,
+        credentials,
       });
       if (result.isErr()) return err(result.error);
 

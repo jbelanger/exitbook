@@ -18,6 +18,10 @@ import {
 } from '../../../ui/shared/index.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
+import {
+  formatBalanceTimestamp,
+  getStoredSnapshotVerificationDisplay as getStoredSnapshotVerificationDisplayForView,
+} from './balance-view-formatters.js';
 import type {
   StoredSnapshotAccountItem,
   AccountVerificationItem,
@@ -1171,23 +1175,7 @@ function buildStoredSnapshotMetadataRows(
 function getStoredSnapshotVerificationDisplay(
   status: StoredSnapshotAccountItem['verificationStatus']
 ): { color: string; icon: string; label: string } | undefined {
-  switch (status) {
-    case 'unavailable':
-      return { icon: '?', color: 'yellow', label: 'verification unavailable' };
-    case 'never-run':
-      return { icon: '⊘', color: 'dim', label: 'never verified' };
-    case 'warning':
-      return { icon: '!', color: 'yellow', label: 'last verification warned' };
-    case 'mismatch':
-      return { icon: '✗', color: 'red', label: 'last verification mismatched' };
-    case 'match':
-      return { icon: '✓', color: 'green', label: 'last verification matched' };
-    case undefined:
-      return undefined;
-  }
-
-  const exhaustiveCheck: never = status;
-  return exhaustiveCheck;
+  return getStoredSnapshotVerificationDisplayForView(status);
 }
 
 function buildDiagnosticsContentRows(diagnostics: AssetDiagnostics): ReactElement[] {
@@ -1288,7 +1276,4 @@ function getAssetStatusIcon(status: 'match' | 'warning' | 'mismatch'): ReactNode
   }
 }
 
-function formatTimestamp(isoString: string): string {
-  const date = new Date(isoString);
-  return Number.isNaN(date.getTime()) ? isoString : date.toLocaleString();
-}
+const formatTimestamp = formatBalanceTimestamp;
