@@ -27,6 +27,9 @@ describe('buildAccountsStaticList', () => {
           balanceProjectionReason: undefined,
           lastCalculatedAt: '2026-03-12T12:00:00.000Z',
           lastRefreshAt: '2026-03-12T12:30:00.000Z',
+          storedAssetCount: 3,
+          storedBalanceStatusReason: undefined,
+          storedBalanceSuggestion: undefined,
           verificationStatus: 'match',
           sessionCount: 2,
           childAccounts: [
@@ -62,10 +65,12 @@ describe('buildAccountsStaticList', () => {
     expect(stripAnsi(output)).toContain('\nREF         NAME');
     expect(stripAnsi(output)).toContain('PLATFORM');
     expect(stripAnsi(output)).toContain('TYPE');
+    expect(stripAnsi(output)).toContain('ASSETS');
     expect(stripAnsi(output)).toContain('IDENTIFIER');
     expect(stripAnsi(output)).toContain('\n1234567890  kraken-main');
     expect(stripAnsi(output)).toContain('1234567890  kraken-main');
     expect(stripAnsi(output)).toContain('kraken');
+    expect(stripAnsi(output)).toContain('  3  acct-1');
     expect(stripAnsi(output)).toContain('acct-1');
     expect(stripAnsi(output)).not.toContain('imports');
     expect(stripAnsi(output)).not.toContain('proj:');
@@ -119,6 +124,9 @@ describe('buildAccountStaticDetail', () => {
       balanceProjectionReason: undefined,
       lastCalculatedAt: '2026-03-12T12:00:00.000Z',
       lastRefreshAt: '2026-03-12T12:30:00.000Z',
+      storedAssetCount: 3,
+      storedBalanceStatusReason: 'Provider coverage incomplete',
+      storedBalanceSuggestion: 'Run accounts refresh again',
       verificationStatus: 'match',
       sessionCount: 2,
       childAccounts: [
@@ -148,6 +156,10 @@ describe('buildAccountStaticDetail', () => {
     expect(stripAnsi(output)).toContain('Identifier: acct-1');
     expect(stripAnsi(output)).toContain('Provider: kraken-api');
     expect(stripAnsi(output)).toContain('Verification: ✓ verified · Projection: ✓ fresh');
+    expect(stripAnsi(output)).toContain('Balances');
+    expect(stripAnsi(output)).toContain('Stored assets: 3');
+    expect(stripAnsi(output)).toContain('Stored status: Provider coverage incomplete');
+    expect(stripAnsi(output)).toContain('Suggestion: Run accounts refresh again');
     expect(stripAnsi(output)).toContain('Derived addresses (1)');
     expect(stripAnsi(output)).toContain('abcdef1234 acct-child');
     expect(stripAnsi(output)).toContain('Recent sessions');

@@ -40,6 +40,9 @@ export interface AccountViewItem {
   balanceProjectionReason?: string | undefined;
   lastCalculatedAt?: string | undefined;
   lastRefreshAt?: string | undefined;
+  storedAssetCount?: number | undefined;
+  storedBalanceStatusReason?: string | undefined;
+  storedBalanceSuggestion?: string | undefined;
   verificationStatus?: AccountVerificationStatus | undefined;
   sessionCount: number | undefined;
   childAccounts?: ChildAccountViewItem[] | undefined;

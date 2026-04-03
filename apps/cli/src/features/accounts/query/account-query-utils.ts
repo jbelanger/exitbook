@@ -38,6 +38,9 @@ export interface AccountSummary {
   balanceProjectionReason?: string | undefined;
   lastCalculatedAt?: string | undefined;
   lastRefreshAt?: string | undefined;
+  storedAssetCount?: number | undefined;
+  storedBalanceStatusReason?: string | undefined;
+  storedBalanceSuggestion?: string | undefined;
   verificationStatus?: AccountVerificationStatus | undefined;
   sessionCount: number | undefined;
   childAccounts?: AccountSummary[] | undefined;
@@ -88,6 +91,9 @@ export function toAccountSummary(
     balanceProjectionReason: projectionFreshness?.reason,
     lastCalculatedAt: snapshot?.calculatedAt?.toISOString(),
     lastRefreshAt: snapshot?.lastRefreshAt?.toISOString(),
+    storedAssetCount: snapshot?.totalAssetCount,
+    storedBalanceStatusReason: snapshot?.statusReason,
+    storedBalanceSuggestion: snapshot?.suggestion,
     verificationStatus: getVerificationStatus(snapshot),
     sessionCount,
     childAccounts,

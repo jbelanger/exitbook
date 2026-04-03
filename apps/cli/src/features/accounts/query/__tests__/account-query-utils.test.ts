@@ -79,9 +79,12 @@ describe('account-query-utils', () => {
         verificationStatus: 'match',
         calculatedAt: new Date('2025-01-02T11:30:00.000Z'),
         lastRefreshAt: new Date('2025-01-02T12:00:00.000Z'),
+        totalAssetCount: 3,
         matchCount: 1,
         warningCount: 0,
         mismatchCount: 0,
+        statusReason: 'Provider coverage incomplete',
+        suggestion: 'Run accounts refresh again',
       };
 
       const formatted = toAccountSummary(account, 7, snapshot);
@@ -99,6 +102,9 @@ describe('account-query-utils', () => {
         balanceProjectionStatus: 'fresh',
         lastCalculatedAt: '2025-01-02T11:30:00.000Z',
         lastRefreshAt: '2025-01-02T12:00:00.000Z',
+        storedAssetCount: 3,
+        storedBalanceStatusReason: 'Provider coverage incomplete',
+        storedBalanceSuggestion: 'Run accounts refresh again',
         verificationStatus: 'match',
       });
     });

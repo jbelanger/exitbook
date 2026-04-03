@@ -15,30 +15,29 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 2: Remove The Legacy `balance refresh` Workflow Alias
+### Phase 3: Start Folding Stored Balance Summaries Into `accounts` Browse
 
 Status: `completed`
 
 Intent:
 
-- make `accounts refresh` the only refresh workflow command
-- remove the remaining legacy `balance refresh` alias
-- move refresh command support under `accounts`, where the workflow now belongs
-- leave `balance` as a browse-only surface until read-surface consolidation is ready
+- add stored asset count to the static `accounts` list
+- expose a minimal stored balance summary on `accounts` static detail
+- thread the same summary fields through the `accounts` JSON/view model
+- keep this slice summary-shaped and read-only rather than partially porting the balance explorer
 
 Why this slice came next:
 
-- the workflow boundary was already moved to `accounts refresh`
-- keeping the alias was now pure surface debt, not a capability requirement
-- the shared refresh helper was stranded under `balance` even though only `accounts` should own the workflow
+- the workflow boundary is already clean; the remaining duplication is in read surfaces
+- the static `accounts` list/detail was still too thin relative to the new spec
+- this is the smallest coherent read-surface slice that improves `accounts` without duplicating the balance explorer
 
 What landed:
 
-- `balance refresh` was removed.
-- `accounts refresh` now owns its command support module directly.
-- `balance` is now browse-only and exposes only root browse plus `balance view`.
-- Refresh CLI tests now exercise `accounts refresh` directly instead of a legacy alias.
-- Current canonical docs now describe `accounts refresh` as the rebuild-and-verify path for stored balances.
+- The static `accounts` list now includes an `ASSETS` column backed by stored snapshot asset count.
+- Static `accounts` detail now includes a `Balances` section with stored asset count and any stored status/suggestion summary.
+- The `accounts` browse JSON payload and TUI/view model now carry stored asset count and stored status/suggestion fields.
+- Accounts browse tests now assert the new stored-balance summary shape explicitly.
 
 ## Verified Current Facts
 
@@ -47,56 +46,56 @@ What landed:
 - The refresh execution engine still reuses balance workflow runtime/services from the balance feature, but no longer exposes a `balance refresh` command.
 - Stored balance freshness messaging and related read surfaces direct users to `exitbook accounts refresh`.
 - `refresh` remains reserved as an account name.
+- `accounts` list rows now show stored asset count when the stored snapshot is readable in [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts).
+- `accounts` detail now shows a summary-level `Balances` section, but not full per-asset stored balance detail yet, in [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts).
+- The `accounts` projection/model layer now includes stored asset count plus stored status/suggestion summary in [account-query-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/query/account-query-utils.ts), [account-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/account-view-projection.ts), and [accounts-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/accounts-view-model.ts).
 
-## Phase 2 Exit Criteria
+## Phase 3 Exit Criteria
 
-- `balance refresh` no longer exists in the command tree.
-- `accounts refresh` remains fully tested for JSON and text workflow output.
-- `balance` help and tests describe a browse-only surface.
-- Refresh command support no longer lives under `apps/cli/src/features/balance/command/`.
-- Current canonical docs no longer describe `balance refresh` as a live command.
+- Static `accounts` list exposes stored asset count without inventing a second implementation path.
+- Static `accounts` detail exposes a stored balance summary section.
+- `accounts` JSON/detail projections carry the same stored-balance summary fields used by the renderer.
+- The slice lands without touching workflow ownership or introducing a second balance-summary model.
 
-Phase 2 result:
+Phase 3 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts)
-- [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts)
-- [accounts.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts.ts)
-- [balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance.ts)
-- refresh command tests under `apps/cli/src/features/accounts/command/__tests__/`
-- balance browse tests under `apps/cli/src/features/balance/command/__tests__/`
-- current CLI specs under `docs/specs/cli/`
+- [account-query-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/query/account-query-utils.ts)
+- [account-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/account-view-projection.ts)
+- [accounts-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/accounts-view-model.ts)
+- [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts)
+- accounts browse tests under `apps/cli/src/features/accounts/**/__tests__/`
 
 ## Slice Notes
 
 Constraints that shaped the implementation:
 
-- keep `balance` browse/view because `accounts` still does not absorb the stored-balance explorer yet
-- remove only the workflow alias, not the still-distinct browse surface
-- update canonical docs in the same slice so the live surface and spec remain aligned
+- keep the slice summary-shaped; do not half-port the balance asset explorer into `accounts`
+- reuse the existing `accounts` query/projection path instead of creating an alternate balance-summary adapter
+- leave the deeper stored-balance drilldown and renderer consolidation for a later reassessment
 
 Post-slice reassessment notes:
 
-- the workflow boundary is now clean
-- the remaining duplication is almost entirely in read surfaces and renderers
-- the next slice should consolidate browse/detail behavior, not touch workflow naming again
+- `accounts` is now a better top-level read surface, but it still does not absorb full stored balance detail
+- the main remaining duplication is asset-level detail and explorer state, not workflow commands
+- the next slice should either add stored asset detail to `accounts` static/JSON detail or move the balance explorer drilldown under `accounts`
 
 ## Reassessment Gate
 
 Before starting the next slice:
 
 1. Re-read the current `accounts` spec.
-2. Re-inspect the `accounts` and `balance` read surfaces as they exist after phase 2.
+2. Re-inspect the `accounts` and `balance` read surfaces as they exist after phase 3.
 3. Pick the single best read-surface consolidation slice from current code, not from prior assumptions.
 
 Likely next reassessment candidates:
 
-- add the `ASSETS` count to the static `accounts` list
-- unify `accounts` static detail with stored balance detail
+- add full stored balance detail to static `accounts` detail and JSON
 - reuse stored balance asset drilldown inside `accounts view`
+- remove or hollow out the remaining CLI `balance` browse surface once `accounts` truly covers it
 
 Do not commit to one of these until the code is re-read and the best slice is confirmed again.
 
@@ -107,3 +106,4 @@ Do not commit to one of these until the code is re-read and the best slice is co
 | Phase 0: account-owned provider credentials and refresh boundary | `completed` | CSV accounts can store provider credentials; refresh uses stored account credentials only; CLI/env overrides removed. |
 | Phase 1: `accounts refresh` as canonical workflow command        | `completed` | Added `accounts refresh`; refresh text is line-oriented progress; stale guidance now points to `accounts refresh`.    |
 | Phase 2: remove legacy `balance refresh` alias                   | `completed` | Deleted `balance refresh`; moved refresh command support under `accounts`; `balance` is now browse-only.              |
+| Phase 3: add stored balance summary to `accounts` browse         | `completed` | Added `ASSETS` to static list and a summary-level `Balances` section to static/detail/JSON browse surfaces.           |

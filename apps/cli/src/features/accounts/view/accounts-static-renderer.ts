@@ -20,7 +20,7 @@ import {
 import type { AccountsViewState } from './accounts-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
-const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'identifier'] as const;
+const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'assets', 'identifier'] as const;
 
 export function outputAccountsStaticList(state: AccountsViewState): void {
   process.stdout.write(buildAccountsStaticList(state));
@@ -43,6 +43,11 @@ export function buildAccountsStaticList(state: AccountsViewState): string {
     name: { format: (item) => truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28) },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
     type: { format: (item) => formatAccountType(item.accountType), minWidth: 13 },
+    assets: {
+      align: 'right',
+      format: (item) => formatStoredAssetCount(item),
+      minWidth: 'ASSETS'.length,
+    },
     identifier: {
       format: (item) => (item.name ? truncateIdentifier(item.identifier, item.accountType, 16) : '—'),
       minWidth: 16,
@@ -82,6 +87,7 @@ export function buildAccountStaticDetail(account: AccountViewItem): string {
   if (account.lastRefreshAt) {
     lines.push(buildDetailLine('Last refresh', pc.dim(formatTimestamp(account.lastRefreshAt))));
   }
+  lines.push('', ...buildStoredBalanceLines(account));
   if (account.sessionCount !== undefined) {
     lines.push(buildDetailLine('Imports', formatImportCount(account.sessionCount)));
   }
@@ -126,14 +132,17 @@ function buildEmptyStateLines(state: AccountsViewState): string[] {
 
 function buildAccountRow(
   item: AccountViewItem,
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'identifier'>>
+  columns: ReturnType<
+    typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'assets' | 'identifier'>
+  >
 ): string {
   const formatted = columns.format(item);
-  const { identifier, name, platform, type } = formatted;
+  const { assets, identifier, name, platform, type } = formatted;
 
   return buildTextTableRow(
     {
       ...formatted,
+      assets: pc.dim(assets),
       identifier: pc.dim(identifier),
       name: item.name ? pc.bold(name) : name,
       platform: pc.cyan(platform),
@@ -145,13 +154,16 @@ function buildAccountRow(
 }
 
 function buildListColumnHeader(
-  columns: ReturnType<typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'identifier'>>
+  columns: ReturnType<
+    typeof createColumns<AccountViewItem, 'accountRef' | 'name' | 'platform' | 'type' | 'assets' | 'identifier'>
+  >
 ): string {
   return pc.dim(
     buildTextTableHeader(
       columns.widths,
       {
         accountRef: 'REF',
+        assets: 'ASSETS',
         identifier: 'IDENTIFIER',
         name: 'NAME',
         platform: 'PLATFORM',
@@ -165,6 +177,31 @@ function buildListColumnHeader(
 
 function buildDetailLine(label: string, value: string): string {
   return `${pc.dim(`${label}:`)} ${value}`;
+}
+
+function buildStoredBalanceLines(account: AccountViewItem): string[] {
+  const lines = [pc.dim('Balances')];
+  const isReadable = account.balanceProjectionStatus === 'fresh' && account.storedAssetCount !== undefined;
+
+  if (!isReadable) {
+    lines.push(buildDetailLine('Stored snapshot', pc.dim('unreadable')));
+    if (account.balanceProjectionReason) {
+      lines.push(buildDetailLine('Reason', pc.dim(account.balanceProjectionReason)));
+    }
+    return lines;
+  }
+
+  lines.push(buildDetailLine('Stored assets', `${account.storedAssetCount}`));
+
+  if (account.storedBalanceStatusReason) {
+    lines.push(buildDetailLine('Stored status', pc.yellow(account.storedBalanceStatusReason)));
+  }
+
+  if (account.storedBalanceSuggestion) {
+    lines.push(buildDetailLine('Suggestion', pc.dim(account.storedBalanceSuggestion)));
+  }
+
+  return lines;
 }
 
 function buildChildAccountLines(children: ChildAccountViewItem[]): string[] {
@@ -222,4 +259,12 @@ function colorStatus(color: AccountsStatusColor, value: string): string {
 
   const exhaustiveCheck: never = color;
   return exhaustiveCheck;
+}
+
+function formatStoredAssetCount(account: AccountViewItem): string {
+  if (account.balanceProjectionStatus !== 'fresh' || account.storedAssetCount === undefined) {
+    return '—';
+  }
+
+  return `${account.storedAssetCount}`;
 }
