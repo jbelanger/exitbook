@@ -356,7 +356,7 @@ export class BalanceVerificationRunner {
   }
 
   private requireBalanceWorkflow(): BalanceWorkflow {
-    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available in balance view mode');
+    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available in refresh mode');
     return this.balanceOperation;
   }
 

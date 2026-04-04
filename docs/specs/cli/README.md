@@ -22,7 +22,7 @@ Exitbook's CLI specs are organized around user goals, not package boundaries. St
 - [`reprocess/reprocess-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/reprocess/reprocess-spec.md)
 - [`links/links-run-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/links/links-run-spec.md)
 - [`prices/prices-enrich-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/prices/prices-enrich-spec.md)
-- [`balance/balance-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/balance/balance-view-spec.md)
+- [`accounts/accounts-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/accounts/accounts-view-spec.md)
 
 ## Review And Resolve
 
@@ -37,7 +37,7 @@ Exitbook's CLI specs are organized around user goals, not package boundaries. St
 
 - [`portfolio/portfolio-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/portfolio/portfolio-view-spec.md)
 - [`cost-basis/cost-basis-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/cost-basis/cost-basis-view-spec.md)
-- [`balance/balance-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/balance/balance-view-spec.md)
+- [`accounts/accounts-view-spec.md`](/Users/joel/Dev/exitbook/docs/specs/cli/accounts/accounts-view-spec.md)
 
 ## Cleanup And Safety
 

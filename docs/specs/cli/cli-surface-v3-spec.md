@@ -35,7 +35,7 @@ Browse-heavy families should follow this ladder when they expose both static and
 - `accounts view`
 - `accounts view <selector>`
 
-The same model applies to families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, `blockchains`, and `balance` when they have stable browse semantics.
+The same model applies to families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, and `blockchains` when they have stable browse semantics.
 
 ## Goals
 

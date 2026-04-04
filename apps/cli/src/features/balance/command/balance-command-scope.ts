@@ -11,13 +11,11 @@ import { createCliAccountLifecycleService } from '../../accounts/account-service
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
-import { BalanceStoredSnapshotReader } from './balance-stored-snapshot-reader.js';
 import { BalanceVerificationRunner } from './balance-verification-runner.js';
 
 export interface BalanceCommandScope {
   accountService: AccountLifecycleService;
   profile: Profile;
-  snapshotReader: BalanceStoredSnapshotReader;
   verificationRunner: BalanceVerificationRunner;
 }
 
@@ -26,7 +24,6 @@ export async function withBalanceCommandScope<T>(
   options: {
     format: CliOutputFormat;
     needsWorkflow: boolean;
-    prepareStoredSnapshots?: boolean | undefined;
   },
   operation: (scope: BalanceCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
@@ -37,30 +34,21 @@ export async function withBalanceCommandScope<T>(
       return yield* err(profileResult.error);
     }
 
-    if (options.prepareStoredSnapshots) {
-      const readyResult = await ensureProcessedTransactionsReady(runtime, {
-        format: options.format,
-        profileId: profileResult.value.id,
-      });
-      if (readyResult.isErr()) {
-        return yield* err(readyResult.error);
-      }
+    const readyResult = await ensureProcessedTransactionsReady(runtime, {
+      format: options.format,
+      profileId: profileResult.value.id,
+    });
+    if (readyResult.isErr()) {
+      return yield* err(readyResult.error);
     }
 
     const accountService = createCliAccountLifecycleService(database);
     const assetDetailsBuilder = new BalanceAssetDetailsBuilder(database);
-    const snapshotReader = new BalanceStoredSnapshotReader({
-      accountService,
-      assetDetailsBuilder,
-      balanceOperation: undefined,
-      db: database,
-    });
 
     if (!options.needsWorkflow) {
       const value = yield* await operation({
         accountService,
         profile: profileResult.value,
-        snapshotReader,
         verificationRunner: new BalanceVerificationRunner({
           accountService,
           assetDetailsBuilder,
@@ -86,12 +74,6 @@ export async function withBalanceCommandScope<T>(
     const value = yield* await operation({
       accountService,
       profile: profileResult.value,
-      snapshotReader: new BalanceStoredSnapshotReader({
-        accountService,
-        assetDetailsBuilder,
-        balanceOperation: balanceWorkflow,
-        db: database,
-      }),
       verificationRunner,
     });
     return value;

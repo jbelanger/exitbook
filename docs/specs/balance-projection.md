@@ -7,18 +7,18 @@ status: canonical
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, update the spec to match code.
 
-How Exitbook persists current balance snapshots, scopes them to owning accounts, and exposes them to `balance`, `accounts`, and `assets` consumers.
+How Exitbook persists current balance snapshots, scopes them to owning accounts, and exposes them to `accounts` and `assets` consumers.
 
 ## Quick Reference
 
-| Concept           | Key Rule                                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------------------- |
-| Scope ownership   | Every balance snapshot is keyed by the owning root account scope                                          |
-| Projection id     | Balance freshness lives in `projection_state` under `projection_id='balances'`                            |
-| Scope key         | Scoped state rows use `balance:<scopeAccountId>`                                                          |
-| Live fetches      | `accounts refresh` is the only CLI command that calls live providers for balances                         |
-| Read policy       | `balance view` and `assets view` read stored snapshots only and fail closed when freshness is not `fresh` |
-| Account summaries | `accounts view` shows projection freshness separately from verification outcome                           |
+| Concept           | Key Rule                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Scope ownership   | Every balance snapshot is keyed by the owning root account scope                                                        |
+| Projection id     | Balance freshness lives in `projection_state` under `projection_id='balances'`                                          |
+| Scope key         | Scoped state rows use `balance:<scopeAccountId>`                                                                        |
+| Live fetches      | `accounts refresh` is the only CLI command that calls live providers for balances                                       |
+| Read policy       | `accounts` / `accounts view` and `assets view` read stored snapshots only and fail closed when freshness is not `fresh` |
+| Account summaries | `accounts view` shows projection freshness separately from verification outcome                                         |
 
 ## Goals
 
@@ -126,7 +126,7 @@ Persistence errors are surfaced as command failures; the workflow does not silen
 
 ### Consumer Rules
 
-#### `balance view`
+#### `accounts` / `accounts view`
 
 - Reads stored snapshots only.
 - Never calls live providers.
@@ -248,7 +248,7 @@ graph TD
     B --> C["balance_snapshots"]
     B --> D["balance_snapshot_assets"]
     B --> E["projection_state('balances', scope_key)"]
-    C --> F["balance view"]
+    C --> F["accounts detail / accounts view"]
     D --> F
     C --> G["accounts view summary"]
     E --> G
@@ -261,7 +261,7 @@ graph TD
 - **Required**: There is at most one current snapshot per owning scope account.
 - **Required**: There is at most one current asset row per `(scope_account_id, asset_id)`.
 - **Required**: Child accounts never own independent balance snapshot rows for normal hierarchy-backed refresh flows.
-- **Required**: `balance view` and `assets view` never fetch live balances.
+- **Required**: `accounts` / `accounts view` and `assets view` never fetch live balances.
 - **Required**: Freshness is scoped by owning balance account, not global.
 - **Required**: Projection freshness and verification outcome remain separate concepts in read models.
 
@@ -269,7 +269,7 @@ graph TD
 
 - A direct child-account request may return both the owning scope account and a separate `requestedAccount` in CLI JSON output.
 - A scope with no snapshot row is treated as unreadable for fail-closed consumers, not as an empty balance.
-- `balance view` reads stored asset rows but still enriches them with diagnostics derived from imported transactions at read time.
+- `accounts` detail and `accounts view` asset drilldown read stored asset rows but still enrich them with diagnostics derived from imported transactions at read time.
 
 ## Known Limitations (Current Implementation)
 
@@ -281,7 +281,7 @@ graph TD
 
 - [Projection System](./projection-system.md)
 - [Accounts & Imports](./accounts-and-imports.md)
-- [Balance CLI](./cli/balance/balance-view-spec.md)
+- [Accounts CLI](./cli/accounts/accounts-view-spec.md)
 - [Asset Review](./asset-review.md)
 - [Assets View CLI](./cli/assets/assets-view-spec.md)
 

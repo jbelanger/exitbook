@@ -15,36 +15,36 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 5: Move Stored Balance Drilldown Into `accounts view`
+### Phase 6: Remove The Legacy `balance` Browse Surface
 
 Status: `completed`
 
 Intent:
 
-- make `accounts view` the primary explorer for stored balance inspection
-- add asset drilldown from the accounts explorer into stored balance assets
-- preload explorer detail before closing the database so drilldown remains read-only and coherent
-- collapse the stored-snapshot asset pane into one shared component instead of keeping a separate balance-owned implementation
+- remove the remaining user-facing `balance` browse namespace now that `accounts` owns stored balance inspection
+- update current-facing docs/help so they stop describing `balance` as a real CLI family
+- trim dead browse-only balance support code instead of leaving a hollow command shell behind
 
 Why this slice came next:
 
-- static/detail `accounts` browse already covered stored balance inspection, but the TUI still stopped at summary detail
-- `balance view` still owned the only asset drilldown path, which kept the read surface split in practice
-- this is the smallest coherent slice that removes the remaining explorer-level duplication without yet deleting the whole balance browse shell
+- `accounts` already owned static detail, JSON detail, and explorer drilldown for stored balance inspection
+- the remaining `balance` command family was legacy surface area, not distinct capability
+- deleting the browse shell now keeps the user-facing contract elegant before any deeper internal ownership moves
 
 What landed:
 
-- `accounts view` now has explicit `accounts` and `assets` modes plus `Enter` / `Backspace` drilldown behavior.
-- TUI browse now preloads a detail index for all listed accounts before closing the database, so asset drilldown stays read-only.
-- The accounts detail panel now uses the richer account detail model, including stored balance preview, unreadable snapshot hints, `Last calculated`, and requested-vs-scope rows.
-- The stored-snapshot asset pane is now shared in [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx) and reused by both `accounts view` and the remaining `balance` explorer.
-- The old balance-only stored-snapshot formatter module was removed; stored-balance formatting is now shared.
+- The `balance` browse command registration and deleted browse implementation files are now gone from `apps/cli/src/features/balance/`.
+- CLI help and current-facing specs now treat `accounts` as the canonical stored-balance read surface.
+- Dead browse-only balance support was trimmed:
+  - [run-balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/run-balance.ts) no longer exposes a dead browse entrypoint
+  - [balance-command-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-command-scope.ts) no longer carries the unused stored-snapshot reader
+  - [balance-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-state.ts) now exports only refresh/detail types still used by live code
+  - [balance-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-utils.ts) no longer keeps dead browse-only builders/sorts
 
 ## Verified Current Facts
 
 - `accounts refresh` is the only CLI workflow entrypoint for rebuilding stored balances and verifying live data in [accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh.ts) and [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts).
-- `balance` is now a browse-only namespace in [balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance.ts).
-- The refresh execution engine still reuses balance workflow runtime/services from the balance feature, but no longer exposes a `balance refresh` command.
+- `accounts` is now the only user-facing CLI family for stored balance inspection as well as refresh.
 - Stored balance freshness messaging and related read surfaces direct users to `exitbook accounts refresh`.
 - `refresh` remains reserved as an account name.
 - `accounts` list rows now show stored asset count when the stored snapshot is readable in [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts).
@@ -56,61 +56,57 @@ What landed:
 - `accounts view` now supports stored-balance asset drilldown in [accounts-view-controller.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-controller.ts), [accounts-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-state.ts), and [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx).
 - TUI browse presentation now preloads per-account detail in [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts).
 - Shared stored-balance asset explorer rendering now lives in [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx) and [stored-balance-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-formatters.ts).
+- The remaining CLI balance code is internal support reused by `accounts`, not a separate command family.
 
-## Phase 5 Exit Criteria
+## Phase 6 Exit Criteria
 
-- `accounts view` supports `Enter` drilldown into stored balance assets when stored balance data is readable.
-- `accounts view` keeps the database-closed read-only model by preloading detail before Ink mounts.
-- Stored snapshot asset rendering is shared instead of being implemented separately in `accounts` and `balance`.
-- The accounts detail panel shows stored balance preview or unreadable snapshot messaging without needing a separate `balance` explorer.
+- `exitbook balance` and `exitbook balance view` are no longer registered CLI commands.
+- Current-facing docs/help no longer describe `balance` as a live command family.
+- Dead browse-only balance support code is removed instead of being left behind as a hollow compatibility shell.
 
-Phase 5 result:
+Phase 6 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [accounts-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/accounts-view-model.ts)
-- [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts)
+- [cli.ts](/Users/joel/Dev/exitbook/apps/cli/src/cli.ts)
 - [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts)
-- [accounts-view-controller.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-controller.ts)
-- [accounts-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-state.ts)
-- [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx)
-- [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts)
-- [stored-balance-view.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-view.ts)
-- [stored-balance-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-static-renderer.ts)
-- [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx)
-- [stored-balance-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-formatters.ts)
+- [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts)
+- [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts)
+- [balance-command-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-command-scope.ts)
 - [balance-asset-details-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-asset-details-builder.ts)
-- accounts browse tests under `apps/cli/src/features/accounts/**/__tests__/`
+- [balance-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-state.ts)
+- [balance-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-utils.ts)
+- current-facing CLI docs under `docs/specs/cli/`
 
 ## Slice Notes
 
 Constraints that shaped the implementation:
 
-- keep the list query summary-shaped and preload detail separately for the explorer
-- keep browse read-only; do not reopen the database from inside Ink just to load drilldown state
-- share the stored-snapshot asset pane instead of copying balance's asset renderer into `accounts`
+- remove the user-facing legacy surface cleanly instead of keeping aliases or duplicate read entrypoints
+- keep current-facing docs aligned with the actual shipped CLI surface
+- delete obviously dead browse-only code in the same slice when the owning command surface is removed
 
 Post-slice reassessment notes:
 
-- `accounts` now covers the main stored-balance inspection path across static, JSON, and TUI surfaces
-- the remaining duplication is mostly the existence of the user-facing `balance` browse shell, not the stored-snapshot asset pane itself
-- the next slice should decide how much of `apps/cli/src/features/balance/command` and `apps/cli/src/features/balance/view` can be deleted immediately now that `accounts` owns the canonical read surface
+- the user-facing balance browse surface is gone
+- the remaining cleanup is internal ownership: balance workflow/detail helpers still live under `apps/cli/src/features/balance/` even though `accounts` owns the CLI surface
+- the next slice should decide whether those remaining internal helpers move under `accounts` or a neutral shared path so the CLI balance feature directory can disappear entirely
 
 ## Reassessment Gate
 
 Before starting the next slice:
 
 1. Re-read the current `accounts` spec.
-2. Re-inspect the `accounts` and `balance` read surfaces as they exist after phase 4.
-3. Pick the single best read-surface consolidation slice from current code, not from prior assumptions.
+2. Re-inspect the remaining internal files under `apps/cli/src/features/balance/`.
+3. Pick the single best ownership move that removes the last balance-only CLI support path without duplicating code.
 
 Likely next reassessment candidates:
 
-- remove or hollow out the remaining CLI `balance` browse surface now that `accounts view` owns drilldown
-- move any remaining stored-balance read helpers that still live under `apps/cli/src/features/balance/` into shared or accounts-owned locations
-- re-check whether the remaining balance workflow support types should also move out of the CLI balance feature path
+- move the remaining balance refresh/detail support files under `accounts` or `shared`
+- rename the remaining balance-owned helper types/modules so they reflect their post-consolidation role more clearly
+- delete the final internal CLI balance feature directory once no live imports point at it
 
 Do not commit to one of these until the code is re-read and the best slice is confirmed again.
 
@@ -124,3 +120,4 @@ Do not commit to one of these until the code is re-read and the best slice is co
 | Phase 3: add stored balance summary to `accounts` browse         | `completed` | Added `ASSETS` to static list and a summary-level `Balances` section to static/detail/JSON browse surfaces.           |
 | Phase 4: add full stored balance detail to `accounts` detail     | `completed` | Added nested detail balance data, full asset tables, unreadable snapshot hints, and shared stored-balance rendering.  |
 | Phase 5: move stored balance drilldown into `accounts view`      | `completed` | Added accounts explorer asset drilldown, preloaded explorer detail, and shared stored-snapshot asset rendering.       |
+| Phase 6: remove legacy `balance` browse surface                  | `completed` | Deleted the user-facing `balance` browse family, updated current-facing docs/help, and trimmed dead browse-only code. |

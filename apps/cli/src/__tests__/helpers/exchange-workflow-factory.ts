@@ -162,14 +162,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         expect(accountName).toBeTruthy();
 
         // Build balance command arguments
-        const balanceArgs = ['balance', 'refresh', String(accountName)];
-
-        // Add required credentials (assuming first two are key/secret pattern)
-        const [apiKeyVar, apiSecretVar] = requiredEnvVars;
-        if (apiKeyVar && apiSecretVar) {
-          balanceArgs.push('--api-key', credentials[apiKeyVar]!);
-          balanceArgs.push('--api-secret', credentials[apiSecretVar]!);
-        }
+        const balanceArgs = ['accounts', 'refresh', String(accountName)];
 
         // Add any extra arguments specific to this exchange
         if (extraBalanceArgs) {
@@ -179,7 +172,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         const balanceResult = executeCLI(balanceArgs);
 
         expect(balanceResult.success).toBe(true);
-        expect(balanceResult.command).toBe('balance');
+        expect(balanceResult.command).toBe('accounts');
 
         const balanceData = balanceResult.data as BalanceCommandResult;
         expect(balanceData).toBeDefined();

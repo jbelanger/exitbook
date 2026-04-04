@@ -8,20 +8,7 @@ import type {
   AllAccountsVerificationResult,
   SingleRefreshResult,
   SortedVerificationAccount,
-  StoredSnapshotBalanceResult,
 } from './balance-handler-types.js';
-
-export async function runBalanceView(
-  scope: BalanceCommandScope,
-  params: {
-    accountId?: number | undefined;
-  }
-): Promise<Result<StoredSnapshotBalanceResult, Error>> {
-  return scope.snapshotReader.viewStoredSnapshots({
-    accountId: params.accountId,
-    profileId: scope.profile.id,
-  });
-}
 
 export async function runBalanceRefreshSingle(
   scope: BalanceCommandScope,

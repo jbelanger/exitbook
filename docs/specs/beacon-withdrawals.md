@@ -129,7 +129,7 @@ The processor emits a note on processed transactions to preserve tax and audit c
 - If no provider support is available, the importer yields a `beacon_withdrawal` cursor with `fetchStatus: 'skipped'` and a warning.
 - If provider fetch fails, it yields a `beacon_withdrawal` cursor with `fetchStatus: 'failed'` and a warning.
 - If no withdrawals are found, the importer yields a `beacon_withdrawal` cursor with `lastTransactionId = 'NO_WITHDRAWALS'`.
-- The balance CLI reads `accounts.lastCursor['beacon_withdrawal']` to display whether withdrawals were included.
+- The accounts browse surfaces read `accounts.lastCursor['beacon_withdrawal']` to display whether withdrawals were included.
 
 ## Data Model
 

@@ -1,4 +1,4 @@
-import type { Account, AccountType, BalanceSnapshot } from '@exitbook/core';
+import type { Account, AccountType } from '@exitbook/core';
 import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 
 import type { AssetComparisonItem, StoredSnapshotAssetItem } from '../view/balance-view-state.js';
@@ -9,17 +9,6 @@ export interface SortedVerificationAccount {
   platformKey: string;
   accountType: AccountType;
   skipReason?: string | undefined;
-}
-
-export interface StoredSnapshotAccountResult {
-  account: Account;
-  assets: StoredSnapshotAssetItem[];
-  requestedAccount?: Account | undefined;
-  snapshot: BalanceSnapshot;
-}
-
-export interface StoredSnapshotBalanceResult {
-  accounts: StoredSnapshotAccountResult[];
 }
 
 export interface SingleVerificationResult {

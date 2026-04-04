@@ -174,12 +174,12 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           const accountName = account?.name;
           expect(accountName).toBeTruthy();
 
-          const balanceArgs = ['balance', 'refresh', String(accountName)];
+          const balanceArgs = ['accounts', 'refresh', String(accountName)];
 
           const balanceResult = executeCLI(balanceArgs);
 
           expect(balanceResult.success).toBe(true);
-          expect(balanceResult.command).toBe('balance');
+          expect(balanceResult.command).toBe('accounts');
 
           const balanceData = balanceResult.data as BalanceCommandResult;
           expect(balanceData).toBeDefined();

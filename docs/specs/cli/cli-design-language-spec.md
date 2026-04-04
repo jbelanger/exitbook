@@ -25,13 +25,13 @@ Every command should clearly belong to one of those questions.
 
 ## User Journey Map
 
-| Journey              | User question                                | Primary commands                                                                 |
-| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
-| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                               |
-| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh`          |
-| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`, `balance` |
-| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`            |
-| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                          |
+| Journey              | User question                                | Primary commands                                                        |
+| -------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                      |
+| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh` |
+| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`   |
+| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`   |
+| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                 |
 
 These journeys are the primary navigation system for humans. Technical ownership and package layout are secondary.
 
@@ -149,7 +149,7 @@ A command description should say:
 Good patterns:
 
 - "Rebuild derived data from saved raw imports"
-- "View stored balance snapshots without calling live providers"
+- "Browse accounts and stored balance state without calling live providers"
 - "Set the default profile for future commands in this data directory"
 
 Avoid descriptions that only describe internals.

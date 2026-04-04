@@ -142,7 +142,7 @@ export class BalanceAssetDetailsBuilder {
     if (assetsResult.isErr()) {
       logger.warn(
         { scopeAccountId, error: assetsResult.error },
-        'Failed to load balance snapshot assets for balance view'
+        'Failed to load stored balance snapshot assets for CLI balance detail'
       );
       return [];
     }

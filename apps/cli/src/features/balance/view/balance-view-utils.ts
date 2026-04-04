@@ -2,20 +2,14 @@
  * Balance view utility functions — data transformation, sorting, formatting.
  */
 
-import type { Account, AccountType, BalanceSnapshot, ExchangeCredentials } from '@exitbook/core';
+import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 import type { BalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
 
-import type {
-  StoredSnapshotAccountItem,
-  AccountVerificationItem,
-  AssetComparisonItem,
-  AssetDiagnostics,
-  StoredSnapshotAssetItem,
-} from './balance-view-state.js';
+import type { AssetComparisonItem, AssetDiagnostics, StoredSnapshotAssetItem } from './balance-view-state.js';
 
 // ─── Diagnostics Builder ─────────────────────────────────────────────────────
 
@@ -68,27 +62,6 @@ export function sortAccountsByVerificationPriority<T extends { accountId: number
   return [...accounts].sort((a, b) => {
     const typeDiff = ACCOUNT_TYPE_PRIORITY[a.accountType] - ACCOUNT_TYPE_PRIORITY[b.accountType];
     if (typeDiff !== 0) return typeDiff;
-    return a.accountId - b.accountId;
-  });
-}
-
-const VERIFICATION_STATUS_PRIORITY: Record<AccountVerificationItem['status'], number> = {
-  error: 0,
-  failed: 1,
-  warning: 2,
-  success: 3,
-  verifying: 4,
-  pending: 5,
-  skipped: 6,
-};
-
-/**
- * Sort accounts by status: errors first, then mismatches, warnings, matches, skipped.
- */
-export function sortAccountsByStatus(accounts: AccountVerificationItem[]): AccountVerificationItem[] {
-  return [...accounts].sort((a, b) => {
-    const statusDiff = VERIFICATION_STATUS_PRIORITY[a.status] - VERIFICATION_STATUS_PRIORITY[b.status];
-    if (statusDiff !== 0) return statusDiff;
     return a.accountId - b.accountId;
   });
 }
@@ -171,29 +144,5 @@ export function buildStoredSnapshotAssetItem(
     comparisonStatus: options?.comparisonStatus,
     isNegative: calculatedBalance.isNegative(),
     diagnostics,
-  };
-}
-
-/**
- * Build StoredSnapshotAccountItem from an account and its stored snapshot assets.
- */
-export function buildStoredSnapshotAccountItem(
-  account: Account,
-  assets: StoredSnapshotAssetItem[],
-  snapshot?: BalanceSnapshot
-): StoredSnapshotAccountItem {
-  return {
-    accountId: account.id,
-    accountFingerprint: account.accountFingerprint,
-    platformKey: account.platformKey,
-    accountType: account.accountType,
-    identifier: account.identifier,
-    name: account.name,
-    assetCount: assets.length,
-    assets,
-    verificationStatus: snapshot?.verificationStatus,
-    statusReason: snapshot?.statusReason,
-    suggestion: snapshot?.suggestion,
-    lastRefreshAt: snapshot?.lastRefreshAt?.toISOString(),
   };
 }
