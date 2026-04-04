@@ -1,17 +1,17 @@
 import type { BalanceSnapshotVerificationStatus } from '@exitbook/core';
 
-export type BalanceStatusColor = 'green' | 'yellow' | 'red' | 'dim';
+export type StoredBalanceStatusColor = 'green' | 'yellow' | 'red' | 'dim';
 
-interface StoredSnapshotVerificationDisplay {
-  color: BalanceStatusColor;
+export interface StoredBalanceVerificationDisplay {
+  color: StoredBalanceStatusColor;
   icon: string;
   label: string;
   listLabel: string;
 }
 
-export function getStoredSnapshotVerificationDisplay(
+export function getStoredBalanceVerificationDisplay(
   status: BalanceSnapshotVerificationStatus | undefined
-): StoredSnapshotVerificationDisplay | undefined {
+): StoredBalanceVerificationDisplay | undefined {
   switch (status) {
     case 'unavailable':
       return { icon: '?', color: 'yellow', label: 'verification unavailable', listLabel: 'unavailable' };
@@ -31,7 +31,7 @@ export function getStoredSnapshotVerificationDisplay(
   return exhaustiveCheck;
 }
 
-export function formatBalanceTimestamp(isoString: string): string {
+export function formatStoredBalanceTimestamp(isoString: string): string {
   const date = new Date(isoString);
   return Number.isNaN(date.getTime()) ? isoString : date.toLocaleString();
 }

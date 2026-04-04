@@ -13,6 +13,7 @@ function stripAnsi(value: string): string {
 describe('buildAccountsStaticList', () => {
   it('renders the header and list rows without TUI chrome', () => {
     const output = buildAccountsStaticList({
+      view: 'accounts',
       accounts: [
         {
           id: 1,
@@ -59,6 +60,7 @@ describe('buildAccountsStaticList', () => {
         exchangeApi: 1,
         exchangeCsv: 0,
       },
+      accountDetailsById: undefined,
     });
 
     expect(stripAnsi(output)).toContain('Accounts (kraken) 1 total · 1 exchange-api\n');
@@ -84,6 +86,7 @@ describe('buildAccountsStaticList', () => {
 
   it('renders the filtered empty state as a compact static list', () => {
     const output = buildAccountsStaticList({
+      view: 'accounts',
       accounts: [],
       filters: {
         platformFilter: 'kraken',
@@ -98,6 +101,7 @@ describe('buildAccountsStaticList', () => {
         exchangeApi: 0,
         exchangeCsv: 0,
       },
+      accountDetailsById: undefined,
     });
 
     expect(stripAnsi(output)).toContain('Accounts (kraken) 0 total\n');

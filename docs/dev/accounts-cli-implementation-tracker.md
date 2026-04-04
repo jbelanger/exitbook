@@ -15,30 +15,30 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 4: Add Full Stored Balance Detail To `accounts` Static/JSON Detail
+### Phase 5: Move Stored Balance Drilldown Into `accounts view`
 
 Status: `completed`
 
 Intent:
 
-- add asset-level stored balance detail to `accounts <selector>` and `accounts view <selector> --json`
-- keep browse read-only by loading stored snapshots without auto-rebuilds
-- introduce a dedicated `accounts` detail model instead of bloating the list item
-- remove obvious static-detail gaps such as capped child/session rows and missing `Last calculated`
+- make `accounts view` the primary explorer for stored balance inspection
+- add asset drilldown from the accounts explorer into stored balance assets
+- preload explorer detail before closing the database so drilldown remains read-only and coherent
+- collapse the stored-snapshot asset pane into one shared component instead of keeping a separate balance-owned implementation
 
 Why this slice came next:
 
-- `accounts` list now carried summary-level balance signals, but detail still stopped short of the actual stored snapshot data
-- the spec requires asset rows, last verified live values, scope resolution, and unreadable snapshot hints on detail
-- this is the smallest slice that materially moves stored-balance inspection out of the `balance` CLI surface
+- static/detail `accounts` browse already covered stored balance inspection, but the TUI still stopped at summary detail
+- `balance view` still owned the only asset drilldown path, which kept the read surface split in practice
+- this is the smallest coherent slice that removes the remaining explorer-level duplication without yet deleting the whole balance browse shell
 
 What landed:
 
-- `accounts` detail now loads a dedicated stored-balance payload with scope resolution, readable vs unreadable states, and asset rows.
-- Static `accounts` detail now renders `Last calculated`, optional `Requested` / `Balance scope`, the full balance asset table, and uncapped child/session rows.
-- Detail JSON now includes the richer nested `balance` object while list JSON stays summary-shaped.
-- Stored snapshot asset rows now carry stored `liveBalance` and `comparisonStatus`, not just calculated balance and diagnostics.
-- Shared static asset-table rendering now lives outside the `balance` feature so both `accounts` and `balance` can reuse it.
+- `accounts view` now has explicit `accounts` and `assets` modes plus `Enter` / `Backspace` drilldown behavior.
+- TUI browse now preloads a detail index for all listed accounts before closing the database, so asset drilldown stays read-only.
+- The accounts detail panel now uses the richer account detail model, including stored balance preview, unreadable snapshot hints, `Last calculated`, and requested-vs-scope rows.
+- The stored-snapshot asset pane is now shared in [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx) and reused by both `accounts view` and the remaining `balance` explorer.
+- The old balance-only stored-snapshot formatter module was removed; stored-balance formatting is now shared.
 
 ## Verified Current Facts
 
@@ -53,15 +53,18 @@ What landed:
 - `accounts` detail loading is now read-only and separate from the list query in [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts).
 - Stored asset rows now include `liveBalance` and `comparisonStatus` in [stored-balance-view.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-view.ts) and [balance-asset-details-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-asset-details-builder.ts).
 - Shared static stored-balance asset rendering now lives in [stored-balance-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-static-renderer.ts).
+- `accounts view` now supports stored-balance asset drilldown in [accounts-view-controller.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-controller.ts), [accounts-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-state.ts), and [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx).
+- TUI browse presentation now preloads per-account detail in [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts).
+- Shared stored-balance asset explorer rendering now lives in [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx) and [stored-balance-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-formatters.ts).
 
-## Phase 4 Exit Criteria
+## Phase 5 Exit Criteria
 
-- `accounts` static detail renders asset-level stored balance data when snapshots are readable.
-- `accounts` detail JSON exposes a nested stored-balance object while list JSON remains summary-shaped.
-- Unreadable stored snapshots render a concrete reason plus refresh hint instead of failing the whole detail surface.
-- The stored-balance asset rendering path is shared rather than reimplemented in both features.
+- `accounts view` supports `Enter` drilldown into stored balance assets when stored balance data is readable.
+- `accounts view` keeps the database-closed read-only model by preloading detail before Ink mounts.
+- Stored snapshot asset rendering is shared instead of being implemented separately in `accounts` and `balance`.
+- The accounts detail panel shows stored balance preview or unreadable snapshot messaging without needing a separate `balance` explorer.
 
-Phase 4 result:
+Phase 5 result:
 
 - all exit criteria met
 
@@ -70,9 +73,14 @@ Phase 4 result:
 - [accounts-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/accounts-view-model.ts)
 - [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts)
 - [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts)
+- [accounts-view-controller.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-controller.ts)
+- [accounts-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-state.ts)
+- [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx)
 - [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts)
 - [stored-balance-view.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-view.ts)
 - [stored-balance-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-static-renderer.ts)
+- [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx)
+- [stored-balance-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-formatters.ts)
 - [balance-asset-details-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-asset-details-builder.ts)
 - accounts browse tests under `apps/cli/src/features/accounts/**/__tests__/`
 
@@ -80,15 +88,15 @@ Phase 4 result:
 
 Constraints that shaped the implementation:
 
-- keep the list query summary-shaped and move detail loading into a separate detail-only path
-- keep browse read-only; do not reuse balance's auto-rebuild-on-read semantics
-- share the asset table renderer instead of copying it into `accounts`
+- keep the list query summary-shaped and preload detail separately for the explorer
+- keep browse read-only; do not reopen the database from inside Ink just to load drilldown state
+- share the stored-snapshot asset pane instead of copying balance's asset renderer into `accounts`
 
 Post-slice reassessment notes:
 
-- `accounts` now covers static/detail JSON balance inspection much more completely
-- the main remaining duplication is explorer state and the remaining `balance` browse shell
-- the next slice should target `accounts view` drilldown and then re-evaluate how much CLI `balance` can be deleted immediately
+- `accounts` now covers the main stored-balance inspection path across static, JSON, and TUI surfaces
+- the remaining duplication is mostly the existence of the user-facing `balance` browse shell, not the stored-snapshot asset pane itself
+- the next slice should decide how much of `apps/cli/src/features/balance/command` and `apps/cli/src/features/balance/view` can be deleted immediately now that `accounts` owns the canonical read surface
 
 ## Reassessment Gate
 
@@ -100,9 +108,9 @@ Before starting the next slice:
 
 Likely next reassessment candidates:
 
-- reuse stored balance asset drilldown inside `accounts view`
-- remove or hollow out the remaining CLI `balance` browse surface once `accounts view` covers the same inspection path
-- collapse any remaining stored-balance read helpers that still live under `apps/cli/src/features/balance/`
+- remove or hollow out the remaining CLI `balance` browse surface now that `accounts view` owns drilldown
+- move any remaining stored-balance read helpers that still live under `apps/cli/src/features/balance/` into shared or accounts-owned locations
+- re-check whether the remaining balance workflow support types should also move out of the CLI balance feature path
 
 Do not commit to one of these until the code is re-read and the best slice is confirmed again.
 
@@ -115,3 +123,4 @@ Do not commit to one of these until the code is re-read and the best slice is co
 | Phase 2: remove legacy `balance refresh` alias                   | `completed` | Deleted `balance refresh`; moved refresh command support under `accounts`; `balance` is now browse-only.              |
 | Phase 3: add stored balance summary to `accounts` browse         | `completed` | Added `ASSETS` to static list and a summary-level `Balances` section to static/detail/JSON browse surfaces.           |
 | Phase 4: add full stored balance detail to `accounts` detail     | `completed` | Added nested detail balance data, full asset tables, unreadable snapshot hints, and shared stored-balance rendering.  |
+| Phase 5: move stored balance drilldown into `accounts view`      | `completed` | Added accounts explorer asset drilldown, preloaded explorer detail, and shared stored-snapshot asset rendering.       |

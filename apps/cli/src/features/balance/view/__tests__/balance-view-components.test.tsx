@@ -129,7 +129,9 @@ describe('BalanceApp - asset view', () => {
     }
 
     expect(frame).toContain('Balance (stored snapshot)');
-    expect(frame).not.toContain('live');
+    const assetRow = frame.split('\n').find((line) => line.includes('BTC') && line.includes('calc'));
+    expect(assetRow).toBeDefined();
+    expect(assetRow).not.toContain('live');
   });
 
   it('surfaces stored-snapshot verification warnings in asset mode', () => {

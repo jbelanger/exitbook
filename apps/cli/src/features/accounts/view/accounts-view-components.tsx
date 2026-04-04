@@ -14,7 +14,14 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type { AccountViewItem, ChildAccountViewItem, SessionViewItem } from '../accounts-view-model.js';
+import { StoredBalanceAssetsView } from '../../shared/stored-balance-assets-view.js';
+import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
+import type {
+  AccountDetailViewItem,
+  AccountViewItem,
+  ChildAccountViewItem,
+  SessionViewItem,
+} from '../accounts-view-model.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import {
@@ -30,7 +37,7 @@ import {
   truncateIdentifier,
   truncateLabel,
 } from './accounts-view-formatters.js';
-import type { AccountsViewState } from './accounts-view-state.js';
+import type { AccountsListViewState, AccountsViewState } from './accounts-view-state.js';
 
 const ACCOUNT_DETAIL_LINES = 10;
 
@@ -60,8 +67,19 @@ export const AccountsViewApp: FC<{
   const terminalWidth = stdout?.columns || 80;
 
   useInput((input, key) => {
-    handleAccountsKeyboardInput(input, key, dispatch, onQuit, terminalHeight);
+    handleAccountsKeyboardInput(input, key, state, dispatch, onQuit, terminalHeight);
   });
+
+  if (state.view === 'assets') {
+    return (
+      <StoredBalanceAssetsView
+        isDrilledDown={state.parentState !== undefined}
+        state={state}
+        terminalHeight={terminalHeight}
+        terminalWidth={terminalWidth}
+      />
+    );
+  }
 
   if (state.accounts.length === 0) {
     return (
@@ -91,7 +109,7 @@ export const AccountsViewApp: FC<{
 
 // ─── Header ─────────────────────────────────────────────────────────────────
 
-const AccountsHeader: FC<{ state: AccountsViewState }> = ({ state }) => {
+const AccountsHeader: FC<{ state: AccountsListViewState }> = ({ state }) => {
   const { typeCounts, filters, totalCount } = state;
 
   let filterLabel = '';
@@ -121,7 +139,7 @@ const AccountsHeader: FC<{ state: AccountsViewState }> = ({ state }) => {
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
-const AccountList: FC<{ state: AccountsViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+const AccountList: FC<{ state: AccountsListViewState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const { accounts, selectedIndex, scrollOffset } = state;
   const visibleRows = calculateVisibleRows(terminalHeight, CHROME_LINES);
   const columns = createColumns(accounts, {
@@ -211,14 +229,15 @@ const AccountRow: FC<{
 
 // ─── Detail Panel ───────────────────────────────────────────────────────────
 
-const AccountDetailPanel: FC<{ state: AccountsViewState }> = ({ state }) => {
-  const selected = state.accounts[state.selectedIndex];
-  if (!selected) return null;
+const AccountDetailPanel: FC<{ state: AccountsListViewState }> = ({ state }) => {
+  const selectedSummary = state.accounts[state.selectedIndex];
+  if (!selectedSummary) return null;
+  const selectedDetail = state.accountDetailsById?.[selectedSummary.id];
 
   return (
     <FixedHeightDetail
       height={ACCOUNT_DETAIL_LINES}
-      rows={buildAccountDetailRows(selected)}
+      rows={buildAccountDetailRows(selectedSummary, selectedDetail)}
       overflowRow={(hiddenRowCount) => (
         <Text dimColor>
           {`  ... ${hiddenRowCount} more detail line${hiddenRowCount === 1 ? '' : 's'}. Rerun with --json for full details.`}
@@ -228,43 +247,44 @@ const AccountDetailPanel: FC<{ state: AccountsViewState }> = ({ state }) => {
   );
 };
 
-function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
-  const type = formatAccountType(selected.accountType);
-  const verification = getVerificationDisplay(selected.verificationStatus);
-  const projection = getProjectionDisplay(selected.balanceProjectionStatus);
-  const fingerprintRef = formatAccountFingerprintRef(selected.accountFingerprint);
-  const title = selected.name ? selected.name : fingerprintRef;
+function buildAccountDetailRows(selected: AccountViewItem, detail?: AccountDetailViewItem): ReactElement[] {
+  const account = detail ?? selected;
+  const type = formatAccountType(account.accountType);
+  const verification = getVerificationDisplay(account.verificationStatus);
+  const projection = getProjectionDisplay(account.balanceProjectionStatus);
+  const fingerprintRef = formatAccountFingerprintRef(account.accountFingerprint);
+  const title = account.name ? account.name : fingerprintRef;
   const rows: ReactElement[] = [
     <Text key="title">
       <Text bold>▸ {title}</Text>
-      {selected.name ? <Text dimColor> {fingerprintRef}</Text> : null} <Text color="cyan">{selected.platformKey}</Text>{' '}
+      {account.name ? <Text dimColor> {fingerprintRef}</Text> : null} <Text color="cyan">{account.platformKey}</Text>{' '}
       <Text dimColor>{type}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
     <Text key="name">
       {'  '}
       <Text dimColor>Name: </Text>
-      {selected.name ? <Text>{selected.name}</Text> : <Text dimColor>—</Text>}
+      {account.name ? <Text>{account.name}</Text> : <Text dimColor>—</Text>}
     </Text>,
     <Text key="identifier">
       {'  '}
       <Text dimColor>Identifier: </Text>
-      <Text>{selected.identifier}</Text>
+      <Text>{account.identifier}</Text>
     </Text>,
     <Text key="fingerprint">
       {'  '}
       <Text dimColor>Fingerprint: </Text>
-      <Text>{selected.accountFingerprint}</Text>
+      <Text>{account.accountFingerprint}</Text>
     </Text>,
     <Text key="provider">
       {'  '}
       <Text dimColor>Provider: </Text>
-      {selected.providerName ? <Text color="cyan">{selected.providerName}</Text> : <Text dimColor>—</Text>}
+      {account.providerName ? <Text color="cyan">{account.providerName}</Text> : <Text dimColor>—</Text>}
     </Text>,
     <Text key="created">
       {'  '}
       <Text dimColor>Created: </Text>
-      <Text dimColor>{formatTimestamp(selected.createdAt)}</Text>
+      <Text dimColor>{formatTimestamp(account.createdAt)}</Text>
     </Text>,
     <Text key="blank-2"> </Text>,
     <Text key="verification">
@@ -280,33 +300,185 @@ function buildAccountDetailRows(selected: AccountViewItem): ReactElement[] {
     </Text>,
   ];
 
-  if (selected.lastRefreshAt) {
+  if (account.lastCalculatedAt) {
+    rows.push(
+      <Text key="last-calculated">
+        {'  '}
+        <Text dimColor>Last calculated: </Text>
+        <Text dimColor>{formatTimestamp(account.lastCalculatedAt)}</Text>
+      </Text>
+    );
+  }
+
+  if (account.lastRefreshAt) {
     rows.push(
       <Text key="last-refresh">
         {'  '}
         <Text dimColor>Last refresh: </Text>
-        <Text dimColor>{formatTimestamp(selected.lastRefreshAt)}</Text>
+        <Text dimColor>{formatTimestamp(account.lastRefreshAt)}</Text>
       </Text>
     );
   }
-  if (selected.sessionCount !== undefined) {
+
+  if (account.sessionCount !== undefined) {
     rows.push(
       <Text key="imports-count">
         {'  '}
         <Text dimColor>Imports: </Text>
-        <Text>{formatImportCount(selected.sessionCount)}</Text>
+        <Text>{formatImportCount(account.sessionCount)}</Text>
       </Text>
     );
   }
-  if (selected.childAccounts && selected.childAccounts.length > 0) {
-    rows.push(...buildChildAccountRows(selected.childAccounts));
+
+  if (detail?.requestedAccount) {
+    rows.push(
+      <Text key="requested-account">
+        {'  '}
+        <Text dimColor>Requested: </Text>
+        <Text>
+          {detail.requestedAccount.name ?? formatAccountFingerprintRef(detail.requestedAccount.accountFingerprint)}
+        </Text>
+        <Text dimColor> · </Text>
+        <Text color="cyan">{detail.requestedAccount.platformKey}</Text>
+        <Text dimColor> {formatAccountType(detail.requestedAccount.accountType)}</Text>
+      </Text>,
+      <Text key="balance-scope">
+        {'  '}
+        <Text dimColor>Balance scope: </Text>
+        <Text>
+          {detail.balance.scopeAccount.name ??
+            formatAccountFingerprintRef(detail.balance.scopeAccount.accountFingerprint)}
+        </Text>
+        <Text dimColor> · </Text>
+        <Text color="cyan">{detail.balance.scopeAccount.platformKey}</Text>
+        <Text dimColor> {formatAccountType(detail.balance.scopeAccount.accountType)}</Text>
+      </Text>
+    );
   }
-  if (selected.sessions && selected.sessions.length > 0) {
-    rows.push(...buildSessionRows(selected.sessions));
+
+  if (detail) {
+    rows.push(...buildStoredBalancePreviewRows(detail));
+  }
+
+  if (account.childAccounts && account.childAccounts.length > 0) {
+    rows.push(...buildChildAccountRows(account.childAccounts));
+  }
+
+  if (account.sessions && account.sessions.length > 0) {
+    rows.push(...buildSessionRows(account.sessions));
   }
 
   return rows;
 }
+
+function buildStoredBalancePreviewRows(detail: AccountDetailViewItem): ReactElement[] {
+  if (!detail.balance.readable) {
+    return [
+      <Text key="balances-blank"> </Text>,
+      <Text
+        key="balances-label"
+        dimColor
+      >
+        {'  '}Balances
+      </Text>,
+      <Text key="balances-reason">
+        {'  '}Stored balance snapshot is not readable: {detail.balance.reason}.
+      </Text>,
+      <Text
+        key="balances-hint"
+        dimColor
+      >
+        {'  '}Hint: {detail.balance.hint}.
+      </Text>,
+    ];
+  }
+
+  const rows: ReactElement[] = [
+    <Text key="balances-blank"> </Text>,
+    <Text
+      key="balances-label"
+      dimColor
+    >
+      {'  '}Balances ({detail.balance.assets.length})
+    </Text>,
+  ];
+
+  if (detail.balance.statusReason) {
+    rows.push(
+      <Text
+        key="balances-status"
+        color="yellow"
+      >
+        {'  '}! {detail.balance.statusReason}
+      </Text>
+    );
+  }
+
+  if (detail.balance.suggestion) {
+    rows.push(
+      <Text
+        key="balances-suggestion"
+        dimColor
+      >
+        {'  '}Suggestion: {detail.balance.suggestion}
+      </Text>
+    );
+  }
+
+  rows.push(
+    ...detail.balance.assets.map((asset) => (
+      <StoredBalanceAssetPreviewRow
+        key={asset.assetId}
+        asset={asset}
+      />
+    ))
+  );
+
+  if (detail.balance.assets.length > 0) {
+    rows.push(
+      <Text
+        key="balances-drilldown"
+        dimColor
+      >
+        {'  '}Press enter to drill down
+      </Text>
+    );
+  }
+
+  return rows;
+}
+
+const StoredBalanceAssetPreviewRow: FC<{ asset: StoredBalanceAssetViewItem }> = ({ asset }) => {
+  const balanceColor = asset.isNegative ? 'red' : 'green';
+  const liveBalance = asset.liveBalance;
+
+  return (
+    <Text>
+      {'    '}
+      <Text bold>{asset.assetSymbol}</Text>
+      <Text dimColor> calc </Text>
+      <Text color={balanceColor}>{asset.calculatedBalance}</Text>
+      {liveBalance !== undefined && (
+        <>
+          <Text dimColor> · live </Text>
+          <Text color={balanceColor}>{liveBalance}</Text>
+        </>
+      )}
+      {asset.comparisonStatus !== undefined && (
+        <>
+          <Text dimColor> · status </Text>
+          <Text
+            color={
+              asset.comparisonStatus === 'match' ? 'green' : asset.comparisonStatus === 'mismatch' ? 'red' : 'yellow'
+            }
+          >
+            {asset.comparisonStatus}
+          </Text>
+        </>
+      )}
+    </Text>
+  );
+};
 
 function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[] {
   const rows: ReactElement[] = [
@@ -320,7 +492,7 @@ function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[]
   ];
 
   rows.push(
-    ...children.slice(0, 5).map((child) => {
+    ...children.map((child) => {
       const projection = getProjectionDisplay(child.balanceProjectionStatus);
       const verification = getVerificationDisplay(child.verificationStatus);
       const imports = child.sessionCount !== undefined ? formatImportCount(child.sessionCount) : '';
@@ -339,17 +511,6 @@ function buildChildAccountRows(children: ChildAccountViewItem[]): ReactElement[]
     })
   );
 
-  if (children.length > 5) {
-    rows.push(
-      <Text
-        key="children-more"
-        dimColor
-      >
-        {'    '}...and {children.length - 5} more
-      </Text>
-    );
-  }
-
   return rows;
 }
 
@@ -365,7 +526,7 @@ function buildSessionRows(sessions: SessionViewItem[]): ReactElement[] {
   ];
 
   rows.push(
-    ...sessions.slice(0, 5).map((session) => {
+    ...sessions.map((session) => {
       const { icon, iconColor } = getSessionDisplay(session.status);
       const completed = session.completedAt ? ` -> ${formatTimestamp(session.completedAt)}` : ' -> -';
       return (
@@ -381,27 +542,16 @@ function buildSessionRows(sessions: SessionViewItem[]): ReactElement[] {
     })
   );
 
-  if (sessions.length > 5) {
-    rows.push(
-      <Text
-        key="sessions-more"
-        dimColor
-      >
-        {'    '}...and {sessions.length - 5} more
-      </Text>
-    );
-  }
-
   return rows;
 }
 
 // ─── Controls & Empty State ─────────────────────────────────────────────────
 
 const ControlsBar: FC = () => {
-  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · q/esc quit</Text>;
+  return <Text dimColor>↑↓/j/k · ^U/^D page · Home/End · Enter balances · q/esc quit</Text>;
 };
 
-const AccountsEmptyState: FC<{ onQuit: () => void; state: AccountsViewState }> = ({ state, onQuit }) => {
+const AccountsEmptyState: FC<{ onQuit: () => void; state: AccountsListViewState }> = ({ state, onQuit }) => {
   const { filters, totalCount } = state;
   const hasFilters = filters.platformFilter || filters.typeFilter;
 

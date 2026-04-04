@@ -3,16 +3,16 @@ import pc from 'picocolors';
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
 import {
+  formatStoredBalanceTimestamp as formatBalanceTimestamp,
+  getStoredBalanceVerificationDisplay as getStoredSnapshotVerificationDisplay,
+  type StoredBalanceStatusColor as BalanceStatusColor,
+} from '../../shared/stored-balance-formatters.js';
+import {
   buildStoredBalanceAssetSectionLines,
   formatStoredBalanceScopeAccountLine,
 } from '../../shared/stored-balance-static-renderer.js';
 import type { StoredSnapshotAccountResult } from '../command/balance-handler-types.js';
 
-import {
-  formatBalanceTimestamp,
-  getStoredSnapshotVerificationDisplay,
-  type BalanceStatusColor,
-} from './balance-view-formatters.js';
 import type { BalanceStoredSnapshotState } from './balance-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';

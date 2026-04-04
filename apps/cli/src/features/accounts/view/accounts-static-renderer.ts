@@ -26,16 +26,16 @@ import {
   truncateLabel,
   type AccountsStatusColor,
 } from './accounts-view-formatters.js';
-import type { AccountsViewState } from './accounts-view-state.js';
+import type { AccountsListViewState } from './accounts-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
 const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'assets', 'identifier'] as const;
 
-export function outputAccountsStaticList(state: AccountsViewState): void {
+export function outputAccountsStaticList(state: AccountsListViewState): void {
   process.stdout.write(buildAccountsStaticList(state));
 }
 
-export function buildAccountsStaticList(state: AccountsViewState): string {
+export function buildAccountsStaticList(state: AccountsListViewState): string {
   const lines: string[] = [buildListHeader(state), ''];
 
   if (state.accounts.length === 0) {
@@ -117,7 +117,7 @@ export function buildAccountStaticDetail(account: AccountDetailViewItem): string
   return `${lines.join('\n')}\n`;
 }
 
-function buildListHeader(state: AccountsViewState): string {
+function buildListHeader(state: AccountsListViewState): string {
   let filterLabel = '';
   if (state.filters.platformFilter) filterLabel = ` (${state.filters.platformFilter})`;
   else if (state.filters.typeFilter) filterLabel = ` (${state.filters.typeFilter})`;
@@ -130,7 +130,7 @@ function buildListHeader(state: AccountsViewState): string {
   return `${pc.bold(`Accounts${filterLabel}`)} ${pc.dim(metadata.join(' · '))}`;
 }
 
-function buildEmptyStateLines(state: AccountsViewState): string[] {
+function buildEmptyStateLines(state: AccountsListViewState): string[] {
   const hasFilters = state.filters.platformFilter || state.filters.typeFilter;
 
   if (!hasFilters && state.totalCount === 0) {

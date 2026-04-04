@@ -108,9 +108,12 @@ function createAccountsProgram(): Command {
 }
 
 function createAccountSummary(overrides: Partial<ReturnType<typeof createBaseAccountSummary>> = {}) {
+  const accountId = overrides.id ?? 1;
+
   return {
     ...createBaseAccountSummary(),
     ...overrides,
+    accountFingerprint: overrides.accountFingerprint ?? createAccountFingerprint(accountId),
     childAccounts: overrides.childAccounts ?? createBaseAccountSummary().childAccounts,
   };
 }
@@ -161,9 +164,12 @@ function createBaseAccountSummary() {
 }
 
 function createAccountDetail(overrides: Partial<ReturnType<typeof createBaseAccountDetail>> = {}) {
+  const accountId = overrides.id ?? 1;
+
   return {
     ...createBaseAccountDetail(),
     ...overrides,
+    accountFingerprint: overrides.accountFingerprint ?? createAccountFingerprint(accountId),
   };
 }
 
@@ -736,7 +742,8 @@ describe('accounts browse commands', () => {
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AccountsViewApp');
-    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toEqual({
+    expect((renderedElement?.props as Record<string, unknown>)['initialState']).toMatchObject({
+      view: 'accounts',
       accounts: [
         {
           id: 1,
@@ -770,6 +777,9 @@ describe('accounts browse commands', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ],
+      accountDetailsById: {
+        1: createAccountDetail(),
+      },
       filters: {
         platformFilter: 'kraken',
         typeFilter: undefined,
@@ -839,9 +849,20 @@ describe('accounts browse commands', () => {
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AccountsViewApp');
     expect((renderedElement?.props as Record<string, unknown>)['initialState']).toMatchObject({
+      view: 'accounts',
       selectedIndex: 1,
       scrollOffset: 1,
       totalCount: 2,
+      accountDetailsById: {
+        1: createAccountDetail(),
+        2: createAccountDetail({
+          id: 2,
+          accountFingerprint: createAccountFingerprint(2),
+          platformKey: 'bitcoin',
+          name: 'wallet-main',
+          identifier: 'bc1qwalletmainaddress',
+        }),
+      },
     });
   });
 
@@ -859,7 +880,9 @@ describe('accounts browse commands', () => {
     await program.parseAsync(['accounts', 'view'], { from: 'user' });
 
     expect(mockOutputAccountsStaticList).toHaveBeenCalledWith({
+      view: 'accounts',
       accounts: [],
+      accountDetailsById: {},
       filters: {
         platformFilter: undefined,
         typeFilter: undefined,

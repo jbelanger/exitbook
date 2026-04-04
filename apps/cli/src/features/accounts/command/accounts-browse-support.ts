@@ -1,5 +1,5 @@
 import type { DataSession } from '@exitbook/data/session';
-import { resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -18,12 +18,13 @@ import { toAccountViewItem } from '../account-view-projection.js';
 import type { AccountDetailViewItem, AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
-import { computeTypeCounts, createAccountsViewState, type AccountsViewState } from '../view/accounts-view-state.js';
+import { computeTypeCounts, createAccountsViewState, type AccountsListViewState } from '../view/accounts-view-state.js';
 
 import { buildAccountDetailViewItem } from './accounts-detail-support.js';
 
 export interface AccountsBrowseParams extends Omit<AccountQueryParams, 'profileId' | 'accountId'> {
   accountSelector?: string | undefined;
+  includeExplorerDetails?: boolean | undefined;
   preselectInExplorer?: boolean | undefined;
 }
 
@@ -31,7 +32,7 @@ export type AccountsBrowseJsonListResult = ViewCommandResult<AccountViewItem[]>;
 export type AccountsBrowseJsonDetailResult = ViewCommandResult<AccountDetailViewItem>;
 
 export interface AccountsBrowsePresentation {
-  initialState: AccountsViewState;
+  initialState: AccountsListViewState;
   selectedAccount?: AccountDetailViewItem | undefined;
   listJsonResult: AccountsBrowseJsonListResult;
   detailJsonResult?: AccountsBrowseJsonDetailResult | undefined;
@@ -49,6 +50,7 @@ export async function buildAccountsBrowsePresentation(
     const shouldPreselectAccount = params.preselectInExplorer === true && selectedAccountId !== undefined;
 
     const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
+    const accountService = createCliAccountLifecycleService(database);
     const result = yield* toCliResult(
       await accountQuery.list({
         profileId: profile.id,
@@ -83,13 +85,25 @@ export async function buildAccountsBrowsePresentation(
       platform: params.platformKey,
       accountType: params.accountType,
     });
+    const accountDetailsById =
+      params.includeExplorerDetails === true
+        ? yield* toCliResult(
+            await buildExplorerAccountDetails({
+              accountService,
+              database,
+              profileId: profile.id,
+              summaries: viewItems,
+            }),
+            ExitCodes.GENERAL_ERROR
+          )
+        : undefined;
 
     const selectedAccount =
       selectedAccountId !== undefined && shouldPreselectAccount !== true && selectedAccountSummary !== undefined
         ? yield* toCliResult(
             await buildAccountDetailViewItem({
               accountId: selectedAccountId,
-              accountService: createCliAccountLifecycleService(database),
+              accountService,
               database,
               profileId: profile.id,
               summary: selectedAccountSummary,
@@ -104,7 +118,8 @@ export async function buildAccountsBrowsePresentation(
         filters,
         count,
         computeTypeCounts(viewItems),
-        selectedIndex >= 0 ? selectedIndex : undefined
+        selectedIndex >= 0 ? selectedIndex : undefined,
+        accountDetailsById
       ),
       selectedAccount,
       listJsonResult: {
@@ -120,6 +135,41 @@ export async function buildAccountsBrowsePresentation(
           : undefined,
     };
   });
+}
+
+interface BuildExplorerAccountDetailsParams {
+  accountService: ReturnType<typeof createCliAccountLifecycleService>;
+  database: DataSession;
+  profileId: number;
+  summaries: AccountViewItem[];
+}
+
+async function buildExplorerAccountDetails(
+  params: BuildExplorerAccountDetailsParams
+): Promise<Result<Record<number, AccountDetailViewItem>, Error>> {
+  const detailResults = await Promise.all(
+    params.summaries.map((summary) =>
+      buildAccountDetailViewItem({
+        accountId: summary.id,
+        accountService: params.accountService,
+        database: params.database,
+        profileId: params.profileId,
+        summary,
+      })
+    )
+  );
+
+  const detailsById: Record<number, AccountDetailViewItem> = {};
+  for (const detailResult of detailResults) {
+    if (detailResult.isErr()) {
+      return err(detailResult.error);
+    }
+
+    const detail = detailResult.value;
+    detailsById[detail.id] = detail;
+  }
+
+  return ok(detailsById);
 }
 
 interface ResolvedSelectedAccount {
@@ -154,6 +204,6 @@ async function resolveSelectedAccount(
   });
 }
 
-export function hasNavigableAccounts(state: AccountsViewState): boolean {
+export function hasNavigableAccounts(state: AccountsListViewState): boolean {
   return state.accounts.length > 0;
 }

@@ -16,12 +16,13 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
+import { StoredBalanceAssetsView } from '../../shared/stored-balance-assets-view.js';
+import {
+  formatStoredBalanceTimestamp as formatBalanceTimestamp,
+  getStoredBalanceVerificationDisplay as getStoredSnapshotVerificationDisplay,
+} from '../../shared/stored-balance-formatters.js';
 
 import { balanceViewReducer, handleBalanceKeyboardInput } from './balance-view-controller.js';
-import {
-  formatBalanceTimestamp,
-  getStoredSnapshotVerificationDisplay as getStoredSnapshotVerificationDisplayForView,
-} from './balance-view-formatters.js';
 import type {
   StoredSnapshotAccountItem,
   AccountVerificationItem,
@@ -32,6 +33,7 @@ import type {
   BalanceEvent,
   BalanceStoredSnapshotState,
   BalanceState,
+  BalanceVerificationAssetState,
   BalanceVerificationState,
 } from './balance-view-state.js';
 
@@ -778,6 +780,17 @@ const AssetView: FC<{
 }> = ({ state, terminalHeight, terminalWidth }) => {
   const isDrilledDown = state.parentState !== undefined;
 
+  if (state.mode === 'stored-snapshot') {
+    return (
+      <StoredBalanceAssetsView
+        isDrilledDown={isDrilledDown}
+        state={state}
+        terminalHeight={terminalHeight}
+        terminalWidth={terminalWidth}
+      />
+    );
+  }
+
   if (state.assets.length === 0) {
     return <AssetEmptyState state={state} />;
   }
@@ -799,16 +812,7 @@ const AssetView: FC<{
   );
 };
 
-const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
-  const emptyMessage =
-    state.mode === 'stored-snapshot'
-      ? 'No stored balance assets found for this scope.'
-      : 'No transactions found for this account.';
-  const followupMessage =
-    state.mode === 'stored-snapshot'
-      ? 'Run "exitbook accounts refresh" if you expected balances for this scope.'
-      : 'Import transactions first:';
-
+const AssetEmptyState: FC<{ state: BalanceVerificationAssetState }> = ({ state }) => {
   return (
     <Box flexDirection="column">
       <Text> </Text>
@@ -816,43 +820,31 @@ const AssetEmptyState: FC<{ state: BalanceAssetState }> = ({ state }) => {
       <Text> </Text>
       <Text>
         {'  '}
-        {emptyMessage}
+        No transactions found for this account.
       </Text>
       <Text> </Text>
       <Text>
         {'  '}
-        {followupMessage}
+        Import transactions first:
       </Text>
-      {state.mode === 'verification' && (
-        <>
-          <Text dimColor>
-            {'  '}exitbook accounts add {state.platformKey}-main --blockchain {state.platformKey} --address ...
-          </Text>
-          <Text dimColor>
-            {'  '}exitbook import {state.platformKey}-main
-          </Text>
-        </>
-      )}
+      <Text dimColor>
+        {'  '}exitbook accounts add {state.platformKey}-main --blockchain {state.platformKey} --address ...
+      </Text>
+      <Text dimColor>
+        {'  '}exitbook import {state.platformKey}-main
+      </Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
   );
 };
 
-const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
-  const storedSnapshotLabel = state.mode === 'stored-snapshot' ? ' (stored snapshot)' : '';
-  const storedSnapshotVerification =
-    state.mode === 'stored-snapshot' ? getStoredSnapshotVerificationDisplay(state.verificationStatus) : undefined;
-
+const AssetHeader: FC<{ state: BalanceVerificationAssetState }> = ({ state }) => {
   // All match shorthand
-  if (
-    state.mode === 'verification' &&
-    state.summary.matches === state.summary.totalAssets &&
-    state.summary.totalAssets > 0
-  ) {
+  if (state.summary.matches === state.summary.totalAssets && state.summary.totalAssets > 0) {
     return (
       <Box>
-        <Text bold>Balance{storedSnapshotLabel}</Text>
+        <Text bold>Balance</Text>
         <Text>
           {'  '}
           <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
@@ -865,12 +857,6 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
           {'  '}
           {state.summary.totalAssets} <Text dimColor>assets</Text>
         </Text>
-        {storedSnapshotVerification && (
-          <>
-            <Text dimColor> · </Text>
-            <Text color={storedSnapshotVerification.color}>{storedSnapshotVerification.label}</Text>
-          </>
-        )}
         <Text dimColor> · </Text>
         <Text color="green">all match</Text>
       </Box>
@@ -879,7 +865,7 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
 
   return (
     <Box>
-      <Text bold>Balance{storedSnapshotLabel}</Text>
+      <Text bold>Balance</Text>
       <Text>
         {'  '}
         <Text color="cyan">{state.platformKey}</Text> #{state.accountId}
@@ -892,19 +878,13 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
         {'  '}
         {state.summary.totalAssets} <Text dimColor>assets</Text>
       </Text>
-      {storedSnapshotVerification && (
-        <>
-          <Text dimColor> · </Text>
-          <Text color={storedSnapshotVerification.color}>{storedSnapshotVerification.label}</Text>
-        </>
-      )}
-      {state.mode === 'verification' && state.summary.matches > 0 && (
+      {state.summary.matches > 0 && (
         <>
           <Text dimColor> · </Text>
           <Text color="green">{state.summary.matches} match</Text>
         </>
       )}
-      {state.mode === 'verification' && state.summary.mismatches > 0 && (
+      {state.summary.mismatches > 0 && (
         <>
           <Text dimColor> · </Text>
           <Text color="red">{state.summary.mismatches} mismatch</Text>
@@ -914,23 +894,8 @@ const AssetHeader: FC<{ state: BalanceAssetState }> = ({ state }) => {
   );
 };
 
-const AssetList: FC<{ state: BalanceAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
+const AssetList: FC<{ state: BalanceVerificationAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
   const visibleRows = getBalanceAssetsVisibleRows(terminalHeight);
-  if (state.mode === 'stored-snapshot') {
-    const assetColumns: BalanceAssetCols<StoredSnapshotAssetItem> = createColumns(state.assets, {
-      symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
-      calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
-    });
-    return renderAssetRows(state.assets, state.selectedIndex, state.scrollOffset, visibleRows, (item, isSelected) => (
-      <StoredSnapshotAssetRow
-        key={item.assetId}
-        asset={item}
-        isSelected={isSelected}
-        assetColumns={assetColumns}
-      />
-    ));
-  }
-
   const assetColumns: BalanceAssetCols<AssetComparisonItem> = createColumns(state.assets, {
     symbol: { format: (item) => item.assetSymbol, minWidth: 8 },
     calc: { format: (item) => item.calculatedBalance, align: 'right', minWidth: 12 },
@@ -1021,38 +986,9 @@ const OnlineAssetRow: FC<{
   );
 };
 
-const StoredSnapshotAssetRow: FC<{
-  asset: StoredSnapshotAssetItem;
-  assetColumns: BalanceAssetCols<StoredSnapshotAssetItem>;
-  isSelected: boolean;
-}> = ({ asset, isSelected, assetColumns }) => {
-  const { symbol, calc: balance } = assetColumns.format(asset);
-  const balanceColor = asset.isNegative ? 'red' : 'green';
-
-  return (
-    <SelectableRow isSelected={isSelected}>
-      {symbol} <Text color={balanceColor}>{balance}</Text>
-    </SelectableRow>
-  );
-};
-
 // ─── Asset Diagnostics Panel ─────────────────────────────────────────────────
 
-const AssetDiagnosticsPanel: FC<{ state: BalanceAssetState }> = ({ state }) => {
-  if (state.mode === 'stored-snapshot') {
-    const selected = state.assets[state.selectedIndex];
-    if (!selected) return null;
-    return (
-      <FixedHeightDetail
-        height={BALANCE_ASSET_DETAIL_LINES}
-        rows={[
-          ...buildStoredSnapshotDiagnosticsRows(selected),
-          ...buildStoredSnapshotMetadataRows(state, 'asset-detail'),
-        ]}
-      />
-    );
-  }
-
+const AssetDiagnosticsPanel: FC<{ state: BalanceVerificationAssetState }> = ({ state }) => {
   const selected = state.assets[state.selectedIndex];
   if (!selected) return null;
   return (
@@ -1102,34 +1038,6 @@ function buildOnlineDiagnosticsRows(asset: AssetComparisonItem): ReactElement[] 
   return rows;
 }
 
-function buildStoredSnapshotDiagnosticsRows(asset: StoredSnapshotAssetItem): ReactElement[] {
-  const { diagnostics } = asset;
-  const balanceColor = asset.isNegative ? 'red' : 'green';
-  const rows: ReactElement[] = [
-    <Text key="title">
-      <Text bold>▸ {asset.assetSymbol}</Text>
-      {'  '}
-      <Text dimColor>balance</Text> <Text color={balanceColor}>{asset.calculatedBalance}</Text>
-    </Text>,
-    <Text key="blank"> </Text>,
-    ...buildDiagnosticsContentRows(diagnostics),
-  ];
-
-  if (asset.isNegative) {
-    rows.push(
-      <Text key="negative-blank"> </Text>,
-      <Text
-        key="negative"
-        color="yellow"
-      >
-        {'  '}⚠ Negative balance — likely missing inflow transactions
-      </Text>
-    );
-  }
-
-  return rows;
-}
-
 function buildStoredSnapshotMetadataRows(
   item: {
     lastRefreshAt?: string | undefined;
@@ -1170,12 +1078,6 @@ function buildStoredSnapshotMetadataRows(
         ]
       : []),
   ];
-}
-
-function getStoredSnapshotVerificationDisplay(
-  status: StoredSnapshotAccountItem['verificationStatus']
-): { color: string; icon: string; label: string } | undefined {
-  return getStoredSnapshotVerificationDisplayForView(status);
 }
 
 function buildDiagnosticsContentRows(diagnostics: AssetDiagnostics): ReactElement[] {

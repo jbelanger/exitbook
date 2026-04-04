@@ -9,6 +9,7 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
+import { getStoredBalanceAssetsVisibleRows } from '../../shared/stored-balance-assets-view.js';
 
 import { getBalanceAccountsVisibleRows, getBalanceAssetsVisibleRows } from './balance-view-components.jsx';
 import type {
@@ -235,7 +236,9 @@ export function handleBalanceKeyboardInput(
   const visibleRows =
     state.view === 'accounts'
       ? getBalanceAccountsVisibleRows(terminalHeight)
-      : getBalanceAssetsVisibleRows(terminalHeight);
+      : state.mode === 'stored-snapshot'
+        ? getStoredBalanceAssetsVisibleRows(terminalHeight)
+        : getBalanceAssetsVisibleRows(terminalHeight);
 
   const isDrilledDown = state.view === 'assets' && state.parentState !== undefined;
 

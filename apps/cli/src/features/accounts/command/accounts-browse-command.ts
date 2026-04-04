@@ -112,6 +112,7 @@ export function prepareAccountsBrowseCommand({
   return ok({
     params: {
       accountSelector,
+      includeExplorerDetails: presentation.mode === 'tui' ? true : undefined,
       platformKey: options.platform,
       accountType: options.type,
       showSessions: options.showSessions,

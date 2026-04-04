@@ -1,9 +1,9 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AccountViewItem } from '../../accounts-view-model.js';
+import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view-model.js';
 import { AccountsViewApp } from '../accounts-view-components.jsx';
-import { createAccountsViewState } from '../accounts-view-state.js';
+import { createAccountsAssetsViewState, createAccountsViewState } from '../accounts-view-state.js';
 
 const mockOnQuit = () => {
   /* empty */
@@ -26,6 +26,49 @@ function createAccountViewItem(overrides: Partial<AccountViewItem> = {}): Accoun
     childAccounts: overrides.childAccounts,
     sessions: overrides.sessions,
     createdAt: overrides.createdAt ?? '2026-03-01T00:00:00.000Z',
+  };
+}
+
+function createAccountDetailViewItem(overrides: Partial<AccountDetailViewItem> = {}): AccountDetailViewItem {
+  const summary = createAccountViewItem(overrides);
+
+  return {
+    ...summary,
+    balance: overrides.balance ?? {
+      readable: true,
+      scopeAccount: {
+        id: summary.id,
+        accountFingerprint: summary.accountFingerprint,
+        accountType: summary.accountType,
+        platformKey: summary.platformKey,
+        identifier: summary.identifier,
+        name: summary.name,
+      },
+      verificationStatus: 'match',
+      statusReason: undefined,
+      suggestion: undefined,
+      lastRefreshAt: '2026-03-12T18:10:00.000Z',
+      assets: [
+        {
+          assetId: 'btc',
+          assetSymbol: 'BTC',
+          calculatedBalance: '1.25',
+          liveBalance: '1.25',
+          comparisonStatus: 'match',
+          isNegative: false,
+          diagnostics: {
+            txCount: 2,
+            totals: {
+              inflows: '1.5',
+              outflows: '0.25',
+              fees: '0',
+              net: '1.25',
+            },
+          },
+        },
+      ],
+    },
+    requestedAccount: overrides.requestedAccount,
   };
 }
 
@@ -214,5 +257,41 @@ describe('AccountsViewApp', () => {
 
     expect(consoleError.mock.calls.flat().join(' ')).not.toContain('Encountered two children with the same key');
     consoleError.mockRestore();
+  });
+
+  it('renders the shared stored-balance asset drilldown when the explorer is in assets mode', () => {
+    const summary = createAccountViewItem({
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      name: 'kraken-main',
+      identifier: 'acct-1',
+      balanceProjectionStatus: 'fresh',
+      verificationStatus: 'match',
+    });
+    const parentState = createAccountsViewState([summary], { showSessions: false }, 1);
+    const detail = createAccountDetailViewItem(summary);
+    if (!detail.balance.readable) {
+      throw new Error('Expected readable stored balance detail for asset drilldown test');
+    }
+
+    const state = createAccountsAssetsViewState(detail.balance, { parentState });
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('Balance (stored snapshot)');
+    expect(frame).toContain('BTC');
+    expect(frame).toContain('live');
+    expect(frame).toContain('Transactions: 2');
   });
 });
