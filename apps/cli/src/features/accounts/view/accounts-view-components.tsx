@@ -449,7 +449,7 @@ function buildStoredBalancePreviewRows(detail: AccountDetailViewItem): ReactElem
 }
 
 const StoredBalanceAssetPreviewRow: FC<{ asset: StoredBalanceAssetViewItem }> = ({ asset }) => {
-  const balanceColor = asset.isNegative ? 'red' : 'green';
+  const amountColor = asset.isNegative ? 'red' : 'green';
   const liveBalance = asset.liveBalance;
 
   return (
@@ -457,11 +457,11 @@ const StoredBalanceAssetPreviewRow: FC<{ asset: StoredBalanceAssetViewItem }> = 
       {'    '}
       <Text bold>{asset.assetSymbol}</Text>
       <Text dimColor> calc </Text>
-      <Text color={balanceColor}>{asset.calculatedBalance}</Text>
+      <Text color={amountColor}>{asset.calculatedBalance}</Text>
       {liveBalance !== undefined && (
         <>
           <Text dimColor> · live </Text>
-          <Text color={balanceColor}>{liveBalance}</Text>
+          <Text color={amountColor}>{liveBalance}</Text>
         </>
       )}
       {asset.comparisonStatus !== undefined && (

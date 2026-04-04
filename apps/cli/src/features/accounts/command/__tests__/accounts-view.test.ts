@@ -5,7 +5,7 @@ import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
-import type { AccountViewItem } from '../../accounts-view-model.js';
+import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view-model.js';
 
 const {
   mockcreateCliAccountLifecycleService,
@@ -107,7 +107,7 @@ function createAccountsProgram(): Command {
   return program;
 }
 
-function createAccountSummary(overrides: Partial<ReturnType<typeof createBaseAccountSummary>> = {}) {
+function createAccountSummary(overrides: Partial<AccountViewItem> = {}) {
   const accountId = overrides.id ?? 1;
 
   return {
@@ -163,7 +163,7 @@ function createBaseAccountSummary() {
   };
 }
 
-function createAccountDetail(overrides: Partial<ReturnType<typeof createBaseAccountDetail>> = {}) {
+function createAccountDetail(overrides: Partial<AccountDetailViewItem> = {}) {
   const accountId = overrides.id ?? 1;
 
   return {
@@ -863,6 +863,87 @@ describe('accounts browse commands', () => {
           identifier: 'bc1qwalletmainaddress',
         }),
       },
+    });
+  });
+
+  it('opens a child selector in a child-scoped explorer on a tty', async () => {
+    const program = createAccountsProgram();
+    const childAccount = createAccountSummary({
+      id: 2,
+      accountType: 'blockchain',
+      platformKey: 'bitcoin',
+      name: 'wallet-child',
+      identifier: 'bc1qwalletchildaddress',
+      parentAccountId: 1,
+      childAccounts: undefined,
+      providerName: undefined,
+    });
+    let renderedElement: ReactElement | undefined;
+
+    mockGetByName.mockResolvedValue(
+      ok({
+        id: 2,
+        profileId: 1,
+        accountFingerprint: createAccountFingerprint(2),
+        name: 'wallet-child',
+        parentAccountId: 1,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1qwalletchildaddress',
+        providerName: undefined,
+        credentials: undefined,
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-03T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [childAccount],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['accounts', 'view', 'wallet-child'], { from: 'user' });
+
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 2,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('AccountsViewApp');
+    const initialState = (renderedElement?.props as Record<string, unknown>)['initialState'];
+
+    expect(initialState).toMatchObject({
+      view: 'accounts',
+      selectedIndex: 0,
+      scrollOffset: 0,
+      totalCount: 1,
+      typeCounts: {
+        blockchain: 1,
+        exchangeApi: 0,
+        exchangeCsv: 0,
+      },
+    });
+    expect(initialState).toBeTruthy();
+    expect((initialState as { accountDetailsById?: Record<number, unknown> }).accountDetailsById?.[2]).toMatchObject({
+      id: 2,
+      accountFingerprint: createAccountFingerprint(2),
+      accountType: 'blockchain',
+      platformKey: 'bitcoin',
+      name: 'wallet-child',
+      identifier: 'bc1qwalletchildaddress',
+      parentAccountId: 1,
+      providerName: undefined,
     });
   });
 

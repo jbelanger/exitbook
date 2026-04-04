@@ -196,18 +196,18 @@ const StoredBalanceAssetRow: FC<{
   showLiveBalances: boolean;
 }> = ({ asset, assetColumns, isSelected, showComparisonStatus, showLiveBalances }) => {
   const { calc, live, status, symbol } = assetColumns.format(asset);
-  const balanceColor = asset.isNegative ? 'red' : 'green';
+  const amountColor = asset.isNegative ? 'red' : 'green';
 
   return (
     <SelectableRow isSelected={isSelected}>
       {symbol}
       {'  '}
-      <Text dimColor>calc</Text> <Text color={balanceColor}>{calc}</Text>
+      <Text dimColor>calc</Text> <Text color={amountColor}>{calc}</Text>
       {showLiveBalances && (
         <>
           {'    '}
           <Text dimColor>live</Text>{' '}
-          {asset.liveBalance !== undefined ? <Text color={balanceColor}>{live}</Text> : <Text dimColor>{live}</Text>}
+          {asset.liveBalance !== undefined ? <Text color={amountColor}>{live}</Text> : <Text dimColor>{live}</Text>}
         </>
       )}
       {showComparisonStatus && (

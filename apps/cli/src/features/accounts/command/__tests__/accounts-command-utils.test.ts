@@ -131,4 +131,27 @@ describe('registerAccountsCommand', () => {
     expect(help).toContain('--json');
     expect(help).toContain('Output JSON format');
   });
+
+  it('documents selector usage without the removed --account flag', () => {
+    const program = new Command();
+    const appRuntime = {} as CliAppRuntime;
+
+    registerAccountsCommand(program, appRuntime);
+
+    const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
+    const viewCommand = accountsCommand?.commands.find((command) => command.name() === 'view');
+    const output: string[] = [];
+
+    viewCommand?.configureOutput({
+      writeOut: (str) => {
+        output.push(str);
+      },
+      writeErr: () => undefined,
+    });
+    viewCommand?.outputHelp();
+    const help = output.join('');
+
+    expect(help).toContain('exitbook accounts view 1a2b3c4d');
+    expect(help).not.toContain('exitbook accounts view --account');
+  });
 });

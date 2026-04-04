@@ -48,13 +48,13 @@ export async function buildAccountsBrowsePresentation(
     const accountService = createCliAccountLifecycleService(database);
     const selection = yield* await resolveSelectedAccount(accountService, profile.id, params);
     const selectedAccountId = selection.accountId;
-    const shouldPreselectAccount = params.preselectInExplorer === true && selectedAccountId !== undefined;
+    const queryFullExplorerList = shouldQueryFullExplorerList(params, selection);
 
     const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
     const result = yield* toCliResult(
       await accountQuery.list({
         profileId: profile.id,
-        accountId: shouldPreselectAccount ? undefined : selectedAccountId,
+        accountId: queryFullExplorerList ? undefined : selectedAccountId,
         accountType: params.accountType,
         platformKey: params.platformKey,
         showSessions: params.showSessions,
@@ -67,7 +67,7 @@ export async function buildAccountsBrowsePresentation(
     const selectedIndex =
       selectedAccountId !== undefined ? viewItems.findIndex((account) => account.id === selectedAccountId) : 0;
 
-    if (shouldPreselectAccount && viewItems.length > 0 && selectedIndex < 0) {
+    if (queryFullExplorerList && viewItems.length > 0 && selectedIndex < 0) {
       return yield* cliErr(
         `${selection.requestedLabel ?? `Account '${selectedAccountId}'`} is not visible in the explorer`,
         ExitCodes.NOT_FOUND
@@ -99,7 +99,7 @@ export async function buildAccountsBrowsePresentation(
         : undefined;
 
     const selectedAccount =
-      selectedAccountId !== undefined && shouldPreselectAccount !== true && selectedAccountSummary !== undefined
+      selectedAccountId !== undefined && queryFullExplorerList !== true && selectedAccountSummary !== undefined
         ? yield* toCliResult(
             await buildAccountDetailViewItem({
               accountId: selectedAccountId,
@@ -135,6 +135,14 @@ export async function buildAccountsBrowsePresentation(
           : undefined,
     };
   });
+}
+
+function shouldQueryFullExplorerList(params: AccountsBrowseParams, selection: ResolvedSelectedAccount): boolean {
+  if (params.preselectInExplorer !== true || selection.accountId === undefined) {
+    return false;
+  }
+
+  return selection.selector?.account.parentAccountId === undefined;
 }
 
 interface BuildExplorerAccountDetailsParams {
