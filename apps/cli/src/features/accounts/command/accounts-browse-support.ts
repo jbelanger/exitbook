@@ -18,7 +18,7 @@ import { toAccountViewItem } from '../account-view-projection.js';
 import type { AccountDetailViewItem, AccountViewItem } from '../accounts-view-model.js';
 import { AccountQuery, type AccountQueryParams } from '../query/account-query.js';
 import { buildAccountQueryPorts } from '../query/build-account-query-ports.js';
-import { computeTypeCounts, createAccountsViewState, type AccountsListViewState } from '../view/accounts-view-state.js';
+import { createAccountsViewState, type AccountsListViewState } from '../view/accounts-view-state.js';
 
 import { buildAccountDetailViewItem } from './accounts-detail-support.js';
 
@@ -45,12 +45,12 @@ export async function buildAccountsBrowsePresentation(
   return resultDoAsync(async function* () {
     const database = await ctx.database();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const selection = yield* await resolveSelectedAccount(database, profile.id, params);
+    const accountService = createCliAccountLifecycleService(database);
+    const selection = yield* await resolveSelectedAccount(accountService, profile.id, params);
     const selectedAccountId = selection.accountId;
     const shouldPreselectAccount = params.preselectInExplorer === true && selectedAccountId !== undefined;
 
     const accountQuery = new AccountQuery(buildAccountQueryPorts(database));
-    const accountService = createCliAccountLifecycleService(database);
     const result = yield* toCliResult(
       await accountQuery.list({
         profileId: profile.id,
@@ -117,7 +117,7 @@ export async function buildAccountsBrowsePresentation(
         viewItems,
         filters,
         count,
-        computeTypeCounts(viewItems),
+        undefined,
         selectedIndex >= 0 ? selectedIndex : undefined,
         accountDetailsById
       ),
@@ -179,12 +179,11 @@ interface ResolvedSelectedAccount {
 }
 
 async function resolveSelectedAccount(
-  database: DataSession,
+  accountService: ReturnType<typeof createCliAccountLifecycleService>,
   profileId: number,
   params: AccountsBrowseParams
 ): Promise<Result<ResolvedSelectedAccount, CliFailure>> {
   return resultDoAsync(async function* () {
-    const accountService = createCliAccountLifecycleService(database);
     const requestedSelector = params.accountSelector;
     if (!requestedSelector) {
       return {};

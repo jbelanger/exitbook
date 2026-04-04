@@ -37,29 +37,16 @@ export async function buildAccountDetailViewItem(
       requestedAccount,
       params.profileId
     );
+    const requestedAccountView = toRequestedAccountViewItem(requestedAccount, scopeAccount);
+    const scopeAccountView = toAccountScopeViewItem(scopeAccount);
 
     const freshnessResult = yield* await buildBalancesFreshnessPorts(params.database).checkFreshness(scopeAccount.id);
 
     if (freshnessResult.status !== 'fresh') {
-      const unreadable = buildBalanceSnapshotUnreadableDetail({
-        requestedAccountRef: formatAccountFingerprintRef(requestedAccount.accountFingerprint),
-        scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
-        scopeSourceName: scopeAccount.name ?? maskIdentifier(scopeAccount),
+      return buildUnreadableAccountDetailViewItem(params.summary, requestedAccountView, scopeAccountView, {
+        reason: freshnessResult.reason ?? `projection is ${freshnessResult.status}`,
         status: freshnessResult.status,
-        reason: freshnessResult.reason,
       });
-
-      return {
-        ...params.summary,
-        requestedAccount:
-          requestedAccount.id === scopeAccount.id ? undefined : toAccountScopeViewItem(requestedAccount),
-        balance: {
-          readable: false,
-          scopeAccount: toAccountScopeViewItem(scopeAccount),
-          reason: unreadable.reason,
-          hint: unreadable.hint,
-        },
-      };
     }
 
     const snapshotResult = await params.database.balanceSnapshots.findSnapshot(scopeAccount.id);
@@ -69,25 +56,10 @@ export async function buildAccountDetailViewItem(
 
     const snapshot = snapshotResult.value;
     if (!snapshot) {
-      const unreadable = buildBalanceSnapshotUnreadableDetail({
-        requestedAccountRef: formatAccountFingerprintRef(requestedAccount.accountFingerprint),
-        scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
-        scopeSourceName: scopeAccount.name ?? maskIdentifier(scopeAccount),
-        status: 'stale',
+      return buildUnreadableAccountDetailViewItem(params.summary, requestedAccountView, scopeAccountView, {
         reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
+        status: 'stale',
       });
-
-      return {
-        ...params.summary,
-        requestedAccount:
-          requestedAccount.id === scopeAccount.id ? undefined : toAccountScopeViewItem(requestedAccount),
-        balance: {
-          readable: false,
-          scopeAccount: toAccountScopeViewItem(scopeAccount),
-          reason: unreadable.reason,
-          hint: unreadable.hint,
-        },
-      };
     }
 
     const assetsResult = await new BalanceAssetDetailsBuilder(params.database).buildStoredSnapshotAssets(scopeAccount);
@@ -97,10 +69,10 @@ export async function buildAccountDetailViewItem(
 
     return {
       ...params.summary,
-      requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : toAccountScopeViewItem(requestedAccount),
+      requestedAccount: requestedAccountView,
       balance: {
         readable: true,
-        scopeAccount: toAccountScopeViewItem(scopeAccount),
+        scopeAccount: scopeAccountView,
         verificationStatus: snapshot.verificationStatus,
         statusReason: snapshot.statusReason,
         suggestion: snapshot.suggestion,
@@ -109,6 +81,37 @@ export async function buildAccountDetailViewItem(
       },
     };
   });
+}
+
+function buildUnreadableAccountDetailViewItem(
+  summary: AccountViewItem,
+  requestedAccount: AccountScopeViewItem | undefined,
+  scopeAccount: AccountScopeViewItem,
+  freshness: {
+    reason: string;
+    status: 'building' | 'failed' | 'stale';
+  }
+): AccountDetailViewItem {
+  const unreadable = buildBalanceSnapshotUnreadableDetail({
+    requestedAccountRef: formatAccountFingerprintRef(
+      requestedAccount?.accountFingerprint ?? scopeAccount.accountFingerprint
+    ),
+    scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
+    scopeSourceName: scopeAccount.name ?? scopeAccount.identifier,
+    status: freshness.status,
+    reason: freshness.reason,
+  });
+
+  return {
+    ...summary,
+    requestedAccount,
+    balance: {
+      readable: false,
+      scopeAccount,
+      reason: unreadable.reason,
+      hint: unreadable.hint,
+    },
+  };
 }
 
 async function requireOwnedAccount(
@@ -157,4 +160,15 @@ function toAccountScopeViewItem(account: Account): AccountScopeViewItem {
     identifier: maskIdentifier(account),
     name: account.name,
   };
+}
+
+function toRequestedAccountViewItem(
+  requestedAccount: Account,
+  scopeAccount: Account
+): AccountScopeViewItem | undefined {
+  if (requestedAccount.id === scopeAccount.id) {
+    return undefined;
+  }
+
+  return toAccountScopeViewItem(requestedAccount);
 }

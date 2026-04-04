@@ -16,19 +16,22 @@ import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
-import { withBalanceCommandScope, type BalanceCommandScope } from '../../balance/command/balance-command-scope.js';
+import {
+  withBalanceCommandScope as withAccountsRefreshScope,
+  type BalanceCommandScope as AccountsRefreshScope,
+} from '../../balance/command/balance-command-scope.js';
 import type {
   AllAccountsVerificationResult,
   SingleRefreshResult,
 } from '../../balance/command/balance-handler-types.js';
 import { BalanceRefreshCommandOptionsSchema as AccountsRefreshCommandOptionsSchema } from '../../balance/command/balance-option-schemas.js';
 import {
-  abortBalanceVerification,
-  awaitBalanceVerificationStream,
-  loadBalanceVerificationAccounts,
-  runBalanceRefreshAll,
-  runBalanceRefreshSingle,
-  startBalanceVerificationStream,
+  abortBalanceVerification as abortAccountsRefresh,
+  awaitBalanceVerificationStream as awaitAccountsRefreshStream,
+  loadBalanceVerificationAccounts as loadAccountsRefreshTargets,
+  runBalanceRefreshAll as runAccountsRefreshAll,
+  runBalanceRefreshSingle as runSelectedAccountsRefresh,
+  startBalanceVerificationStream as startAccountsRefreshStream,
 } from '../../balance/command/run-balance.js';
 import type { BalanceEvent } from '../../balance/view/balance-view-state.js';
 import {
@@ -112,40 +115,24 @@ async function executeAccountsRefreshSingleJsonCommand(
   ctx: CommandRuntime,
   options: AccountsRefreshCommandOptions
 ): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const completion = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
-      const result = await runSingleAccountsRefresh(scope, options.selector);
-      if (result.isErr()) {
-        return err(result.error);
-      }
-
-      return ok(buildAccountsRefreshSingleJsonCompletion(result.value));
-    });
-
-    if (completion.isErr()) {
-      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+  return executeWithAccountsRefreshScope(ctx, 'json', async (scope) => {
+    const result = await runSingleAccountsRefresh(scope, options.selector);
+    if (result.isErr()) {
+      return err(result.error);
     }
 
-    return completion.value;
+    return ok(buildAccountsRefreshSingleJsonCompletion(result.value));
   });
 }
 
 async function executeAccountsRefreshAllJsonCommand(ctx: CommandRuntime): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const completion = await withBalanceCommandScope(ctx, { format: 'json', needsWorkflow: true }, async (scope) => {
-      const result = await runBalanceRefreshAll(scope);
-      if (result.isErr()) {
-        return err(result.error);
-      }
-
-      return ok(buildAccountsRefreshAllJsonCompletion(result.value));
-    });
-
-    if (completion.isErr()) {
-      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
+  return executeWithAccountsRefreshScope(ctx, 'json', async (scope) => {
+    const result = await runAccountsRefreshAll(scope);
+    if (result.isErr()) {
+      return err(result.error);
     }
 
-    return completion.value;
+    return ok(buildAccountsRefreshAllJsonCompletion(result.value));
   });
 }
 
@@ -153,18 +140,30 @@ async function executeAccountsRefreshSingleTextCommand(
   ctx: CommandRuntime,
   options: AccountsRefreshCommandOptions
 ): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const completion = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) => {
-      const result = await runSingleAccountsRefresh(scope, options.selector, (requestedAccount) => {
-        console.log(pc.dim(`Refreshing ${formatRefreshAccountLabel(requestedAccount)}...`));
-      });
-      if (result.isErr()) {
-        return err(result.error);
-      }
-
-      logSingleRefreshResult(result.value);
-      return ok(silentSuccess());
+  return executeWithAccountsRefreshScope(ctx, 'text', async (scope) => {
+    const result = await runSingleAccountsRefresh(scope, options.selector, (requestedAccount) => {
+      console.log(pc.dim(`Refreshing ${formatRefreshAccountLabel(requestedAccount)}...`));
     });
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    logSingleRefreshResult(result.value);
+    return ok(silentSuccess());
+  });
+}
+
+async function executeAccountsRefreshAllTextCommand(ctx: CommandRuntime): Promise<CliCommandResult> {
+  return executeWithAccountsRefreshScope(ctx, 'text', async (scope) => runAccountsRefreshAllTextWorkflow(ctx, scope));
+}
+
+async function executeWithAccountsRefreshScope(
+  ctx: CommandRuntime,
+  format: 'json' | 'text',
+  operation: (scope: AccountsRefreshScope) => Promise<Result<CliCompletion, Error>>
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const completion = await withAccountsRefreshScope(ctx, { format, needsWorkflow: true }, operation);
 
     if (completion.isErr()) {
       return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
@@ -175,7 +174,7 @@ async function executeAccountsRefreshSingleTextCommand(
 }
 
 async function runSingleAccountsRefresh(
-  scope: BalanceCommandScope,
+  scope: AccountsRefreshScope,
   selector: string | undefined,
   onSelectedAccount?: (account: Account) => void
 ): Promise<Result<SingleRefreshResult, Error>> {
@@ -190,22 +189,8 @@ async function runSingleAccountsRefresh(
   }
 
   onSelectedAccount?.(selection.value.account);
-  return runBalanceRefreshSingle(scope, {
+  return runSelectedAccountsRefresh(scope, {
     accountId: selection.value.account.id,
-  });
-}
-
-async function executeAccountsRefreshAllTextCommand(ctx: CommandRuntime): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const completion = await withBalanceCommandScope(ctx, { format: 'text', needsWorkflow: true }, async (scope) =>
-      runAccountsRefreshAllTextWorkflow(ctx, scope)
-    );
-
-    if (completion.isErr()) {
-      return yield* cliErr(completion.error, getAccountSelectorErrorExitCode(completion.error));
-    }
-
-    return completion.value;
   });
 }
 
@@ -273,9 +258,9 @@ function buildAccountsRefreshAllJsonCompletion(result: AllAccountsVerificationRe
 
 async function runAccountsRefreshAllTextWorkflow(
   ctx: CommandRuntime,
-  scope: BalanceCommandScope
+  scope: AccountsRefreshScope
 ): Promise<Result<CliCompletion, Error>> {
-  const sortedResult = await loadBalanceVerificationAccounts(scope);
+  const sortedResult = await loadAccountsRefreshTargets(scope);
   if (sortedResult.isErr()) {
     return err(sortedResult.error);
   }
@@ -328,9 +313,9 @@ async function runAccountsRefreshAllTextWorkflow(
     }
   });
 
-  startBalanceVerificationStream(scope, accounts, relay);
-  ctx.onAbort(() => abortBalanceVerification(scope));
-  await awaitBalanceVerificationStream(scope);
+  startAccountsRefreshStream(scope, accounts, relay);
+  ctx.onAbort(() => abortAccountsRefresh(scope));
+  await awaitAccountsRefreshStream(scope);
 
   console.log('');
   console.log(
