@@ -4,8 +4,8 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BalanceAssetDetailsBuilder } from '../balance-asset-details-builder.js';
-import { BalanceVerificationRunner } from '../balance-verification-runner.js';
+import { AccountBalanceDetailBuilder } from '../account-balance-detail-builder.js';
+import { AccountsRefreshRunner } from '../accounts-refresh-runner.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   const profileId = overrides.profileId ?? 1;
@@ -94,23 +94,23 @@ function createMockAccountService(accounts: Account[]) {
   };
 }
 
-function createVerificationServices(
+function createRefreshServices(
   mockDb: ReturnType<typeof createMockDb> | Record<string, unknown>,
-  balanceOperation: unknown,
+  balanceWorkflow: unknown,
   accountService: ReturnType<typeof createMockAccountService>
 ) {
-  const assetDetailsBuilder = new BalanceAssetDetailsBuilder(mockDb as unknown as DataSession);
+  const detailBuilder = new AccountBalanceDetailBuilder(mockDb as unknown as DataSession);
 
   return {
-    verificationRunner: new BalanceVerificationRunner({
+    refreshRunner: new AccountsRefreshRunner({
       accountService,
-      assetDetailsBuilder,
-      balanceOperation: balanceOperation as never,
+      detailBuilder,
+      balanceWorkflow: balanceWorkflow as never,
     }),
   };
 }
 
-describe('BalanceVerificationRunner.refreshSingleScope', () => {
+describe('AccountsRefreshRunner.refreshSingleScope', () => {
   it('fails fast when an exchange account has no stored provider credentials', async () => {
     const account = createAccount({
       id: 21,
@@ -124,28 +124,28 @@ describe('BalanceVerificationRunner.refreshSingleScope', () => {
       accounts: [account],
       snapshotAssets: [],
     });
-    const balanceOperation = {
+    const balanceWorkflow = {
       refreshVerification: vi.fn(),
     };
 
-    const { verificationRunner } = createVerificationServices(mockDb, balanceOperation, mockDb.accountService);
-    const result = await verificationRunner.refreshSingleScope({ accountId: account.id, profileId: 1 });
+    const { refreshRunner } = createRefreshServices(mockDb, balanceWorkflow, mockDb.accountService);
+    const result = await refreshRunner.refreshSingleScope({ accountId: account.id, profileId: 1 });
     const error = assertErr(result);
 
     expect(error.message).toContain('kucoin-csv');
     expect(error.message).toContain('no stored provider credentials');
-    expect(balanceOperation.refreshVerification).not.toHaveBeenCalled();
+    expect(balanceWorkflow.refreshVerification).not.toHaveBeenCalled();
   });
 });
 
-describe('BalanceVerificationRunner.refreshAllScopes', () => {
+describe('AccountsRefreshRunner.refreshAllScopes', () => {
   it('counts calculated-only warning results as verified totals', async () => {
     const account = createAccount({ id: 74, platformKey: 'lukso', identifier: '0xlukso' });
     const mockDb = createMockDb({
       accounts: [account],
       snapshotAssets: [],
     });
-    const balanceOperation = {
+    const balanceWorkflow = {
       refreshVerification: vi.fn().mockResolvedValue(
         ok({
           account,
@@ -177,8 +177,8 @@ describe('BalanceVerificationRunner.refreshAllScopes', () => {
       ),
     };
 
-    const { verificationRunner } = createVerificationServices(mockDb, balanceOperation, mockDb.accountService);
-    const result = await verificationRunner.refreshAllScopes(1);
+    const { refreshRunner } = createRefreshServices(mockDb, balanceWorkflow, mockDb.accountService);
+    const result = await refreshRunner.refreshAllScopes(1);
     const value = assertOk(result);
 
     expect(value.totals).toMatchObject({

@@ -5,16 +5,22 @@ import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
-import { buildBalanceAssetDiagnosticsSummary } from '../shared/balance-diagnostics.js';
-import type { AssetComparisonItem, StoredSnapshotAssetItem } from '../view/balance-view-state.js';
-import { buildAssetDiagnostics, buildStoredSnapshotAssetItem, sortAssetsByStatus } from '../view/balance-view-utils.js';
+import {
+  buildStoredBalanceAssetDiagnostics,
+  buildStoredBalanceAssetViewItem,
+} from '../../shared/stored-balance-detail-utils.js';
+import { buildStoredBalanceAssetDiagnosticsSummary } from '../../shared/stored-balance-diagnostics.js';
+import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 
-const logger = getLogger('BalanceAssetDetailsBuilder');
+import type { AssetComparisonItem } from './accounts-refresh-types.js';
+import { sortAssetComparisonsByStatus } from './accounts-refresh-utils.js';
 
-export class BalanceAssetDetailsBuilder {
+const logger = getLogger('AccountBalanceDetailBuilder');
+
+export class AccountBalanceDetailBuilder {
   constructor(private readonly db: DataSession) {}
 
-  async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<StoredSnapshotAssetItem[], Error>> {
+  async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<StoredBalanceAssetViewItem[], Error>> {
     const snapshotAssets = await this.loadStoredSnapshotAssets(scopeAccount.id);
     if (snapshotAssets.length === 0) {
       return ok([]);
@@ -27,11 +33,10 @@ export class BalanceAssetDetailsBuilder {
 
     return ok(
       snapshotAssets.map((asset) => {
-        const assetSymbol = asset.assetSymbol;
-        const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, assetSymbol, transactionsResult.value);
-        return buildStoredSnapshotAssetItem(
+        const diagnostics = this.buildDiagnosticsForAsset(asset.assetId, asset.assetSymbol, transactionsResult.value);
+        return buildStoredBalanceAssetViewItem(
           asset.assetId,
-          assetSymbol,
+          asset.assetSymbol,
           parseDecimal(asset.calculatedBalance),
           diagnostics,
           {
@@ -91,7 +96,7 @@ export class BalanceAssetDetailsBuilder {
       return err(comparisonsResult.error);
     }
 
-    return ok(sortAssetsByStatus(comparisonsResult.value));
+    return ok(sortAssetComparisonsByStatus(comparisonsResult.value));
   }
 
   private async loadAccountTransactions(account: Account): Promise<Result<Transaction[], Error>> {
@@ -132,9 +137,9 @@ export class BalanceAssetDetailsBuilder {
     assetSymbol: string,
     transactions: Transaction[],
     balances?: { calculatedBalance: string; liveBalance: string }
-  ): ReturnType<typeof buildAssetDiagnostics> {
-    const diagnosticsSummary = buildBalanceAssetDiagnosticsSummary({ assetId, assetSymbol, transactions });
-    return buildAssetDiagnostics(diagnosticsSummary, balances);
+  ) {
+    const diagnosticsSummary = buildStoredBalanceAssetDiagnosticsSummary({ assetId, assetSymbol, transactions });
+    return buildStoredBalanceAssetDiagnostics(diagnosticsSummary, balances);
   }
 
   private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<BalanceSnapshotAsset[]> {
@@ -142,7 +147,7 @@ export class BalanceAssetDetailsBuilder {
     if (assetsResult.isErr()) {
       logger.warn(
         { scopeAccountId, error: assetsResult.error },
-        'Failed to load stored balance snapshot assets for CLI balance detail'
+        'Failed to load stored balance snapshot assets for CLI account detail'
       );
       return [];
     }

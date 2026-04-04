@@ -5,18 +5,18 @@ import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import { getLogger } from '@exitbook/logger';
 
 import type { EventRelay } from '../../../ui/shared/event-relay.js';
-import { formatAccountSelectorLabel } from '../../accounts/account-selector.js';
-import type { BalanceEvent } from '../view/balance-view-state.js';
-import { resolveAccountCredentials, sortAccountsByVerificationPriority } from '../view/balance-view-utils.js';
+import { formatAccountSelectorLabel } from '../account-selector.js';
 
-import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
+import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
 import type {
-  AllAccountsVerificationResult,
+  AccountsRefreshEvent,
+  AllAccountsRefreshResult,
   SingleRefreshResult,
-  SortedVerificationAccount,
-} from './balance-handler-types.js';
+  SortedRefreshAccount,
+} from './accounts-refresh-types.js';
+import { resolveAccountRefreshCredentials, sortAccountsByRefreshPriority } from './accounts-refresh-utils.js';
 
-const logger = getLogger('BalanceVerificationRunner');
+const logger = getLogger('AccountsRefreshRunner');
 
 function buildStoredCredentialMissingError(account: Account, reason: string): Error {
   return new Error(
@@ -24,23 +24,23 @@ function buildStoredCredentialMissingError(account: Account, reason: string): Er
   );
 }
 
-interface BalanceVerificationRunnerDeps {
+interface AccountsRefreshRunnerDeps {
   accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
-  assetDetailsBuilder: BalanceAssetDetailsBuilder;
-  balanceOperation: BalanceWorkflow | undefined;
+  detailBuilder: AccountBalanceDetailBuilder;
+  balanceWorkflow: BalanceWorkflow | undefined;
 }
 
-export class BalanceVerificationRunner {
+export class AccountsRefreshRunner {
   private abortController: AbortController | undefined;
   private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
-  private readonly assetDetailsBuilder: BalanceAssetDetailsBuilder;
-  private readonly balanceOperation: BalanceWorkflow | undefined;
+  private readonly detailBuilder: AccountBalanceDetailBuilder;
+  private readonly balanceWorkflow: BalanceWorkflow | undefined;
   private streamPromise: Promise<void> | undefined;
 
-  constructor(deps: BalanceVerificationRunnerDeps) {
+  constructor(deps: AccountsRefreshRunnerDeps) {
     this.accountService = deps.accountService;
-    this.assetDetailsBuilder = deps.assetDetailsBuilder;
-    this.balanceOperation = deps.balanceOperation;
+    this.detailBuilder = deps.detailBuilder;
+    this.balanceWorkflow = deps.balanceWorkflow;
   }
 
   abort(): void {
@@ -51,11 +51,11 @@ export class BalanceVerificationRunner {
     await this.streamPromise;
   }
 
-  async loadAccountsForVerification(profileId: number): Promise<Result<SortedVerificationAccount[], Error>> {
+  async loadAccountsForRefresh(profileId: number): Promise<Result<SortedRefreshAccount[], Error>> {
     const result = await this.accountService.listTopLevel(profileId);
     if (result.isErr()) return err(result.error);
 
-    const sorted = sortAccountsByVerificationPriority(
+    const sorted = sortAccountsByRefreshPriority(
       result.value.map((account) => ({
         accountId: account.id,
         platformKey: account.platformKey,
@@ -66,7 +66,7 @@ export class BalanceVerificationRunner {
 
     return ok(
       sorted.map((item) => {
-        const { skipReason } = resolveAccountCredentials(item.account);
+        const { skipReason } = resolveAccountRefreshCredentials(item.account);
         return {
           account: item.account,
           accountId: item.accountId,
@@ -82,17 +82,17 @@ export class BalanceVerificationRunner {
     accountId: number;
     profileId: number;
   }): Promise<Result<SingleRefreshResult, Error>> {
-    const operation = this.requireBalanceWorkflow();
+    const workflow = this.requireBalanceWorkflow();
 
     try {
       const requestedAccount = await this.loadSingleAccountOrFail(params.profileId, params.accountId);
-      const { credentials, skipReason } = resolveAccountCredentials(requestedAccount);
+      const { credentials, skipReason } = resolveAccountRefreshCredentials(requestedAccount);
 
       if (skipReason) {
         return err(buildStoredCredentialMissingError(requestedAccount, skipReason));
       }
 
-      const result = await operation.refreshVerification({
+      const result = await workflow.refreshVerification({
         accountId: requestedAccount.id,
         credentials,
       });
@@ -102,7 +102,7 @@ export class BalanceVerificationRunner {
       const scopeAccount = verificationResult.account;
 
       if (verificationResult.mode === 'calculated-only') {
-        const snapshotAssetsResult = await this.assetDetailsBuilder.buildStoredSnapshotAssets(scopeAccount);
+        const snapshotAssetsResult = await this.detailBuilder.buildStoredSnapshotAssets(scopeAccount);
         if (snapshotAssetsResult.isErr()) return err(snapshotAssetsResult.error);
 
         return ok({
@@ -115,7 +115,7 @@ export class BalanceVerificationRunner {
         });
       }
 
-      const comparisonsResult = await this.assetDetailsBuilder.buildComparisonItems(scopeAccount, verificationResult);
+      const comparisonsResult = await this.detailBuilder.buildComparisonItems(scopeAccount, verificationResult);
       if (comparisonsResult.isErr()) return err(comparisonsResult.error);
 
       return ok({
@@ -131,12 +131,12 @@ export class BalanceVerificationRunner {
     }
   }
 
-  async refreshAllScopes(profileId: number): Promise<Result<AllAccountsVerificationResult, Error>> {
-    const operation = this.requireBalanceWorkflow();
+  async refreshAllScopes(profileId: number): Promise<Result<AllAccountsRefreshResult, Error>> {
+    const workflow = this.requireBalanceWorkflow();
 
     try {
       const accounts = await this.loadAllAccounts(profileId);
-      const sorted = sortAccountsByVerificationPriority(
+      const sorted = sortAccountsByRefreshPriority(
         accounts.map((account) => ({
           accountId: account.id,
           platformKey: account.platformKey,
@@ -153,7 +153,7 @@ export class BalanceVerificationRunner {
 
       for (const item of sorted) {
         const account = item.account;
-        const { credentials, skipReason } = resolveAccountCredentials(account);
+        const { credentials, skipReason } = resolveAccountRefreshCredentials(account);
 
         if (skipReason) {
           skipped++;
@@ -167,7 +167,7 @@ export class BalanceVerificationRunner {
           continue;
         }
 
-        const result = await operation.refreshVerification({ accountId: account.id, credentials });
+        const result = await workflow.refreshVerification({ accountId: account.id, credentials });
         if (result.isErr()) {
           accountResults.push({
             accountId: account.id,
@@ -188,7 +188,7 @@ export class BalanceVerificationRunner {
 
         let comparisons;
         if (verificationResult.mode !== 'calculated-only') {
-          const comparisonsResult = await this.assetDetailsBuilder.buildComparisonItems(
+          const comparisonsResult = await this.detailBuilder.buildComparisonItems(
             verificationResult.account,
             verificationResult
           );
@@ -236,17 +236,17 @@ export class BalanceVerificationRunner {
     }
   }
 
-  startStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): void {
+  startStream(accounts: SortedRefreshAccount[], relay: EventRelay<AccountsRefreshEvent>): void {
     this.streamPromise = this.runStream(accounts, relay).catch((error) => {
       if (error instanceof Error && error.name === 'AbortError') return;
-      logger.error({ error }, 'Verification loop error');
+      logger.error({ error }, 'Refresh loop error');
     });
   }
 
-  private async runStream(accounts: SortedVerificationAccount[], relay: EventRelay<BalanceEvent>): Promise<void> {
+  private async runStream(accounts: SortedRefreshAccount[], relay: EventRelay<AccountsRefreshEvent>): Promise<void> {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
-    const operation = this.requireBalanceWorkflow();
+    const workflow = this.requireBalanceWorkflow();
 
     for (const item of accounts) {
       if (signal.aborted) {
@@ -259,11 +259,11 @@ export class BalanceVerificationRunner {
         continue;
       }
 
-      const { credentials } = resolveAccountCredentials(item.account);
+      const { credentials } = resolveAccountRefreshCredentials(item.account);
       relay.push({ type: 'VERIFICATION_STARTED', accountId: item.accountId });
 
       try {
-        const result = await operation.refreshVerification({ accountId: item.accountId, credentials });
+        const result = await workflow.refreshVerification({ accountId: item.accountId, credentials });
 
         if (result.isErr()) {
           relay.push({ type: 'VERIFICATION_ERROR', accountId: item.accountId, error: result.error.message });
@@ -280,7 +280,7 @@ export class BalanceVerificationRunner {
         let verificationItem;
 
         if (verificationResult.mode === 'calculated-only') {
-          const storedSnapshotAssetsResult = await this.assetDetailsBuilder.buildStoredSnapshotAssets(
+          const storedSnapshotAssetsResult = await this.detailBuilder.buildStoredSnapshotAssets(
             verificationResult.account
           );
           if (storedSnapshotAssetsResult.isErr()) {
@@ -305,7 +305,7 @@ export class BalanceVerificationRunner {
             comparisons: undefined,
           };
         } else {
-          const comparisonsResult = await this.assetDetailsBuilder.buildSortedComparisonItems(
+          const comparisonsResult = await this.detailBuilder.buildSortedComparisonItems(
             verificationResult.account,
             verificationResult
           );
@@ -356,8 +356,8 @@ export class BalanceVerificationRunner {
   }
 
   private requireBalanceWorkflow(): BalanceWorkflow {
-    if (!this.balanceOperation) throw new Error('BalanceWorkflow not available in refresh mode');
-    return this.balanceOperation;
+    if (!this.balanceWorkflow) throw new Error('BalanceWorkflow not available in refresh mode');
+    return this.balanceWorkflow;
   }
 
   private async loadAllAccounts(profileId: number): Promise<Account[]> {

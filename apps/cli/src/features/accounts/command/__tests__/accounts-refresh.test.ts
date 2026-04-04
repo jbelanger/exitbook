@@ -5,22 +5,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { EventRelay } from '../../../../ui/shared/event-relay.js';
-import type { BalanceEvent } from '../../../balance/view/balance-view-state.js';
+import type { AccountsRefreshEvent } from '../accounts-refresh-types.js';
 
 const {
-  mockAwaitBalanceVerificationStream,
+  mockAwaitAccountsRefreshStream,
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
   mockGetByName,
-  mockLoadBalanceVerificationAccounts,
+  mockLoadAccountsRefreshTargets,
   mockOutputSuccess,
-  mockRunBalanceRefreshSingle,
+  mockRunAccountsRefreshSingle,
   mockRunCommand,
-  mockStartBalanceVerificationStream,
-  mockWithBalanceCommandScope,
+  mockStartAccountsRefreshStream,
+  mockWithAccountsRefreshScope,
 } = vi.hoisted(() => ({
-  mockAwaitBalanceVerificationStream: vi.fn(),
+  mockAwaitAccountsRefreshStream: vi.fn(),
   mockCtx: {
     closeDatabase: vi.fn(),
     database: vi.fn(),
@@ -29,12 +29,12 @@ const {
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
   mockGetByName: vi.fn(),
-  mockLoadBalanceVerificationAccounts: vi.fn(),
+  mockLoadAccountsRefreshTargets: vi.fn(),
   mockOutputSuccess: vi.fn(),
-  mockRunBalanceRefreshSingle: vi.fn(),
+  mockRunAccountsRefreshSingle: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockStartBalanceVerificationStream: vi.fn(),
-  mockWithBalanceCommandScope: vi.fn(),
+  mockStartAccountsRefreshStream: vi.fn(),
+  mockWithAccountsRefreshScope: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -49,17 +49,17 @@ vi.mock('../../../../cli/error.js', () => ({
   exitCliFailure: mockExitCliFailure,
 }));
 
-vi.mock('../../../balance/command/balance-command-scope.js', () => ({
-  withBalanceCommandScope: mockWithBalanceCommandScope,
+vi.mock('../accounts-refresh-scope.js', () => ({
+  withAccountsRefreshScope: mockWithAccountsRefreshScope,
 }));
 
-vi.mock('../../../balance/command/run-balance.js', () => ({
-  abortBalanceVerification: vi.fn(),
-  awaitBalanceVerificationStream: mockAwaitBalanceVerificationStream,
-  loadBalanceVerificationAccounts: mockLoadBalanceVerificationAccounts,
-  runBalanceRefreshAll: vi.fn(),
-  runBalanceRefreshSingle: mockRunBalanceRefreshSingle,
-  startBalanceVerificationStream: mockStartBalanceVerificationStream,
+vi.mock('../run-accounts-refresh.js', () => ({
+  abortAccountsRefresh: vi.fn(),
+  awaitAccountsRefreshStream: mockAwaitAccountsRefreshStream,
+  loadAccountsRefreshTargets: mockLoadAccountsRefreshTargets,
+  runAccountsRefreshAll: vi.fn(),
+  runAccountsRefreshSingle: mockRunAccountsRefreshSingle,
+  startAccountsRefreshStream: mockStartAccountsRefreshStream,
 }));
 
 import { registerAccountsCommand } from '../accounts.js';
@@ -216,7 +216,7 @@ beforeEach(() => {
       throw new Error('fn is not a function');
     }
   });
-  mockWithBalanceCommandScope.mockImplementation(async (_ctx, _options, operation) =>
+  mockWithAccountsRefreshScope.mockImplementation(async (_ctx, _options, operation) =>
     operation({
       accountService: {
         getByName: mockGetByName,
@@ -228,12 +228,12 @@ beforeEach(() => {
         displayName: 'default',
         createdAt: new Date('2026-03-01T00:00:00.000Z'),
       },
-      verificationRunner: {},
+      refreshRunner: {},
     })
   );
   mockGetByName.mockResolvedValue(ok(undefined));
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
-  mockAwaitBalanceVerificationStream.mockResolvedValue(undefined);
+  mockAwaitAccountsRefreshStream.mockResolvedValue(undefined);
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -256,7 +256,7 @@ describe('accounts refresh command', () => {
     });
     const comparisons = [createVerificationComparison()];
 
-    mockRunBalanceRefreshSingle.mockResolvedValue(
+    mockRunAccountsRefreshSingle.mockResolvedValue(
       ok({
         mode: 'verification',
         account: scopeAccount,
@@ -274,7 +274,7 @@ describe('accounts refresh command', () => {
 
     await program.parseAsync(['accounts', 'refresh', 'wallet-child', '--json'], { from: 'user' });
 
-    expect(mockRunBalanceRefreshSingle).toHaveBeenCalledWith(
+    expect(mockRunAccountsRefreshSingle).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
@@ -327,7 +327,7 @@ describe('accounts refresh command', () => {
       platformKey: 'lukso',
     });
 
-    mockRunBalanceRefreshSingle.mockResolvedValue(
+    mockRunAccountsRefreshSingle.mockResolvedValue(
       ok({
         mode: 'calculated-only',
         account: scopeAccount,
@@ -346,7 +346,7 @@ describe('accounts refresh command', () => {
 
     await program.parseAsync(['accounts', 'refresh', '74abcde000', '--json'], { from: 'user' });
 
-    expect(mockRunBalanceRefreshSingle).toHaveBeenCalledWith(
+    expect(mockRunAccountsRefreshSingle).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
@@ -385,7 +385,7 @@ describe('accounts refresh command', () => {
       platformKey: 'kraken',
     });
 
-    mockRunBalanceRefreshSingle.mockResolvedValue(
+    mockRunAccountsRefreshSingle.mockResolvedValue(
       ok({
         mode: 'verification',
         account: scopeAccount,
@@ -415,7 +415,7 @@ describe('accounts refresh command', () => {
     const program = createAccountsCommand();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
-    mockLoadBalanceVerificationAccounts.mockResolvedValue(
+    mockLoadAccountsRefreshTargets.mockResolvedValue(
       ok([
         {
           account: createAccount({
@@ -432,7 +432,7 @@ describe('accounts refresh command', () => {
         },
       ])
     );
-    mockStartBalanceVerificationStream.mockImplementation((_scope, _accounts, relay: EventRelay<BalanceEvent>) => {
+    mockStartAccountsRefreshStream.mockImplementation((_scope, _accounts, relay: EventRelay<AccountsRefreshEvent>) => {
       relay.push({ type: 'VERIFICATION_STARTED', accountId: 21 });
       relay.push({
         type: 'VERIFICATION_COMPLETED',
@@ -453,13 +453,13 @@ describe('accounts refresh command', () => {
 
     await program.parseAsync(['accounts', 'refresh'], { from: 'user' });
 
-    expect(mockLoadBalanceVerificationAccounts).toHaveBeenCalledWith(
+    expect(mockLoadAccountsRefreshTargets).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       })
     );
-    expect(mockStartBalanceVerificationStream).toHaveBeenCalledOnce();
-    expect(mockAwaitBalanceVerificationStream).toHaveBeenCalledOnce();
+    expect(mockStartAccountsRefreshStream).toHaveBeenCalledOnce();
+    expect(mockAwaitAccountsRefreshStream).toHaveBeenCalledOnce();
     expect(mockCtx.onAbort).toHaveBeenCalledOnce();
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refreshing balances for 1 account'));
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('kraken (kraken): success'));

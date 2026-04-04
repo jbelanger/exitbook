@@ -7,25 +7,25 @@ import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
-import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
+import { createCliAccountLifecycleService } from '../account-service.js';
 
-import { BalanceAssetDetailsBuilder } from './balance-asset-details-builder.js';
-import { BalanceVerificationRunner } from './balance-verification-runner.js';
+import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
+import { AccountsRefreshRunner } from './accounts-refresh-runner.js';
 
-export interface BalanceCommandScope {
+export interface AccountsRefreshScope {
   accountService: AccountLifecycleService;
   profile: Profile;
-  verificationRunner: BalanceVerificationRunner;
+  refreshRunner: AccountsRefreshRunner;
 }
 
-export async function withBalanceCommandScope<T>(
+export async function withAccountsRefreshScope<T>(
   runtime: CommandRuntime,
   options: {
     format: CliOutputFormat;
     needsWorkflow: boolean;
   },
-  operation: (scope: BalanceCommandScope) => Promise<Result<T, Error>>
+  operation: (scope: AccountsRefreshScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return resultTryAsync<T>(async function* () {
     const database = await runtime.database();
@@ -43,16 +43,16 @@ export async function withBalanceCommandScope<T>(
     }
 
     const accountService = createCliAccountLifecycleService(database);
-    const assetDetailsBuilder = new BalanceAssetDetailsBuilder(database);
+    const detailBuilder = new AccountBalanceDetailBuilder(database);
 
     if (!options.needsWorkflow) {
       const value = yield* await operation({
         accountService,
         profile: profileResult.value,
-        verificationRunner: new BalanceVerificationRunner({
+        refreshRunner: new AccountsRefreshRunner({
           accountService,
-          assetDetailsBuilder,
-          balanceOperation: undefined,
+          detailBuilder,
+          balanceWorkflow: undefined,
         }),
       });
       return value;
@@ -61,21 +61,21 @@ export async function withBalanceCommandScope<T>(
     const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
     const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
     const balanceWorkflow = new BalanceWorkflow(buildBalancePorts(database), providerRuntime);
-    const verificationRunner = new BalanceVerificationRunner({
+    const refreshRunner = new AccountsRefreshRunner({
       accountService,
-      assetDetailsBuilder,
-      balanceOperation: balanceWorkflow,
+      detailBuilder,
+      balanceWorkflow,
     });
     runtime.onCleanup(async () => {
-      await verificationRunner.awaitStream();
+      await refreshRunner.awaitStream();
       await cleanupBlockchainProviderRuntime();
     });
 
     const value = yield* await operation({
       accountService,
       profile: profileResult.value,
-      verificationRunner,
+      refreshRunner,
     });
     return value;
-  }, 'Failed to prepare balance command scope');
+  }, 'Failed to prepare accounts refresh command scope');
 }

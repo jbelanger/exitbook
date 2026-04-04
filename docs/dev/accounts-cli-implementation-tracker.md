@@ -15,31 +15,27 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 6: Remove The Legacy `balance` Browse Surface
+### Phase 7: Remove The Final Internal CLI `balance` Namespace
 
 Status: `completed`
 
 Intent:
 
-- remove the remaining user-facing `balance` browse namespace now that `accounts` owns stored balance inspection
-- update current-facing docs/help so they stop describing `balance` as a real CLI family
-- trim dead browse-only balance support code instead of leaving a hollow command shell behind
+- move the remaining internal refresh/detail helpers out of `apps/cli/src/features/balance/`
+- align module ownership with the shipped `accounts` command surface instead of keeping a ghost feature folder
+- delete the final CLI `balance` directory once no live imports remain
 
 Why this slice came next:
 
-- `accounts` already owned static detail, JSON detail, and explorer drilldown for stored balance inspection
-- the remaining `balance` command family was legacy surface area, not distinct capability
-- deleting the browse shell now keeps the user-facing contract elegant before any deeper internal ownership moves
+- phase 6 removed the user-facing `balance` surface, but the CLI still depended on balance-owned internal modules
+- keeping those files under `/features/balance/` obscured the true command boundary and made future regressions easier to miss
+- this is the last slice needed to make the CLI code match the command surface cleanly
 
 What landed:
 
-- The `balance` browse command registration and deleted browse implementation files are now gone from `apps/cli/src/features/balance/`.
-- CLI help and current-facing specs now treat `accounts` as the canonical stored-balance read surface.
-- Dead browse-only balance support was trimmed:
-  - [run-balance.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/run-balance.ts) no longer exposes a dead browse entrypoint
-  - [balance-command-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-command-scope.ts) no longer carries the unused stored-snapshot reader
-  - [balance-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-state.ts) now exports only refresh/detail types still used by live code
-  - [balance-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-utils.ts) no longer keeps dead browse-only builders/sorts
+- Refresh workflow scope, runner, and entry helpers now live under `apps/cli/src/features/accounts/command/`.
+- Stored balance diagnostics and stored asset detail helpers now live under `apps/cli/src/features/shared/`.
+- The final internal CLI `apps/cli/src/features/balance/` directory is gone.
 
 ## Verified Current Facts
 
@@ -56,15 +52,17 @@ What landed:
 - `accounts view` now supports stored-balance asset drilldown in [accounts-view-controller.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-controller.ts), [accounts-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-state.ts), and [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx).
 - TUI browse presentation now preloads per-account detail in [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts).
 - Shared stored-balance asset explorer rendering now lives in [stored-balance-assets-view.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-assets-view.tsx) and [stored-balance-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-formatters.ts).
-- The remaining CLI balance code is internal support reused by `accounts`, not a separate command family.
+- CLI account detail now uses [account-balance-detail-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/account-balance-detail-builder.ts) plus shared stored-balance helpers instead of importing through `/features/balance/`.
+- `accounts refresh` now owns its internal workflow support in [accounts-refresh-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-scope.ts), [accounts-refresh-runner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-runner.ts), [run-accounts-refresh.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/run-accounts-refresh.ts), and [accounts-refresh-types.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-types.ts).
+- Shared stored-balance sorting and diagnostics helpers now live in [stored-balance-detail-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-detail-utils.ts) and [stored-balance-diagnostics.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-diagnostics.ts).
 
-## Phase 6 Exit Criteria
+## Phase 7 Exit Criteria
 
-- `exitbook balance` and `exitbook balance view` are no longer registered CLI commands.
-- Current-facing docs/help no longer describe `balance` as a live command family.
-- Dead browse-only balance support code is removed instead of being left behind as a hollow compatibility shell.
+- No live imports in `apps/cli/src` point at `apps/cli/src/features/balance/`.
+- The remaining refresh/detail helpers live under `accounts` or `shared` according to actual ownership.
+- The CLI `apps/cli/src/features/balance/` directory is deleted.
 
-Phase 6 result:
+Phase 7 result:
 
 - all exit criteria met
 
@@ -74,39 +72,39 @@ Phase 6 result:
 - [accounts-browse-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-browse-support.ts)
 - [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts)
 - [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts)
-- [balance-command-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-command-scope.ts)
-- [balance-asset-details-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/command/balance-asset-details-builder.ts)
-- [balance-view-state.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-state.ts)
-- [balance-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/balance/view/balance-view-utils.ts)
+- [accounts-refresh-scope.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-scope.ts)
+- [accounts-refresh-runner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-runner.ts)
+- [account-balance-detail-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/account-balance-detail-builder.ts)
+- [stored-balance-detail-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-detail-utils.ts)
+- [stored-balance-diagnostics.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-diagnostics.ts)
 - current-facing CLI docs under `docs/specs/cli/`
 
 ## Slice Notes
 
 Constraints that shaped the implementation:
 
-- remove the user-facing legacy surface cleanly instead of keeping aliases or duplicate read entrypoints
-- keep current-facing docs aligned with the actual shipped CLI surface
-- delete obviously dead browse-only code in the same slice when the owning command surface is removed
+- move ownership rather than leave compatibility wrappers behind
+- keep shared stored-balance helpers genuinely shared instead of re-nesting them under `accounts`
+- delete the old feature directory in the same slice so ownership cannot drift back silently
 
 Post-slice reassessment notes:
 
-- the user-facing balance browse surface is gone
-- the remaining cleanup is internal ownership: balance workflow/detail helpers still live under `apps/cli/src/features/balance/` even though `accounts` owns the CLI surface
-- the next slice should decide whether those remaining internal helpers move under `accounts` or a neutral shared path so the CLI balance feature directory can disappear entirely
+- the CLI `balance` feature directory is gone
+- the remaining work is no longer about command ownership; it should be driven by behavior, UX polish, or cross-surface spec drift only
 
 ## Reassessment Gate
 
 Before starting the next slice:
 
 1. Re-read the current `accounts` spec.
-2. Re-inspect the remaining internal files under `apps/cli/src/features/balance/`.
-3. Pick the single best ownership move that removes the last balance-only CLI support path without duplicating code.
+2. Re-scan the shipped `accounts` behavior for remaining spec drift or awkward UX.
+3. Pick the single highest-value behavioral slice, not another ownership-only cleanup.
 
 Likely next reassessment candidates:
 
-- move the remaining balance refresh/detail support files under `accounts` or `shared`
-- rename the remaining balance-owned helper types/modules so they reflect their post-consolidation role more clearly
-- delete the final internal CLI balance feature directory once no live imports point at it
+- tighten any remaining spec drift around stored-live semantics or explorer behavior
+- simplify newly moved account refresh/detail modules if any names or helper boundaries still feel awkward
+- update broader trackers/spec references only where the shipped code now justifies it
 
 Do not commit to one of these until the code is re-read and the best slice is confirmed again.
 
@@ -121,3 +119,4 @@ Do not commit to one of these until the code is re-read and the best slice is co
 | Phase 4: add full stored balance detail to `accounts` detail     | `completed` | Added nested detail balance data, full asset tables, unreadable snapshot hints, and shared stored-balance rendering.  |
 | Phase 5: move stored balance drilldown into `accounts view`      | `completed` | Added accounts explorer asset drilldown, preloaded explorer detail, and shared stored-snapshot asset rendering.       |
 | Phase 6: remove legacy `balance` browse surface                  | `completed` | Deleted the user-facing `balance` browse family, updated current-facing docs/help, and trimmed dead browse-only code. |
+| Phase 7: remove final internal CLI `balance` namespace           | `completed` | Moved remaining refresh/detail support under `accounts` and `shared`, then deleted the CLI `balance` feature folder.  |

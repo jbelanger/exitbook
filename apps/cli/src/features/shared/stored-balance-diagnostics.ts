@@ -7,7 +7,7 @@ export interface DateRange {
   latest: string;
 }
 
-export interface BalanceAssetDiagnosticsSummary {
+export interface StoredBalanceAssetDiagnosticsSummary {
   assetId: string;
   assetSymbol: string;
   totals: {
@@ -21,11 +21,11 @@ export interface BalanceAssetDiagnosticsSummary {
   dateRange?: DateRange | undefined;
 }
 
-export function buildBalanceAssetDiagnosticsSummary(params: {
+export function buildStoredBalanceAssetDiagnosticsSummary(params: {
   assetId: string;
   assetSymbol?: string | undefined;
   transactions: Transaction[];
-}): BalanceAssetDiagnosticsSummary {
+}): StoredBalanceAssetDiagnosticsSummary {
   let assetSymbol = params.assetSymbol;
 
   let inflowTotal = parseDecimal('0');

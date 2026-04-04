@@ -17,29 +17,23 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
 import {
-  withBalanceCommandScope as withAccountsRefreshScope,
-  type BalanceCommandScope as AccountsRefreshScope,
-} from '../../balance/command/balance-command-scope.js';
-import type {
-  AllAccountsVerificationResult,
-  SingleRefreshResult,
-} from '../../balance/command/balance-handler-types.js';
-import { BalanceRefreshCommandOptionsSchema as AccountsRefreshCommandOptionsSchema } from '../../balance/command/balance-option-schemas.js';
-import {
-  abortBalanceVerification as abortAccountsRefresh,
-  awaitBalanceVerificationStream as awaitAccountsRefreshStream,
-  loadBalanceVerificationAccounts as loadAccountsRefreshTargets,
-  runBalanceRefreshAll as runAccountsRefreshAll,
-  runBalanceRefreshSingle as runSelectedAccountsRefresh,
-  startBalanceVerificationStream as startAccountsRefreshStream,
-} from '../../balance/command/run-balance.js';
-import type { BalanceEvent } from '../../balance/view/balance-view-state.js';
-import {
   formatAccountSelectorLabel,
   getAccountSelectorErrorExitCode,
   hasAccountSelectorArgument,
   resolveRequiredOwnedAccountSelector,
 } from '../account-selector.js';
+
+import { AccountsRefreshCommandOptionsSchema } from './accounts-option-schemas.js';
+import { withAccountsRefreshScope, type AccountsRefreshScope } from './accounts-refresh-scope.js';
+import type { AccountsRefreshEvent, AllAccountsRefreshResult, SingleRefreshResult } from './accounts-refresh-types.js';
+import {
+  abortAccountsRefresh,
+  awaitAccountsRefreshStream,
+  loadAccountsRefreshTargets,
+  runAccountsRefreshAll,
+  runAccountsRefreshSingle,
+  startAccountsRefreshStream,
+} from './run-accounts-refresh.js';
 
 type AccountsRefreshCommandOptions = z.infer<typeof AccountsRefreshCommandOptionsSchema>;
 
@@ -189,7 +183,7 @@ async function runSingleAccountsRefresh(
   }
 
   onSelectedAccount?.(selection.value.account);
-  return runSelectedAccountsRefresh(scope, {
+  return runAccountsRefreshSingle(scope, {
     accountId: selection.value.account.id,
   });
 }
@@ -242,7 +236,7 @@ function buildAccountsRefreshSingleJsonCompletion(result: SingleRefreshResult): 
   });
 }
 
-function buildAccountsRefreshAllJsonCompletion(result: AllAccountsVerificationResult): CliCompletion {
+function buildAccountsRefreshAllJsonCompletion(result: AllAccountsRefreshResult): CliCompletion {
   return jsonSuccess(
     { accounts: result.accounts },
     {
@@ -266,7 +260,7 @@ async function runAccountsRefreshAllTextWorkflow(
   }
 
   const accounts = sortedResult.value;
-  const relay = new EventRelay<BalanceEvent>();
+  const relay = new EventRelay<AccountsRefreshEvent>();
   const labels = new Map(accounts.map((item) => [item.accountId, formatRefreshAccountLabel(item.account)]));
   const totals: RefreshTextProgressTotals = {
     total: accounts.length,

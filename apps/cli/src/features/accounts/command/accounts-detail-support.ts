@@ -5,15 +5,16 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
 
-import { BalanceAssetDetailsBuilder } from '../../balance/command/balance-asset-details-builder.js';
-import { sortStoredSnapshotAssets } from '../../balance/view/balance-view-utils.js';
 import {
   buildBalanceSnapshotUnreadableDetail,
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
 } from '../../shared/balance-snapshot-freshness-message.js';
+import { sortStoredBalanceAssets } from '../../shared/stored-balance-detail-utils.js';
 import { formatAccountFingerprintRef } from '../account-selector.js';
 import type { AccountDetailViewItem, AccountScopeViewItem, AccountViewItem } from '../accounts-view-model.js';
 import { maskIdentifier } from '../query/account-query-utils.js';
+
+import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
 
 interface BuildAccountDetailViewItemParams {
   accountId: number;
@@ -62,7 +63,7 @@ export async function buildAccountDetailViewItem(
       });
     }
 
-    const assetsResult = await new BalanceAssetDetailsBuilder(params.database).buildStoredSnapshotAssets(scopeAccount);
+    const assetsResult = await new AccountBalanceDetailBuilder(params.database).buildStoredSnapshotAssets(scopeAccount);
     if (assetsResult.isErr()) {
       return yield* err(assetsResult.error);
     }
@@ -77,7 +78,7 @@ export async function buildAccountDetailViewItem(
         statusReason: snapshot.statusReason,
         suggestion: snapshot.suggestion,
         lastRefreshAt: snapshot.lastRefreshAt?.toISOString(),
-        assets: sortStoredSnapshotAssets(assetsResult.value),
+        assets: sortStoredBalanceAssets(assetsResult.value),
       },
     };
   });
