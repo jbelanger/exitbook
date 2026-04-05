@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ProvidersViewCommandOptionsSchema = z.object({
+export const ProvidersBrowseCommandOptionsSchema = z.object({
   blockchain: z.string().optional(),
   health: z.enum(['healthy', 'degraded', 'unhealthy']).optional(),
   missingApiKey: z.boolean().optional(),

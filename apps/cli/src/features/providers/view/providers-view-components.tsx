@@ -14,9 +14,15 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
-import type { HealthStatus, ProviderBlockchainItem, ProviderViewItem } from '../providers-view-model.js';
+import type { ProviderBlockchainItem, ProviderViewItem } from '../providers-view-model.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
+import {
+  buildProviderHealthParts,
+  buildProvidersEmptyStateMessage,
+  buildProvidersFilterLabel,
+  getProviderHealthDisplay,
+} from './providers-view-formatters.js';
 import { formatTimeAgo } from './providers-view-formatting.js';
 import type { ProvidersViewState } from './providers-view-state.js';
 
@@ -33,34 +39,6 @@ export const CHROME_LINES = calculateChromeLines({
   controls: 1, // control hints
   buffer: 1, // bottom margin
 });
-
-// --- Color Helpers ---
-
-function getHealthIcon(status: HealthStatus): { char: string; color: string } {
-  switch (status) {
-    case 'healthy':
-      return { char: '✓', color: 'green' };
-    case 'degraded':
-      return { char: '⚠', color: 'yellow' };
-    case 'unhealthy':
-      return { char: '✗', color: 'red' };
-    case 'no-stats':
-      return { char: '·', color: 'dim' };
-  }
-}
-
-function getHealthLabel(status: HealthStatus): { color: string; text: string } {
-  switch (status) {
-    case 'healthy':
-      return { text: '✓ healthy', color: 'green' };
-    case 'degraded':
-      return { text: '⚠ degraded', color: 'yellow' };
-    case 'unhealthy':
-      return { text: '✗ unhealthy', color: 'red' };
-    case 'no-stats':
-      return { text: 'no stats', color: 'dim' };
-  }
-}
 
 function getResponseTimeColor(ms: number): string {
   if (ms < 200) return 'green';
@@ -116,17 +94,8 @@ export const ProvidersViewApp: FC<{
 const ProvidersHeader: FC<{ state: ProvidersViewState }> = ({ state }) => {
   const { healthCounts, totalCount, apiKeyRequiredCount, blockchainFilter, healthFilter, missingApiKeyFilter } = state;
 
-  let filterLabel = '';
-  if (blockchainFilter) filterLabel = ` (${blockchainFilter})`;
-  else if (healthFilter) filterLabel = ` (${healthFilter})`;
-  else if (missingApiKeyFilter) filterLabel = ' (missing API key)';
-
-  // Build health count parts (only show categories with count > 0)
-  const healthParts: { color: string; count: number; label: string }[] = [];
-  if (healthCounts.healthy > 0) healthParts.push({ count: healthCounts.healthy, label: 'healthy', color: 'green' });
-  if (healthCounts.degraded > 0) healthParts.push({ count: healthCounts.degraded, label: 'degraded', color: 'yellow' });
-  if (healthCounts.unhealthy > 0) healthParts.push({ count: healthCounts.unhealthy, label: 'unhealthy', color: 'red' });
-  if (healthCounts.noStats > 0) healthParts.push({ count: healthCounts.noStats, label: 'no stats', color: 'dim' });
+  const filterLabel = buildProvidersFilterLabel({ blockchainFilter, healthFilter, missingApiKeyFilter });
+  const healthParts = buildProviderHealthParts(healthCounts);
 
   return (
     <Box>
@@ -227,7 +196,7 @@ const ProviderRow: FC<{
   isSelected: boolean;
   item: ProviderViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const icon = getHealthIcon(item.healthStatus);
+  const health = getProviderHealthDisplay(item.healthStatus);
   const { displayName, chains, avgResponse, errorRate, totalReqs } = columns.format(item);
 
   const hasStats = item.stats !== undefined;
@@ -241,7 +210,7 @@ const ProviderRow: FC<{
         dimWhenUnselected
         isSelected={isSelected}
       >
-        {icon.char} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
+        {health.icon} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
         {environmentConfigurationStatus ? `   ${environmentConfigurationStatus.text}` : ''}
       </SelectableRow>
     );
@@ -250,7 +219,7 @@ const ProviderRow: FC<{
   // Normal row: use pre-formatted strings for alignment, apply colors to content
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={icon.color}>{icon.char}</Text> {displayName} {chains}{' '}
+      <Text color={health.color}>{health.icon}</Text> {displayName} {chains}{' '}
       {hasStats ? (
         <Text color={getResponseTimeColor(item.stats!.avgResponseTime)}>{avgResponse}</Text>
       ) : (
@@ -299,7 +268,7 @@ const ProviderDetailPanel: FC<{ state: ProvidersViewState }> = ({ state }) => {
 
 function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
   const hasStats = selected.stats !== undefined;
-  const healthLabel = getHealthLabel(selected.healthStatus);
+  const health = getProviderHealthDisplay(selected.healthStatus);
   const chainLabel = selected.chainCount === 1 ? 'chain' : 'chains';
 
   // Limit blockchains shown to prevent layout overflow
@@ -318,10 +287,10 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
           <Text>{selected.stats!.totalRequests.toLocaleString()}</Text>
           <Text dimColor> total requests</Text>
           <Text dimColor> · </Text>
-          {healthLabel.color === 'dim' ? (
-            <Text dimColor>{healthLabel.text}</Text>
+          {health.color === 'dim' ? (
+            <Text dimColor>{health.label}</Text>
           ) : (
-            <Text color={healthLabel.color}>{healthLabel.text}</Text>
+            <Text color={health.color}>{health.label}</Text>
           )}
         </>
       ) : (
@@ -473,28 +442,21 @@ const ControlsBar: FC = () => {
 };
 
 const ProvidersEmptyState: FC<{ state: ProvidersViewState }> = ({ state }) => {
-  const { blockchainFilter, healthFilter, totalCount } = state;
-
-  const hasFilter = blockchainFilter || healthFilter || state.missingApiKeyFilter;
+  const emptyMessage = buildProvidersEmptyStateMessage({
+    blockchainFilter: state.blockchainFilter,
+    healthFilter: state.healthFilter,
+    missingApiKeyFilter: state.missingApiKeyFilter,
+  });
 
   return (
     <Box flexDirection="column">
       <Text> </Text>
       <ProvidersHeader state={state} />
       <Text> </Text>
-      {!hasFilter && totalCount === 0 ? (
-        <Box flexDirection="column">
-          <Text>{'  '}No providers registered.</Text>
-          <Text> </Text>
-          <Text>{'  '}This likely means provider registration failed.</Text>
-          <Text dimColor>{'  '}Run: pnpm blockchain-providers:validate</Text>
-        </Box>
-      ) : (
-        <Text>
-          {'  '}No providers found{blockchainFilter ? ` for ${blockchainFilter}` : ''}
-          {healthFilter ? ` with status ${healthFilter}` : ''}.
-        </Text>
-      )}
+      <Text>
+        {'  '}
+        {emptyMessage}
+      </Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>

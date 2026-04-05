@@ -67,19 +67,41 @@ export function computeHealthCounts(items: ProviderViewItem[]): ProvidersViewSta
 export function createProvidersViewState(
   providers: ProviderViewItem[],
   filters: ProvidersViewFilters,
-  healthCounts?: ProvidersViewState['healthCounts']
+  healthCounts?: ProvidersViewState['healthCounts'],
+  initialSelectedIndex?: number
 ): ProvidersViewState {
   const apiKeyRequiredCount = providers.filter((p) => p.requiresApiKey).length;
+  const selectedIndex = clampSelectedIndex(initialSelectedIndex, providers.length);
 
   return {
     providers,
     healthCounts: healthCounts ?? computeHealthCounts(providers),
     totalCount: providers.length,
     apiKeyRequiredCount,
-    selectedIndex: 0,
-    scrollOffset: 0,
+    selectedIndex,
+    scrollOffset: selectedIndex > 0 ? selectedIndex : 0,
     blockchainFilter: filters.blockchainFilter,
     healthFilter: filters.healthFilter,
     missingApiKeyFilter: filters.missingApiKeyFilter,
   };
+}
+
+function clampSelectedIndex(selectedIndex: number | undefined, itemCount: number): number {
+  if (itemCount === 0) {
+    return 0;
+  }
+
+  if (selectedIndex === undefined || !Number.isFinite(selectedIndex)) {
+    return 0;
+  }
+
+  if (selectedIndex < 0) {
+    return 0;
+  }
+
+  if (selectedIndex >= itemCount) {
+    return itemCount - 1;
+  }
+
+  return selectedIndex;
 }
