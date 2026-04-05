@@ -23,6 +23,7 @@ export interface AccountsRefreshProgressItem {
   matchCount: number;
   warningCount: number;
   mismatchCount: number;
+  partialCoverageCount: number;
   skipReason?: string | undefined;
   errorMessage?: string | undefined;
   comparisons?: AssetComparisonItem[] | undefined;
@@ -82,10 +83,13 @@ export interface RefreshAccountJsonResult {
 export interface AllAccountsRefreshResult {
   accounts: RefreshAccountJsonResult[];
   totals: {
+    errors: number;
     matches: number;
     mismatches: number;
+    partialCoverageScopes: number;
     skipped: number;
     total: number;
     verified: number;
+    warnings: number;
   };
 }

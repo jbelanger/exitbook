@@ -9,18 +9,21 @@ import type { AccountsRefreshEvent } from '../accounts-refresh-types.js';
 
 const {
   mockAwaitAccountsRefreshStream,
+  mockAbortAccountsRefresh,
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
   mockGetByName,
   mockLoadAccountsRefreshTargets,
   mockOutputSuccess,
+  mockRunAccountsRefreshAll,
   mockRunAccountsRefreshSingle,
   mockRunCommand,
   mockStartAccountsRefreshStream,
   mockWithAccountsRefreshScope,
 } = vi.hoisted(() => ({
   mockAwaitAccountsRefreshStream: vi.fn(),
+  mockAbortAccountsRefresh: vi.fn(),
   mockCtx: {
     closeDatabase: vi.fn(),
     database: vi.fn(),
@@ -31,6 +34,7 @@ const {
   mockGetByName: vi.fn(),
   mockLoadAccountsRefreshTargets: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockRunAccountsRefreshAll: vi.fn(),
   mockRunAccountsRefreshSingle: vi.fn(),
   mockRunCommand: vi.fn(),
   mockStartAccountsRefreshStream: vi.fn(),
@@ -54,10 +58,10 @@ vi.mock('../accounts-refresh-scope.js', () => ({
 }));
 
 vi.mock('../run-accounts-refresh.js', () => ({
-  abortAccountsRefresh: vi.fn(),
+  abortAccountsRefresh: mockAbortAccountsRefresh,
   awaitAccountsRefreshStream: mockAwaitAccountsRefreshStream,
   loadAccountsRefreshTargets: mockLoadAccountsRefreshTargets,
-  runAccountsRefreshAll: vi.fn(),
+  runAccountsRefreshAll: mockRunAccountsRefreshAll,
   runAccountsRefreshSingle: mockRunAccountsRefreshSingle,
   startAccountsRefreshStream: mockStartAccountsRefreshStream,
 }));
@@ -144,7 +148,7 @@ function createVerificationResult(
       matches: 1,
       mismatches: 0,
       warnings: 0,
-      totalAssets: 1,
+      totalCurrencies: 1,
       ...summary,
     },
     coverage: createVerificationCoverage(coverage),
@@ -233,7 +237,7 @@ beforeEach(() => {
   );
   mockGetByName.mockResolvedValue(ok(undefined));
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
-  mockAwaitAccountsRefreshStream.mockResolvedValue(undefined);
+  mockAwaitAccountsRefreshStream.mockResolvedValue('completed');
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -446,6 +450,7 @@ describe('accounts refresh command', () => {
           matchCount: 1,
           mismatchCount: 0,
           warningCount: 0,
+          partialCoverageCount: 0,
         },
       });
       relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
@@ -464,6 +469,98 @@ describe('accounts refresh command', () => {
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refreshing balances for 1 account'));
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('kraken (kraken): success'));
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh complete: 1 total'));
+    consoleLog.mockRestore();
+  });
+
+  it('outputs split all-account totals in JSON metadata', async () => {
+    const program = createAccountsCommand();
+
+    mockRunAccountsRefreshAll.mockResolvedValue(
+      ok({
+        accounts: [
+          {
+            accountId: 21,
+            platformKey: 'kraken',
+            accountType: 'exchange-api',
+            status: 'warning',
+          },
+        ],
+        totals: {
+          total: 1,
+          verified: 1,
+          skipped: 0,
+          errors: 0,
+          matches: 3,
+          mismatches: 1,
+          warnings: 2,
+          partialCoverageScopes: 1,
+        },
+      })
+    );
+
+    await program.parseAsync(['accounts', 'refresh', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'accounts-refresh',
+      {
+        accounts: [
+          {
+            accountId: 21,
+            platformKey: 'kraken',
+            accountType: 'exchange-api',
+            status: 'warning',
+          },
+        ],
+      },
+      expect.objectContaining({
+        totalAccounts: 1,
+        verified: 1,
+        skipped: 0,
+        errors: 0,
+        matches: 3,
+        mismatches: 1,
+        warnings: 2,
+        partialCoverageScopes: 1,
+      })
+    );
+  });
+
+  it('prints an aborted footer instead of a success footer when refresh is cancelled', async () => {
+    const program = createAccountsCommand();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const processExit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('EXIT:9');
+    }) as never);
+
+    mockLoadAccountsRefreshTargets.mockResolvedValue(
+      ok([
+        {
+          account: createAccount({
+            id: 21,
+            identifier: 'kraken-root',
+            accountType: 'exchange-api',
+            name: 'kraken',
+            platformKey: 'kraken',
+          }),
+          accountId: 21,
+          platformKey: 'kraken',
+          accountType: 'exchange-api',
+          skipReason: undefined,
+        },
+      ])
+    );
+    mockStartAccountsRefreshStream.mockImplementation((_scope, _accounts, relay: EventRelay<AccountsRefreshEvent>) => {
+      relay.push({ type: 'VERIFICATION_STARTED', accountId: 21 });
+      relay.push({ type: 'ABORTING' });
+    });
+    mockAwaitAccountsRefreshStream.mockResolvedValue('aborted');
+
+    await expect(program.parseAsync(['accounts', 'refresh'], { from: 'user' })).rejects.toThrow('EXIT:9');
+
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Aborting refresh...'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh aborted: 1 total'));
+    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('Refresh complete:'));
+    processExit.mockRestore();
     consoleLog.mockRestore();
   });
 });

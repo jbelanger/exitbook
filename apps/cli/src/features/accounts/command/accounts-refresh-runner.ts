@@ -35,7 +35,7 @@ export class AccountsRefreshRunner {
   private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   private readonly detailBuilder: AccountBalanceDetailBuilder;
   private readonly balanceWorkflow: BalanceWorkflow | undefined;
-  private streamPromise: Promise<void> | undefined;
+  private streamPromise: Promise<'aborted' | 'completed'> | undefined;
 
   constructor(deps: AccountsRefreshRunnerDeps) {
     this.accountService = deps.accountService;
@@ -47,8 +47,12 @@ export class AccountsRefreshRunner {
     this.abortController?.abort();
   }
 
-  async awaitStream(): Promise<void> {
-    await this.streamPromise;
+  async awaitStream(): Promise<'aborted' | 'completed'> {
+    if (!this.streamPromise) {
+      return 'completed';
+    }
+
+    return await this.streamPromise;
   }
 
   async loadAccountsForRefresh(profileId: number): Promise<Result<SortedRefreshAccount[], Error>> {
@@ -146,10 +150,13 @@ export class AccountsRefreshRunner {
       );
 
       const accountResults = [];
+      let errors = 0;
       let verified = 0;
       let skipped = 0;
       let matchTotal = 0;
       let mismatchTotal = 0;
+      let partialCoverageScopeTotal = 0;
+      let warningTotal = 0;
 
       for (const item of sorted) {
         const account = item.account;
@@ -169,6 +176,7 @@ export class AccountsRefreshRunner {
 
         const result = await workflow.refreshVerification({ accountId: account.id, credentials });
         if (result.isErr()) {
+          errors++;
           accountResults.push({
             accountId: account.id,
             platformKey: account.platformKey,
@@ -181,10 +189,13 @@ export class AccountsRefreshRunner {
 
         const verificationResult = result.value;
         matchTotal += verificationResult.summary.matches;
-        mismatchTotal +=
-          verificationResult.summary.mismatches +
-          verificationResult.summary.warnings +
-          (verificationResult.coverage.status === 'partial' ? 1 : 0);
+        mismatchTotal += verificationResult.summary.mismatches;
+        warningTotal += Math.max(
+          verificationResult.summary.warnings,
+          verificationResult.warnings?.length ?? 0,
+          verificationResult.status === 'warning' ? 1 : 0
+        );
+        partialCoverageScopeTotal += verificationResult.coverage.status === 'partial' ? 1 : 0;
 
         let comparisons;
         if (verificationResult.mode !== 'calculated-only') {
@@ -193,6 +204,7 @@ export class AccountsRefreshRunner {
             verificationResult
           );
           if (comparisonsResult.isErr()) {
+            errors++;
             accountResults.push({
               accountId: account.id,
               platformKey: account.platformKey,
@@ -224,11 +236,14 @@ export class AccountsRefreshRunner {
       return ok({
         accounts: accountResults,
         totals: {
+          errors,
           total: accounts.length,
           verified,
           skipped,
           matches: matchTotal,
           mismatches: mismatchTotal,
+          warnings: warningTotal,
+          partialCoverageScopes: partialCoverageScopeTotal,
         },
       });
     } catch (error) {
@@ -237,23 +252,41 @@ export class AccountsRefreshRunner {
   }
 
   startStream(accounts: SortedRefreshAccount[], relay: EventRelay<AccountsRefreshEvent>): void {
-    this.streamPromise = this.runStream(accounts, relay).catch((error) => {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      logger.error({ error }, 'Refresh loop error');
-    });
+    this.streamPromise = this.runStream(accounts, relay)
+      .then(() => 'completed' as const)
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return 'aborted' as const;
+        }
+
+        logger.error({ error }, 'Refresh loop error');
+        throw error;
+      });
   }
 
   private async runStream(accounts: SortedRefreshAccount[], relay: EventRelay<AccountsRefreshEvent>): Promise<void> {
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
     const workflow = this.requireBalanceWorkflow();
+    let abortNotified = false;
+
+    const throwIfAborted = () => {
+      if (!signal.aborted) {
+        return;
+      }
+
+      if (!abortNotified) {
+        relay.push({ type: 'ABORTING' });
+        abortNotified = true;
+      }
+
+      const error = new Error('Verification aborted');
+      error.name = 'AbortError';
+      throw error;
+    };
 
     for (const item of accounts) {
-      if (signal.aborted) {
-        const error = new Error('Verification aborted');
-        error.name = 'AbortError';
-        throw error;
-      }
+      throwIfAborted();
 
       if (item.skipReason) {
         continue;
@@ -270,11 +303,7 @@ export class AccountsRefreshRunner {
           continue;
         }
 
-        if (signal.aborted) {
-          const error = new Error('Verification aborted');
-          error.name = 'AbortError';
-          throw error;
-        }
+        throwIfAborted();
 
         const verificationResult = result.value;
         let verificationItem;
@@ -300,7 +329,12 @@ export class AccountsRefreshRunner {
             assetCount: storedSnapshotAssetsResult.value.length,
             matchCount: 0,
             mismatchCount: 0,
-            warningCount: Math.max(1, verificationResult.warnings?.length ?? 0),
+            warningCount: Math.max(
+              verificationResult.summary.warnings,
+              verificationResult.warnings?.length ?? 0,
+              verificationResult.status === 'warning' ? 1 : 0
+            ),
+            partialCoverageCount: verificationResult.coverage.status === 'partial' ? 1 : 0,
             warnings: verificationResult.warnings,
             comparisons: undefined,
           };
@@ -318,11 +352,7 @@ export class AccountsRefreshRunner {
             continue;
           }
 
-          if (signal.aborted) {
-            const error = new Error('Verification aborted');
-            error.name = 'AbortError';
-            throw error;
-          }
+          throwIfAborted();
 
           const comparisons = comparisonsResult.value;
           verificationItem = {
@@ -333,9 +363,8 @@ export class AccountsRefreshRunner {
             assetCount: comparisons.length,
             matchCount: comparisons.filter((comparison) => comparison.status === 'match').length,
             mismatchCount: comparisons.filter((comparison) => comparison.status === 'mismatch').length,
-            warningCount:
-              comparisons.filter((comparison) => comparison.status === 'warning').length +
-              (verificationResult.coverage.status === 'partial' ? 1 : 0),
+            warningCount: comparisons.filter((comparison) => comparison.status === 'warning').length,
+            partialCoverageCount: verificationResult.coverage.status === 'partial' ? 1 : 0,
             warnings: verificationResult.warnings,
             comparisons,
           };
@@ -343,7 +372,10 @@ export class AccountsRefreshRunner {
 
         relay.push({ type: 'VERIFICATION_COMPLETED', accountId: item.accountId, result: verificationItem });
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') throw error;
+        if (error instanceof Error && error.name === 'AbortError') {
+          throwIfAborted();
+        }
+
         relay.push({
           type: 'VERIFICATION_ERROR',
           accountId: item.accountId,

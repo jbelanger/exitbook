@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import type { CliResponse } from '../../cli/response.js';
 
+import type { AccountsBrowseCommandResult, AccountsBrowseItem } from './e2e-test-types.js';
+
 /**
  * Paths for e2e testing
  */
@@ -84,6 +86,32 @@ export function executeCLI(args: string[]): CliResponse<unknown> {
     }
     throw error;
   }
+}
+
+export function loadAccountsBrowseItems(params: {
+  accountType?: string | undefined;
+  platformKey: string;
+}): AccountsBrowseItem[] {
+  const args = ['accounts', '--platform', params.platformKey];
+  if (params.accountType) {
+    args.push('--type', params.accountType);
+  }
+
+  const response = executeCLI(args);
+  if (!response.success) {
+    throw new Error(`Failed to load accounts for ${params.platformKey}: ${response.error?.message ?? 'unknown error'}`);
+  }
+
+  const result = response.data as AccountsBrowseCommandResult | undefined;
+  if (!result || !Array.isArray(result.data)) {
+    throw new Error(`Accounts browse response for ${params.platformKey} was not list-shaped JSON`);
+  }
+
+  return result.data;
+}
+
+export function toAccountsRefreshSelector(account: Pick<AccountsBrowseItem, 'accountFingerprint' | 'name'>): string {
+  return account.name ?? account.accountFingerprint.slice(0, 8);
 }
 
 /**

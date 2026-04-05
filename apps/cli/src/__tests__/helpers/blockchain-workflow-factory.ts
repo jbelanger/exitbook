@@ -1,7 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { BalanceCommandResult, ImportCommandResult, ReprocessCommandResult } from './e2e-test-types.js';
-import { canBindUnixSocket, cleanupTestDatabase, executeCLI } from './e2e-test-utils.js';
+import type {
+  AccountsRefreshCommandResult,
+  AccountsRefreshVerificationBalance,
+  ImportCommandResult,
+  ReprocessCommandResult,
+} from './e2e-test-types.js';
+import {
+  canBindUnixSocket,
+  cleanupTestDatabase,
+  executeCLI,
+  loadAccountsBrowseItems,
+  toAccountsRefreshSelector,
+} from './e2e-test-utils.js';
 
 interface BlockchainTestCase {
   /**
@@ -154,51 +165,41 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           console.log('\nStep 3: Verifying balance...');
 
           // Fetch the imported account id dynamically
-          const accountsResult = executeCLI(['accounts', 'view', '--source', blockchain, '--json']);
-          expect(accountsResult.success).toBe(true);
-
-          // Type assertion needed because CLI response has deeply nested structure
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- acceptable for tests
-          const accounts = ((accountsResult.data as any)?.data?.accounts ?? []) as {
-            accountType: string;
-            id: number;
-            identifier: string;
-            name?: string;
-            platformKey: string;
-          }[];
+          const accounts = loadAccountsBrowseItems({
+            accountType: 'blockchain',
+            platformKey: blockchain,
+          });
           expect(accounts.length).toBeGreaterThan(0);
 
           // Find the account matching this address
           const account = accounts.find((acc) => acc.identifier === address);
           expect(account).toBeDefined();
-          const accountName = account?.name;
-          expect(accountName).toBeTruthy();
 
-          const balanceArgs = ['accounts', 'refresh', String(accountName)];
+          const refreshResult = executeCLI(['accounts', 'refresh', toAccountsRefreshSelector(account!)]);
 
-          const balanceResult = executeCLI(balanceArgs);
+          expect(refreshResult.success).toBe(true);
+          expect(refreshResult.command).toBe('accounts-refresh');
 
-          expect(balanceResult.success).toBe(true);
-          expect(balanceResult.command).toBe('accounts');
+          const refreshData = refreshResult.data as AccountsRefreshCommandResult;
+          expect(refreshData).toBeDefined();
+          expect(refreshData.mode).toBe('verification');
+          expect(refreshData.status).toBeDefined();
+          expect(refreshData.summary).toBeDefined();
+          expect(refreshData.balances).toBeInstanceOf(Array);
+          const comparisons = refreshData.balances as AccountsRefreshVerificationBalance[];
 
-          const balanceData = balanceResult.data as BalanceCommandResult;
-          expect(balanceData).toBeDefined();
-          expect(balanceData.status).toBeDefined();
-          expect(balanceData.summary).toBeDefined();
-          expect(balanceData.balances).toBeInstanceOf(Array);
-
-          console.log(`\nBalance verification: ${balanceData.status.toUpperCase()}`);
-          console.log(`  Total currencies: ${balanceData.summary.totalCurrencies}`);
-          console.log(`  Matches: ${balanceData.summary.matches}`);
-          console.log(`  Warnings: ${balanceData.summary.warnings}`);
-          console.log(`  Mismatches: ${balanceData.summary.mismatches}`);
+          console.log(`\nBalance verification: ${refreshData.status.toUpperCase()}`);
+          console.log(`  Total assets: ${refreshData.summary.totalCurrencies}`);
+          console.log(`  Matches: ${refreshData.summary.matches}`);
+          console.log(`  Warnings: ${refreshData.summary.warnings}`);
+          console.log(`  Mismatches: ${refreshData.summary.mismatches}`);
 
           // Show sample comparisons
-          if (balanceData.balances.length > 0) {
+          if (comparisons.length > 0) {
             console.log('\nSample comparisons:');
-            balanceData.balances.slice(0, 5).forEach((comp) => {
+            comparisons.slice(0, 5).forEach((comp) => {
               const statusIcon = comp.status === 'match' ? '✓' : comp.status === 'warning' ? '⚠' : '✗';
-              console.log(`  ${statusIcon} ${comp.currency}:`);
+              console.log(`  ${statusIcon} ${comp.assetSymbol}:`);
               console.log(`    Live:       ${comp.liveBalance}`);
               console.log(`    Calculated: ${comp.calculatedBalance}`);
               if (comp.status !== 'match') {
@@ -207,16 +208,16 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
             });
           }
 
-          if (balanceData.suggestion) {
-            console.log(`\nSuggestion: ${balanceData.suggestion}`);
+          if (refreshData.suggestion) {
+            console.log(`\nSuggestion: ${refreshData.suggestion}`);
           }
 
           // Assertions on balance verification
-          expect(['success', 'warning']).toContain(balanceData.status);
-          expect(balanceData.summary.totalCurrencies).toBeGreaterThan(0);
+          expect(['success', 'warning']).toContain(refreshData.status);
+          expect(refreshData.summary.totalCurrencies).toBeGreaterThan(0);
 
           // Verify minimum match rate (blockchain imports typically have exact matches)
-          const matchRate = balanceData.summary.matches / balanceData.summary.totalCurrencies;
+          const matchRate = refreshData.summary.matches / refreshData.summary.totalCurrencies;
           expect(matchRate).toBeGreaterThan(minMatchRate);
         },
         workflowTimeout
@@ -288,7 +289,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
         return;
       }
       console.log('\nLive blockchain workflow tests are disabled.');
-      console.log('Set LIVE_TESTS=1 to enable import/process/balance workflows.');
+      console.log('Set LIVE_TESTS=1 to enable import/process/accounts refresh workflows.');
     });
   });
 }

@@ -44,16 +44,46 @@ export interface ReprocessCommandResult {
   };
 }
 
-export interface BalanceCommandResult {
-  status: 'success' | 'warning' | 'error';
-  balances: {
-    calculatedBalance: string;
-    currency: string;
-    difference: string;
-    liveBalance: string;
-    percentageDiff: number;
-    status: 'match' | 'warning' | 'mismatch';
-  }[];
+export interface AccountsBrowseItem {
+  accountFingerprint: string;
+  accountType: string;
+  id: number;
+  identifier: string;
+  name?: string | undefined;
+  platformKey: string;
+}
+
+export interface AccountsBrowseCommandResult {
+  data: AccountsBrowseItem[];
+  meta: {
+    count: number;
+    filters?: Record<string, unknown> | undefined;
+    hasMore: boolean;
+    limit: number;
+    offset: number;
+  };
+}
+
+export interface AccountsRefreshVerificationBalance {
+  assetId: string;
+  assetSymbol: string;
+  calculatedBalance: string;
+  difference: string;
+  liveBalance: string;
+  percentageDiff: number;
+  status: 'match' | 'warning' | 'mismatch';
+}
+
+export interface AccountsRefreshCalculatedBalance {
+  assetId: string;
+  assetSymbol: string;
+  calculatedBalance: string;
+}
+
+export interface AccountsRefreshCommandResult {
+  mode: 'verification' | 'calculated-only';
+  status: 'success' | 'warning' | 'failed';
+  balances: (AccountsRefreshCalculatedBalance | AccountsRefreshVerificationBalance)[];
   summary: {
     matches: number;
     mismatches: number;
@@ -74,6 +104,13 @@ export interface BalanceCommandResult {
   };
   meta: {
     timestamp: string;
+  };
+  requestedAccount?: {
+    id: number;
+    identifier: string | null;
+    platformKey: string;
+    providerName: string | null;
+    type: string;
   };
   suggestion?: string | undefined;
   warnings?: string[] | undefined;

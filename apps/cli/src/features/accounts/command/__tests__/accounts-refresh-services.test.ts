@@ -4,8 +4,10 @@ import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { EventRelay } from '../../../../ui/shared/event-relay.js';
 import { AccountBalanceDetailBuilder } from '../account-balance-detail-builder.js';
 import { AccountsRefreshRunner } from '../accounts-refresh-runner.js';
+import type { AccountsRefreshEvent } from '../accounts-refresh-types.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   const profileId = overrides.profileId ?? 1;
@@ -35,6 +37,7 @@ function createAccount(overrides: Partial<Account> = {}): Account {
 function createMockDb(params: {
   accounts: Account[];
   childAccountError?: Error;
+  snapshotAssetError?: Error;
   snapshotAssets: BalanceSnapshotAsset[];
   transactionError?: Error;
 }) {
@@ -59,15 +62,17 @@ function createMockDb(params: {
       findByIdOptional: vi.fn().mockImplementation(async (accountId: number) => ok(accountsById.get(accountId))),
     },
     balanceSnapshots: {
-      findAssetsByScope: vi
-        .fn()
-        .mockImplementation(async (scopeAccountIds?: number[]) =>
-          ok(
-            scopeAccountIds
-              ? params.snapshotAssets.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
-              : params.snapshotAssets
-          )
-        ),
+      findAssetsByScope: vi.fn().mockImplementation(async (scopeAccountIds?: number[]) => {
+        if (params.snapshotAssetError) {
+          return err(params.snapshotAssetError);
+        }
+
+        return ok(
+          scopeAccountIds
+            ? params.snapshotAssets.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
+            : params.snapshotAssets
+        );
+      }),
     },
     transactions: {
       findAll: vi.fn().mockResolvedValue(params.transactionError ? err(params.transactionError) : ok([])),
@@ -138,6 +143,24 @@ describe('AccountsRefreshRunner.refreshSingleScope', () => {
   });
 });
 
+describe('AccountBalanceDetailBuilder.buildStoredSnapshotAssets', () => {
+  it('propagates stored snapshot asset repository failures instead of returning an empty list', async () => {
+    const account = createAccount({ id: 13, identifier: 'bc1detail' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshotAssetError: new Error('snapshot repository unavailable'),
+      snapshotAssets: [],
+    });
+    const detailBuilder = new AccountBalanceDetailBuilder(mockDb as unknown as DataSession);
+
+    const result = await detailBuilder.buildStoredSnapshotAssets(account);
+    const error = assertErr(result);
+
+    expect(error.message).toContain('Failed to load stored balance snapshot assets for account #13');
+    expect(error.message).toContain('snapshot repository unavailable');
+  });
+});
+
 describe('AccountsRefreshRunner.refreshAllScopes', () => {
   it('counts calculated-only warning results as verified totals', async () => {
     const account = createAccount({ id: 74, platformKey: 'lukso', identifier: '0xlukso' });
@@ -182,15 +205,93 @@ describe('AccountsRefreshRunner.refreshAllScopes', () => {
     const value = assertOk(result);
 
     expect(value.totals).toMatchObject({
+      errors: 0,
       total: 1,
       verified: 1,
       skipped: 0,
       matches: 0,
-      mismatches: 1,
+      mismatches: 0,
+      warnings: 1,
+      partialCoverageScopes: 1,
     });
     expect(value.accounts[0]).toMatchObject({
       accountId: account.id,
       status: 'warning',
     });
+  });
+});
+
+describe('AccountsRefreshRunner.startStream', () => {
+  it('surfaces aborted streams and emits an abort event instead of completing successfully', async () => {
+    let resolveVerification: ((value: unknown) => void) | undefined;
+    const account = createAccount({ id: 31, identifier: 'bc1abort' });
+    const mockDb = createMockDb({
+      accounts: [account],
+      snapshotAssets: [],
+    });
+    const balanceWorkflow = {
+      refreshVerification: vi.fn().mockImplementation(
+        async () =>
+          await new Promise((resolve) => {
+            resolveVerification = resolve;
+          })
+      ),
+    };
+    const { refreshRunner } = createRefreshServices(mockDb, balanceWorkflow, mockDb.accountService);
+    const relay = new EventRelay<AccountsRefreshEvent>();
+    const events: AccountsRefreshEvent[] = [];
+    relay.connect((event) => {
+      events.push(event);
+    });
+
+    refreshRunner.startStream(
+      [
+        {
+          account,
+          accountId: account.id,
+          platformKey: account.platformKey,
+          accountType: account.accountType,
+          skipReason: undefined,
+        },
+      ],
+      relay
+    );
+
+    refreshRunner.abort();
+    resolveVerification?.(
+      ok({
+        account,
+        mode: 'verification',
+        timestamp: Date.now(),
+        status: 'success',
+        comparisons: [],
+        coverage: {
+          status: 'complete',
+          confidence: 'high',
+          requestedAddresses: 1,
+          successfulAddresses: 1,
+          failedAddresses: 0,
+          totalAssets: 0,
+          parsedAssets: 0,
+          failedAssets: 0,
+          overallCoverageRatio: 1,
+        },
+        summary: {
+          matches: 0,
+          mismatches: 0,
+          warnings: 0,
+          totalCurrencies: 0,
+        },
+        suggestion: 'Balances match',
+        partialFailures: undefined,
+        warnings: undefined,
+      })
+    );
+
+    const status = await refreshRunner.awaitStream();
+
+    expect(status).toBe('aborted');
+    expect(events).toContainEqual({ type: 'ABORTING' });
+    expect(events).not.toContainEqual({ type: 'ALL_VERIFICATIONS_COMPLETE' });
   });
 });

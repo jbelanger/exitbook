@@ -3,7 +3,6 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
 import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
-import { getLogger } from '@exitbook/logger';
 
 import {
   buildStoredBalanceAssetDiagnostics,
@@ -15,13 +14,16 @@ import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-vie
 import type { AssetComparisonItem } from './accounts-refresh-types.js';
 import { sortAssetComparisonsByStatus } from './accounts-refresh-utils.js';
 
-const logger = getLogger('AccountBalanceDetailBuilder');
-
 export class AccountBalanceDetailBuilder {
   constructor(private readonly db: DataSession) {}
 
   async buildStoredSnapshotAssets(scopeAccount: Account): Promise<Result<StoredBalanceAssetViewItem[], Error>> {
-    const snapshotAssets = await this.loadStoredSnapshotAssets(scopeAccount.id);
+    const snapshotAssetsResult = await this.loadStoredSnapshotAssets(scopeAccount.id);
+    if (snapshotAssetsResult.isErr()) {
+      return err(snapshotAssetsResult.error);
+    }
+
+    const snapshotAssets = snapshotAssetsResult.value;
     if (snapshotAssets.length === 0) {
       return ok([]);
     }
@@ -142,16 +144,16 @@ export class AccountBalanceDetailBuilder {
     return buildStoredBalanceAssetDiagnostics(diagnosticsSummary, balances);
   }
 
-  private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<BalanceSnapshotAsset[]> {
+  private async loadStoredSnapshotAssets(scopeAccountId: number): Promise<Result<BalanceSnapshotAsset[], Error>> {
     const assetsResult = await this.db.balanceSnapshots.findAssetsByScope([scopeAccountId]);
     if (assetsResult.isErr()) {
-      logger.warn(
-        { scopeAccountId, error: assetsResult.error },
-        'Failed to load stored balance snapshot assets for CLI account detail'
+      return err(
+        new Error(
+          `Failed to load stored balance snapshot assets for account #${scopeAccountId}: ${assetsResult.error.message}`
+        )
       );
-      return [];
     }
 
-    return assetsResult.value;
+    return ok(assetsResult.value);
   }
 }

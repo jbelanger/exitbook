@@ -42,8 +42,8 @@ export function startAccountsRefreshStream(
   scope.refreshRunner.startStream(accounts, relay);
 }
 
-export async function awaitAccountsRefreshStream(scope: AccountsRefreshScope): Promise<void> {
-  await scope.refreshRunner.awaitStream();
+export async function awaitAccountsRefreshStream(scope: AccountsRefreshScope): Promise<'aborted' | 'completed'> {
+  return await scope.refreshRunner.awaitStream();
 }
 
 export function abortAccountsRefresh(scope: AccountsRefreshScope): void {

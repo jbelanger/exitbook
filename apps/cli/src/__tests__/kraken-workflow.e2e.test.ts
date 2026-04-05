@@ -12,6 +12,12 @@ createExchangeWorkflowTests({
   name: 'kraken',
   displayName: 'Kraken',
   requiredEnvVars: ['KRAKEN_API_KEY', 'KRAKEN_SECRET'],
+  importCredentialArgs: (envVars) => [
+    '--api-key',
+    envVars['KRAKEN_API_KEY']!,
+    '--api-secret',
+    envVars['KRAKEN_SECRET']!,
+  ],
   minMatchRate: 0.8,
   workflowTimeout: 300000,
   combinedWorkflowTimeout: 120000,

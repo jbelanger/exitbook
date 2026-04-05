@@ -5,6 +5,7 @@ import type { z } from 'zod';
 
 import {
   cliErr,
+  ExitCodes,
   jsonSuccess,
   runCliRuntimeCommand,
   silentSuccess,
@@ -50,9 +51,11 @@ interface RefreshTextProgressTotals {
   errors: number;
   matches: number;
   mismatches: number;
+  partialCoverageScopes: number;
   skipped: number;
   total: number;
   verified: number;
+  warnings: number;
 }
 
 export function buildAccountsRefreshHelpText(): string {
@@ -243,8 +246,11 @@ function buildAccountsRefreshAllJsonCompletion(result: AllAccountsRefreshResult)
       totalAccounts: result.totals.total,
       verified: result.totals.verified,
       skipped: result.totals.skipped,
+      errors: result.totals.errors,
       matches: result.totals.matches,
       mismatches: result.totals.mismatches,
+      warnings: result.totals.warnings,
+      partialCoverageScopes: result.totals.partialCoverageScopes,
       timestamp: new Date().toISOString(),
     }
   );
@@ -268,6 +274,8 @@ async function runAccountsRefreshAllTextWorkflow(
     verified: 0,
     matches: 0,
     mismatches: 0,
+    warnings: 0,
+    partialCoverageScopes: 0,
     errors: 0,
   };
 
@@ -290,7 +298,9 @@ async function runAccountsRefreshAllTextWorkflow(
       case 'VERIFICATION_COMPLETED':
         totals.verified += 1;
         totals.matches += event.result.matchCount;
-        totals.mismatches += event.result.mismatchCount + event.result.warningCount;
+        totals.mismatches += event.result.mismatchCount;
+        totals.warnings += event.result.warningCount;
+        totals.partialCoverageScopes += event.result.partialCoverageCount;
         console.log(formatRefreshCompletionLine(labels.get(event.accountId) ?? `${event.accountId}`, event.result));
         return;
       case 'VERIFICATION_ERROR':
@@ -309,15 +319,27 @@ async function runAccountsRefreshAllTextWorkflow(
 
   startAccountsRefreshStream(scope, accounts, relay);
   ctx.onAbort(() => abortAccountsRefresh(scope));
-  await awaitAccountsRefreshStream(scope);
+  const streamStatus = await awaitAccountsRefreshStream(scope);
 
   console.log('');
+  const completionLine = `${totals.total} total · ${totals.verified} verified · ${totals.skipped} skipped · ${totals.errors} errors`;
+
+  if (streamStatus === 'aborted') {
+    console.log(pc.yellow(`Refresh aborted: ${completionLine}`));
+    console.log(
+      pc.dim(
+        `Matches: ${totals.matches} · mismatches: ${totals.mismatches} · warnings: ${totals.warnings} · partial coverage scopes: ${totals.partialCoverageScopes}`
+      )
+    );
+    return ok(silentSuccess(ExitCodes.CANCELLED));
+  }
+
+  console.log(formatSuccessLine(`Refresh complete: ${completionLine}`));
   console.log(
-    formatSuccessLine(
-      `Refresh complete: ${totals.total} total · ${totals.verified} verified · ${totals.skipped} skipped · ${totals.errors} errors`
+    pc.dim(
+      `Matches: ${totals.matches} · mismatches: ${totals.mismatches} · warnings: ${totals.warnings} · partial coverage scopes: ${totals.partialCoverageScopes}`
     )
   );
-  console.log(pc.dim(`Matches: ${totals.matches} · mismatches/warnings: ${totals.mismatches}`));
 
   return ok(silentSuccess());
 }
@@ -361,11 +383,13 @@ function formatRefreshCompletionLine(
   result: {
     matchCount: number;
     mismatchCount: number;
+    partialCoverageCount: number;
     status: 'error' | 'failed' | 'pending' | 'skipped' | 'success' | 'verifying' | 'warning';
     warningCount: number;
   }
 ): string {
-  const message = `${label}: ${result.status} · ${result.matchCount} match · ${result.mismatchCount} mismatch · ${result.warningCount} warning`;
+  const coverageSuffix = result.partialCoverageCount > 0 ? ' · partial coverage' : '';
+  const message = `${label}: ${result.status} · ${result.matchCount} match · ${result.mismatchCount} mismatch · ${result.warningCount} warning${coverageSuffix}`;
 
   switch (result.status) {
     case 'success':

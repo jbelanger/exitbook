@@ -15,6 +15,12 @@ createExchangeWorkflowTests({
   name: 'kraken',
   displayName: 'Kraken',
   requiredEnvVars: ['KRAKEN_API_KEY', 'KRAKEN_SECRET'],
+  importCredentialArgs: (envVars) => [
+    '--api-key',
+    envVars['KRAKEN_API_KEY']!,
+    '--api-secret',
+    envVars['KRAKEN_SECRET']!,
+  ],
   minMatchRate: 0.8,
   workflowTimeout: 300000,
   combinedWorkflowTimeout: 120000,
@@ -28,7 +34,14 @@ createExchangeWorkflowTests({
   name: 'kucoin',
   displayName: 'KuCoin',
   requiredEnvVars: ['KUCOIN_API_KEY', 'KUCOIN_SECRET', 'KUCOIN_PASSPHRASE'],
-  extraBalanceArgs: (envVars) => ['--api-passphrase', envVars['KUCOIN_PASSPHRASE']!],
+  importCredentialArgs: (envVars) => [
+    '--api-key',
+    envVars['KUCOIN_API_KEY']!,
+    '--api-secret',
+    envVars['KUCOIN_SECRET']!,
+    '--api-passphrase',
+    envVars['KUCOIN_PASSPHRASE']!,
+  ],
   // ... other config
 });
 ```
@@ -88,8 +101,8 @@ Type definitions for CLI command responses:
 
 - `ImportCommandResult` - Result from import command
 - `ReprocessCommandResult` - Result from reprocess command
-- `BalanceCommandResult` - Result from balance command
-- `AccountsViewResult` - Result from accounts view command
+- `AccountsRefreshCommandResult` - Result from `accounts refresh`
+- `AccountsBrowseCommandResult` - Result from `accounts --json`
 
 ### `exchange-workflow-factory.ts`
 
@@ -104,7 +117,7 @@ interface ExchangeConfig {
   name: string; // Exchange name (e.g., 'kucoin')
   displayName: string; // Display name for tests
   requiredEnvVars: string[]; // Required environment variables
-  extraBalanceArgs?: (envVars) => string[]; // Extra CLI args for balance
+  importCredentialArgs?: (envVars) => string[]; // Persist provider credentials on the imported account
   minMatchRate?: number; // Min balance match rate (default: 0.8)
   workflowTimeout?: number; // Full workflow timeout (default: 300000ms)
   combinedWorkflowTimeout?: number; // Combined workflow timeout (default: 120000ms)
@@ -145,8 +158,9 @@ Both factories create comprehensive test suites that validate:
 
 1. **Full Workflow Test**: Import CSV → Process → Verify Balance
    - Imports CSV files from `samples/<exchange>/` directory
+   - Stores provider credentials on the imported account when needed
    - Processes imported transactions
-   - Fetches live balance via API
+   - Runs `accounts refresh` against the imported account
    - Compares calculated vs live balances
    - Validates minimum match rate
 
@@ -163,7 +177,7 @@ Both factories create comprehensive test suites that validate:
 1. **Full Workflow Test**: Import Address → Process → Verify Balance
    - Imports blockchain transactions for address
    - Processes imported transactions
-   - Fetches live balance via blockchain API
+   - Runs `accounts refresh` for the imported address scope
    - Compares calculated vs live balances
    - Validates minimum match rate (typically higher for blockchains)
 
@@ -215,7 +229,7 @@ pnpm vitest run --config vitest.e2e.config.ts apps/cli/src/__tests__/kucoin-work
 pnpm vitest run --config vitest.e2e.config.ts apps/cli/src/__tests__/bitcoin-workflow.e2e.test.ts
 ```
 
-Set `LIVE_TESTS=1` to enable end-to-end import/process/balance workflow tests.
+Set `LIVE_TESTS=1` to enable end-to-end import/process/accounts refresh workflow tests.
 
 ## Adding a New Exchange Test
 

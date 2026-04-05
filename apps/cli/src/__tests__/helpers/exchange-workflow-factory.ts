@@ -1,7 +1,20 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { BalanceCommandResult, ImportCommandResult, ReprocessCommandResult } from './e2e-test-types.js';
-import { canBindUnixSocket, cleanupTestDatabase, executeCLI, getSampleDir, hasSampleData } from './e2e-test-utils.js';
+import type {
+  AccountsRefreshCommandResult,
+  AccountsRefreshVerificationBalance,
+  ImportCommandResult,
+  ReprocessCommandResult,
+} from './e2e-test-types.js';
+import {
+  canBindUnixSocket,
+  cleanupTestDatabase,
+  executeCLI,
+  getSampleDir,
+  hasSampleData,
+  loadAccountsBrowseItems,
+  toAccountsRefreshSelector,
+} from './e2e-test-utils.js';
 
 interface ExchangeConfig {
   /**
@@ -20,10 +33,10 @@ interface ExchangeConfig {
   requiredEnvVars: string[];
 
   /**
-   * Additional CLI arguments for balance command (e.g., ['--api-passphrase', value])
-   * Optional - for exchanges that need extra params beyond key/secret
+   * CLI arguments that persist provider credentials on the imported account
+   * so `accounts refresh` can verify live balances without command-line overrides.
    */
-  extraBalanceArgs?: (envVars: Record<string, string>) => string[];
+  importCredentialArgs?: (envVars: Record<string, string>) => string[];
 
   /**
    * Minimum match rate for balance verification (0-1)
@@ -52,7 +65,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
     name,
     displayName,
     requiredEnvVars,
-    extraBalanceArgs,
+    importCredentialArgs,
     minMatchRate = 0.8,
     workflowTimeout = 300000,
     combinedWorkflowTimeout = 120000,
@@ -104,7 +117,12 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         // Step 1: Import CSV files
         console.log('Step 1: Importing CSV files...');
 
-        const importResult = executeCLI(['import', '--exchange', name, '--csv-dir', sampleDir]);
+        const importArgs = ['import', '--exchange', name, '--csv-dir', sampleDir];
+        if (importCredentialArgs) {
+          importArgs.push(...importCredentialArgs(credentials));
+        }
+
+        const importResult = executeCLI(importArgs);
 
         expect(importResult.success).toBe(true);
         expect(importResult.command).toBe('import');
@@ -145,53 +163,37 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         console.log('\nStep 3: Verifying balance...');
 
         // Fetch the imported account id dynamically
-        const accountsResult = executeCLI(['accounts', 'view', '--source', name, '--json']);
-        expect(accountsResult.success).toBe(true);
-
-        // Type assertion needed because CLI response has deeply nested structure
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- acceptable for tests
-        const accounts = ((accountsResult.data as any)?.data?.accounts ?? []) as {
-          accountType: string;
-          id: number;
-          identifier: string;
-          name?: string;
-          platformKey: string;
-        }[];
+        const accounts = loadAccountsBrowseItems({ platformKey: name });
         expect(accounts.length).toBeGreaterThan(0);
-        const accountName = accounts[0]?.name;
-        expect(accountName).toBeTruthy();
+        const account = accounts[0];
+        expect(account).toBeDefined();
 
-        // Build balance command arguments
-        const balanceArgs = ['accounts', 'refresh', String(accountName)];
+        const refreshArgs = ['accounts', 'refresh', toAccountsRefreshSelector(account!)];
+        const refreshResult = executeCLI(refreshArgs);
 
-        // Add any extra arguments specific to this exchange
-        if (extraBalanceArgs) {
-          balanceArgs.push(...extraBalanceArgs(credentials));
-        }
+        expect(refreshResult.success).toBe(true);
+        expect(refreshResult.command).toBe('accounts-refresh');
 
-        const balanceResult = executeCLI(balanceArgs);
+        const refreshData = refreshResult.data as AccountsRefreshCommandResult;
+        expect(refreshData).toBeDefined();
+        expect(refreshData.mode).toBe('verification');
+        expect(refreshData.status).toBeDefined();
+        expect(refreshData.summary).toBeDefined();
+        expect(refreshData.balances).toBeInstanceOf(Array);
+        const comparisons = refreshData.balances as AccountsRefreshVerificationBalance[];
 
-        expect(balanceResult.success).toBe(true);
-        expect(balanceResult.command).toBe('accounts');
-
-        const balanceData = balanceResult.data as BalanceCommandResult;
-        expect(balanceData).toBeDefined();
-        expect(balanceData.status).toBeDefined();
-        expect(balanceData.summary).toBeDefined();
-        expect(balanceData.balances).toBeInstanceOf(Array);
-
-        console.log(`\nBalance verification: ${balanceData.status.toUpperCase()}`);
-        console.log(`  Total currencies: ${balanceData.summary.totalCurrencies}`);
-        console.log(`  Matches: ${balanceData.summary.matches}`);
-        console.log(`  Warnings: ${balanceData.summary.warnings}`);
-        console.log(`  Mismatches: ${balanceData.summary.mismatches}`);
+        console.log(`\nBalance verification: ${refreshData.status.toUpperCase()}`);
+        console.log(`  Total assets: ${refreshData.summary.totalCurrencies}`);
+        console.log(`  Matches: ${refreshData.summary.matches}`);
+        console.log(`  Warnings: ${refreshData.summary.warnings}`);
+        console.log(`  Mismatches: ${refreshData.summary.mismatches}`);
 
         // Show sample comparisons
-        if (balanceData.balances.length > 0) {
+        if (comparisons.length > 0) {
           console.log('\nSample comparisons:');
-          balanceData.balances.slice(0, 5).forEach((comp) => {
+          comparisons.slice(0, 5).forEach((comp) => {
             const statusIcon = comp.status === 'match' ? '✓' : comp.status === 'warning' ? '⚠' : '✗';
-            console.log(`  ${statusIcon} ${comp.currency}:`);
+            console.log(`  ${statusIcon} ${comp.assetSymbol}:`);
             console.log(`    Live:       ${comp.liveBalance}`);
             console.log(`    Calculated: ${comp.calculatedBalance}`);
             if (comp.status !== 'match') {
@@ -200,16 +202,16 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
           });
         }
 
-        if (balanceData.suggestion) {
-          console.log(`\nSuggestion: ${balanceData.suggestion}`);
+        if (refreshData.suggestion) {
+          console.log(`\nSuggestion: ${refreshData.suggestion}`);
         }
 
         // Assertions on balance verification
-        expect(['success', 'warning']).toContain(balanceData.status);
-        expect(balanceData.summary.totalCurrencies).toBeGreaterThan(0);
+        expect(['success', 'warning']).toContain(refreshData.status);
+        expect(refreshData.summary.totalCurrencies).toBeGreaterThan(0);
 
         // Verify minimum match rate
-        const matchRate = balanceData.summary.matches / balanceData.summary.totalCurrencies;
+        const matchRate = refreshData.summary.matches / refreshData.summary.totalCurrencies;
         expect(matchRate).toBeGreaterThan(minMatchRate);
       },
       workflowTimeout
@@ -231,7 +233,12 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         const sampleDir = getSampleDir(name);
         console.log(`Importing and processing from ${sampleDir}...`);
 
-        const importResult = executeCLI(['import', '--exchange', name, '--csv-dir', sampleDir]);
+        const importArgs = ['import', '--exchange', name, '--csv-dir', sampleDir];
+        if (importCredentialArgs) {
+          importArgs.push(...importCredentialArgs(credentials));
+        }
+
+        const importResult = executeCLI(importArgs);
 
         expect(importResult.success).toBe(true);
         expect(importResult.command).toBe('import');
@@ -283,7 +290,7 @@ export function createExchangeWorkflowTests(config: ExchangeConfig): void {
         return;
       }
       console.log('\nLive exchange workflow tests are disabled.');
-      console.log('Set LIVE_TESTS=1 to enable import/process/balance workflows.');
+      console.log('Set LIVE_TESTS=1 to enable import/process/accounts refresh workflows.');
     });
   });
 }
