@@ -163,14 +163,15 @@ If a stored snapshot is missing, stale, building, or failed:
 
 - the account detail still renders
 - the balance section renders the concrete reason instead of an asset table
-- the surface includes a concrete refresh hint
+- the surface includes a concrete next step
+- when no imported transaction data exists yet, the next step points users to `exitbook import` instead of `accounts refresh`
 
 Example:
 
 ```text
 Balances
-Stored balance snapshot is not readable: processed transactions were rebuilt after the last balance snapshot.
-Hint: run "exitbook accounts refresh injective-wallet".
+No balance data yet. This account has no imported transaction data yet.
+Next: run "exitbook import" to import transaction data first.
 ```
 
 ## Browse Surfaces
@@ -303,7 +304,7 @@ Field order:
 3. `Identifier`
 4. `Provider`
 5. `Created`
-6. `Verification` / `Projection`
+6. optional `Balance data` / `Live check`
 7. optional `Last calculated`
 8. optional `Last refresh`
 9. optional `Imports`
@@ -324,10 +325,10 @@ Identifier: inj1zk3259rhsxcg5og96eursm4x8ek2qc5pty4rau
 Provider: —
 Created: 2026-04-02 13:50:15
 
-Verification: ✓ verified · Projection: ✓ fresh
+Balance data: ✓ up to date · Live check: ✓ verified
 Last calculated: 2026-04-03 11:47:26
 Last refresh: 2026-04-03 11:47:26
-Imports: 1 import
+Imports: 1
 
 Balances (1)
 ASSET   CALCULATED               LAST VERIFIED LIVE       STATUS   TXS
@@ -364,9 +365,10 @@ Rules:
 - static detail does not artificially cap child rows, session rows, or asset rows
 - `Provider` shows `—` when unset
 - `Identifier` uses the full display identifier stored in the view model
-- `Imports` uses `N import` / `N imports`
-- verification labels are `verified`, `warning`, `mismatch`, `unavailable`, `never checked`
-- projection labels are `fresh`, `stale`, `building`, `failed`, `never built`
+- `Imports` uses the bare numeric count
+- the `Balance data` / `Live check` row is hidden when both values are still untouched for a new account
+- balance-data labels are `up to date`, `out of date`, `building`, `failed`, `not yet calculated`
+- live-check labels are `verified`, `warning`, `mismatch`, `unavailable`, `not yet run`
 
 ### Explorer Surface
 
@@ -585,10 +587,9 @@ bitcoin-main: verifying with mempool-space...
 bitcoin-main: warning · 2 assets · 1 partial parse failure
 Provider stats: 14 calls · 1 fallback · 0 circuit-open
 
-Accounts refresh complete
-
-6 total · 5 verified · 1 skipped
-4 match · 1 mismatch
+Refresh finished with issues: 6 total · 5 verified · 1 skipped · 1 error
+Details: 4 matches · 1 mismatch
+Next: run "exitbook import" for accounts without completed imported data, then rerun "exitbook accounts refresh".
 ```
 
 Per-account result statuses:
@@ -598,6 +599,12 @@ Per-account result statuses:
 - `failed`
 - `skipped`
 - `error`
+
+All-account refresh text rules:
+
+- import-related failures may be shortened per account line when the footer already provides the shared next step
+- the final `Details:` line is omitted when every aggregate count in that line is zero
+- singular/plural outcome counts must read naturally, for example `1 error` and `2 errors`
 
 ## JSON
 

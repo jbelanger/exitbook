@@ -280,7 +280,8 @@ The readiness API walks `rebuildPlan(target)` then the target itself, checking f
 
 `balances` is intentionally different:
 
-- `accounts` / `accounts view` read stored balance snapshots and fail closed when the scoped balance projection is not fresh
+- `accounts` / `accounts view` read stored balance snapshots without auto-rebuilding them
+- when the scoped balance projection is not fresh, account browse surfaces still render and explain the concrete reason plus next step
 - `accounts refresh` is the explicit rebuild-and-refresh path for `balances`
 - `assets view` requires fresh balance snapshots separately from asset-review readiness
 

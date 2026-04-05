@@ -197,14 +197,16 @@ pnpm run dev transactions view
 ### 4. Verify balances
 
 ```bash
-# Inspect stored balance snapshots
-pnpm run dev balance view
+# Inspect stored balances
+pnpm run dev accounts
+pnpm run dev accounts <selector>
+pnpm run dev accounts view
 
 # Refresh all balances and verify live sources where supported
-pnpm run dev balance refresh
+pnpm run dev accounts refresh
 
 # Refresh one balance scope
-pnpm run dev balance refresh --account-id 5
+pnpm run dev accounts refresh <selector>
 ```
 
 ### 5. Review transfer links
@@ -271,7 +273,6 @@ These are the main CLI entrypoints:
 - `import` - sync raw data for existing saved accounts
 - `accounts` - add, update, rename, remove, and inspect named accounts
 - `transactions` - inspect or export processed transactions
-- `balance` - inspect stored balance snapshots or refresh live verification
 - `links` - run transfer matching and review results
 - `prices` - inspect coverage, enrich prices, or set missing prices manually
 - `cost-basis` - calculate realized gains/losses for a jurisdiction and tax year
