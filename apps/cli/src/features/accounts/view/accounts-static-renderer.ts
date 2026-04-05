@@ -19,9 +19,12 @@ import {
   formatAccountType,
   formatImportCount,
   formatTimestamp,
+  getBalanceDataDetailDisplay,
   getProjectionDisplay,
   getSessionDisplay,
+  getLiveCheckDetailDisplay,
   getVerificationDisplay,
+  shouldShowAccountDetailStatus,
   truncateIdentifier,
   truncateLabel,
   type AccountsStatusColor,
@@ -77,8 +80,6 @@ export function outputAccountStaticDetail(account: AccountDetailViewItem): void 
 
 export function buildAccountStaticDetail(account: AccountDetailViewItem): string {
   const type = formatAccountType(account.accountType);
-  const verification = getVerificationDisplay(account.verificationStatus);
-  const projection = getProjectionDisplay(account.balanceProjectionStatus);
   const fingerprintRef = formatAccountFingerprintRef(account.accountFingerprint);
   const title = account.name ? account.name : fingerprintRef;
   const lines: string[] = [
@@ -89,9 +90,16 @@ export function buildAccountStaticDetail(account: AccountDetailViewItem): string
     buildDetailLine('Identifier', account.identifier),
     buildDetailLine('Provider', account.providerName ? pc.cyan(account.providerName) : pc.dim('—')),
     buildDetailLine('Created', pc.dim(formatTimestamp(account.createdAt))),
-    '',
-    `${pc.dim('Verification:')} ${colorStatus(verification.iconColor, `${verification.icon} ${verification.label}`)}${pc.dim(' · Projection: ')}${colorStatus(projection.iconColor, `${projection.icon} ${projection.label}`)}`,
   ];
+
+  if (shouldShowAccountDetailStatus(account)) {
+    const liveCheck = getLiveCheckDetailDisplay(account.verificationStatus);
+    const balanceData = getBalanceDataDetailDisplay(account.balanceProjectionStatus);
+    lines.push(
+      '',
+      `${pc.dim('Balance data:')} ${colorStatus(balanceData.iconColor, `${balanceData.icon} ${balanceData.label}`)}${pc.dim(' · Live check: ')}${colorStatus(liveCheck.iconColor, `${liveCheck.icon} ${liveCheck.label}`)}`
+    );
+  }
 
   if (account.lastCalculatedAt) {
     lines.push(buildDetailLine('Last calculated', pc.dim(formatTimestamp(account.lastCalculatedAt))));
@@ -100,7 +108,7 @@ export function buildAccountStaticDetail(account: AccountDetailViewItem): string
     lines.push(buildDetailLine('Last refresh', pc.dim(formatTimestamp(account.lastRefreshAt))));
   }
   if (account.sessionCount !== undefined) {
-    lines.push(buildDetailLine('Imports', formatImportCount(account.sessionCount)));
+    lines.push(buildDetailLine('Import sessions', String(account.sessionCount)));
   }
   if (account.requestedAccount) {
     lines.push(buildDetailLine('Requested', formatStoredBalanceScopeAccountLine(account.requestedAccount)));
@@ -197,11 +205,7 @@ function buildDetailLine(label: string, value: string): string {
 
 function buildStoredBalanceLines(account: AccountDetailViewItem): string[] {
   if (!account.balance.readable) {
-    return [
-      pc.dim('Balances'),
-      `Stored balance snapshot is not readable: ${account.balance.reason}.`,
-      `Hint: ${account.balance.hint}.`,
-    ];
+    return [pc.dim('Balances'), account.balance.reason, `Next: ${account.balance.hint}.`];
   }
 
   const lines = buildStoredBalanceAssetSectionLines(account.balance.assets, {

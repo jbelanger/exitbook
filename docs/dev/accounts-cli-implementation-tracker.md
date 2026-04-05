@@ -15,30 +15,32 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 9: Tighten Refresh Correctness And Live Test Coverage
+### Phase 10: Improve New-Account Balance Guidance And Detail Copy
 
 Status: `completed`
 
 Intent:
 
-- remove misleading success semantics from aborted `accounts refresh` runs
-- stop hiding stored snapshot repository failures behind empty-balance output
-- realign the live e2e helpers to the unified `accounts` browse/refresh surface
-- split refresh totals so mismatches, warnings, and partial coverage are reported explicitly
+- remove circular detail hints that told users to refresh before any transaction data existed
+- replace internal detail jargon like `Projection`, `Verification`, and `snapshot is not readable`
+- make refresh completion styling match actual outcomes instead of always looking successful
+- keep first-run account guidance aligned between detail and workflow surfaces
 
 Why this slice came next:
 
-- review findings exposed correctness drift in the refresh workflow and supporting tests
-- the old all-refresh footer still looked successful after aborts
-- the live e2e layer was still asserting a deleted pre-unification contract
-- refresh aggregate totals were semantically muddy for JSON consumers
+- review feedback exposed a poor first-run account experience
+- new accounts could hit a dead-end loop: detail said `accounts refresh`, refresh said `No import sessions found`
+- the detail surfaces still leaked internal storage terminology even after the command unification
+- refresh footer severity still needed one more UX pass after the earlier correctness work
 
 What landed:
 
-- `accounts refresh` now prints an aborted footer instead of a success footer when the stream is cancelled.
-- Stored snapshot asset load failures now fail loudly instead of rendering as an empty asset list.
-- All-refresh totals now report `mismatches`, `warnings`, and `partialCoverageScopes` separately.
-- Live e2e helpers now browse with `accounts --platform ... --json`, refresh with `accounts refresh`, and persist exchange credentials at import time instead of passing them to refresh.
+- unreadable account detail now checks import readiness for the real balance scope and tells users to run `exitbook import` first when no transaction data exists
+- brand-new account detail now says `No balance data yet` instead of `stored balance snapshot is not readable`
+- detail headers now use `Balance data` and `Live check`, and hide the status row entirely when both values are still untouched
+- detail surfaces now say `Import sessions: N` instead of `Imports: N imports`
+- refresh completion now uses success, warning, or error styling based on actual totals
+- missing-import refresh failures now explain the next step directly in the balance workflow
 
 ## Verified Current Facts
 
@@ -60,39 +62,42 @@ What landed:
 - Aborted refresh streams now surface cancellation back to the command layer in [accounts-refresh-runner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-runner.ts) and [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts).
 - All-refresh aggregate totals now expose separate `errors`, `mismatches`, `warnings`, and `partialCoverageScopes` counts in [accounts-refresh-types.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-types.ts).
 - Live e2e helper contracts now target `accounts` browse plus `accounts refresh` in [exchange-workflow-factory.ts](/Users/joel/Dev/exitbook/apps/cli/src/__tests__/helpers/exchange-workflow-factory.ts), [blockchain-workflow-factory.ts](/Users/joel/Dev/exitbook/apps/cli/src/__tests__/helpers/blockchain-workflow-factory.ts), and [e2e-test-types.ts](/Users/joel/Dev/exitbook/apps/cli/src/__tests__/helpers/e2e-test-types.ts).
+- unreadable account balance detail now differentiates between `no imports`, `no completed imports`, and `stale balance data` in [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts) and [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts).
+- static and TUI account detail now use the same user-facing `Balance data` / `Live check` wording in [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts), [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx), and [accounts-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-formatters.ts).
+- balance refresh workflow failures now tell users to run `exitbook import` first when no imported transaction data exists in [balance-workflow.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts).
 
-## Phase 9 Exit Criteria
+## Phase 10 Exit Criteria
 
-- Aborted refresh runs do not print a success-looking completion footer.
-- Stored snapshot asset repository failures are surfaced as command errors, not empty balances.
-- Live e2e helpers target the shipped `accounts` browse/refresh contract.
-- All-refresh totals stop overloading `mismatches` with warnings and partial coverage.
+- New accounts do not get told to run `accounts refresh` before any transaction data exists.
+- Static and TUI detail wording no longer says `Projection`, `Verification`, or `snapshot is not readable` for first-run accounts.
+- Refresh completion styling matches the actual outcome severity.
+- Missing-import refresh failures explain the next step directly.
 
-Phase 9 result:
+Phase 10 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [accounts-refresh-runner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-runner.ts)
-- [accounts-refresh-command-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-refresh-command-support.ts)
-- [account-balance-detail-builder.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/account-balance-detail-builder.ts)
-- [accounts-refresh.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/__tests__/accounts-refresh.test.ts)
-- [accounts-refresh-services.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/__tests__/accounts-refresh-services.test.ts)
-- [apps/cli/src/**tests**/helpers/](/Users/joel/Dev/exitbook/apps/cli/src/__tests__/helpers/)
+- [accounts-detail-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/command/accounts-detail-support.ts)
+- [balance-snapshot-freshness-message.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/balance-snapshot-freshness-message.ts)
+- [accounts-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-static-renderer.ts)
+- [accounts-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-components.tsx)
+- [accounts-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/accounts/view/accounts-view-formatters.ts)
+- [balance-workflow.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts)
 
 ## Slice Notes
 
 Constraints that shaped the implementation:
 
-- keep the fixes behaviorally precise instead of reopening larger ownership refactors
-- prefer explicit totals and hard failures over ambiguous success output
-- update the live test helpers to the shipped command contract instead of preserving compatibility glue
+- derive first-run guidance from the real balance scope instead of guessing from the selected row summary
+- keep static and TUI wording aligned through shared formatter/message helpers
+- avoid inventing import-command specifics in hints; generic `exitbook import` guidance is enough here
 
 Post-slice reassessment notes:
 
-- refresh correctness is tighter, but the explorer still preloads detail eagerly and may need scaling review later
-- the next slice should come from another code/spec reread, not from carrying this review list forward blindly
+- first-run balance UX is materially clearer now
+- the next reassessment should look at broader browse UX and scaling concerns rather than more wording churn
 
 ## Reassessment Gate
 
@@ -124,3 +129,4 @@ Do not commit to one of these until the code is re-read and the best slice is co
 | Phase 7: remove final internal CLI `balance` namespace           | `completed` | Moved remaining refresh/detail support under `accounts` and `shared`, then deleted the CLI `balance` feature folder.        |
 | Phase 8: align stored-live labels in browse TUI                  | `completed` | Updated the accounts preview and drilled-down asset rows to say `last verified live` and added renderer coverage.           |
 | Phase 9: tighten refresh correctness and live test coverage      | `completed` | Fixed abort footer semantics, surfaced stored snapshot read failures, split refresh totals, and realigned live e2e helpers. |
+| Phase 10: improve new-account balance guidance and detail copy   | `completed` | Added import-first hints, simplified new-account detail wording, and aligned refresh severity styling with outcomes.        |

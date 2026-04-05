@@ -4,6 +4,7 @@ import { ok } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { BALANCE_SNAPSHOT_NEVER_BUILT_REASON } from '../../../shared/balance-snapshot-freshness-message.js';
 import { buildAccountDetailViewItem } from '../accounts-detail-support.js';
 
 function createAccount(overrides: Partial<Account> = {}): Account {
@@ -94,6 +95,7 @@ function createAccountService(accounts: Account[]) {
 function createMockDatabase(params: {
   accounts: Account[];
   assets: BalanceSnapshotAsset[];
+  importSessions?: { accountId: number; status: 'started' | 'completed' | 'failed' | 'cancelled' }[] | undefined;
   snapshot?: BalanceSnapshot | undefined;
   staleReason?: string | undefined;
 }) {
@@ -120,6 +122,24 @@ function createMockDatabase(params: {
           )
         ),
       findSnapshot: vi.fn().mockResolvedValue(ok(params.snapshot)),
+    },
+    importSessions: {
+      findAll: vi.fn().mockImplementation(async (filters?: { accountIds?: number[] | undefined }) =>
+        ok(
+          (params.importSessions ?? [])
+            .filter((session) => !filters?.accountIds || filters.accountIds.includes(session.accountId))
+            .map((session, index) => ({
+              id: index + 1,
+              accountId: session.accountId,
+              status: session.status,
+              startedAt: new Date('2026-03-10T10:00:00.000Z'),
+              completedAt: session.status === 'completed' ? new Date('2026-03-10T10:05:00.000Z') : undefined,
+              createdAt: new Date('2026-03-10T10:00:00.000Z'),
+              transactionsImported: 0,
+              transactionsSkipped: 0,
+            }))
+        )
+      ),
     },
     projectionState: {
       find: vi.fn().mockImplementation(async () =>
@@ -228,9 +248,44 @@ describe('buildAccountDetailViewItem', () => {
           name: 'wallet-main',
         })
       );
-      expect(detail.balance.reason).toContain('processed transactions were rebuilt');
+      expect(detail.balance.reason).toContain('Processed transactions were rebuilt');
       expect(detail.balance.hint).toContain('exitbook accounts refresh');
       expect(detail.balance.hint).toContain('rebuild only the requested scope');
+    }
+  });
+
+  it('suggests importing first when balance data has never been built and there are no import sessions', async () => {
+    const account = createAccount({ id: 1, name: 'wallet-main', identifier: '0xwallet' });
+    const accountService = createAccountService([account]);
+    const database = createMockDatabase({
+      accounts: [account],
+      snapshot: undefined,
+      assets: [],
+      staleReason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
+      importSessions: [],
+    });
+
+    const result = await buildAccountDetailViewItem({
+      accountId: 1,
+      accountService: accountService as never,
+      database,
+      profileId: 1,
+      summary: createSummary({
+        id: 1,
+        name: 'wallet-main',
+        identifier: '0xwallet',
+        sessionCount: 0,
+      }),
+    });
+
+    const detail = assertOk(result);
+
+    expect(detail.balance.readable).toBe(false);
+    if (!detail.balance.readable) {
+      expect(detail.balance.reason).toContain('No balance data yet.');
+      expect(detail.balance.reason).toContain('no imported transaction data yet');
+      expect(detail.balance.hint).toContain('exitbook import');
+      expect(detail.balance.hint).not.toContain('accounts refresh');
     }
   });
 });

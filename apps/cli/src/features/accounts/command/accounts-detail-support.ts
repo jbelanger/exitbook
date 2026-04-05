@@ -3,9 +3,10 @@ import type { Account } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
-import { resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
+import { loadBalanceScopeMemberAccounts, resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
 
 import {
+  type BalanceImportReadiness,
   buildBalanceSnapshotUnreadableDetail,
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
 } from '../../shared/balance-snapshot-freshness-message.js';
@@ -44,9 +45,15 @@ export async function buildAccountDetailViewItem(
     const freshnessResult = yield* await buildBalancesFreshnessPorts(params.database).checkFreshness(scopeAccount.id);
 
     if (freshnessResult.status !== 'fresh') {
+      const importReadiness =
+        freshnessResult.reason === BALANCE_SNAPSHOT_NEVER_BUILT_REASON
+          ? yield* await loadBalanceImportReadiness(params.database, scopeAccount)
+          : undefined;
+
       return buildUnreadableAccountDetailViewItem(params.summary, requestedAccountView, scopeAccountView, {
         reason: freshnessResult.reason ?? `projection is ${freshnessResult.status}`,
         status: freshnessResult.status,
+        importReadiness,
       });
     }
 
@@ -57,9 +64,11 @@ export async function buildAccountDetailViewItem(
 
     const snapshot = snapshotResult.value;
     if (!snapshot) {
+      const importReadiness = yield* await loadBalanceImportReadiness(params.database, scopeAccount);
       return buildUnreadableAccountDetailViewItem(params.summary, requestedAccountView, scopeAccountView, {
         reason: BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
         status: 'stale',
+        importReadiness,
       });
     }
 
@@ -89,6 +98,7 @@ function buildUnreadableAccountDetailViewItem(
   requestedAccount: AccountScopeViewItem | undefined,
   scopeAccount: AccountScopeViewItem,
   freshness: {
+    importReadiness?: BalanceImportReadiness | undefined;
     reason: string;
     status: 'building' | 'failed' | 'stale';
   }
@@ -101,6 +111,7 @@ function buildUnreadableAccountDetailViewItem(
     scopeSourceName: scopeAccount.name ?? scopeAccount.identifier,
     status: freshness.status,
     reason: freshness.reason,
+    importReadiness: freshness.importReadiness,
   });
 
   return {
@@ -109,10 +120,57 @@ function buildUnreadableAccountDetailViewItem(
     balance: {
       readable: false,
       scopeAccount,
-      reason: unreadable.reason,
+      reason: unreadable.reason ? `${unreadable.title} ${unreadable.reason}` : unreadable.title,
       hint: unreadable.hint,
     },
   };
+}
+
+async function loadBalanceImportReadiness(
+  database: DataSession,
+  scopeAccount: Account
+): Promise<Result<BalanceImportReadiness, Error>> {
+  const memberAccountsResult = await loadBalanceScopeMemberAccounts(scopeAccount, {
+    findChildAccounts: async (parentAccountId: number) => {
+      const childAccountsResult = await database.accounts.findAll({
+        parentAccountId,
+        profileId: scopeAccount.profileId,
+      });
+      if (childAccountsResult.isErr()) {
+        return err(childAccountsResult.error);
+      }
+
+      return ok(childAccountsResult.value);
+    },
+  });
+  if (memberAccountsResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to load descendant accounts for balance detail readiness for account #${scopeAccount.id}: ${memberAccountsResult.error.message}`
+      )
+    );
+  }
+
+  const sessionsResult = await database.importSessions.findAll({
+    accountIds: memberAccountsResult.value.map((account) => account.id),
+  });
+  if (sessionsResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to load import sessions for balance detail readiness for account #${scopeAccount.id}: ${sessionsResult.error.message}`
+      )
+    );
+  }
+
+  if (sessionsResult.value.length === 0) {
+    return ok('missing-imports');
+  }
+
+  if (!sessionsResult.value.some((session) => session.status === 'completed')) {
+    return ok('no-completed-imports');
+  }
+
+  return ok('ready');
 }
 
 async function requireOwnedAccount(

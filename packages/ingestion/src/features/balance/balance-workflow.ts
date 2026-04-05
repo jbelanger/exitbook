@@ -408,11 +408,11 @@ export class BalanceWorkflow {
 
       const allSessions = sessionsResult.value;
       if (allSessions.length === 0) {
-        return err(new Error(`No import sessions found for ${scopeContext.scopeAccount.platformKey}`));
+        return err(buildMissingImportSessionsError(scopeContext.scopeAccount.platformKey));
       }
 
       if (!allSessions.some((s) => s.status === 'completed')) {
-        return err(new Error(`No completed import session found for ${scopeContext.scopeAccount.platformKey}`));
+        return err(buildNoCompletedImportSessionsError(scopeContext.scopeAccount.platformKey));
       }
 
       const transactionsResult: Result<Transaction[], Error> = await this.ports.findTransactionsByAccountIds({
@@ -713,6 +713,18 @@ export class BalanceWorkflow {
       return wrapError(error, 'Failed to persist verified balance snapshot');
     }
   }
+}
+
+function buildMissingImportSessionsError(platformKey: string): Error {
+  return new Error(
+    `No imported transaction data found for ${platformKey}. Run "exitbook import" first, then rerun "exitbook accounts refresh".`
+  );
+}
+
+function buildNoCompletedImportSessionsError(platformKey: string): Error {
+  return new Error(
+    `No completed import found for ${platformKey}. Run "exitbook import" successfully before refreshing balances.`
+  );
 }
 
 // --- Pure helpers ------------------------------------------------------------

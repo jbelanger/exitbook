@@ -334,7 +334,7 @@ async function runAccountsRefreshAllTextWorkflow(
     return ok(silentSuccess(ExitCodes.CANCELLED));
   }
 
-  console.log(formatSuccessLine(`Refresh complete: ${completionLine}`));
+  console.log(formatRefreshWorkflowFooter(totals, completionLine));
   console.log(
     pc.dim(
       `Matches: ${totals.matches} · mismatches: ${totals.mismatches} · warnings: ${totals.warnings} · partial coverage scopes: ${totals.partialCoverageScopes}`
@@ -412,4 +412,16 @@ function formatRefreshAccountLabel(account: Pick<Account, 'accountFingerprint' |
 
 function formatCount(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function formatRefreshWorkflowFooter(totals: RefreshTextProgressTotals, completionLine: string): string {
+  if (totals.errors > 0 && totals.verified === 0) {
+    return pc.red(`✗ Refresh finished with errors: ${completionLine}`);
+  }
+
+  if (totals.errors > 0 || totals.mismatches > 0 || totals.warnings > 0 || totals.partialCoverageScopes > 0) {
+    return pc.yellow(`! Refresh finished with issues: ${completionLine}`);
+  }
+
+  return formatSuccessLine(`Refresh complete: ${completionLine}`);
 }

@@ -472,6 +472,45 @@ describe('accounts refresh command', () => {
     consoleLog.mockRestore();
   });
 
+  it('uses an error footer when refresh completes with only errors', async () => {
+    const program = createAccountsCommand();
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    mockLoadAccountsRefreshTargets.mockResolvedValue(
+      ok([
+        {
+          account: createAccount({
+            id: 21,
+            identifier: 'eth-root',
+            accountType: 'blockchain',
+            name: 'eth1',
+            platformKey: 'ethereum',
+          }),
+          accountId: 21,
+          platformKey: 'ethereum',
+          accountType: 'blockchain',
+          skipReason: undefined,
+        },
+      ])
+    );
+    mockStartAccountsRefreshStream.mockImplementation((_scope, _accounts, relay: EventRelay<AccountsRefreshEvent>) => {
+      relay.push({ type: 'VERIFICATION_STARTED', accountId: 21 });
+      relay.push({
+        type: 'VERIFICATION_ERROR',
+        accountId: 21,
+        error: 'No imported transaction data found for ethereum. Run "exitbook import" first.',
+      });
+      relay.push({ type: 'ALL_VERIFICATIONS_COMPLETE' });
+    });
+
+    await program.parseAsync(['accounts', 'refresh'], { from: 'user' });
+
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('No imported transaction data found for ethereum'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh finished with errors: 1 total'));
+    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('Refresh complete:'));
+    consoleLog.mockRestore();
+  });
+
   it('outputs split all-account totals in JSON metadata', async () => {
     const program = createAccountsCommand();
 

@@ -337,4 +337,55 @@ describe('AccountsViewApp', () => {
     expect(frame).toContain('Balances (1)');
     expect(frame).toContain('last verified live');
   });
+
+  it('uses import-first unreadable balance guidance and hides internal detail labels for a new account', () => {
+    const summary = createAccountViewItem({
+      accountType: 'blockchain',
+      platformKey: 'ethereum',
+      name: 'eth1',
+      identifier: '0xabc',
+      balanceProjectionStatus: 'never-built',
+      verificationStatus: 'never-checked',
+      sessionCount: 0,
+    });
+    const detail = createAccountDetailViewItem({
+      ...summary,
+      balance: {
+        readable: false,
+        scopeAccount: {
+          id: summary.id,
+          accountFingerprint: summary.accountFingerprint,
+          accountType: summary.accountType,
+          platformKey: summary.platformKey,
+          identifier: summary.identifier,
+          name: summary.name,
+        },
+        reason: 'No balance data yet.',
+        hint: 'run "exitbook import" to import transaction data first',
+      },
+    });
+    const state = createAccountsViewState([summary], { showSessions: false }, 1, undefined, 0, {
+      [summary.id]: detail,
+    });
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('Import sessions: 0');
+    expect(frame).toContain('No balance data yet.');
+    expect(frame).toContain('Next: run "exitbook import" to import transaction data first.');
+    expect(frame).not.toContain('Stored balance snapshot is not readable');
+    expect(frame).not.toContain('Verification:');
+    expect(frame).not.toContain('Projection:');
+  });
 });

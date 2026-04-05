@@ -31,9 +31,12 @@ import {
   formatAccountType,
   formatImportCount,
   formatTimestamp,
+  getBalanceDataDetailDisplay,
   getProjectionDisplay,
   getSessionDisplay,
+  getLiveCheckDetailDisplay,
   getVerificationDisplay,
+  shouldShowAccountDetailStatus,
   truncateIdentifier,
   truncateLabel,
 } from './accounts-view-formatters.js';
@@ -250,8 +253,6 @@ const AccountDetailPanel: FC<{ state: AccountsListViewState }> = ({ state }) => 
 function buildAccountDetailRows(selected: AccountViewItem, detail?: AccountDetailViewItem): ReactElement[] {
   const account = detail ?? selected;
   const type = formatAccountType(account.accountType);
-  const verification = getVerificationDisplay(account.verificationStatus);
-  const projection = getProjectionDisplay(account.balanceProjectionStatus);
   const fingerprintRef = formatAccountFingerprintRef(account.accountFingerprint);
   const title = account.name ? account.name : fingerprintRef;
   const rows: ReactElement[] = [
@@ -286,19 +287,26 @@ function buildAccountDetailRows(selected: AccountViewItem, detail?: AccountDetai
       <Text dimColor>Created: </Text>
       <Text dimColor>{formatTimestamp(account.createdAt)}</Text>
     </Text>,
-    <Text key="blank-2"> </Text>,
-    <Text key="verification">
-      {'  '}
-      <Text dimColor>Verification: </Text>
-      <Text color={verification.iconColor}>
-        {verification.icon} {verification.label}
-      </Text>
-      <Text dimColor> · Projection: </Text>
-      <Text color={projection.iconColor}>
-        {projection.icon} {projection.label}
-      </Text>
-    </Text>,
   ];
+
+  if (shouldShowAccountDetailStatus(account)) {
+    const liveCheck = getLiveCheckDetailDisplay(account.verificationStatus);
+    const balanceData = getBalanceDataDetailDisplay(account.balanceProjectionStatus);
+    rows.push(
+      <Text key="blank-2"> </Text>,
+      <Text key="status-summary">
+        {'  '}
+        <Text dimColor>Balance data: </Text>
+        <Text color={balanceData.iconColor}>
+          {balanceData.icon} {balanceData.label}
+        </Text>
+        <Text dimColor> · Live check: </Text>
+        <Text color={liveCheck.iconColor}>
+          {liveCheck.icon} {liveCheck.label}
+        </Text>
+      </Text>
+    );
+  }
 
   if (account.lastCalculatedAt) {
     rows.push(
@@ -324,8 +332,8 @@ function buildAccountDetailRows(selected: AccountViewItem, detail?: AccountDetai
     rows.push(
       <Text key="imports-count">
         {'  '}
-        <Text dimColor>Imports: </Text>
-        <Text>{formatImportCount(account.sessionCount)}</Text>
+        <Text dimColor>Import sessions: </Text>
+        <Text>{String(account.sessionCount)}</Text>
       </Text>
     );
   }
@@ -381,14 +389,15 @@ function buildStoredBalancePreviewRows(detail: AccountDetailViewItem): ReactElem
       >
         {'  '}Balances
       </Text>,
-      <Text key="balances-reason">
-        {'  '}Stored balance snapshot is not readable: {detail.balance.reason}.
+      <Text key="balances-title">
+        {'  '}
+        {detail.balance.reason}
       </Text>,
       <Text
         key="balances-hint"
         dimColor
       >
-        {'  '}Hint: {detail.balance.hint}.
+        {'  '}Next: {detail.balance.hint}.
       </Text>,
     ];
   }

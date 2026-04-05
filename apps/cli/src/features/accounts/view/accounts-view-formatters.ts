@@ -71,6 +71,54 @@ export function getProjectionDisplay(status: AccountViewItem['balanceProjectionS
   return exhaustiveCheck;
 }
 
+export function getLiveCheckDetailDisplay(status: AccountViewItem['verificationStatus']): AccountsStatusDisplay {
+  switch (status) {
+    case 'match':
+      return { icon: '✓', iconColor: 'green', label: 'verified', listLabel: 'ok' };
+    case 'warning':
+      return { icon: '!', iconColor: 'yellow', label: 'warning', listLabel: 'warn' };
+    case 'mismatch':
+      return { icon: '✗', iconColor: 'red', label: 'mismatch', listLabel: 'fail' };
+    case 'unavailable':
+      return { icon: '?', iconColor: 'yellow', label: 'unavailable', listLabel: 'n/a' };
+    case 'never-checked':
+      return { icon: '·', iconColor: 'dim', label: 'not yet run', listLabel: '—' };
+    case undefined:
+      return { icon: '·', iconColor: 'dim', label: 'unknown', listLabel: '?' };
+  }
+
+  const exhaustiveCheck: never = status;
+  return exhaustiveCheck;
+}
+
+export function getBalanceDataDetailDisplay(status: AccountViewItem['balanceProjectionStatus']): AccountsStatusDisplay {
+  switch (status) {
+    case 'fresh':
+      return { icon: '✓', iconColor: 'green', label: 'up to date', listLabel: 'fresh' };
+    case 'stale':
+      return { icon: '!', iconColor: 'yellow', label: 'out of date', listLabel: 'stale' };
+    case 'building':
+      return { icon: '~', iconColor: 'cyan', label: 'building', listLabel: 'build' };
+    case 'failed':
+      return { icon: '✗', iconColor: 'red', label: 'failed', listLabel: 'fail' };
+    case 'never-built':
+      return { icon: '·', iconColor: 'dim', label: 'not yet calculated', listLabel: '—' };
+    case undefined:
+      return { icon: '·', iconColor: 'dim', label: 'unknown', listLabel: '?' };
+  }
+
+  const exhaustiveCheck: never = status;
+  return exhaustiveCheck;
+}
+
+export function shouldShowAccountDetailStatus(
+  account: Pick<AccountViewItem, 'balanceProjectionStatus' | 'verificationStatus'>
+): boolean {
+  const balanceStatus = account.balanceProjectionStatus ?? 'never-built';
+  const liveCheckStatus = account.verificationStatus ?? 'never-checked';
+  return !(balanceStatus === 'never-built' && liveCheckStatus === 'never-checked');
+}
+
 export function getSessionDisplay(status: string): { icon: string; iconColor: AccountsStatusColor } {
   switch (status) {
     case 'completed':

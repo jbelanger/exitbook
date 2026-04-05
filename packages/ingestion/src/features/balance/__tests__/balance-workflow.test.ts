@@ -840,6 +840,71 @@ describe('BalanceWorkflow', () => {
     expect(markFailed).toHaveBeenCalledWith(account.id);
   });
 
+  it('explains that import must run before refresh when no import sessions exist', async () => {
+    const account = createAccount({ platformKey: 'ethereum', identifier: '0xabc' });
+
+    const { markFailed, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [],
+      normalTransactions: [],
+      excludedTransactions: [],
+    });
+
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '0',
+      decimalAmount: '0',
+      symbol: 'ETH',
+      decimals: 18,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('No imported transaction data found for ethereum');
+      expect(result.error.message).toContain('Run "exitbook import" first');
+      expect(result.error.message).toContain('exitbook accounts refresh');
+    }
+
+    expect(markFailed).toHaveBeenCalledWith(account.id);
+  });
+
+  it('explains when imports exist but none completed successfully', async () => {
+    const account = createAccount({ platformKey: 'ethereum', identifier: '0xabc' });
+
+    const { markFailed, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [
+        {
+          ...createCompletedImportSession(account.id),
+          status: 'failed',
+          completedAt: undefined,
+        },
+      ],
+      normalTransactions: [],
+      excludedTransactions: [],
+    });
+
+    const providerRuntime = createProviderManager([{ capabilities: { supportedOperations: ['getAddressBalances'] } }], {
+      rawAmount: '0',
+      decimalAmount: '0',
+      symbol: 'ETH',
+      decimals: 18,
+    });
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('No completed import found for ethereum');
+      expect(result.error.message).toContain('Run "exitbook import" successfully');
+    }
+
+    expect(markFailed).toHaveBeenCalledWith(account.id);
+  });
+
   it('fails when snapshot persistence fails', async () => {
     const account = createAccount();
 
