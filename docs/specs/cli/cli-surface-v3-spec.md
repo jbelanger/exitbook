@@ -159,7 +159,7 @@ Human-readable text mode must be:
 
 - line-oriented and CI-safe
 - readable when stdout or stderr is piped or captured
-- free of cursor control, spinner-only feedback, or full-screen chrome
+- free of cursor-control-dependent layouts, spinner-only feedback, or full-screen chrome
 - structured through headers, columns, bullets, and spacing rather than TUI affordances
 
 ### Workflow Rules
@@ -194,6 +194,8 @@ Minimum contract:
 - long-running work emits periodic progress or heartbeat summaries
 - final output includes a concise outcome summary
 - the same run remains legible when stdout is piped or captured
+
+TTY-only active-state indicators such as spinners may supplement workflow progress, but they must not be the only feedback. Material progress, waits, and final status still need durable line-oriented output.
 
 #### Prompt-First Workflows
 
