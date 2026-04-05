@@ -1,30 +1,33 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- Vitest command-boundary mocks intentionally use partial test doubles and matcher objects. */
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
-import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
-  mockCreateBenchmarkState,
+  mockBenchmarkProgressBegin,
+  mockBenchmarkProgressComplete,
+  mockBenchmarkProgressDispose,
+  mockBenchmarkProgressOnProgress,
   mockCtx,
   mockExitCliFailure,
   mockOutputSuccess,
   mockPrepareProviderBenchmarkSession,
-  mockRenderApp,
   mockRunCommand,
   mockRunProviderBenchmark,
   mockWithProviderBenchmarkCommandScope,
 } = vi.hoisted(() => ({
-  mockCreateBenchmarkState: vi.fn(),
+  mockBenchmarkProgressBegin: vi.fn(),
+  mockBenchmarkProgressComplete: vi.fn(),
+  mockBenchmarkProgressDispose: vi.fn(),
+  mockBenchmarkProgressOnProgress: vi.fn(),
   mockCtx: {
     onAbort: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPrepareProviderBenchmarkSession: vi.fn(),
-  mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunProviderBenchmark: vi.fn(),
   mockWithProviderBenchmarkCommandScope: vi.fn(),
@@ -32,7 +35,6 @@ const {
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   CommandRuntime: class {},
-  renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));
 
@@ -53,12 +55,13 @@ vi.mock('../run-providers-benchmark.js', () => ({
   runProviderBenchmark: mockRunProviderBenchmark,
 }));
 
-vi.mock('../view/benchmark-components.jsx', () => ({
-  BenchmarkApp: 'BenchmarkApp',
-}));
-
-vi.mock('../view/benchmark-state.js', () => ({
-  createBenchmarkState: mockCreateBenchmarkState,
+vi.mock('../providers-benchmark-text-progress.js', () => ({
+  ProvidersBenchmarkTextProgress: class {
+    begin = mockBenchmarkProgressBegin;
+    complete = mockBenchmarkProgressComplete;
+    dispose = mockBenchmarkProgressDispose;
+    onProgress = mockBenchmarkProgressOnProgress;
+  },
 }));
 
 import { registerProvidersBenchmarkCommand } from '../providers-benchmark.js';
@@ -107,7 +110,6 @@ describe('providers benchmark command', () => {
       testResults: [{ rate: 1, success: true }],
       burstLimits: [{ limit: 10, success: true }],
     });
-    mockCreateBenchmarkState.mockReturnValue({ tag: 'benchmark-state' });
     mockExitCliFailure.mockImplementation(
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -134,24 +136,37 @@ describe('providers benchmark command', () => {
     );
   });
 
-  it('renders the TUI flow in text mode', async () => {
+  it('runs the text-progress workflow in text mode', async () => {
     const program = createProgram();
-    let renderedElement: ReactElement | undefined;
-
-    mockRenderApp.mockImplementation(async (create: () => ReactElement) => {
-      renderedElement = create();
+    mockRunProviderBenchmark.mockImplementation(async (_scope, _provider, _params, onProgress) => {
+      onProgress?.({ type: 'sustained-start', rate: 0.25 });
+      onProgress?.({ type: 'sustained-complete', rate: 0.25, success: true, responseTimeMs: 70 });
+      return {
+        maxSafeRate: 4,
+        recommended: { requestsPerSecond: 3 },
+        testResults: [{ rate: 1, success: true }],
+        burstLimits: [{ limit: 10, success: true }],
+      };
     });
 
     await program.parseAsync(['providers', 'benchmark', '--blockchain', 'solana', '--provider', 'helius'], {
       from: 'user',
     });
 
-    expect(mockRenderApp).toHaveBeenCalledOnce();
-    expect(typeof renderedElement?.type).toBe('function');
-    const appElement = renderedElement as ReactElement<{
-      runBenchmark: (onProgress?: (event: unknown) => void) => Promise<unknown>;
-    }>;
-    await appElement.props.runBenchmark();
+    expect(mockBenchmarkProgressBegin).toHaveBeenCalledOnce();
+    expect(mockBenchmarkProgressOnProgress).toHaveBeenCalledWith({ type: 'sustained-start', rate: 0.25 });
+    expect(mockBenchmarkProgressOnProgress).toHaveBeenCalledWith({
+      type: 'sustained-complete',
+      rate: 0.25,
+      success: true,
+      responseTimeMs: 70,
+    });
+    expect(mockBenchmarkProgressComplete).toHaveBeenCalledWith({
+      maxSafeRate: 4,
+      recommended: { requestsPerSecond: 3 },
+      testResults: [{ rate: 1, success: true }],
+      burstLimits: [{ limit: 10, success: true }],
+    });
     expect(mockRunProviderBenchmark).toHaveBeenCalledWith(
       { tag: 'scope' },
       { name: 'helius-provider' },
@@ -159,7 +174,7 @@ describe('providers benchmark command', () => {
         blockchain: 'solana',
         provider: 'helius',
       }),
-      undefined
+      expect.any(Function)
     );
   });
 
@@ -188,5 +203,19 @@ describe('providers benchmark command', () => {
         from: 'user',
       })
     ).rejects.toThrow('CLI:providers-benchmark:json:Benchmark request failed:1');
+  });
+
+  it('disposes the text-progress reporter and surfaces text-mode failures', async () => {
+    const program = createProgram();
+    mockRunProviderBenchmark.mockRejectedValue(new Error('Benchmark request failed'));
+
+    await expect(
+      program.parseAsync(['providers', 'benchmark', '--blockchain', 'solana', '--provider', 'helius'], {
+        from: 'user',
+      })
+    ).rejects.toThrow('CLI:providers-benchmark:text:Benchmark request failed:1');
+
+    expect(mockBenchmarkProgressBegin).toHaveBeenCalledOnce();
+    expect(mockBenchmarkProgressDispose).toHaveBeenCalledOnce();
   });
 });

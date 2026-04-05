@@ -18,6 +18,9 @@ import type { Logger } from '@exitbook/logger';
 export type BenchmarkProgressEvent =
   | { rate: number; type: 'sustained-start' }
   | { rate: number; responseTimeMs?: number | undefined; success: boolean; type: 'sustained-complete' }
+  | { reason: 'before-burst' | 'next-rate'; seconds: number; type: 'cooldown-start' }
+  | { reason: 'before-burst' | 'next-rate'; secondsRemaining: number; type: 'cooldown-heartbeat' }
+  | { reason: 'before-burst' | 'next-rate'; type: 'cooldown-complete' }
   | { limit: number; type: 'burst-start' }
   | { limit: number; success: boolean; type: 'burst-complete' };
 
@@ -31,6 +34,8 @@ export interface BenchmarkResult {
 // Number of concurrent requests per batch when testing burst rate limits.
 // Balances speed of detection with avoiding overwhelming the API endpoint.
 const BURST_BENCHMARK_BATCH_SIZE = 5;
+const RATE_TEST_COOLDOWN_MS = 60_000;
+const RATE_TEST_COOLDOWN_HEARTBEAT_MS = 15_000;
 
 /**
  * Benchmark an API to find optimal rate limits.
@@ -82,7 +87,7 @@ export async function benchmarkRateLimit(options: {
     ? customRates.sort((a, b) => a - b)
     : [0.25, 0.5, 1.0, 2.5, 5.0, maxRequestsPerSecond].filter((r) => r <= maxRequestsPerSecond);
 
-  for (const rate of ratesToTest) {
+  for (const [index, rate] of ratesToTest.entries()) {
     onProgress?.({ type: 'sustained-start', rate });
 
     const rateTestStartTime = Date.now();
@@ -183,9 +188,17 @@ export async function benchmarkRateLimit(options: {
       break;
     }
 
-    // Pause between rate tests to let sliding windows clear
-    logger.debug('Waiting 60 seconds before next rate test to clear any sliding windows...');
-    await new Promise((resolve) => setTimeout(resolve, 60000));
+    const shouldCooldown = index < ratesToTest.length - 1 || testBurstLimits;
+    if (shouldCooldown) {
+      const cooldownReason = index < ratesToTest.length - 1 ? 'next-rate' : 'before-burst';
+      logger.debug('Waiting 60 seconds to clear any sliding windows before continuing...');
+      await waitWithProgress({
+        durationMs: RATE_TEST_COOLDOWN_MS,
+        heartbeatMs: RATE_TEST_COOLDOWN_HEARTBEAT_MS,
+        onProgress,
+        reason: cooldownReason,
+      });
+    }
   }
 
   // Test per-minute burst limits
@@ -305,4 +318,31 @@ export async function benchmarkRateLimit(options: {
     recommended,
     testResults,
   };
+}
+
+async function waitWithProgress(input: {
+  durationMs: number;
+  heartbeatMs: number;
+  onProgress?: ((event: BenchmarkProgressEvent) => void) | undefined;
+  reason: 'before-burst' | 'next-rate';
+}): Promise<void> {
+  const totalSeconds = Math.floor(input.durationMs / 1000);
+  input.onProgress?.({ type: 'cooldown-start', reason: input.reason, seconds: totalSeconds });
+
+  let remainingMs = input.durationMs;
+  while (remainingMs > 0) {
+    const waitMs = Math.min(input.heartbeatMs, remainingMs);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    remainingMs -= waitMs;
+
+    if (remainingMs > 0) {
+      input.onProgress?.({
+        type: 'cooldown-heartbeat',
+        reason: input.reason,
+        secondsRemaining: Math.floor(remainingMs / 1000),
+      });
+    }
+  }
+
+  input.onProgress?.({ type: 'cooldown-complete', reason: input.reason });
 }

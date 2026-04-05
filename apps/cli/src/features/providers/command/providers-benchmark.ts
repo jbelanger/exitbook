@@ -1,6 +1,5 @@
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import React from 'react';
 import type { z } from 'zod';
 
 import {
@@ -14,12 +13,11 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { BenchmarkApp } from '../view/benchmark-components.jsx';
-import { createBenchmarkState } from '../view/benchmark-state.js';
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import type { BenchmarkResult } from './benchmark-tool.js';
 import { withProviderBenchmarkCommandScope } from './providers-benchmark-command-scope.js';
+import { ProvidersBenchmarkTextProgress } from './providers-benchmark-text-progress.js';
 import { buildConfigOverride } from './providers-benchmark-utils.js';
 import { ProvidersBenchmarkCommandOptionsSchema } from './providers-option-schemas.js';
 import { prepareProviderBenchmarkSession, runProviderBenchmark } from './run-providers-benchmark.js';
@@ -87,7 +85,7 @@ async function executeProvidersBenchmarkCommandResult(
   const result =
     format === 'json'
       ? await buildProvidersBenchmarkJsonCompletion(ctx, options)
-      : await buildProvidersBenchmarkTuiCompletion(ctx, options);
+      : await buildProvidersBenchmarkTextCompletion(ctx, options);
 
   return toProvidersBenchmarkCliResult(result);
 }
@@ -124,7 +122,7 @@ async function buildProvidersBenchmarkJsonCompletion(
   });
 }
 
-async function buildProvidersBenchmarkTuiCompletion(
+async function buildProvidersBenchmarkTextCompletion(
   ctx: CommandRuntime,
   options: ProvidersBenchmarkCommandOptions
 ): Promise<Result<CliCompletion, Error>> {
@@ -135,20 +133,21 @@ async function buildProvidersBenchmarkTuiCompletion(
     }
 
     const { params, session, providerInfo } = setupResult.value;
-    const initialState = createBenchmarkState(params, providerInfo);
-
+    const progress = new ProvidersBenchmarkTextProgress({
+      params,
+      providerName: providerInfo.name,
+      currentRateLimit: providerInfo.rateLimit,
+    });
+    progress.begin();
     ctx.onAbort(() => {
-      /* empty */
+      progress.dispose();
     });
 
     try {
-      await renderApp(() =>
-        React.createElement(BenchmarkApp, {
-          initialState,
-          runBenchmark: async (onProgress) => runProviderBenchmark(scope, session.provider, params, onProgress),
-        })
-      );
+      const result = await runProviderBenchmark(scope, session.provider, params, (event) => progress.onProgress(event));
+      progress.complete(result);
     } catch (error) {
+      progress.dispose();
       return err(normalizeCommandError(error));
     }
 
