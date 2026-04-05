@@ -2,9 +2,12 @@ import { type BlockchainProviderDescriptor } from '@exitbook/blockchain-provider
 import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+
+const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
 
 const {
   mockComputeCategoryCounts,
@@ -32,10 +35,6 @@ vi.mock('../../../../cli/error.js', () => ({
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
-}));
-
-vi.mock('../../../shared/data-dir.js', () => ({
-  getDataDir: () => '/tmp/exitbook-blockchains',
 }));
 
 vi.mock('../../../../cli/output.js', () => ({
@@ -99,12 +98,59 @@ function createBlockchainProviderDescriptor(
   };
 }
 
+function setTerminalInteractivity(isInteractive: boolean): void {
+  Object.defineProperty(process.stdin, 'isTTY', {
+    configurable: true,
+    value: isInteractive,
+  });
+  Object.defineProperty(process.stdout, 'isTTY', {
+    configurable: true,
+    value: isInteractive,
+  });
+  delete process.env['CI'];
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env['HELIUS_API_KEY'];
+  delete process.env['ALCHEMY_API_KEY'];
+  setTerminalInteractivity(false);
   mockRenderApp.mockResolvedValue(undefined);
-  mockComputeCategoryCounts.mockReturnValue({ solana: 1 });
-  mockCreateBlockchainsViewState.mockReturnValue({ tag: 'state' });
+  mockComputeCategoryCounts.mockImplementation((items: { category: string }[]) => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      counts[item.category] = (counts[item.category] ?? 0) + 1;
+    }
+    return counts;
+  });
+  mockCreateBlockchainsViewState.mockImplementation(
+    (
+      blockchains: unknown[],
+      filters: { categoryFilter?: string | undefined; requiresApiKeyFilter?: boolean | undefined },
+      totalProviders: number,
+      categoryCounts: Record<string, number> | undefined,
+      selectedIndex: number | undefined
+    ) =>
+      ({
+        blockchains,
+        categoryFilter: filters.categoryFilter,
+        categoryCounts: categoryCounts ?? {},
+        requiresApiKeyFilter: filters.requiresApiKeyFilter,
+        scrollOffset: selectedIndex ?? 0,
+        selectedIndex: selectedIndex ?? 0,
+        totalCount: blockchains.length,
+        totalProviders,
+      }) as {
+        blockchains: unknown[];
+        categoryCounts: Record<string, number>;
+        categoryFilter?: string | undefined;
+        requiresApiKeyFilter?: boolean | undefined;
+        scrollOffset: number;
+        selectedIndex: number;
+        totalCount: number;
+        totalProviders: number;
+      }
+  );
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
       throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
@@ -112,8 +158,17 @@ beforeEach(() => {
   );
 });
 
+afterAll(() => {
+  if (originalStdinTTYDescriptor) {
+    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
+  }
+  if (originalStdoutTTYDescriptor) {
+    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
+  }
+});
+
 describe('registerBlockchainsCommand', () => {
-  it('registers the blockchains namespace with the view subcommand', () => {
+  it('registers the blockchains namespace with the root browse action and view subcommand', () => {
     const program = new Command();
 
     registerBlockchainsCommand(program, createAppRuntime());
@@ -123,10 +178,8 @@ describe('registerBlockchainsCommand', () => {
     expect(blockchainsCommand?.description()).toBe('Browse supported blockchains and provider configuration');
     expect(blockchainsCommand?.commands.map((command) => command.name())).toContain('view');
   });
-});
 
-describe('registerBlockchainsViewCommand', () => {
-  it('outputs filtered blockchain catalog data in JSON mode', async () => {
+  it('outputs summary-shaped JSON from the bare root command', async () => {
     const program = new Command();
 
     mockListBlockchainProviders.mockReturnValue([
@@ -144,51 +197,118 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime());
+    registerBlockchainsCommand(program, createAppRuntime(['bitcoin', 'solana']));
 
-    await program.parseAsync(['blockchains', 'view', '--category', 'utxo', '--json'], { from: 'user' });
+    await program.parseAsync(['blockchains', '--json'], { from: 'user' });
 
-    expect(mockListBlockchainProviders).toHaveBeenCalledWith();
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'blockchains-view',
+      'blockchains',
       {
-        data: {
-          blockchains: [
-            expect.objectContaining({
-              name: 'bitcoin',
-              displayName: 'Bitcoin',
-              category: 'utxo',
-              providerCount: 1,
-              exampleAddress: 'bc1q...',
-              providers: [
-                expect.objectContaining({
-                  name: 'mempool',
-                  displayName: 'Mempool',
-                  requiresApiKey: false,
-                  capabilities: ['balance', 'txs'],
-                  rateLimit: '5/sec',
-                }),
-              ],
-            }),
-          ],
-        },
-        meta: {
-          total: 1,
-          byCategory: { utxo: 1 },
-          totalProviders: 2,
-          filters: { category: 'utxo' },
-        },
+        blockchains: [
+          expect.objectContaining({
+            name: 'bitcoin',
+            displayName: 'Bitcoin',
+            category: 'utxo',
+            providerCount: 1,
+          }),
+          expect.objectContaining({
+            name: 'solana',
+            displayName: 'Solana',
+            category: 'solana',
+            providerCount: 1,
+          }),
+        ],
       },
+      {
+        total: 2,
+        byCategory: { utxo: 1, solana: 1 },
+        totalProviders: 2,
+        filters: undefined,
+      }
+    );
+  });
+
+  it('outputs detail-shaped JSON for a blockchain selector', async () => {
+    const program = new Command();
+
+    mockListBlockchainProviders.mockReturnValue([
+      createBlockchainProviderDescriptor({
+        apiKeyEnvName: 'ALCHEMY_API_KEY',
+        blockchain: 'ethereum',
+        displayName: 'Alchemy',
+        name: 'alchemy',
+        requiresApiKey: true,
+      }),
+      createBlockchainProviderDescriptor({
+        blockchain: 'ethereum',
+        displayName: 'Etherscan',
+        name: 'etherscan',
+      }),
+    ]);
+    process.env['ALCHEMY_API_KEY'] = 'configured';
+
+    registerBlockchainsCommand(program, createAppRuntime(['bitcoin', 'ethereum']));
+
+    await program.parseAsync(['blockchains', 'ETHEREUM', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'blockchains',
+      expect.objectContaining({
+        name: 'ethereum',
+        displayName: 'Ethereum',
+        category: 'evm',
+        providerCount: 2,
+        keyStatus: 'all-configured',
+        providers: [
+          expect.objectContaining({
+            name: 'alchemy',
+            apiKeyConfigured: true,
+          }),
+          expect.objectContaining({
+            name: 'etherscan',
+            requiresApiKey: false,
+          }),
+        ],
+      }),
       undefined
     );
   });
 
-  it('renders the TUI with derived state in text mode', async () => {
+  it('rejects combining a selector with browse filters', async () => {
     const program = new Command();
-    const initialState = { selectedIndex: 0 };
 
-    mockCreateBlockchainsViewState.mockReturnValue(initialState);
+    registerBlockchainsCommand(program, createAppRuntime());
+
+    await expect(
+      program.parseAsync(['blockchains', 'bitcoin', '--category', 'utxo'], { from: 'user' })
+    ).rejects.toThrow(
+      'CLI:blockchains:text:Blockchain selector cannot be combined with --category or --requires-api-key:2'
+    );
+  });
+
+  it('fails with NOT_FOUND when a blockchain selector does not resolve', async () => {
+    const program = new Command();
+
+    mockListBlockchainProviders.mockReturnValue([]);
+    registerBlockchainsCommand(program, createAppRuntime(['bitcoin']));
+
+    await expect(program.parseAsync(['blockchains', 'ethereum', '--json'], { from: 'user' })).rejects.toThrow(
+      "CLI:blockchains:json:Blockchain selector 'ethereum' not found:4"
+    );
+  });
+});
+
+describe('registerBlockchainsViewCommand', () => {
+  it('renders the TUI with a preselected blockchain on an interactive terminal', async () => {
+    const program = new Command();
+
+    setTerminalInteractivity(true);
     mockListBlockchainProviders.mockReturnValue([
+      createBlockchainProviderDescriptor({
+        blockchain: 'bitcoin',
+        displayName: 'Mempool',
+        name: 'mempool',
+      }),
       createBlockchainProviderDescriptor({
         apiKeyEnvName: 'HELIUS_API_KEY',
         blockchain: 'solana',
@@ -198,35 +318,19 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['solana']));
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin', 'solana']));
 
-    await program.parseAsync(['blockchains', 'view', '--requires-api-key'], { from: 'user' });
+    await program.parseAsync(['blockchains', 'view', 'solana'], { from: 'user' });
 
-    expect(mockComputeCategoryCounts).toHaveBeenCalledWith([
-      expect.objectContaining({
-        category: 'solana',
-        keyStatus: 'some-missing',
-        missingKeyCount: 1,
-        name: 'solana',
-      }),
-    ]);
     expect(mockCreateBlockchainsViewState).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          category: 'solana',
-          displayName: 'Solana',
-          keyStatus: 'some-missing',
-          missingKeyCount: 1,
-          name: 'solana',
-          providerCount: 1,
-        }),
-      ],
+      [expect.objectContaining({ name: 'bitcoin' }), expect.objectContaining({ name: 'solana' })],
       {
         categoryFilter: undefined,
-        requiresApiKeyFilter: true,
+        requiresApiKeyFilter: undefined,
       },
-      1,
-      { solana: 1 }
+      2,
+      { utxo: 1, solana: 1 },
+      1
     );
 
     const renderFactory = mockRenderApp.mock.calls[0]?.[0] as ((unmount: () => void) => ReactElement) | undefined;
@@ -235,10 +339,27 @@ describe('registerBlockchainsViewCommand', () => {
     const onQuit = vi.fn();
     const element = renderFactory?.(onQuit);
     expect(element?.type).toBe('BlockchainsViewApp');
-    expect(element?.props).toEqual({
-      initialState,
-      onQuit,
-    });
+  });
+
+  it('falls back to static detail off-TTY instead of mounting the explorer', async () => {
+    const program = new Command();
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    mockListBlockchainProviders.mockReturnValue([
+      createBlockchainProviderDescriptor({
+        blockchain: 'bitcoin',
+        displayName: 'Mempool',
+        name: 'mempool',
+      }),
+    ]);
+
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin']));
+
+    await program.parseAsync(['blockchains', 'view', 'bitcoin'], { from: 'user' });
+
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(stdoutWrite).toHaveBeenCalledWith(expect.stringContaining('Bitcoin bitcoin utxo L1'));
+    stdoutWrite.mockRestore();
   });
 
   it('routes invalid category errors through the JSON CLI error path', async () => {

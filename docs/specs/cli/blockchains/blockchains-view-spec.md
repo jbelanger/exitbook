@@ -1,519 +1,395 @@
-# Blockchains View — Interactive TUI Spec
+# Blockchains CLI Spec
 
-## Overview
+## Scope
 
-`exitbook blockchains view` replaces the former `list-blockchains` command. It is a read-only TUI for browsing supported blockchains and inspecting their provider configuration, API key health, and capabilities.
+This document defines the `blockchains` command family:
 
-Single-mode design: a scrollable list of blockchains with a detail panel showing the selected blockchain's full provider breakdown (capabilities, rate limits, API key status, health stats). Filters narrow the dataset via CLI flags.
+- `exitbook blockchains`
+- `exitbook blockchains <selector>`
+- `exitbook blockchains view`
+- `exitbook blockchains view <selector>`
 
-`--json` bypasses the TUI.
+It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
 
----
+Out of scope:
 
-## Two-Panel Layout
+- provider benchmarking
+- account creation flows
+- any workflow command
 
-List (top) and detail panel (bottom), separated by a full-width dim `─` divider. Same shared behavior as all other TUI views.
+## Family Model
 
-### Scrolling
+The `blockchains` family is a read-only catalog surface for supported chains and their provider coverage.
 
-When the list exceeds the visible height:
+Rules:
 
-- Visible window scrolls to keep the selected row in view
-- `▲` / `▼` dim indicators appear when more items exist above/below
-- No explicit scroll bar
+- browse commands never call live blockchain providers
+- all data comes from the registered blockchain and provider catalog plus local API-key configuration state
+- `--json` is the only generic output override
 
-### Navigation
+## Command Surface
 
-| Key               | Action           | When   |
-| ----------------- | ---------------- | ------ |
-| `↑` / `k`         | Move cursor up   | Always |
-| `↓` / `j`         | Move cursor down | Always |
-| `PgUp` / `Ctrl-U` | Page up          | Always |
-| `PgDn` / `Ctrl-D` | Page down        | Always |
-| `Home`            | Jump to first    | Always |
-| `End`             | Jump to last     | Always |
-| `q` / `Esc`       | Quit             | Always |
+### Browse shapes
 
-### Controls Bar
+| Shape                         | Meaning                                     | Human surface      |
+| ----------------------------- | ------------------------------------------- | ------------------ |
+| `blockchains`                 | Quick browse of supported blockchains       | Static list        |
+| `blockchains <selector>`      | Focused inspection of one blockchain        | Static detail card |
+| `blockchains view`            | Full blockchain explorer                    | TUI explorer       |
+| `blockchains view <selector>` | Explorer pre-selected on one blockchain     | TUI explorer       |
+| Any of the above + `--json`   | Machine output for the same semantic target | JSON               |
 
-Bottom line, dim. Read-only — no action keys.
+On a non-interactive terminal:
 
-### Loading State
+- `blockchains view` falls back to the same static list as `blockchains`
+- `blockchains view <selector>` falls back to the same static detail as `blockchains <selector>`
 
-```
-⠋ Loading blockchains...
-```
+`view` does not define a separate text schema or JSON schema.
 
-Brief spinner, then TUI appears.
+## Selectors And Options
 
----
+### Selector
 
-## Visual Example
+`<selector>` is the blockchain key.
 
-```
-Blockchains  13 total · 7 evm · 3 substrate · 1 utxo · 1 solana · 1 cosmos   18 providers
+Examples:
 
-  ✓  Bitcoin       utxo        L1   2 providers   ✓ all keys configured
-  ✓  Ethereum      evm         L1   3 providers   ✓ all keys configured
-  ✓  Solana        solana           2 providers   ✓ all keys configured
-▸ ⚠  Polygon       evm         L2   3 providers   ⚠ 1 key missing
-  ✓  Arbitrum One  evm         L2   2 providers   ✓ all keys configured
-  ✓  Optimism      evm         L2   2 providers   ✓ all keys configured
-  ✓  Base          evm         L2   2 providers   ✓ all keys configured
-  ⊘  Avalanche C   evm         L1   1 provider    ⊘ no key needed
-  ⊘  BSC           evm         L1   1 provider    ⊘ no key needed
-  ✓  Polkadot      substrate   L0   1 provider    ✓ all keys configured
-  ✓  Kusama        substrate   L1   1 provider    ✓ all keys configured
-  ✓  Bittensor     substrate   L1   1 provider    ✓ all keys configured
-  ✓  Injective     cosmos      L1   1 provider    ✓ all keys configured
+- `bitcoin`
+- `ethereum`
+- `injective`
 
-────────────────────────────────────────────────────────────────────────────────
-▸ Polygon  evm · Layer 2   3 providers
+Rules:
 
-  Providers
-    ✓  alchemy        txs · balance · tokens   5/sec   ALCHEMY_API_KEY ✓
-    ⚠  quicknode      txs · balance            3/sec   QUICKNODE_API_KEY ✗
-    ⊘  polygonscan    txs · balance             5/sec
+- selector resolution is exact and case-insensitive on the blockchain key
+- selectors cannot be combined with `--category`
+- selectors cannot be combined with `--requires-api-key`
+- selector misses fail with `Blockchain selector '<value>' not found`
 
-  Example: exitbook accounts add polygon-main --blockchain polygon --address 0x742d35Cc...
-           exitbook import polygon-main
+### Browse options
 
-↑↓/j/k · ^U/^D page · Home/End · q/esc quit
-```
+Supported browse options:
 
----
+- `--category <name>`: filter by blockchain category
+- `--requires-api-key`: include only blockchains whose provider set requires API-key configuration
+- `--json`: output JSON
 
-## Header
+## Shared Data Semantics
 
-```
-Blockchains  {total} total · {evm} evm · {substrate} substrate · {utxo} utxo · {solana} solana · {cosmos} cosmos   {providerCount} providers
-```
+### Blockchain Summary
 
-- Title: white/bold
-- Total count: white
-- Category counts: white
-- Category labels: dim
-- Provider count: white
-- `providers` label: dim
-- Dot separators: dim
-- Only show categories with count > 0
+Each blockchain item includes:
 
-When filtered:
+- blockchain key
+- display name
+- category
+- optional layer label
+- provider count
+- API-key readiness summary
+- example address placeholder
 
-```
-Blockchains (evm)  7 total   12 providers
-```
+### API-Key Readiness
 
-```
-Blockchains (requires API key)  10 total   15 providers
-```
+API-key readiness is summary data derived from the registered providers for a blockchain.
 
----
+States:
 
-## List Columns
+- `all-configured`: at least one provider requires an API key and all required keys are configured
+- `some-missing`: at least one required provider key is missing
+- `none-needed`: no provider for the blockchain requires an API key
 
-```
-{cursor} {icon}  {displayName}  {category}  {layer}  {providers}  {keyStatus}
-```
+Rules:
 
-| Column       | Width | Alignment | Content                                        |
-| ------------ | ----- | --------- | ---------------------------------------------- |
-| Cursor       | 1     | —         | `▸` for selected, space otherwise              |
-| Icon         | 1     | —         | API key health icon                            |
-| Display Name | 14    | left      | Human-readable blockchain name                 |
-| Category     | 10    | left      | `evm`, `utxo`, `substrate`, `solana`, `cosmos` |
-| Layer        | 4     | left      | `L0`, `L1`, `L2`, or blank                     |
-| Providers    | 14    | right     | `{n} provider(s)`                              |
-| Key Status   | 22    | left      | API key health summary                         |
+- readiness is local configuration state, not live provider health
+- `requires-api-key` filter includes blockchains with at least one required key, even if some optional no-key providers also exist
+- the detail surface still shows providers that do not require keys
 
-### API Key Health Icons
+## Browse Surfaces
 
-| Condition                     | Icon | Color  |
-| ----------------------------- | ---- | ------ |
-| All required keys configured  | `✓`  | green  |
-| Some required keys missing    | `⚠`  | yellow |
-| No providers require API keys | `⊘`  | dim    |
+### Static List Surface
 
-### API Key Status Text
+Applies to:
 
-| Condition                    | Text                    | Color  |
-| ---------------------------- | ----------------------- | ------ |
-| All required keys configured | `✓ all keys configured` | green  |
-| Some keys missing            | `⚠ {n} key(s) missing`  | yellow |
-| No keys required             | `⊘ no key needed`       | dim    |
+- `exitbook blockchains`
+- `exitbook blockchains view` off-TTY
 
-### Row Colors
+#### Header
 
-| Row State         | Color                     |
-| ----------------- | ------------------------- |
-| Selected (cursor) | white/bold for entire row |
-| Normal            | standard color scheme     |
+Format:
 
-### Standard Row Color Scheme
-
-| Element        | Color |
-| -------------- | ----- |
-| Display name   | white |
-| Category       | dim   |
-| Layer          | dim   |
-| Provider count | white |
-| `provider(s)`  | dim   |
-
----
-
-## Detail Panel
-
-The detail panel shows full provider information for the selected blockchain.
-
-### Standard Detail
-
-```
-▸ {displayName}  {category} · Layer {layer}   {providerCount} providers
-
-  Providers
-    {icon}  {providerName}   {capabilities}   {rateLimit}   {apiKeyInfo}
-    {icon}  {providerName}   {capabilities}   {rateLimit}   {apiKeyInfo}
-    ...
-
-  Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
-           exitbook import {name}-main
+```text
+Blockchains{optional filter label} {total} total · {category counts...} · {providerCount} providers
 ```
 
-### Detail Panel Elements
+Rules:
 
-| Element                      | Color      |
-| ---------------------------- | ---------- |
-| Display name                 | white/bold |
-| Category                     | dim        |
-| `Layer {n}`                  | dim        |
-| Provider count               | white      |
-| `providers` label            | dim        |
-| `Providers` section label    | dim        |
-| Provider name                | cyan       |
-| Capabilities list            | white      |
-| Rate limit                   | dim        |
-| API key env var (configured) | green      |
-| `✓` (configured)             | green      |
-| API key env var (missing)    | yellow     |
-| `✗` (missing)                | red        |
-| Provider without API key     | dim (`⊘`)  |
-| `Example:` label             | dim        |
-| CLI command                  | dim        |
+- `Blockchains` is bold
+- metadata is dim
+- only non-zero category counts are shown
+- category counts are omitted when the list is already filtered to one category
+- filter label is `({category})` or `(requires API key)`
+- no blank line before the header
+- one blank line follows the header before the table or empty state
 
-### Provider Line Format
+#### Table
 
-Each provider is one line:
+Columns:
 
-```
-  {icon}  {name}   {cap1} · {cap2} · {cap3}   {rate}/sec   {envVar} {status}
-```
+| Column      | Meaning                               |
+| ----------- | ------------------------------------- |
+| `NAME`      | Human-readable blockchain name        |
+| `KEY`       | Canonical blockchain key              |
+| `CATEGORY`  | Display category                      |
+| `LAYER`     | Layer label when known; otherwise `—` |
+| `PROVIDERS` | Number of registered providers        |
+| `API KEYS`  | Compact readiness summary             |
 
-- Icon: `✓` green (key configured), `⚠` yellow (key missing), `⊘` dim (no key needed)
-- Capabilities: shortened operations joined by `·` (e.g., `txs · balance · tokens`)
-- Rate limit: `{n}/sec` in dim
-- API key: env var name + `✓`/`✗` status, or omitted if no key needed
+Example:
 
-### Provider Icons
+```text
+Blockchains 3 total · 1 evm · 1 utxo · 1 cosmos · 4 providers
 
-| Condition       | Icon | Color  |
-| --------------- | ---- | ------ |
-| Key configured  | `✓`  | green  |
-| Key missing     | `⚠`  | yellow |
-| No key required | `⊘`  | dim    |
-
-### No Providers
-
-When a blockchain has zero registered providers:
-
-```
-▸ {displayName}  {category} · Layer {layer}   0 providers
-
-  No providers registered for this blockchain.
-
-  Example: exitbook accounts add {name}-main --blockchain {name} --address {exampleAddress}
-           exitbook import {name}-main
+NAME       KEY        CATEGORY  LAYER  PROVIDERS  API KEYS
+Bitcoin    bitcoin    utxo      L1             1  none needed
+Ethereum   ethereum   evm       L1             2  all configured
+Injective  injective  cosmos    L1             1  1 missing
 ```
 
----
+Rules:
 
-## Sorting
+- no controls footer
+- no selected-row expansion
+- no side-by-side detail panel
+- readiness wording is concise and user-facing: `all configured`, `N missing`, `none needed`
 
-Default: popularity order (bitcoin, ethereum, solana, then EVM L2s, then substrate/cosmos, then alphabetical for unlisted).
+#### Empty states
 
-Same order as the existing `sortBlockchains()` utility.
+Unfiltered empty state:
 
----
+```text
+Blockchains 0 total
 
-## Filters
-
-### Category Filter (`--category`)
-
-```bash
-exitbook blockchains view --category evm         # Only EVM blockchains
-exitbook blockchains view --category substrate    # Only Substrate blockchains
-exitbook blockchains view --category utxo         # Only UTXO blockchains
+No blockchains found.
 ```
 
-### API Key Filter (`--requires-api-key`)
+Filtered empty state:
 
-```bash
-exitbook blockchains view --requires-api-key      # Only blockchains that require API keys
+```text
+Blockchains (evm) 0 total · 0 providers
+
+No blockchains found for category evm.
 ```
 
----
+### Static Detail Surface
 
-## Empty States
+Applies to:
 
-### No Blockchains
+- `exitbook blockchains <selector>`
+- `exitbook blockchains view <selector>` off-TTY
 
-```
-Blockchains  0 total
+#### Title line
 
-  No blockchains registered.
+Format:
 
-  This likely means provider registration failed.
-  Run: pnpm blockchain-providers:validate
-
-q quit
+```text
+{displayName} {key} {category} {layer?}
 ```
 
-### No Blockchains Matching Filter
+Where:
 
+- `{displayName}` is bold
+- `{key}` is dim
+- `{category}` is cyan
+- `{layer}` is dim and omitted when unknown
+
+Example:
+
+```text
+Ethereum ethereum evm L1
 ```
-Blockchains (cosmos)  0 total
 
-  No blockchains found for category cosmos.
+#### Body
 
-q quit
+Field order:
+
+1. `Key`
+2. `Category`
+3. optional `Layer`
+4. `Providers`
+5. `API keys`
+6. `Example address`
+7. `Providers` section
+
+Example:
+
+```text
+Ethereum ethereum evm L1
+
+Key: ethereum
+Category: evm
+Layer: L1
+Providers: 2
+API keys: all configured
+Example address: 0x742d35Cc...
+
+Providers
+alchemy      balance · txs · tokens   5/sec   ALCHEMY_API_KEY configured
+etherscan    balance · txs            5/sec   no key needed
 ```
 
----
+Rules:
 
-## JSON Mode (`--json`)
+- provider rows are not artificially capped
+- provider rows show provider display name, capabilities, rate limit when known, and API-key status
+- API-key status wording is user-facing: `configured`, `missing`, `no key needed`
 
-Bypasses the TUI. Returns structured blockchain data.
+## Explorer Surface
+
+Applies to:
+
+- `exitbook blockchains view`
+- `exitbook blockchains view <selector>`
+
+The explorer is a master-detail Ink app with one list view and one detail panel.
+
+### Explorer layout
+
+The explorer renders:
+
+1. a blank line
+2. the shared header
+3. a blank line
+4. a selectable blockchain list
+5. a divider
+6. a fixed-height detail panel
+7. a blank line
+8. a controls bar
+
+### Explorer rows
+
+Each row contains:
+
+- display name
+- category
+- optional layer
+- provider count
+- API-key readiness summary
+
+Example:
+
+```text
+▸ Ethereum  evm  L1  2 providers  all configured
+```
+
+### Explorer detail panel
+
+The detail panel uses the same underlying fields as the static detail card, but:
+
+- prefixes the title with `▸`
+- is height-limited
+- may truncate the provider list
+- shows an overflow line when more detail exists than can fit
+
+### Explorer navigation
+
+| Key               | Action            |
+| ----------------- | ----------------- |
+| `↑` / `k`         | Move up           |
+| `↓` / `j`         | Move down         |
+| `PgUp` / `Ctrl-U` | Page up           |
+| `PgDn` / `Ctrl-D` | Page down         |
+| `Home`            | Jump to first row |
+| `End`             | Jump to last row  |
+| `q` / `Esc`       | Quit              |
+
+### Selector behavior
+
+`blockchains view <selector>` opens the explorer pre-selected on the requested blockchain.
+
+### Empty explorer behavior
+
+Explorer empties follow the V3 rules:
+
+- `blockchains view` with a truly empty unfiltered collection collapses to the static empty state
+- filtered-empty explorer requests stay on the explorer code path instead of silently downgrading to static output
+- selector misses fail before any renderer mounts
+
+## JSON
+
+JSON follows the same semantic target regardless of whether the command uses `view`.
+
+- `blockchains --json` and `blockchains view --json` return the same list payload
+- `blockchains <selector> --json` and `blockchains view <selector> --json` return the same detail payload
+
+### List payload
+
+Shape:
 
 ```json
 {
   "data": {
-    "blockchains": [
-      {
-        "name": "bitcoin",
-        "displayName": "Bitcoin",
-        "category": "utxo",
-        "layer": "1",
-        "providers": [
-          {
-            "name": "mempool",
-            "displayName": "Mempool",
-            "requiresApiKey": false,
-            "capabilities": ["txs", "balance"],
-            "rateLimit": "5/sec"
-          },
-          {
-            "name": "blockstream",
-            "displayName": "Blockstream",
-            "requiresApiKey": false,
-            "capabilities": ["txs", "balance"],
-            "rateLimit": "3/sec"
-          }
-        ],
-        "providerCount": 2,
-        "exampleAddress": "bc1q..."
-      }
-    ]
+    "blockchains": []
   },
   "meta": {
-    "total": 13,
-    "byCategory": { "evm": 7, "substrate": 3, "utxo": 1, "solana": 1, "cosmos": 1 },
-    "totalProviders": 18,
-    "filters": {}
+    "total": 3,
+    "byCategory": {
+      "evm": 1
+    },
+    "totalProviders": 4
   }
 }
 ```
 
----
+Rules:
 
-## Color Specification
+- list items include summary data only
+- provider arrays are not inlined in the list payload
 
-### Three-Tier Hierarchy
+### Detail payload
 
-Same conventions as all other TUI views.
+Shape:
 
-**Signal tier (icons + cursor):**
-
-| Icon | Color  | Meaning             |
-| ---- | ------ | ------------------- |
-| `✓`  | green  | Key configured / OK |
-| `⚠`  | yellow | Key missing         |
-| `⊘`  | dim    | No key needed       |
-| `▸`  | —      | Cursor (bold)       |
-
-**Content tier (what you read):**
-
-| Element             | Color  |
-| ------------------- | ------ |
-| Blockchain names    | white  |
-| Provider names      | cyan   |
-| Provider counts     | white  |
-| Capabilities        | white  |
-| Configured env vars | green  |
-| Missing env vars    | yellow |
-
-**Context tier (recedes):**
-
-| Element                         | Color |
-| ------------------------------- | ----- |
-| Category labels                 | dim   |
-| Layer labels                    | dim   |
-| Divider `─`                     | dim   |
-| Dot separator `·`               | dim   |
-| Rate limits                     | dim   |
-| `provider(s)` label             | dim   |
-| `Providers` section label       | dim   |
-| `Example:` label                | dim   |
-| CLI command                     | dim   |
-| `⊘` icon and no-key-needed text | dim   |
-| Controls bar                    | dim   |
-| Scroll indicators               | dim   |
-
----
-
-## State Model
-
-```typescript
-interface BlockchainsViewState {
-  // Data
-  blockchains: BlockchainViewItem[];
-  categoryCounts: Record<string, number>;
-  totalCount: number;
-  totalProviders: number;
-
-  // Navigation
-  selectedIndex: number;
-  scrollOffset: number;
-
-  // Filters (applied from CLI args, read-only in TUI)
-  categoryFilter?: string | undefined;
-  requiresApiKeyFilter?: boolean | undefined;
-}
-
-/** Per-blockchain display item */
-interface BlockchainViewItem {
-  name: string;
-  displayName: string;
-  category: string;
-  layer?: string | undefined;
-
-  providers: ProviderViewItem[];
-  providerCount: number;
-
-  // API key health
-  keyStatus: 'all-configured' | 'some-missing' | 'none-needed';
-  missingKeyCount: number;
-
-  exampleAddress: string;
-}
-
-/** Per-provider display item */
-interface ProviderViewItem {
-  name: string;
-  displayName: string;
-  requiresApiKey: boolean;
-  apiKeyEnvVar?: string | undefined;
-  apiKeyConfigured?: boolean | undefined; // only when requiresApiKey is true
-  capabilities: string[];
-  rateLimit?: string | undefined;
+```json
+{
+  "data": {
+    "name": "ethereum",
+    "displayName": "Ethereum",
+    "category": "evm",
+    "layer": "1",
+    "providerCount": 2,
+    "keyStatus": "all-configured",
+    "missingKeyCount": 0,
+    "exampleAddress": "0x742d35Cc...",
+    "providers": [
+      {
+        "name": "alchemy",
+        "displayName": "Alchemy",
+        "requiresApiKey": true,
+        "apiKeyEnvName": "ALCHEMY_API_KEY",
+        "apiKeyConfigured": true,
+        "capabilities": ["balance", "txs", "tokens"],
+        "rateLimit": "5/sec"
+      }
+    ]
+  }
 }
 ```
 
-### Actions
+Rules:
 
-```typescript
-type BlockchainsViewAction =
-  // Navigation
-  | { type: 'NAVIGATE_UP'; visibleRows: number }
-  | { type: 'NAVIGATE_DOWN'; visibleRows: number }
-  | { type: 'PAGE_UP'; visibleRows: number }
-  | { type: 'PAGE_DOWN'; visibleRows: number }
-  | { type: 'HOME' }
-  | { type: 'END'; visibleRows: number };
-```
+- detail JSON includes the full provider array
+- undefined properties are omitted from serialized JSON
 
-Read-only view — no mutation actions.
+## Errors And Help
 
----
+Expected browse-family errors:
 
-## Component Structure
+- `Use bare "blockchains" instead of "blockchains list".`
+- `Blockchain selector '<value>' not found`
+- `Blockchain selector cannot be combined with --category or --requires-api-key`
 
-```
-BlockchainsViewApp
-├── Header (total + category counts + provider count)
-├── BlockchainList
-│   └── BlockchainRow
-├── Divider
-├── BlockchainDetailPanel
-│   ├── ProviderListSection
-│   └── ExampleSection
-└── ControlsBar
-```
+Help copy should keep the family model explicit:
 
----
-
-## Command Options
-
-```
-exitbook blockchains view [options]
-
-Options:
-  --category <type>      Filter by category (evm, substrate, cosmos, utxo, solana)
-  --requires-api-key     Show only blockchains that require API keys
-  --json                 Output JSON, bypass TUI
-  -h, --help             Display help
-```
-
-Note: `--detailed` is removed — the detail panel always shows full provider information including rate limits and capabilities. The TUI replaces the need for a separate verbosity flag.
-
----
-
-## Implementation Notes
-
-### Data Flow
-
-1. Parse and validate CLI options at the boundary
-2. Get supported blockchains from `getAllBlockchains()`
-3. Get providers per blockchain from `ProviderRegistry.getAvailable(blockchain)`
-4. Transform into `BlockchainViewItem[]` using existing `buildBlockchainInfo()` utility
-5. Check API key status by reading env vars (existing pattern from `displayTextOutput`)
-6. Apply category/API-key filters
-7. Sort using existing `sortBlockchains()` utility
-8. Render Ink TUI with dataset in memory
-9. No database access needed — all data comes from the static provider registry and env vars
-
-### API Key Health Check
-
-For each provider that requires an API key:
-
-1. Get `apiKeyEnvVar` from `ProviderRegistry.getMetadata(blockchain, providerName)`
-2. Check `!!process.env[envVar]`
-3. Aggregate per-blockchain: if all required keys present → `all-configured`, if some missing → `some-missing`, if no providers need keys → `none-needed`
-
-### Migration from `list-blockchains`
-
-- `list-blockchains` command removed and replaced by `blockchains view`
-- All existing utility functions (`buildBlockchainInfo`, `filterByCategory`, `sortBlockchains`, etc.) reused
-- `--detailed` flag removed (detail panel always shows full info)
-- Text output (`displayTextOutput`) removed in favor of Ink TUI
-- JSON output structure slightly restructured to match other view commands
-
-### Terminal Size
-
-- List panel: fills available height minus fixed chrome (header ~3, divider 1, detail panel ~8, controls ~2, scroll indicators ~2 = ~16 lines)
-- Detail panel height varies by provider count (~3 lines base + 1 per provider)
-- Minimum terminal width: 80 columns
-
-### Accessibility
-
-- Vim keys (`j`/`k`) alongside arrows
-- No color-only information — icons and text labels always accompany colors
-- API key status always shown as text + icon, not just color-coded
+- bare `blockchains` is the quick static browse
+- `blockchains <selector>` is the focused static detail
+- `blockchains view` is the explorer
+- `--json` preserves semantic shape rather than surface shape

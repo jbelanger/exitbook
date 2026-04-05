@@ -17,6 +17,15 @@ import {
 import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-model.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
+import {
+  buildBlockchainsFilterLabel,
+  buildCategoryParts,
+  formatBlockchainLayer,
+  formatProviderApiKeyStatus,
+  formatProviderCapabilities,
+  formatProviderCount,
+  getBlockchainKeyStatusDisplay,
+} from './blockchains-view-formatters.js';
 import type { BlockchainsViewState } from './blockchains-view-state.js';
 
 const BLOCKCHAINS_DETAIL_LINES = 8;
@@ -82,9 +91,7 @@ export const BlockchainsViewApp: FC<{
 const BlockchainsHeader: FC<{ state: BlockchainsViewState }> = ({ state }) => {
   const { categoryCounts, totalCount, totalProviders, categoryFilter, requiresApiKeyFilter } = state;
 
-  let filterLabel = '';
-  if (categoryFilter) filterLabel = ` (${categoryFilter})`;
-  else if (requiresApiKeyFilter) filterLabel = ' (requires API key)';
+  const filterLabel = buildBlockchainsFilterLabel({ categoryFilter, requiresApiKeyFilter });
 
   // Build category parts (only show when not filtered by category)
   const categoryParts = !categoryFilter ? buildCategoryParts(categoryCounts) : [];
@@ -109,24 +116,6 @@ const BlockchainsHeader: FC<{ state: BlockchainsViewState }> = ({ state }) => {
   );
 };
 
-function buildCategoryParts(counts: Record<string, number>): { count: number; label: string }[] {
-  const order = ['evm', 'substrate', 'utxo', 'solana', 'cosmos'];
-  const parts: { count: number; label: string }[] = [];
-  for (const category of order) {
-    const count = counts[category];
-    if (count && count > 0) {
-      parts.push({ label: category, count });
-    }
-  }
-  // Add any remaining categories not in the preferred order
-  for (const [category, count] of Object.entries(counts)) {
-    if (!order.includes(category) && count > 0) {
-      parts.push({ label: category, count });
-    }
-  }
-  return parts;
-}
-
 // --- List ---
 
 const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> = ({ state, visibleRows }) => {
@@ -134,16 +123,16 @@ const BlockchainList: FC<{ state: BlockchainsViewState; visibleRows: number }> =
   const columns = createColumns(blockchains, {
     displayName: { format: (item) => item.displayName, minWidth: 10 },
     category: { format: (item) => item.category, minWidth: 6 },
-    layer: { format: (item) => (item.layer ? `L${item.layer}` : ''), minWidth: 2 },
+    layer: { format: (item) => (item.layer ? formatBlockchainLayer(item.layer) : ''), minWidth: 2 },
     providers: {
-      format: (item) => {
-        const label = item.providerCount === 1 ? 'provider ' : 'providers';
-        return `${item.providerCount} ${label}`;
-      },
+      format: (item) => formatProviderCount(item.providerCount),
       align: 'right',
       minWidth: 10,
     },
-    keyStatus: { format: (item) => getKeyStatusText(item.keyStatus, item.missingKeyCount), minWidth: 12 },
+    keyStatus: {
+      format: (item) => getBlockchainKeyStatusDisplay(item.keyStatus, item.missingKeyCount).label,
+      minWidth: 12,
+    },
   });
 
   const startIndex = scrollOffset;
@@ -187,15 +176,15 @@ const BlockchainRow: FC<{
   isSelected: boolean;
   item: BlockchainViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const icon = getKeyStatusIcon(item.keyStatus);
+  const status = getBlockchainKeyStatusDisplay(item.keyStatus, item.missingKeyCount);
   const { displayName, category, layer, providers, keyStatus } = columns.format(item);
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={icon.color}>{icon.char}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
+      <Text color={status.color}>{status.icon}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
       <Text dimColor>{layer}</Text> {providers}
       {'  '}
-      <Text color={icon.color}>{keyStatus}</Text>
+      <Text color={status.color}>{keyStatus}</Text>
     </SelectableRow>
   );
 };
@@ -283,25 +272,11 @@ function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[]
   return rows;
 }
 
-function getEnvironmentConfigurationStatus(apiKeyConfigured: boolean | undefined): {
-  color: 'green' | 'yellow';
-  text: string;
-} {
-  if (apiKeyConfigured) {
-    return { color: 'green', text: 'env configured ✓' };
-  }
-
-  return { color: 'yellow', text: 'env missing ✗' };
-}
-
 const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
   const icon = getProviderIcon(provider);
-  const capabilities = provider.capabilities.join(' · ');
+  const capabilities = formatProviderCapabilities(provider);
   const rateLimit = provider.rateLimit ? `${provider.rateLimit}` : '';
-  const environmentConfigurationStatus =
-    provider.requiresApiKey && provider.apiKeyEnvName
-      ? getEnvironmentConfigurationStatus(provider.apiKeyConfigured)
-      : undefined;
+  const apiKeyStatus = formatProviderApiKeyStatus(provider);
 
   return (
     <Text>
@@ -317,10 +292,16 @@ const ProviderLine: FC<{ provider: ProviderViewItem }> = ({ provider }) => {
           <Text dimColor>{rateLimit}</Text>
         </>
       )}
-      {environmentConfigurationStatus && (
+      {provider.requiresApiKey && (
         <>
           {'   '}
-          <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
+          <Text color={provider.apiKeyConfigured ? 'green' : 'yellow'}>{apiKeyStatus}</Text>
+        </>
+      )}
+      {!provider.requiresApiKey && (
+        <>
+          {'   '}
+          <Text dimColor>{apiKeyStatus}</Text>
         </>
       )}
     </Text>
@@ -360,28 +341,6 @@ const BlockchainsEmptyState: FC<{ state: BlockchainsViewState }> = ({ state }) =
 };
 
 // --- Helpers ---
-
-function getKeyStatusIcon(status: BlockchainViewItem['keyStatus']): { char: string; color: string } {
-  switch (status) {
-    case 'all-configured':
-      return { char: '✓', color: 'green' };
-    case 'some-missing':
-      return { char: '⚠', color: 'yellow' };
-    case 'none-needed':
-      return { char: '⊘', color: 'dim' };
-  }
-}
-
-function getKeyStatusText(status: BlockchainViewItem['keyStatus'], missingCount: number): string {
-  switch (status) {
-    case 'all-configured':
-      return '✓ all keys configured';
-    case 'some-missing':
-      return `⚠ ${missingCount} key${missingCount === 1 ? '' : 's'} missing`;
-    case 'none-needed':
-      return '⊘ no key needed';
-  }
-}
 
 function getProviderIcon(provider: ProviderViewItem): { char: string; color: string } {
   if (!provider.requiresApiKey) {

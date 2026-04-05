@@ -125,7 +125,7 @@ export function filterByApiKeyRequirement(
   }
 
   if (requiresApiKey) {
-    return blockchains.filter((b) => b.requiresApiKey && !b.hasNoApiKeyProvider);
+    return blockchains.filter((b) => b.requiresApiKey);
   } else {
     return blockchains.filter((b) => b.hasNoApiKeyProvider);
   }

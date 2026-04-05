@@ -48,16 +48,39 @@ export function createBlockchainsViewState(
   blockchains: BlockchainViewItem[],
   filters: BlockchainsViewFilters,
   totalProviders: number,
-  categoryCounts?: Record<string, number>
+  categoryCounts?: Record<string, number>,
+  initialSelectedIndex?: number
 ): BlockchainsViewState {
+  const selectedIndex = clampSelectedIndex(initialSelectedIndex, blockchains.length);
+
   return {
     blockchains,
     categoryCounts: categoryCounts ?? computeCategoryCounts(blockchains),
     totalCount: blockchains.length,
     totalProviders,
-    selectedIndex: 0,
-    scrollOffset: 0,
+    selectedIndex,
+    scrollOffset: selectedIndex > 0 ? selectedIndex : 0,
     categoryFilter: filters.categoryFilter,
     requiresApiKeyFilter: filters.requiresApiKeyFilter,
   };
+}
+
+function clampSelectedIndex(selectedIndex: number | undefined, itemCount: number): number {
+  if (itemCount === 0) {
+    return 0;
+  }
+
+  if (selectedIndex === undefined || !Number.isFinite(selectedIndex)) {
+    return 0;
+  }
+
+  if (selectedIndex < 0) {
+    return 0;
+  }
+
+  if (selectedIndex >= itemCount) {
+    return itemCount - 1;
+  }
+
+  return selectedIndex;
 }

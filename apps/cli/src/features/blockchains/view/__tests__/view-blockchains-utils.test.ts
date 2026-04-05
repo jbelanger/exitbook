@@ -216,10 +216,10 @@ describe('view-blockchains-utils', () => {
       { ...createMockBlockchainInfo('solana', 'solana'), requiresApiKey: false, hasNoApiKeyProvider: true },
     ];
 
-    it('should filter blockchains that only require API key', () => {
+    it('should filter blockchains with any required API-key configuration', () => {
       const filtered = filterByApiKeyRequirement(mockBlockchains, true);
-      expect(filtered).toHaveLength(1);
-      expect(filtered[0]!.name).toBe('bitcoin');
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map((b) => b.name)).toEqual(['bitcoin', 'ethereum']);
     });
 
     it('should filter blockchains with at least one no-API-key provider', () => {
