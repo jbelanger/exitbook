@@ -381,7 +381,7 @@ describe('AccountsViewApp', () => {
       return;
     }
 
-    expect(frame).toContain('Import sessions: 0');
+    expect(frame).toContain('Imports: 0');
     expect(frame).toContain('No balance data yet.');
     expect(frame).toContain('Next: run "exitbook import" to import transaction data first.');
     expect(frame).not.toContain('Stored balance snapshot is not readable');

@@ -505,8 +505,16 @@ describe('accounts refresh command', () => {
 
     await program.parseAsync(['accounts', 'refresh'], { from: 'user' });
 
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('No imported transaction data found for ethereum'));
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh finished with errors: 1 total'));
+    const output = consoleLog.mock.calls.map(([line]) => String(line)).join('\n');
+
+    expect(output).toContain('✗ eth1 (ethereum): No imported transaction data found.');
+    expect(output).not.toContain('No imported transaction data found for ethereum');
+    expect(output).toContain('Refresh finished with errors: 1 total · 0 verified · 0 skipped · 1 error');
+    expect(output).toContain(
+      'Next: run "exitbook import" for accounts without completed imported data, then rerun "exitbook accounts refresh".'
+    );
+    expect(output).not.toContain('1 errors');
+    expect(output).not.toContain('Details:');
     expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('Refresh complete:'));
     consoleLog.mockRestore();
   });
@@ -596,8 +604,11 @@ describe('accounts refresh command', () => {
 
     await expect(program.parseAsync(['accounts', 'refresh'], { from: 'user' })).rejects.toThrow('EXIT:9');
 
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Aborting refresh...'));
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Refresh aborted: 1 total'));
+    const output = consoleLog.mock.calls.map(([line]) => String(line)).join('\n');
+
+    expect(output).toContain('Aborting refresh...');
+    expect(output).toContain('Refresh aborted: 1 total · 0 verified · 0 skipped · 0 errors');
+    expect(output).not.toContain('Details:');
     expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('Refresh complete:'));
     processExit.mockRestore();
     consoleLog.mockRestore();

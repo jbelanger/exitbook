@@ -332,7 +332,7 @@ function buildAccountDetailRows(selected: AccountViewItem, detail?: AccountDetai
     rows.push(
       <Text key="imports-count">
         {'  '}
-        <Text dimColor>Import sessions: </Text>
+        <Text dimColor>Imports: </Text>
         <Text>{String(account.sessionCount)}</Text>
       </Text>
     );

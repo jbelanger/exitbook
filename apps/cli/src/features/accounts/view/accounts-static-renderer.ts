@@ -108,7 +108,7 @@ export function buildAccountStaticDetail(account: AccountDetailViewItem): string
     lines.push(buildDetailLine('Last refresh', pc.dim(formatTimestamp(account.lastRefreshAt))));
   }
   if (account.sessionCount !== undefined) {
-    lines.push(buildDetailLine('Import sessions', String(account.sessionCount)));
+    lines.push(buildDetailLine('Imports', String(account.sessionCount)));
   }
   if (account.requestedAccount) {
     lines.push(buildDetailLine('Requested', formatStoredBalanceScopeAccountLine(account.requestedAccount)));

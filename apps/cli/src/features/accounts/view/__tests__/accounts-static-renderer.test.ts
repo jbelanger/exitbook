@@ -195,7 +195,7 @@ describe('buildAccountStaticDetail', () => {
     expect(stripAnsi(output)).toContain('Provider: kraken-api');
     expect(stripAnsi(output)).toContain('Balance data: ✓ up to date · Live check: ✓ verified');
     expect(stripAnsi(output)).toContain('Last calculated: 2026-03-12 12:00:00');
-    expect(stripAnsi(output)).toContain('Import sessions: 2');
+    expect(stripAnsi(output)).toContain('Imports: 2');
     expect(stripAnsi(output)).toContain('Balances (1)');
     expect(stripAnsi(output)).toContain('Status: Provider coverage incomplete');
     expect(stripAnsi(output)).toContain('Suggestion: Run accounts refresh again');
@@ -250,7 +250,7 @@ describe('buildAccountStaticDetail', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
     });
 
-    expect(stripAnsi(output)).toContain('Import sessions: 0');
+    expect(stripAnsi(output)).toContain('Imports: 0');
     expect(stripAnsi(output)).toContain('No balance data yet.');
     expect(stripAnsi(output)).toContain('Next: run "exitbook import" to import transaction data first.');
     expect(stripAnsi(output)).not.toContain('Stored balance snapshot is not readable');

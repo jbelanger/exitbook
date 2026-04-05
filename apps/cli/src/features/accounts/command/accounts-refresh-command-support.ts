@@ -268,6 +268,7 @@ async function runAccountsRefreshAllTextWorkflow(
   const accounts = sortedResult.value;
   const relay = new EventRelay<AccountsRefreshEvent>();
   const labels = new Map(accounts.map((item) => [item.accountId, formatRefreshAccountLabel(item.account)]));
+  const platformKeys = new Map(accounts.map((item) => [item.accountId, item.platformKey]));
   const totals: RefreshTextProgressTotals = {
     total: accounts.length,
     skipped: 0,
@@ -278,6 +279,7 @@ async function runAccountsRefreshAllTextWorkflow(
     partialCoverageScopes: 0,
     errors: 0,
   };
+  let needsImportGuidance = false;
 
   console.log(pc.dim(`Refreshing balances for ${formatCount(accounts.length, 'account')}...`));
 
@@ -305,7 +307,14 @@ async function runAccountsRefreshAllTextWorkflow(
         return;
       case 'VERIFICATION_ERROR':
         totals.errors += 1;
-        console.log(pc.red(`✗ ${labels.get(event.accountId) ?? event.accountId}: ${event.error}`));
+        {
+          const errorPresentation = formatBatchRefreshError(
+            event.error,
+            platformKeys.get(event.accountId) ?? undefined
+          );
+          needsImportGuidance ||= errorPresentation.needsImportGuidance;
+          console.log(pc.red(`✗ ${labels.get(event.accountId) ?? event.accountId}: ${errorPresentation.message}`));
+        }
         return;
       case 'VERIFICATION_SKIPPED':
         return;
@@ -322,24 +331,28 @@ async function runAccountsRefreshAllTextWorkflow(
   const streamStatus = await awaitAccountsRefreshStream(scope);
 
   console.log('');
-  const completionLine = `${totals.total} total · ${totals.verified} verified · ${totals.skipped} skipped · ${totals.errors} errors`;
+  const completionLine = buildRefreshCompletionLine(totals);
+  const detailsLine = buildRefreshOutcomeDetailsLine(totals);
+  const importGuidanceLine = needsImportGuidance ? buildRefreshImportGuidanceLine() : undefined;
 
   if (streamStatus === 'aborted') {
     console.log(pc.yellow(`Refresh aborted: ${completionLine}`));
-    console.log(
-      pc.dim(
-        `Matches: ${totals.matches} · mismatches: ${totals.mismatches} · warnings: ${totals.warnings} · partial coverage scopes: ${totals.partialCoverageScopes}`
-      )
-    );
+    if (detailsLine) {
+      console.log(pc.dim(detailsLine));
+    }
+    if (importGuidanceLine) {
+      console.log(pc.dim(importGuidanceLine));
+    }
     return ok(silentSuccess(ExitCodes.CANCELLED));
   }
 
   console.log(formatRefreshWorkflowFooter(totals, completionLine));
-  console.log(
-    pc.dim(
-      `Matches: ${totals.matches} · mismatches: ${totals.mismatches} · warnings: ${totals.warnings} · partial coverage scopes: ${totals.partialCoverageScopes}`
-    )
-  );
+  if (detailsLine) {
+    console.log(pc.dim(detailsLine));
+  }
+  if (importGuidanceLine) {
+    console.log(pc.dim(importGuidanceLine));
+  }
 
   return ok(silentSuccess());
 }
@@ -412,6 +425,60 @@ function formatRefreshAccountLabel(account: Pick<Account, 'accountFingerprint' |
 
 function formatCount(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function buildRefreshCompletionLine(totals: RefreshTextProgressTotals): string {
+  return `${totals.total} total · ${totals.verified} verified · ${totals.skipped} skipped · ${formatCount(totals.errors, 'error')}`;
+}
+
+function buildRefreshOutcomeDetailsLine(totals: RefreshTextProgressTotals): string | undefined {
+  const parts: string[] = [];
+
+  if (totals.matches > 0) {
+    parts.push(formatCount(totals.matches, 'match'));
+  }
+  if (totals.mismatches > 0) {
+    parts.push(formatCount(totals.mismatches, 'mismatch'));
+  }
+  if (totals.warnings > 0) {
+    parts.push(formatCount(totals.warnings, 'warning'));
+  }
+  if (totals.partialCoverageScopes > 0) {
+    parts.push(formatPartialCoverageResultCount(totals.partialCoverageScopes));
+  }
+
+  return parts.length > 0 ? `Details: ${parts.join(' · ')}` : undefined;
+}
+
+function formatPartialCoverageResultCount(count: number): string {
+  return `${count} partial coverage result${count === 1 ? '' : 's'}`;
+}
+
+function buildRefreshImportGuidanceLine(): string {
+  return 'Next: run "exitbook import" for accounts without completed imported data, then rerun "exitbook accounts refresh".';
+}
+
+function formatBatchRefreshError(
+  error: string,
+  platformKey: string | undefined
+): { message: string; needsImportGuidance: boolean } {
+  if (platformKey) {
+    if (error.startsWith(`No imported transaction data found for ${platformKey}.`)) {
+      return {
+        message: 'No imported transaction data found.',
+        needsImportGuidance: true,
+      };
+    }
+
+    if (error.startsWith(`No completed import found for ${platformKey}.`)) {
+      return {
+        message: 'No completed import found.',
+        needsImportGuidance: true,
+      };
+    }
+  }
+
+  return { message: error, needsImportGuidance: false };
 }
 
 function formatRefreshWorkflowFooter(totals: RefreshTextProgressTotals, completionLine: string): string {
