@@ -1,9 +1,21 @@
 import { render } from 'ink-testing-library';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view-model.js';
 import { AccountsViewApp } from '../accounts-view-components.jsx';
 import { createAccountsAssetsViewState, createAccountsViewState } from '../accounts-view-state.js';
+
+vi.mock('../../../../ui/shared/index.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/shared/index.js')>(
+    '../../../../ui/shared/index.js'
+  );
+
+  return {
+    ...actual,
+    FixedHeightDetail: ({ rows }: { rows: ReactNode[] }) => <>{rows}</>,
+  };
+});
 
 const mockOnQuit = () => {
   /* empty */
@@ -291,7 +303,38 @@ describe('AccountsViewApp', () => {
 
     expect(frame).toContain('Balance (stored snapshot)');
     expect(frame).toContain('BTC');
-    expect(frame).toContain('live');
+    expect(frame).toContain('last verified live');
     expect(frame).toContain('Transactions: 2');
+  });
+
+  it('labels stored snapshot preview amounts as last verified live in the accounts detail panel', () => {
+    const summary = createAccountViewItem({
+      accountType: 'exchange-api',
+      platformKey: 'kraken',
+      name: 'kraken-main',
+      identifier: 'acct-1',
+      balanceProjectionStatus: 'fresh',
+      verificationStatus: 'match',
+    });
+    const detail = createAccountDetailViewItem(summary);
+    const state = createAccountsViewState([summary], { showSessions: false }, 1, undefined, 0, {
+      [summary.id]: detail,
+    });
+
+    const { lastFrame } = render(
+      <AccountsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+
+    const frame = lastFrame();
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('Balances (1)');
+    expect(frame).toContain('last verified live');
   });
 });

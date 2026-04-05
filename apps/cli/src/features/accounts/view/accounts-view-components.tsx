@@ -460,7 +460,7 @@ const StoredBalanceAssetPreviewRow: FC<{ asset: StoredBalanceAssetViewItem }> = 
       <Text color={amountColor}>{asset.calculatedBalance}</Text>
       {liveBalance !== undefined && (
         <>
-          <Text dimColor> · live </Text>
+          <Text dimColor> · last verified live </Text>
           <Text color={amountColor}>{liveBalance}</Text>
         </>
       )}

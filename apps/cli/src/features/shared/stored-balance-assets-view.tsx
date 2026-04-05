@@ -206,7 +206,7 @@ const StoredBalanceAssetRow: FC<{
       {showLiveBalances && (
         <>
           {'    '}
-          <Text dimColor>live</Text>{' '}
+          <Text dimColor>last verified live</Text>{' '}
           {asset.liveBalance !== undefined ? <Text color={amountColor}>{live}</Text> : <Text dimColor>{live}</Text>}
         </>
       )}
