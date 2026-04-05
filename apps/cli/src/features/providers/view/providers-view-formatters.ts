@@ -5,10 +5,17 @@ import type {
   ProviderViewItem,
 } from '../providers-view-model.js';
 
+import { formatTimeAgo } from './providers-view-formatting.js';
+
 export interface ProviderHealthDisplay {
   color: 'dim' | 'green' | 'yellow' | 'red';
   icon: string;
   label: string;
+}
+
+export interface ProviderDetailField {
+  label: string;
+  value: string;
 }
 
 export function getProviderHealthDisplay(status: HealthStatus): ProviderHealthDisplay {
@@ -99,6 +106,31 @@ export function formatProviderApiKeyDetailStatus(
   return provider.apiKeyEnvName ? `${provider.apiKeyEnvName} ${suffix}` : suffix;
 }
 
+export function buildProviderDetailFields(provider: ProviderViewItem): ProviderDetailField[] {
+  const health = getProviderHealthDisplay(provider.healthStatus);
+  const fields: ProviderDetailField[] = [
+    { label: 'Name', value: provider.name },
+    { label: 'Chains', value: formatProviderChainCount(provider.chainCount) },
+    { label: 'Health', value: health.label },
+    { label: 'Total requests', value: formatProviderRequestCount(provider.stats) },
+    { label: 'Avg response', value: formatProviderAverageResponse(provider.stats) },
+    { label: 'Error rate', value: formatProviderErrorRate(provider.stats) },
+  ];
+
+  if (provider.rateLimit) {
+    fields.push({ label: 'Config', value: `${provider.rateLimit} (${provider.configSource})` });
+  }
+
+  fields.push({ label: 'API key', value: formatProviderApiKeyDetailStatus(provider) });
+
+  const lastError = formatProviderLastError(provider);
+  if (lastError) {
+    fields.push({ label: 'Last error', value: lastError });
+  }
+
+  return fields;
+}
+
 export function buildProvidersEmptyStateMessage(filters: {
   blockchainFilter?: string | undefined;
   healthFilter?: string | undefined;
@@ -155,4 +187,14 @@ export function getProviderBlockchainAlert(blockchain: ProviderBlockchainItem): 
   }
 
   return undefined;
+}
+
+function formatProviderLastError(provider: Pick<ProviderViewItem, 'lastError' | 'lastErrorTime'>): string | undefined {
+  if (!provider.lastError) {
+    return undefined;
+  }
+
+  return provider.lastErrorTime
+    ? `${provider.lastError} (${formatTimeAgo(provider.lastErrorTime)})`
+    : provider.lastError;
 }

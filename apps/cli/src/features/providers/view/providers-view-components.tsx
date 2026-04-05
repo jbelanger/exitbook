@@ -18,23 +18,24 @@ import type { ProviderBlockchainItem, ProviderViewItem } from '../providers-view
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';
 import {
+  buildProviderDetailFields,
   buildProviderHealthParts,
   buildProvidersEmptyStateMessage,
   buildProvidersFilterLabel,
+  formatProviderApiKeyListStatus,
   getProviderHealthDisplay,
 } from './providers-view-formatters.js';
-import { formatTimeAgo } from './providers-view-formatting.js';
 import type { ProvidersViewState } from './providers-view-state.js';
 
-const PROVIDER_DETAIL_LINES = 9;
+const PROVIDER_DETAIL_LINES = 12;
 
 export const CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
-  header: 1, // "Blockchain Providers · N providers"
+  header: 1, // "Providers · N total"
   afterHeader: 1, // blank line
   listScrollIndicators: 2, // "▲/▼ N more above/below"
   divider: 1, // separator line
-  detail: PROVIDER_DETAIL_LINES, // provider detail panel (chains list)
+  detail: PROVIDER_DETAIL_LINES, // provider detail panel
   beforeControls: 1, // blank line
   controls: 1, // control hints
   buffer: 1, // bottom margin
@@ -200,8 +201,8 @@ const ProviderRow: FC<{
   const { displayName, chains, avgResponse, errorRate, totalReqs } = columns.format(item);
 
   const hasStats = item.stats !== undefined;
-  const environmentConfigurationStatus =
-    item.requiresApiKey && item.apiKeyEnvName ? getEnvironmentConfigurationStatus(item.apiKeyConfigured) : undefined;
+  const apiKeyStatus = formatProviderApiKeyListStatus(item);
+  const apiKeyStatusColor = item.apiKeyConfigured ? 'green' : 'yellow';
 
   // No-stats rows are entirely dim
   if (item.healthStatus === 'no-stats') {
@@ -211,7 +212,7 @@ const ProviderRow: FC<{
         isSelected={isSelected}
       >
         {health.icon} {displayName} {chains} {avgResponse} {errorRate} {totalReqs}
-        {environmentConfigurationStatus ? `   ${environmentConfigurationStatus.text}` : ''}
+        {apiKeyStatus !== '—' ? `   ${apiKeyStatus}` : ''}
       </SelectableRow>
     );
   }
@@ -231,26 +232,15 @@ const ProviderRow: FC<{
         <Text dimColor>{errorRate}</Text>
       )}{' '}
       {totalReqs}
-      {environmentConfigurationStatus && (
+      {apiKeyStatus !== '—' && (
         <>
           {'   '}
-          <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
+          <Text color={apiKeyStatusColor}>{apiKeyStatus}</Text>
         </>
       )}
     </SelectableRow>
   );
 };
-
-function getEnvironmentConfigurationStatus(apiKeyConfigured: boolean | undefined): {
-  color: 'green' | 'yellow';
-  text: string;
-} {
-  if (apiKeyConfigured) {
-    return { color: 'green', text: 'env configured ✓' };
-  }
-
-  return { color: 'yellow', text: 'env missing ✗' };
-}
 
 // --- Detail Panel ---
 
@@ -267,47 +257,30 @@ const ProviderDetailPanel: FC<{ state: ProvidersViewState }> = ({ state }) => {
 };
 
 function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
-  const hasStats = selected.stats !== undefined;
   const health = getProviderHealthDisplay(selected.healthStatus);
-  const chainLabel = selected.chainCount === 1 ? 'chain' : 'chains';
-
-  // Limit blockchains shown to prevent layout overflow
-  const MAX_BLOCKCHAINS_SHOWN = 10;
-  const visibleBlockchains = selected.blockchains.slice(0, MAX_BLOCKCHAINS_SHOWN);
-  const hiddenCount = selected.blockchains.length - visibleBlockchains.length;
+  const detailFields = buildProviderDetailFields(selected);
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ {selected.displayName}</Text>
-      {'  '}
-      <Text>{selected.chainCount}</Text>
-      <Text dimColor> {chainLabel}</Text>
-      {hasStats ? (
-        <>
-          <Text dimColor> · </Text>
-          <Text>{selected.stats!.totalRequests.toLocaleString()}</Text>
-          <Text dimColor> total requests</Text>
-          <Text dimColor> · </Text>
-          {health.color === 'dim' ? (
-            <Text dimColor>{health.label}</Text>
-          ) : (
-            <Text color={health.color}>{health.label}</Text>
-          )}
-        </>
-      ) : (
-        <>
-          <Text dimColor> · </Text>
-          <Text dimColor>no stats</Text>
-        </>
-      )}
+      <Text bold>▸ {selected.displayName}</Text>{' '}
+      {health.color === 'dim' ? <Text dimColor>{health.label}</Text> : <Text color={health.color}>{health.label}</Text>}
     </Text>,
     <Text key="blank-1"> </Text>,
+    ...detailFields.map((field) => (
+      <Text key={field.label}>
+        <Text dimColor>
+          {'  '}
+          {field.label}:
+        </Text>{' '}
+        {renderProviderDetailValue(field.label, field.value, health.color)}
+      </Text>
+    )),
     <Text
       key="blockchains-label"
       dimColor
     >
       {'  '}Blockchains
     </Text>,
-    ...visibleBlockchains.map((blockchain) => (
+    ...selected.blockchains.map((blockchain) => (
       <BlockchainLine
         key={blockchain.name}
         blockchain={blockchain}
@@ -315,77 +288,27 @@ function buildProviderDetailRows(selected: ProviderViewItem): ReactElement[] {
     )),
   ];
 
-  if (hiddenCount > 0) {
-    rows.push(
-      <Text
-        key="blockchains-more"
-        dimColor
-      >
-        {'    '}... and {hiddenCount} more {hiddenCount === 1 ? 'chain' : 'chains'}
-      </Text>
-    );
-  }
-
-  rows.push(<Text key="blank-2"> </Text>);
-
-  if (selected.rateLimit) {
-    rows.push(
-      <Text key="config">
-        <Text dimColor>{'  '}Config: </Text>
-        <Text>{selected.rateLimit}</Text>
-        <Text dimColor> ({selected.configSource})</Text>
-      </Text>
-    );
-  }
-
-  if (selected.requiresApiKey && selected.apiKeyEnvName) {
-    const environmentConfigurationStatus = getEnvironmentConfigurationStatus(selected.apiKeyConfigured);
-
-    rows.push(
-      <Text key="api-key">
-        <Text dimColor>{'  '}API key: </Text>
-        <Text color={environmentConfigurationStatus.color}>{environmentConfigurationStatus.text}</Text>
-      </Text>
-    );
-  }
-
-  if (selected.lastError && selected.lastErrorTime) {
-    rows.push(
-      <Text key="blank-3"> </Text>,
-      <Text key="last-error">
-        <Text dimColor>{'  '}Last error: </Text>
-        <Text color="yellow">{selected.lastError}</Text>
-        <Text dimColor> ({formatTimeAgo(selected.lastErrorTime)})</Text>
-      </Text>
-    );
-  }
-
-  if (!hasStats) {
-    rows.push(
-      <Text key="blank-4"> </Text>,
-      <Text
-        key="no-stats-tip"
-        dimColor
-      >
-        {'  '}No usage data. Run an import to generate stats:
-      </Text>,
-      <Text
-        key="no-stats-command"
-        dimColor
-      >
-        {'  '}exitbook accounts add example-wallet --blockchain {selected.blockchains[0]?.name ?? 'ethereum'} --address{' '}
-        {'<address>'}
-      </Text>,
-      <Text
-        key="no-stats-import-command"
-        dimColor
-      >
-        {'  '}exitbook import example-wallet
-      </Text>
-    );
+  if (selected.blockchains.length === 0) {
+    rows.push(<Text key="no-blockchains">{'    '}No blockchains registered for this provider.</Text>);
   }
 
   return rows;
+}
+
+function renderProviderDetailValue(
+  label: string,
+  value: string,
+  healthColor: 'dim' | 'green' | 'yellow' | 'red'
+): ReactElement | string {
+  if (label === 'Health') {
+    return healthColor === 'dim' ? <Text dimColor>{value}</Text> : <Text color={healthColor}>{value}</Text>;
+  }
+
+  if (label === 'Last error') {
+    return <Text color="yellow">{value}</Text>;
+  }
+
+  return value;
 }
 
 const BlockchainLine: FC<{ blockchain: ProviderBlockchainItem }> = ({ blockchain }) => {

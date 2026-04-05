@@ -4,10 +4,10 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 import type { ProviderBlockchainItem, ProviderViewItem } from '../providers-view-model.js';
 
 import {
+  buildProviderDetailFields,
   buildProviderHealthParts,
   buildProvidersEmptyStateMessage,
   buildProvidersFilterLabel,
-  formatProviderApiKeyDetailStatus,
   formatProviderApiKeyListStatus,
   formatProviderAverageResponse,
   formatProviderBlockchainAverageResponse,
@@ -19,7 +19,6 @@ import {
   getProviderBlockchainAlert,
   getProviderHealthDisplay,
 } from './providers-view-formatters.js';
-import { formatTimeAgo } from './providers-view-formatting.js';
 import type { ProvidersViewState } from './providers-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
@@ -96,28 +95,10 @@ export function buildProviderStaticDetail(provider: ProviderViewItem): string {
   const lines: string[] = [
     `${pc.bold(provider.displayName)} ${colorStatusText(health.color, health.label)}`,
     '',
-    buildDetailLine('Name', provider.name),
-    buildDetailLine('Chains', formatProviderChainCount(provider.chainCount)),
-    buildDetailLine('Health', health.label),
-    buildDetailLine('Total requests', formatProviderRequestCount(provider.stats)),
-    buildDetailLine('Avg response', formatProviderAverageResponse(provider.stats)),
-    buildDetailLine('Error rate', formatProviderErrorRate(provider.stats)),
+    ...buildProviderDetailFields(provider).map((field) => buildDetailLine(field.label, field.value)),
+    '',
+    ...buildProviderBlockchainLines(provider.blockchains),
   ];
-
-  if (provider.rateLimit) {
-    lines.push(buildDetailLine('Config', `${provider.rateLimit} (${provider.configSource})`));
-  }
-
-  lines.push(buildDetailLine('API key', formatProviderApiKeyDetailStatus(provider)));
-
-  if (provider.lastError) {
-    const lastError = provider.lastErrorTime
-      ? `${provider.lastError} (${formatTimeAgo(provider.lastErrorTime)})`
-      : provider.lastError;
-    lines.push(buildDetailLine('Last error', lastError));
-  }
-
-  lines.push('', ...buildProviderBlockchainLines(provider.blockchains));
 
   return `${lines.join('\n')}\n`;
 }
