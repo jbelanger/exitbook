@@ -9,6 +9,27 @@ const mockOnQuit = () => {
 };
 
 describe('BlockchainsViewApp', () => {
+  it('renders filtered empty explorer messaging without the unfiltered registration warning', () => {
+    const state = createBlockchainsViewState([], { requiresApiKeyFilter: true }, 0);
+
+    const frame = render(
+      <BlockchainsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    ).lastFrame();
+
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('Blockchains (requires API key) 0 total · 0 providers');
+    expect(frame).toContain('No blockchains found that require API keys.');
+    expect(frame).not.toContain('No blockchains registered.');
+    expect(frame).not.toContain('provider registration failed');
+  });
+
   it('renders the detail panel with the static-detail fields instead of command hints', () => {
     const state = createBlockchainsViewState(
       [

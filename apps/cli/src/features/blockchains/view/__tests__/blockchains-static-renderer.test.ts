@@ -70,6 +70,14 @@ describe('buildBlockchainsStaticList', () => {
     expect(stripAnsi(output)).toContain('No blockchains found for category evm.');
     expect(stripAnsi(output)).not.toContain('NAME');
   });
+
+  it('renders an API-key filtered empty state with the shared browse message', () => {
+    const output = buildBlockchainsStaticList(createBlockchainsViewState([], { requiresApiKeyFilter: true }, 0, {}));
+
+    expect(stripAnsi(output)).toContain('Blockchains (requires API key) 0 total · 0 providers');
+    expect(stripAnsi(output)).toContain('No blockchains found that require API keys.');
+    expect(stripAnsi(output)).not.toContain('No blockchains registered.');
+  });
 });
 
 describe('buildBlockchainStaticDetail', () => {

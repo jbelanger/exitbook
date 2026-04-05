@@ -20,6 +20,7 @@ import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockc
 import {
   buildBlockchainDetailFields,
   buildBlockchainTitleParts,
+  buildBlockchainsEmptyStateMessage,
   buildBlockchainsFilterLabel,
   buildCategoryParts,
   formatBlockchainLayer,
@@ -300,25 +301,20 @@ const ControlsBar: FC = () => {
 };
 
 const BlockchainsEmptyState: FC<{ state: BlockchainsViewState }> = ({ state }) => {
-  const { categoryFilter, totalCount } = state;
+  const emptyMessage = buildBlockchainsEmptyStateMessage({
+    categoryFilter: state.categoryFilter,
+    requiresApiKeyFilter: state.requiresApiKeyFilter,
+  });
 
   return (
     <Box flexDirection="column">
       <Text> </Text>
       <BlockchainsHeader state={state} />
       <Text> </Text>
-      {!categoryFilter && totalCount === 0 ? (
-        <Box flexDirection="column">
-          <Text>{'  '}No blockchains registered.</Text>
-          <Text> </Text>
-          <Text>{'  '}This likely means provider registration failed.</Text>
-          <Text dimColor>{'  '}Run: pnpm blockchain-providers:validate</Text>
-        </Box>
-      ) : (
-        <Text>
-          {'  '}No blockchains found{categoryFilter ? ` for category ${categoryFilter}` : ''}.
-        </Text>
-      )}
+      <Text>
+        {'  '}
+        {emptyMessage}
+      </Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>

@@ -14,21 +14,21 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 2: Align Explorer Detail With The Static Detail Card
+### Phase 3: Align Filtered Empty Explorer Messaging
 
 Status: `completed`
 
 Intent:
 
-- align `blockchains view` detail content with the new static detail surface
-- remove the old example-command hint block from the explorer detail panel
-- share the core detail title/body field semantics across static and TUI renderers
+- make filtered-empty `blockchains view` use the same empty-state wording as the static browse surface
+- remove the stale unfiltered registration-failure warning from filtered-empty explorer output
+- keep empty-state wording in one shared helper so static and TUI cannot drift again
 
 Why this slice came next:
 
-- the root browse ladder was already stable
-- the main remaining product drift was inside the explorer detail panel
-- detail alignment is a self-contained renderer slice that improves the surface without reopening selector or command-shape decisions
+- the explorer/detail content was already aligned
+- filtered-empty explorer requests still had a misleading fallback message even though the spec keeps them on the explorer code path
+- empty-state wording is small but user-facing enough to close before declaring the family done
 
 ## Verified Current Facts
 
@@ -41,15 +41,16 @@ Why this slice came next:
 - `blockchains view <selector>` now preselects the requested chain on a TTY and falls back to static detail off-TTY.
 - the explorer detail panel now uses the same blockchain title semantics and body fields as the static detail card in [blockchains-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-components.tsx) and [blockchains-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-formatters.ts).
 - the explorer detail panel no longer spends its fixed-height space on example command hints.
+- static and TUI empty-state messaging now share the same helper in [blockchains-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-formatters.ts).
+- filtered-empty `blockchains view` no longer falls back to the old "provider registration failed" message.
 
-## Phase 2 Exit Criteria
+## Phase 3 Exit Criteria
 
-- explorer detail title uses the same `display name + key + category + layer` semantics as static detail
-- explorer detail body shows the same core fields: providers, API keys, example address
-- provider detail remains in the explorer panel and may truncate via fixed-height overflow
-- example-command hint lines are removed from the explorer detail panel
+- `blockchains view --requires-api-key` with no matches shows the same empty-state wording as static browse
+- filtered-empty explorer output no longer claims provider registration failed
+- static and TUI empty-state wording come from one shared helper
 
-Phase 2 result:
+Phase 3 result:
 
 - all exit criteria met
 
@@ -59,19 +60,20 @@ Phase 2 result:
 - [blockchains-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-static-renderer.ts)
 - [blockchains-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-formatters.ts)
 - [blockchains-view-components.test.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/__tests__/blockchains-view-components.test.tsx)
+- [blockchains-static-renderer.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/__tests__/blockchains-static-renderer.test.ts)
 
 ## Slice Notes
 
 Constraints that shape the implementation:
 
-- do not fork the detail vocabulary between static and TUI renderers
-- keep the explorer panel compact enough that the list remains usable on a normal terminal
-- reuse shared formatters where that reduces drift without forcing identical rendering primitives
+- do not let the TUI empty state invent separate wording for filter cases
+- keep the unfiltered empty fallback boring because that path should normally collapse to static before the explorer mounts
+- prefer a shared formatter over renderer-local conditionals
 
 Post-slice reassessment notes:
 
-- the explorer/detail drift is now much smaller
-- the next reassessment should focus on any remaining filtered-empty or help/spec mismatches before declaring the family complete
+- the remaining work should now be either naming cleanup or family-finalization docs
+- there are no known user-facing browse-shape mismatches left in the blockchains surface
 
 ## Reassessment Gate
 
@@ -83,6 +85,6 @@ Before starting the next slice:
 
 Likely next reassessment candidates:
 
-- align filtered-empty explorer messaging with the static browse surface
 - reduce remaining naming drift such as `blockchains-view-utils.ts` now owning browse/catalog logic
 - update broader trackers once the family is coherent enough to move from `in_progress` to `done`
+- remove the temporary blockchains implementation tracker once the family is formally marked complete

@@ -57,6 +57,25 @@ export function buildBlockchainsFilterLabel(filters: {
   return '';
 }
 
+export function buildBlockchainsEmptyStateMessage(filters: {
+  categoryFilter?: string | undefined;
+  requiresApiKeyFilter?: boolean | undefined;
+}): string {
+  if (filters.categoryFilter && filters.requiresApiKeyFilter) {
+    return `No blockchains found for category ${filters.categoryFilter} that require API keys.`;
+  }
+
+  if (filters.categoryFilter) {
+    return `No blockchains found for category ${filters.categoryFilter}.`;
+  }
+
+  if (filters.requiresApiKeyFilter) {
+    return 'No blockchains found that require API keys.';
+  }
+
+  return 'No blockchains found.';
+}
+
 export function formatBlockchainLayer(layer?: string): string {
   return layer ? `L${layer}` : '—';
 }

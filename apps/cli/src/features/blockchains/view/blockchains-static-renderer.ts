@@ -6,6 +6,7 @@ import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-m
 import {
   buildBlockchainDetailFields,
   buildBlockchainTitleParts,
+  buildBlockchainsEmptyStateMessage,
   buildBlockchainsFilterLabel,
   buildCategoryParts,
   formatBlockchainLayer,
@@ -88,19 +89,12 @@ function buildListHeader(state: BlockchainsViewState): string {
 }
 
 function buildEmptyStateLines(state: BlockchainsViewState): string[] {
-  if (!state.categoryFilter && !state.requiresApiKeyFilter && state.totalCount === 0) {
-    return ['No blockchains found.'];
-  }
-
-  if (state.categoryFilter && state.requiresApiKeyFilter) {
-    return [`No blockchains found for category ${state.categoryFilter} that require API keys.`];
-  }
-
-  if (state.categoryFilter) {
-    return [`No blockchains found for category ${state.categoryFilter}.`];
-  }
-
-  return ['No blockchains found that require API keys.'];
+  return [
+    buildBlockchainsEmptyStateMessage({
+      categoryFilter: state.categoryFilter,
+      requiresApiKeyFilter: state.requiresApiKeyFilter,
+    }),
+  ];
 }
 
 function buildListColumnHeader(
