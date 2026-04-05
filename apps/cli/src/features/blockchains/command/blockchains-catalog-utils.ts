@@ -9,7 +9,7 @@ import type { BlockchainDisplayCategory } from '../blockchains-view-model.js';
 export { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
 
 /**
- * Blockchain categories surfaced in view data.
+ * Blockchain categories surfaced in browse data.
  */
 const BLOCKCHAIN_DISPLAY_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other'] as const;
 
@@ -20,7 +20,7 @@ export const BLOCKCHAIN_CATEGORIES = [...BLOCKCHAIN_DISPLAY_CATEGORIES, 'all'] a
 export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 
 /**
- * Blockchain information with providers (intermediate representation before TUI transform).
+ * Blockchain information with providers (intermediate representation before browse rendering).
  */
 export interface BlockchainCatalogItem {
   name: string;

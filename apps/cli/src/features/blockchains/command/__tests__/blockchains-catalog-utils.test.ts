@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { toBlockchainViewItem } from '../../blockchain-view-projection.js';
 import type { BlockchainDisplayCategory } from '../../blockchains-view-model.js';
-import type { BlockchainCatalogItem } from '../../command/blockchains-view-utils.js';
+import type { BlockchainCatalogItem } from '../blockchains-catalog-utils.js';
 import {
   buildBlockchainCatalogItem,
   filterByApiKeyRequirement,
@@ -13,9 +13,9 @@ import {
   providerToSummary,
   sortBlockchains,
   validateCategory,
-} from '../../command/blockchains-view-utils.js';
+} from '../blockchains-catalog-utils.js';
 
-describe('view-blockchains-utils', () => {
+describe('blockchains-catalog-utils', () => {
   describe('validateCategory', () => {
     it('should validate valid categories', () => {
       const result = validateCategory('evm');

@@ -27,15 +27,15 @@ import type { BlockchainViewItem } from '../blockchains-view-model.js';
 import { outputBlockchainStaticDetail, outputBlockchainsStaticList } from '../view/blockchains-static-renderer.js';
 import { BlockchainsViewApp, computeCategoryCounts, createBlockchainsViewState } from '../view/index.js';
 
-import { BlockchainsViewCommandOptionsSchema } from './blockchains-option-schemas.js';
-import type { BlockchainCategory } from './blockchains-view-utils.js';
+import type { BlockchainCategory } from './blockchains-catalog-utils.js';
 import {
   buildBlockchainCatalogItem,
   filterByApiKeyRequirement,
   filterByCategory,
   sortBlockchains,
   validateCategory,
-} from './blockchains-view-utils.js';
+} from './blockchains-catalog-utils.js';
+import { BlockchainsBrowseCommandOptionsSchema } from './blockchains-option-schemas.js';
 
 interface ExecuteBlockchainsBrowseCommandInput {
   appRuntime: CliAppRuntime;
@@ -108,7 +108,11 @@ export function prepareBlockchainsBrowseCommand({
   rawOptions,
   surfaceSpec,
 }: ExecuteBlockchainsBrowseCommandInput): Result<PreparedBlockchainsBrowseCommand, CliFailure> {
-  const parsedOptionsResult = parseCliBrowseOptionsResult(rawOptions, BlockchainsViewCommandOptionsSchema, surfaceSpec);
+  const parsedOptionsResult = parseCliBrowseOptionsResult(
+    rawOptions,
+    BlockchainsBrowseCommandOptionsSchema,
+    surfaceSpec
+  );
   if (parsedOptionsResult.isErr()) {
     return err(parsedOptionsResult.error);
   }

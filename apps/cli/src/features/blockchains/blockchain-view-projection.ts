@@ -1,5 +1,5 @@
 import type { BlockchainViewItem, ProviderViewItem } from './blockchains-view-model.js';
-import type { BlockchainCatalogItem } from './command/blockchains-view-utils.js';
+import type { BlockchainCatalogItem } from './command/blockchains-catalog-utils.js';
 
 /**
  * Transform a blockchain catalog item into a view item for TUI display.
