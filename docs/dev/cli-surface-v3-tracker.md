@@ -42,3 +42,18 @@ Tracks migration status against the normative surface contract in [CLI Surface V
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
 - `blockchains` is complete for current scope; remaining work there would be non-surface refactors rather than V3 contract changes.
 - This tracker is about user-facing shape, not internal helper refactors.
+
+## Deferred Smells
+
+Use this section for non-blocking smells found during V3 work that are worth revisiting later.
+
+Classification:
+
+- `family-local`: cleanup is specific to one family and should usually be handled there.
+- `cross-cutting`: likely worth a broader pass because the same pattern may exist in multiple families.
+
+| Scope           | Area          | Smell                                                                                                                                                                                                                                                        | Better handled where                                               |
+| --------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `family-local`  | `blockchains` | [blockchains-catalog-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-catalog-utils.ts) still mixes category/layer heuristics, catalog assembly, filtering, and sort order.                                          | Revisit inside the `blockchains` family only if the catalog grows. |
+| `cross-cutting` | CLI browse    | [blockchain-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchain-view-projection.ts) reads `process.env` directly to compute API-key readiness. If this pattern repeats, projection modules are doing host/config work. | Reassess across browse families after more V3 migrations land.     |
+| `family-local`  | `blockchains` | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                       | Low-priority naming cleanup in the `blockchains` command folder.   |
