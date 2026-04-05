@@ -18,6 +18,8 @@ import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-m
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
 import {
+  buildBlockchainDetailFields,
+  buildBlockchainTitleParts,
   buildBlockchainsFilterLabel,
   buildCategoryParts,
   formatBlockchainLayer,
@@ -28,7 +30,7 @@ import {
 } from './blockchains-view-formatters.js';
 import type { BlockchainsViewState } from './blockchains-view-state.js';
 
-const BLOCKCHAINS_DETAIL_LINES = 8;
+const BLOCKCHAINS_DETAIL_LINES = 10;
 
 function getBlockchainsVisibleRows(terminalHeight: number): number {
   const chromeLines = calculateChromeLines({
@@ -181,8 +183,7 @@ const BlockchainRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color={status.color}>{status.icon}</Text> {displayName} <Text dimColor>{category}</Text>{' '}
-      <Text dimColor>{layer}</Text> {providers}
+      {displayName} <Text dimColor>{category}</Text> <Text dimColor>{layer}</Text> {providers}
       {'  '}
       <Text color={status.color}>{keyStatus}</Text>
     </SelectableRow>
@@ -204,36 +205,36 @@ const BlockchainDetailPanel: FC<{ state: BlockchainsViewState }> = ({ state }) =
 };
 
 function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[] {
-  const layerLabel = selected.layer ? `Layer ${selected.layer}` : '';
-  const providerLabel = selected.providerCount === 1 ? 'provider' : 'providers';
+  const title = buildBlockchainTitleParts(selected);
+  const detailFields = buildBlockchainDetailFields(selected);
 
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ {selected.displayName}</Text>
-      {'  '}
-      <Text dimColor>{selected.category}</Text>
-      {layerLabel && (
+      <Text bold>▸ {title.displayName}</Text> <Text dimColor>{title.key}</Text>{' '}
+      <Text color="cyan">{title.category}</Text>
+      {title.layerLabel && (
         <>
-          <Text dimColor> · </Text>
-          <Text dimColor>{layerLabel}</Text>
+          {' '}
+          <Text dimColor>{title.layerLabel}</Text>
         </>
       )}
-      {'   '}
-      <Text>{selected.providerCount}</Text>
-      <Text dimColor> {providerLabel}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
+    ...detailFields.map((field) => (
+      <Text key={field.label}>
+        <Text dimColor>{field.label}:</Text> {field.value}
+      </Text>
+    )),
+    <Text key="blank-2"> </Text>,
+    <Text
+      key="providers-label"
+      dimColor
+    >
+      Providers
+    </Text>,
   ];
 
   if (selected.providers.length > 0) {
-    rows.push(
-      <Text
-        key="providers-label"
-        dimColor
-      >
-        {'  '}Providers
-      </Text>
-    );
     rows.push(
       ...selected.providers.map((provider) => (
         <ProviderLine
@@ -248,26 +249,10 @@ function buildBlockchainDetailRows(selected: BlockchainViewItem): ReactElement[]
         key="no-providers"
         dimColor
       >
-        {'  '}No providers registered for this blockchain.
+        No providers registered for this blockchain.
       </Text>
     );
   }
-
-  rows.push(
-    <Text key="blank-2"> </Text>,
-    <Text
-      key="example-add"
-      dimColor
-    >
-      {'  '}Example: exitbook accounts add main-wallet --blockchain {selected.name} --address {selected.exampleAddress}
-    </Text>,
-    <Text
-      key="example-import"
-      dimColor
-    >
-      {'  '} exitbook import main-wallet
-    </Text>
-  );
 
   return rows;
 }

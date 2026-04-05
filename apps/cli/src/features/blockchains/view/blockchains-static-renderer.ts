@@ -4,6 +4,8 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-model.js';
 
 import {
+  buildBlockchainDetailFields,
+  buildBlockchainTitleParts,
   buildBlockchainsFilterLabel,
   buildCategoryParts,
   formatBlockchainLayer,
@@ -58,24 +60,16 @@ export function outputBlockchainStaticDetail(blockchain: BlockchainViewItem): vo
 }
 
 export function buildBlockchainStaticDetail(blockchain: BlockchainViewItem): string {
+  const title = buildBlockchainTitleParts(blockchain);
   const lines: string[] = [
-    `${pc.bold(blockchain.displayName)} ${pc.dim(blockchain.name)} ${pc.cyan(blockchain.category)}${blockchain.layer ? ` ${pc.dim(formatBlockchainLayer(blockchain.layer))}` : ''}`,
+    `${pc.bold(title.displayName)} ${pc.dim(title.key)} ${pc.cyan(title.category)}${title.layerLabel ? ` ${pc.dim(title.layerLabel)}` : ''}`,
     '',
-    buildDetailLine('Key', blockchain.name),
-    buildDetailLine('Category', blockchain.category),
+    ...buildBlockchainDetailFields(blockchain, { includeRepeatedTitleFields: true }).map((field) =>
+      buildDetailLine(field.label, field.value)
+    ),
+    '',
+    ...buildProviderLines(blockchain.providers),
   ];
-
-  if (blockchain.layer) {
-    lines.push(buildDetailLine('Layer', formatBlockchainLayer(blockchain.layer)));
-  }
-
-  lines.push(
-    buildDetailLine('Providers', String(blockchain.providerCount)),
-    buildDetailLine('API keys', getBlockchainKeyStatusDisplay(blockchain.keyStatus, blockchain.missingKeyCount).label),
-    buildDetailLine('Example address', blockchain.exampleAddress),
-    '',
-    ...buildProviderLines(blockchain.providers)
-  );
 
   return `${lines.join('\n')}\n`;
 }

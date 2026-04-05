@@ -9,6 +9,65 @@ const mockOnQuit = () => {
 };
 
 describe('BlockchainsViewApp', () => {
+  it('renders the detail panel with the static-detail fields instead of command hints', () => {
+    const state = createBlockchainsViewState(
+      [
+        {
+          name: 'ethereum',
+          displayName: 'Ethereum',
+          category: 'evm',
+          layer: '1',
+          providers: [
+            {
+              name: 'alchemy',
+              displayName: 'Alchemy',
+              requiresApiKey: true,
+              apiKeyEnvName: 'ALCHEMY_API_KEY',
+              apiKeyConfigured: true,
+              capabilities: ['txs', 'balance', 'tokens'],
+              rateLimit: '10/sec',
+            },
+            {
+              name: 'etherscan',
+              displayName: 'Etherscan',
+              requiresApiKey: false,
+              capabilities: ['txs', 'balance'],
+              rateLimit: '5/sec',
+            },
+          ],
+          providerCount: 2,
+          keyStatus: 'all-configured',
+          missingKeyCount: 0,
+          exampleAddress: '0x742d35Cc...',
+        },
+      ],
+      {},
+      2
+    );
+
+    const frame = render(
+      <BlockchainsViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    ).lastFrame();
+
+    expect(frame).toBeDefined();
+    if (!frame) {
+      return;
+    }
+
+    expect(frame).toContain('▸ Ethereum ethereum evm L1');
+    expect(frame).toContain('Providers: 2');
+    expect(frame).toContain('API keys: all configured');
+    expect(frame).toContain('Example address: 0x742d35Cc...');
+    expect(frame).toContain('Providers');
+    expect(frame).toContain('Alchemy');
+    expect(frame).toContain('ALCHEMY_API_KEY configured');
+    expect(frame).not.toContain('Example: exitbook accounts add');
+    expect(frame).not.toContain('exitbook import main-wallet');
+  });
+
   it('keeps a stable frame height when provider detail content changes', () => {
     const stateWithProviders = createBlockchainsViewState(
       [

@@ -14,22 +14,21 @@ This is a working tracker, not a speculative roadmap. After each coherent slice 
 
 ## Current Slice
 
-### Phase 1: Add Root Static Browse Surfaces And Selector Contract
+### Phase 2: Align Explorer Detail With The Static Detail Card
 
 Status: `completed`
 
 Intent:
 
-- introduce bare `blockchains` static list output
-- introduce `blockchains <selector>` static detail output
-- make `blockchains view` and `blockchains view <selector>` fall back to those same static surfaces off-TTY
-- establish blockchain key selector behavior and JSON parity
+- align `blockchains view` detail content with the new static detail surface
+- remove the old example-command hint block from the explorer detail panel
+- share the core detail title/body field semantics across static and TUI renderers
 
-Why this slice comes first:
+Why this slice came next:
 
-- current `blockchains` is still a `view`-only family
-- selector semantics are the main contract decision; once that is stable, the renderer work is straightforward
-- static browse/detail are the smallest coherent V3 slice and will make later explorer alignment much simpler
+- the root browse ladder was already stable
+- the main remaining product drift was inside the explorer detail panel
+- detail alignment is a self-contained renderer slice that improves the surface without reopening selector or command-shape decisions
 
 ## Verified Current Facts
 
@@ -40,39 +39,39 @@ Why this slice comes first:
 - the catalog already has a natural selector candidate: the blockchain key in [blockchains-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-view-utils.ts).
 - static browse rendering now lives in [blockchains-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-static-renderer.ts).
 - `blockchains view <selector>` now preselects the requested chain on a TTY and falls back to static detail off-TTY.
+- the explorer detail panel now uses the same blockchain title semantics and body fields as the static detail card in [blockchains-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-components.tsx) and [blockchains-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-formatters.ts).
+- the explorer detail panel no longer spends its fixed-height space on example command hints.
 
-## Phase 1 Exit Criteria
+## Phase 2 Exit Criteria
 
-- `exitbook blockchains` renders a static list.
-- `exitbook blockchains <selector>` renders a static detail card.
-- `blockchains view` off-TTY matches `blockchains`.
-- `blockchains view <selector>` off-TTY matches `blockchains <selector>`.
-- JSON follows list/detail semantic parity for bare vs selector forms.
+- explorer detail title uses the same `display name + key + category + layer` semantics as static detail
+- explorer detail body shows the same core fields: providers, API keys, example address
+- provider detail remains in the explorer panel and may truncate via fixed-height overflow
+- example-command hint lines are removed from the explorer detail panel
 
-Phase 1 result:
+Phase 2 result:
 
 - all exit criteria met
 
 ## Likely Touchpoints
 
-- [blockchains.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains.ts)
-- [blockchains-view.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-view.ts)
-- [blockchains-view-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-view-utils.ts)
-- [blockchains-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchains-view-model.ts)
-- [blockchains-command.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/__tests__/blockchains-command.test.ts)
+- [blockchains-view-components.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-components.tsx)
+- [blockchains-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-static-renderer.ts)
+- [blockchains-view-formatters.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/blockchains-view-formatters.ts)
+- [blockchains-view-components.test.tsx](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/view/__tests__/blockchains-view-components.test.tsx)
 
 ## Slice Notes
 
 Constraints that shape the implementation:
 
-- selector semantics should stay exact and boring; blockchain key is enough
-- avoid inventing a second data-loading path if the existing catalog builder can serve both list and detail
-- static surfaces should be compact and useful in scrollback, not a text copy of the current TUI
+- do not fork the detail vocabulary between static and TUI renderers
+- keep the explorer panel compact enough that the list remains usable on a normal terminal
+- reuse shared formatters where that reduces drift without forcing identical rendering primitives
 
 Post-slice reassessment notes:
 
-- the core V3 browse ladder is now established for `blockchains`
-- the next slice should focus on explorer/detail alignment rather than more command-shape work
+- the explorer/detail drift is now much smaller
+- the next reassessment should focus on any remaining filtered-empty or help/spec mismatches before declaring the family complete
 
 ## Reassessment Gate
 
@@ -84,6 +83,6 @@ Before starting the next slice:
 
 Likely next reassessment candidates:
 
-- align the explorer detail panel more closely with the new static detail card
-- reduce remaining duplication between static and TUI formatting/helpers
+- align filtered-empty explorer messaging with the static browse surface
+- reduce remaining naming drift such as `blockchains-view-utils.ts` now owning browse/catalog logic
 - update broader trackers once the family is coherent enough to move from `in_progress` to `done`
