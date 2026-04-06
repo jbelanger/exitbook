@@ -44,6 +44,7 @@ describe('ProvidersBenchmarkTextProgress', () => {
     reporter.onProgress({ type: 'sustained-complete', rate: 0.25, success: true, responseTimeMs: 76 });
     reporter.onProgress({ type: 'cooldown-start', reason: 'next-rate', seconds: 60 });
     reporter.onProgress({ type: 'cooldown-heartbeat', reason: 'next-rate', secondsRemaining: 30 });
+    reporter.onProgress({ type: 'cooldown-complete', reason: 'next-rate' });
     reporter.onProgress({ type: 'burst-start', limit: 10 });
     reporter.onProgress({ type: 'burst-complete', limit: 10, success: true });
     reporter.complete({
@@ -65,7 +66,7 @@ describe('ProvidersBenchmarkTextProgress', () => {
     expect(lines.some((line) => line.includes('0.25 req/sec'))).toBe(true);
     expect(lines.some((line) => line.includes('avg 76ms'))).toBe(true);
     expect(lines).toContain('  · waiting 60s before next rate test');
-    expect(lines).toContain('    30s remaining');
+    expect(lines.some((line) => line.includes('remaining'))).toBe(false);
     expect(lines).toContain('Burst Limit Tests');
     expect(lines.some((line) => line.includes('10 req/min'))).toBe(true);
     expect(lines).toContain('✓ Benchmark complete');
@@ -98,14 +99,21 @@ describe('ProvidersBenchmarkTextProgress', () => {
     reporter.begin();
     reporter.onProgress({ type: 'sustained-start', rate: 0.25 });
     reporter.onProgress({ type: 'sustained-complete', rate: 0.25, success: true, responseTimeMs: 76 });
+    reporter.onProgress({ type: 'cooldown-start', reason: 'next-rate', seconds: 60 });
+    reporter.onProgress({ type: 'cooldown-heartbeat', reason: 'next-rate', secondsRemaining: 45 });
+    reporter.onProgress({ type: 'cooldown-complete', reason: 'next-rate' });
     reporter.onProgress({ type: 'burst-start', limit: 10 });
     reporter.onProgress({ type: 'burst-complete', limit: 10, success: false });
 
     expect(mockCreateSpinner).toHaveBeenCalledWith(expect.stringContaining('0.25 req/sec'), false);
     expect(mockStopSpinner).toHaveBeenCalledWith(spinner, expect.stringContaining('0.25 req/sec'));
+    expect(mockCreateSpinner).toHaveBeenCalledWith(expect.stringContaining('waiting 60s'), false);
+    expect(spinner.ora.text).toContain('45s remaining');
     expect(mockCreateSpinner).toHaveBeenCalledWith(expect.stringContaining('10 req/min'), false);
     expect(mockFailSpinner).toHaveBeenCalledWith(spinner, expect.stringContaining('10 req/min'));
     expect(lines).toContain('Sustained Rate Tests');
     expect(lines).toContain('Burst Limit Tests');
+    expect(lines.some((line) => line.includes('waiting'))).toBe(false);
+    expect(lines.some((line) => line.includes('remaining'))).toBe(false);
   });
 });

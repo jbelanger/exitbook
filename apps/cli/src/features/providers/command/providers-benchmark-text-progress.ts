@@ -51,12 +51,23 @@ export class ProvidersBenchmarkTextProgress {
         this.completeActiveStep(event.success, buildSustainedOutcome(event.rate, event.responseTimeMs));
         return;
       case 'cooldown-start':
-        this.logLine(pc.dim(`  · waiting ${event.seconds}s ${formatCooldownReason(event.reason)}`));
+        if (this.interactive) {
+          this.activeSpinner = createSpinner(
+            `  ${pc.dim(`waiting ${event.seconds}s ${formatCooldownReason(event.reason)}`)}`,
+            false
+          );
+        } else {
+          this.logLine(pc.dim(`  · waiting ${event.seconds}s ${formatCooldownReason(event.reason)}`));
+        }
         return;
       case 'cooldown-heartbeat':
-        this.logLine(pc.dim(`    ${event.secondsRemaining}s remaining`));
+        if (this.interactive && this.activeSpinner) {
+          this.activeSpinner.ora.text = `  ${pc.dim(`${event.secondsRemaining}s remaining`)}`;
+        }
         return;
       case 'cooldown-complete':
+        stopSpinner(this.activeSpinner);
+        this.activeSpinner = undefined;
         return;
       case 'burst-start':
         this.ensureBurstSection();
