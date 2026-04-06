@@ -232,7 +232,7 @@ describe('assets command modules', () => {
     );
   });
 
-  it('outputs asset view JSON with action-required metadata', async () => {
+  it('outputs assets explore JSON with action-required metadata', async () => {
     const program = createAssetsProgram();
     mockRunAssetsBrowse.mockResolvedValue(
       ok({
@@ -276,11 +276,11 @@ describe('assets command modules', () => {
       })
     );
 
-    await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
+    await program.parseAsync(['assets', 'explore', '--action-required', '--json'], { from: 'user' });
 
     expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, { actionRequiredOnly: true, selector: undefined });
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'assets-view',
+      'assets-explore',
       {
         assets: [
           {
@@ -309,7 +309,18 @@ describe('assets command modules', () => {
     );
   });
 
-  it('outputs bare assets selector JSON as a detail card', async () => {
+  it('rejects bare selectors and points callers to view or explore', async () => {
+    const program = createAssetsProgram();
+
+    await expect(program.parseAsync(['assets', 'USDC', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:assets:json:Use "assets view USDC" for static detail or "assets explore USDC" for the explorer.:2'
+    );
+
+    expect(mockExitCliFailure).toHaveBeenCalledWith('assets', expect.objectContaining({ exitCode: 2 }), 'json');
+    expect(mockRunAssetsBrowse).not.toHaveBeenCalled();
+  });
+
+  it('outputs assets view JSON as a detail card', async () => {
     const program = createAssetsProgram();
     mockRunAssetsBrowse.mockResolvedValue(
       ok({
@@ -368,14 +379,14 @@ describe('assets command modules', () => {
       })
     );
 
-    await program.parseAsync(['assets', 'USDC', '--json'], { from: 'user' });
+    await program.parseAsync(['assets', 'view', 'USDC', '--json'], { from: 'user' });
 
     expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, {
       actionRequiredOnly: undefined,
       selector: 'USDC',
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'assets',
+      'assets-view',
       {
         assetId: 'blockchain:ethereum:0xaaa',
         assetSymbols: ['USDC'],
@@ -392,6 +403,86 @@ describe('assets command modules', () => {
         transactionCount: 2,
       },
       undefined
+    );
+  });
+
+  it('outputs assets list JSON using the static list surface', async () => {
+    const program = createAssetsProgram();
+    mockRunAssetsBrowse.mockResolvedValue(
+      ok({
+        allAssets: [
+          {
+            assetId: 'asset-list-1',
+            assetSymbols: ['BTC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '1.5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 5,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 3,
+          },
+        ],
+        assets: [
+          {
+            assetId: 'asset-list-1',
+            assetSymbols: ['BTC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '1.5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 5,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 3,
+          },
+        ],
+        totalCount: 1,
+        excludedCount: 0,
+        actionRequiredCount: 0,
+      })
+    );
+
+    await program.parseAsync(['assets', 'list', '--json'], { from: 'user' });
+
+    expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, {
+      actionRequiredOnly: undefined,
+      selector: undefined,
+    });
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'assets-list',
+      {
+        assets: [
+          {
+            assetId: 'asset-list-1',
+            assetSymbols: ['BTC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '1.5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 5,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 3,
+          },
+        ],
+      },
+      {
+        total: 1,
+        actionRequiredCount: 0,
+        excludedCount: 0,
+        filters: undefined,
+      }
     );
   });
 
@@ -483,7 +574,7 @@ describe('assets command modules', () => {
     });
 
     try {
-      await program.parseAsync(['assets', 'view', '--needs-review'], { from: 'user' });
+      await program.parseAsync(['assets', 'explore', '--needs-review'], { from: 'user' });
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
       Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
@@ -596,7 +687,7 @@ describe('assets command modules', () => {
     });
 
     try {
-      await program.parseAsync(['assets', 'view', 'ETH'], { from: 'user' });
+      await program.parseAsync(['assets', 'explore', 'ETH'], { from: 'user' });
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
       Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
@@ -620,7 +711,9 @@ describe('assets command modules', () => {
 
     expect(assetsCommand).toBeDefined();
     expect(assetsCommand?.commands.map((command) => command.name())).toEqual([
+      'list',
       'view',
+      'explore',
       'confirm',
       'clear-review',
       'exclude',

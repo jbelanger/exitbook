@@ -411,7 +411,7 @@ describe('asset command services', () => {
     expect(error.message).toContain('Failed to read asset exclusion override events');
   });
 
-  it('filters assets view down to needs-review assets', async () => {
+  it('filters the assets browse surface down to needs-review assets', async () => {
     const scamAssetId = 'blockchain:ethereum:0xscam';
     const safeAssetId = 'exchange:kraken:btc';
     const mockDb = createMockDb([
@@ -458,7 +458,7 @@ describe('asset command services', () => {
     expect(value.totalCount).toBe(2);
   });
 
-  it('does not surface override-only exclusions in assets view', async () => {
+  it('does not surface override-only exclusions in the assets browse surface', async () => {
     const orphanExcludedAssetId = 'blockchain:ethereum:0xorphan';
     const mockDb = createMockDb([]);
     const mockOverrideStore = createMockOverrideStore();

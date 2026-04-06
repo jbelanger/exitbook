@@ -11,7 +11,7 @@ Define how Exitbook detects suspicious assets, persists current review state,
 and applies review policy to CLI consumers and accounting. Asset review keeps
 provider facts, risk evidence, reference status, user review state, and
 accounting exclusion as separate concerns even when they are shown together in
-`assets view`.
+the `assets` browse family.
 
 ## Quick Reference
 
@@ -34,7 +34,7 @@ accounting exclusion as separate concerns even when they are shown together in
 - Keep write-side user intent in override events.
 - Prevent transaction-level scam signals from smearing across unrelated assets
   in the same transaction.
-- Make `assets view`, `cost-basis`, and `portfolio` consume the same projected
+- Make `assets` browse surfaces, `cost-basis`, and `portfolio` consume the same projected
   review state.
 - Fail closed in accounting only for blocking evidence, not every warning.
 
@@ -270,7 +270,7 @@ graph TD
     D["reference match cache / CoinGecko resolver"] --> E
     E --> F["asset_review_state"]
     E --> G["asset_review_evidence"]
-    F --> H["assets view"]
+    F --> H["assets browse"]
     F --> I["cost-basis"]
     F --> J["portfolio"]
     G --> H
@@ -448,7 +448,7 @@ Implications:
 - same-symbol ambiguity stays blocking even after confirmation
 - confirming non-ambiguity evidence can unblock accounting when the confirmed
   fingerprint still matches
-- warning-only evidence remains visible in `assets view` without breaking
+- warning-only evidence remains visible in the `assets` browse surfaces without breaking
   accounting
 
 Accounting exclusion remains a separate policy layer on top of review state.
@@ -521,9 +521,10 @@ affected profile ids and marks each corresponding
 
 ## CLI and Consumer Behavior
 
-### `assets view`
+### `assets` browse family
 
-`assets view` is the primary review surface.
+`assets explore` is the primary interactive review surface, and the rest of the
+`assets` browse family shares the same underlying review state.
 
 The user-facing TUI contract lives in
 [`docs/specs/cli/assets/assets-view-spec.md`](./cli/assets/assets-view-spec.md).
@@ -537,7 +538,7 @@ It reads:
 - exclusion state from the override store
 - known asset symbols/history from processed transactions
 
-`assets view` reads exclusion state from the override store for rows that already
+The `assets` browse family reads exclusion state from the override store for rows that already
 exist in holdings/history/review data. Override-only exclusions are managed via
 `assets exclusions`, not synthesized into the main asset browser.
 

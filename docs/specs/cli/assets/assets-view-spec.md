@@ -2,14 +2,14 @@
 
 ## Scope
 
-This document defines the browse surface for the `assets` command family:
+This document defines the `assets` browse family:
 
 - `exitbook assets`
-- `exitbook assets <selector>`
-- `exitbook assets view`
+- `exitbook assets list`
 - `exitbook assets view <selector>`
+- `exitbook assets explore [<selector>]`
 
-It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
+It specializes the browse rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
 
 Out of scope:
 
@@ -41,17 +41,16 @@ Rules:
 | Shape                       | Meaning                                     | Human surface      |
 | --------------------------- | ------------------------------------------- | ------------------ |
 | `assets`                    | Quick browse of held or flagged assets      | Static list        |
-| `assets <selector>`         | Focused inspection of one asset             | Static detail card |
-| `assets view`               | Full review explorer                        | TUI explorer       |
-| `assets view <selector>`    | Explorer pre-selected on one asset          | TUI explorer       |
+| `assets list`               | Explicit alias of the same static list      | Static list        |
+| `assets view <selector>`    | Focused inspection of one asset             | Static detail card |
+| `assets explore`            | Full review explorer                        | TUI explorer       |
+| `assets explore <selector>` | Explorer pre-selected on one asset          | TUI explorer       |
 | Any of the above + `--json` | Machine output for the same semantic target | JSON               |
 
 On a non-interactive terminal:
 
-- `assets view` falls back to the same static list as `assets`
-- `assets view <selector>` falls back to the same static detail as `assets <selector>`
-
-`view` does not define a separate text schema or JSON schema.
+- `assets explore` falls back to the same static list as `assets`
+- `assets explore <selector>` falls back to the same static detail as `assets view <selector>`
 
 ## Selectors And Options
 
@@ -70,6 +69,7 @@ Examples:
 
 Rules:
 
+- root `assets <selector>` is invalid; callers must use `view <selector>` or `explore <selector>`
 - exact asset ID resolution is case-sensitive
 - symbol resolution is case-insensitive
 - selectors cannot be combined with `--action-required`
@@ -100,7 +100,7 @@ Rules:
 
 - the asset-review projection remains the canonical review-state source
 - current quantity is derived from grouped `balance_snapshot_assets`
-- processed transactions are used for historical asset knowledge and symbol resolution, not for live holdings
+- processed transactions are used for historical asset knowledge, symbol resolution, and transaction counts, not for current quantity
 
 ### Balance freshness
 
@@ -145,7 +145,7 @@ Hidden by default:
 
 Exception:
 
-- when `assets view <selector>` directly targets a normally hidden asset on a TTY, the selected asset stays pinned in the default list so the explorer can open on that row
+- when `assets explore <selector>` directly targets a normally hidden asset on a TTY, the selected asset stays pinned in the default list so the explorer can open on that row
 
 ### Action-required filter
 
@@ -160,203 +160,100 @@ Rules:
 
 ## Browse Surfaces
 
-### Static list surface
+### Static List
 
 Applies to:
 
 - `exitbook assets`
-- `exitbook assets view` off-TTY
+- `exitbook assets list`
+- `exitbook assets explore` off-TTY
 
-#### Header
-
-Default list:
+Header:
 
 ```text
 Assets {visible-or-total} · {flagged} flagged · {excluded} excluded
 ```
 
-Action-required list:
+Action-required header:
 
 ```text
 Review Queue {count} flagged {asset/assets} · {excluded} excluded
 ```
 
-Rules:
+Table columns:
 
-- `Assets` or `Review Queue` is bold
-- metadata is dim except the flagged count
-- when the visible count differs from the total count, the header uses `{visible} of {total}`
-- one blank line follows the header before the table or empty state
-
-#### Table
-
-Columns:
-
-| Column     | Meaning                                                   |
-| ---------- | --------------------------------------------------------- |
-| `SYMBOL`   | Primary display symbol                                    |
-| `QUANTITY` | Current stored quantity                                   |
-| `STATUS`   | User-facing badge text (`Review`, `Reviewed`, `Excluded`) |
-| `WHY`      | Plain-English review reason when present                  |
-| `ASSET ID` | Exact asset identifier for follow-up commands             |
+- `SYMBOL`
+- `QUANTITY`
+- `STATUS`
+- `WHY`
+- `ASSET ID`
 
 Rules:
 
-- no controls footer
-- no side-by-side detail panel
-- no raw review status, reference status, or accounting status columns
+- static list output never shows controls, selected-row chrome, or a side-by-side detail panel
+- user-facing status copy stays simplified and does not expose raw review or reference fields
 
-### Static detail surface
+### Static Detail
 
 Applies to:
 
-- `exitbook assets <selector>`
-- `exitbook assets view <selector>` off-TTY
+- `exitbook assets view <selector>`
+- `exitbook assets explore <selector>` off-TTY
 
-#### Title line
+Body order:
 
-Format:
-
-```text
-{symbol} {quantity} [optional badge]
-```
-
-Rules:
-
-- symbol is bold
-- quantity is dim
-- badge uses the same user-facing labels as the explorer
-
-#### Body
-
-Field order:
-
-1. `Asset ID`
-2. optional `Also seen as`
-3. optional `Contract`
-4. optional `CoinGecko`
-5. optional repeated `Conflict`
-6. optional `Why`
-7. `Action`
-8. `Seen in`
-9. optional `Signals` section
+1. title line with symbol, quantity, and optional badge
+2. `Asset ID`
+3. optional `Also seen as`
+4. optional `Contract`
+5. optional `CoinGecko`
+6. optional repeated `Conflict`
+7. optional `Why`
+8. `Action`
+9. `Seen in`
+10. optional `Signals`
 
 Rules:
 
-- `Action` uses command-oriented guidance, not TUI keybind wording
+- static detail uses command-oriented action guidance, not TUI keybind wording
 - same-symbol ambiguity on blockchain tokens renders `Contract`, `CoinGecko`, and `Conflict`
 - signals are not artificially capped in static detail
 
-### Explorer surface
+### Explorer
 
 Applies to:
 
-- `exitbook assets view`
-- `exitbook assets view <selector>`
+- `exitbook assets explore`
+- `exitbook assets explore <selector>`
 
-#### Header
-
-Default list:
-
-```text
-Assets {visible} of {total} · {flagged} flagged · {excluded} excluded
-```
-
-When visible equals total, omit `of {total}`.
-
-Action-required list:
-
-```text
-Review Queue {count} flagged {asset/assets} · {excluded} excluded
-```
-
-#### List rows
-
-Each row shows:
-
-- primary symbol
-- current quantity
-- optional badge: `[Review]`, `[Reviewed]`, or `[Excluded]`
-- optional plain-English reason with a multi-signal hint such as `possible spam (+1 more)`
-
-Rows do not show raw review status, reference status, accounting status, or inclusion labels.
-
-#### Detail panel
-
-The detail panel shows:
-
-- title with symbol, quantity, and optional badge
-- optional `Also seen as`
-- optional `Contract` and `CoinGecko`
-- optional repeated `Conflict`
-- optional `Why`
-- `Action` with keybind-based instructions
-- `Seen in`
-- optional `Signals`
+The explorer is the primary interactive review surface.
 
 Rules:
 
-- the signals area has fixed height
-- overflow truncates with `... N more signal(s)`
-- `assets view <selector>` preselects the requested asset
-- if the selected asset would otherwise be hidden by the default filter, it is pinned into the default list until the user changes filters
+- `explore <selector>` preselects the requested asset
+- filtered-empty explorer states stay in the explorer
+- a truly empty unfiltered collection may collapse to the static empty state
+- explorer detail may truncate for height, but the static detail card must remain complete
 
-#### Keyboard actions
+## JSON Contract
 
-Controls:
+- `assets --json`, `assets list --json`, and `assets explore --json` return the same list payload shape
+- `assets view <selector> --json` and `assets explore <selector> --json` return the same detail payload shape
 
-- `↑↓` or `j/k`: move selection
-- `tab`: toggle between default list and review queue
-- `x`: toggle exclude/include
-- `c`: mark reviewed when the selected asset is `needs-review`
-- `u`: reopen review when the selected asset is `reviewed` or has a stale confirmation
-- `q` or `esc`: quit
+List payload includes:
 
-## JSON
+- `assets`
+- `meta.total`
+- `meta.actionRequiredCount`
+- `meta.excludedCount`
+- optional `meta.filters`
 
-### List output
+Detail payload includes one selected asset item with the same semantic fields used by the explorer and static detail card.
 
-List JSON uses the same semantic target for `assets` and `assets view`.
+## Acceptance Notes
 
-Payload:
-
-- `data.assets`: the already filtered item set for the requested surface
-- `metadata.total`: total asset universe count before the browse filter
-- `metadata.actionRequiredCount`
-- `metadata.excludedCount`
-- optional `metadata.filters.actionRequired`
-
-Rules:
-
-- default JSON list output uses the same holdings-plus-exceptions filter as the human browse list
-- action-required JSON list output returns only the action-required subset
-
-### Detail output
-
-Detail JSON uses the selected asset item directly.
-
-Rules:
-
-- `assets <selector> --json` and `assets view <selector> --json` return the same detail object
-- detail JSON does not wrap the selected asset in an additional array
-
-## Invariants
-
-- current quantity comes from stored balance snapshot assets
-- browse commands never call live balance providers
-- override-only exclusions never synthesize browse rows
-- action-required filtering excludes already excluded assets
-- selector resolution follows exact asset ID before unique symbol
-
-## Edge Cases
-
-- a held asset that exists only in stored balance snapshots can still resolve by symbol
-- same-symbol ambiguity can keep an asset accounting-blocked after review confirmation
-- one stale stored balance scope blocks the whole browse family
-
-## Related Specs
-
-- [Asset Review](../../asset-review.md)
-- [Balance Projection](../../balance-projection.md)
-- [Accounts CLI](../accounts/accounts-view-spec.md)
-- [CLI Surface V3](../cli-surface-v3-spec.md)
+- `view` is static detail, never the explorer
+- `explore` is the explorer verb
+- root and `list` stay equivalent for static list output
+- selector resolution must not diverge between `view` and `explore`
+- browse commands never mutate asset review state

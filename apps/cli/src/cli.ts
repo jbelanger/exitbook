@@ -91,7 +91,7 @@ Start Here:
 Command Journeys:
   Workspace setup      profiles, accounts, blockchains, providers
   Sync and rebuild     import, reprocess, links run, prices enrich, accounts refresh
-  Review and resolve   transactions view, links view, links gaps, assets view, accounts explore
+  Review and resolve   transactions view, links view, links gaps, assets explore, accounts explore
   Analyze and export   portfolio, cost-basis, transactions export, cost-basis export
   Cleanup and recovery clear
 

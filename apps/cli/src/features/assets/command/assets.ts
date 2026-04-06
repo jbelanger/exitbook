@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 
 import { cliErr, ExitCodes, runCliRuntimeCommand } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
-import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../../cli/presentation.js';
+import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 
 import {
   buildAssetsBrowseOptionsHelpText,
@@ -15,16 +15,17 @@ import { registerAssetsClearReviewCommand } from './assets-clear-review.js';
 import { registerAssetsConfirmCommand } from './assets-confirm.js';
 import { registerAssetsExcludeCommand } from './assets-exclude.js';
 import { registerAssetsExclusionsCommand } from './assets-exclusions.js';
+import { registerAssetsExploreCommand } from './assets-explore.js';
 import { registerAssetsIncludeCommand } from './assets-include.js';
+import { registerAssetsListCommand } from './assets-list.js';
 import { registerAssetsViewCommand } from './assets-view.js';
 
 const ASSETS_COMMAND_ID = 'assets';
-const ASSETS_LIST_ALIAS = 'list';
 
 export function registerAssetsCommand(program: Command): void {
   const assets = program
     .command('assets')
-    .usage('[selector] [options]')
+    .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('View assets and manage review or exclusion decisions')
@@ -33,9 +34,12 @@ export function registerAssetsCommand(program: Command): void {
       `
 Examples:
   $ exitbook assets
-  $ exitbook assets USDC
-  $ exitbook assets blockchain:ethereum:0xa0b8...
-  $ exitbook assets view --action-required
+  $ exitbook assets list --action-required
+  $ exitbook assets view USDC
+  $ exitbook assets view blockchain:ethereum:0xa0b8...
+  $ exitbook assets explore
+  $ exitbook assets explore USDC
+  $ exitbook assets explore --action-required
   $ exitbook assets confirm --symbol USDC
   $ exitbook assets exclude --asset-id blockchain:ethereum:0xa0b8...
   $ exitbook assets exclusions
@@ -44,9 +48,10 @@ Browse Options:
 ${buildAssetsBrowseOptionsHelpText()}
 
 Notes:
-  - Use bare "assets" for static list/detail output.
-  - Bare selectors resolve by exact asset ID first, then by unique symbol.
-  - Use "assets view" for the interactive review explorer.
+  - Use bare "assets" or "assets list" for static asset lists.
+  - Use "assets view <selector>" for one static asset detail card.
+  - Use "assets explore" for the interactive review explorer.
+  - Asset selectors resolve by exact asset ID first, then by unique symbol.
   - Use review and exclusion commands to resolve ambiguous or suspicious assets before accounting.
 `
     );
@@ -60,17 +65,19 @@ Notes:
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAssetsBrowseOptions);
           const selector = parsedInvocation.selector?.trim();
 
-          if (selector?.toLowerCase() === ASSETS_LIST_ALIAS) {
-            return yield* cliErr(new Error('Use bare "assets" instead of "assets list".'), ExitCodes.INVALID_ARGS);
+          if (selector) {
+            return yield* cliErr(
+              new Error(
+                `Use "assets view ${selector}" for static detail or ` + `"assets explore ${selector}" for the explorer.`
+              ),
+              ExitCodes.INVALID_ARGS
+            );
           }
 
           const prepared = yield* prepareAssetsBrowseCommand({
             commandId: ASSETS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
-            selector,
-            surfaceSpec: selector
-              ? staticDetailSurfaceSpec(ASSETS_COMMAND_ID)
-              : staticListSurfaceSpec(ASSETS_COMMAND_ID),
+            surfaceSpec: staticListSurfaceSpec(ASSETS_COMMAND_ID),
           });
 
           return prepared;
@@ -79,7 +86,9 @@ Notes:
     });
   });
 
+  registerAssetsListCommand(assets);
   registerAssetsViewCommand(assets);
+  registerAssetsExploreCommand(assets);
   registerAssetsConfirmCommand(assets);
   registerAssetsClearReviewCommand(assets);
   registerAssetsExcludeCommand(assets);

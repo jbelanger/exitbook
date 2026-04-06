@@ -11,14 +11,14 @@ How Exitbook persists current balance snapshots, scopes them to owning accounts,
 
 ## Quick Reference
 
-| Concept           | Key Rule                                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Scope ownership   | Every balance snapshot is keyed by the owning root account scope                                                     |
-| Projection id     | Balance freshness lives in `projection_state` under `projection_id='balances'`                                       |
-| Scope key         | Scoped state rows use `balance:<scopeAccountId>`                                                                     |
-| Live fetches      | `accounts refresh` is the only CLI command that calls live providers for balances                                    |
-| Read policy       | `accounts`, `accounts view <selector>`, `accounts explore`, and `assets view` read stored snapshots only             |
-| Account summaries | `accounts` list rows and `accounts explore` summaries show projection freshness separately from verification outcome |
+| Concept           | Key Rule                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope ownership   | Every balance snapshot is keyed by the owning root account scope                                                                                               |
+| Projection id     | Balance freshness lives in `projection_state` under `projection_id='balances'`                                                                                 |
+| Scope key         | Scoped state rows use `balance:<scopeAccountId>`                                                                                                               |
+| Live fetches      | `accounts refresh` is the only CLI command that calls live providers for balances                                                                              |
+| Read policy       | `accounts`, `accounts view <selector>`, `accounts explore`, `assets`, `assets list`, `assets view <selector>`, and `assets explore` read stored snapshots only |
+| Account summaries | `accounts` list rows and `accounts explore` summaries show projection freshness separately from verification outcome                                           |
 
 ## Goals
 
@@ -148,7 +148,7 @@ Persistence errors are surfaced as command failures; the workflow does not silen
   - `verificationStatus` describes the last stored verification outcome
 - Uses `never-built` when no snapshot exists for the owning scope.
 
-#### `assets view`
+#### `assets`
 
 - Reads current holdings from `balance_snapshot_assets`, grouped by `assetId` across all scope snapshots.
 - Requires fresh balance snapshots for every loaded scope before the view is readable.
@@ -252,7 +252,7 @@ graph TD
     D --> F
     C --> G["accounts summary"]
     E --> G
-    D --> H["assets view current holdings"]
+    D --> H["assets current holdings"]
     E --> H
 ```
 
@@ -261,7 +261,7 @@ graph TD
 - **Required**: There is at most one current snapshot per owning scope account.
 - **Required**: There is at most one current asset row per `(scope_account_id, asset_id)`.
 - **Required**: Child accounts never own independent balance snapshot rows for normal hierarchy-backed refresh flows.
-- **Required**: `accounts`, `accounts view <selector>`, `accounts explore`, and `assets view` never fetch live balances.
+- **Required**: `accounts`, `accounts view <selector>`, `accounts explore`, `assets`, `assets list`, `assets view <selector>`, and `assets explore` never fetch live balances.
 - **Required**: Freshness is scoped by owning balance account, not global.
 - **Required**: Projection freshness and verification outcome remain separate concepts in read models.
 
@@ -275,7 +275,7 @@ graph TD
 
 - Balance history is not stored; only the latest scope snapshot exists.
 - Generic projection readiness does not auto-build `balances`; the explicit user-facing rebuild path is `accounts refresh`.
-- `assets view` still loads transactions for historical counts and symbol lookup even though current quantity comes from balance snapshots.
+- `assets` browse surfaces still load transactions for historical counts and symbol lookup even though current quantity comes from balance snapshots.
 
 ## Related Specs
 

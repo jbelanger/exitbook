@@ -269,12 +269,12 @@ Uses `resetPlan('processed-transactions')` -> `['links', 'balances', 'asset-revi
 
 Consumers declare what they need; the system walks the graph and rebuilds as necessary where the consumer uses the generic readiness runtime.
 
-| Consumer      | Required Projections                     | Price Coverage Window                                                      |
-| ------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
-| `links run`   | `processed-transactions`                 | None                                                                       |
-| `assets view` | `processed-transactions`, `asset-review` | None                                                                       |
-| `cost-basis`  | `processed-transactions`, `links`        | Requested reporting window, if both `startDate` and `endDate` are supplied |
-| `portfolio`   | `processed-transactions`, `links`        | `new Date(0)` through the requested `asOf` date                            |
+| Consumer     | Required Projections                     | Price Coverage Window                                                      |
+| ------------ | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `links run`  | `processed-transactions`                 | None                                                                       |
+| `assets`     | `processed-transactions`, `asset-review` | None                                                                       |
+| `cost-basis` | `processed-transactions`, `links`        | Requested reporting window, if both `startDate` and `endDate` are supplied |
+| `portfolio`  | `processed-transactions`, `links`        | `new Date(0)` through the requested `asOf` date                            |
 
 The readiness API walks `rebuildPlan(target)` then the target itself, checking freshness and triggering rebuilds for any non-`fresh` projection (`stale`, `failed`, or lingering `building`). Price coverage is checked separately after projections are ready.
 
@@ -283,7 +283,7 @@ The readiness API walks `rebuildPlan(target)` then the target itself, checking f
 - `accounts`, `accounts view <selector>`, and `accounts explore` read stored balance snapshots without auto-rebuilding them
 - when the scoped balance projection is not fresh, account browse surfaces still render and explain the concrete reason plus next step
 - `accounts refresh` is the explicit rebuild-and-refresh path for `balances`
-- `assets view` requires fresh balance snapshots separately from asset-review readiness
+- `assets` browse surfaces require fresh balance snapshots separately from asset-review readiness
 
 ## Invariants
 

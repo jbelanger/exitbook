@@ -14,7 +14,7 @@ function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
     lines.push('Ambiguous on-chain asset symbols remain blocked until the unwanted contract is excluded.');
   }
 
-  lines.push("Review these assets in 'exitbook assets view --needs-review'.");
+  lines.push("Review these assets in 'exitbook assets explore --needs-review'.");
   lines.push("Confirm intended assets with 'exitbook assets confirm --asset-id <assetId>'.");
   lines.push("Exclude unwanted contracts with 'exitbook assets exclude --asset-id <assetId>'.");
 
