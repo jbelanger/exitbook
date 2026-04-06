@@ -2,6 +2,8 @@
 
 Tracks migration status against the normative surface contract in [CLI Surface V3 Specification](/Users/joel/Dev/exitbook/docs/specs/cli/cli-surface-v3-spec.md).
 
+Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selector>`, `noun explore`, and `noun explore <selector>`. Families previously marked done against the older bare-selector ladder are back in a phase-0 normalization pass until they match this contract.
+
 ## Status Key
 
 - `done`: family matches the intended V3 surface for its current scope
@@ -11,37 +13,42 @@ Tracks migration status against the normative surface contract in [CLI Surface V
 
 ## Families
 
-| Family         | Current Shape                                                   | V3 Target                                                                                                      | Selector Status | Status    | Notes                                                                                       |
-| -------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `profiles`     | `profiles`, `profiles add/remove/update/switch`                 | text-first admin surface                                                                                       | n/a             | `done`    | Explicitly text-first; no TUI family needed.                                                |
-| `accounts`     | bare static list/detail, `view`, `refresh`, `add/update/remove` | same plus `refresh` as the workflow entrypoint                                                                 | stable          | `done`    | Canonical read surface and refresh workflow now both live under `accounts`.                 |
-| `transactions` | bare static list/detail, `view`, `export`, `edit note`          | same                                                                                                           | stable          | `done`    | Root browse + TUI split aligned; export/mutation remain text/json.                          |
-| `blockchains`  | bare static list/detail, `view`                                 | `blockchains`, `blockchains <selector>`, `blockchains view`, `blockchains view <selector>`                     | stable          | `done`    | Root browse/detail, explorer detail, and filtered-empty behavior now match the V3 spec.     |
-| `providers`    | bare static list/detail, `view`, `benchmark`                    | `providers`, `providers <selector>`, `providers view`, `providers view <selector>`, `providers benchmark`      | stable          | `done`    | Root browse/detail, selector behavior, and explorer/detail semantics now match the V3 spec. |
-| `assets`       | bare static list/detail, `view`, review/exclusion subcommands   | same                                                                                                           | stable          | `done`    | Root browse/detail, selector behavior, and explorer/detail semantics now match the V3 spec. |
-| `links`        | `links run`, `links view`, `links gaps`, `confirm`, `reject`    | needs family-specific decision under V3                                                                        | partial         | `pending` | Has browse/review/workflow mix; likely needs a deliberate contract pass.                    |
-| `prices`       | `prices view`, `enrich`, `set`, `set-fx`                        | likely bare static browse + `view`, plus existing action/workflow commands when selector semantics are settled | partial         | `pending` | Browse family exists, but selector/detail shape is not finalized.                           |
-| `clear`        | `clear`                                                         | workflow only                                                                                                  | n/a             | `n/a`     | Prompt-first/workflow command, not a browse ladder family.                                  |
-| `import`       | `import`, `import --all`                                        | workflow only                                                                                                  | n/a             | `n/a`     | Workflow command.                                                                           |
-| `reprocess`    | `reprocess`                                                     | workflow only                                                                                                  | n/a             | `n/a`     | Workflow command.                                                                           |
-| `cost-basis`   | `cost-basis`, `cost-basis export`                               | browse/report split still unclear under V3                                                                     | partial         | `pending` | Likely needs a dedicated surface decision before migration.                                 |
-| `portfolio`    | `portfolio`                                                     | may already be a browse-style TUI family, but no bare static ladder today                                      | partial         | `pending` | Needs a separate V3 decision because the noun itself is the explorer today.                 |
+| Family         | Current Shape                                                   | V3 Target                                                                                                                         | Selector Status | Status        | Notes                                                                                            |
+| -------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------- | ------------------------------------------------------------------------------------------------ |
+| `profiles`     | `profiles`, `profiles add/remove/update/switch`                 | text-first admin surface                                                                                                          | n/a             | `done`        | Explicitly text-first; no browse-family ladder needed.                                           |
+| `accounts`     | bare static list/detail, `view`, `refresh`, `add/update/remove` | `accounts`, `accounts list`, `accounts view <selector>`, `accounts explore [selector]`, plus `refresh` as the workflow entrypoint | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `transactions` | bare static list/detail, `view`, `export`, `edit note`          | `transactions`, `transactions list`, `transactions view <selector>`, `transactions explore [selector]`, plus existing actions     | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `blockchains`  | bare static list/detail, `view`                                 | `blockchains`, `blockchains list`, `blockchains view <selector>`, `blockchains explore [selector]`                                | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `providers`    | bare static list/detail, `view`, `benchmark`                    | `providers`, `providers list`, `providers view <selector>`, `providers explore [selector]`, plus `providers benchmark`            | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `assets`       | bare static list/detail, `view`, review/exclusion subcommands   | `assets`, `assets list`, `assets view <selector>`, `assets explore [selector]`, plus review/exclusion subcommands                 | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `links`        | `links run`, `links view`, `links gaps`, `confirm`, `reject`    | likely `links`, `links list`, `links view <fingerprint>`, `links explore [fingerprint]`, plus review/workflow commands            | stable          | `pending`     | Phase-0 normalization comes after already-migrated families.                                     |
+| `prices`       | `prices view`, `enrich`, `set`, `set-fx`                        | likely `prices`, `prices list`, `prices view <selector>`, `prices explore [selector]`, plus existing action/workflow commands     | partial         | `pending`     | Browse family exists, but selector/detail shape is still less settled than the phase-0 families. |
+| `clear`        | `clear`                                                         | workflow only                                                                                                                     | n/a             | `n/a`         | Prompt-first/workflow command, not a browse ladder family.                                       |
+| `import`       | `import`, `import --all`                                        | workflow only                                                                                                                     | n/a             | `n/a`         | Workflow command.                                                                                |
+| `reprocess`    | `reprocess`                                                     | workflow only                                                                                                                     | n/a             | `n/a`         | Workflow command.                                                                                |
+| `cost-basis`   | `cost-basis`, `cost-basis export`                               | browse/report split still unclear under V3                                                                                        | partial         | `pending`     | Likely needs a dedicated surface decision before migration.                                      |
+| `portfolio`    | `portfolio`                                                     | may already be a browse-style TUI family, but no bare static ladder today                                                         | partial         | `pending`     | Needs a separate V3 decision because the noun itself is the explorer today.                      |
 
 ## Current Priority
 
-1. `links`
-2. `prices`
-3. `cost-basis`
-4. `portfolio`
+1. phase-0 normalize `accounts`
+2. phase-0 normalize `transactions`
+3. phase-0 normalize `blockchains`
+4. phase-0 normalize `providers`
+5. phase-0 normalize `assets`
+6. `links`
+7. `prices`
+8. `cost-basis`
+9. `portfolio`
 
 ## Notes
 
 - `profiles` is treated as complete because V3 does not require every family to expose the browse ladder; text-first admin families are valid.
-- `transactions` is considered complete for current scope even though `edit note` naming may still evolve.
+- `transactions` is no longer considered complete because the surface contract changed from bare-selector detail to `view <selector>`.
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
-- `blockchains` is complete for current scope; remaining work there would be non-surface refactors rather than V3 contract changes.
-- `providers` is complete for current browse scope; `providers benchmark` remains a separate workflow command by design.
-- `assets` is complete for current scope; review and exclusion subcommands remain family-specific mutations outside the browse ladder.
+- `blockchains`, `providers`, and `assets` are also back in scope because the browse contract changed.
+- `providers benchmark` remains a separate workflow command by design.
+- `links` and `prices` are paused behind the phase-0 normalization pass so we do not mix two browse contracts in the shipped CLI.
 - This tracker is about user-facing shape, not internal helper refactors.
 
 ## Deferred Smells

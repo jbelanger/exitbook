@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-31
+last_verified: 2026-04-06
 status: draft
 supersedes: cli-surface-v2-spec.md
 ---
@@ -17,23 +17,25 @@ V3 replaces the earlier generic `--text` / `--tui` model with a command-shape mo
 
 ## Quick Reference
 
-| Shape                              | Human output                                     | TTY required |
-| ---------------------------------- | ------------------------------------------------ | ------------ |
-| `accounts`                         | static list/table                                | no           |
-| `accounts <selector>`              | static detail card                               | no           |
-| `accounts view`                    | TUI explorer/master-detail                       | yes          |
-| `accounts view <selector>`         | TUI explorer pre-selected on `<selector>`        | yes          |
-| `accounts view` off-TTY            | same static list/table as `accounts`             | no           |
-| `accounts view <selector>` off-TTY | same static detail card as `accounts <selector>` | no           |
-| any command + `--json`             | machine JSON                                     | no           |
-| workflows                          | text-progress or prompt-first interaction        | no           |
+| Shape                                 | Human output                               | TTY required |
+| ------------------------------------- | ------------------------------------------ | ------------ |
+| `accounts`                            | static list/table                          | no           |
+| `accounts list`                       | same static list/table as `accounts`       | no           |
+| `accounts view <selector>`            | static detail card                         | no           |
+| `accounts explore`                    | TUI explorer/master-detail                 | yes          |
+| `accounts explore <selector>`         | TUI explorer pre-selected on `<selector>`  | yes          |
+| `accounts explore` off-TTY            | same static list/table as `accounts`       | no           |
+| `accounts explore <selector>` off-TTY | same static detail card as `accounts view` | no           |
+| any command + `--json`                | machine JSON                               | no           |
+| workflows                             | text-progress or prompt-first interaction  | no           |
 
 Browse-heavy families should follow this ladder when they expose both static and explorer surfaces:
 
 - `accounts`
-- `accounts <selector>`
-- `accounts view`
+- `accounts list`
 - `accounts view <selector>`
+- `accounts explore`
+- `accounts explore <selector>`
 
 The same model applies to families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, and `blockchains` when they have stable browse semantics.
 
@@ -55,21 +57,23 @@ The same model applies to families such as `accounts`, `transactions`, `links`, 
 
 ### Browse Surface Is Chosen By Command Shape
 
-Browse-heavy namespaces expose up to four human-facing forms:
+Browse-heavy namespaces expose up to five human-facing forms:
 
 | Shape                | Meaning                                   | Surface |
 | -------------------- | ----------------------------------------- | ------- |
 | bare noun            | quick browse list/table                   | static  |
-| bare noun + selector | focused non-interactive detail            | static  |
-| `view`               | immersive explorer                        | TUI     |
-| `view` + selector    | immersive explorer with initial selection | TUI     |
+| `list`               | explicit alias of the same static list    | static  |
+| `view` + selector    | focused non-interactive detail            | static  |
+| `explore`            | immersive explorer                        | TUI     |
+| `explore` + selector | immersive explorer with initial selection | TUI     |
 
 Examples:
 
 - `exitbook accounts`
-- `exitbook accounts kraken-main`
-- `exitbook accounts view`
+- `exitbook accounts list`
 - `exitbook accounts view kraken-main`
+- `exitbook accounts explore`
+- `exitbook accounts explore kraken-main`
 
 The user chooses list vs detail vs explorer by command shape, not by generic presentation flags.
 
@@ -82,20 +86,13 @@ Static output may be:
 
 Static output must never imitate the explorer layout. No selected-row expansion, no side-by-side detail pane, no controls footer, and no copied quit hints.
 
-### `view` Always Means Explorer
+### `view` Always Means Static Detail
 
-`view` is the explorer verb. It does not mean “show text” and it does not introduce a separate JSON schema.
+`view` is the static detail verb. It always requires a selector and it does not mount Ink.
 
-On an interactive terminal:
-
-- `view` opens the explorer when there is a real collection to browse
-- `view <selector>` opens the same explorer pre-selected on that entity
-
-On a non-interactive terminal:
-
-- `view` falls back to the matching static list/table
-- `view <selector>` falls back to the matching static detail card
-- those fallbacks are intentionally aliases of the matching bare command shapes
+- `view` and `view --json` both target the same detail entity
+- `view` does not create a separate detail schema from `explore <selector> --json`
+- `view` must fail before rendering if the selector does not resolve
 
 ### Interactive Terminal Readiness
 
@@ -118,6 +115,21 @@ Non-approved short-circuit case:
 
 That last case must still open the explorer. A filtered empty view is not the same thing as an empty collection.
 
+### `explore` Always Means Explorer
+
+`explore` is the explorer verb.
+
+On an interactive terminal:
+
+- `explore` opens the explorer when there is a real collection to browse
+- `explore <selector>` opens the same explorer pre-selected on that entity
+
+On a non-interactive terminal:
+
+- `explore` falls back to the matching static list/table
+- `explore <selector>` falls back to the matching static detail card
+- those fallbacks are intentionally aliases of `list` and `view <selector>`
+
 ### JSON Is The Only Generic Output Override
 
 `--json` is the only generic cross-command output override.
@@ -128,8 +140,8 @@ That last case must still open the explorer. A filtered empty view is not the sa
 
 For browse commands, JSON follows the semantic target rather than the human-facing verb:
 
-- `accounts --json` and `accounts view --json` return the same list payload
-- `accounts kraken-main --json` and `accounts view kraken-main --json` return the same detail payload
+- `accounts --json`, `accounts list --json`, and `accounts explore --json` return the same list payload
+- `accounts view kraken-main --json` and `accounts explore kraken-main --json` return the same detail payload
 
 Per-family specs still own the concrete JSON schema. This spec only defines the cross-command contract.
 
@@ -137,10 +149,10 @@ Per-family specs still own the concrete JSON schema. This spec only defines the 
 
 If a selector does not resolve, the command should fail before rendering.
 
-- `accounts ghost-wallet`
 - `accounts view ghost-wallet`
-- `accounts ghost-wallet --json`
+- `accounts explore ghost-wallet`
 - `accounts view ghost-wallet --json`
+- `accounts explore ghost-wallet --json`
 
 These forms may render differently on success, but they must not disagree about whether the selector exists.
 
@@ -252,29 +264,20 @@ Terse text commands such as mutations, compact exports, and simple status reads 
 Preferred browse ladder:
 
 1. `noun`
-2. `noun <selector>`
-3. `noun view`
-4. `noun view <selector>`
+2. `noun list`
+3. `noun view <selector>`
+4. `noun explore`
+5. `noun explore <selector>`
 
 Rules:
 
-- `view` always means “open the explorer”
+- `list` is the explicit static-list alias
+- `view` always means “show one static detail target”
+- `explore` always means “open the explorer”
 - keep `--json`
 - do not introduce generic `--text`
 - do not introduce generic `--tui`
-- do not reintroduce removed browse aliases such as `list`
-
-## Transition Direction
-
-The V3 direction is to prefer `noun + selector` for static detail when the selector is stable and obvious.
-
-Until then:
-
-- a family may keep a dedicated detail subcommand temporarily
-- temporary shapes should not become the new default pattern
-- once a stable selector exists, the family should converge on the standard browse ladder
-
-This section is directional. The rest of the document is the current contract.
+- do not introduce generic `--static` or `--interactive` as browse-surface selectors
 
 ## Implementation Boundary
 
@@ -290,8 +293,8 @@ If implementation helpers need to change, update those documents and modules wit
 ## Acceptance Criteria
 
 - Browse command shape alone tells the user whether they will get a static list, a static detail card, or an explorer.
-- `view` never requires a generic `--tui` flag.
-- Non-interactive `view` commands fall back to the matching static surface.
+- `view` never opens Ink.
+- Non-interactive `explore` commands fall back to the matching static surface.
 - Explorer commands skip Ink only when there is no navigable explorer state, such as a truly empty initial collection or a missing selector.
 - Filtered-empty explorer states do not silently downgrade to static.
 - Static output never imitates master-detail.
