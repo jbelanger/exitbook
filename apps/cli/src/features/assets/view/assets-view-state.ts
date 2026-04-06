@@ -10,6 +10,7 @@ export interface AssetsViewState {
   excludedCount: number;
   filter: AssetsViewFilter;
   filteredAssets: AssetViewItem[];
+  pinnedAssetId?: string | undefined;
   pendingAction?:
     | {
         assetId: string;
@@ -36,21 +37,30 @@ export type AssetReviewViewMutation = Pick<
 export function createAssetsViewState(
   assets: AssetViewItem[],
   counts: { actionRequiredCount: number; excludedCount: number; totalCount: number },
-  initialFilter: AssetsViewFilter = 'default'
+  initialFilter: AssetsViewFilter = 'default',
+  initialSelectedAssetId?: string
 ): AssetsViewState {
-  const filteredAssets = applyFilter(assets, initialFilter);
+  const filteredAssets = applyFilter(assets, initialFilter, initialSelectedAssetId);
+  const selectedIndex =
+    initialSelectedAssetId === undefined
+      ? 0
+      : Math.max(
+          0,
+          filteredAssets.findIndex((asset) => asset.assetId === initialSelectedAssetId)
+        );
 
   return {
     assets,
     filteredAssets,
     filter: initialFilter,
-    selectedIndex: 0,
+    selectedIndex,
     scrollOffset: 0,
     pendingAction: undefined,
     error: undefined,
     totalCount: counts.totalCount,
     excludedCount: counts.excludedCount,
     actionRequiredCount: counts.actionRequiredCount,
+    pinnedAssetId: initialSelectedAssetId,
   };
 }
 
@@ -79,10 +89,24 @@ export function applyAssetViewMutation(
   });
 }
 
-export function applyFilter(assets: AssetViewItem[], filter: AssetsViewFilter): AssetViewItem[] {
-  if (filter === 'action-required') {
-    return assets.filter(requiresAssetReviewAction);
+export function applyFilter(
+  assets: AssetViewItem[],
+  filter: AssetsViewFilter,
+  pinnedAssetId?: string
+): AssetViewItem[] {
+  const filteredAssets =
+    filter === 'action-required'
+      ? assets.filter(requiresAssetReviewAction)
+      : assets.filter((asset) => asset.currentQuantity !== '0' || asset.excluded || requiresAssetReviewAction(asset));
+
+  if (
+    filter !== 'default' ||
+    pinnedAssetId === undefined ||
+    filteredAssets.some((asset) => asset.assetId === pinnedAssetId)
+  ) {
+    return filteredAssets;
   }
 
-  return assets.filter((asset) => asset.currentQuantity !== '0' || asset.excluded || requiresAssetReviewAction(asset));
+  const pinnedAsset = assets.find((asset) => asset.assetId === pinnedAssetId);
+  return pinnedAsset ? [pinnedAsset, ...filteredAssets] : filteredAssets;
 }

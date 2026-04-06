@@ -2,6 +2,7 @@ import type { Result } from '@exitbook/foundation';
 
 import type { AssetsCommandScope } from './assets-command-scope.js';
 import type {
+  AssetsBrowseResult,
   AssetExclusionsResult,
   AssetOverrideResult,
   AssetReviewOverrideResult,
@@ -68,6 +69,21 @@ export async function runAssetsView(
 ): Promise<Result<AssetsViewResult, Error>> {
   return scope.snapshotReader.view({
     actionRequiredOnly: params.actionRequiredOnly,
+    profileId: scope.profile.id,
+    profileKey: scope.profile.profileKey,
+  });
+}
+
+export async function runAssetsBrowse(
+  scope: AssetsCommandScope,
+  params: {
+    actionRequiredOnly?: boolean | undefined;
+    selector?: string | undefined;
+  }
+): Promise<Result<AssetsBrowseResult, Error>> {
+  return scope.snapshotReader.browse({
+    actionRequiredOnly: params.actionRequiredOnly,
+    selector: params.selector,
     profileId: scope.profile.id,
     profileKey: scope.profile.profileKey,
   });

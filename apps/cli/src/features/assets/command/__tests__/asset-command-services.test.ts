@@ -710,12 +710,9 @@ describe('asset command services', () => {
     const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
     const value = assertOk(result);
 
-    expect(value.assets).toHaveLength(1);
-    expect(value.assets[0]).toMatchObject({
-      assetId: blockedAssetId,
-      excluded: false,
-    });
+    expect(value.assets).toEqual([]);
     expect(value.excludedCount).toBe(0);
+    expect(value.totalCount).toBe(1);
   });
 
   it('writes an asset-review-confirm event for a suspicious asset', async () => {

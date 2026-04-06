@@ -12,11 +12,11 @@ const {
   mockOutputSuccess,
   mockRenderApp,
   mockRunAssetsClearReview,
+  mockRunAssetsBrowse,
   mockRunAssetsConfirmReview,
   mockRunAssetsExclude,
   mockRunAssetsExclusions,
   mockRunAssetsInclude,
-  mockRunAssetsView,
   mockRunCommand,
   mockWithAssetsCommandScope,
 } = vi.hoisted(() => ({
@@ -28,11 +28,11 @@ const {
   mockOutputSuccess: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunAssetsClearReview: vi.fn(),
+  mockRunAssetsBrowse: vi.fn(),
   mockRunAssetsConfirmReview: vi.fn(),
   mockRunAssetsExclude: vi.fn(),
   mockRunAssetsExclusions: vi.fn(),
   mockRunAssetsInclude: vi.fn(),
-  mockRunAssetsView: vi.fn(),
   mockRunCommand: vi.fn(),
   mockWithAssetsCommandScope: vi.fn(),
 }));
@@ -55,12 +55,12 @@ vi.mock('../assets-command-scope.js', () => ({
 }));
 
 vi.mock('../run-assets.js', () => ({
+  runAssetsBrowse: mockRunAssetsBrowse,
   runAssetsClearReview: mockRunAssetsClearReview,
   runAssetsConfirmReview: mockRunAssetsConfirmReview,
   runAssetsExclude: mockRunAssetsExclude,
   runAssetsExclusions: mockRunAssetsExclusions,
   runAssetsInclude: mockRunAssetsInclude,
-  runAssetsView: mockRunAssetsView,
 }));
 
 vi.mock('../../view/assets-view-components.jsx', () => ({
@@ -234,8 +234,25 @@ describe('assets command modules', () => {
 
   it('outputs asset view JSON with action-required metadata', async () => {
     const program = createAssetsProgram();
-    mockRunAssetsView.mockResolvedValue(
+    mockRunAssetsBrowse.mockResolvedValue(
       ok({
+        allAssets: [
+          {
+            assetId: 'asset-view-1',
+            assetSymbols: ['SCAM'],
+            accountingBlocked: true,
+            confirmationIsStale: false,
+            currentQuantity: '100',
+            evidence: [{ kind: 'spam-flag', severity: 'error', message: 'flagged' }],
+            evidenceFingerprint: 'fingerprint-1',
+            excluded: false,
+            movementCount: 2,
+            referenceStatus: 'unknown',
+            reviewStatus: 'needs-review',
+            warningSummary: 'flagged',
+            transactionCount: 1,
+          },
+        ],
         assets: [
           {
             assetId: 'asset-view-1',
@@ -261,11 +278,11 @@ describe('assets command modules', () => {
 
     await program.parseAsync(['assets', 'view', '--action-required', '--json'], { from: 'user' });
 
-    expect(mockRunAssetsView).toHaveBeenCalledWith(assetsScope, { actionRequiredOnly: true });
+    expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, { actionRequiredOnly: true, selector: undefined });
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'assets-view',
       {
-        data: [
+        assets: [
           {
             assetId: 'asset-view-1',
             assetSymbols: ['SCAM'],
@@ -282,13 +299,97 @@ describe('assets command modules', () => {
             transactionCount: 1,
           },
         ],
-        meta: {
-          count: 1,
-          offset: 0,
-          limit: 1,
-          hasMore: true,
-          filters: { actionRequired: true },
+      },
+      {
+        total: 3,
+        actionRequiredCount: 1,
+        excludedCount: 1,
+        filters: { actionRequired: true },
+      }
+    );
+  });
+
+  it('outputs bare assets selector JSON as a detail card', async () => {
+    const program = createAssetsProgram();
+    mockRunAssetsBrowse.mockResolvedValue(
+      ok({
+        allAssets: [
+          {
+            assetId: 'blockchain:ethereum:0xaaa',
+            assetSymbols: ['USDC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '42',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 3,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
+        assets: [
+          {
+            assetId: 'blockchain:ethereum:0xaaa',
+            assetSymbols: ['USDC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '42',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 3,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
+        selectedAsset: {
+          assetId: 'blockchain:ethereum:0xaaa',
+          assetSymbols: ['USDC'],
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          currentQuantity: '42',
+          evidence: [],
+          evidenceFingerprint: undefined,
+          excluded: false,
+          movementCount: 3,
+          referenceStatus: 'matched',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+          transactionCount: 2,
         },
+        totalCount: 1,
+        excludedCount: 0,
+        actionRequiredCount: 0,
+      })
+    );
+
+    await program.parseAsync(['assets', 'USDC', '--json'], { from: 'user' });
+
+    expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, {
+      actionRequiredOnly: undefined,
+      selector: 'USDC',
+    });
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'assets',
+      {
+        assetId: 'blockchain:ethereum:0xaaa',
+        assetSymbols: ['USDC'],
+        accountingBlocked: false,
+        confirmationIsStale: false,
+        currentQuantity: '42',
+        evidence: [],
+        evidenceFingerprint: undefined,
+        excluded: false,
+        movementCount: 3,
+        referenceStatus: 'matched',
+        reviewStatus: 'clear',
+        warningSummary: undefined,
+        transactionCount: 2,
       },
       undefined
     );
@@ -297,9 +398,31 @@ describe('assets command modules', () => {
   it('renders the assets TUI and wires action callbacks to handler methods', async () => {
     const program = createAssetsProgram();
     let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
+    const originalStdinIsTTY = process.stdin.isTTY;
+    const originalStdoutIsTTY = process.stdout.isTTY;
 
-    mockRunAssetsView.mockResolvedValue(
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+
+    mockRunAssetsBrowse.mockResolvedValue(
       ok({
+        allAssets: [
+          {
+            assetId: 'asset-view-2',
+            assetSymbols: ['TOKEN'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 4,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
         assets: [
           {
             assetId: 'asset-view-2',
@@ -359,7 +482,12 @@ describe('assets command modules', () => {
       renderedElement = create(() => undefined) as ReactElement<AssetsViewAppProps>;
     });
 
-    await program.parseAsync(['assets', 'view', '--needs-review'], { from: 'user' });
+    try {
+      await program.parseAsync(['assets', 'view', '--needs-review'], { from: 'user' });
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
+    }
 
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AssetsViewApp');
@@ -381,6 +509,109 @@ describe('assets command modules', () => {
     expect(mockRunAssetsClearReview).toHaveBeenCalledWith(assetsScope, {
       assetId: 'asset-view-2',
     });
+  });
+
+  it('preselects and pins a directly selected hidden asset in the explorer', async () => {
+    const program = createAssetsProgram();
+    let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
+    const originalStdinIsTTY = process.stdin.isTTY;
+    const originalStdoutIsTTY = process.stdout.isTTY;
+
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+
+    mockRunAssetsBrowse.mockResolvedValue(
+      ok({
+        allAssets: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbols: ['BTC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '0.5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 4,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+          {
+            assetId: 'exchange:kraken:eth',
+            assetSymbols: ['ETH'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '0',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 3,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
+        assets: [
+          {
+            assetId: 'exchange:kraken:btc',
+            assetSymbols: ['BTC'],
+            accountingBlocked: false,
+            confirmationIsStale: false,
+            currentQuantity: '0.5',
+            evidence: [],
+            evidenceFingerprint: undefined,
+            excluded: false,
+            movementCount: 4,
+            referenceStatus: 'matched',
+            reviewStatus: 'clear',
+            warningSummary: undefined,
+            transactionCount: 2,
+          },
+        ],
+        selectedAsset: {
+          assetId: 'exchange:kraken:eth',
+          assetSymbols: ['ETH'],
+          accountingBlocked: false,
+          confirmationIsStale: false,
+          currentQuantity: '0',
+          evidence: [],
+          evidenceFingerprint: undefined,
+          excluded: false,
+          movementCount: 3,
+          referenceStatus: 'matched',
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+          transactionCount: 2,
+        },
+        totalCount: 2,
+        excludedCount: 0,
+        actionRequiredCount: 0,
+      })
+    );
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined) as ReactElement<AssetsViewAppProps>;
+    });
+
+    try {
+      await program.parseAsync(['assets', 'view', 'ETH'], { from: 'user' });
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
+    }
+
+    expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, {
+      actionRequiredOnly: undefined,
+      selector: 'ETH',
+    });
+    expect(renderedElement?.props.initialState.pinnedAssetId).toBe('exchange:kraken:eth');
+    expect(renderedElement?.props.initialState.selectedIndex).toBe(0);
+    expect(renderedElement?.props.initialState.filteredAssets.map((asset) => asset.assetId)).toEqual([
+      'exchange:kraken:eth',
+      'exchange:kraken:btc',
+    ]);
   });
 
   it('registers the assets namespace with the expected subcommands', () => {

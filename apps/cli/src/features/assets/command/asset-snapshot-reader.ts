@@ -11,11 +11,13 @@ import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-fres
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
 import type {
+  AssetsBrowseResult,
   AssetExclusionsResult,
   AssetSelectionParams,
   AssetsViewResult,
   AssetSnapshot,
   AssetViewItem,
+  BrowseAssetsParams,
   ViewAssetsParams,
 } from './assets-types.js';
 import { aggregateCurrentHoldings, mergeAssetSymbols } from './assets-types.js';
@@ -64,55 +66,39 @@ export class AssetSnapshotReader {
   }
 
   async view(params: ViewAssetsParams): Promise<Result<AssetsViewResult, Error>> {
+    const browseResult = await this.browse(params);
+    if (browseResult.isErr()) {
+      return err(browseResult.error);
+    }
+
+    return ok({
+      actionRequiredCount: browseResult.value.actionRequiredCount,
+      assets: browseResult.value.assets,
+      excludedCount: browseResult.value.excludedCount,
+      totalCount: browseResult.value.totalCount,
+    });
+  }
+
+  async browse(params: BrowseAssetsParams): Promise<Result<AssetsBrowseResult, Error>> {
     const snapshotResult = await this.loadSnapshot(params.profileId, params.profileKey);
     if (snapshotResult.isErr()) {
       return err(snapshotResult.error);
     }
 
-    const assetIds = new Set<string>([
-      ...snapshotResult.value.knownAssets.keys(),
-      ...snapshotResult.value.currentHoldings.keys(),
-      ...snapshotResult.value.reviewSummaries.keys(),
-    ]);
-
-    const items = [...assetIds]
-      .map<AssetViewItem>((assetId) => {
-        const knownAsset = snapshotResult.value.knownAssets.get(assetId);
-        const currentHolding = snapshotResult.value.currentHoldings.get(assetId);
-        const reviewSummary = snapshotResult.value.reviewSummaries.get(assetId);
-        return {
-          assetId,
-          assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
-          accountingBlocked: reviewSummary?.accountingBlocked ?? false,
-          movementCount: knownAsset?.movementCount ?? 0,
-          transactionCount: knownAsset?.transactionCount ?? 0,
-          currentQuantity: currentHolding?.currentQuantity ?? '0',
-          evidence: reviewSummary?.evidence ?? [],
-          excluded: snapshotResult.value.excludedAssetIds.has(assetId),
-          reviewStatus: reviewSummary?.reviewStatus ?? 'clear',
-          warningSummary: reviewSummary?.warningSummary,
-          referenceStatus: reviewSummary?.referenceStatus ?? 'unknown',
-          confirmationIsStale: reviewSummary?.confirmationIsStale ?? false,
-          evidenceFingerprint: reviewSummary?.evidenceFingerprint,
-        };
-      })
-      .sort((left, right) => {
-        const leftPriority = getAssetSortPriority(left);
-        const rightPriority = getAssetSortPriority(right);
-        return (
-          leftPriority - rightPriority ||
-          right.transactionCount - left.transactionCount ||
-          left.assetId.localeCompare(right.assetId)
-        );
-      });
-
-    const filteredItems = params.actionRequiredOnly ? items.filter(requiresAssetReviewAction) : items;
+    const items = buildAssetViewItems(snapshotResult.value);
+    const filteredItems = filterBrowseItems(items, params.actionRequiredOnly);
+    const selectedAssetResult = resolveSelectedAsset(snapshotResult.value, items, params.selector);
+    if (selectedAssetResult.isErr()) {
+      return err(selectedAssetResult.error);
+    }
 
     return ok({
       actionRequiredCount: items.filter(requiresAssetReviewAction).length,
+      allAssets: items,
       assets: filteredItems,
       totalCount: items.length,
       excludedCount: items.filter((item) => item.excluded).length,
+      selectedAsset: selectedAssetResult.value,
     });
   }
 
@@ -169,26 +155,7 @@ export class AssetSnapshotReader {
   ): Promise<Result<{ assetId: string; assetSymbols: string[] }, Error>> {
     const exactAssetId = params.assetId?.trim();
     if (exactAssetId) {
-      if (snapshot.excludedAssetIds.has(exactAssetId)) {
-        return ok({
-          assetId: exactAssetId,
-          assetSymbols: mergeAssetSymbols(
-            snapshot.knownAssets.get(exactAssetId)?.assetSymbols,
-            snapshot.currentHoldings.get(exactAssetId)?.assetSymbols
-          ),
-        });
-      }
-
-      const knownAsset = snapshot.knownAssets.get(exactAssetId);
-      const currentHolding = snapshot.currentHoldings.get(exactAssetId);
-      if (!knownAsset && !currentHolding) {
-        return err(new Error(`Asset ID not found: ${exactAssetId}`));
-      }
-
-      return ok({
-        assetId: exactAssetId,
-        assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
-      });
+      return resolveExactAssetSelection(snapshot, exactAssetId);
     }
 
     const symbol = params.symbol?.trim();
@@ -270,6 +237,135 @@ export class AssetSnapshotReader {
 
     return ok(undefined);
   }
+}
+
+function resolveSelectedAsset(
+  snapshot: AssetSnapshot,
+  items: AssetViewItem[],
+  selector: string | undefined
+): Result<AssetViewItem | undefined, Error> {
+  if (!selector) {
+    return ok(undefined);
+  }
+
+  const trimmedSelector = selector.trim();
+  if (!trimmedSelector) {
+    return err(new Error('Asset selector cannot be empty'));
+  }
+
+  const exactSelection = resolveExactAssetSelection(snapshot, trimmedSelector);
+  if (exactSelection.isErr()) {
+    return exactSelection.error.message === `Asset ID not found: ${trimmedSelector}`
+      ? resolveSelectedAssetBySymbol(snapshot, items, trimmedSelector)
+      : err(exactSelection.error);
+  }
+
+  const selectedAsset = items.find((item) => item.assetId === exactSelection.value.assetId);
+  if (!selectedAsset) {
+    return err(new Error(`Selected asset is not visible in the asset browse model: ${exactSelection.value.assetId}`));
+  }
+
+  return ok(selectedAsset);
+}
+
+function resolveExactAssetSelection(
+  snapshot: AssetSnapshot,
+  assetId: string
+): Result<{ assetId: string; assetSymbols: string[] }, Error> {
+  if (snapshot.excludedAssetIds.has(assetId)) {
+    return ok({
+      assetId,
+      assetSymbols: mergeAssetSymbols(
+        snapshot.knownAssets.get(assetId)?.assetSymbols,
+        snapshot.currentHoldings.get(assetId)?.assetSymbols
+      ),
+    });
+  }
+
+  const knownAsset = snapshot.knownAssets.get(assetId);
+  const currentHolding = snapshot.currentHoldings.get(assetId);
+  if (!knownAsset && !currentHolding) {
+    return err(new Error(`Asset ID not found: ${assetId}`));
+  }
+
+  return ok({
+    assetId,
+    assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
+  });
+}
+
+function resolveSelectedAssetBySymbol(
+  snapshot: AssetSnapshot,
+  items: AssetViewItem[],
+  symbol: string
+): Result<AssetViewItem, Error> {
+  const matches = findAssetsBySymbol(buildSelectableAssets(snapshot).values(), symbol);
+  if (matches.length === 0) {
+    return err(new Error(`No asset found for selector '${symbol.toUpperCase()}'`));
+  }
+
+  if (matches.length > 1) {
+    const candidateList = matches.map((match) => `${match.assetId} (${match.transactionCount} txs)`).join(', ');
+    return err(
+      new Error(
+        `Selector '${symbol.toUpperCase()}' is ambiguous across multiple asset IDs: ${candidateList}. Re-run with an exact asset ID.`
+      )
+    );
+  }
+
+  const selectedAsset = items.find((item) => item.assetId === matches[0]!.assetId);
+  if (!selectedAsset) {
+    return err(new Error(`Selected asset is not visible in the asset browse model: ${matches[0]!.assetId}`));
+  }
+
+  return ok(selectedAsset);
+}
+
+function buildAssetViewItems(snapshot: AssetSnapshot): AssetViewItem[] {
+  const assetIds = new Set<string>([
+    ...snapshot.knownAssets.keys(),
+    ...snapshot.currentHoldings.keys(),
+    ...snapshot.reviewSummaries.keys(),
+  ]);
+
+  return [...assetIds]
+    .map<AssetViewItem>((assetId) => {
+      const knownAsset = snapshot.knownAssets.get(assetId);
+      const currentHolding = snapshot.currentHoldings.get(assetId);
+      const reviewSummary = snapshot.reviewSummaries.get(assetId);
+      return {
+        assetId,
+        assetSymbols: mergeAssetSymbols(knownAsset?.assetSymbols, currentHolding?.assetSymbols),
+        accountingBlocked: reviewSummary?.accountingBlocked ?? false,
+        movementCount: knownAsset?.movementCount ?? 0,
+        transactionCount: knownAsset?.transactionCount ?? 0,
+        currentQuantity: currentHolding?.currentQuantity ?? '0',
+        evidence: reviewSummary?.evidence ?? [],
+        excluded: snapshot.excludedAssetIds.has(assetId),
+        reviewStatus: reviewSummary?.reviewStatus ?? 'clear',
+        warningSummary: reviewSummary?.warningSummary,
+        referenceStatus: reviewSummary?.referenceStatus ?? 'unknown',
+        confirmationIsStale: reviewSummary?.confirmationIsStale ?? false,
+        evidenceFingerprint: reviewSummary?.evidenceFingerprint,
+      };
+    })
+    .sort((left, right) => {
+      const leftPriority = getAssetSortPriority(left);
+      const rightPriority = getAssetSortPriority(right);
+      return (
+        leftPriority - rightPriority ||
+        right.transactionCount - left.transactionCount ||
+        left.assetId.localeCompare(right.assetId)
+      );
+    });
+}
+
+function filterBrowseItems(items: AssetViewItem[], actionRequiredOnly: boolean | undefined): AssetViewItem[] {
+  if (actionRequiredOnly) {
+    return items.filter(requiresAssetReviewAction);
+  }
+
+  return items.filter((item) => item.currentQuantity !== '0' || item.excluded || requiresAssetReviewAction(item));
 }
 
 function buildSelectableAssets(snapshot: AssetSnapshot): Map<string, KnownAssetRecord> {

@@ -41,7 +41,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
   switch (action.type) {
     case 'CYCLE_FILTER': {
       const nextFilter: AssetsViewFilter = state.filter === 'default' ? 'action-required' : 'default';
-      const filteredAssets = applyFilter(state.assets, nextFilter);
+      const filteredAssets = applyFilter(state.assets, nextFilter, state.pinnedAssetId);
       return {
         ...state,
         filter: nextFilter,
@@ -209,7 +209,7 @@ function rebuildStateAfterMutation(
   statusMessage?: string,
   mutatedAssetId?: string
 ): AssetsViewState {
-  const filteredAssets = buildFilteredAssetsAfterMutation(assets, state.filter, mutatedAssetId);
+  const filteredAssets = buildFilteredAssetsAfterMutation(assets, state.filter, mutatedAssetId, state.pinnedAssetId);
 
   const selectedAssetIndex =
     mutatedAssetId === undefined ? -1 : filteredAssets.findIndex((asset) => asset.assetId === mutatedAssetId);
@@ -235,9 +235,10 @@ function rebuildStateAfterMutation(
 function buildFilteredAssetsAfterMutation(
   assets: AssetViewItem[],
   filter: AssetsViewFilter,
-  mutatedAssetId?: string
+  mutatedAssetId?: string,
+  pinnedAssetId?: string
 ): AssetViewItem[] {
-  const filteredAssets = applyFilter(assets, filter);
+  const filteredAssets = applyFilter(assets, filter, pinnedAssetId);
   if (filter !== 'default' || mutatedAssetId === undefined) {
     return filteredAssets;
   }

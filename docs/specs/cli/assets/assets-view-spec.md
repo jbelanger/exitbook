@@ -1,186 +1,260 @@
----
-last_verified: 2026-03-12
-status: canonical
----
+# Assets CLI Spec
 
-# Assets View CLI Specification
+## Scope
 
-> ⚠ **Code is law**: If this document disagrees with implementation, update the spec to match code.
+This document defines the browse surface for the `assets` command family:
 
-How `exitbook assets view` assembles its read model, presents asset review state, and wires inline include/exclude and review actions.
+- `exitbook assets`
+- `exitbook assets <selector>`
+- `exitbook assets view`
+- `exitbook assets view <selector>`
 
-## Quick Reference
+It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
 
-| Concept                | Key Rule                                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| Command                | `exitbook assets view [--action-required] [--needs-review] [--json]`                     |
-| Data sources           | Asset review projection, fresh balance snapshots, override store, processed transactions |
-| Current quantity       | Comes from `balance_snapshot_assets`, not transaction recomputation                      |
-| Freshness policy       | The view fails closed when any loaded balance scope snapshot is not fresh                |
-| Excluded assets        | Stay visible only when the asset also exists in holdings/history/review data             |
-| Action-required filter | Uses next-action logic, not review status alone                                          |
+Out of scope:
 
-## Goals
+- `assets confirm`
+- `assets clear-review`
+- `assets exclude`
+- `assets include`
+- `assets exclusions`
 
-- Provide the primary asset-first review and exclusion surface.
-- Show review state, accounting impact, and exclusion state as separate concepts.
-- Make current holdings visible without calling live providers.
-- Keep inline review and exclusion actions fast inside the TUI.
+Those mutation commands remain part of the family, but this spec focuses on the read surface they support.
 
-## Non-Goals
+## Family Model
 
-- Fetching live balances.
-- Surfacing override-only exclusions in the main asset browser.
-- Recomputing current holdings from processed transactions.
-- Replacing the asset-review projection with a second persisted review model.
+The `assets` family is the asset-first review and exclusion browse surface.
 
-## Definitions
+Rules:
 
-### Asset View Item
+- browse commands are read-only and never call live providers
+- browse data comes from the asset-review projection, fresh stored balance snapshots, override state, and processed transactions
+- current quantity comes from persisted balance snapshot assets, not transaction recomputation
+- override-only exclusions do not create synthetic browse rows
+- override-only exclusions remain discoverable through `assets exclusions`
+- review and exclusion remain distinct concepts in both list and detail rendering
 
-```ts
-interface AssetViewItem {
-  assetId: string;
-  assetSymbols: string[];
-  accountingBlocked: boolean;
-  confirmationIsStale: boolean;
-  currentQuantity: string;
-  evidence: AssetReviewEvidence[];
-  evidenceFingerprint?: string | undefined;
-  excluded: boolean;
-  movementCount: number;
-  referenceStatus: 'matched' | 'unmatched' | 'unknown';
-  reviewStatus: 'clear' | 'needs-review' | 'reviewed';
-  warningSummary?: string | undefined;
-  transactionCount: number;
-}
-```
+## Command Surface
 
-### Action-Required Asset
+### Browse shapes
+
+| Shape                       | Meaning                                     | Human surface      |
+| --------------------------- | ------------------------------------------- | ------------------ |
+| `assets`                    | Quick browse of held or flagged assets      | Static list        |
+| `assets <selector>`         | Focused inspection of one asset             | Static detail card |
+| `assets view`               | Full review explorer                        | TUI explorer       |
+| `assets view <selector>`    | Explorer pre-selected on one asset          | TUI explorer       |
+| Any of the above + `--json` | Machine output for the same semantic target | JSON               |
+
+On a non-interactive terminal:
+
+- `assets view` falls back to the same static list as `assets`
+- `assets view <selector>` falls back to the same static detail as `assets <selector>`
+
+`view` does not define a separate text schema or JSON schema.
+
+## Selectors And Options
+
+### Selector
+
+`<selector>` resolves in this order:
+
+1. exact asset ID
+2. unique symbol
+
+Examples:
+
+- `blockchain:ethereum:0xa0b8...`
+- `USDC`
+- `BTC`
+
+Rules:
+
+- exact asset ID resolution is case-sensitive
+- symbol resolution is case-insensitive
+- selectors cannot be combined with `--action-required`
+- selectors cannot be combined with `--needs-review`
+- selector misses fail clearly
+- ambiguous symbol selectors fail and instruct the user to rerun with an exact asset ID
+
+### Browse options
+
+Supported browse options:
+
+- `--action-required`: show only assets that still need operator action
+- `--needs-review`: alias for `--action-required`
+- `--json`: output JSON
+
+## Shared Data Semantics
+
+### Data sources
+
+Browse data is assembled from:
+
+1. `balance_snapshots` and `balance_snapshot_assets`
+2. the asset-review projection
+3. asset override state
+4. processed transactions
+
+Rules:
+
+- the asset-review projection remains the canonical review-state source
+- current quantity is derived from grouped `balance_snapshot_assets`
+- processed transactions are used for historical asset knowledge and symbol resolution, not for live holdings
+
+### Balance freshness
+
+Assets browse is fail-closed on stored balance freshness.
+
+Rules:
+
+- all loaded top-level balance scopes must be fresh
+- stale, building, or failed stored balance scopes block the entire browse surface
+- freshness failures point users to `accounts refresh`
+- processed-transaction rebuild invalidations explicitly call out that all stored balance snapshots were invalidated
+
+### Asset universe
+
+The displayed asset universe is the union of:
+
+- assets known from processed transactions
+- assets currently held in stored balance snapshots
+- assets present in asset-review summaries
+
+That means the family can show:
+
+- currently unheld assets with historical review state
+- held assets that exist only in stored balance snapshots
+- assets whose symbols are still resolvable even when they were never seen in transaction-derived symbol scans
+
+Override-only exclusions do not create synthetic rows in the main browse surface.
+
+### Default filter
+
+The default browse filter is holdings plus exceptions.
+
+Visible by default:
+
+- non-zero stored holdings
+- excluded assets that also exist in holdings/history/review data
+- any asset that currently requires review action
+
+Hidden by default:
+
+- zero-balance historical assets with no active exception
+
+Exception:
+
+- when `assets view <selector>` directly targets a normally hidden asset on a TTY, the selected asset stays pinned in the default list so the explorer can open on that row
+
+### Action-required filter
 
 An asset is action-required when `requiresAssetReviewAction(...)` returns true.
 
 Rules:
 
-- Excluded assets are never action-required.
-- Stale confirmations are action-required.
-- Reviewed assets can still be action-required when accounting remains blocked.
-- Same-symbol ambiguity can keep an asset action-required even after review confirmation.
+- excluded assets are never action-required
+- stale confirmations are action-required
+- reviewed assets can still be action-required when accounting remains blocked
+- same-symbol ambiguity can keep an asset action-required even after review confirmation
 
-### Accounting Display Status
+## Browse Surfaces
 
-```ts
-type AssetAccountingDisplayStatus = 'allowed' | 'blocked' | 'excluded';
-```
+### Static list surface
 
-Derived from `accountingBlocked` plus `excluded`.
+Applies to:
 
-## Command Surface
+- `exitbook assets`
+- `exitbook assets view` off-TTY
 
-### `exitbook assets view`
+#### Header
+
+Default list:
 
 ```text
-exitbook assets view [--action-required] [--needs-review] [--json]
+Assets {visible-or-total} · {flagged} flagged · {excluded} excluded
 ```
 
-Purpose:
+Action-required list:
 
-- browse asset review state
-- inspect current held quantity
-- inspect exclusion state
-- drive review confirmation and exclusion toggles in the TUI
-
-Options:
-
-- `--action-required`: show only assets that currently require action
-- `--needs-review`: alias for `--action-required`
-- `--json`: emit machine-readable output instead of the TUI
+```text
+Review Queue {count} flagged {asset/assets} · {excluded} excluded
+```
 
 Rules:
 
-- `--action-required` and `--needs-review` are aliases
-- `--json` returns a snapshot payload and never mounts Ink
+- `Assets` or `Review Queue` is bold
+- metadata is dim except the flagged count
+- when the visible count differs from the total count, the header uses `{visible} of {total}`
+- one blank line follows the header before the table or empty state
 
-## Read Model Assembly
+#### Table
 
-`assets view` assembles one in-memory snapshot from four sources:
+Columns:
 
-1. `balance_snapshots` and `balance_snapshot_assets`
-2. `asset_review_*` projected summaries
-3. override events for exclusion and review decisions
-4. processed transactions for historical asset knowledge and symbol resolution
+| Column     | Meaning                                                   |
+| ---------- | --------------------------------------------------------- |
+| `SYMBOL`   | Primary display symbol                                    |
+| `QUANTITY` | Current stored quantity                                   |
+| `STATUS`   | User-facing badge text (`Review`, `Reviewed`, `Excluded`) |
+| `WHY`      | Plain-English review reason when present                  |
+| `ASSET ID` | Exact asset identifier for follow-up commands             |
 
-### Balance Snapshot Dependency
+Rules:
 
-Before loading current holdings, the command:
+- no controls footer
+- no side-by-side detail panel
+- no raw review status, reference status, or accounting status columns
 
-- loads all persisted balance snapshots
-- checks `balances` freshness for every loaded scope
-- fails closed if any scope is `stale`, `building`, or `failed`
+### Static detail surface
 
-Error shape:
+Applies to:
+
+- `exitbook assets <selector>`
+- `exitbook assets view <selector>` off-TTY
+
+#### Title line
+
+Format:
 
 ```text
-Assets view requires fresh balance snapshots. Scope account <ref> is <status> because <reason>. Run "exitbook accounts refresh <ref>" or "exitbook accounts refresh" to rebuild stored balances.
+{symbol} {quantity} [optional badge]
 ```
 
-When the reason is a processed-transactions rebuild/reset, the message must explicitly say that stored balance snapshots for all scopes were invalidated and prefer `exitbook accounts refresh` as the primary rebuild hint.
+Rules:
 
-### Asset Universe
+- symbol is bold
+- quantity is dim
+- badge uses the same user-facing labels as the explorer
 
-The displayed asset set is the union of:
+#### Body
 
-- assets known from processed transactions
-- assets currently held in balance snapshots
-- assets present in asset-review summaries
+Field order:
 
-That means the view can still show:
+1. `Asset ID`
+2. optional `Also seen as`
+3. optional `Contract`
+4. optional `CoinGecko`
+5. optional repeated `Conflict`
+6. optional `Why`
+7. `Action`
+8. `Seen in`
+9. optional `Signals` section
 
-- currently unheld assets with historical review state
-- held assets that never appeared in transaction-derived symbol scans
+Rules:
 
-Override-only exclusions do not create synthetic rows in `assets view`.
-Those operator-only records remain discoverable through `assets exclusions`.
+- `Action` uses command-oriented guidance, not TUI keybind wording
+- same-symbol ambiguity on blockchain tokens renders `Contract`, `CoinGecko`, and `Conflict`
+- signals are not artificially capped in static detail
 
-### Current Quantity
+### Explorer surface
 
-Current quantity is derived by grouping all `balance_snapshot_assets` rows by `assetId` and summing `calculatedBalance` across scopes.
+Applies to:
 
-Processed transactions are not used to recompute holdings.
+- `exitbook assets view`
+- `exitbook assets view <selector>`
 
-## Filtering And Sorting
-
-### Filter Modes
-
-`assets view` has two filter modes:
-
-- `default` — holdings plus exceptions (non-zero quantity, excluded, or action-required)
-- `action-required` — only assets that currently need user action
-
-`action-required` includes:
-
-- `needs-review` assets
-- `reviewed` assets that still block accounting
-- stale confirmations that require re-confirmation
-
-Excluded assets are filtered out of the action-required set.
-
-Zero-balance historical assets with no active exception are hidden from the default list.
-
-### Sort Order
-
-Assets are sorted by:
-
-1. `needs-review`
-2. `reviewed`
-3. `excluded`
-4. `clear`
-5. descending `transactionCount`
-6. ascending `assetId`
-
-## TUI Behavior
-
-### Header
+#### Header
 
 Default list:
 
@@ -188,69 +262,46 @@ Default list:
 Assets {visible} of {total} · {flagged} flagged · {excluded} excluded
 ```
 
-When visible equals total, omit `of {total}`. Review queue:
+When visible equals total, omit `of {total}`.
+
+Action-required list:
 
 ```text
 Review Queue {count} flagged {asset/assets} · {excluded} excluded
 ```
 
-### List Row
+#### List rows
 
 Each row shows:
 
-- primary symbol (column-aligned)
-- current quantity (column-aligned)
-- optional badge: `[Review]` (yellow), `[Reviewed]` (green), or `[Excluded]` (gray)
-- optional plain-English reason with multi-signal hint: e.g. `possible spam (+1 more)`
+- primary symbol
+- current quantity
+- optional badge: `[Review]`, `[Reviewed]`, or `[Excluded]`
+- optional plain-English reason with a multi-signal hint such as `possible spam (+1 more)`
 
-Rows must not show raw review status, reference status, accounting status, or inclusion labels.
+Rows do not show raw review status, reference status, accounting status, or inclusion labels.
 
-### Badge Rules
-
-- `Excluded`: asset is currently excluded
-- `Review`: asset still needs review confirmation (needs-review or stale confirmation)
-- `Reviewed`: asset has a stored review confirmation, even if exclusion is still required to unblock accounting
-- no badge: normal asset
-
-### Reason Rules
-
-- stale confirmation → `new signals since your last review`
-- same-symbol ambiguity → `same symbol conflict`
-- provider spam flag, processed spam flag, or unmatched reference → `possible spam`
-- scam-note evidence → `scam warnings in imported transactions`
-- suspicious-airdrop evidence → `suspicious airdrop warnings`
-- multiple categories → append `(+N more)` to the first match
-
-### Detail Panel
+#### Detail panel
 
 The detail panel shows:
 
 - title with symbol, quantity, and optional badge
-- optional `Also seen as` (when multiple symbols)
-- optional `Contract` and `CoinGecko` lines for same-symbol ambiguity on blockchain tokens
-- optional `Conflict` lines listing the other conflicting contracts for same-symbol ambiguity
-- optional `Why` (same reason as the row)
-- `Action` with concrete keybind instructions
-- `Seen in` with transaction and movement counts
-- `Signals` section only when evidence exists; omitted entirely for clean assets
+- optional `Also seen as`
+- optional `Contract` and `CoinGecko`
+- optional repeated `Conflict`
+- optional `Why`
+- `Action` with keybind-based instructions
+- `Seen in`
+- optional `Signals`
 
-The signals area has fixed height. Overflow is truncated with a `... N more signal(s)` line.
+Rules:
 
-Forbidden detail labels: `Reference:`, `Accounting:`, `Exclusion:`, `Summary:`, `Next action: None`, `Signals: None`.
+- the signals area has fixed height
+- overflow truncates with `... N more signal(s)`
+- `assets view <selector>` preselects the requested asset
+- if the selected asset would otherwise be hidden by the default filter, it is pinned into the default list until the user changes filters
 
-### Status Messages
-
-After a successful action, a transient status message appears above the controls bar:
-
-- exclude → `✓ Excluded`
-- include → `✓ Included`
-- confirm review (resolved) → `✓ Marked as reviewed`
-- confirm review (still blocking) → `✓ Marked as reviewed — exclude a conflicting asset to unblock`
-- reopen review → `✓ Review reopened`
-
-Status messages clear on the next navigation or mutation action.
-
-### Keyboard Actions
+#### Keyboard actions
 
 Controls:
 
@@ -261,90 +312,47 @@ Controls:
 - `u`: reopen review when the selected asset is `reviewed` or has a stale confirmation
 - `q` or `esc`: quit
 
-## Mutation Semantics
+## JSON
 
-The TUI delegates to the same handler logic used by the non-TUI commands.
+### List output
 
-### Exclusion Toggle
+List JSON uses the same semantic target for `assets` and `assets view`.
 
-- `x` appends either `asset_exclude` or `asset_include`
-- exclusion changes do not rebuild the asset-review projection
-- exclusion affects accounting status immediately in the view state
+Payload:
 
-### Confirm Review
+- `data.assets`: the already filtered item set for the requested surface
+- `metadata.total`: total asset universe count before the browse filter
+- `metadata.actionRequiredCount`
+- `metadata.excludedCount`
+- optional `metadata.filters.actionRequired`
 
-- `c` appends `asset_review_confirm` with the current evidence fingerprint
-- then invalidates and rereads `asset-review`
-- the selected item updates from the rebuilt review summary
+Rules:
 
-### Clear Review
+- default JSON list output uses the same holdings-plus-exceptions filter as the human browse list
+- action-required JSON list output returns only the action-required subset
 
-- `u` appends `asset_review_clear`
-- then invalidates and rereads `asset-review`
-- the selected item updates from the rebuilt review summary
+### Detail output
 
-## JSON Output
+Detail JSON uses the selected asset item directly.
 
-`--json` returns:
+Rules:
 
-```json
-{
-  "success": true,
-  "command": "assets-view",
-  "data": [
-    {
-      "assetId": "blockchain:ethereum:0xscam",
-      "assetSymbols": ["SCAM"],
-      "accountingBlocked": true,
-      "confirmationIsStale": false,
-      "currentQuantity": "100",
-      "evidence": [],
-      "evidenceFingerprint": "asset-review:v1:...",
-      "excluded": false,
-      "movementCount": 1,
-      "referenceStatus": "matched",
-      "reviewStatus": "needs-review",
-      "warningSummary": "Provider flagged this token as spam",
-      "transactionCount": 1
-    }
-  ],
-  "meta": {
-    "count": 1,
-    "offset": 0,
-    "limit": 1,
-    "hasMore": false,
-    "filters": {
-      "actionRequired": true
-    }
-  }
-}
-```
-
-Notes:
-
-- `meta.filters.actionRequired` is present only when the action-required filter is active
-- JSON returns the already filtered item set, not the full unfiltered asset universe
+- `assets <selector> --json` and `assets view <selector> --json` return the same detail object
+- detail JSON does not wrap the selected asset in an additional array
 
 ## Invariants
 
-- **Required**: Current quantity comes from persisted balance snapshot assets.
-- **Required**: Review state and exclusion state remain distinct in both row and detail rendering.
-- **Required**: `assets view` does not synthesize rows from override-only exclusions.
-- **Required**: Override-only exclusions remain discoverable through `assets exclusions`.
-- **Required**: The action-required filter excludes already excluded assets.
-- **Required**: `assets view` never calls live balance providers.
+- current quantity comes from stored balance snapshot assets
+- browse commands never call live balance providers
+- override-only exclusions never synthesize browse rows
+- action-required filtering excludes already excluded assets
+- selector resolution follows exact asset ID before unique symbol
 
-## Edge Cases And Gotchas
+## Edge Cases
 
-- A held asset that exists only in balance snapshots can still be selectable by symbol because symbol resolution merges transaction-known assets with current holdings.
-- Same-symbol ambiguity can leave an asset accounting-blocked after review confirmation; the next action becomes excluding one conflicting contract.
-- When no rows match the active filter, the TUI shows a friendly empty state rather than an empty table.
-
-## Known Limitations (Current Implementation)
-
-- The view loads all processed transactions to derive historical counts and symbol knowledge.
-- Freshness is enforced across every loaded balance scope, so one stale scope blocks the whole asset browser.
-- The evidence panel is fixed-height and truncates long evidence lists.
+- a held asset that exists only in stored balance snapshots can still resolve by symbol
+- same-symbol ambiguity can keep an asset accounting-blocked after review confirmation
+- one stale stored balance scope blocks the whole browse family
 
 ## Related Specs
 
@@ -352,7 +360,3 @@ Notes:
 - [Balance Projection](../../balance-projection.md)
 - [Accounts CLI](../accounts/accounts-view-spec.md)
 - [CLI Surface V3](../cli-surface-v3-spec.md)
-
----
-
-_Last updated: 2026-03-12_

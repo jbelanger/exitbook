@@ -18,7 +18,7 @@ Tracks migration status against the normative surface contract in [CLI Surface V
 | `transactions` | bare static list/detail, `view`, `export`, `edit note`          | same                                                                                                           | stable          | `done`    | Root browse + TUI split aligned; export/mutation remain text/json.                          |
 | `blockchains`  | bare static list/detail, `view`                                 | `blockchains`, `blockchains <selector>`, `blockchains view`, `blockchains view <selector>`                     | stable          | `done`    | Root browse/detail, explorer detail, and filtered-empty behavior now match the V3 spec.     |
 | `providers`    | bare static list/detail, `view`, `benchmark`                    | `providers`, `providers <selector>`, `providers view`, `providers view <selector>`, `providers benchmark`      | stable          | `done`    | Root browse/detail, selector behavior, and explorer/detail semantics now match the V3 spec. |
-| `assets`       | `assets view`, review/exclusion subcommands                     | likely bare static browse + `view`, plus existing action commands when selector semantics are settled          | partial         | `pending` | Review/exclusion semantics complicate the ladder.                                           |
+| `assets`       | bare static list/detail, `view`, review/exclusion subcommands   | same                                                                                                           | stable          | `done`    | Root browse/detail, selector behavior, and explorer/detail semantics now match the V3 spec. |
 | `links`        | `links run`, `links view`, `links gaps`, `confirm`, `reject`    | needs family-specific decision under V3                                                                        | partial         | `pending` | Has browse/review/workflow mix; likely needs a deliberate contract pass.                    |
 | `prices`       | `prices view`, `enrich`, `set`, `set-fx`                        | likely bare static browse + `view`, plus existing action/workflow commands when selector semantics are settled | partial         | `pending` | Browse family exists, but selector/detail shape is not finalized.                           |
 | `clear`        | `clear`                                                         | workflow only                                                                                                  | n/a             | `n/a`     | Prompt-first/workflow command, not a browse ladder family.                                  |
@@ -29,10 +29,10 @@ Tracks migration status against the normative surface contract in [CLI Surface V
 
 ## Current Priority
 
-1. `assets`
-2. `links`
-3. `prices`
-4. `cost-basis`
+1. `links`
+2. `prices`
+3. `cost-basis`
+4. `portfolio`
 
 ## Notes
 
@@ -41,6 +41,7 @@ Tracks migration status against the normative surface contract in [CLI Surface V
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
 - `blockchains` is complete for current scope; remaining work there would be non-surface refactors rather than V3 contract changes.
 - `providers` is complete for current browse scope; `providers benchmark` remains a separate workflow command by design.
+- `assets` is complete for current scope; review and exclusion subcommands remain family-specific mutations outside the browse ladder.
 - This tracker is about user-facing shape, not internal helper refactors.
 
 ## Deferred Smells
@@ -52,9 +53,10 @@ Classification:
 - `family-local`: cleanup is specific to one family and should usually be handled there.
 - `cross-cutting`: likely worth a broader pass because the same pattern may exist in multiple families.
 
-| Scope           | Area          | Smell                                                                                                                                                                                                                                                        | Better handled where                                               |
-| --------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| `family-local`  | `blockchains` | [blockchains-catalog-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-catalog-utils.ts) still mixes category/layer heuristics, catalog assembly, filtering, and sort order.                                          | Revisit inside the `blockchains` family only if the catalog grows. |
-| `cross-cutting` | CLI browse    | [blockchain-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchain-view-projection.ts) reads `process.env` directly to compute API-key readiness. If this pattern repeats, projection modules are doing host/config work. | Reassess across browse families after more V3 migrations land.     |
-| `family-local`  | `blockchains` | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                       | Low-priority naming cleanup in the `blockchains` command folder.   |
-| `cross-cutting` | CLI workflows | [spinner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/spinner.ts) is a thin Ora wrapper and does not encode when animated spinners are acceptable under V3. Workflow commands currently decide TTY vs durable-progress behavior individually.   | Reassess after more workflow migrations, not inside one family.    |
+| Scope           | Area          | Smell                                                                                                                                                                                                                                                                                          | Better handled where                                                   |
+| --------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `family-local`  | `blockchains` | [blockchains-catalog-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-catalog-utils.ts) still mixes category/layer heuristics, catalog assembly, filtering, and sort order.                                                                            | Revisit inside the `blockchains` family only if the catalog grows.     |
+| `cross-cutting` | CLI browse    | [blockchain-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchain-view-projection.ts) reads `process.env` directly to compute API-key readiness. If this pattern repeats, projection modules are doing host/config work.                                   | Reassess across browse families after more V3 migrations land.         |
+| `family-local`  | `blockchains` | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                                                         | Low-priority naming cleanup in the `blockchains` command folder.       |
+| `cross-cutting` | CLI workflows | [spinner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/spinner.ts) is a thin Ora wrapper and does not encode when animated spinners are acceptable under V3. Workflow commands currently decide TTY vs durable-progress behavior individually.                                     | Reassess after more workflow migrations, not inside one family.        |
+| `family-local`  | `assets`      | [asset-snapshot-reader.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/asset-snapshot-reader.ts) now owns freshness checks, snapshot assembly, selector resolution, and browse-item projection. It is still coherent, but it is the first file to split if the family grows. | Revisit inside the `assets` family only if more browse behavior lands. |

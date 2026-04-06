@@ -59,6 +59,39 @@ describe('assetsViewReducer', () => {
     expect(state.filteredAssets.map((asset) => asset.assetId)).toEqual(['exchange:kraken:btc']);
   });
 
+  it('keeps a directly selected hidden historical asset visible in the default list', () => {
+    const selectedAssetId = 'exchange:kraken:eth';
+    const state = createAssetsViewState(
+      [
+        createAsset({
+          assetId: 'exchange:kraken:btc',
+          assetSymbols: ['BTC'],
+          accountingBlocked: false,
+          currentQuantity: '0.5',
+          evidence: [],
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        }),
+        createAsset({
+          assetId: selectedAssetId,
+          assetSymbols: ['ETH'],
+          accountingBlocked: false,
+          currentQuantity: '0',
+          evidence: [],
+          reviewStatus: 'clear',
+          warningSummary: undefined,
+        }),
+      ],
+      { totalCount: 2, excludedCount: 0, actionRequiredCount: 0 },
+      'default',
+      selectedAssetId
+    );
+
+    expect(state.pinnedAssetId).toBe(selectedAssetId);
+    expect(state.filteredAssets.map((asset) => asset.assetId)).toEqual([selectedAssetId, 'exchange:kraken:btc']);
+    expect(state.selectedIndex).toBe(0);
+  });
+
   it('cycles to the needs-review filter and resets selection', () => {
     const state = createAssetsViewState(
       [

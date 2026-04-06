@@ -36,7 +36,7 @@ export const AssetsExclusionsCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
 });
 
-export const AssetsViewCommandOptionsSchema = z.object({
+export const AssetsBrowseCommandOptionsSchema = z.object({
   actionRequired: z.boolean().optional(),
   needsReview: z.boolean().optional(),
   json: z.boolean().optional(),

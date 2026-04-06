@@ -28,6 +28,10 @@ export interface ViewAssetsParams {
   profileKey: string;
 }
 
+export interface BrowseAssetsParams extends ViewAssetsParams {
+  selector?: string | undefined;
+}
+
 export interface AssetOverrideResult {
   action: 'exclude' | 'include';
   assetId: string;
@@ -83,6 +87,11 @@ export interface AssetsViewResult {
   assets: AssetViewItem[];
   excludedCount: number;
   totalCount: number;
+}
+
+export interface AssetsBrowseResult extends AssetsViewResult {
+  allAssets: AssetViewItem[];
+  selectedAsset?: AssetViewItem | undefined;
 }
 
 export interface AssetSnapshot {

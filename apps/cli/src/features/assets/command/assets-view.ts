@@ -1,160 +1,46 @@
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import React from 'react';
+
+import { explorerDetailSurfaceSpec, explorerListSurfaceSpec } from '../../../cli/presentation.js';
 
 import {
-  jsonSuccess,
-  runCliRuntimeCommand,
-  silentSuccess,
-  toCliResult,
-  type CliCompletion,
-} from '../../../cli/command.js';
-import { ExitCodes } from '../../../cli/exit-codes.js';
-import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
-import { renderApp } from '../../../runtime/command-runtime.js';
-import { buildViewMeta, type ViewCommandResult } from '../../shared/view-utils.js';
-import { AssetsViewApp } from '../view/assets-view-components.jsx';
-import { createAssetsViewState } from '../view/assets-view-state.js';
+  buildAssetsBrowseOptionsHelpText,
+  registerAssetsBrowseOptions,
+  runAssetsBrowseCommand,
+} from './assets-browse-command.js';
 
-import type { AssetsCommandScope } from './assets-command-scope.js';
-import { withAssetsCommandScope } from './assets-command-scope.js';
-import { AssetsViewCommandOptionsSchema } from './assets-option-schemas.js';
-import type { AssetViewItem } from './assets-types.js';
-import {
-  runAssetsClearReview,
-  runAssetsConfirmReview,
-  runAssetsExclude,
-  runAssetsInclude,
-  runAssetsView,
-} from './run-assets.js';
-
-type ViewAssetsCommandResult = ViewCommandResult<AssetViewItem[]>;
+const ASSETS_VIEW_COMMAND_ID = 'assets-view';
 
 export function registerAssetsViewCommand(assetsCommand: Command): void {
-  assetsCommand
-    .command('view')
-    .description('View assets and review flagged ones')
-    .addHelpText(
-      'after',
-      `
+  registerAssetsBrowseOptions(
+    assetsCommand
+      .command('view [selector]')
+      .description('Open the assets explorer')
+      .addHelpText(
+        'after',
+        `
 Examples:
   $ exitbook assets view
+  $ exitbook assets view USDC
+  $ exitbook assets view blockchain:ethereum:0xa0b8...
   $ exitbook assets view --action-required
-  $ exitbook assets view --needs-review
+  $ exitbook assets view --json
+
+Browse Options:
+${buildAssetsBrowseOptionsHelpText()}
 
 Notes:
-  - --needs-review is an alias for --action-required.
+  - Bare selectors resolve by exact asset ID first, then by unique symbol.
+  - Use "assets view" for the interactive review explorer.
 `
-    )
-    .option('--action-required', 'Show only flagged assets that still need attention')
-    .option('--needs-review', 'Alias for --action-required')
-    .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeAssetsViewCommand(rawOptions));
-}
-
-async function executeAssetsViewCommand(rawOptions: unknown): Promise<void> {
-  const format = detectCliOutputFormat(rawOptions);
-
-  await runCliRuntimeCommand({
-    command: 'assets-view',
-    format,
-    prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsViewCommandOptionsSchema),
-    action: async ({ runtime, prepared: options }) =>
-      resultDoAsync(async function* () {
-        const actionRequiredOnly = options.actionRequired || options.needsReview;
-        const completion = yield* toCliResult(
-          await withAssetsCommandScope(runtime, async (scope) => {
-            const result = await runAssetsView(scope, { actionRequiredOnly });
-            if (result.isErr()) {
-              return err(result.error);
-            }
-
-            if (format === 'json') {
-              return ok(buildAssetsViewJsonCompletion(actionRequiredOnly, result.value));
-            }
-
-            return buildAssetsViewTuiCompletion(actionRequiredOnly, scope, result.value);
-          }),
-          ExitCodes.GENERAL_ERROR
-        );
-
-        return completion;
-      }),
+      )
+  ).action(async (selector: string | undefined, rawOptions: unknown) => {
+    await runAssetsBrowseCommand({
+      commandId: ASSETS_VIEW_COMMAND_ID,
+      rawOptions,
+      selector,
+      surfaceSpec: selector
+        ? explorerDetailSurfaceSpec(ASSETS_VIEW_COMMAND_ID)
+        : explorerListSurfaceSpec(ASSETS_VIEW_COMMAND_ID),
+    });
   });
-}
-
-function buildAssetsViewJsonCompletion(
-  actionRequiredOnly: boolean | undefined,
-  result: {
-    actionRequiredCount: number;
-    assets: AssetViewItem[];
-    excludedCount: number;
-    totalCount: number;
-  }
-): CliCompletion {
-  const payload: ViewAssetsCommandResult = {
-    data: result.assets,
-    meta: buildViewMeta(result.assets.length, 0, result.assets.length, result.totalCount, {
-      ...(actionRequiredOnly ? { actionRequired: true } : {}),
-    }),
-  };
-
-  return jsonSuccess(payload);
-}
-
-async function buildAssetsViewTuiCompletion(
-  actionRequiredOnly: boolean | undefined,
-  scope: AssetsCommandScope,
-  result: {
-    actionRequiredCount: number;
-    assets: AssetViewItem[];
-    excludedCount: number;
-    totalCount: number;
-  }
-): Promise<Result<CliCompletion, Error>> {
-  const initialState = createAssetsViewState(
-    result.assets,
-    {
-      totalCount: result.totalCount,
-      excludedCount: result.excludedCount,
-      actionRequiredCount: result.actionRequiredCount,
-    },
-    actionRequiredOnly ? 'action-required' : 'default'
-  );
-
-  try {
-    await renderApp((unmount) =>
-      React.createElement(AssetsViewApp, {
-        initialState,
-        onQuit: unmount,
-        onToggleExclusion: async (assetId, excluded) => {
-          const actionResult = excluded
-            ? await runAssetsInclude(scope, { assetId })
-            : await runAssetsExclude(scope, { assetId });
-          if (actionResult.isErr()) {
-            throw actionResult.error;
-          }
-          return actionResult.value;
-        },
-        onConfirmReview: async (assetId) => {
-          const actionResult = await runAssetsConfirmReview(scope, { assetId });
-          if (actionResult.isErr()) {
-            throw actionResult.error;
-          }
-          return actionResult.value;
-        },
-        onClearReview: async (assetId) => {
-          const actionResult = await runAssetsClearReview(scope, { assetId });
-          if (actionResult.isErr()) {
-            throw actionResult.error;
-          }
-          return actionResult.value;
-        },
-      })
-    );
-  } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
-  }
-
-  return ok(silentSuccess());
 }
