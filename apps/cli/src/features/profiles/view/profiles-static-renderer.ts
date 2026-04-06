@@ -6,14 +6,32 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 const PROFILE_LIST_COLUMN_GAP = '  ';
 const PROFILE_LIST_COLUMN_ORDER = ['key', 'label', 'accounts'] as const;
 
+export interface ProfileListViewItem extends ProfileSummary {
+  isActive?: boolean | undefined;
+}
+
+export interface ProfileDetailViewItem extends ProfileListViewItem {
+  activeProfileSource?: 'default' | 'env' | 'state' | undefined;
+}
+
 export interface ProfilesStaticListState {
   activeProfileKey: string;
   activeProfileSource: 'default' | 'env' | 'state';
-  profiles: ProfileSummary[];
+  profiles: ProfileListViewItem[];
+}
+
+export interface ProfilesStaticDetailState {
+  activeProfileKey: string;
+  activeProfileSource: 'default' | 'env' | 'state';
+  profile: ProfileDetailViewItem;
 }
 
 export function outputProfilesStaticList(state: ProfilesStaticListState): void {
   process.stdout.write(buildProfilesStaticList(state));
+}
+
+export function outputProfilesStaticDetail(state: ProfilesStaticDetailState): void {
+  process.stdout.write(buildProfilesStaticDetail(state));
 }
 
 export function buildProfilesStaticList(state: ProfilesStaticListState): string {
@@ -73,6 +91,25 @@ export function buildProfilesStaticList(state: ProfilesStaticListState): string 
   return `${lines.join('\n')}\n`;
 }
 
+export function buildProfilesStaticDetail(state: ProfilesStaticDetailState): string {
+  const { profile } = state;
+  const title =
+    profile.displayName === profile.profileKey
+      ? pc.bold(profile.profileKey)
+      : `${pc.bold(profile.displayName)} ${pc.dim(profile.profileKey)}`;
+  const lines = [
+    title,
+    '',
+    buildDetailLine('Key', profile.profileKey),
+    buildDetailLine('Label', profile.displayName),
+    buildDetailLine('Accounts', String(profile.accountCount)),
+    buildDetailLine('Current', formatCurrentStatus(profile)),
+    buildDetailLine('Created', pc.dim(profile.createdAt.toISOString())),
+  ];
+
+  return `${lines.join('\n')}\n`;
+}
+
 function buildListHeader(state: ProfilesStaticListState): string {
   return `${pc.bold('Profiles')} ${pc.dim(`${state.profiles.length} total`)}`;
 }
@@ -83,4 +120,20 @@ function buildCurrentLine(state: ProfilesStaticListState): string {
   const sourceSuffix = state.activeProfileSource === 'default' ? '' : ` (${state.activeProfileSource})`;
 
   return `${pc.dim('Current:')} ${currentDisplayName} [key: ${state.activeProfileKey}]${sourceSuffix}`;
+}
+
+function buildDetailLine(label: string, value: string): string {
+  return `${pc.dim(`${label}:`)} ${value}`;
+}
+
+function formatCurrentStatus(profile: ProfileDetailViewItem): string {
+  if (!profile.isActive) {
+    return pc.dim('no');
+  }
+
+  if (profile.activeProfileSource === undefined || profile.activeProfileSource === 'default') {
+    return pc.green('yes');
+  }
+
+  return `${pc.green('yes')} ${pc.dim(`(${profile.activeProfileSource})`)}`;
 }

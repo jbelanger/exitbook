@@ -15,7 +15,7 @@ Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selec
 
 | Family         | Current Shape                                                             | V3 Target                                                                                                                         | Selector Status | Status        | Notes                                                                                            |
 | -------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------- | ------------------------------------------------------------------------------------------------ |
-| `profiles`     | `profiles`, `profiles add/remove/update/switch`                           | text-first admin surface                                                                                                          | n/a             | `done`        | Explicitly text-first; no browse-family ladder needed.                                           |
+| `profiles`     | `profiles`, `list`, `view <selector>`, `add/remove/update/switch`         | `profiles`, `profiles list`, `profiles view <selector>`, plus add/remove/update/switch                                            | stable          | `done`        | Static-only browse family; no explorer surface by design.                                        |
 | `accounts`     | `accounts`, `list`, `view <selector>`, `explore [selector]`, `refresh`    | `accounts`, `accounts list`, `accounts view <selector>`, `accounts explore [selector]`, plus `refresh` as the workflow entrypoint | stable          | `done`        | Phase-0 normalization landed; root no longer accepts bare selectors.                             |
 | `transactions` | bare static list/detail, `view`, `export`, `edit note`                    | `transactions`, `transactions list`, `transactions view <selector>`, `transactions explore [selector]`, plus existing actions     | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
 | `blockchains`  | `blockchains`, `list`, `view <selector>`, `explore [selector]`            | `blockchains`, `blockchains list`, `blockchains view <selector>`, `blockchains explore [selector]`                                | stable          | `done`        | Phase-0 normalization landed; root no longer accepts bare selectors.                             |
@@ -40,8 +40,8 @@ Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selec
 
 ## Notes
 
-- `profiles` is treated as complete because V3 does not require every family to expose the browse ladder; text-first admin families are valid.
-- `accounts` is back to `done`; `profiles` remains intentionally text-first.
+- `profiles` is treated as complete as a static-only browse family: root list, explicit `list`, and `view <selector>`, with no explorer.
+- `accounts` is back to `done`.
 - `transactions` is no longer considered complete because the surface contract changed from bare-selector detail to `view <selector>`.
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
 - `blockchains` and `providers` have been normalized to the phase-0 contract.

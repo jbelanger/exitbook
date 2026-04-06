@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProfilesStaticList } from '../profiles-static-renderer.js';
+import { buildProfilesStaticDetail, buildProfilesStaticList } from '../profiles-static-renderer.js';
 
 const ansiPattern = new RegExp(String.raw`\u001B\[[0-9;]*m`, 'g');
 
@@ -64,5 +64,33 @@ describe('buildProfilesStaticList', () => {
     expect(lines[2]).toBe('Current: missing [key: missing] (env)');
     expect(lines[4]).toBe('KEY      LABEL    ACCOUNTS');
     expect(lines[5]).toMatch(/^default\s+default\s+0$/);
+  });
+});
+
+describe('buildProfilesStaticDetail', () => {
+  it('renders a static detail card for one profile', () => {
+    const output = stripAnsi(
+      buildProfilesStaticDetail({
+        activeProfileKey: 'business',
+        activeProfileSource: 'state',
+        profile: {
+          id: 2,
+          profileKey: 'business',
+          displayName: 'Business / Family',
+          accountCount: 3,
+          isActive: true,
+          activeProfileSource: 'state',
+          createdAt: new Date('2026-03-27T00:00:00.000Z'),
+        },
+      })
+    );
+    const lines = output.trimEnd().split('\n');
+
+    expect(lines[0]).toBe('Business / Family business');
+    expect(lines[2]).toBe('Key: business');
+    expect(lines[3]).toBe('Label: Business / Family');
+    expect(lines[4]).toBe('Accounts: 3');
+    expect(lines[5]).toBe('Current: yes (state)');
+    expect(lines[6]).toBe('Created: 2026-03-27T00:00:00.000Z');
   });
 });

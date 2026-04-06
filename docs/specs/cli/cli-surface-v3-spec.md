@@ -39,6 +39,12 @@ Browse-heavy families should follow this ladder when they expose both static and
 
 The same model applies to families such as `accounts`, `transactions`, `links`, `assets`, `prices`, `providers`, and `blockchains` when they have stable browse semantics.
 
+Static-only browse families may expose the stable subset instead:
+
+- `profiles`
+- `profiles list`
+- `profiles view <selector>`
+
 ## Goals
 
 - Make browse behavior predictable from syntax alone.
@@ -76,6 +82,12 @@ Examples:
 - `exitbook accounts explore kraken-main`
 
 The user chooses list vs detail vs explorer by command shape, not by generic presentation flags.
+
+Families without an explorer may stop at:
+
+- bare noun
+- `list`
+- `view <selector>`
 
 ### Static Output Is Never Master-Detail
 
