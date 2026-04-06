@@ -16,7 +16,7 @@ Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selec
 | Family         | Current Shape                                                             | V3 Target                                                                                                                         | Selector Status | Status        | Notes                                                                                            |
 | -------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------- | ------------------------------------------------------------------------------------------------ |
 | `profiles`     | `profiles`, `profiles add/remove/update/switch`                           | text-first admin surface                                                                                                          | n/a             | `done`        | Explicitly text-first; no browse-family ladder needed.                                           |
-| `accounts`     | bare static list/detail, `view`, `refresh`, `add/update/remove`           | `accounts`, `accounts list`, `accounts view <selector>`, `accounts explore [selector]`, plus `refresh` as the workflow entrypoint | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
+| `accounts`     | `accounts`, `list`, `view <selector>`, `explore [selector]`, `refresh`    | `accounts`, `accounts list`, `accounts view <selector>`, `accounts explore [selector]`, plus `refresh` as the workflow entrypoint | stable          | `done`        | Phase-0 normalization landed; root no longer accepts bare selectors.                             |
 | `transactions` | bare static list/detail, `view`, `export`, `edit note`                    | `transactions`, `transactions list`, `transactions view <selector>`, `transactions explore [selector]`, plus existing actions     | stable          | `in_progress` | Previously done against the old ladder; now needs phase-0 normalization.                         |
 | `blockchains`  | `blockchains`, `list`, `view <selector>`, `explore [selector]`            | `blockchains`, `blockchains list`, `blockchains view <selector>`, `blockchains explore [selector]`                                | stable          | `done`        | Phase-0 normalization landed; root no longer accepts bare selectors.                             |
 | `providers`    | `providers`, `list`, `view <selector>`, `explore [selector]`, `benchmark` | `providers`, `providers list`, `providers view <selector>`, `providers explore [selector]`, plus `providers benchmark`            | stable          | `done`        | Phase-0 normalization landed; root no longer accepts bare selectors.                             |
@@ -31,20 +31,21 @@ Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selec
 
 ## Current Priority
 
-1. phase-0 normalize `accounts`
-2. phase-0 normalize `transactions`
-3. phase-0 normalize `assets`
-4. `links`
-5. `prices`
-6. `cost-basis`
-7. `portfolio`
+1. phase-0 normalize `transactions`
+2. phase-0 normalize `assets`
+3. `links`
+4. `prices`
+5. `cost-basis`
+6. `portfolio`
 
 ## Notes
 
 - `profiles` is treated as complete because V3 does not require every family to expose the browse ladder; text-first admin families are valid.
+- `accounts` is back to `done`; `profiles` remains intentionally text-first.
 - `transactions` is no longer considered complete because the surface contract changed from bare-selector detail to `view <selector>`.
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
 - `blockchains` and `providers` have been normalized to the phase-0 contract.
+- `accounts` has now been normalized to the phase-0 contract.
 - `assets` remains back in scope because the browse contract changed.
 - `providers benchmark` remains a separate workflow command by design.
 - `links` and `prices` are paused behind the phase-0 normalization pass so we do not mix two browse contracts in the shipped CLI.
@@ -66,3 +67,4 @@ Classification:
 | `family-local`  | `blockchains` | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                                                         | Low-priority naming cleanup in the `blockchains` command folder.       |
 | `cross-cutting` | CLI workflows | [spinner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/spinner.ts) is a thin Ora wrapper and does not encode when animated spinners are acceptable under V3. Workflow commands currently decide TTY vs durable-progress behavior individually.                                     | Reassess after more workflow migrations, not inside one family.        |
 | `family-local`  | `assets`      | [asset-snapshot-reader.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/asset-snapshot-reader.ts) now owns freshness checks, snapshot assembly, selector resolution, and browse-item projection. It is still coherent, but it is the first file to split if the family grows. | Revisit inside the `assets` family only if more browse behavior lands. |
+| `cross-cutting` | CLI docs      | Browse-family specs are still named `*-view-spec.md` even when they now define the full family contract (`noun`, `list`, `view`, `explore`, workflow notes). The content is correct, but the file naming is drifting from the actual surface model.                                            | Revisit across specs after the phase-0 normalization pass is complete. |

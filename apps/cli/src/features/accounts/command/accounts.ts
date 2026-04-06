@@ -3,7 +3,7 @@ import { Command } from 'commander';
 
 import { cliErr, ExitCodes, runCliRuntimeCommand } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
-import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../../cli/presentation.js';
+import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerAccountsAddCommand } from './accounts-add.js';
@@ -13,21 +13,23 @@ import {
   prepareAccountsBrowseCommand,
   registerAccountsBrowseOptions,
 } from './accounts-browse-command.js';
+import { registerAccountsExploreCommand } from './accounts-explore.js';
+import { registerAccountsListCommand } from './accounts-list.js';
 import { registerAccountsRefreshCommand } from './accounts-refresh.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
 import { registerAccountsUpdateCommand } from './accounts-update.js';
 import { registerAccountsViewCommand } from './accounts-view.js';
 
 const ACCOUNTS_COMMAND_ID = 'accounts';
-const ACCOUNTS_LIST_ALIAS = 'list';
 
 /**
  * Register the unified accounts command with all subcommands.
  *
  * Structure:
  *   accounts                 - Static account list/table
- *   accounts <name>          - Static account detail card
- *   accounts view [name]     - Accounts explorer
+ *   accounts list            - Explicit static account list alias
+ *   accounts view <name>     - Static account detail card
+ *   accounts explore [name]  - Accounts explorer
  *   accounts refresh [name]  - Refresh stored balances and verify live data
  *   accounts add             - Create an account
  *   accounts update          - Update account properties
@@ -36,7 +38,7 @@ const ACCOUNTS_LIST_ALIAS = 'list';
 export function registerAccountsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const accounts = program
     .command('accounts')
-    .usage('[selector] [options]')
+    .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('Browse and manage accounts')
@@ -45,25 +47,25 @@ export function registerAccountsCommand(program: Command, appRuntime: CliAppRunt
       `
 Examples:
   $ exitbook accounts
-  $ exitbook accounts kraken-main
-  $ exitbook accounts 1a2b3c4d
-  $ exitbook accounts --platform kraken
-  $ exitbook accounts view
+  $ exitbook accounts list --platform kraken
   $ exitbook accounts view kraken-main
+  $ exitbook accounts view 1a2b3c4d
+  $ exitbook accounts explore
+  $ exitbook accounts explore kraken-main
   $ exitbook accounts refresh
   $ exitbook accounts refresh kraken-main
-  $ exitbook accounts view 1a2b3c4d
   $ exitbook accounts --json
 
 Browse Options:
 ${buildAccountsBrowseOptionsHelpText()}
 
 Notes:
-  - Use bare "accounts" for quick account lists and single-account details.
-  - Use "accounts view" for the interactive explorer.
+  - Use bare "accounts" or "accounts list" for quick account lists.
+  - Use "accounts view <selector>" for one static account detail card.
+  - Use "accounts explore" for the interactive explorer.
   - Use "accounts refresh" to rebuild stored balances and verify live data.
-  - Bare selectors may be account names or account fingerprint prefixes.
-  - Account selectors cannot use reserved command words such as add, list, refresh, remove, update, or view.
+  - Account selectors may be account names or account fingerprint prefixes.
+  - Account names cannot use reserved command words such as add, explore, list, refresh, remove, update, or view.
 `
     );
 
@@ -76,17 +78,20 @@ Notes:
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerAccountsBrowseOptions);
           const accountSelector = parsedInvocation.selector?.trim();
 
-          if (accountSelector?.toLowerCase() === ACCOUNTS_LIST_ALIAS) {
-            return yield* cliErr(new Error('Use bare "accounts" instead of "accounts list".'), ExitCodes.INVALID_ARGS);
+          if (accountSelector) {
+            return yield* cliErr(
+              new Error(
+                `Use "accounts view ${accountSelector}" for static detail or ` +
+                  `"accounts explore ${accountSelector}" for the explorer.`
+              ),
+              ExitCodes.INVALID_ARGS
+            );
           }
 
           return yield* prepareAccountsBrowseCommand({
-            accountSelector,
             commandId: ACCOUNTS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
-            surfaceSpec: accountSelector
-              ? staticDetailSurfaceSpec(ACCOUNTS_COMMAND_ID)
-              : staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
+            surfaceSpec: staticListSurfaceSpec(ACCOUNTS_COMMAND_ID),
           });
         }),
       action: async (context) => executePreparedAccountsBrowseCommand(context.runtime, context.prepared),
@@ -94,7 +99,9 @@ Notes:
   });
 
   registerAccountsAddCommand(accounts, appRuntime);
+  registerAccountsListCommand(accounts);
   registerAccountsViewCommand(accounts);
+  registerAccountsExploreCommand(accounts);
   registerAccountsRefreshCommand(accounts, appRuntime);
   registerAccountsUpdateCommand(accounts, appRuntime);
   registerAccountsRemoveCommand(accounts);

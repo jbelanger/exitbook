@@ -357,7 +357,7 @@ describe('accounts browse commands', () => {
     expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
   });
 
-  it('renders the static detail card for the bare selector form', async () => {
+  it('renders the static list for the explicit list alias', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
@@ -369,62 +369,19 @@ describe('accounts browse commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'kraken-main'], {
+    await program.parseAsync(['accounts', 'list'], {
       from: 'user',
     });
 
-    expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
-      accountId: 1,
+      accountId: undefined,
       accountType: undefined,
       platformKey: undefined,
       showSessions: undefined,
     });
-    const detailArgs = mockBuildAccountDetailViewItem.mock.calls[0]?.[0] as
-      | {
-          accountId: number;
-          accountService: { findById: unknown };
-          database: { tag: string };
-          profileId: number;
-          summary: {
-            accountFingerprint: string;
-            childAccounts: {
-              accountFingerprint: string;
-              balanceProjectionStatus: string;
-              id: number;
-              identifier: string;
-              sessionCount: number;
-              verificationStatus: string;
-            }[];
-            id: number;
-            sessions?: unknown;
-          };
-        }
-      | undefined;
-
-    expect(detailArgs).toBeDefined();
-    expect(detailArgs?.accountId).toBe(1);
-    expect(detailArgs?.accountService.findById).toBe(mockFindById);
-    expect(detailArgs?.database).toEqual({ tag: 'db' });
-    expect(detailArgs?.profileId).toBe(1);
-    expect(detailArgs?.summary).toMatchObject({
-      id: 1,
-      accountFingerprint: createAccountFingerprint(1),
-      childAccounts: [
-        {
-          id: 2,
-          accountFingerprint: createAccountFingerprint(2),
-          identifier: 'acct-child',
-          sessionCount: 1,
-          balanceProjectionStatus: 'fresh',
-          verificationStatus: 'warning',
-        },
-      ],
-      sessions: undefined,
-    });
-    expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
-    expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
+    expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
+    expect(mockOutputAccountStaticDetail).not.toHaveBeenCalled();
     expect(mockRenderApp).not.toHaveBeenCalled();
   });
 
@@ -492,7 +449,7 @@ describe('accounts browse commands', () => {
     );
   });
 
-  it('outputs detail JSON for the bare selector form', async () => {
+  it('outputs list JSON for the explicit list alias', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
@@ -504,99 +461,68 @@ describe('accounts browse commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'kraken-main', '--json'], {
+    await program.parseAsync(['accounts', 'list', '--json'], {
       from: 'user',
     });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'accounts',
+      'accounts-list',
       {
-        data: createAccountDetail(),
+        data: [
+          {
+            id: 1,
+            accountFingerprint: createAccountFingerprint(1),
+            accountType: 'exchange-api',
+            platformKey: 'kraken',
+            name: 'kraken-main',
+            identifier: 'acct-1',
+            parentAccountId: undefined,
+            providerName: 'kraken-api',
+            balanceProjectionStatus: 'fresh',
+            balanceProjectionReason: undefined,
+            lastCalculatedAt: '2026-03-12T12:00:00.000Z',
+            lastRefreshAt: '2026-03-12T12:30:00.000Z',
+            storedAssetCount: 3,
+            storedBalanceStatusReason: undefined,
+            storedBalanceSuggestion: undefined,
+            verificationStatus: 'match',
+            sessionCount: 2,
+            childAccounts: [
+              {
+                id: 2,
+                accountFingerprint: createAccountFingerprint(2),
+                identifier: 'acct-child',
+                sessionCount: 1,
+                balanceProjectionStatus: 'fresh',
+                verificationStatus: 'warning',
+              },
+            ],
+            sessions: undefined,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
         meta: {
           count: 1,
           offset: 0,
           limit: 1,
           hasMore: false,
-          filters: {
-            account: 'kraken-main',
-          },
+          filters: undefined,
         },
       },
       undefined
     );
   });
 
-  it('rejects the removed list alias and points to the bare command', async () => {
+  it('rejects bare selectors and points callers to view or explore', async () => {
     const program = createAccountsProgram();
 
-    await expect(program.parseAsync(['accounts', 'list'], { from: 'user' })).rejects.toThrow(
-      'CLI:accounts:text:Use bare "accounts" instead of "accounts list".:2'
+    await expect(program.parseAsync(['accounts', 'kraken-main'], { from: 'user' })).rejects.toThrow(
+      'CLI:accounts:text:Use "accounts view kraken-main" for static detail or "accounts explore kraken-main" for the explorer.:2'
     );
 
     expect(mockExitCliFailure).toHaveBeenCalledWith('accounts', expect.objectContaining({ exitCode: 2 }), 'text');
     expect(mockGetByName).not.toHaveBeenCalled();
     expect(mockList).not.toHaveBeenCalled();
-  });
-
-  it('routes bare selector misses through the not-found error path', async () => {
-    const program = createAccountsProgram();
-
-    mockGetByName.mockResolvedValue(ok(undefined));
-
-    await expect(program.parseAsync(['accounts', 'ghost-wallet'], { from: 'user' })).rejects.toThrow(
-      "CLI:accounts:text:Account selector 'ghost-wallet' not found:4"
-    );
-
-    expect(mockExitCliFailure).toHaveBeenCalledWith('accounts', expect.objectContaining({ exitCode: 4 }), 'text');
-    expect(mockList).not.toHaveBeenCalled();
-  });
-
-  it('falls back from name lookup to fingerprint ref lookup for bare selectors', async () => {
-    const program = createAccountsProgram();
-    const account = createAccountSummary();
-
-    mockGetByName.mockResolvedValue(ok(undefined));
-    mockGetByFingerprintRef.mockResolvedValue(
-      ok({
-        id: 1,
-        profileId: 1,
-        accountFingerprint: createAccountFingerprint(1),
-        name: 'kraken-main',
-        parentAccountId: undefined,
-        accountType: 'exchange-api',
-        platformKey: 'kraken',
-        identifier: 'acct-1',
-        providerName: 'kraken-api',
-        credentials: { apiKey: 'acct-1', apiSecret: 'secret' },
-        lastCursor: undefined,
-        metadata: undefined,
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-        updatedAt: undefined,
-      })
-    );
-    mockList.mockResolvedValue(
-      ok({
-        accounts: [account],
-        count: 1,
-        sessions: undefined,
-      })
-    );
-
-    await program.parseAsync(['accounts', '000000000000'], {
-      from: 'user',
-    });
-
-    expect(mockGetByName).toHaveBeenCalledWith(1, '000000000000');
-    expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, '000000000000');
-    expect(mockList).toHaveBeenCalledWith({
-      profileId: 1,
-      accountId: 1,
-      accountType: undefined,
-      platformKey: undefined,
-      showSessions: undefined,
-    });
-    expect(mockBuildAccountDetailViewItem).toHaveBeenCalledOnce();
-    expect(mockOutputAccountStaticDetail).toHaveBeenCalledOnce();
   });
 
   it('outputs JSON results using transformed account view items', async () => {
@@ -642,7 +568,7 @@ describe('accounts browse commands', () => {
     );
 
     await program.parseAsync(
-      ['accounts', 'view', '--platform', 'kraken', '--type', 'exchange-api', '--show-sessions', '--json'],
+      ['accounts', 'explore', '--platform', 'kraken', '--type', 'exchange-api', '--show-sessions', '--json'],
       {
         from: 'user',
       }
@@ -657,7 +583,7 @@ describe('accounts browse commands', () => {
       showSessions: true,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'accounts-view',
+      'accounts-explore',
       {
         data: [
           {
@@ -714,7 +640,7 @@ describe('accounts browse commands', () => {
     );
   });
 
-  it('renders the TUI with computed initial state after closing the database', async () => {
+  it('renders the explorer with computed initial state after closing the database', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
     let renderedElement: ReactElement | undefined;
@@ -730,7 +656,7 @@ describe('accounts browse commands', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['accounts', 'view', '--platform', 'kraken'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore', '--platform', 'kraken'], { from: 'user' });
 
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
@@ -836,7 +762,7 @@ describe('accounts browse commands', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['accounts', 'view', 'wallet-main'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore', 'wallet-main'], { from: 'user' });
 
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
@@ -909,7 +835,7 @@ describe('accounts browse commands', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['accounts', 'view', 'wallet-child'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore', 'wallet-child'], { from: 'user' });
 
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,
@@ -958,7 +884,7 @@ describe('accounts browse commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'view'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore'], { from: 'user' });
 
     expect(mockOutputAccountsStaticList).toHaveBeenCalledWith({
       view: 'accounts',
@@ -997,7 +923,7 @@ describe('accounts browse commands', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['accounts', 'view', '--platform', 'kraken'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore', '--platform', 'kraken'], { from: 'user' });
 
     expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
     expect(mockCtx.closeDatabase).toHaveBeenCalledOnce();
@@ -1005,7 +931,7 @@ describe('accounts browse commands', () => {
     expect(renderedElement?.type).toBe('AccountsViewApp');
   });
 
-  it('falls back to the static list renderer off-terminal without mounting Ink', async () => {
+  it('falls back to the static list renderer for explore off-terminal without mounting Ink', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
@@ -1018,18 +944,17 @@ describe('accounts browse commands', () => {
       })
     );
 
-    await program.parseAsync(['accounts', 'view'], { from: 'user' });
+    await program.parseAsync(['accounts', 'explore'], { from: 'user' });
 
     expect(mockOutputAccountsStaticList).toHaveBeenCalledOnce();
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
   });
 
-  it('falls back to the static detail renderer for selector views off-terminal', async () => {
+  it('renders static detail for accounts view even on a tty', async () => {
     const program = createAccountsProgram();
     const account = createAccountSummary();
 
-    setTTYFlags(true, false);
     mockList.mockResolvedValue(
       ok({
         accounts: [account],
@@ -1039,6 +964,34 @@ describe('accounts browse commands', () => {
     );
 
     await program.parseAsync(['accounts', 'view', 'kraken-main'], { from: 'user' });
+
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 1,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
+    });
+    expect(mockOutputAccountStaticDetail).toHaveBeenCalledWith(createAccountDetail());
+    expect(mockOutputAccountsStaticList).not.toHaveBeenCalled();
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockCtx.closeDatabase).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the static detail renderer for explore selectors off-terminal', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary();
+
+    setTTYFlags(true, false);
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'explore', 'kraken-main'], { from: 'user' });
 
     expect(mockList).toHaveBeenCalledWith({
       profileId: 1,

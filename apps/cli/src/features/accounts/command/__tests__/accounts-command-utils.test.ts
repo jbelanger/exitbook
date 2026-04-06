@@ -117,7 +117,9 @@ describe('registerAccountsCommand', () => {
     expect(accountsCommand).toBeDefined();
     expect(accountsCommand?.description()).toBe('Browse and manage accounts');
     const subcommandNames = accountsCommand?.commands.map((command) => command.name()) ?? [];
-    expect(subcommandNames).toEqual(expect.arrayContaining(['add', 'view', 'refresh', 'update', 'remove']));
+    expect(subcommandNames).toEqual(
+      expect.arrayContaining(['add', 'list', 'view', 'explore', 'refresh', 'update', 'remove'])
+    );
     expect(subcommandNames).not.toContain('rename');
   });
 
@@ -132,7 +134,7 @@ describe('registerAccountsCommand', () => {
     expect(help).toContain('Output JSON format');
   });
 
-  it('documents selector usage without the removed --account flag', () => {
+  it('documents static detail selector usage without the removed --account flag', () => {
     const program = new Command();
     const appRuntime = {} as CliAppRuntime;
 
@@ -153,5 +155,29 @@ describe('registerAccountsCommand', () => {
 
     expect(help).toContain('exitbook accounts view 1a2b3c4d');
     expect(help).not.toContain('exitbook accounts view --account');
+    expect(help).not.toContain('exitbook accounts view --platform');
+  });
+
+  it('documents explorer usage through the explore subcommand', () => {
+    const program = new Command();
+    const appRuntime = {} as CliAppRuntime;
+
+    registerAccountsCommand(program, appRuntime);
+
+    const accountsCommand = program.commands.find((command) => command.name() === 'accounts');
+    const exploreCommand = accountsCommand?.commands.find((command) => command.name() === 'explore');
+    const output: string[] = [];
+
+    exploreCommand?.configureOutput({
+      writeOut: (str) => {
+        output.push(str);
+      },
+      writeErr: () => undefined,
+    });
+    exploreCommand?.outputHelp();
+    const help = output.join('');
+
+    expect(help).toContain('exitbook accounts explore 1a2b3c4d');
+    expect(help).toContain('exitbook accounts explore --platform kraken');
   });
 });

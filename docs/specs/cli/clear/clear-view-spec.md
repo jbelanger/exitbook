@@ -294,13 +294,13 @@ The `Sources:` line is only shown for `Raw data items` — it breaks down counts
 
 ## Category Descriptions
 
-| Category          | Description                                                  | Used By                                  | Recovery                                    |
-| ----------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------- |
-| Transactions      | Processed transaction records with movements, fees, metadata | `exitbook transactions view`             | Run `exitbook reprocess` to reprocess       |
-| Transaction links | Transfer link matches between outflows and inflows           | `exitbook links view`                    | Run `exitbook links run` after reprocessing |
-| Accounts          | Account records linking sources to your profile              | `exitbook accounts view`                 | Re-import to recreate accounts              |
-| Import sessions   | Import run history and metadata                              | `exitbook accounts view --show-sessions` | Re-import to recreate sessions              |
-| Raw data items    | Original imported data from exchanges and blockchains        | —                                        | Re-import from source (slow, rate-limited)  |
+| Category          | Description                                                  | Used By                                     | Recovery                                    |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------- |
+| Transactions      | Processed transaction records with movements, fees, metadata | `exitbook transactions view`                | Run `exitbook reprocess` to reprocess       |
+| Transaction links | Transfer link matches between outflows and inflows           | `exitbook links view`                       | Run `exitbook links run` after reprocessing |
+| Accounts          | Account records linking sources to your profile              | `exitbook accounts`                         | Re-import to recreate accounts              |
+| Import sessions   | Import run history and metadata                              | `exitbook accounts explore --show-sessions` | Re-import to recreate sessions              |
+| Raw data items    | Original imported data from exchanges and blockchains        | —                                           | Re-import from source (slow, rate-limited)  |
 
 ---
 
