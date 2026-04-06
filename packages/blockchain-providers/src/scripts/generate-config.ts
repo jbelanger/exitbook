@@ -130,7 +130,7 @@ function generateConfiguration(): void {
         console.log(`     - ${provider.displayName} (${provider.blockchain})`);
       }
       console.log('     Example: export <PROVIDER_API_KEY_ENV_VAR>="your_api_key_here"');
-      console.log('     Use `pnpm run dev providers view --json` to inspect provider configuration details.');
+      console.log('     Use `pnpm run dev providers --json` to inspect provider configuration summaries.');
     }
 
     console.log('  5. Run `pnpm run config:validate` to verify');

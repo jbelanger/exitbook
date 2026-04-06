@@ -18,7 +18,7 @@ function normalizeCsvDir(csvDir: string): string {
 }
 
 function buildUnknownBlockchainError(name: string): Error {
-  return new Error(`Unknown blockchain: ${name}. Run 'exitbook blockchains view' to see supported blockchains.`);
+  return new Error(`Unknown blockchain: ${name}. Run 'exitbook blockchains list' to see supported blockchains.`);
 }
 
 function buildUnknownExchangeError(name: string, registry: AdapterRegistry): Error {

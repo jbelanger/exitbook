@@ -3,24 +3,25 @@ import type { Command } from 'commander';
 
 import { cliErr, ExitCodes, runCliCommandBoundary } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
-import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../../cli/presentation.js';
+import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import {
   buildBlockchainsBrowseOptionsHelpText,
-  prepareBlockchainsBrowseCommand,
   executePreparedBlockchainsBrowseCommand,
+  prepareBlockchainsBrowseCommand,
   registerBlockchainsBrowseOptions,
 } from './blockchains-browse-command.js';
+import { registerBlockchainsExploreCommand } from './blockchains-explore.js';
+import { registerBlockchainsListCommand } from './blockchains-list.js';
 import { registerBlockchainsViewCommand } from './blockchains-view.js';
 
 const BLOCKCHAINS_COMMAND_ID = 'blockchains';
-const BLOCKCHAINS_LIST_ALIAS = 'list';
 
 export function registerBlockchainsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const blockchains = program
     .command('blockchains')
-    .usage('[selector] [options]')
+    .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('Browse supported blockchains and provider configuration')
@@ -29,20 +30,20 @@ export function registerBlockchainsCommand(program: Command, appRuntime: CliAppR
       `
 Examples:
   $ exitbook blockchains
-  $ exitbook blockchains ethereum
-  $ exitbook blockchains view
+  $ exitbook blockchains list --category evm
   $ exitbook blockchains view ethereum
-  $ exitbook blockchains view --category evm
-  $ exitbook blockchains view --requires-api-key
+  $ exitbook blockchains explore
+  $ exitbook blockchains explore injective
+  $ exitbook blockchains explore --requires-api-key
   $ exitbook blockchains --json
 
 Browse Options:
 ${buildBlockchainsBrowseOptionsHelpText()}
 
 Notes:
-  - Use bare "blockchains" for a static blockchain list.
-  - Use "blockchains <key>" for a static blockchain detail card.
-  - Use "blockchains view" for the interactive explorer.
+  - Use bare "blockchains" or "blockchains list" for a static blockchain list.
+  - Use "blockchains view <key>" for a static blockchain detail card.
+  - Use "blockchains explore" for the interactive explorer.
   - Use this family to discover supported chains before adding blockchain accounts.
 `
     );
@@ -56,21 +57,21 @@ Notes:
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerBlockchainsBrowseOptions);
           const blockchainSelector = parsedInvocation.selector?.trim();
 
-          if (blockchainSelector?.toLowerCase() === BLOCKCHAINS_LIST_ALIAS) {
+          if (blockchainSelector) {
             return yield* cliErr(
-              new Error('Use bare "blockchains" instead of "blockchains list".'),
+              new Error(
+                `Use "blockchains view ${blockchainSelector}" for static detail or ` +
+                  `"blockchains explore ${blockchainSelector}" for the explorer.`
+              ),
               ExitCodes.INVALID_ARGS
             );
           }
 
           const prepared = yield* prepareBlockchainsBrowseCommand({
             appRuntime,
-            blockchainSelector,
             commandId: BLOCKCHAINS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
-            surfaceSpec: blockchainSelector
-              ? staticDetailSurfaceSpec(BLOCKCHAINS_COMMAND_ID)
-              : staticListSurfaceSpec(BLOCKCHAINS_COMMAND_ID),
+            surfaceSpec: staticListSurfaceSpec(BLOCKCHAINS_COMMAND_ID),
           });
 
           return yield* await executePreparedBlockchainsBrowseCommand(prepared, appRuntime);
@@ -78,5 +79,7 @@ Notes:
     });
   });
 
+  registerBlockchainsListCommand(blockchains, appRuntime);
   registerBlockchainsViewCommand(blockchains, appRuntime);
+  registerBlockchainsExploreCommand(blockchains, appRuntime);
 }

@@ -2,14 +2,14 @@
 
 ## Scope
 
-This document defines the browse surface for the `providers` command family:
+This document defines the `providers` browse family:
 
 - `exitbook providers`
-- `exitbook providers <selector>`
-- `exitbook providers view`
+- `exitbook providers list`
 - `exitbook providers view <selector>`
+- `exitbook providers explore [<selector>]`
 
-It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
+It specializes the browse rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
 
 Out of scope:
 
@@ -19,7 +19,7 @@ Out of scope:
 
 ## Family Model
 
-The `providers` family is a read-only catalog and health surface for configured blockchain API providers.
+`providers` is a read-only catalog and health surface for configured blockchain API providers.
 
 Rules:
 
@@ -30,22 +30,19 @@ Rules:
 
 ## Command Surface
 
-### Browse shapes
-
-| Shape                       | Meaning                                     | Human surface      |
-| --------------------------- | ------------------------------------------- | ------------------ |
-| `providers`                 | Quick browse of registered providers        | Static list        |
-| `providers <selector>`      | Focused inspection of one provider          | Static detail card |
-| `providers view`            | Full provider explorer                      | TUI explorer       |
-| `providers view <selector>` | Explorer pre-selected on one provider       | TUI explorer       |
-| Any of the above + `--json` | Machine output for the same semantic target | JSON               |
+| Shape                          | Meaning                                     | Human surface      |
+| ------------------------------ | ------------------------------------------- | ------------------ |
+| `providers`                    | Quick browse of registered providers        | Static list        |
+| `providers list`               | Explicit alias of the same static list      | Static list        |
+| `providers view <selector>`    | Focused inspection of one provider          | Static detail card |
+| `providers explore`            | Full provider explorer                      | TUI explorer       |
+| `providers explore <selector>` | Explorer pre-selected on one provider       | TUI explorer       |
+| Any of the above + `--json`    | Machine output for the same semantic target | JSON               |
 
 On a non-interactive terminal:
 
-- `providers view` falls back to the same static list as `providers`
-- `providers view <selector>` falls back to the same static detail as `providers <selector>`
-
-`view` does not define a separate text schema or JSON schema.
+- `providers explore` falls back to the same static list as `providers`
+- `providers explore <selector>` falls back to the same static detail as `providers view <selector>`
 
 ## Selectors And Options
 
@@ -66,6 +63,7 @@ Rules:
 - selectors cannot be combined with `--health`
 - selectors cannot be combined with `--missing-api-key`
 - selector misses fail with `Provider selector '<value>' not found`
+- bare root selectors are invalid; callers must use `view <selector>` or `explore <selector>`
 
 ### Browse options
 
@@ -77,8 +75,6 @@ Supported browse options:
 - `--json`: output JSON
 
 ## Shared Data Semantics
-
-### Provider Summary
 
 Each provider item includes:
 
@@ -94,7 +90,7 @@ Each provider item includes:
 
 ### Health Status
 
-Health status is derived from persisted provider stats.
+Health is derived from persisted provider stats.
 
 States:
 
@@ -111,7 +107,7 @@ Rules:
 
 ### API-Key Readiness
 
-API-key readiness is local configuration state.
+Readiness is local configuration state.
 
 States:
 
@@ -119,81 +115,52 @@ States:
 - `missing`
 - `no key needed`
 
-Rules:
-
-- readiness is derived from provider metadata plus local env configuration state
-- `--missing-api-key` includes only providers that require an API key and are currently missing one
-
 ## Browse Surfaces
 
-### Static List Surface
+### Static List
 
 Applies to:
 
 - `exitbook providers`
-- `exitbook providers view` off-TTY
+- `exitbook providers list`
+- `exitbook providers explore` off-TTY
 
-#### Header
-
-Format:
+Header:
 
 ```text
 Providers{optional filter label} {total} total · {health counts...} · {apiKeyCount} require API key
 ```
 
+Table columns:
+
+- `NAME`
+- `CHAINS`
+- `HEALTH`
+- `AVG RESP`
+- `ERR RATE`
+- `TOTAL REQS`
+- `API KEY`
+
 Rules:
 
-- `Providers` is bold
-- metadata is dim
-- only non-zero health counts are shown
 - filter labels combine active filters in the order `blockchain`, `health`, `missing API key`
-- no blank line before the header
-- one blank line follows the header before the table or empty state
+- API-key wording stays concise and user-facing
+- static output never shows controls, selected-row chrome, or side-by-side detail
 
-#### Table
-
-Columns:
-
-| Column       | Meaning                           |
-| ------------ | --------------------------------- |
-| `NAME`       | Canonical provider name           |
-| `CHAINS`     | Number of served blockchains      |
-| `HEALTH`     | Health summary                    |
-| `AVG RESP`   | Aggregate average response time   |
-| `ERR RATE`   | Aggregate error rate              |
-| `TOTAL REQS` | Aggregate request count           |
-| `API KEY`    | Compact API-key readiness summary |
-
-Rules:
-
-- no controls footer
-- no selected-row expansion
-- no side-by-side detail panel
-- API-key wording is concise and user-facing: `configured`, `missing`, `—`
-
-### Static Detail Surface
+### Static Detail
 
 Applies to:
 
-- `exitbook providers <selector>`
-- `exitbook providers view <selector>` off-TTY
+- `exitbook providers view <selector>`
+- `exitbook providers explore <selector>` off-TTY
 
-#### Title line
-
-Format:
+Title line:
 
 ```text
 {displayName} {health}
 ```
 
-Where:
-
-- `{displayName}` is bold
-- `{health}` is colored by health status
-
-#### Body
-
-Field order:
+Body order:
 
 1. `Name`
 2. `Chains`
@@ -210,82 +177,55 @@ Rules:
 
 - provider rows are not artificially capped
 - per-blockchain rows show blockchain name, capabilities, rate limit when known, request count, error rate, average response, and optional alert text
-- API-key wording is user-facing: `{ENV_VAR} configured`, `{ENV_VAR} missing`, `no key needed`
+- API-key wording stays user-facing: `{ENV_VAR} configured`, `{ENV_VAR} missing`, `no key needed`
 
-## Explorer Surface
+### Explorer
 
 Applies to:
 
-- `exitbook providers view`
-- `exitbook providers view <selector>`
+- `exitbook providers explore`
+- `exitbook providers explore <selector>`
 
-The explorer is a master-detail Ink app with one list view and one detail panel.
-
-### Explorer detail panel
-
-The detail panel uses the same underlying fields as the static detail card, but:
-
-- prefixes the title with `▸`
-- is height-limited
-- may truncate the blockchain list
-- shows an overflow line when more detail exists than can fit
-
-### Explorer navigation
-
-| Key               | Action            |
-| ----------------- | ----------------- |
-| `↑` / `k`         | Move up           |
-| `↓` / `j`         | Move down         |
-| `PgUp` / `Ctrl-U` | Page up           |
-| `PgDn` / `Ctrl-D` | Page down         |
-| `Home`            | Jump to first row |
-| `End`             | Jump to last row  |
-| `q` / `Esc`       | Quit              |
-
-### Selector behavior
-
-`providers view <selector>` opens the explorer pre-selected on the requested provider.
-
-### Empty explorer behavior
-
-Explorer empties follow the V3 rules:
-
-- `providers view` with a truly empty unfiltered collection collapses to the static empty state
-- filtered-empty explorer requests stay on the explorer code path instead of silently downgrading to static output
-- selector misses fail before any renderer mounts
-
-## JSON
-
-JSON follows the same semantic target regardless of whether the command uses `view`.
-
-- `providers --json` and `providers view --json` return the same list payload
-- `providers <selector> --json` and `providers view <selector> --json` return the same detail payload
-
-### List payload
+The explorer is a master-detail Ink app over the same provider catalog and persisted health data.
 
 Rules:
 
-- list items include summary data only
-- per-blockchain arrays are not inlined in the list payload
+- `explore <selector>` preselects the requested provider
+- filtered-empty explorer states stay in the explorer
+- a truly empty unfiltered collection may collapse to the static empty state
+- explorer detail may truncate for height, but the static detail card must remain complete
 
-### Detail payload
+## JSON Contract
 
-Rules:
+- `providers --json`, `providers list --json`, and `providers explore --json` return the same list payload
+- `providers view <selector> --json` and `providers explore <selector> --json` return the same detail payload
 
-- detail JSON includes the full blockchain array
-- undefined properties are omitted from serialized JSON
+List payload:
 
-## Errors And Help
+```json
+{
+  "providers": [
+    {
+      "name": "alchemy",
+      "displayName": "Alchemy",
+      "chainCount": 1,
+      "healthStatus": "healthy",
+      "apiKeyStatus": "configured"
+    }
+  ]
+}
+```
 
-Expected browse-family errors:
+Detail payload extends the list item with:
 
-- `Use bare "providers" instead of "providers list".`
-- `Provider selector '<value>' not found`
-- `Provider selector cannot be combined with --blockchain, --health, or --missing-api-key`
+- `blockchains[]`
+- optional `apiKeyEnvName`
+- optional `lastError`
+- optional `lastErrorTime`
 
-Help copy should keep the family model explicit:
+## Acceptance Notes
 
-- bare `providers` is the quick static browse
-- `providers <selector>` is the focused static detail
-- `providers view` is the explorer
-- `--json` preserves semantic shape rather than surface shape
+- `view` is always static detail, never the explorer
+- `explore` is always the explorer verb
+- root and `list` stay equivalent for static list output
+- selector resolution must not diverge between `view` and `explore`

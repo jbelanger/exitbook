@@ -47,6 +47,7 @@ vi.mock('../../view/index.js', () => ({
   createBlockchainsViewState: mockCreateBlockchainsViewState,
 }));
 
+import { registerBlockchainsExploreCommand } from '../blockchains-explore.js';
 import { registerBlockchainsViewCommand } from '../blockchains-view.js';
 import { registerBlockchainsCommand } from '../blockchains.js';
 
@@ -168,7 +169,7 @@ afterAll(() => {
 });
 
 describe('registerBlockchainsCommand', () => {
-  it('registers the blockchains namespace with the root browse action and view subcommand', () => {
+  it('registers the blockchains namespace with list, view, and explore subcommands', () => {
     const program = new Command();
 
     registerBlockchainsCommand(program, createAppRuntime());
@@ -176,7 +177,9 @@ describe('registerBlockchainsCommand', () => {
     const blockchainsCommand = program.commands.find((command) => command.name() === 'blockchains');
     expect(blockchainsCommand).toBeDefined();
     expect(blockchainsCommand?.description()).toBe('Browse supported blockchains and provider configuration');
-    expect(blockchainsCommand?.commands.map((command) => command.name())).toContain('view');
+    expect(blockchainsCommand?.commands.map((command) => command.name())).toEqual(
+      expect.arrayContaining(['list', 'view', 'explore'])
+    );
   });
 
   it('outputs summary-shaped JSON from the bare root command', async () => {
@@ -228,7 +231,55 @@ describe('registerBlockchainsCommand', () => {
     );
   });
 
-  it('outputs detail-shaped JSON for a blockchain selector', async () => {
+  it('outputs summary-shaped JSON from the explicit list alias', async () => {
+    const program = new Command();
+
+    mockListBlockchainProviders.mockReturnValue([
+      createBlockchainProviderDescriptor({
+        blockchain: 'bitcoin',
+        displayName: 'Mempool',
+        name: 'mempool',
+      }),
+    ]);
+
+    registerBlockchainsCommand(program, createAppRuntime(['bitcoin']));
+
+    await program.parseAsync(['blockchains', 'list', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'blockchains-list',
+      {
+        blockchains: [
+          expect.objectContaining({
+            name: 'bitcoin',
+            displayName: 'Bitcoin',
+            category: 'utxo',
+            providerCount: 1,
+          }),
+        ],
+      },
+      {
+        total: 1,
+        byCategory: { utxo: 1 },
+        totalProviders: 1,
+        filters: undefined,
+      }
+    );
+  });
+
+  it('rejects bare selectors and points callers to view or explore', async () => {
+    const program = new Command();
+
+    registerBlockchainsCommand(program, createAppRuntime());
+
+    await expect(program.parseAsync(['blockchains', 'ethereum', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:blockchains:json:Use "blockchains view ethereum" for static detail or "blockchains explore ethereum" for the explorer.:2'
+    );
+  });
+});
+
+describe('registerBlockchainsViewCommand', () => {
+  it('outputs detail-shaped JSON for one blockchain', async () => {
     const program = new Command();
 
     mockListBlockchainProviders.mockReturnValue([
@@ -247,12 +298,12 @@ describe('registerBlockchainsCommand', () => {
     ]);
     process.env['ALCHEMY_API_KEY'] = 'configured';
 
-    registerBlockchainsCommand(program, createAppRuntime(['bitcoin', 'ethereum']));
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin', 'ethereum']));
 
-    await program.parseAsync(['blockchains', 'ETHEREUM', '--json'], { from: 'user' });
+    await program.parseAsync(['blockchains', 'view', 'ETHEREUM', '--json'], { from: 'user' });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'blockchains',
+      'blockchains-view',
       expect.objectContaining({
         name: 'ethereum',
         displayName: 'Ethereum',
@@ -274,15 +325,37 @@ describe('registerBlockchainsCommand', () => {
     );
   });
 
+  it('stays static on an interactive terminal instead of mounting Ink', async () => {
+    const program = new Command();
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    setTerminalInteractivity(true);
+    mockListBlockchainProviders.mockReturnValue([
+      createBlockchainProviderDescriptor({
+        blockchain: 'bitcoin',
+        displayName: 'Mempool',
+        name: 'mempool',
+      }),
+    ]);
+
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin']));
+
+    await program.parseAsync(['blockchains', 'view', 'bitcoin'], { from: 'user' });
+
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(stdoutWrite).toHaveBeenCalledWith(expect.stringContaining('Bitcoin bitcoin utxo L1'));
+    stdoutWrite.mockRestore();
+  });
+
   it('rejects combining a selector with browse filters', async () => {
     const program = new Command();
 
-    registerBlockchainsCommand(program, createAppRuntime());
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime());
 
     await expect(
-      program.parseAsync(['blockchains', 'bitcoin', '--category', 'utxo'], { from: 'user' })
+      program.parseAsync(['blockchains', 'view', 'bitcoin', '--category', 'utxo'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:blockchains:text:Blockchain selector cannot be combined with --category or --requires-api-key:2'
+      'CLI:blockchains-view:text:Blockchain selector cannot be combined with --category or --requires-api-key:2'
     );
   });
 
@@ -290,15 +363,15 @@ describe('registerBlockchainsCommand', () => {
     const program = new Command();
 
     mockListBlockchainProviders.mockReturnValue([]);
-    registerBlockchainsCommand(program, createAppRuntime(['bitcoin']));
+    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin']));
 
-    await expect(program.parseAsync(['blockchains', 'ethereum', '--json'], { from: 'user' })).rejects.toThrow(
-      "CLI:blockchains:json:Blockchain selector 'ethereum' not found:4"
+    await expect(program.parseAsync(['blockchains', 'view', 'ethereum', '--json'], { from: 'user' })).rejects.toThrow(
+      "CLI:blockchains-view:json:Blockchain selector 'ethereum' not found:4"
     );
   });
 });
 
-describe('registerBlockchainsViewCommand', () => {
+describe('registerBlockchainsExploreCommand', () => {
   it('renders the TUI with a preselected blockchain on an interactive terminal', async () => {
     const program = new Command();
 
@@ -318,9 +391,9 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin', 'solana']));
+    registerBlockchainsExploreCommand(program.command('blockchains'), createAppRuntime(['bitcoin', 'solana']));
 
-    await program.parseAsync(['blockchains', 'view', 'solana'], { from: 'user' });
+    await program.parseAsync(['blockchains', 'explore', 'solana'], { from: 'user' });
 
     expect(mockCreateBlockchainsViewState).toHaveBeenCalledWith(
       [expect.objectContaining({ name: 'bitcoin' }), expect.objectContaining({ name: 'solana' })],
@@ -353,9 +426,9 @@ describe('registerBlockchainsViewCommand', () => {
       }),
     ]);
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime(['bitcoin']));
+    registerBlockchainsExploreCommand(program.command('blockchains'), createAppRuntime(['bitcoin']));
 
-    await program.parseAsync(['blockchains', 'view', 'bitcoin'], { from: 'user' });
+    await program.parseAsync(['blockchains', 'explore', 'bitcoin'], { from: 'user' });
 
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(stdoutWrite).toHaveBeenCalledWith(expect.stringContaining('Bitcoin bitcoin utxo L1'));
@@ -365,12 +438,12 @@ describe('registerBlockchainsViewCommand', () => {
   it('routes invalid category errors through the JSON CLI error path', async () => {
     const program = new Command();
 
-    registerBlockchainsViewCommand(program.command('blockchains'), createAppRuntime());
+    registerBlockchainsExploreCommand(program.command('blockchains'), createAppRuntime());
 
     await expect(
-      program.parseAsync(['blockchains', 'view', '--category', 'invalid', '--json'], { from: 'user' })
+      program.parseAsync(['blockchains', 'explore', '--category', 'invalid', '--json'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:blockchains-view:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other:2'
+      'CLI:blockchains-explore:json:Invalid category: invalid. Supported: evm, substrate, cosmos, utxo, solana, other:2'
     );
 
     expect(mockListBlockchainProviders).not.toHaveBeenCalled();

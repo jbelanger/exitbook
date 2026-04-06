@@ -47,6 +47,7 @@ vi.mock('../../view/index.js', () => ({
   createProvidersViewState: mockCreateProvidersViewState,
 }));
 
+import { registerProvidersExploreCommand } from '../providers-explore.js';
 import { registerProvidersViewCommand } from '../providers-view.js';
 import { registerProvidersCommand } from '../providers.js';
 
@@ -181,7 +182,7 @@ afterAll(() => {
 });
 
 describe('registerProvidersCommand', () => {
-  it('registers the providers namespace with browse and benchmark subcommands', () => {
+  it('registers the providers namespace with list, view, explore, and benchmark subcommands', () => {
     const program = new Command();
 
     registerProvidersCommand(program, createAppRuntime());
@@ -189,7 +190,7 @@ describe('registerProvidersCommand', () => {
     const providersCommand = program.commands.find((command) => command.name() === 'providers');
     expect(providersCommand).toBeDefined();
     expect(providersCommand?.commands.map((command) => command.name())).toEqual(
-      expect.arrayContaining(['view', 'benchmark'])
+      expect.arrayContaining(['list', 'view', 'explore', 'benchmark'])
     );
   });
 
@@ -234,15 +235,65 @@ describe('registerProvidersCommand', () => {
     );
   });
 
-  it('outputs detail-shaped JSON for a provider selector', async () => {
+  it('outputs summary-shaped JSON from the explicit list alias', async () => {
     const program = new Command();
 
     registerProvidersCommand(program, createAppRuntime());
 
-    await program.parseAsync(['providers', 'ALCHEMY', '--json'], { from: 'user' });
+    await program.parseAsync(['providers', 'list', '--json'], { from: 'user' });
+
+    expect(mockProvidersViewExecute).toHaveBeenCalledWith({
+      blockchain: undefined,
+      health: undefined,
+      missingApiKey: undefined,
+    });
 
     expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'providers',
+      'providers-list',
+      {
+        providers: [
+          expect.objectContaining({
+            name: 'blockstream.info',
+            chainCount: 1,
+            healthStatus: 'no-stats',
+          }),
+          expect.objectContaining({
+            name: 'alchemy',
+            chainCount: 1,
+            healthStatus: 'healthy',
+          }),
+        ],
+      },
+      {
+        total: 2,
+        byHealth: { degraded: 0, healthy: 1, noStats: 1, unhealthy: 0 },
+        requireApiKey: 1,
+        filters: undefined,
+      }
+    );
+  });
+
+  it('rejects bare selectors and points callers to view or explore', async () => {
+    const program = new Command();
+
+    registerProvidersCommand(program, createAppRuntime());
+
+    await expect(program.parseAsync(['providers', 'alchemy', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:providers:json:Use "providers view alchemy" for static detail or "providers explore alchemy" for the explorer.:2'
+    );
+  });
+});
+
+describe('registerProvidersViewCommand', () => {
+  it('outputs detail-shaped JSON for one provider', async () => {
+    const program = new Command();
+
+    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
+
+    await program.parseAsync(['providers', 'view', 'ALCHEMY', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'providers-view',
       expect.objectContaining({
         name: 'alchemy',
         displayName: 'Alchemy',
@@ -253,35 +304,51 @@ describe('registerProvidersCommand', () => {
     );
   });
 
+  it('stays static on an interactive terminal instead of mounting Ink', async () => {
+    const program = new Command();
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    setTerminalInteractivity(true);
+    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
+
+    await program.parseAsync(['providers', 'view', 'alchemy'], { from: 'user' });
+
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(stdoutWrite).toHaveBeenCalledWith(expect.stringContaining('Alchemy healthy'));
+    stdoutWrite.mockRestore();
+  });
+
   it('rejects combining a selector with browse filters', async () => {
     const program = new Command();
 
-    registerProvidersCommand(program, createAppRuntime());
+    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
 
-    await expect(program.parseAsync(['providers', 'alchemy', '--health', 'healthy'], { from: 'user' })).rejects.toThrow(
-      'CLI:providers:text:Provider selector cannot be combined with --blockchain, --health, or --missing-api-key:2'
+    await expect(
+      program.parseAsync(['providers', 'view', 'alchemy', '--health', 'healthy'], { from: 'user' })
+    ).rejects.toThrow(
+      'CLI:providers-view:text:Provider selector cannot be combined with --blockchain, --health, or --missing-api-key:2'
     );
   });
 
   it('fails with NOT_FOUND when a provider selector does not resolve', async () => {
     const program = new Command();
 
-    registerProvidersCommand(program, createAppRuntime());
+    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
 
-    await expect(program.parseAsync(['providers', 'missing-provider', '--json'], { from: 'user' })).rejects.toThrow(
-      "CLI:providers:json:Provider selector 'missing-provider' not found:4"
-    );
+    await expect(
+      program.parseAsync(['providers', 'view', 'missing-provider', '--json'], { from: 'user' })
+    ).rejects.toThrow("CLI:providers-view:json:Provider selector 'missing-provider' not found:4");
   });
 });
 
-describe('registerProvidersViewCommand', () => {
+describe('registerProvidersExploreCommand', () => {
   it('renders the TUI with a preselected provider on an interactive terminal', async () => {
     const program = new Command();
 
     setTerminalInteractivity(true);
-    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
+    registerProvidersExploreCommand(program.command('providers'), createAppRuntime());
 
-    await program.parseAsync(['providers', 'view', 'alchemy'], { from: 'user' });
+    await program.parseAsync(['providers', 'explore', 'alchemy'], { from: 'user' });
 
     expect(mockCreateProvidersViewState).toHaveBeenCalledWith(
       [expect.objectContaining({ name: 'blockstream.info' }), expect.objectContaining({ name: 'alchemy' })],
@@ -306,9 +373,9 @@ describe('registerProvidersViewCommand', () => {
     const program = new Command();
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
+    registerProvidersExploreCommand(program.command('providers'), createAppRuntime());
 
-    await program.parseAsync(['providers', 'view', 'alchemy'], { from: 'user' });
+    await program.parseAsync(['providers', 'explore', 'alchemy'], { from: 'user' });
 
     expect(mockRenderApp).not.toHaveBeenCalled();
     expect(stdoutWrite).toHaveBeenCalledWith(expect.stringContaining('Alchemy healthy'));
@@ -318,11 +385,11 @@ describe('registerProvidersViewCommand', () => {
   it('routes invalid health errors through the JSON CLI error path', async () => {
     const program = new Command();
 
-    registerProvidersViewCommand(program.command('providers'), createAppRuntime());
+    registerProvidersExploreCommand(program.command('providers'), createAppRuntime());
 
     await expect(
-      program.parseAsync(['providers', 'view', '--health', 'broken', '--json'], { from: 'user' })
-    ).rejects.toThrow(/CLI:providers-view:json:Invalid option/);
+      program.parseAsync(['providers', 'explore', '--health', 'broken', '--json'], { from: 'user' })
+    ).rejects.toThrow(/CLI:providers-explore:json:Invalid option/);
 
     expect(mockProvidersViewExecute).not.toHaveBeenCalled();
   });

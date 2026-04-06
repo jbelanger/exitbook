@@ -2,14 +2,14 @@
 
 ## Scope
 
-This document defines the `blockchains` command family:
+This document defines the `blockchains` browse family:
 
 - `exitbook blockchains`
-- `exitbook blockchains <selector>`
-- `exitbook blockchains view`
+- `exitbook blockchains list`
 - `exitbook blockchains view <selector>`
+- `exitbook blockchains explore [<selector>]`
 
-It specializes the browse-ladder rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
+It specializes the browse rules in [CLI Surface V3 Specification](../cli-surface-v3-spec.md).
 
 Out of scope:
 
@@ -19,32 +19,29 @@ Out of scope:
 
 ## Family Model
 
-The `blockchains` family is a read-only catalog surface for supported chains and their provider coverage.
+`blockchains` is a read-only catalog of supported chains and their registered provider coverage.
 
 Rules:
 
 - browse commands never call live blockchain providers
-- all data comes from the registered blockchain and provider catalog plus local API-key configuration state
+- browse data comes from the registered blockchain catalog, registered providers, and local API-key configuration state
 - `--json` is the only generic output override
 
 ## Command Surface
 
-### Browse shapes
-
-| Shape                         | Meaning                                     | Human surface      |
-| ----------------------------- | ------------------------------------------- | ------------------ |
-| `blockchains`                 | Quick browse of supported blockchains       | Static list        |
-| `blockchains <selector>`      | Focused inspection of one blockchain        | Static detail card |
-| `blockchains view`            | Full blockchain explorer                    | TUI explorer       |
-| `blockchains view <selector>` | Explorer pre-selected on one blockchain     | TUI explorer       |
-| Any of the above + `--json`   | Machine output for the same semantic target | JSON               |
+| Shape                            | Meaning                                     | Human surface      |
+| -------------------------------- | ------------------------------------------- | ------------------ |
+| `blockchains`                    | Quick browse of supported blockchains       | Static list        |
+| `blockchains list`               | Explicit alias of the same static list      | Static list        |
+| `blockchains view <selector>`    | Focused inspection of one blockchain        | Static detail card |
+| `blockchains explore`            | Full blockchain explorer                    | TUI explorer       |
+| `blockchains explore <selector>` | Explorer pre-selected on one blockchain     | TUI explorer       |
+| Any of the above + `--json`      | Machine output for the same semantic target | JSON               |
 
 On a non-interactive terminal:
 
-- `blockchains view` falls back to the same static list as `blockchains`
-- `blockchains view <selector>` falls back to the same static detail as `blockchains <selector>`
-
-`view` does not define a separate text schema or JSON schema.
+- `blockchains explore` falls back to the same static list as `blockchains`
+- `blockchains explore <selector>` falls back to the same static detail as `blockchains view <selector>`
 
 ## Selectors And Options
 
@@ -64,6 +61,7 @@ Rules:
 - selectors cannot be combined with `--category`
 - selectors cannot be combined with `--requires-api-key`
 - selector misses fail with `Blockchain selector '<value>' not found`
+- bare root selectors are invalid; callers must use `view <selector>` or `explore <selector>`
 
 ### Browse options
 
@@ -74,8 +72,6 @@ Supported browse options:
 - `--json`: output JSON
 
 ## Shared Data Semantics
-
-### Blockchain Summary
 
 Each blockchain item includes:
 
@@ -89,127 +85,66 @@ Each blockchain item includes:
 
 ### API-Key Readiness
 
-API-key readiness is summary data derived from the registered providers for a blockchain.
+Readiness is summary data derived from registered providers for a blockchain.
 
 States:
 
-- `all-configured`: at least one provider requires an API key and all required keys are configured
-- `some-missing`: at least one required provider key is missing
-- `none-needed`: no provider for the blockchain requires an API key
+- `all configured`
+- `{N} missing`
+- `none needed`
 
 Rules:
 
 - readiness is local configuration state, not live provider health
-- `requires-api-key` filter includes blockchains with at least one required key, even if some optional no-key providers also exist
+- `--requires-api-key` includes blockchains with at least one required key, even if some optional no-key providers also exist
 - the detail surface still shows providers that do not require keys
 
 ## Browse Surfaces
 
-### Static List Surface
+### Static List
 
 Applies to:
 
 - `exitbook blockchains`
-- `exitbook blockchains view` off-TTY
+- `exitbook blockchains list`
+- `exitbook blockchains explore` off-TTY
 
-#### Header
-
-Format:
+Header:
 
 ```text
 Blockchains{optional filter label} {total} total · {category counts...} · {providerCount} providers
 ```
 
-Rules:
+Table columns:
 
-- `Blockchains` is bold
-- metadata is dim
-- only non-zero category counts are shown
-- category counts are omitted when the list is already filtered to one category
-- filter label is `({category})` or `(requires API key)`
-- no blank line before the header
-- one blank line follows the header before the table or empty state
-
-#### Table
-
-Columns:
-
-| Column      | Meaning                               |
-| ----------- | ------------------------------------- |
-| `NAME`      | Human-readable blockchain name        |
-| `KEY`       | Canonical blockchain key              |
-| `CATEGORY`  | Display category                      |
-| `LAYER`     | Layer label when known; otherwise `—` |
-| `PROVIDERS` | Number of registered providers        |
-| `API KEYS`  | Compact readiness summary             |
-
-Example:
-
-```text
-Blockchains 3 total · 1 evm · 1 utxo · 1 cosmos · 4 providers
-
-NAME       KEY        CATEGORY  LAYER  PROVIDERS  API KEYS
-Bitcoin    bitcoin    utxo      L1             1  none needed
-Ethereum   ethereum   evm       L1             2  all configured
-Injective  injective  cosmos    L1             1  1 missing
-```
+- `NAME`
+- `KEY`
+- `CATEGORY`
+- `LAYER`
+- `PROVIDERS`
+- `API KEYS`
 
 Rules:
 
-- no controls footer
-- no selected-row expansion
-- no side-by-side detail panel
-- readiness wording is concise and user-facing: `all configured`, `N missing`, `none needed`
+- category counts omit zeros
+- category counts are omitted when already filtered to one category
+- readiness wording stays concise and user-facing
+- static output never shows controls, selected-row chrome, or side-by-side detail
 
-#### Empty states
-
-Unfiltered empty state:
-
-```text
-Blockchains 0 total
-
-No blockchains found.
-```
-
-Filtered empty state:
-
-```text
-Blockchains (evm) 0 total · 0 providers
-
-No blockchains found for category evm.
-```
-
-### Static Detail Surface
+### Static Detail
 
 Applies to:
 
-- `exitbook blockchains <selector>`
-- `exitbook blockchains view <selector>` off-TTY
+- `exitbook blockchains view <selector>`
+- `exitbook blockchains explore <selector>` off-TTY
 
-#### Title line
-
-Format:
+Title line:
 
 ```text
 {displayName} {key} {category} {layer?}
 ```
 
-Where:
-
-- `{displayName}` is bold
-- `{key}` is dim
-- `{category}` is cyan
-- `{layer}` is dim and omitted when unknown
-
-Example:
-
-```text
-Ethereum ethereum evm L1
-```
-
-#### Body
-
-Field order:
+Body order:
 
 1. `Key`
 2. `Category`
@@ -219,177 +154,58 @@ Field order:
 6. `Example address`
 7. `Providers` section
 
-Example:
-
-```text
-Ethereum ethereum evm L1
-
-Key: ethereum
-Category: evm
-Layer: L1
-Providers: 2
-API keys: all configured
-Example address: 0x742d35Cc...
-
-Providers
-alchemy      balance · txs · tokens   5/sec   ALCHEMY_API_KEY configured
-etherscan    balance · txs            5/sec   no key needed
-```
-
 Rules:
 
 - provider rows are not artificially capped
-- provider rows show provider display name, capabilities, rate limit when known, and API-key status
-- API-key status wording is user-facing: `configured`, `missing`, `no key needed`
+- provider rows show name, API-key requirement, capabilities, and configured rate-limit summary when known
+- detail copy stays user-facing and avoids implementation terms
 
-## Explorer Surface
+### Explorer
 
 Applies to:
 
-- `exitbook blockchains view`
-- `exitbook blockchains view <selector>`
+- `exitbook blockchains explore`
+- `exitbook blockchains explore <selector>`
 
-The explorer is a master-detail Ink app with one list view and one detail panel.
-
-### Explorer layout
-
-The explorer renders:
-
-1. a blank line
-2. the shared header
-3. a blank line
-4. a selectable blockchain list
-5. a divider
-6. a fixed-height detail panel
-7. a blank line
-8. a controls bar
-
-### Explorer rows
-
-Each row contains:
-
-- display name
-- category
-- optional layer
-- provider count
-- API-key readiness summary
-
-Example:
-
-```text
-▸ Ethereum  evm  L1  2 providers  all configured
-```
-
-### Explorer detail panel
-
-The detail panel uses the same underlying fields as the static detail card, but:
-
-- prefixes the title with `▸`
-- is height-limited
-- may truncate the provider list
-- shows an overflow line when more detail exists than can fit
-
-### Explorer navigation
-
-| Key               | Action            |
-| ----------------- | ----------------- |
-| `↑` / `k`         | Move up           |
-| `↓` / `j`         | Move down         |
-| `PgUp` / `Ctrl-U` | Page up           |
-| `PgDn` / `Ctrl-D` | Page down         |
-| `Home`            | Jump to first row |
-| `End`             | Jump to last row  |
-| `q` / `Esc`       | Quit              |
-
-### Selector behavior
-
-`blockchains view <selector>` opens the explorer pre-selected on the requested blockchain.
-
-### Empty explorer behavior
-
-Explorer empties follow the V3 rules:
-
-- `blockchains view` with a truly empty unfiltered collection collapses to the static empty state
-- filtered-empty explorer requests stay on the explorer code path instead of silently downgrading to static output
-- selector misses fail before any renderer mounts
-
-## JSON
-
-JSON follows the same semantic target regardless of whether the command uses `view`.
-
-- `blockchains --json` and `blockchains view --json` return the same list payload
-- `blockchains <selector> --json` and `blockchains view <selector> --json` return the same detail payload
-
-### List payload
-
-Shape:
-
-```json
-{
-  "data": {
-    "blockchains": []
-  },
-  "meta": {
-    "total": 3,
-    "byCategory": {
-      "evm": 1
-    },
-    "totalProviders": 4
-  }
-}
-```
+The explorer is a master-detail Ink app over the same catalog data.
 
 Rules:
 
-- list items include summary data only
-- provider arrays are not inlined in the list payload
+- `explore <selector>` preselects the requested blockchain
+- filtered-empty explorer states stay in the explorer
+- a truly empty unfiltered collection may collapse to the static empty state
+- explorer detail may truncate for height, but the static detail card must remain complete
 
-### Detail payload
+## JSON Contract
 
-Shape:
+- `blockchains --json`, `blockchains list --json`, and `blockchains explore --json` return the same list payload
+- `blockchains view <selector> --json` and `blockchains explore <selector> --json` return the same detail payload
+
+List payload:
 
 ```json
 {
-  "data": {
-    "name": "ethereum",
-    "displayName": "Ethereum",
-    "category": "evm",
-    "layer": "1",
-    "providerCount": 2,
-    "keyStatus": "all-configured",
-    "missingKeyCount": 0,
-    "exampleAddress": "0x742d35Cc...",
-    "providers": [
-      {
-        "name": "alchemy",
-        "displayName": "Alchemy",
-        "requiresApiKey": true,
-        "apiKeyEnvName": "ALCHEMY_API_KEY",
-        "apiKeyConfigured": true,
-        "capabilities": ["balance", "txs", "tokens"],
-        "rateLimit": "5/sec"
-      }
-    ]
-  }
+  "blockchains": [
+    {
+      "name": "ethereum",
+      "displayName": "Ethereum",
+      "category": "evm",
+      "layer": "L1",
+      "providerCount": 2,
+      "keyStatus": "all-configured"
+    }
+  ]
 }
 ```
 
-Rules:
+Detail payload extends the list item with:
 
-- detail JSON includes the full provider array
-- undefined properties are omitted from serialized JSON
+- `exampleAddress`
+- `providers[]`
 
-## Errors And Help
+## Acceptance Notes
 
-Expected browse-family errors:
-
-- `Use bare "blockchains" instead of "blockchains list".`
-- `Blockchain selector '<value>' not found`
-- `Blockchain selector cannot be combined with --category or --requires-api-key`
-
-Help copy should keep the family model explicit:
-
-- bare `blockchains` is the quick static browse
-- `blockchains <selector>` is the focused static detail
-- `blockchains view` is the explorer
-- `--json` preserves semantic shape rather than surface shape
+- `view` is always static detail, never the explorer
+- `explore` is always the explorer verb
+- root and `list` stay equivalent for static list output
+- selector resolution must not diverge between `view` and `explore`

@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 
-import { explorerDetailSurfaceSpec, explorerListSurfaceSpec } from '../../../cli/presentation.js';
+import { staticDetailSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerProvidersBrowseOptions, runProvidersBrowseCommand } from './providers-browse-command.js';
@@ -8,23 +8,20 @@ import { registerProvidersBrowseOptions, runProvidersBrowseCommand } from './pro
 export function registerProvidersViewCommand(providersCommand: Command, appRuntime: CliAppRuntime): void {
   registerProvidersBrowseOptions(
     providersCommand
-      .command('view [selector]')
-      .description('Open the providers explorer')
+      .command('view <selector>')
+      .description('Show static detail for one provider')
       .addHelpText(
         'after',
         `
 Examples:
-  $ exitbook providers view
   $ exitbook providers view alchemy
-  $ exitbook providers view --blockchain ethereum
-  $ exitbook providers view --health degraded
-  $ exitbook providers view --missing-api-key
-  $ exitbook providers view --json
+  $ exitbook providers view blockstream.info
+  $ exitbook providers view alchemy --json
 
 Common Usage:
-  - Browse provider health and performance across blockchains
-  - Inspect one provider in detail before benchmarking it
-  - Find providers missing local API-key configuration
+  - Inspect one provider before benchmarking it
+  - Copy a static provider snapshot into docs, notes, or tickets
+  - Pair with "providers explore" when you want navigation and filters instead of one-off detail
 `
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {
@@ -33,7 +30,7 @@ Common Usage:
       providerSelector: selector,
       commandId: 'providers-view',
       rawOptions,
-      surfaceSpec: selector ? explorerDetailSurfaceSpec('providers-view') : explorerListSurfaceSpec('providers-view'),
+      surfaceSpec: staticDetailSurfaceSpec('providers-view'),
     });
   });
 }

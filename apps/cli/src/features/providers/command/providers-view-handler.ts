@@ -21,7 +21,7 @@ interface ProvidersViewParams {
 }
 
 /**
- * Tier 1 handler for `providers view`.
+ * Tier 1 handler for providers browse surfaces.
  * Loads provider data from registry + stats DB; testable with mock registry.
  */
 export class ProvidersViewHandler {

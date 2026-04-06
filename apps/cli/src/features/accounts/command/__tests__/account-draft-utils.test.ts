@@ -49,7 +49,7 @@ describe('buildCreateAccountInput', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe(
-        "Unknown blockchain: fakechain. Run 'exitbook blockchains view' to see supported blockchains."
+        "Unknown blockchain: fakechain. Run 'exitbook blockchains list' to see supported blockchains."
       );
     }
   });

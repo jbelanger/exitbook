@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 
 import { cliErr, ExitCodes, runCliCommandBoundary } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
-import { staticDetailSurfaceSpec, staticListSurfaceSpec } from '../../../cli/presentation.js';
+import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerProvidersBenchmarkCommand } from './providers-benchmark.js';
@@ -13,15 +13,16 @@ import {
   prepareProvidersBrowseCommand,
   registerProvidersBrowseOptions,
 } from './providers-browse-command.js';
+import { registerProvidersExploreCommand } from './providers-explore.js';
+import { registerProvidersListCommand } from './providers-list.js';
 import { registerProvidersViewCommand } from './providers-view.js';
 
 const PROVIDERS_COMMAND_ID = 'providers';
-const PROVIDERS_LIST_ALIAS = 'list';
 
 export function registerProvidersCommand(program: Command, appRuntime: CliAppRuntime): void {
   const providers = program
     .command('providers')
-    .usage('[selector] [options]')
+    .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('Browse blockchain API providers and benchmark live rate limits')
@@ -30,19 +31,20 @@ export function registerProvidersCommand(program: Command, appRuntime: CliAppRun
       `
 Examples:
   $ exitbook providers
-  $ exitbook providers alchemy
-  $ exitbook providers view
+  $ exitbook providers list --health degraded
   $ exitbook providers view alchemy
-  $ exitbook providers view --blockchain ethereum
+  $ exitbook providers explore
+  $ exitbook providers explore alchemy
+  $ exitbook providers explore --blockchain ethereum
   $ exitbook providers benchmark --blockchain ethereum --provider alchemy
 
 Browse Options:
 ${buildProvidersBrowseOptionsHelpText()}
 
 Notes:
-  - Use bare "providers" for a static provider list.
-  - Use "providers <name>" for a static provider detail card.
-  - Use "providers view" for the interactive explorer.
+  - Use bare "providers" or "providers list" for a static provider list.
+  - Use "providers view <name>" for a static provider detail card.
+  - Use "providers explore" for the interactive explorer.
   - "providers benchmark" sends live requests and may consume provider quota.
 `
     );
@@ -56,21 +58,21 @@ Notes:
           const parsedInvocation = yield* parseCliBrowseRootInvocationResult(tokens, registerProvidersBrowseOptions);
           const providerSelector = parsedInvocation.selector?.trim();
 
-          if (providerSelector?.toLowerCase() === PROVIDERS_LIST_ALIAS) {
+          if (providerSelector) {
             return yield* cliErr(
-              new Error('Use bare "providers" instead of "providers list".'),
+              new Error(
+                `Use "providers view ${providerSelector}" for static detail or ` +
+                  `"providers explore ${providerSelector}" for the explorer.`
+              ),
               ExitCodes.INVALID_ARGS
             );
           }
 
           const prepared = yield* prepareProvidersBrowseCommand({
             appRuntime,
-            providerSelector,
             commandId: PROVIDERS_COMMAND_ID,
             rawOptions: parsedInvocation.rawOptions,
-            surfaceSpec: providerSelector
-              ? staticDetailSurfaceSpec(PROVIDERS_COMMAND_ID)
-              : staticListSurfaceSpec(PROVIDERS_COMMAND_ID),
+            surfaceSpec: staticListSurfaceSpec(PROVIDERS_COMMAND_ID),
           });
 
           return yield* await executePreparedProvidersBrowseCommand(prepared, appRuntime);
@@ -78,6 +80,8 @@ Notes:
     });
   });
 
+  registerProvidersListCommand(providers, appRuntime);
   registerProvidersViewCommand(providers, appRuntime);
+  registerProvidersExploreCommand(providers, appRuntime);
   registerProvidersBenchmarkCommand(providers, appRuntime);
 }
