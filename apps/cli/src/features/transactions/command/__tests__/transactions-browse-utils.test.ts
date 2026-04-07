@@ -4,7 +4,7 @@ import type { Result } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { applyTransactionFilters, type TransactionsBrowseFilters } from '../transactions-view-utils.js';
+import { applyTransactionFilters, type TransactionsBrowseFilters } from '../transactions-browse-utils.js';
 
 // Test data helper
 function createTestTransaction(

@@ -2,7 +2,7 @@
 
 Tracks migration status against the normative surface contract in [CLI Surface V3 Specification](/Users/joel/Dev/exitbook/docs/specs/cli/cli-surface-v3-spec.md).
 
-Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selector>`, `noun explore`, and `noun explore <selector>`. Families previously marked done against the older bare-selector ladder are back in a phase-0 normalization pass until they match this contract.
+Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selector>`, `noun explore`, and `noun explore <selector>`. The phase-0 normalization pass for already-migrated browse families is complete; remaining work is the still-pending families below.
 
 ## Status Key
 
@@ -38,16 +38,11 @@ Current reset: V3 is now standardizing on `noun`, `noun list`, `noun view <selec
 
 ## Notes
 
-- `profiles` is treated as complete as a static-only browse family: root list, explicit `list`, and `view <selector>`, with no explorer.
-- `accounts` is back to `done`.
-- `transactions` has now been normalized to the phase-0 contract.
+- `profiles` is intentionally complete as a static-only browse family: root list, explicit `list`, and `view <selector>`, with no explorer.
+- `accounts`, `transactions`, `blockchains`, `providers`, and `assets` all match the phase-0 browse contract now.
 - `balance` is no longer a user-facing CLI family; stored balance inspection moved into `accounts`, and live rebuild/verification lives under `accounts refresh`.
-- `blockchains` and `providers` have been normalized to the phase-0 contract.
-- `accounts` has now been normalized to the phase-0 contract.
-- `assets` has now been normalized to the phase-0 contract.
 - `providers benchmark` remains a separate workflow command by design.
-- `links` and `prices` are paused behind the phase-0 normalization pass so we do not mix two browse contracts in the shipped CLI.
-- This tracker is about user-facing shape, not internal helper refactors.
+- The remaining tracker work is about user-facing family shape, not internal helper refactors.
 
 ## Deferred Smells
 
@@ -58,12 +53,12 @@ Classification:
 - `family-local`: cleanup is specific to one family and should usually be handled there.
 - `cross-cutting`: likely worth a broader pass because the same pattern may exist in multiple families.
 
-| Scope           | Area           | Smell                                                                                                                                                                                                                                                                                                 | Better handled where                                                               |
-| --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `family-local`  | `blockchains`  | [blockchains-catalog-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-catalog-utils.ts) still mixes category/layer heuristics, catalog assembly, filtering, and sort order.                                                                                   | Revisit inside the `blockchains` family only if the catalog grows.                 |
-| `cross-cutting` | CLI browse     | [blockchain-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchain-view-projection.ts) reads `process.env` directly to compute API-key readiness. If this pattern repeats, projection modules are doing host/config work.                                          | Reassess across browse families after more V3 migrations land.                     |
-| `family-local`  | `blockchains`  | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                                                                | Low-priority naming cleanup in the `blockchains` command folder.                   |
-| `cross-cutting` | CLI workflows  | [spinner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/spinner.ts) is a thin Ora wrapper and does not encode when animated spinners are acceptable under V3. Workflow commands currently decide TTY vs durable-progress behavior individually.                                            | Reassess after more workflow migrations, not inside one family.                    |
-| `family-local`  | `assets`       | [asset-snapshot-reader.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/asset-snapshot-reader.ts) now owns freshness checks, snapshot assembly, selector resolution, and browse-item projection. It is still coherent, but it is the first file to split if the family grows.        | Revisit inside the `assets` family only if more browse behavior lands.             |
-| `family-local`  | `transactions` | [transactions-explore.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/command/transactions-explore.ts) now owns selector resolution, static fallback, TUI bootstrap, and inline export orchestration. It is still coherent, but it is the first place to split if the explorer grows. | Revisit inside the `transactions` family only if the explorer gains more behavior. |
-| `cross-cutting` | CLI docs       | Browse-family specs are still named `*-view-spec.md` even when they now define the full family contract (`noun`, `list`, `view`, `explore`, workflow notes). The content is correct, but the file naming is drifting from the actual surface model.                                                   | Revisit across specs after the phase-0 normalization pass is complete.             |
+| Scope           | Area           | Smell                                                                                                                                                                                                                                                                                                                      | Better handled where                                                               |
+| --------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `family-local`  | `blockchains`  | [blockchains-catalog-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-catalog-utils.ts) still mixes category/layer heuristics, catalog assembly, filtering, and sort order.                                                                                                        | Revisit inside the `blockchains` family only if the catalog grows.                 |
+| `cross-cutting` | CLI browse     | [blockchain-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/blockchain-view-projection.ts) reads `process.env` directly to compute API-key readiness. If this pattern repeats, projection modules are doing host/config work.                                                               | Reassess across browse families after more V3 migrations land.                     |
+| `family-local`  | `blockchains`  | [blockchains-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/blockchains/command/blockchains-option-schemas.ts) is still a generic filename even though it now exports only `BlockchainsBrowseCommandOptionsSchema`.                                                                                     | Low-priority naming cleanup in the `blockchains` command folder.                   |
+| `cross-cutting` | CLI workflows  | [spinner.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/spinner.ts) is a thin Ora wrapper and does not encode when animated spinners are acceptable under V3. Workflow commands currently decide TTY vs durable-progress behavior individually.                                                                 | Reassess after more workflow migrations, not inside one family.                    |
+| `family-local`  | `assets`       | [asset-snapshot-reader.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/asset-snapshot-reader.ts) now owns freshness checks, snapshot assembly, selector resolution, and browse-item projection. It is still coherent, but it is the first file to split if the family grows.                             | Revisit inside the `assets` family only if more browse behavior lands.             |
+| `family-local`  | `transactions` | [transactions-explore.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/command/transactions-explore.ts) still owns selector resolution, static fallback, TUI bootstrap, and inline export orchestration. It is coherent for the current explorer, but it is the first place to split if the explorer grows. | Revisit inside the `transactions` family only if the explorer gains more behavior. |
+| `cross-cutting` | CLI docs       | Browse-family specs are still named `*-view-spec.md` even when they now define the full family contract (`noun`, `list`, `view`, `explore`, workflow notes). The content is correct, but the file naming is drifting from the actual surface model.                                                                        | Revisit across specs after the phase-0 normalization pass is complete.             |

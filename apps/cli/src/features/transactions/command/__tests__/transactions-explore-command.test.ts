@@ -59,7 +59,7 @@ vi.mock('../transactions-read-support.js', () => ({
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
-vi.mock('../transactions-view-utils.js', () => ({
+vi.mock('../transactions-browse-utils.js', () => ({
   buildTransactionsJsonFilters: vi.fn(
     (params: {
       assetSymbol?: string | undefined;
