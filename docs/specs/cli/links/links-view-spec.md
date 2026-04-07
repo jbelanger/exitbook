@@ -99,7 +99,6 @@ Transaction Links  {confirmed} confirmed · {suggested} suggested · {rejected} 
 - Title: white/bold
 - Counts: green for confirmed, yellow for suggested, dim for rejected
 - Dot separators: dim
-- When `--limit` truncates: append `· showing {displayed} of {total}` (dim)
 
 When filtered by status:
 
@@ -388,14 +387,6 @@ exitbook links view --min-confidence 0.8                         # High confiden
 exitbook links view --min-confidence 0.3 --max-confidence 0.7   # Medium range
 ```
 
-### Limit
-
-```bash
-exitbook links view --limit 20
-```
-
-Applies to both modes. In links mode, header shows `showing X of Y` when truncated.
-
 ### Verbose
 
 Only applies in links mode. Adds address details to the detail panel.
@@ -608,7 +599,6 @@ Options:
   --gaps                     Show coverage gaps instead of link proposals
   --min-confidence <score>   Minimum confidence score 0-1 (links mode only)
   --max-confidence <score>   Maximum confidence score 0-1 (links mode only)
-  --limit <number>           Maximum items to display
   --verbose                  Include address details (links mode only)
   --json                     Output JSON, bypass TUI
   -h, --help                 Display help

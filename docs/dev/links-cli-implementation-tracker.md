@@ -2,6 +2,10 @@
 
 Tracks the active semantic-cleanup slice for the `links` family before the full V3 browse migration.
 
+## Status
+
+Phase 0 is complete. The remaining `links` work is the full V3 browse-family migration, not more semantic cleanup of `status` vs `gaps`.
+
 ## Goal
 
 Clarify the `links` review model so the CLI stops treating coverage gaps like a link status.
@@ -10,8 +14,9 @@ Clarify the `links` review model so the CLI stops treating coverage gaps like a 
 
 - Real link statuses in code are `suggested`, `confirmed`, and `rejected` in [links-option-schemas.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/links-option-schemas.ts).
 - Coverage gaps are produced by separate analysis in [links-gap-analysis.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/view/links-gap-analysis.ts).
-- The current spec still documents `--status gaps` in [links-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/links/links-view-spec.md), which no longer matches the live schema.
-- The current CLI still exposes `links gaps` as a separate browse entrypoint in [links.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/links.ts).
+- `links view --gaps` is now the canonical gaps entrypoint in [links-view.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/view/links-view.ts).
+- `links gaps` still exists, but only as a compatibility alias documented in [links.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/links.ts).
+- The current links spec now matches that contract in [links-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/links/links-view-spec.md).
 
 ## Canonical Terms
 
@@ -22,21 +27,32 @@ Clarify the `links` review model so the CLI stops treating coverage gaps like a 
 - `gaps`: coverage-analysis lens over unresolved movement coverage, not a link status
 - `needs-review`: future union queue for suggested links plus gaps; not part of the current phase-0 contract
 
-## Phase 0 Scope
+## Phase 0 Decisions
 
-1. Make `links view --gaps` the canonical gaps entrypoint.
-2. Keep `links gaps` as a compatibility alias during migration.
-3. Remove `gap` / `gaps` from status-oriented language in current docs and help.
-4. Add strict validation so `--gaps` cannot be combined with links-only filters such as `--status`, confidence filters, or `--verbose`.
+1. `status` remains `suggested | confirmed | rejected` only.
+2. `gaps` is a separate coverage-analysis lens, not a status value.
+3. `links view --gaps` is the canonical gaps path.
+4. `links gaps` remains as a compatibility alias until the full family migration lands.
+5. `needs-review` stays deferred until the unified queue shape is explicitly designed.
 
-## Exit Criteria
+## Phase 0 Work Completed
 
 - `links` docs and help no longer describe gaps as a status value.
 - `links view --gaps` works in both text and JSON modes.
-- `links gaps` still works, but is documented as compatibility-only.
-- `needs-review` stays explicitly deferred until the unified queue shape is designed.
+- `links gaps` still works and is documented as compatibility-only.
+- `--gaps` is rejected when combined with links-only filters such as `--status`, confidence filters, or `--verbose`.
 
-## Out Of Scope
+## Next Phase
+
+- Normalize the family onto the V3 browse shape:
+  - `links`
+  - `links list`
+  - `links view <fingerprint>`
+  - `links explore [fingerprint]`
+- Decide the default queue shape on top of the now-clean `status` / `gaps` contract.
+- Revisit whether the compatibility alias can be removed after the browse migration lands.
+
+## Still Out Of Scope
 
 - Full `links` V3 browse-ladder migration (`links`, `links list`, `links view <fingerprint>`, `links explore [fingerprint]`)
 - Changing review commands from numeric IDs to fingerprints

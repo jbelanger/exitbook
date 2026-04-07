@@ -210,6 +210,44 @@ describe('links view commands', () => {
     );
   });
 
+  it('outputs gaps JSON through links view --gaps', async () => {
+    const program = createProgram();
+
+    mockAnalyzeLinkGaps.mockReturnValue({
+      issues: [{ txFingerprint: 'tx-1' }],
+      summary: {
+        affected_assets: 1,
+        assets: [],
+        total_issues: 1,
+        unmatched_outflows: 0,
+        uncovered_inflows: 1,
+      },
+    });
+
+    await program.parseAsync(['links', 'view', '--gaps', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'links-view',
+      {
+        data: [{ txFingerprint: 'tx-1' }],
+        meta: {
+          count: 1,
+          offset: 0,
+          limit: 1,
+          hasMore: false,
+          filters: {
+            total_issues: 1,
+            uncovered_inflows: 1,
+            unmatched_outflows: 0,
+            affected_assets: 1,
+            assets: [],
+          },
+        },
+      },
+      undefined
+    );
+  });
+
   it('renders the gaps TUI after closing the database', async () => {
     const program = createProgram();
     let renderedElement: ReactElement | undefined;
@@ -239,6 +277,44 @@ describe('links view commands', () => {
     expect(mockAnalyzeLinkGaps).toHaveBeenCalledOnce();
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('LinksViewApp');
+  });
+
+  it('keeps links gaps as a JSON compatibility alias', async () => {
+    const program = createProgram();
+
+    mockAnalyzeLinkGaps.mockReturnValue({
+      issues: [{ txFingerprint: 'tx-compat' }],
+      summary: {
+        affected_assets: 1,
+        assets: [],
+        total_issues: 1,
+        unmatched_outflows: 1,
+        uncovered_inflows: 0,
+      },
+    });
+
+    await program.parseAsync(['links', 'gaps', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'links-gaps',
+      {
+        data: [{ txFingerprint: 'tx-compat' }],
+        meta: {
+          count: 1,
+          offset: 0,
+          limit: 1,
+          hasMore: false,
+          filters: {
+            total_issues: 1,
+            uncovered_inflows: 0,
+            unmatched_outflows: 1,
+            affected_assets: 1,
+            assets: [],
+          },
+        },
+      },
+      undefined
+    );
   });
 
   it('routes view data failures through the CLI boundary', async () => {
