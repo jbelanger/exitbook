@@ -51,7 +51,7 @@ export class HttpClient {
     this.effects = {
       delay: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
       fetch: ((url: string | URL, init?: RequestInit) =>
-        undiciFetch(url, { ...init, dispatcher: this.agent })) as typeof fetch,
+        undiciFetch(url, { ...(init as Parameters<typeof undiciFetch>[1]), dispatcher: this.agent })) as typeof fetch,
       log: (level, message, metadata) => {
         if (metadata) {
           this.logger[level](metadata, message);
