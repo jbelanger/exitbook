@@ -1,4 +1,4 @@
-// Utilities and types for view transactions command
+// Utilities and types for transactions browse filters
 
 import type { Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -10,9 +10,9 @@ import type { ExportFormat } from '../transactions-export-model.js';
 import type { TransactionsViewFilters } from '../transactions-view-model.js';
 
 /**
- * Parameters for view transactions command.
+ * Parameters shared across transactions browse surfaces.
  */
-export interface ViewTransactionsParams extends CommonViewFilters {
+export interface TransactionsBrowseFilters extends CommonViewFilters {
   platform?: string | undefined;
   assetSymbol?: string | undefined;
   operationType?: string | undefined;
@@ -24,7 +24,7 @@ export interface ViewTransactionsParams extends CommonViewFilters {
  */
 export function applyTransactionFilters(
   transactions: Transaction[],
-  params: ViewTransactionsParams
+  params: TransactionsBrowseFilters
 ): Result<Transaction[], Error> {
   let filtered = transactions;
 
@@ -90,7 +90,7 @@ export function validateUntilDate(until: string | undefined): Result<void, Error
 }
 
 export function buildTransactionsViewFilters(
-  params: Pick<ViewTransactionsParams, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
+  params: Pick<TransactionsBrowseFilters, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
 ): TransactionsViewFilters {
   return {
     platformFilter: params.platform,
@@ -101,7 +101,7 @@ export function buildTransactionsViewFilters(
 }
 
 export function buildTransactionsJsonFilters(
-  params: Pick<ViewTransactionsParams, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'>
+  params: Pick<TransactionsBrowseFilters, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'>
 ): Record<string, unknown> | undefined {
   return buildDefinedFilters({
     platform: params.platform,

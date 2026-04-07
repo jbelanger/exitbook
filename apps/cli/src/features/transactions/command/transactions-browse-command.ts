@@ -6,6 +6,7 @@ import {
   createCliFailure,
   ExitCodes,
   jsonSuccess,
+  runCliRuntimeCommand,
   textSuccess,
   toCliResult,
   toCliValue,
@@ -13,7 +14,7 @@ import {
   type CliCompletion,
   type CliFailure,
 } from '../../../cli/command.js';
-import { parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import type { TransactionsViewState } from '../view/index.js';
@@ -31,6 +32,7 @@ import { TransactionsBrowseCommandOptionsSchema } from './transactions-option-sc
 type TransactionsBrowseCommandOptions = z.infer<typeof TransactionsBrowseCommandOptionsSchema>;
 
 interface ExecuteTransactionsBrowseCommandInput {
+  commandId: string;
   rawOptions: unknown;
   transactionSelector?: string | undefined;
 }
@@ -77,7 +79,7 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition
   },
 ];
 
-const TRANSACTIONS_VIEW_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
+const TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
   {
     flags: '--limit <number>',
     description: 'Maximum number of transactions to return',
@@ -89,10 +91,10 @@ export function registerTransactionsBrowseOptions(command: Command): Command {
   return registerOptionDefinitions(command, TRANSACTIONS_FILTER_OPTION_DEFINITIONS);
 }
 
-export function registerTransactionsViewOptions(command: Command): Command {
+export function registerTransactionsExploreOptions(command: Command): Command {
   return registerOptionDefinitions(command, [
     ...TRANSACTIONS_FILTER_OPTION_DEFINITIONS,
-    ...TRANSACTIONS_VIEW_ONLY_OPTION_DEFINITIONS,
+    ...TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS,
   ]);
 }
 
@@ -136,6 +138,17 @@ export function prepareTransactionsBrowseCommand(
       noPrice: options.noPrice,
     },
     surfaceKind: input.transactionSelector ? 'detail' : 'list',
+  });
+}
+
+export async function runTransactionsBrowseCommand(input: ExecuteTransactionsBrowseCommandInput): Promise<void> {
+  const format = detectCliOutputFormat(input.rawOptions);
+
+  await runCliRuntimeCommand({
+    command: input.commandId,
+    format,
+    prepare: async () => prepareTransactionsBrowseCommand(input),
+    action: async (context) => executePreparedTransactionsBrowseCommand(context.runtime, context.prepared, format),
   });
 }
 

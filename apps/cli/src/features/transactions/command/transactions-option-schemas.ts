@@ -32,7 +32,7 @@ export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsS
   json: z.boolean().optional(),
 });
 
-export const TransactionsViewCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
+export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
 });

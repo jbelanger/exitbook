@@ -79,13 +79,19 @@ export function createTransactionsViewState(
   transactions: TransactionViewItem[],
   filters: TransactionsViewFilters,
   totalCount: number,
-  categoryCounts?: CategoryCounts
+  categoryCounts?: CategoryCounts,
+  initialSelectedIndex?: number
 ): TransactionsViewState {
+  const safeSelectedIndex =
+    transactions.length === 0
+      ? 0
+      : Math.min(Math.max(initialSelectedIndex ?? 0, 0), Math.max(transactions.length - 1, 0));
+
   return {
     transactions,
     categoryCounts: categoryCounts ?? computeCategoryCounts(transactions),
     totalCount,
-    selectedIndex: 0,
+    selectedIndex: safeSelectedIndex,
     scrollOffset: 0,
     filters,
     displayedCount: transactions.length < totalCount ? transactions.length : undefined,

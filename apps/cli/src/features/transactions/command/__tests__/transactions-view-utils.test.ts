@@ -4,7 +4,7 @@ import type { Result } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { applyTransactionFilters, type ViewTransactionsParams } from '../transactions-view-utils.js';
+import { applyTransactionFilters, type TransactionsBrowseFilters } from '../transactions-view-utils.js';
 
 // Test data helper
 function createTestTransaction(
@@ -56,7 +56,7 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({ id: 3, datetime: '2024-01-20T10:00:00Z' }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         until: '2024-01-15T23:59:59Z',
       };
 
@@ -72,7 +72,7 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({ id: 2, datetime: '2024-01-20T10:00:00Z' }),
       ];
 
-      const params: ViewTransactionsParams = {};
+      const params: TransactionsBrowseFilters = {};
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
@@ -124,7 +124,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         assetSymbol: 'BTC',
       };
 
@@ -164,7 +164,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         assetSymbol: 'USD',
       };
 
@@ -216,7 +216,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         assetSymbol: 'BTC',
       };
 
@@ -229,7 +229,7 @@ describe('applyTransactionFilters', () => {
     it('should return all transactions when asset filter is not provided', () => {
       const transactions: Transaction[] = [createTestTransaction({ id: 1 }), createTestTransaction({ id: 2 })];
 
-      const params: ViewTransactionsParams = {};
+      const params: TransactionsBrowseFilters = {};
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
@@ -245,7 +245,7 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({ id: 3, operation: { category: 'trade', type: 'buy' } }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         operationType: 'buy',
       };
 
@@ -261,7 +261,7 @@ describe('applyTransactionFilters', () => {
         createTestTransaction({ id: 2, operation: { category: 'trade', type: 'sell' } }),
       ];
 
-      const params: ViewTransactionsParams = {};
+      const params: TransactionsBrowseFilters = {};
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
@@ -305,7 +305,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         noPrice: true,
       };
 
@@ -346,7 +346,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         noPrice: true,
       };
 
@@ -387,7 +387,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {};
+      const params: TransactionsBrowseFilters = {};
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
@@ -484,7 +484,7 @@ describe('applyTransactionFilters', () => {
         }),
       ];
 
-      const params: ViewTransactionsParams = {
+      const params: TransactionsBrowseFilters = {
         until: '2024-01-15T23:59:59Z',
         assetSymbol: 'BTC',
         operationType: 'buy',

@@ -50,6 +50,10 @@ vi.mock('../transactions-read-support.js', () => ({
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
+vi.mock('../transactions-explore.js', () => ({
+  registerTransactionsExploreCommand: vi.fn(),
+}));
+
 vi.mock('../../view/transactions-static-renderer.js', () => ({
   outputTransactionStaticDetail: mockOutputTransactionStaticDetail,
   outputTransactionsStaticList: mockOutputTransactionsStaticList,
@@ -180,23 +184,15 @@ describe('transactions root command', () => {
     expect(mockOutputTransactionStaticDetail).not.toHaveBeenCalled();
   });
 
-  it('renders the static detail for a bare fingerprint ref', async () => {
+  it('rejects bare selectors and points callers to view or explore', async () => {
     const program = createProgram();
-    const transaction = createTransaction({ id: 9, txFingerprint: createFingerprint('c') });
-    const fingerprintRef = transaction.txFingerprint.slice(0, 10);
 
-    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
-
-    await program.parseAsync(['transactions', fingerprintRef], { from: 'user' });
-
-    expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, fingerprintRef);
-    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledOnce();
-    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 9,
-        txFingerprint: transaction.txFingerprint,
-      })
+    await expect(program.parseAsync(['transactions', 'abc123'], { from: 'user' })).rejects.toThrow(
+      'CLI:transactions:text:Use "transactions view abc123" for static detail or "transactions explore abc123" for the explorer.:2'
     );
+
+    expect(mockFindByFingerprintRef).not.toHaveBeenCalled();
+    expect(mockOutputTransactionStaticDetail).not.toHaveBeenCalled();
     expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
   });
 
@@ -225,43 +221,11 @@ describe('transactions root command', () => {
     );
   });
 
-  it('outputs detail JSON for the bare fingerprint ref form', async () => {
-    const program = createProgram();
-    const transaction = createTransaction({ id: 42, txFingerprint: createFingerprint('f') });
-    const fingerprintRef = transaction.txFingerprint.slice(0, 10);
-
-    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
-
-    await program.parseAsync(['transactions', fingerprintRef, '--json'], { from: 'user' });
-
-    expect(mockOutputSuccess).toHaveBeenCalledWith(
-      'transactions',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          id: 42,
-          txFingerprint: transaction.txFingerprint,
-        }),
-        meta: expect.objectContaining({
-          count: 1,
-          limit: 1,
-          hasMore: false,
-          offset: 0,
-          filters: {
-            transaction: fingerprintRef,
-          },
-        }),
-      }),
-      undefined
-    );
-  });
-
-  it('rejects combining a bare transaction ref with list filters', async () => {
+  it('rejects bare selectors with JSON and points callers to view or explore', async () => {
     const program = createProgram();
 
-    await expect(
-      program.parseAsync(['transactions', 'abc123', '--platform', 'kraken'], { from: 'user' })
-    ).rejects.toThrow(
-      'CLI:transactions:text:Transaction selector cannot be combined with --platform, --asset, --since, --until, --operation-type, or --no-price:2'
+    await expect(program.parseAsync(['transactions', 'abc123', '--json'], { from: 'user' })).rejects.toThrow(
+      'CLI:transactions:json:Use "transactions view abc123" for static detail or "transactions explore abc123" for the explorer.:2'
     );
 
     expect(mockFindByFingerprintRef).not.toHaveBeenCalled();

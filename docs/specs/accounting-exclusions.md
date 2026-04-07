@@ -210,7 +210,7 @@ Some surfaces intentionally read excluded rows by passing `includeExcluded: true
 
 Current examples:
 
-- transactions view
+- transactions view / transactions explore
 - transactions export
 - assets exclusion commands, which resolve assets against the full known-transaction set
 - balance verification, which inspects excluded persisted transactions separately

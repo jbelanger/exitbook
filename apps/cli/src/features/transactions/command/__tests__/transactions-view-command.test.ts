@@ -1,39 +1,36 @@
-import { err, ok } from '@exitbook/foundation';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- ok for tests */
+import type { Transaction } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok, parseDecimal } from '@exitbook/foundation';
 import { Command } from 'commander';
-import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
+
 const {
-  mockComputeCategoryCounts,
-  mockCreateTransactionsViewState,
   mockCtx,
   mockExitCliFailure,
-  mockExportExecute,
+  mockFindByFingerprintRef,
   mockOutputSuccess,
+  mockOutputTransactionStaticDetail,
+  mockOutputTransactionsStaticList,
   mockPrepareTransactionsCommandScope,
   mockReadTransactionsForCommand,
-  mockRenderApp,
   mockRunCommand,
-  mockToTransactionViewItem,
-  mockWriteFilesWithAtomicRenames,
 } = vi.hoisted(() => ({
-  mockComputeCategoryCounts: vi.fn(),
-  mockCreateTransactionsViewState: vi.fn(),
   mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
-  mockExportExecute: vi.fn(),
+  mockFindByFingerprintRef: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockOutputTransactionStaticDetail: vi.fn(),
+  mockOutputTransactionsStaticList: vi.fn(),
   mockPrepareTransactionsCommandScope: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
-  mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockToTransactionViewItem: vi.fn(),
-  mockWriteFilesWithAtomicRenames: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   CommandRuntime: class {},
-  renderApp: mockRenderApp,
   runCommand: mockRunCommand,
 }));
 
@@ -45,10 +42,6 @@ vi.mock('../../../../cli/output.js', () => ({
   outputSuccess: mockOutputSuccess,
 }));
 
-vi.mock('../../../shared/file-utils.js', () => ({
-  writeFilesWithAtomicRenames: mockWriteFilesWithAtomicRenames,
-}));
-
 vi.mock('../transactions-command-scope.js', () => ({
   prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
@@ -57,84 +50,9 @@ vi.mock('../transactions-read-support.js', () => ({
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
-vi.mock('../transactions-view-utils.js', () => ({
-  buildTransactionsJsonFilters: vi.fn(
-    (params: {
-      assetSymbol?: string | undefined;
-      noPrice?: boolean | undefined;
-      operationType?: string | undefined;
-      platform?: string | undefined;
-      since?: string | undefined;
-      until?: string | undefined;
-    }) => {
-      const filters = Object.fromEntries(
-        Object.entries({
-          platform: params.platform,
-          asset: params.assetSymbol,
-          since: params.since,
-          until: params.until,
-          operationType: params.operationType,
-          noPrice: params.noPrice ? true : undefined,
-        }).filter(([, value]) => value !== undefined)
-      );
-
-      return Object.keys(filters).length > 0 ? filters : undefined;
-    }
-  ),
-  buildTransactionsViewFilters: vi.fn(
-    (params: {
-      assetSymbol?: string | undefined;
-      noPrice?: boolean | undefined;
-      operationType?: string | undefined;
-      platform?: string | undefined;
-    }) => ({
-      platformFilter: params.platform,
-      assetFilter: params.assetSymbol,
-      operationTypeFilter: params.operationType,
-      noPriceFilter: params.noPrice,
-    })
-  ),
-  generateDefaultPath: vi.fn(() => 'data/kraken-transactions.json'),
-  parseSinceToUnixSeconds: vi.fn((since: string | undefined) => {
-    if (!since) {
-      return ok(undefined);
-    }
-
-    const date = new Date(since);
-    if (Number.isNaN(date.getTime())) {
-      return err(new Error(`Invalid date format: ${since}`));
-    }
-
-    return ok(Math.floor(date.getTime() / 1000));
-  }),
-  validateUntilDate: vi.fn((until: string | undefined) => {
-    if (!until) {
-      return ok(undefined);
-    }
-
-    const date = new Date(until);
-    if (Number.isNaN(date.getTime())) {
-      return err(new Error(`Invalid date format: ${until}`));
-    }
-
-    return ok(undefined);
-  }),
-}));
-
-vi.mock('../../transaction-view-projection.js', () => ({
-  toTransactionViewItem: mockToTransactionViewItem,
-}));
-
-vi.mock('../transactions-export-handler.js', () => ({
-  TransactionsExportHandler: class {
-    execute = mockExportExecute;
-  },
-}));
-
-vi.mock('../../view/index.js', () => ({
-  TransactionsViewApp: 'TransactionsViewApp',
-  computeCategoryCounts: mockComputeCategoryCounts,
-  createTransactionsViewState: mockCreateTransactionsViewState,
+vi.mock('../../view/transactions-static-renderer.js', () => ({
+  outputTransactionStaticDetail: mockOutputTransactionStaticDetail,
+  outputTransactionsStaticList: mockOutputTransactionsStaticList,
 }));
 
 import { registerTransactionsViewCommand } from '../transactions-view.js';
@@ -143,6 +61,47 @@ function createProgram(): Command {
   const program = new Command();
   registerTransactionsViewCommand(program.command('transactions'));
   return program;
+}
+
+function createFingerprint(seed: string): string {
+  return seed.repeat(64);
+}
+
+function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
+  const datetime = overrides.datetime ?? '2026-03-01T12:00:00.000Z';
+
+  return createPersistedTransaction({
+    id: overrides.id ?? 1,
+    accountId: overrides.accountId ?? 1,
+    txFingerprint: overrides.txFingerprint ?? createFingerprint('a'),
+    platformKey: overrides.platformKey ?? 'kraken',
+    platformKind: overrides.platformKind ?? 'exchange',
+    datetime,
+    timestamp: overrides.timestamp ?? Date.parse(datetime),
+    status: overrides.status ?? 'success',
+    operation: overrides.operation ?? {
+      category: 'trade',
+      type: 'buy',
+    },
+    movements: overrides.movements ?? {
+      inflows: [
+        {
+          assetId: 'asset:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossAmount: parseDecimal('1'),
+          netAmount: parseDecimal('1'),
+        },
+      ],
+      outflows: [],
+    },
+    fees: overrides.fees ?? [],
+    from: overrides.from,
+    to: overrides.to,
+    blockchain: overrides.blockchain,
+    notes: overrides.notes,
+    excludedFromAccounting: overrides.excludedFromAccounting,
+    isSpam: overrides.isSpam,
+  });
 }
 
 describe('transactions view command', () => {
@@ -158,7 +117,11 @@ describe('transactions view command', () => {
     );
     mockPrepareTransactionsCommandScope.mockResolvedValue(
       ok({
-        database: { tag: 'db' },
+        database: {
+          transactions: {
+            findByFingerprintRef: mockFindByFingerprintRef,
+          },
+        },
         profile: {
           id: 1,
           profileKey: 'default',
@@ -167,109 +130,72 @@ describe('transactions view command', () => {
         },
       })
     );
-    mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }, { id: 2 }]));
-    mockToTransactionViewItem.mockImplementation((transaction: { id: number }) => ({
-      id: transaction.id,
-      platformKey: 'kraken',
-    }));
-    mockComputeCategoryCounts.mockReturnValue({ trade: 2 });
-    mockCreateTransactionsViewState.mockReturnValue({ tag: 'view-state' });
-    mockExportExecute.mockResolvedValue(
-      ok({
-        outputs: [{ path: '/tmp/transactions.json', content: '{}' }],
-        transactionCount: 2,
-        format: 'json',
-        csvFormat: undefined,
-      })
-    );
-    mockWriteFilesWithAtomicRenames.mockResolvedValue(ok(['/tmp/transactions.json']));
+    mockReadTransactionsForCommand.mockResolvedValue(ok([]));
+    mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
   });
 
-  it('outputs JSON through the shared boundary with the normalized command id', async () => {
+  it('renders static detail for one transaction fingerprint ref', async () => {
     const program = createProgram();
+    const transaction = createTransaction({ id: 9, txFingerprint: createFingerprint('c') });
+    const fingerprintRef = transaction.txFingerprint.slice(0, 10);
 
-    await program.parseAsync(['transactions', 'view', '--platform', 'kraken', '--json'], { from: 'user' });
+    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
 
-    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
-    expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
-      db: { tag: 'db' },
-      profileId: 1,
-      platformKey: 'kraken',
-      since: undefined,
-      until: undefined,
-      assetSymbol: undefined,
-      operationType: undefined,
-      noPrice: undefined,
-    });
+    await program.parseAsync(['transactions', 'view', fingerprintRef], { from: 'user' });
+
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
+    expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, fingerprintRef);
+    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledOnce();
+    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 9,
+        txFingerprint: transaction.txFingerprint,
+      })
+    );
+    expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
+  });
+
+  it('outputs detail JSON for one transaction fingerprint ref', async () => {
+    const program = createProgram();
+    const transaction = createTransaction({ id: 42, txFingerprint: createFingerprint('f') });
+    const fingerprintRef = transaction.txFingerprint.slice(0, 10);
+
+    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
+
+    await program.parseAsync(['transactions', 'view', fingerprintRef, '--json'], { from: 'user' });
+
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'transactions-view',
-      {
-        data: [
-          { id: 1, platformKey: 'kraken' },
-          { id: 2, platformKey: 'kraken' },
-        ],
-        meta: {
-          count: 2,
-          offset: 0,
-          limit: 50,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: 42,
+          txFingerprint: transaction.txFingerprint,
+        }),
+        meta: expect.objectContaining({
+          count: 1,
+          limit: 1,
           hasMore: false,
+          offset: 0,
           filters: {
-            platform: 'kraken',
+            transaction: fingerprintRef,
           },
-        },
-      },
+        }),
+      }),
       undefined
     );
   });
 
-  it('treats invalid --until values as invalid-args failures before loading transactions', async () => {
+  it('rejects combining a transaction ref with browse filters', async () => {
     const program = createProgram();
 
     await expect(
-      program.parseAsync(['transactions', 'view', '--until', 'not-a-date', '--json'], { from: 'user' })
-    ).rejects.toThrow('CLI:transactions-view:json:Invalid date format: not-a-date:2');
+      program.parseAsync(['transactions', 'view', 'abc123', '--platform', 'kraken'], { from: 'user' })
+    ).rejects.toThrow(
+      'CLI:transactions-view:text:Transaction selector cannot be combined with --platform, --asset, --since, --until, --operation-type, or --no-price:2'
+    );
 
+    expect(mockFindByFingerprintRef).not.toHaveBeenCalled();
     expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
-  });
-
-  it('renders the TUI and preserves the parsed --since filter for inline export', async () => {
-    const program = createProgram();
-    let renderedElement: ReactElement | undefined;
-
-    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
-      renderedElement = create(() => undefined);
-    });
-
-    await program.parseAsync(['transactions', 'view', '--platform', 'kraken', '--since', '2024-01-15'], {
-      from: 'user',
-    });
-
-    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
-    expect(mockRenderApp).toHaveBeenCalledOnce();
-    expect(renderedElement?.type).toBe('TransactionsViewApp');
-    const appElement = renderedElement as ReactElement<{
-      onExport: (format: 'json' | 'csv', csvFormat?: 'normalized' | 'simple') => Promise<unknown>;
-    }>;
-    const exportResult = await appElement.props.onExport('json', undefined);
-    expect(mockExportExecute).toHaveBeenCalledWith({
-      profileId: 1,
-      platformKey: 'kraken',
-      format: 'json',
-      csvFormat: undefined,
-      outputPath: 'data/kraken-transactions.json',
-      since: Math.floor(new Date('2024-01-15').getTime() / 1000),
-      until: undefined,
-      assetSymbol: undefined,
-      operationType: undefined,
-      noPrice: undefined,
-    });
-    expect(mockWriteFilesWithAtomicRenames).toHaveBeenCalledWith([{ path: '/tmp/transactions.json', content: '{}' }]);
-    expect(exportResult).toEqual(
-      ok({
-        outputPaths: ['/tmp/transactions.json'],
-        transactionCount: 2,
-      })
-    );
   });
 });

@@ -16,7 +16,7 @@ import { createTransactionsViewState, type TransactionsViewState } from '../view
 
 import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
-import type { ViewTransactionsParams } from './transactions-view-utils.js';
+import type { TransactionsBrowseFilters } from './transactions-view-utils.js';
 import {
   buildTransactionsJsonFilters,
   buildTransactionsViewFilters,
@@ -24,7 +24,7 @@ import {
   validateUntilDate,
 } from './transactions-view-utils.js';
 
-export interface TransactionsBrowseParams extends ViewTransactionsParams {
+export interface TransactionsBrowseParams extends TransactionsBrowseFilters {
   transactionSelector?: string | undefined;
 }
 

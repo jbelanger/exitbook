@@ -2,7 +2,7 @@ import type { Transaction } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, type Result } from '@exitbook/foundation';
 
-import { applyTransactionFilters, type ViewTransactionsParams } from './transactions-view-utils.js';
+import { applyTransactionFilters, type TransactionsBrowseFilters } from './transactions-view-utils.js';
 
 interface ReadTransactionsForCommandParams {
   assetSymbol?: string | undefined;
@@ -36,5 +36,5 @@ export async function readTransactionsForCommand(
     noPrice: params.noPrice,
     operationType: params.operationType,
     until: params.until,
-  } satisfies ViewTransactionsParams);
+  } satisfies TransactionsBrowseFilters);
 }

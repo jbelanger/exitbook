@@ -11,26 +11,28 @@ import {
   registerTransactionsBrowseOptions,
 } from './transactions-browse-command.js';
 import { registerTransactionsEditCommand } from './transactions-edit.js';
+import { registerTransactionsExploreCommand } from './transactions-explore.js';
 import { registerTransactionsExportCommand } from './transactions-export.js';
+import { registerTransactionsListCommand } from './transactions-list.js';
 import { registerTransactionsViewCommand } from './transactions-view.js';
 
 const TRANSACTIONS_COMMAND_ID = 'transactions';
-const TRANSACTIONS_LIST_ALIAS = 'list';
 
 /**
  * Register the unified transactions command with all subcommands.
  *
  * Structure:
  *   transactions                - Static transaction list
- *   transactions <ref>          - Static transaction detail
- *   transactions view           - View processed transactions with filters
+ *   transactions list           - Explicit static transaction list alias
+ *   transactions view <ref>     - Static transaction detail
+ *   transactions explore        - Interactive transactions explorer
  *   transactions edit note      - Set or clear durable transaction notes
  *   transactions export         - Export all transactions to CSV or JSON
  */
 export function registerTransactionsCommand(program: Command): void {
   const transactions = program
     .command('transactions')
-    .usage('[selector] [options]')
+    .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
     .description('Manage processed transactions (view, edit, and export transaction history)')
@@ -39,8 +41,10 @@ export function registerTransactionsCommand(program: Command): void {
       `
 Examples:
   $ exitbook transactions
-  $ exitbook transactions a1b2c3d4e5
-  $ exitbook transactions view --asset BTC
+  $ exitbook transactions list --platform kraken
+  $ exitbook transactions view a1b2c3d4e5
+  $ exitbook transactions explore --asset BTC
+  $ exitbook transactions explore a1b2c3d4e5
   $ exitbook transactions edit note 123 --message "Moved to Ledger"
   $ exitbook transactions export --format json --output tx.json
   $ exitbook transactions --json
@@ -49,9 +53,9 @@ Browse Options:
 ${buildTransactionsBrowseOptionsHelpText()}
 
 Notes:
-  - Use bare "transactions" for a static transaction list.
-  - Use "transactions <fingerprint_ref>" for a static transaction detail.
-  - Use "transactions view" for the interactive explorer.
+  - Use bare "transactions" or "transactions list" for static transaction lists.
+  - Use "transactions view <fingerprint_ref>" for one static transaction detail card.
+  - Use "transactions explore" for the interactive explorer.
   - Use "transactions edit note" for durable analyst context without changing transaction amounts.
 `
     )
@@ -69,23 +73,29 @@ Notes:
             );
             const transactionSelector = parsedInvocation.selector?.trim();
 
-            if (transactionSelector?.toLowerCase() === TRANSACTIONS_LIST_ALIAS) {
+            if (transactionSelector) {
               return yield* cliErr(
-                new Error('Use bare "transactions" instead of "transactions list".'),
+                new Error(
+                  `Use "transactions view ${transactionSelector}" for static detail or ` +
+                    `"transactions explore ${transactionSelector}" for the explorer.`
+                ),
                 ExitCodes.INVALID_ARGS
               );
             }
 
             return yield* prepareTransactionsBrowseCommand({
-              transactionSelector,
+              commandId: TRANSACTIONS_COMMAND_ID,
               rawOptions: parsedInvocation.rawOptions,
+              transactionSelector: undefined,
             });
           }),
         action: async (context) => executePreparedTransactionsBrowseCommand(context.runtime, context.prepared, format),
       });
     });
 
+  registerTransactionsListCommand(transactions);
   registerTransactionsViewCommand(transactions);
+  registerTransactionsExploreCommand(transactions);
   registerTransactionsEditCommand(transactions);
   registerTransactionsExportCommand(transactions);
 }
