@@ -84,6 +84,6 @@ Same structure as current implementation — no changes needed:
 
 - These commands fetch the link + source/target transactions to build the summary line
 - The Ink render is a single `render()` → `unmount()` — no interactivity, no refresh loop
-- Short IDs: display first 8 chars of UUID (same as `links view` list)
+- Short IDs: display first 8 chars of the representative link ID context (same proposal context as `links` / `links explore`)
 - The handler logic stays the same — only the CLI output layer changes from `console.log` to Ink
 - Accepts both short IDs (first 8 chars) and full UUIDs — handler does prefix match

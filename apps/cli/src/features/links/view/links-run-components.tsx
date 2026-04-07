@@ -256,7 +256,7 @@ const CompletionSection: FC<{ state: LinksRunState }> = ({ state }) => {
       {hasSuggested && (
         <>
           <Text> </Text>
-          <Text dimColor>Next: exitbook links view --status suggested</Text>
+          <Text dimColor>Next: exitbook links explore --status suggested</Text>
         </>
       )}
     </Box>

@@ -1,0 +1,261 @@
+import type { LinkStatus, TransactionLink } from '@exitbook/core';
+import { err, ok, type Result } from '@exitbook/foundation';
+
+import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import {
+  buildLinkProposalFingerprint,
+  formatLinkSelectorRef,
+  resolveLinkGapSelector,
+  resolveLinkProposalSelector,
+} from '../link-selector.js';
+import type { LinkGapBrowseItem, LinkProposalBrowseItem } from '../links-browse-model.js';
+import type { LinkGapAnalysis } from '../links-gap-model.js';
+import type { LinkWithTransactions } from '../links-view-model.js';
+import { buildTransferProposalItems } from '../transfer-proposals.js';
+import { createGapsViewState, createLinksViewState } from '../view/index.js';
+import type { LinksViewGapsState, LinksViewLinksState } from '../view/links-view-state.js';
+
+import { analyzeLinkGaps } from './view/links-gap-analysis.js';
+
+type LinksCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
+
+export interface LinksBrowseParams {
+  gaps?: boolean | undefined;
+  maxConfidence?: number | undefined;
+  minConfidence?: number | undefined;
+  preselectInExplorer?: boolean | undefined;
+  selector?: string | undefined;
+  status?: LinkStatus | undefined;
+  verbose?: boolean | undefined;
+}
+
+export type LinksBrowsePresentation =
+  | {
+      gaps: LinkGapBrowseItem[];
+      mode: 'gaps';
+      selectedGap?: LinkGapBrowseItem | undefined;
+      state: LinksViewGapsState;
+    }
+  | {
+      mode: 'links';
+      proposals: LinkProposalBrowseItem[];
+      selectedProposal?: LinkProposalBrowseItem | undefined;
+      state: LinksViewLinksState;
+    };
+
+export async function buildLinksBrowsePresentation(
+  database: LinksCommandDatabase,
+  profileId: number,
+  params: LinksBrowseParams
+): Promise<Result<LinksBrowsePresentation, Error>> {
+  if (params.gaps === true) {
+    return buildLinksGapsBrowsePresentation(database, profileId, params);
+  }
+
+  return buildLinksProposalBrowsePresentation(database, profileId, params);
+}
+
+async function buildLinksProposalBrowsePresentation(
+  database: LinksCommandDatabase,
+  profileId: number,
+  params: LinksBrowseParams
+): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'links' }>, Error>> {
+  const linksResult = await database.transactionLinks.findAll({
+    profileId,
+    status: params.status,
+  });
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
+  const linksWithTransactions = await fetchTransactionsForLinks(linksResult.value, database.transactions, profileId);
+  const totalProposalCount = countTransferProposals(linksWithTransactions);
+  const state = createLinksViewState(
+    linksWithTransactions,
+    params.status,
+    params.verbose ?? false,
+    totalProposalCount,
+    {
+      maxConfidence: params.maxConfidence,
+      minConfidence: params.minConfidence,
+    }
+  );
+  const proposalsResult = buildProposalBrowseItems(state);
+  if (proposalsResult.isErr()) {
+    return err(proposalsResult.error);
+  }
+
+  const proposals = proposalsResult.value;
+  const selectedProposalResult =
+    params.selector !== undefined
+      ? resolveLinkProposalSelector(toProposalCandidates(proposals), params.selector)
+      : ok(undefined);
+  if (selectedProposalResult.isErr()) {
+    return err(selectedProposalResult.error);
+  }
+
+  const selectedProposal = selectedProposalResult.value?.item;
+  if (params.preselectInExplorer && selectedProposal) {
+    preselectLinksState(state, proposals, selectedProposal);
+  }
+
+  return ok({
+    mode: 'links',
+    proposals,
+    selectedProposal,
+    state,
+  });
+}
+
+async function buildLinksGapsBrowsePresentation(
+  database: LinksCommandDatabase,
+  profileId: number,
+  params: LinksBrowseParams
+): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'gaps' }>, Error>> {
+  const analysisResult = await loadLinksGapAnalysis(database, profileId);
+  if (analysisResult.isErr()) {
+    return err(analysisResult.error);
+  }
+
+  const state = createGapsViewState(analysisResult.value);
+  const gaps = analysisResult.value.issues.map((issue) => ({
+    issue,
+    transactionRef: formatLinkSelectorRef(issue.txFingerprint),
+  }));
+  const selectedGapResult =
+    params.selector !== undefined ? resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : ok(undefined);
+  if (selectedGapResult.isErr()) {
+    return err(selectedGapResult.error);
+  }
+
+  const selectedGap = selectedGapResult.value?.item;
+  if (params.preselectInExplorer && selectedGap) {
+    preselectGapsState(state, gaps, selectedGap);
+  }
+
+  return ok({
+    mode: 'gaps',
+    gaps,
+    selectedGap,
+    state,
+  });
+}
+
+async function fetchTransactionsForLinks(
+  links: readonly TransactionLink[],
+  txRepo: LinksCommandDatabase['transactions'],
+  profileId: number
+): Promise<LinkWithTransactions[]> {
+  const result: LinkWithTransactions[] = [];
+
+  for (const link of links) {
+    const sourceTxResult = await txRepo.findById(link.sourceTransactionId, profileId);
+    const sourceTx = sourceTxResult.isOk() ? sourceTxResult.value : undefined;
+
+    const targetTxResult = await txRepo.findById(link.targetTransactionId, profileId);
+    const targetTx = targetTxResult.isOk() ? targetTxResult.value : undefined;
+
+    result.push({
+      link,
+      sourceTransaction: sourceTx,
+      targetTransaction: targetTx,
+    });
+  }
+
+  return result;
+}
+
+function countTransferProposals(links: LinkWithTransactions[]): number {
+  return buildTransferProposalItems(links).length;
+}
+
+function buildProposalBrowseItems(state: LinksViewLinksState): Result<LinkProposalBrowseItem[], Error> {
+  const items: LinkProposalBrowseItem[] = [];
+
+  for (const proposal of state.proposals) {
+    const fingerprintResult = buildLinkProposalFingerprint(proposal.representativeLink);
+    if (fingerprintResult.isErr()) {
+      return err(fingerprintResult.error);
+    }
+
+    items.push({
+      proposal,
+      proposalRef: formatLinkSelectorRef(fingerprintResult.value),
+      resolvedLinkFingerprint: fingerprintResult.value,
+    });
+  }
+
+  return ok(items);
+}
+
+function toProposalCandidates(
+  proposals: LinkProposalBrowseItem[]
+): { item: LinkProposalBrowseItem; resolvedLinkFingerprint: string }[] {
+  return proposals.map((proposal) => ({
+    item: proposal,
+    resolvedLinkFingerprint: proposal.resolvedLinkFingerprint,
+  }));
+}
+
+function toGapCandidates(gaps: LinkGapBrowseItem[]): { item: LinkGapBrowseItem; txFingerprint: string }[] {
+  return gaps.map((gap) => ({
+    item: gap,
+    txFingerprint: gap.issue.txFingerprint,
+  }));
+}
+
+function preselectLinksState(
+  state: LinksViewLinksState,
+  proposals: LinkProposalBrowseItem[],
+  selectedProposal: LinkProposalBrowseItem
+): void {
+  const selectedIndex = proposals.findIndex(
+    (proposal) => proposal.resolvedLinkFingerprint === selectedProposal.resolvedLinkFingerprint
+  );
+  if (selectedIndex < 0) {
+    return;
+  }
+
+  state.selectedIndex = selectedIndex;
+  state.scrollOffset = selectedIndex;
+}
+
+function preselectGapsState(
+  state: LinksViewGapsState,
+  gaps: LinkGapBrowseItem[],
+  selectedGap: LinkGapBrowseItem
+): void {
+  const selectedIndex = gaps.findIndex((gap) => gap.issue.txFingerprint === selectedGap.issue.txFingerprint);
+  if (selectedIndex < 0) {
+    return;
+  }
+
+  state.selectedIndex = selectedIndex;
+  state.scrollOffset = selectedIndex;
+}
+
+async function loadLinksGapAnalysis(
+  database: LinksCommandDatabase,
+  profileId: number
+): Promise<Result<LinkGapAnalysis, Error>> {
+  const transactionsResult = await database.transactions.findAll({ profileId });
+  if (transactionsResult.isErr()) {
+    return err(transactionsResult.error);
+  }
+
+  const linksResult = await database.transactionLinks.findAll({ profileId });
+  if (linksResult.isErr()) {
+    return err(linksResult.error);
+  }
+
+  const accountsResult = await database.accounts.findAll({ profileId });
+  if (accountsResult.isErr()) {
+    return err(accountsResult.error);
+  }
+
+  return ok(
+    analyzeLinkGaps(transactionsResult.value, linksResult.value, {
+      accounts: accountsResult.value,
+    })
+  );
+}

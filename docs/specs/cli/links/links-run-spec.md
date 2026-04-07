@@ -22,7 +22,7 @@
 
 ✓ Done (1.7s)
 
-Next: exitbook links view --status suggested
+Next: exitbook links explore --status suggested
 ```
 
 ### Re-run (Existing Links Present)
@@ -162,7 +162,7 @@ With next steps (only when suggested > 0):
 ```
 ✓ Done ({totalDuration})
 
-Next: exitbook links view --status suggested
+Next: exitbook links explore --status suggested
 ```
 
 Aborted:

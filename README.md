@@ -216,9 +216,10 @@ pnpm run dev accounts refresh <selector>
 pnpm run dev links run
 
 # Review suggestions, confirmed links, rejected links, or coverage gaps
-pnpm run dev links view
-pnpm run dev links view --status suggested
-pnpm run dev links view --status gaps
+pnpm run dev links
+pnpm run dev links --gaps
+pnpm run dev links explore --status suggested
+pnpm run dev links view <fingerprint>
 
 # Confirm or reject a specific link
 pnpm run dev links confirm <link-id>

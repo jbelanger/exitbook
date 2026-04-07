@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
-export const LinksViewCommandOptionsSchema = z
+export const LinksBrowseCommandOptionsSchema = z
   .object({
     gaps: z.boolean().optional(),
     status: z.enum(['suggested', 'confirmed', 'rejected']).optional(),
@@ -53,3 +53,5 @@ export const LinksRunCommandOptionsSchema = z
 export const LinksReviewCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksGapsCommandOptionsSchema = JsonFlagSchema;
+
+export const LinksExploreCommandOptionsSchema = LinksBrowseCommandOptionsSchema;

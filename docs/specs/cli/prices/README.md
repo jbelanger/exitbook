@@ -6,12 +6,12 @@ Migrate the `prices` namespace to Ink-based UIs, following the same visual langu
 
 ## Concept Mapping (Links → Prices)
 
-| Links Concept          | Prices Parallel                | Notes                                     |
-| ---------------------- | ------------------------------ | ----------------------------------------- |
-| `links run`            | `prices enrich`                | Operation tree with sequential phases     |
-| `links view` (links)   | `prices view` (coverage)       | Asset-level table, read-only detail panel |
-| `links view --gaps`    | `prices view --missing-only`   | Movement-level list with inline set-price |
-| `links confirm/reject` | `prices set` / `prices set-fx` | Stay as-is — simple one-shot CLI commands |
+| Links Concept           | Prices Parallel                | Notes                                     |
+| ----------------------- | ------------------------------ | ----------------------------------------- |
+| `links run`             | `prices enrich`                | Operation tree with sequential phases     |
+| `links explore` (links) | `prices view` (coverage)       | Asset-level table, read-only detail panel |
+| `links explore --gaps`  | `prices view --missing-only`   | Movement-level list with inline set-price |
+| `links confirm/reject`  | `prices set` / `prices set-fx` | Stay as-is — simple one-shot CLI commands |
 
 ## Subcommands
 
