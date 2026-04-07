@@ -25,13 +25,13 @@ Every command should clearly belong to one of those questions.
 
 ## User Journey Map
 
-| Journey              | User question                                | Primary commands                                                        |
-| -------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                      |
-| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh` |
-| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`   |
-| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`   |
-| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                 |
+| Journey              | User question                                | Primary commands                                                             |
+| -------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                           |
+| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh`      |
+| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links view --gaps`, `assets`, `prices` |
+| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`        |
+| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                      |
 
 These journeys are the primary navigation system for humans. Technical ownership and package layout are secondary.
 
@@ -101,7 +101,9 @@ Reserve verbs for stable meanings across the whole CLI.
 
 | Verb           | Meaning                                                             |
 | -------------- | ------------------------------------------------------------------- |
-| `view`         | Open the immersive explorer/TUI for a domain                        |
+| `list`         | Show the default static list for a browse family                    |
+| `view`         | Show focused static detail for one selected item or filtered lens   |
+| `explore`      | Open the immersive explorer/TUI for a domain                        |
 | `run`          | Execute a workflow that changes derived state                       |
 | `refresh`      | Rebuild and re-verify a stored snapshot                             |
 | `enrich`       | Fill missing derived information                                    |

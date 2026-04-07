@@ -225,6 +225,22 @@ describe('links view commands', () => {
     expect(renderedElement?.type).toBe('LinksViewApp');
   });
 
+  it('routes links view --gaps through the gaps flow', async () => {
+    const program = createProgram();
+    let renderedElement: ReactElement | undefined;
+
+    mockRenderApp.mockImplementation(async (create: (unmount: () => void) => ReactElement) => {
+      renderedElement = create(() => undefined);
+    });
+
+    await program.parseAsync(['links', 'view', '--gaps'], { from: 'user' });
+
+    expect(ctx.closeDatabase).toHaveBeenCalledOnce();
+    expect(mockAnalyzeLinkGaps).toHaveBeenCalledOnce();
+    expect(mockRenderApp).toHaveBeenCalledOnce();
+    expect(renderedElement?.type).toBe('LinksViewApp');
+  });
+
   it('routes view data failures through the CLI boundary', async () => {
     const program = createProgram();
     const failure = new Error('failed to load links');
@@ -239,5 +255,21 @@ describe('links view commands', () => {
       expect.objectContaining({ error: failure, exitCode: 1 }),
       'json'
     );
+  });
+
+  it('rejects links-only filters when --gaps is used', async () => {
+    const program = createProgram();
+
+    await expect(
+      program.parseAsync(['links', 'view', '--gaps', '--status', 'confirmed'], { from: 'user' })
+    ).rejects.toThrow('CLI:links-view:text:--gaps cannot be combined with --status:2');
+
+    expect(mockExitCliFailure).toHaveBeenCalledWith('links-view', expect.objectContaining({ exitCode: 2 }), 'text');
+    expect(mockExitCliFailure.mock.calls[0]?.[1]).toMatchObject({
+      error: {
+        message: '--gaps cannot be combined with --status',
+      },
+      exitCode: 2,
+    });
   });
 });

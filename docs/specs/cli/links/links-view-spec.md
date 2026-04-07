@@ -5,9 +5,11 @@
 `exitbook links view` is a two-mode TUI for inspecting transfer links and diagnosing coverage gaps.
 
 - **Links mode** (default): Browse links between transactions — confirm or reject suggestions inline.
-- **Gaps mode** (`--status gaps`): Browse movements that lack confirmed counterparties — uncovered inflows and unmatched outflows.
+- **Gaps mode** (`--gaps`, or legacy `links gaps`): Browse movements that lack confirmed counterparties — uncovered inflows and unmatched outflows.
 
 Both modes share the same two-panel layout (list + detail), scrolling, and navigation. The columns, detail content, and available actions differ per mode.
+
+Phase-0 semantic note: `gaps` is not a link status. Status filters apply only to actual links (`suggested`, `confirmed`, `rejected`). A future `needs-review` queue may combine suggested links and gaps, but that is outside the current command contract.
 
 `--json` bypasses the TUI in either mode.
 
@@ -229,7 +231,7 @@ Default: by status group (confirmed → suggested → rejected), then by confide
 
 ## Gaps Mode
 
-Activated by `--status gaps`. Shows movements that lack confirmed link coverage. Read-only (no mutations).
+Activated by `--gaps`. The legacy `links gaps` command remains a compatibility alias. Shows movements that lack confirmed link coverage. Read-only (no mutations).
 
 ### Visual Example
 
@@ -368,12 +370,18 @@ exitbook links view                     # All links (default)
 exitbook links view --status suggested  # Only suggested links
 exitbook links view --status confirmed  # Only confirmed links
 exitbook links view --status rejected   # Only rejected links
-exitbook links view --status gaps       # Coverage gap analysis
+```
+
+### Gaps Lens (`--gaps`)
+
+```bash
+exitbook links view --gaps              # Coverage gap analysis
+exitbook links gaps                     # Compatibility alias during migration
 ```
 
 ### Confidence Filter
 
-Only applies in links mode. Ignored when `--status gaps`.
+Only applies in links mode. Cannot be combined with `--gaps`.
 
 ```bash
 exitbook links view --min-confidence 0.8                         # High confidence only
@@ -454,7 +462,7 @@ Bypasses the TUI. Output shape depends on mode.
 }
 ```
 
-### Gaps Mode (`--status gaps --json`)
+### Gaps Mode (`--gaps --json`)
 
 ```json
 {
@@ -596,7 +604,8 @@ LinksViewApp
 exitbook links view [options]
 
 Options:
-  --status <status>          Filter by status (suggested, confirmed, rejected, gaps)
+  --status <status>          Filter by status (suggested, confirmed, rejected)
+  --gaps                     Show coverage gaps instead of link proposals
   --min-confidence <score>   Minimum confidence score 0-1 (links mode only)
   --max-confidence <score>   Maximum confidence score 0-1 (links mode only)
   --limit <number>           Maximum items to display
@@ -644,4 +653,4 @@ Database is kept open in links mode (for confirm/reject writes). In gaps mode, d
 
 ### Migration from `gaps` Command
 
-The `analyzeLinkGaps` function moves from `features/gaps/gaps-view-utils.ts` into `features/links/`. The `gaps` command, `GapCategory` type, `FeeGapAnalysis`, `analyzeFeeGaps`, and all fee gap types are removed. The `GapsViewCommandOptionsSchema` in shared schemas is removed. `LinksViewCommandOptionsSchema` gains `'gaps'` as a status enum value.
+The `analyzeLinkGaps` function moves from `features/gaps/gaps-view-utils.ts` into `features/links/`. The old standalone `gaps` command becomes a compatibility alias for the canonical `links view --gaps` path. `LinksViewCommandOptionsSchema` gains a dedicated `gaps` boolean instead of treating gaps as a status value.

@@ -10,27 +10,30 @@ import { registerLinksGapsCommand, registerLinksViewCommand } from './view/links
  * Register the unified links command with all subcommands.
  *
  * Structure:
- *   links run               - Run the linking algorithm
- *   links view              - View links with filters
- *   links gaps              - View link coverage gap analysis
- *   links confirm <id>      - Confirm a suggested link
- *   links reject <id>       - Reject a suggested link
+ *   links run                 - Run the linking algorithm
+ *   links view                - View link proposals with filters
+ *   links view --gaps         - View link coverage gap analysis
+ *   links gaps                - Compatibility alias for links view --gaps
+ *   links confirm <id>        - Confirm a suggested link
+ *   links reject <id>         - Reject a suggested link
  */
 export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime): void {
   const links = program
     .command('links')
-    .description('Manage transaction links (run algorithm, view, confirm, reject)')
+    .description('Manage transaction links (run, review, and diagnose coverage gaps)')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook links run
   $ exitbook links view --status suggested
+  $ exitbook links view --gaps
   $ exitbook links confirm 123
-  $ exitbook links gaps --json
+  $ exitbook links view --gaps --json
 
 Notes:
   - Run "links run" to generate suggestions before using the review commands.
+  - "links gaps" is a compatibility alias for "links view --gaps".
 `
     );
 

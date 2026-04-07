@@ -61,6 +61,14 @@ async function fetchTransactionsForLinks(
 
 type LinksViewCommandResult = ViewCommandResult<LinkInfo[]>;
 type GapsViewCommandResult = ViewCommandResult<LinkGapIssue[]>;
+type PreparedLinksViewCommand =
+  | {
+      mode: 'gaps';
+    }
+  | {
+      mode: 'links';
+      params: LinksViewParams;
+    };
 
 export function registerLinksViewCommand(linksCommand: Command): void {
   linksCommand
@@ -73,6 +81,7 @@ Examples:
   $ exitbook links view                                # View all transaction links
   $ exitbook links view --status suggested             # View AI-suggested links
   $ exitbook links view --status confirmed             # View user-confirmed links
+  $ exitbook links view --gaps                         # View unresolved coverage gaps
   $ exitbook links view --min-confidence 0.8           # View high-confidence links only
   $ exitbook links view --min-confidence 0.3 --max-confidence 0.7  # Medium confidence range
   $ exitbook links view --verbose                      # Include full transaction details
@@ -82,7 +91,7 @@ Common Usage:
   - Validate high-confidence automated matches before confirming
   - Investigate low-confidence matches that need manual review
   - Audit confirmed links for accuracy
-  - Inspect link gap coverage separately with \`exitbook links gaps\`
+  - Inspect link gap coverage separately with \`exitbook links view --gaps\`
 
 Status Values:
   suggested   - Automatically detected by the system
@@ -97,6 +106,7 @@ Confidence Scores:
 `
     )
     .option('--status <status>', 'Filter by status (suggested, confirmed, rejected)')
+    .option('--gaps', 'Show coverage gaps instead of link proposals')
     .option('--min-confidence <score>', 'Filter by minimum confidence score (0-1)', parseFloat)
     .option('--max-confidence <score>', 'Filter by maximum confidence score (0-1)', parseFloat)
     .option('--verbose', 'Include full transaction details (asset, amount, addresses)')
@@ -109,12 +119,13 @@ Confidence Scores:
 export function registerLinksGapsCommand(linksCommand: Command): void {
   linksCommand
     .command('gaps')
-    .description('View transaction-link coverage gap analysis')
+    .description('View transaction-link coverage gap analysis (compatibility alias for links view --gaps)')
     .addHelpText(
       'after',
       `
 Examples:
-  $ exitbook links gaps                   # View uncovered inflows and unmatched outflows
+  $ exitbook links view --gaps            # Canonical gap analysis entrypoint
+  $ exitbook links gaps                   # Compatibility alias
   $ exitbook links gaps --json            # Output gap analysis as JSON
 `
     )
@@ -133,14 +144,26 @@ async function executeLinksViewCommand(rawOptions: unknown): Promise<void> {
     prepare: async () =>
       resultDoAsync(async function* () {
         const options = yield* parseCliCommandOptionsResult(rawOptions, LinksViewCommandOptionsSchema);
+        if (options.gaps === true) {
+          return {
+            mode: 'gaps',
+          } satisfies PreparedLinksViewCommand;
+        }
+
         return {
-          status: options.status,
-          minConfidence: options.minConfidence,
-          maxConfidence: options.maxConfidence,
-          verbose: options.verbose,
-        };
+          mode: 'links',
+          params: {
+            status: options.status,
+            minConfidence: options.minConfidence,
+            maxConfidence: options.maxConfidence,
+            verbose: options.verbose,
+          },
+        } satisfies PreparedLinksViewCommand;
       }),
-    action: async (context) => executeLinksViewCommandResult(context.runtime, context.prepared, format),
+    action: async ({ runtime, prepared }) =>
+      prepared.mode === 'gaps'
+        ? executeLinksGapsCommandResult(runtime, format)
+        : executeLinksViewCommandResult(runtime, prepared.params, format),
   });
 }
 

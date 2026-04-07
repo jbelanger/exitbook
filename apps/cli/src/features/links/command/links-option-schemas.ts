@@ -4,6 +4,7 @@ import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const LinksViewCommandOptionsSchema = z
   .object({
+    gaps: z.boolean().optional(),
     status: z.enum(['suggested', 'confirmed', 'rejected']).optional(),
     minConfidence: z.number().min(0).max(1).optional(),
     maxConfidence: z.number().min(0).max(1).optional(),
@@ -20,7 +21,16 @@ export const LinksViewCommandOptionsSchema = z
     {
       message: 'min-confidence must be less than or equal to max-confidence',
     }
-  );
+  )
+  .refine((data) => !(data.gaps === true && data.status !== undefined), {
+    message: '--gaps cannot be combined with --status',
+  })
+  .refine((data) => !(data.gaps === true && (data.minConfidence !== undefined || data.maxConfidence !== undefined)), {
+    message: '--gaps cannot be combined with confidence filters',
+  })
+  .refine((data) => !(data.gaps === true && data.verbose === true), {
+    message: '--gaps cannot be combined with --verbose',
+  });
 
 export const LinksRunCommandOptionsSchema = z
   .object({
