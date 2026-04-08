@@ -222,8 +222,8 @@ pnpm run dev links explore --status suggested
 pnpm run dev links view <fingerprint>
 
 # Confirm or reject a specific link
-pnpm run dev links confirm <link-id>
-pnpm run dev links reject <link-id>
+pnpm run dev links confirm <proposal-ref>
+pnpm run dev links reject <proposal-ref>
 ```
 
 ### 6. Enrich prices

@@ -4,6 +4,10 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  captureTerminalInteractivity,
+  restoreTerminalInteractivity,
+} from '../../../../runtime/__tests__/terminal-test-utils.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view-model.js';
 
@@ -46,8 +50,7 @@ const {
   mockRunCommand: vi.fn(),
 }));
 
-const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
-const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+const originalTerminalInteractivity = captureTerminalInteractivity();
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
@@ -318,13 +321,7 @@ beforeEach(() => {
 
 afterAll(() => {
   vi.unstubAllEnvs();
-  if (originalStdinTTYDescriptor) {
-    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
-  }
-
-  if (originalStdoutTTYDescriptor) {
-    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
-  }
+  restoreTerminalInteractivity(originalTerminalInteractivity);
 });
 
 describe('accounts browse commands', () => {

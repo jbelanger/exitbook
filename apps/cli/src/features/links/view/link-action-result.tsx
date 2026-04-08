@@ -8,7 +8,7 @@ import type { FC } from 'react';
 interface LinkActionResultProps {
   action: 'confirmed' | 'rejected';
   affectedLinkCount?: number | undefined;
-  linkId: number;
+  proposalRef: string;
   asset: string;
   sourceAmount: string;
   targetAmount: string;
@@ -20,12 +20,12 @@ interface LinkActionResultProps {
 /**
  * Renders a single-line summary for link confirm/reject actions
  *
- * Format: {icon} {action} {id} · {asset} {sourceAmt} → {targetAmt} · {source} → {target} ({confidence})
+ * Format: {icon} {action} {ref} · {asset} {sourceAmt} → {targetAmt} · {source} → {target} ({confidence})
  */
 export const LinkActionResult: FC<LinkActionResultProps> = ({
   action,
   affectedLinkCount,
-  linkId,
+  proposalRef,
   asset,
   sourceAmount,
   targetAmount,
@@ -39,7 +39,7 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
 
   return (
     <Text>
-      <Text color={iconColor}>{icon}</Text> <Text bold>{actionText}</Text> {linkId} <Text dimColor>·</Text> {asset}{' '}
+      <Text color={iconColor}>{icon}</Text> <Text bold>{actionText}</Text> {proposalRef} <Text dimColor>·</Text> {asset}{' '}
       <Text color="green">{sourceAmount}</Text> <Text dimColor>→</Text> <Text color="green">{targetAmount}</Text>{' '}
       <Text dimColor>·</Text> <Text color="cyan">{platformKey}</Text> <Text dimColor>→</Text>{' '}
       <Text color="cyan">{targetName}</Text> <Text dimColor>({confidence})</Text>
@@ -49,7 +49,6 @@ export const LinkActionResult: FC<LinkActionResultProps> = ({
 };
 
 interface LinkActionErrorProps {
-  linkId: number;
   message: string;
 }
 

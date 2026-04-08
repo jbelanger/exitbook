@@ -2,10 +2,14 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  captureTerminalInteractivity,
+  restoreTerminalInteractivity,
+  setTerminalInteractivity,
+} from '../../../../runtime/__tests__/terminal-test-utils.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
-const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
-const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+const originalTerminalInteractivity = captureTerminalInteractivity();
 
 const {
   mockComputeHealthCounts,
@@ -56,18 +60,6 @@ function createAppRuntime(): CliAppRuntime {
     dataDir: '/tmp/provider-data',
     blockchainExplorersConfig: {},
   } as CliAppRuntime;
-}
-
-function setTerminalInteractivity(isInteractive: boolean): void {
-  Object.defineProperty(process.stdin, 'isTTY', {
-    configurable: true,
-    value: isInteractive,
-  });
-  Object.defineProperty(process.stdout, 'isTTY', {
-    configurable: true,
-    value: isInteractive,
-  });
-  delete process.env['CI'];
 }
 
 beforeEach(() => {
@@ -173,12 +165,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  if (originalStdinTTYDescriptor) {
-    Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
-  }
-  if (originalStdoutTTYDescriptor) {
-    Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
-  }
+  restoreTerminalInteractivity(originalTerminalInteractivity);
 });
 
 describe('registerProvidersCommand', () => {

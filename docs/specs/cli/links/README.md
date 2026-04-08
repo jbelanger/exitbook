@@ -13,14 +13,14 @@
 
 ## Subcommands
 
-| Command              | Spec                                                           | Nature                                                         |
-| -------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `links` / `list`     | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for proposals or gaps                       |
-| `links view <ref>`   | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one proposal or one gap                      |
-| `links explore`      | [links-view-spec.md](./links-view-spec.md)                     | Interactive explorer for proposals or gaps                     |
-| `links run`          | [links-run-spec.md](./links-run-spec.md)                       | Workflow command that refreshes proposals                      |
-| `links confirm <id>` | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation; still targets numeric representative link IDs |
-| `links reject <id>`  | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation; still targets numeric representative link IDs |
+| Command               | Spec                                                           | Nature                                                                 |
+| --------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `links` / `list`      | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for proposals or gaps                               |
+| `links view <ref>`    | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one proposal or one gap                              |
+| `links explore`       | [links-view-spec.md](./links-view-spec.md)                     | Interactive explorer for proposals or gaps                             |
+| `links run`           | [links-run-spec.md](./links-run-spec.md)                       | Workflow command that refreshes proposals                              |
+| `links confirm <ref>` | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation using the same derived proposal ref as browse surfaces |
+| `links reject <ref>`  | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation using the same derived proposal ref as browse surfaces |
 
 ## Design Principles
 

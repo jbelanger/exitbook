@@ -115,8 +115,8 @@ This is direction-aware, movement-aware, and asset-id-aware.
 
 | Command                                     | Database mutation                               | Override event                                                                           |
 | ------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `links confirm <id>`                        | sets link status to `confirmed`                 | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
-| `links reject <id>`                         | sets link status to `rejected`                  | appends `scope='unlink'`, `type='unlink_override'`                                       |
+| `links confirm <ref>`                       | sets link status to `confirmed`                 | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
+| `links reject <ref>`                        | sets link status to `rejected`                  | appends `scope='unlink'`, `type='unlink_override'`                                       |
 | `transactions edit note <id> --message ...` | materializes a durable note on that transaction | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='set'`   |
 | `transactions edit note <id> --clear`       | clears the durable note on that transaction     | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='clear'` |
 | `prices set ...`                            | saves manual price                              | appends `scope='price'`, `type='price_override'`                                         |

@@ -2,7 +2,7 @@
 
 ## Overview
 
-`exitbook links confirm <id>` and `exitbook links reject <id>` remain as standalone CLI commands for scripting and non-TUI workflows. They get a cleaner single-line Ink output.
+`exitbook links confirm <ref>` and `exitbook links reject <ref>` remain as standalone CLI commands for scripting and non-TUI workflows. They use the same proposal ref contract as `links view` and `links explore`.
 
 ---
 
@@ -11,31 +11,31 @@
 ### Confirm Success
 
 ```
-✓ Confirmed m3n4o5p6 · ETH 2.0000 → 1.9970 · coinbase → ethereum (82.4%)
+✓ Confirmed a1b2c3d4e5 · ETH 2.0000 → 1.9970 · coinbase → ethereum (82.4%)
 ```
 
 ### Reject Success
 
 ```
-✗ Rejected m3n4o5p6 · ETH 2.0000 → 1.9970 · coinbase → ethereum (82.4%)
+✗ Rejected a1b2c3d4e5 · ETH 2.0000 → 1.9970 · coinbase → ethereum (82.4%)
 ```
 
 ### Already Confirmed
 
 ```
-⚠ Link m3n4o5p6 is already confirmed
+⚠ Link a1b2c3d4e5 is already confirmed
 ```
 
 ### Already Rejected
 
 ```
-⚠ Link m3n4o5p6 is already rejected
+⚠ Link a1b2c3d4e5 is already rejected
 ```
 
 ### Link Not Found
 
 ```
-⚠ Link m3n4o5p6 not found
+⚠ Link a1b2c3d4e5 not found
 ```
 
 ---
@@ -45,7 +45,7 @@
 Single line, no box/table. All information on one line:
 
 ```
-{icon} {action} {id} · {asset} {sourceAmt} → {targetAmt} · {source} → {target} ({confidence})
+{icon} {action} {ref} · {asset} {sourceAmt} → {targetAmt} · {source} → {target} ({confidence})
 ```
 
 ### Colors
@@ -56,7 +56,7 @@ Single line, no box/table. All information on one line:
 | `✗` (reject)                          | dim        |
 | `⚠` (error/already)                   | yellow     |
 | Action text (`Confirmed`, `Rejected`) | white/bold |
-| ID                                    | white      |
+| Ref                                   | white      |
 | Asset                                 | white      |
 | Amounts                               | green      |
 | Arrow `→`                             | dim        |
@@ -67,11 +67,13 @@ Single line, no box/table. All information on one line:
 
 ## JSON Mode (`--json`)
 
-Same structure as current implementation — no changes needed:
+Current implementation:
 
 ```json
 {
-  "linkId": "m3n4o5p6-...",
+  "proposalRef": "a1b2c3d4e5",
+  "affectedLinkCount": 1,
+  "affectedLinkIds": [123],
   "newStatus": "confirmed",
   "reviewedBy": "cli-user",
   "reviewedAt": "2024-03-15T14:30:00.000Z"
@@ -84,6 +86,6 @@ Same structure as current implementation — no changes needed:
 
 - These commands fetch the link + source/target transactions to build the summary line
 - The Ink render is a single `render()` → `unmount()` — no interactivity, no refresh loop
-- Short IDs: display first 8 chars of the representative link ID context (same proposal context as `links` / `links explore`)
-- The handler logic stays the same — only the CLI output layer changes from `console.log` to Ink
-- Accepts both short IDs (first 8 chars) and full UUIDs — handler does prefix match
+- Proposal refs are the same shortened proposal-key refs used by `links`, `links view`, and `links explore`
+- The handler logic still operates on the representative numeric link ID internally after CLI ref resolution
+- Accepts proposal ref prefixes and fails on ambiguous prefixes the same way the browse commands do

@@ -151,8 +151,6 @@ export function buildLinkProposalStaticDetail(item: LinkProposalBrowseItem, verb
     buildDetailLine('Confidence', colorizeText(confidenceColor, confidence.trim())),
     buildDetailLine('Matched', `${amountDisplay.matchedAmount} ${representativeLink.assetSymbol}`),
     buildDetailLine('Legs', `${proposal.legs.length}`),
-    buildDetailLine('Representative link', `#${representativeLink.id}`),
-    buildDetailLine('Resolved fingerprint', item.resolvedLinkFingerprint),
     buildDetailLine('Match', formatMatchCriteria(representativeLink.matchCriteria)),
   ];
 
@@ -177,8 +175,8 @@ export function buildLinkProposalStaticDetail(item: LinkProposalBrowseItem, verb
   lines.push('', buildDetailLine('Explore', `exitbook links explore ${item.proposalRef}`));
 
   if (proposal.status === 'suggested') {
-    lines.push(buildDetailLine('Confirm', `exitbook links confirm ${representativeLink.id}`));
-    lines.push(buildDetailLine('Reject', `exitbook links reject ${representativeLink.id}`));
+    lines.push(buildDetailLine('Confirm', `exitbook links confirm ${item.proposalRef}`));
+    lines.push(buildDetailLine('Reject', `exitbook links reject ${item.proposalRef}`));
   }
 
   return `${lines.join('\n')}\n`;

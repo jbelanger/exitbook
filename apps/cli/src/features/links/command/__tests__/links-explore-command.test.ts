@@ -49,12 +49,12 @@ describe('links explore commands', () => {
   it('routes explore selectors through the explorer detail surface', async () => {
     const program = createProgram();
 
-    await program.parseAsync(['links', 'explore', 'resolved-li'], { from: 'user' });
+    await program.parseAsync(['links', 'explore', 'a1b2c3d4e5'], { from: 'user' });
 
     expect(mockRunLinksBrowseCommand).toHaveBeenCalledWith({
       commandId: 'links-explore',
       rawOptions: {},
-      selector: 'resolved-li',
+      selector: 'a1b2c3d4e5',
       surfaceSpec: {
         commandId: 'links-explore',
         kind: 'explorer-detail',

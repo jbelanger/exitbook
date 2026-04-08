@@ -16,7 +16,7 @@ Examples:
   $ exitbook links explore
   $ exitbook links explore --status suggested
   $ exitbook links explore --gaps
-  $ exitbook links explore resolved-li
+  $ exitbook links explore a1b2c3d4e5
   $ exitbook links explore txfp123abc --gaps
 
 Common Usage:

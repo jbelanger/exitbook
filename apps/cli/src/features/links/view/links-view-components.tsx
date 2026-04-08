@@ -14,6 +14,7 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/index.js';
+import { buildLinkProposalRef } from '../link-selector.js';
 import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-model.js';
 import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 
@@ -344,6 +345,7 @@ function buildSingleLegDetailRows(
   verbose: boolean
 ): ReactElement[] {
   const { link, sourceTransaction, targetTransaction } = selectedLeg;
+  const proposalRef = buildLinkProposalRef(proposal.proposalKey);
   const linkType = formatLinkTypeDisplay(link, sourceTransaction, targetTransaction);
   const confidence = formatConfidenceScore(link.confidenceScore.toNumber());
   const confidenceColor = getConfidenceColor(link.confidenceScore.toNumber());
@@ -351,7 +353,7 @@ function buildSingleLegDetailRows(
   const amountDisplay = getProposalAmountDisplay(proposal);
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ {link.id}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
+      <Text bold>▸ {proposalRef}</Text> {link.assetSymbol} <Text dimColor>{linkType}</Text>{' '}
       <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{proposal.status}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
@@ -421,6 +423,7 @@ function buildSingleLegDetailRows(
 function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): ReactElement[] {
   const representativeLeg = proposal.representativeLeg;
   const representativeLink = representativeLeg.link;
+  const proposalRef = buildLinkProposalRef(proposal.proposalKey);
   const confidence = formatProposalConfidence(proposal);
   const confidenceColor = getProposalConfidenceColor(proposal);
   const { iconColor: statusColor } = getStatusDisplay(proposal.status);
@@ -428,22 +431,19 @@ function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): Re
   const visibleLegs = proposal.legs.slice(0, MAX_MULTI_LEG_DETAIL_ROWS);
   const rows: ReactElement[] = [
     <Text key="title">
-      <Text bold>▸ {representativeLink.id}</Text> {representativeLink.assetSymbol}{' '}
-      <Text dimColor>transfer proposal</Text> <Text color={confidenceColor}>{confidence}</Text>{' '}
-      <Text color={statusColor}>{proposal.status}</Text>
+      <Text bold>▸ {proposalRef}</Text> {representativeLink.assetSymbol} <Text dimColor>transfer proposal</Text>{' '}
+      <Text color={confidenceColor}>{confidence}</Text> <Text color={statusColor}>{proposal.status}</Text>
     </Text>,
     <Text key="blank-1"> </Text>,
     <Text key="scope">
       {'  '}
       <Text dimColor>Scope: </Text>
-      {proposal.legs.length} legs review together <Text dimColor>(</Text>
-      {proposal.legs.map((leg) => leg.link.id).join(', ')}
-      <Text dimColor>)</Text>
+      {proposal.legs.length} legs review together
     </Text>,
     ...visibleLegs.map((leg, index) => (
       <Text key={`leg-${leg.link.id}`}>
         {'  '}
-        <Text dimColor>Leg {index + 1}: </Text>#{leg.link.id}{' '}
+        <Text dimColor>Leg {index + 1}: </Text>
         <Text color="cyan">{leg.sourceTransaction?.platformKey ?? 'unknown'}</Text>{' '}
         <Text dimColor>{leg.sourceTransaction?.datetime ?? '?'}</Text> <Text color="yellow">OUT</Text>{' '}
         <Text color="green">{leg.link.sourceAmount.toFixed()}</Text> {leg.link.assetSymbol} <Text dimColor>→</Text>{' '}

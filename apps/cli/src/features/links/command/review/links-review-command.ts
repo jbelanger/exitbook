@@ -9,17 +9,17 @@ import {
   jsonSuccess,
   runCliRuntimeCommand,
   textSuccess,
-  toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
 } from '../../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
 import { createSpinner, stopSpinner } from '../../../shared/spinner.js';
+import { getLinkSelectorErrorExitCode } from '../../link-selector.js';
 import { LinkActionError, LinkActionResult } from '../../view/index.js';
 import { LinksReviewCommandOptionsSchema } from '../links-option-schemas.js';
 
-import { withLinksReviewCommandScope } from './links-review-command-scope.js';
+import { withLinksReviewCommandScope, type LinksReviewCommandScope } from './links-review-command-scope.js';
 import { type LinksReviewAction, type LinksReviewActionResult } from './links-review-handler.js';
 import { runLinksReview } from './run-links-review.js';
 
@@ -37,8 +37,8 @@ interface LinksReviewCommandDefinition<TAction extends LinksReviewAction> {
 interface LinksReviewCommandJsonResult<TStatus extends LinksReviewStatus> {
   affectedLinkCount: number;
   affectedLinkIds: number[];
-  linkId: number;
   newStatus: TStatus;
+  proposalRef: string;
   reviewedAt: string;
   reviewedBy: string;
 }
@@ -81,23 +81,24 @@ function registerLinksReviewCommand<TAction extends LinksReviewAction>(
       'after',
       `
 Examples:
-  $ exitbook links ${definition.commandName} 123
-  $ exitbook links ${definition.commandName} 123 --json
+  $ exitbook links ${definition.commandName} a1b2c3d4e5
+  $ exitbook links ${definition.commandName} a1b2c3d4e5 --json
 
 Notes:
   - ${capitalize(definition.commandName)}ing a proposal may update multiple related link rows in the same suggestion group.
+  - Proposal refs use the same short ref shown by "links", "links view", and "links explore".
 `
     )
-    .argument('<link-id>', `ID of the link to ${definition.commandName}`)
+    .argument('<proposal-ref>', `Proposal ref to ${definition.commandName}`)
     .option('--json', 'Output results in JSON format')
-    .action(async (linkIdArg: string, rawOptions: unknown) => {
-      await executeLinksReviewCommand(definition, linkIdArg, rawOptions);
+    .action(async (proposalRefArg: string, rawOptions: unknown) => {
+      await executeLinksReviewCommand(definition, proposalRefArg, rawOptions);
     });
 }
 
 async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
   definition: LinksReviewCommandDefinition<TAction>,
-  linkIdArg: string,
+  proposalRefArg: string,
   rawOptions: unknown
 ): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
@@ -109,9 +110,9 @@ async function executeLinksReviewCommand<TAction extends LinksReviewAction>(
       format,
       prepare: async () =>
         resultDoAsync(async function* () {
-          const linkId = yield* parseLinksReviewLinkIdResult(linkIdArg);
+          const proposalRef = yield* parseLinksReviewProposalRefResult(proposalRefArg);
           yield* parseCliCommandOptionsResult(rawOptions, LinksReviewCommandOptionsSchema);
-          return linkId;
+          return proposalRef;
         }),
       action: async (context) => executeLinksReviewCommandResult(context.runtime, definition, format, context.prepared),
     });
@@ -124,48 +125,41 @@ async function executeLinksReviewCommandResult<TAction extends LinksReviewAction
   ctx: Parameters<typeof withLinksReviewCommandScope>[0],
   definition: LinksReviewCommandDefinition<TAction>,
   format: CliOutputFormat,
-  linkId: number
+  proposalRef: string
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const completion = yield* toCliResult(
-      await withLinksReviewCommandScope(ctx, async (scope) => {
-        const result = await runLinksReview(scope, { linkId }, definition.action);
-        if (result.isErr()) {
-          if (format !== 'json') {
-            renderLinksReviewError(linkId, result.error.message);
-          }
-          return err(result.error);
-        }
-
-        return ok(buildLinksReviewCompletion(definition, format, result.value));
-      }),
-      ExitCodes.GENERAL_ERROR
+    const completionResult = await withLinksReviewCommandScope(ctx, async (scope) =>
+      executeScopedLinksReview(scope, definition, format, proposalRef)
     );
+    if (completionResult.isErr()) {
+      return yield* err(createCliFailure(completionResult.error, getLinkSelectorErrorExitCode(completionResult.error)));
+    }
 
-    return completion;
+    return completionResult.value;
   });
 }
 
-function parseLinksReviewLinkIdResult(linkIdArg: string): Result<number, CliFailure> {
-  const linkId = parseInt(linkIdArg, 10);
+function parseLinksReviewProposalRefResult(proposalRefArg: string): Result<string, CliFailure> {
+  const proposalRef = proposalRefArg.trim();
 
-  if (!linkIdArg || Number.isNaN(linkId)) {
-    return err(createCliFailure(new Error('Link ID must be a valid integer'), ExitCodes.INVALID_ARGS));
+  if (proposalRef.length === 0) {
+    return err(createCliFailure(new Error('Proposal ref must not be empty'), ExitCodes.INVALID_ARGS));
   }
 
-  return ok(linkId);
+  return ok(proposalRef);
 }
 
 function buildLinksReviewCompletion<TAction extends LinksReviewAction>(
   definition: LinksReviewCommandDefinition<TAction>,
   format: CliOutputFormat,
-  result: LinksReviewActionResult<TAction>
+  result: LinksReviewActionResult<TAction>,
+  proposalRef: string
 ): CliCompletion {
   const resultData: LinksReviewCommandJsonResult<LinksReviewActionResult<TAction>['newStatus']> = {
     affectedLinkCount: result.affectedLinkCount,
     affectedLinkIds: result.affectedLinkIds,
-    linkId: result.linkId,
     newStatus: result.newStatus,
+    proposalRef,
     reviewedAt: result.reviewedAt.toISOString(),
     reviewedBy: result.reviewedBy,
   };
@@ -187,7 +181,7 @@ function buildLinksReviewCompletion<TAction extends LinksReviewAction>(
         React.createElement(LinkActionResult, {
           action: definition.newStatus,
           affectedLinkCount: result.affectedLinkCount,
-          linkId: result.linkId,
+          proposalRef,
           asset: result.asset,
           sourceAmount: result.sourceAmount,
           targetAmount: result.targetAmount,
@@ -201,17 +195,37 @@ function buildLinksReviewCompletion<TAction extends LinksReviewAction>(
     }
 
     console.log(
-      `${definition.newStatus === 'confirmed' ? '✓' : '✗'} ${
-        result.affectedLinkCount > 1 ? 'Proposal' : 'Link'
-      } ${result.linkId} ${definition.newStatus} successfully.`
+      `${definition.newStatus === 'confirmed' ? '✓' : '✗'} Proposal ${proposalRef} ${definition.newStatus} successfully.`
     );
   });
 }
 
-function renderLinksReviewError(linkId: number, message: string): void {
+async function executeScopedLinksReview<TAction extends LinksReviewAction>(
+  scope: LinksReviewCommandScope,
+  definition: LinksReviewCommandDefinition<TAction>,
+  format: CliOutputFormat,
+  proposalRef: string
+): Promise<Result<CliCompletion, Error>> {
+  const resolvedProposalResult = await scope.resolveProposalRef(proposalRef);
+  if (resolvedProposalResult.isErr()) {
+    return err(resolvedProposalResult.error);
+  }
+
+  const resolvedProposal = resolvedProposalResult.value;
+  const result = await runLinksReview(scope, { linkId: resolvedProposal.representativeLinkId }, definition.action);
+  if (result.isErr()) {
+    if (format !== 'json') {
+      renderLinksReviewError(result.error.message);
+    }
+    return err(result.error);
+  }
+
+  return ok(buildLinksReviewCompletion(definition, format, result.value, resolvedProposal.proposalRef));
+}
+
+function renderLinksReviewError(message: string): void {
   const { unmount } = render(
     React.createElement(LinkActionError, {
-      linkId,
       message,
     })
   );

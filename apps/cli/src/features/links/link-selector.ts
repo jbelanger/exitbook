@@ -1,13 +1,16 @@
-import { computeResolvedLinkFingerprint, type TransactionLink } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import type { TransactionLink } from '@exitbook/core';
+import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 
 import { ExitCodes, type ExitCode } from '../../cli/exit-codes.js';
+
+import { buildTransferProposalItems } from './transfer-proposals.js';
 
 export const LINK_SELECTOR_REF_LENGTH = 10;
 
 export interface LinkProposalSelectorCandidate<TItem> {
   item: TItem;
-  resolvedLinkFingerprint: string;
+  proposalRef: string;
+  proposalSelector: string;
 }
 
 export interface LinkGapSelectorCandidate<TItem> {
@@ -19,6 +22,12 @@ export interface ResolvedLinkSelector<TItem> {
   item: TItem;
   kind: 'ref';
   value: string;
+}
+
+export interface ResolvedLinkProposalRef {
+  proposalKey: string;
+  proposalRef: string;
+  representativeLinkId: number;
 }
 
 export class LinkSelectorResolutionError extends Error {
@@ -39,22 +48,12 @@ export function formatLinkSelectorRef(value: string): string {
   return value.slice(0, LINK_SELECTOR_REF_LENGTH);
 }
 
-export function buildLinkProposalFingerprint(link: TransactionLink): Result<string, Error> {
-  return computeResolvedLinkFingerprint({
-    sourceAssetId: link.sourceAssetId,
-    targetAssetId: link.targetAssetId,
-    sourceMovementFingerprint: link.sourceMovementFingerprint,
-    targetMovementFingerprint: link.targetMovementFingerprint,
-  });
+export function buildLinkProposalSelector(proposalKey: string): string {
+  return sha256Hex(proposalKey);
 }
 
-export function buildLinkProposalRef(link: TransactionLink): Result<string, Error> {
-  const fingerprintResult = buildLinkProposalFingerprint(link);
-  if (fingerprintResult.isErr()) {
-    return err(fingerprintResult.error);
-  }
-
-  return ok(formatLinkSelectorRef(fingerprintResult.value));
+export function buildLinkProposalRef(proposalKey: string): string {
+  return formatLinkSelectorRef(buildLinkProposalSelector(proposalKey));
 }
 
 export function resolveLinkProposalSelector<TItem>(
@@ -63,12 +62,29 @@ export function resolveLinkProposalSelector<TItem>(
 ): Result<ResolvedLinkSelector<TItem>, Error> {
   return resolveLinkSelector(
     candidates.map((candidate) => ({
-      fullValue: candidate.resolvedLinkFingerprint,
+      fullValue: candidate.proposalSelector,
       item: candidate.item,
     })),
     selector,
     'Link proposal'
   );
+}
+
+export function resolveLinkProposalRef(
+  links: readonly TransactionLink[],
+  selector: string
+): Result<ResolvedLinkProposalRef, Error> {
+  const candidatesResult = buildLinkProposalRefCandidates(links);
+  if (candidatesResult.isErr()) {
+    return err(candidatesResult.error);
+  }
+
+  const resolvedResult = resolveLinkProposalSelector(candidatesResult.value, selector);
+  if (resolvedResult.isErr()) {
+    return err(resolvedResult.error);
+  }
+
+  return ok(resolvedResult.value.item);
 }
 
 export function resolveLinkGapSelector<TItem>(
@@ -116,13 +132,17 @@ function resolveLinkSelector<TItem>(
   }
 
   if (matches.length > 1) {
-    const matchRefs = matches.slice(0, 5).map((candidate) => formatLinkSelectorRef(candidate.fullValue));
+    const matchRefs = matches
+      .slice(0, 5)
+      .map((candidate) =>
+        candidate.fullValue.slice(0, Math.min(candidate.fullValue.length, LINK_SELECTOR_REF_LENGTH + 4))
+      );
     const matchSuffix = matchRefs.length > 0 ? ` Matches include: ${matchRefs.join(', ')}` : '';
 
     return err(
       new LinkSelectorResolutionError(
         'ambiguous',
-        `${subject} selector '${normalizedSelector}' is ambiguous. Use a longer fingerprint prefix.${matchSuffix}`
+        `${subject} selector '${normalizedSelector}' is ambiguous. Use a longer ref.${matchSuffix}`
       )
     );
   }
@@ -136,4 +156,27 @@ function resolveLinkSelector<TItem>(
 
 function normalizeLinkSelectorValue(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function buildLinkProposalRefCandidates(
+  links: readonly TransactionLink[]
+): Result<LinkProposalSelectorCandidate<ResolvedLinkProposalRef>[], Error> {
+  const proposalItems = buildTransferProposalItems(links.map((link) => ({ link })));
+  const candidates: LinkProposalSelectorCandidate<ResolvedLinkProposalRef>[] = [];
+
+  for (const proposalItem of proposalItems) {
+    const proposalSelector = buildLinkProposalSelector(proposalItem.proposalKey);
+    const proposalRef = buildLinkProposalRef(proposalItem.proposalKey);
+    candidates.push({
+      item: {
+        proposalKey: proposalItem.proposalKey,
+        proposalRef,
+        representativeLinkId: proposalItem.representativeLink.id,
+      },
+      proposalRef,
+      proposalSelector,
+    });
+  }
+
+  return ok(candidates);
 }

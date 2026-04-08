@@ -1,10 +1,17 @@
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  captureTerminalInteractivity,
+  restoreTerminalInteractivity,
+  setTerminalInteractivity,
+} from '../../../../runtime/__tests__/terminal-test-utils.js';
 import type { AssetsViewState } from '../../view/assets-view-state.js';
 import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-types.js';
+
+const originalTerminalInteractivity = captureTerminalInteractivity();
 
 const {
   mockCtx,
@@ -99,6 +106,7 @@ describe('assets command modules', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setTerminalInteractivity(false);
     mockCtx.database.mockResolvedValue({ tag: 'db' });
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
@@ -113,6 +121,10 @@ describe('assets command modules', () => {
     );
     consoleLogSpy.mockClear();
     mockRenderApp.mockReset();
+  });
+
+  afterAll(() => {
+    restoreTerminalInteractivity(originalTerminalInteractivity);
   });
 
   it('runs clear-review in JSON mode and outputs the handler result', async () => {
@@ -489,11 +501,8 @@ describe('assets command modules', () => {
   it('renders the assets TUI and wires action callbacks to handler methods', async () => {
     const program = createAssetsProgram();
     let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
-    const originalStdinIsTTY = process.stdin.isTTY;
-    const originalStdoutIsTTY = process.stdout.isTTY;
 
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    setTerminalInteractivity(true);
 
     mockRunAssetsBrowse.mockResolvedValue(
       ok({
@@ -573,12 +582,7 @@ describe('assets command modules', () => {
       renderedElement = create(() => undefined) as ReactElement<AssetsViewAppProps>;
     });
 
-    try {
-      await program.parseAsync(['assets', 'explore', '--needs-review'], { from: 'user' });
-    } finally {
-      Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
-      Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
-    }
+    await program.parseAsync(['assets', 'explore', '--needs-review'], { from: 'user' });
 
     expect(mockRenderApp).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('AssetsViewApp');
@@ -605,11 +609,8 @@ describe('assets command modules', () => {
   it('preselects and pins a directly selected hidden asset in the explorer', async () => {
     const program = createAssetsProgram();
     let renderedElement: ReactElement<AssetsViewAppProps> | undefined;
-    const originalStdinIsTTY = process.stdin.isTTY;
-    const originalStdoutIsTTY = process.stdout.isTTY;
 
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    setTerminalInteractivity(true);
 
     mockRunAssetsBrowse.mockResolvedValue(
       ok({
@@ -686,12 +687,7 @@ describe('assets command modules', () => {
       renderedElement = create(() => undefined) as ReactElement<AssetsViewAppProps>;
     });
 
-    try {
-      await program.parseAsync(['assets', 'explore', 'ETH'], { from: 'user' });
-    } finally {
-      Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
-      Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
-    }
+    await program.parseAsync(['assets', 'explore', 'ETH'], { from: 'user' });
 
     expect(mockRunAssetsBrowse).toHaveBeenCalledWith(assetsScope, {
       actionRequiredOnly: undefined,

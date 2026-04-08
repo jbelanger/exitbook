@@ -21,9 +21,9 @@ The `links` family now follows the standard browse contract:
 
 `links view <ref>` and `links explore <ref>` target a transfer proposal.
 
-- The selector is the prefix of the representative proposal leg's persisted resolved-link fingerprint.
-- The displayed `REF` column uses that shortened prefix.
-- Ambiguous prefixes must fail and tell the user to provide a longer ref.
+- The selector is a short ref derived from the transfer proposal key.
+- The displayed `REF` column uses the first 10 hex chars of the SHA-256 digest of that proposal key.
+- Ambiguous ref prefixes must fail and tell the user to provide a longer ref.
 
 ### Gap Selectors
 
@@ -81,9 +81,9 @@ exitbook links view <proposal_ref> --json
 Behavior:
 
 - Renders one durable proposal detail card.
-- Includes proposal ref, status, route, confidence, matched amount, representative link ID, and leg list.
+- Includes proposal ref, status, route, confidence, matched amount, and leg list.
 - `--verbose` adds full address details where available.
-- Suggested proposals include `links confirm <id>` and `links reject <id>` next-step hints using the representative link ID.
+- Suggested proposals include `links confirm <proposal_ref>` and `links reject <proposal_ref>` next-step hints using the same proposal ref.
 
 Invalid combinations:
 
@@ -182,9 +182,9 @@ Behavior:
 
 ## Review Commands
 
-`links confirm <id>` and `links reject <id>` are intentionally unchanged in this migration.
+`links confirm <proposal_ref>` and `links reject <proposal_ref>` stay as standalone review mutations.
 
-- They still target numeric representative link IDs.
+- They target the same proposal ref used by `links view <proposal_ref>` and `links explore <proposal_ref>`.
 - They remain standalone review mutations rather than becoming selector-based browse commands.
 
 ## Semantic Rules

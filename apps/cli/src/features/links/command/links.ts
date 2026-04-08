@@ -29,8 +29,8 @@ const LINKS_COMMAND_ID = 'links';
  *   links view <ref>          - Static detail for one proposal or one gap
  *   links explore             - Interactive review explorer
  *   links run                 - Run the linking algorithm
- *   links confirm <id>        - Confirm a suggested proposal
- *   links reject <id>         - Reject a proposal
+ *   links confirm <ref>       - Confirm a suggested proposal
+ *   links reject <ref>        - Reject a proposal
  */
 export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime): void {
   const links = program
@@ -46,11 +46,11 @@ Examples:
   $ exitbook links
   $ exitbook links --status suggested
   $ exitbook links --gaps
-  $ exitbook links view resolved-li
+  $ exitbook links view a1b2c3d4e5
   $ exitbook links explore --status suggested
   $ exitbook links explore --gaps
   $ exitbook links run
-  $ exitbook links confirm 123
+  $ exitbook links confirm a1b2c3d4e5
 
 Browse Options:
 ${buildLinksBrowseOptionsHelpText()}

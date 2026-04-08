@@ -148,7 +148,6 @@ function serializeProposalSummary(item: LinkProposalBrowseItem): Record<string, 
   return {
     kind: 'proposal',
     ref: item.proposalRef,
-    representativeLinkId: item.proposal.representativeLink.id,
     assetSymbol: item.proposal.representativeLink.assetSymbol,
     route: formatProposalRoute(item.proposal),
     confidence: formatProposalConfidence(item.proposal).trim(),
@@ -162,7 +161,6 @@ function serializeProposalDetail(item: LinkProposalBrowseItem, verbose: boolean)
 
   return {
     ...serializeProposalSummary(item),
-    resolvedLinkFingerprint: item.resolvedLinkFingerprint,
     matchedAmount: amountDisplay.matchedAmount,
     summaryLabel: amountDisplay.detailLabel,
     summary: amountDisplay.detailSummary,

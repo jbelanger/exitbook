@@ -26,12 +26,12 @@ describe('links view command', () => {
   it('routes proposal selectors to static detail', async () => {
     const program = createProgram();
 
-    await program.parseAsync(['links', 'view', 'resolved-li'], { from: 'user' });
+    await program.parseAsync(['links', 'view', 'a1b2c3d4e5'], { from: 'user' });
 
     expect(mockRunLinksBrowseCommand).toHaveBeenCalledWith({
       commandId: 'links-view',
       rawOptions: {},
-      selector: 'resolved-li',
+      selector: 'a1b2c3d4e5',
       surfaceSpec: {
         commandId: 'links-view',
         kind: 'static-detail',

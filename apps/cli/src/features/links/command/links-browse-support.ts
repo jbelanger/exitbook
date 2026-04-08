@@ -3,7 +3,8 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import {
-  buildLinkProposalFingerprint,
+  buildLinkProposalRef,
+  buildLinkProposalSelector,
   formatLinkSelectorRef,
   resolveLinkGapSelector,
   resolveLinkProposalSelector,
@@ -80,12 +81,7 @@ async function buildLinksProposalBrowsePresentation(
       minConfidence: params.minConfidence,
     }
   );
-  const proposalsResult = buildProposalBrowseItems(state);
-  if (proposalsResult.isErr()) {
-    return err(proposalsResult.error);
-  }
-
-  const proposals = proposalsResult.value;
+  const proposals = buildProposalBrowseItems(state);
   const selectedProposalResult =
     params.selector !== undefined
       ? resolveLinkProposalSelector(toProposalCandidates(proposals), params.selector)
@@ -169,31 +165,20 @@ function countTransferProposals(links: LinkWithTransactions[]): number {
   return buildTransferProposalItems(links).length;
 }
 
-function buildProposalBrowseItems(state: LinksViewLinksState): Result<LinkProposalBrowseItem[], Error> {
-  const items: LinkProposalBrowseItem[] = [];
-
-  for (const proposal of state.proposals) {
-    const fingerprintResult = buildLinkProposalFingerprint(proposal.representativeLink);
-    if (fingerprintResult.isErr()) {
-      return err(fingerprintResult.error);
-    }
-
-    items.push({
-      proposal,
-      proposalRef: formatLinkSelectorRef(fingerprintResult.value),
-      resolvedLinkFingerprint: fingerprintResult.value,
-    });
-  }
-
-  return ok(items);
+function buildProposalBrowseItems(state: LinksViewLinksState): LinkProposalBrowseItem[] {
+  return state.proposals.map((proposal) => ({
+    proposal,
+    proposalRef: buildLinkProposalRef(proposal.proposalKey),
+  }));
 }
 
 function toProposalCandidates(
   proposals: LinkProposalBrowseItem[]
-): { item: LinkProposalBrowseItem; resolvedLinkFingerprint: string }[] {
+): { item: LinkProposalBrowseItem; proposalRef: string; proposalSelector: string }[] {
   return proposals.map((proposal) => ({
     item: proposal,
-    resolvedLinkFingerprint: proposal.resolvedLinkFingerprint,
+    proposalRef: proposal.proposalRef,
+    proposalSelector: buildLinkProposalSelector(proposal.proposal.proposalKey),
   }));
 }
 
@@ -210,7 +195,7 @@ function preselectLinksState(
   selectedProposal: LinkProposalBrowseItem
 ): void {
   const selectedIndex = proposals.findIndex(
-    (proposal) => proposal.resolvedLinkFingerprint === selectedProposal.resolvedLinkFingerprint
+    (proposal) => proposal.proposal.proposalKey === selectedProposal.proposal.proposalKey
   );
   if (selectedIndex < 0) {
     return;

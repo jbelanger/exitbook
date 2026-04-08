@@ -3,6 +3,12 @@ import { Command } from 'commander';
 import type { ReactElement } from 'react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  captureTerminalInteractivity,
+  restoreTerminalInteractivity,
+  setTerminalInteractivity,
+} from '../../../../runtime/__tests__/terminal-test-utils.js';
+
 const {
   mockComputeCategoryCounts,
   mockCreateTransactionsViewState,
@@ -141,8 +147,7 @@ vi.mock('../../view/index.js', () => ({
 
 import { registerTransactionsExploreCommand } from '../transactions-explore.js';
 
-const originalStdinTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
-const originalStdoutTTYDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+const originalTerminalInteractivity = captureTerminalInteractivity();
 
 function createProgram(): Command {
   const program = new Command();
@@ -153,8 +158,7 @@ function createProgram(): Command {
 describe('transactions explore command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    setTerminalInteractivity(true);
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -200,12 +204,7 @@ describe('transactions explore command', () => {
   });
 
   afterAll(() => {
-    if (originalStdinTTYDescriptor) {
-      Object.defineProperty(process.stdin, 'isTTY', originalStdinTTYDescriptor);
-    }
-    if (originalStdoutTTYDescriptor) {
-      Object.defineProperty(process.stdout, 'isTTY', originalStdoutTTYDescriptor);
-    }
+    restoreTerminalInteractivity(originalTerminalInteractivity);
   });
 
   it('outputs JSON through the shared boundary with the normalized command id', async () => {
