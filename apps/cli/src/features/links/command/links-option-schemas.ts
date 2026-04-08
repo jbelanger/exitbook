@@ -51,7 +51,3 @@ export const LinksRunCommandOptionsSchema = z
   );
 
 export const LinksReviewCommandOptionsSchema = JsonFlagSchema;
-
-export const LinksGapsCommandOptionsSchema = JsonFlagSchema;
-
-export const LinksExploreCommandOptionsSchema = LinksBrowseCommandOptionsSchema;

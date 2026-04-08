@@ -10,7 +10,6 @@
 - `links view <ref> --gaps` renders one static gap detail card
 - `links explore [ref]` opens the interactive explorer
 - `links explore --gaps [ref]` opens the interactive gaps explorer
-- `links gaps` remains as a compatibility alias for `links explore --gaps`
 
 ## Subcommands
 
@@ -19,7 +18,6 @@
 | `links` / `list`     | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for proposals or gaps                       |
 | `links view <ref>`   | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one proposal or one gap                      |
 | `links explore`      | [links-view-spec.md](./links-view-spec.md)                     | Interactive explorer for proposals or gaps                     |
-| `links gaps`         | [links-view-spec.md](./links-view-spec.md)                     | Compatibility alias for `links explore --gaps`                 |
 | `links run`          | [links-run-spec.md](./links-run-spec.md)                       | Workflow command that refreshes proposals                      |
 | `links confirm <id>` | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation; still targets numeric representative link IDs |
 | `links reject <id>`  | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation; still targets numeric representative link IDs |

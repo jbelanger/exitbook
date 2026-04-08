@@ -15,13 +15,12 @@ vi.mock('../links-browse-command.js', () => ({
   runLinksBrowseCommand: mockRunLinksBrowseCommand,
 }));
 
-import { registerLinksExploreCommand, registerLinksGapsCommand } from '../links-explore.js';
+import { registerLinksExploreCommand } from '../links-explore.js';
 
 function createProgram(): Command {
   const program = new Command();
   const links = program.command('links');
   registerLinksExploreCommand(links);
-  registerLinksGapsCommand(links);
   return program;
 }
 
@@ -59,23 +58,6 @@ describe('links explore commands', () => {
       surfaceSpec: {
         commandId: 'links-explore',
         kind: 'explorer-detail',
-      },
-    });
-  });
-
-  it('keeps links gaps as a compatibility alias for the explorer gaps lens', async () => {
-    const program = createProgram();
-
-    await program.parseAsync(['links', 'gaps', '--json'], { from: 'user' });
-
-    expect(mockRunLinksBrowseCommand).toHaveBeenCalledWith({
-      commandId: 'links-gaps',
-      optionOverrides: { gaps: true },
-      rawOptions: { json: true },
-      selector: undefined,
-      surfaceSpec: {
-        commandId: 'links-gaps',
-        kind: 'explorer-list',
       },
     });
   });

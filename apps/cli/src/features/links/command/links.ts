@@ -12,7 +12,7 @@ import {
   prepareLinksBrowseCommand,
   registerLinksBrowseOptions,
 } from './links-browse-command.js';
-import { registerLinksExploreCommand, registerLinksGapsCommand } from './links-explore.js';
+import { registerLinksExploreCommand } from './links-explore.js';
 import { registerLinksListCommand } from './links-list.js';
 import { registerLinksViewCommand } from './links-view.js';
 import { registerLinksConfirmCommand, registerLinksRejectCommand } from './review/links-review-command.js';
@@ -28,7 +28,6 @@ const LINKS_COMMAND_ID = 'links';
  *   links list                - Explicit static list alias
  *   links view <ref>          - Static detail for one proposal or one gap
  *   links explore             - Interactive review explorer
- *   links gaps                - Compatibility alias for links explore --gaps
  *   links run                 - Run the linking algorithm
  *   links confirm <id>        - Confirm a suggested proposal
  *   links reject <id>         - Reject a proposal
@@ -98,7 +97,6 @@ Notes:
   registerLinksListCommand(links);
   registerLinksViewCommand(links);
   registerLinksExploreCommand(links);
-  registerLinksGapsCommand(links);
   registerLinksRunCommand(links, appRuntime);
   registerLinksConfirmCommand(links);
   registerLinksRejectCommand(links);

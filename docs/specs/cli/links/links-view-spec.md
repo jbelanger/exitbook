@@ -166,15 +166,6 @@ Behavior:
 - Selector preselects the gap row.
 - Off-TTY or `--json` falls back to durable static/detail output.
 
-## Compatibility Aliases
-
-The family keeps two compatibility paths for now:
-
-- `exitbook links gaps` -> compatibility alias for `exitbook links explore --gaps`
-- `exitbook links view --gaps` -> compatibility alias for `exitbook links explore --gaps`
-
-These exist to avoid breaking the phase-0 semantic cleanup path while the family settles on the normalized surface.
-
 ## JSON Contract
 
 ### Lists

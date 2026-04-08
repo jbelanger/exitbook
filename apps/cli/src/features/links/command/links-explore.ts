@@ -35,28 +35,3 @@ Common Usage:
     });
   });
 }
-
-export function registerLinksGapsCommand(linksCommand: Command): void {
-  linksCommand
-    .command('gaps')
-    .description('Compatibility alias for links explore --gaps')
-    .addHelpText(
-      'after',
-      `
-Examples:
-  $ exitbook links explore --gaps
-  $ exitbook links gaps
-  $ exitbook links gaps --json
-`
-    )
-    .option('--json', 'Output JSON format')
-    .action(async (rawOptions: unknown) => {
-      await runLinksBrowseCommand({
-        commandId: 'links-gaps',
-        optionOverrides: { gaps: true },
-        rawOptions,
-        selector: undefined,
-        surfaceSpec: explorerListSurfaceSpec('links-gaps'),
-      });
-    });
-}

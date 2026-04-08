@@ -8,7 +8,6 @@ const {
   mockPrepareLinksBrowseCommand,
   mockRegisterLinksConfirmCommand,
   mockRegisterLinksExploreCommand,
-  mockRegisterLinksGapsCommand,
   mockRegisterLinksListCommand,
   mockRegisterLinksRejectCommand,
   mockRegisterLinksRunCommand,
@@ -20,7 +19,6 @@ const {
   mockPrepareLinksBrowseCommand: vi.fn(),
   mockRegisterLinksConfirmCommand: vi.fn(),
   mockRegisterLinksExploreCommand: vi.fn(),
-  mockRegisterLinksGapsCommand: vi.fn(),
   mockRegisterLinksListCommand: vi.fn(),
   mockRegisterLinksRejectCommand: vi.fn(),
   mockRegisterLinksRunCommand: vi.fn(),
@@ -57,7 +55,6 @@ vi.mock('../links-view.js', () => ({
 
 vi.mock('../links-explore.js', () => ({
   registerLinksExploreCommand: mockRegisterLinksExploreCommand,
-  registerLinksGapsCommand: mockRegisterLinksGapsCommand,
 }));
 
 vi.mock('../run/links-run.js', () => ({
