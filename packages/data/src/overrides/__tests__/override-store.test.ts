@@ -129,6 +129,28 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append a link gap resolve event', async () => {
+      const payload = {
+        type: 'link_gap_resolve',
+        tx_fingerprint: createTxFingerprint('f6'),
+      } satisfies CreateOverrideEventOptions['payload'];
+
+      const result = await appendOverride({
+        scope: 'link-gap-resolve',
+        payload,
+        reason: 'External purchase sent directly to wallet',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const event = result.value;
+        expect(event.scope).toBe('link-gap-resolve');
+        expect(event.reason).toBe('External purchase sent directly to wallet');
+        expect(event.payload).toEqual(payload);
+      }
+    });
+
     it('should reject mismatched scope and payload type', async () => {
       // Attempt to write a price_override payload with scope 'link'
       const result = await appendOverride({
@@ -362,6 +384,34 @@ describe('OverrideStore', () => {
           'asset-review-confirm',
           'asset-review-clear',
         ]);
+      }
+    });
+
+    it('should read link gap resolution scopes alongside other overrides in append order', async () => {
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
+
+      await appendOverride({ scope: 'link', payload: linkPayload });
+      await appendOverride({
+        scope: 'link-gap-resolve',
+        payload: {
+          type: 'link_gap_resolve',
+          tx_fingerprint: createTxFingerprint('f6'),
+        },
+      });
+      await appendOverride({
+        scope: 'link-gap-reopen',
+        payload: {
+          type: 'link_gap_reopen',
+          tx_fingerprint: createTxFingerprint('f6'),
+        },
+      });
+
+      const result = await store.readByScopes(DEFAULT_PROFILE_KEY, ['link', 'link-gap-resolve', 'link-gap-reopen']);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        expect(result.value.map((event) => event.scope)).toEqual(['link', 'link-gap-resolve', 'link-gap-reopen']);
       }
     });
   });

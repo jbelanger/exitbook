@@ -58,4 +58,24 @@ describe('links-browse-support', () => {
       'kraken-outflow-1',
     ]);
   });
+
+  it('passes resolved transaction fingerprints into gap analysis', async () => {
+    mockAnalyzeLinkGaps.mockReturnValue(createMockGapAnalysis());
+    const resolvedTransactionFingerprints = new Set(['eth-inflow-2']);
+
+    const result = await buildLinksBrowsePresentation(
+      createLinksBrowseDatabase(),
+      42,
+      { gaps: true },
+      undefined,
+      resolvedTransactionFingerprints
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(mockAnalyzeLinkGaps).toHaveBeenCalledWith([], [], {
+      accounts: [],
+      excludedAssetIds: undefined,
+      resolvedTransactionFingerprints,
+    });
+  });
 });

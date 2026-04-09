@@ -8,6 +8,8 @@ export const ScopeSchema = z.enum([
   'fx',
   'link',
   'unlink',
+  'link-gap-resolve',
+  'link-gap-reopen',
   'transaction-note',
   'asset-exclude',
   'asset-include',
@@ -80,6 +82,24 @@ export const LinkOverridePayloadSchema = z.object({
 export const UnlinkOverridePayloadSchema = z.object({
   type: z.literal('unlink_override'),
   resolved_link_fingerprint: z.string().min(1, 'Resolved link fingerprint must not be empty'),
+});
+
+/**
+ * Link gap resolve payload
+ * User marks a transaction-level link gap as intentionally resolved without a link.
+ */
+export const LinkGapResolvePayloadSchema = z.object({
+  type: z.literal('link_gap_resolve'),
+  tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
+});
+
+/**
+ * Link gap reopen payload
+ * User reopens a previously-resolved transaction-level link gap.
+ */
+export const LinkGapReopenPayloadSchema = z.object({
+  type: z.literal('link_gap_reopen'),
+  tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
 });
 
 /**
@@ -156,6 +176,8 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   FxOverridePayloadSchema,
   LinkOverridePayloadSchema,
   UnlinkOverridePayloadSchema,
+  LinkGapResolvePayloadSchema,
+  LinkGapReopenPayloadSchema,
   TransactionNoteOverridePayloadSchema,
   AssetExcludePayloadSchema,
   AssetIncludePayloadSchema,
@@ -172,6 +194,8 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   fx: 'fx_override',
   link: 'link_override',
   unlink: 'unlink_override',
+  'link-gap-resolve': 'link_gap_resolve',
+  'link-gap-reopen': 'link_gap_reopen',
   'transaction-note': 'transaction_note_override',
   'asset-exclude': 'asset_exclude',
   'asset-include': 'asset_include',
@@ -216,6 +240,8 @@ export type PriceOverridePayload = z.infer<typeof PriceOverridePayloadSchema>;
 export type FxOverridePayload = z.infer<typeof FxOverridePayloadSchema>;
 export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
+export type LinkGapResolvePayload = z.infer<typeof LinkGapResolvePayloadSchema>;
+export type LinkGapReopenPayload = z.infer<typeof LinkGapReopenPayloadSchema>;
 export type TransactionNoteOverridePayload = z.infer<typeof TransactionNoteOverridePayloadSchema>;
 export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
 export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;

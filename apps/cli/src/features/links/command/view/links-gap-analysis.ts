@@ -10,6 +10,7 @@ const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 interface LinkGapAnalysisOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
+  resolvedTransactionFingerprints?: ReadonlySet<string> | undefined;
 }
 
 interface GapAnalysisAccountContext {
@@ -91,7 +92,7 @@ function buildAccountContextById(
 
 function buildPositiveAssetTotalsByAssetId(
   movements: { assetId: string; assetSymbol: string; grossAmount: Decimal; netAmount?: Decimal | undefined }[],
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): Map<string, AssetTotalsEntry> {
   const totals = new Map<string, AssetTotalsEntry>();
 
@@ -164,7 +165,7 @@ function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverage
 
 function getOneSidedBlockchainActivity(
   tx: Transaction,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): OneSidedBlockchainActivity | undefined {
   if (!tx.blockchain) {
     return undefined;
@@ -349,7 +350,7 @@ function classifySuppressedGapTransactionIds(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): Set<number> {
   const uncoveredActivities = transactions
     .map((tx) => getOneSidedBlockchainActivity(tx, excludedAssetIds))
@@ -387,6 +388,43 @@ function classifySuppressedGapTransactionIds(
   return suppressedTxIds;
 }
 
+function splitResolvedLinkGapIssues(
+  issues: readonly LinkGapIssue[],
+  resolvedTransactionFingerprints?: ReadonlySet<string>
+): {
+  hiddenIssueCount: number;
+  hiddenTransactionCount: number;
+  visibleIssues: LinkGapIssue[];
+} {
+  if (!resolvedTransactionFingerprints || resolvedTransactionFingerprints.size === 0) {
+    return {
+      hiddenIssueCount: 0,
+      hiddenTransactionCount: 0,
+      visibleIssues: [...issues],
+    };
+  }
+
+  const hiddenTransactionFingerprints = new Set<string>();
+  const visibleIssues: LinkGapIssue[] = [];
+  let hiddenIssueCount = 0;
+
+  for (const issue of issues) {
+    if (resolvedTransactionFingerprints.has(issue.txFingerprint)) {
+      hiddenIssueCount += 1;
+      hiddenTransactionFingerprints.add(issue.txFingerprint);
+      continue;
+    }
+
+    visibleIssues.push(issue);
+  }
+
+  return {
+    hiddenIssueCount,
+    hiddenTransactionCount: hiddenTransactionFingerprints.size,
+    visibleIssues,
+  };
+}
+
 function createLinkGapIssue(params: {
   assetSymbol: string;
   confirmedAmount: Decimal;
@@ -422,7 +460,7 @@ function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
 
@@ -477,7 +515,7 @@ function collectOutflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
 
@@ -528,7 +566,13 @@ function collectOutflowGapIssues(
   return issues;
 }
 
-function buildLinkGapSummary(issues: readonly LinkGapIssue[]): LinkGapAnalysis['summary'] {
+function buildLinkGapSummary(
+  issues: readonly LinkGapIssue[],
+  overrides: {
+    resolvedIssueCount?: number | undefined;
+    resolvedTransactionCount?: number | undefined;
+  } = {}
+): LinkGapAnalysis['summary'] {
   const inflowIssueCount = issues.reduce((count, issue) => (issue.direction === 'inflow' ? count + 1 : count), 0);
   const outflowIssueCount = issues.length - inflowIssueCount;
   const assetTotals = new Map<
@@ -571,6 +615,8 @@ function buildLinkGapSummary(issues: readonly LinkGapIssue[]): LinkGapAnalysis['
     uncovered_inflows: inflowIssueCount,
     unmatched_outflows: outflowIssueCount,
     affected_assets: assets.length,
+    resolved_issues: overrides.resolvedIssueCount ?? 0,
+    resolved_transactions: overrides.resolvedTransactionCount ?? 0,
     assets,
   };
 }
@@ -592,9 +638,13 @@ export function analyzeLinkGaps(
     ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
     ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
   ];
+  const resolvedIssueState = splitResolvedLinkGapIssues(issues, options.resolvedTransactionFingerprints);
 
   return {
-    issues,
-    summary: buildLinkGapSummary(issues),
+    issues: resolvedIssueState.visibleIssues,
+    summary: buildLinkGapSummary(resolvedIssueState.visibleIssues, {
+      resolvedIssueCount: resolvedIssueState.hiddenIssueCount,
+      resolvedTransactionCount: resolvedIssueState.hiddenTransactionCount,
+    }),
   };
 }

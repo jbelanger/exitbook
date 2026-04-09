@@ -1,4 +1,4 @@
-import { OverrideStore } from '@exitbook/data/overrides';
+import { OverrideStore, readResolvedLinkGapTxFingerprints } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
@@ -162,19 +162,28 @@ export async function executePreparedLinksBrowseCommand(
     const database = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
     let excludedAssetIds: ReadonlySet<string> | undefined;
+    let resolvedTransactionFingerprints: ReadonlySet<string> | undefined;
     if (prepared.params.gaps === true) {
+      const overrideStore = new OverrideStore(runtime.dataDir);
       const accountingExclusionPolicy = yield* toCliResult(
         await loadAccountingExclusionPolicy(runtime.dataDir, profile.profileKey),
         ExitCodes.GENERAL_ERROR
       );
       excludedAssetIds = accountingExclusionPolicy.excludedAssetIds;
+
+      const resolvedLinkGapTxFingerprints = yield* toCliResult(
+        await readResolvedLinkGapTxFingerprints(overrideStore, profile.profileKey),
+        ExitCodes.GENERAL_ERROR
+      );
+      resolvedTransactionFingerprints = resolvedLinkGapTxFingerprints;
     }
 
     const browsePresentationResult = await buildLinksBrowsePresentation(
       database,
       profile.id,
       prepared.params,
-      excludedAssetIds
+      excludedAssetIds,
+      resolvedTransactionFingerprints
     );
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(

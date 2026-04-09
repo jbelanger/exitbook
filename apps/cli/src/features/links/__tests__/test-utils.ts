@@ -445,6 +445,8 @@ export function createMockGapAnalysis(): LinkGapAnalysis {
       uncovered_inflows: 2,
       unmatched_outflows: 1,
       affected_assets: 1,
+      resolved_issues: 0,
+      resolved_transactions: 0,
       assets: [
         {
           assetSymbol: 'ETH',

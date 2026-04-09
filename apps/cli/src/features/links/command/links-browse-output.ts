@@ -118,6 +118,8 @@ function buildLinksBrowseJsonCompletion(
             totalIssues: browsePresentation.state.linkAnalysis.summary.total_issues,
             uncoveredInflows: browsePresentation.state.linkAnalysis.summary.uncovered_inflows,
             unmatchedOutflows: browsePresentation.state.linkAnalysis.summary.unmatched_outflows,
+            resolvedIssuesHidden: browsePresentation.state.linkAnalysis.summary.resolved_issues,
+            resolvedTransactionsHidden: browsePresentation.state.linkAnalysis.summary.resolved_transactions,
           })
         ),
       },

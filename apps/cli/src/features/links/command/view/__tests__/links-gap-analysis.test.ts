@@ -341,8 +341,48 @@ describe('analyzeLinkGaps', () => {
     });
 
     expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.resolved_issues).toBe(0);
+    expect(analysis.summary.resolved_transactions).toBe(0);
     expect(analysis.summary.uncovered_inflows).toBe(0);
     expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should hide resolved transaction-level gaps and track hidden counts', () => {
+    const txFingerprint = 'resolved-gap';
+    const mixedDeposit = createBlockchainDeposit({
+      id: 24,
+      txFingerprint,
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.8'),
+            netAmount: parseDecimal('0.8'),
+          },
+          {
+            assetId: 'test:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('125'),
+            netAmount: parseDecimal('125'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([mixedDeposit], [], {
+      resolvedTransactionFingerprints: new Set([txFingerprint]),
+    });
+
+    expect(analysis.issues).toHaveLength(0);
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.affected_assets).toBe(0);
+    expect(analysis.summary.resolved_issues).toBe(2);
+    expect(analysis.summary.resolved_transactions).toBe(1);
     expect(analysis.summary.assets).toHaveLength(0);
   });
 

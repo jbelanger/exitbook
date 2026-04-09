@@ -1,5 +1,6 @@
 export { readExcludedAssetIds, replayAssetExclusionEvents } from './asset-exclusion-replay.js';
 export { readAssetReviewDecisions, replayAssetReviewEvents, type AssetReviewDecision } from './asset-review-replay.js';
+export { readResolvedLinkGapTxFingerprints, replayLinkGapResolutionEvents } from './link-gap-resolution-replay.js';
 export {
   materializeStoredTransactionNoteOverrides,
   readTransactionNoteOverrides,

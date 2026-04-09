@@ -39,6 +39,8 @@ export interface LinkGapAnalysis {
   summary: {
     affected_assets: number;
     assets: LinkGapAssetSummary[];
+    resolved_issues: number;
+    resolved_transactions: number;
     total_issues: number;
     uncovered_inflows: number;
     unmatched_outflows: number;

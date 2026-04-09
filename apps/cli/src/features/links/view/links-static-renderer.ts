@@ -341,6 +341,13 @@ function buildGapListHeader(analysis: LinkGapAnalysis, visibleCount: number): st
   const needsInvestigation = analysis.summary.total_issues - readyToReview;
   const metadata = [
     `${visibleCount} shown`,
+    ...(analysis.summary.resolved_transactions > 0
+      ? [
+          `${analysis.summary.resolved_transactions} resolved transaction${
+            analysis.summary.resolved_transactions === 1 ? '' : 's'
+          } hidden`,
+        ]
+      : []),
     `${analysis.summary.uncovered_inflows} uncovered inflow${analysis.summary.uncovered_inflows === 1 ? '' : 's'}`,
     `${analysis.summary.unmatched_outflows} unmatched outflow${analysis.summary.unmatched_outflows === 1 ? '' : 's'}`,
     `${readyToReview} ready to review`,

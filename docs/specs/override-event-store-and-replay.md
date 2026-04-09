@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-26
+last_verified: 2026-04-09
 status: canonical
 ---
 
@@ -56,6 +56,8 @@ Append-only logical event stored as one row in SQLite:
     | 'fx'
     | 'link'
     | 'unlink'
+    | 'link-gap-resolve'
+    | 'link-gap-reopen'
     | 'transaction-note'
     | 'asset-exclude'
     | 'asset-include'
@@ -117,6 +119,8 @@ This is direction-aware, movement-aware, and asset-id-aware.
 | ------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `links confirm <ref>`                       | sets link status to `confirmed`                 | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
 | `links reject <ref>`                        | sets link status to `rejected`                  | appends `scope='unlink'`, `type='unlink_override'`                                       |
+| `links gaps resolve <ref>`                  | hides that transaction from the open gaps lens  | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                            |
+| `links gaps reopen <ref>`                   | reopens a previously-resolved gap transaction   | appends `scope='link-gap-reopen'`, `type='link_gap_reopen'`                              |
 | `transactions edit note <id> --message ...` | materializes a durable note on that transaction | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='set'`   |
 | `transactions edit note <id> --clear`       | clears the durable note on that transaction     | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='clear'` |
 | `prices set ...`                            | saves manual price                              | appends `scope='price'`, `type='price_override'`                                         |
@@ -126,6 +130,28 @@ Additional rules:
 
 - idempotent confirm/reject and note set/clear no-ops do not append a new event
 - append failures are logged as warnings and do not fail the primary CLI command
+
+### Link Gap Resolution Replay
+
+Link-gap resolution overrides are replayed independently from link replay.
+
+Replay input:
+
+- `scope='link-gap-resolve' | 'link-gap-reopen'` override events
+
+Replay semantics:
+
+1. replay gap-resolution events in append order
+2. key the projected state by `tx_fingerprint`
+3. `link-gap-resolve` marks the transaction fingerprint as resolved
+4. `link-gap-reopen` removes that transaction fingerprint from the resolved set
+5. the final replay result is a `Set<txFingerprint>` for currently resolved transactions
+
+Consumption rules:
+
+- gap resolution only affects the gaps lens; it does not alter `transaction_links`
+- replay is latest-event-wins per `tx_fingerprint`
+- transactions resolved this way are hidden from open gap browse output, but remain in processed transactions
 
 ### Link Replay Rules (`links run`)
 
@@ -288,6 +314,14 @@ type OverridePayload =
       resolved_link_fingerprint: string;
     }
   | {
+      type: 'link_gap_resolve';
+      tx_fingerprint: string;
+    }
+  | {
+      type: 'link_gap_reopen';
+      tx_fingerprint: string;
+    }
+  | {
       type: 'transaction_note_override';
       action: 'set' | 'clear';
       tx_fingerprint: string;
@@ -301,13 +335,15 @@ Scope/payload pairing is enforced:
 - `scope='fx' -> type='fx_override'`
 - `scope='link' -> type='link_override'`
 - `scope='unlink' -> type='unlink_override'`
+- `scope='link-gap-resolve' -> type='link_gap_resolve'`
+- `scope='link-gap-reopen' -> type='link_gap_reopen'`
 - `scope='transaction-note' -> type='transaction_note_override'`
 
 ## Pipeline / Flow
 
 ```mermaid
 graph TD
-    A["CLI confirm/reject/prices set"] --> B["Insert event into overrides.db"]
+    A["CLI confirm/reject/gaps resolve/prices set"] --> B["Insert event into overrides.db"]
     C["links run algorithmic links"] --> D["Project final override state"]
     B --> D
     E["Processed transactions"] --> D
@@ -326,6 +362,7 @@ graph TD
   sequence, not from ad hoc file ordering.
 - **Exact link identity**: Link/unlink events carry resolved link fingerprints
   based on movement fingerprints and asset ids.
+- **Exact gap-resolution identity**: Gap-resolution events are keyed by persisted `tx_fingerprint`.
 - **Exact transaction-note identity**: Transaction-note events are keyed by persisted `tx_fingerprint`.
 - **User precedence**: Replay always runs after algorithmic link generation.
 - **No vague orphaned links**: Orphaned confirms never persist zero-amount or fingerprint-less links.

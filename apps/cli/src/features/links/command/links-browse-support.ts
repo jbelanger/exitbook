@@ -48,10 +48,17 @@ export async function buildLinksBrowsePresentation(
   database: LinksCommandDatabase,
   profileId: number,
   params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>
+  excludedAssetIds?: ReadonlySet<string>,
+  resolvedTransactionFingerprints?: ReadonlySet<string>
 ): Promise<Result<LinksBrowsePresentation, Error>> {
   if (params.gaps === true) {
-    return buildLinksGapsBrowsePresentation(database, profileId, params, excludedAssetIds);
+    return buildLinksGapsBrowsePresentation(
+      database,
+      profileId,
+      params,
+      excludedAssetIds,
+      resolvedTransactionFingerprints
+    );
   }
 
   return buildLinksProposalBrowsePresentation(database, profileId, params);
@@ -108,9 +115,15 @@ async function buildLinksGapsBrowsePresentation(
   database: LinksCommandDatabase,
   profileId: number,
   params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>
+  excludedAssetIds?: ReadonlySet<string>,
+  resolvedTransactionFingerprints?: ReadonlySet<string>
 ): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'gaps' }>, Error>> {
-  const analysisResult = await loadLinksGapAnalysis(database, profileId, excludedAssetIds);
+  const analysisResult = await loadLinksGapAnalysis(
+    database,
+    profileId,
+    excludedAssetIds,
+    resolvedTransactionFingerprints
+  );
   if (analysisResult.isErr()) {
     return err(analysisResult.error);
   }
@@ -225,7 +238,8 @@ function preselectGapsState(
 async function loadLinksGapAnalysis(
   database: LinksCommandDatabase,
   profileId: number,
-  excludedAssetIds?: ReadonlySet<string>
+  excludedAssetIds?: ReadonlySet<string>,
+  resolvedTransactionFingerprints?: ReadonlySet<string>
 ): Promise<Result<LinkGapAnalysis, Error>> {
   const transactionsResult = await database.transactions.findAll({ profileId });
   if (transactionsResult.isErr()) {
@@ -246,6 +260,7 @@ async function loadLinksGapAnalysis(
     analyzeLinkGaps(transactionsResult.value, linksResult.value, {
       accounts: accountsResult.value,
       excludedAssetIds,
+      resolvedTransactionFingerprints,
     })
   );
 }
