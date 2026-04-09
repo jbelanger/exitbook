@@ -6,7 +6,9 @@ import type { Result } from '@exitbook/foundation';
  */
 export interface ProcessingAccountInfo {
   accountType: string;
+  accountFingerprint: string;
   identifier: string;
+  name?: string | undefined;
   platformKey: string;
   profileId: number;
 }

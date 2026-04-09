@@ -9,6 +9,7 @@ import type { Logger } from '@exitbook/logger';
 import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
+import type { ProcessingAccountInfo } from '../../ports/account-lookup.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
@@ -29,6 +30,23 @@ export interface ReprocessPlan {
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
+const ACCOUNT_FINGERPRINT_REF_LENGTH = 10;
+
+function formatAccountFingerprintRef(accountFingerprint: string): string {
+  if (accountFingerprint.length <= ACCOUNT_FINGERPRINT_REF_LENGTH) {
+    return accountFingerprint;
+  }
+
+  return accountFingerprint.slice(0, ACCOUNT_FINGERPRINT_REF_LENGTH);
+}
+
+function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'name'>): string {
+  if (account.name !== undefined && account.name.trim() !== '') {
+    return account.name;
+  }
+
+  return formatAccountFingerprintRef(account.accountFingerprint);
+}
 
 export class ProcessingWorkflow {
   private logger: Logger;
@@ -93,7 +111,8 @@ export class ProcessingWorkflow {
         const result = await this.processAccountTransactions(accountId);
 
         if (result.isErr()) {
-          const errorMsg = `Failed to process account ${accountId}: ${result.error.message}`;
+          const accountLabel = await this.getAccountDisplayLabel(accountId);
+          const errorMsg = `Failed to process account ${accountLabel}: ${result.error.message}`;
           this.logger.error(errorMsg);
           allErrors.push(errorMsg);
           totalFailed++;
@@ -237,7 +256,8 @@ export class ProcessingWorkflow {
         const result = await this.processAccountTransactions(accountId);
 
         if (result.isErr()) {
-          const errorMsg = `Failed to process account ${accountId}: ${result.error.message}`;
+          const accountLabel = await this.getAccountDisplayLabel(accountId);
+          const errorMsg = `Failed to process account ${accountLabel}: ${result.error.message}`;
           this.logger.error(errorMsg);
           allErrors.push(errorMsg);
           totalFailed++;
@@ -276,7 +296,7 @@ export class ProcessingWorkflow {
       // Load account to get source information
       const accountResult = await this.ports.accountLookup.getAccountInfo(accountId);
       if (accountResult.isErr()) {
-        return err(new Error(`Failed to load account ${accountId}: ${accountResult.error.message}`));
+        return err(new Error(`Failed to load account metadata: ${accountResult.error.message}`));
       }
 
       const account = accountResult.value;
@@ -291,7 +311,7 @@ export class ProcessingWorkflow {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`CRITICAL: Unexpected processing failure for account ${accountId}: ${errorMessage}`);
-      return err(new Error(`Unexpected processing failure for account ${accountId}: ${errorMessage}`));
+      return err(new Error(`Unexpected processing failure: ${errorMessage}`));
     }
   }
 
@@ -315,7 +335,11 @@ export class ProcessingWorkflow {
     const incompleteSessions = sessionsResult.value.filter((session) => session.status !== 'completed');
 
     if (incompleteSessions.length > 0) {
-      const affectedAccounts = incompleteSessions.map((s) => `${s.accountId}(${s.status})`);
+      const affectedAccounts = await Promise.all(
+        incompleteSessions.map(
+          async (session) => `${await this.getAccountDisplayLabel(session.accountId)}(${session.status})`
+        )
+      );
       const accountsStr = affectedAccounts.join(', ');
 
       this.logger.warn(
@@ -333,6 +357,19 @@ export class ProcessingWorkflow {
     }
 
     return ok(undefined);
+  }
+
+  private async getAccountDisplayLabel(accountId: number): Promise<string> {
+    const accountResult = await this.ports.accountLookup.getAccountInfo(accountId);
+    if (accountResult.isErr()) {
+      this.logger.warn(
+        { accountId, error: accountResult.error },
+        'Failed to load account label for processing message; using generic fallback'
+      );
+      return 'unknown-account';
+    }
+
+    return formatProcessingAccountLabel(accountResult.value);
   }
 
   /**

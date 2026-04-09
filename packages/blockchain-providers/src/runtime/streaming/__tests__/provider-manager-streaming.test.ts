@@ -290,6 +290,50 @@ describe('BlockchainProviderManager - Streaming with Failover', () => {
       expect(errors).toHaveLength(1);
       expect('code' in errors[0]! && errors[0].code).toBe('NO_COMPATIBLE_PROVIDERS');
     });
+
+    it('should restart from the beginning for empty completion cursors even when cursor types do not match', async () => {
+      const cursor: CursorState = {
+        primary: { type: 'blockNumber', value: 0 },
+        lastTransactionId: 'alice.near:token-transfers:empty',
+        totalFetched: 0,
+        metadata: {
+          providerName: 'provider-3',
+          updatedAt: Date.now(),
+          isComplete: true,
+          isEmptyCompletion: true,
+        },
+      };
+
+      provider3.setBatches([
+        {
+          data: [{ raw: {}, normalized: { id: 'tx-2', eventId: 'event-2' } }],
+          cursor: {
+            primary: { type: 'timestamp', value: Date.now() },
+            lastTransactionId: 'tx-2',
+            totalFetched: 1,
+            metadata: { providerName: 'provider-3', updatedAt: Date.now() },
+          },
+          isComplete: false,
+        },
+      ]);
+
+      manager.registerProviders('ethereum', [provider3 as unknown as IBlockchainProvider]);
+
+      const operation: StreamingOperation = {
+        type: 'getAddressTransactions',
+        address: '0x123',
+      };
+
+      const results = [];
+      for await (const result of manager.streamAddressTransactions('ethereum', operation.address, undefined, cursor)) {
+        if (result.isOk()) {
+          results.push(result.value);
+        }
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.providerName).toBe('provider-3');
+    });
   });
 
   describe('Failover Scenarios', () => {

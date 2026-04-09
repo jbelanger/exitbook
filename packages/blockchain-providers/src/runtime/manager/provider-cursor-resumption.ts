@@ -2,10 +2,27 @@ import type { CursorState, CursorType, PaginationCursor } from '@exitbook/founda
 
 import type { IBlockchainProvider } from '../../contracts/index.js';
 
+function isEmptyCompletionCursor(cursor: CursorState | undefined): boolean {
+  if (!cursor) {
+    return false;
+  }
+
+  const metadata = cursor.metadata;
+  if (metadata?.['isEmptyCompletion'] === true) {
+    return true;
+  }
+
+  return cursor.totalFetched === 0 && cursor.lastTransactionId.endsWith(':empty');
+}
+
 /**
  * Check if provider can resume from cursor.
  */
 export function canProviderResume(provider: IBlockchainProvider, cursor: CursorState): boolean {
+  if (isEmptyCompletionCursor(cursor)) {
+    return true;
+  }
+
   const supportedTypes = provider.capabilities.supportedCursorTypes;
 
   // If provider doesn't declare cursor support, assume it can't resume
@@ -62,6 +79,11 @@ export function resolveCursorForResumption(
     return resolved;
   }
 
+  if (isEmptyCompletionCursor(resumeCursor)) {
+    logger.info(`Empty completion cursor detected for ${config.providerName}; restarting from beginning`);
+    return resolved;
+  }
+
   if (resumeCursor.primary.type === 'pageToken' && resumeCursor.primary.providerName === config.providerName) {
     resolved.pageToken = resumeCursor.primary.value;
     logger.info(`Resuming from ${config.providerName} pageToken`);
@@ -110,6 +132,11 @@ export function resolveCursorStateForProvider(
   logger: { info: (msg: string) => void; warn: (msg: string) => void }
 ): CursorState | undefined {
   if (!currentCursor) return undefined;
+
+  if (isEmptyCompletionCursor(currentCursor)) {
+    logger.info(`Empty completion cursor detected for ${provider.name}; restarting from beginning`);
+    return undefined;
+  }
 
   const resolved = resolveCursorForResumption(
     currentCursor,

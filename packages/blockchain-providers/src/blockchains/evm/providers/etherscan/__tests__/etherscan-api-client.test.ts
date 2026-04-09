@@ -228,6 +228,24 @@ describe('EtherscanApiClient', () => {
       expect(transactions).toHaveLength(0);
     });
 
+    it('should treat no internal transactions found as an empty internal stream', async () => {
+      mockGet.mockResolvedValue(
+        ok({ status: '0', message: 'No internal transactions found', result: 'No internal transactions found' })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+        streamType: 'internal',
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(0);
+    });
+
     it('should stream beacon_withdrawal transactions', async () => {
       mockGet.mockResolvedValue(ok({ status: '0', message: 'No transactions found', result: 'No transactions found' }));
 

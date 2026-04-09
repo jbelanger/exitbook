@@ -25,6 +25,10 @@ interface PrereqFreshnessResult {
 
 type RebuildablePrereqId = Exclude<ProjectionId, 'balances'>;
 
+interface ProcessedTransactionsProjectionStateLike {
+  lastBuiltAt?: Date | undefined;
+}
+
 export interface PrereqExecutionOptions {
   format: CliOutputFormat;
   profileId?: number | undefined;
@@ -86,6 +90,17 @@ async function rebuildIfStale(
   return rebuild(freshnessResult.value);
 }
 
+export function formatProcessedTransactionsRebuildMessage(
+  freshness: PrereqFreshnessResult,
+  state: ProcessedTransactionsProjectionStateLike | undefined
+): string {
+  if (!state || state.lastBuiltAt === undefined) {
+    return '\nDerived data has not been built yet, processing imported data...\n';
+  }
+
+  return `\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`;
+}
+
 export async function ensureProcessedTransactionsReady(
   scope: CommandRuntime,
   options: PrereqExecutionOptions
@@ -97,7 +112,15 @@ export async function ensureProcessedTransactionsReady(
     () => buildProcessedTransactionsFreshnessPorts(db).checkFreshness(),
     async (freshness) => {
       if (options.format !== 'json') {
-        console.log(`\nDerived data is stale (${freshness.reason ?? 'unknown'}), reprocessing...\n`);
+        const stateResult = await db.projectionState.find('processed-transactions');
+        if (stateResult.isErr()) {
+          return err(stateResult.error);
+        }
+
+        const projectionState =
+          stateResult.value === undefined ? undefined : { lastBuiltAt: stateResult.value.lastBuiltAt ?? undefined };
+
+        console.log(formatProcessedTransactionsRebuildMessage(freshness, projectionState));
       }
 
       return withIngestionRuntime(scope, db, { presentation: 'headless' }, async (ingestionRuntime) => {

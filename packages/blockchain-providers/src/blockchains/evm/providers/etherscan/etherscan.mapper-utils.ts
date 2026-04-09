@@ -471,8 +471,10 @@ function isNoDataFoundMessage(message: string, result: unknown): boolean {
 
   return (
     messageLower.includes('no transactions found') ||
+    messageLower.includes('no internal transactions found') ||
     messageLower.includes('no token transfers found') ||
     resultLower.includes('no transactions found') ||
+    resultLower.includes('no internal transactions found') ||
     resultLower.includes('no token transfers found')
   );
 }

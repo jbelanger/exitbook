@@ -11,7 +11,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth } from '../../../contracts/index.js';
 import type { CursorResolutionConfig } from '../provider-cursor-resumption.js';
-import { canProviderResume, resolveCursorForResumption } from '../provider-cursor-resumption.js';
+import {
+  canProviderResume,
+  resolveCursorForResumption,
+  resolveCursorStateForProvider,
+} from '../provider-cursor-resumption.js';
 import type { DeduplicationWindow } from '../provider-deduplication-window.js';
 import {
   addToDeduplicationWindow,
@@ -264,6 +268,34 @@ describe('provider manager helpers', () => {
       };
 
       expect(canProviderResume(provider, cursor)).toBe(false);
+    });
+
+    it('should allow restarting from an empty completion cursor even without matching cursor types', () => {
+      const provider = createMockProvider('nearblocks', ['getAddressTransactions'], ['timestamp']);
+      const cursor: CursorState = {
+        primary: { type: 'blockNumber', value: 0 },
+        lastTransactionId: 'alice.near:token-transfers:empty',
+        totalFetched: 0,
+        metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isEmptyCompletion: true },
+      };
+
+      expect(canProviderResume(provider, cursor)).toBe(true);
+    });
+  });
+
+  describe('resolveCursorStateForProvider', () => {
+    it('returns undefined for empty completion cursors so the provider restarts from the beginning', () => {
+      const provider = createMockProvider('nearblocks', ['getAddressTransactions'], ['timestamp']);
+      const cursor: CursorState = {
+        primary: { type: 'blockNumber', value: 0 },
+        lastTransactionId: 'alice.near:token-transfers:empty',
+        totalFetched: 0,
+        metadata: { providerName: 'nearblocks', updatedAt: Date.now(), isEmptyCompletion: true },
+      };
+
+      const resolved = resolveCursorStateForProvider(cursor, provider, false, logger);
+
+      expect(resolved).toBeUndefined();
     });
   });
 

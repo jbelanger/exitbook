@@ -132,6 +132,8 @@ export function createEmptyCompletionCursor(config: {
     lastTransactionId: `${config.identifier || 'unknown'}:${config.operationType}:empty`,
     totalFetched: 0,
     metadata: {
+      isComplete: true,
+      isEmptyCompletion: true,
       providerName: config.providerName,
       updatedAt: Date.now(),
     },

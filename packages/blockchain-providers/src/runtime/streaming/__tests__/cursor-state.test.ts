@@ -272,6 +272,8 @@ describe('cursor-state', () => {
         lastTransactionId: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4:internal:empty',
         totalFetched: 0,
         metadata: {
+          isComplete: true,
+          isEmptyCompletion: true,
           providerName: 'moralis',
         },
       });
@@ -314,6 +316,16 @@ describe('cursor-state', () => {
       });
 
       expect(cursor.primary).toEqual({ type: 'blockNumber', value: 0 });
+    });
+
+    it('should mark the cursor as an empty completion in metadata', () => {
+      const cursor = createEmptyCompletionCursor({
+        providerName: 'test',
+        operationType: 'test-op',
+      });
+
+      expect(cursor.metadata?.isComplete).toBe(true);
+      expect(cursor.metadata?.['isEmptyCompletion']).toBe(true);
     });
   });
 });
