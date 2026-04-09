@@ -335,6 +335,60 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.unmatched_outflows).toBe(0);
   });
 
+  it('should ignore deposits for excluded assets', () => {
+    const analysis = analyzeLinkGaps([createBlockchainDeposit()], [], {
+      excludedAssetIds: new Set(['test:btc']),
+    });
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should keep non-excluded inflow gaps in mixed one-sided transactions', () => {
+    const mixedDeposit = createBlockchainDeposit({
+      id: 24,
+      txFingerprint: 'mixed-deposit',
+      movements: {
+        inflows: [
+          {
+            assetId: 'test:btc',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('0.8'),
+            netAmount: parseDecimal('0.8'),
+          },
+          {
+            assetId: 'test:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('125'),
+            netAmount: parseDecimal('125'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([mixedDeposit], [], {
+      excludedAssetIds: new Set(['test:btc']),
+    });
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toStrictEqual([
+      {
+        assetSymbol: 'USDT',
+        inflowOccurrences: 1,
+        inflowMissingAmount: '125',
+        outflowOccurrences: 0,
+        outflowMissingAmount: '0',
+      },
+    ]);
+    expect(analysis.issues[0]!.assetSymbol).toBe('USDT');
+    expect(analysis.issues[0]!.missingAmount).toBe('125');
+  });
+
   it('should ignore staking inflow transactions such as unstake returns', () => {
     const transactions: Transaction[] = [
       createBlockchainDeposit({
@@ -739,6 +793,17 @@ describe('analyzeLinkGaps', () => {
       outflowOccurrences: 1,
       outflowMissingAmount: '5',
     });
+  });
+
+  it('should ignore withdrawals for excluded assets', () => {
+    const analysis = analyzeLinkGaps([createBlockchainWithdrawal()], [], {
+      excludedAssetIds: new Set(['test:btc']),
+    });
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
   });
 
   it('should treat confirmed links as coverage for exchange withdrawals', () => {

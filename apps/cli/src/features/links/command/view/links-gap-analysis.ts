@@ -9,6 +9,7 @@ const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 
 interface LinkGapAnalysisOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
+  excludedAssetIds?: ReadonlySet<string> | undefined;
 }
 
 interface GapAnalysisAccountContext {
@@ -89,11 +90,16 @@ function buildAccountContextById(
 }
 
 function buildPositiveAssetTotalsByAssetId(
-  movements: { assetId: string; assetSymbol: string; grossAmount: Decimal; netAmount?: Decimal | undefined }[]
+  movements: { assetId: string; assetSymbol: string; grossAmount: Decimal; netAmount?: Decimal | undefined }[],
+  excludedAssetIds?: ReadonlySet<string>  
 ): Map<string, AssetTotalsEntry> {
   const totals = new Map<string, AssetTotalsEntry>();
 
   for (const movement of movements) {
+    if (excludedAssetIds?.has(movement.assetId)) {
+      continue;
+    }
+
     const amount = movement.netAmount ?? movement.grossAmount;
     if (!amount || amount.lte(0)) {
       continue;
@@ -156,13 +162,16 @@ function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverage
   return index;
 }
 
-function getOneSidedBlockchainActivity(tx: Transaction): OneSidedBlockchainActivity | undefined {
+function getOneSidedBlockchainActivity(
+  tx: Transaction,
+  excludedAssetIds?: ReadonlySet<string>  
+): OneSidedBlockchainActivity | undefined {
   if (!tx.blockchain) {
     return undefined;
   }
 
-  const inflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.inflows ?? []);
-  const outflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.outflows ?? []);
+  const inflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.inflows ?? [], excludedAssetIds);
+  const outflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.outflows ?? [], excludedAssetIds);
 
   if (outflowTotals.size === 0 && inflowTotals.size > 0 && !isExcludedInflowGapTransaction(tx)) {
     const entry = getSingleAssetEntryById(inflowTotals);
@@ -339,10 +348,11 @@ function isLikelyCrossChainServiceFlowPair(
 function classifySuppressedGapTransactionIds(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
-  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  excludedAssetIds?: ReadonlySet<string>  
 ): Set<number> {
   const uncoveredActivities = transactions
-    .map((tx) => getOneSidedBlockchainActivity(tx))
+    .map((tx) => getOneSidedBlockchainActivity(tx, excludedAssetIds))
     .filter((activity): activity is OneSidedBlockchainActivity => activity !== undefined)
     .filter(
       (activity) =>
@@ -411,7 +421,8 @@ function createLinkGapIssue(params: {
 function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
-  suppressedTxIds: ReadonlySet<number>
+  suppressedTxIds: ReadonlySet<number>,
+  excludedAssetIds?: ReadonlySet<string>  
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
 
@@ -426,7 +437,7 @@ function collectInflowGapIssues(
       continue;
     }
 
-    const inflowTotals = buildPositiveAssetTotalsByAssetId(inflows);
+    const inflowTotals = buildPositiveAssetTotalsByAssetId(inflows, excludedAssetIds);
     for (const [assetId, { amount: totalAmount, assetSymbol }] of inflowTotals.entries()) {
       const confirmedLinks = (tx.id !== undefined ? coverageIndex.confirmedByTargetTxId.get(tx.id) : undefined) ?? [];
       const confirmedForAsset = confirmedLinks.filter((link) => link.targetAssetId === assetId);
@@ -465,7 +476,8 @@ function collectInflowGapIssues(
 function collectOutflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
-  suppressedTxIds: ReadonlySet<number>
+  suppressedTxIds: ReadonlySet<number>,
+  excludedAssetIds?: ReadonlySet<string>  
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
 
@@ -480,7 +492,7 @@ function collectOutflowGapIssues(
       continue;
     }
 
-    const outflowTotals = buildPositiveAssetTotalsByAssetId(outflows);
+    const outflowTotals = buildPositiveAssetTotalsByAssetId(outflows, excludedAssetIds);
     for (const [assetId, { amount: totalAmount, assetSymbol }] of outflowTotals.entries()) {
       const confirmedLinks = (tx.id !== undefined ? coverageIndex.confirmedBySourceTxId.get(tx.id) : undefined) ?? [];
       const confirmedForAsset = confirmedLinks.filter((link) => link.sourceAssetId === assetId);
@@ -570,10 +582,15 @@ export function analyzeLinkGaps(
 ): LinkGapAnalysis {
   const coverageIndex = buildLinkCoverageIndex(links);
   const accountContextById = buildAccountContextById(options.accounts);
-  const suppressedTxIds = classifySuppressedGapTransactionIds(transactions, coverageIndex, accountContextById);
+  const suppressedTxIds = classifySuppressedGapTransactionIds(
+    transactions,
+    coverageIndex,
+    accountContextById,
+    options.excludedAssetIds
+  );
   const issues = [
-    ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds),
-    ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds),
+    ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
+    ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
   ];
 
   return {

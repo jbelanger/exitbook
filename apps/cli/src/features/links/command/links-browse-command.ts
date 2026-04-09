@@ -18,6 +18,7 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
+import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { getLinkSelectorErrorExitCode } from '../link-selector.js';
@@ -160,7 +161,21 @@ export async function executePreparedLinksBrowseCommand(
   return resultDoAsync(async function* () {
     const database = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
-    const browsePresentationResult = await buildLinksBrowsePresentation(database, profile.id, prepared.params);
+    let excludedAssetIds: ReadonlySet<string> | undefined;
+    if (prepared.params.gaps === true) {
+      const accountingExclusionPolicy = yield* toCliResult(
+        await loadAccountingExclusionPolicy(runtime.dataDir, profile.profileKey),
+        ExitCodes.GENERAL_ERROR
+      );
+      excludedAssetIds = accountingExclusionPolicy.excludedAssetIds;
+    }
+
+    const browsePresentationResult = await buildLinksBrowsePresentation(
+      database,
+      profile.id,
+      prepared.params,
+      excludedAssetIds
+    );
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(
           createCliFailure(browsePresentationResult.error, getLinkSelectorErrorExitCode(browsePresentationResult.error))
