@@ -1,12 +1,15 @@
 import type { Profile } from '@exitbook/core';
+import { buildBalancePorts } from '@exitbook/data/balances';
 import { OverrideStore } from '@exitbook/data/overrides';
-import { err, resultTryAsync, type Result } from '@exitbook/foundation';
+import type { DataSession } from '@exitbook/data/session';
+import { err, ok, resultTryAsync, type Result } from '@exitbook/foundation';
+import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 import { AssetOverrideService } from './asset-override-service.js';
-import { AssetSnapshotReader } from './asset-snapshot-reader.js';
+import { AssetSnapshotReader, type BalanceSnapshotRebuilder } from './asset-snapshot-reader.js';
 
 export interface AssetsCommandScope {
   overrideService: AssetOverrideService;
@@ -26,7 +29,12 @@ export async function withAssetsCommandScope<T>(
     }
 
     const overrideStore = new OverrideStore(runtime.dataDir);
-    const snapshotReader = new AssetSnapshotReader(database, overrideStore, runtime.dataDir);
+    const snapshotReader = new AssetSnapshotReader(
+      database,
+      overrideStore,
+      runtime.dataDir,
+      createBalanceSnapshotRebuilder(runtime, database)
+    );
 
     const value = yield* await operation({
       overrideService: new AssetOverrideService(database, overrideStore, snapshotReader),
@@ -35,4 +43,32 @@ export async function withAssetsCommandScope<T>(
     });
     return value;
   }, 'Failed to prepare assets command scope');
+}
+
+function createBalanceSnapshotRebuilder(runtime: CommandRuntime, database: DataSession): BalanceSnapshotRebuilder {
+  let workflowPromise: Promise<BalanceWorkflow> | undefined;
+
+  return {
+    async rebuildCalculatedSnapshot(scopeAccountId) {
+      const workflow = await getWorkflow();
+      const rebuildResult = await workflow.rebuildCalculatedSnapshot({ accountId: scopeAccountId });
+      if (rebuildResult.isErr()) {
+        return err(rebuildResult.error);
+      }
+
+      return ok(undefined);
+    },
+  };
+
+  async function getWorkflow(): Promise<BalanceWorkflow> {
+    if (!workflowPromise) {
+      workflowPromise = (async () => {
+        const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
+        runtime.onCleanup(adaptResultCleanup(providerRuntime.cleanup));
+        return new BalanceWorkflow(buildBalancePorts(database), providerRuntime);
+      })();
+    }
+
+    return await workflowPromise;
+  }
 }

@@ -26,11 +26,16 @@ import { collectKnownAssets, findAssetsBySymbol, type KnownAssetRecord } from '.
 type AssetOverrideStore = Pick<OverrideStore, 'exists' | 'readByScopes'>;
 type AssetQueryDatabase = DataSession;
 
+export interface BalanceSnapshotRebuilder {
+  rebuildCalculatedSnapshot(scopeAccountId: number): Promise<Result<void, Error>>;
+}
+
 export class AssetSnapshotReader {
   constructor(
     private readonly db: AssetQueryDatabase,
     private readonly overrideStore: AssetOverrideStore,
-    private readonly dataDir: string
+    private readonly dataDir: string,
+    private readonly balanceSnapshotRebuilder?: BalanceSnapshotRebuilder | undefined
   ) {}
 
   async listExclusions(profileId: number, profileKey: string): Promise<Result<AssetExclusionsResult, Error>> {
@@ -114,7 +119,7 @@ export class AssetSnapshotReader {
     }
     const scopeAccountIds = topLevelAccountsResult.value.map((account) => account.id);
 
-    const freshnessResult = await this.assertFreshBalanceSnapshots(topLevelAccountsResult.value);
+    const freshnessResult = await this.ensureBalanceSnapshotsReady(topLevelAccountsResult.value);
     if (freshnessResult.isErr()) {
       return err(freshnessResult.error);
     }
@@ -206,15 +211,65 @@ export class AssetSnapshotReader {
     return readAssetReviewProjectionSummaries(this.db, profileId, assetIds);
   }
 
-  private async assertFreshBalanceSnapshots(
+  private async ensureBalanceSnapshotsReady(
     scopeAccounts: {
       accountFingerprint: string;
       id: number;
     }[]
   ): Promise<Result<void, Error>> {
     const freshnessPorts = buildBalancesFreshnessPorts(this.db);
+    const staleScopeAccounts: {
+      accountFingerprint: string;
+      id: number;
+    }[] = [];
 
     for (const scopeAccount of scopeAccounts) {
+      const freshnessResult = await freshnessPorts.checkFreshness(scopeAccount.id);
+      if (freshnessResult.isErr()) {
+        return err(freshnessResult.error);
+      }
+
+      if (freshnessResult.value.status === 'fresh') {
+        continue;
+      }
+
+      if (freshnessResult.value.status !== 'stale' || this.balanceSnapshotRebuilder === undefined) {
+        return err(
+          new Error(
+            formatAssetsFreshnessMessage({
+              scopeAccountRef: formatAccountFingerprintRef(scopeAccount.accountFingerprint),
+              status: freshnessResult.value.status,
+              reason: freshnessResult.value.reason,
+            })
+          )
+        );
+      }
+
+      staleScopeAccounts.push(scopeAccount);
+    }
+
+    const balanceSnapshotRebuilder = this.balanceSnapshotRebuilder;
+    if (balanceSnapshotRebuilder === undefined) {
+      if (staleScopeAccounts.length > 0) {
+        return err(new Error('Balance snapshot rebuilder is not configured for assets commands.'));
+      }
+
+      return ok(undefined);
+    }
+
+    for (const scopeAccount of staleScopeAccounts) {
+      const rebuildResult = await balanceSnapshotRebuilder.rebuildCalculatedSnapshot(scopeAccount.id);
+      if (rebuildResult.isErr()) {
+        return err(
+          formatBalanceSnapshotRebuildError(
+            formatAccountFingerprintRef(scopeAccount.accountFingerprint),
+            rebuildResult.error
+          )
+        );
+      }
+    }
+
+    for (const scopeAccount of staleScopeAccounts) {
       const freshnessResult = await freshnessPorts.checkFreshness(scopeAccount.id);
       if (freshnessResult.isErr()) {
         return err(freshnessResult.error);
@@ -237,6 +292,26 @@ export class AssetSnapshotReader {
 
     return ok(undefined);
   }
+}
+
+function formatBalanceSnapshotRebuildError(scopeAccountRef: string, error: Error): Error {
+  if (error.message.startsWith('No imported transaction data found for ')) {
+    return new Error(
+      `Assets could not rebuild saved balances for scope account ${scopeAccountRef}. ` +
+        'This account has no imported transaction data yet. ' +
+        'Run "exitbook import" first, then rerun the same assets command.'
+    );
+  }
+
+  if (error.message.startsWith('No completed import found for ')) {
+    return new Error(
+      `Assets could not rebuild saved balances for scope account ${scopeAccountRef}. ` +
+        'This account has import sessions, but none completed successfully yet. ' +
+        'Run "exitbook import" successfully before rerunning the same assets command.'
+    );
+  }
+
+  return new Error(`Assets could not rebuild saved balances for scope account ${scopeAccountRef}: ${error.message}`);
 }
 
 function resolveSelectedAsset(

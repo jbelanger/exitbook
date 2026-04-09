@@ -19,7 +19,7 @@ import {
   readAssetReviewProjectionSummaries,
 } from '../../../shared/asset-review-projection-store.js';
 import { AssetOverrideService } from '../asset-override-service.js';
-import { AssetSnapshotReader } from '../asset-snapshot-reader.js';
+import { AssetSnapshotReader, type BalanceSnapshotRebuilder } from '../asset-snapshot-reader.js';
 
 const PROFILE_ID = 1;
 const PROFILE_KEY = 'default';
@@ -119,11 +119,14 @@ function createMockDb(
     freshnessByScope?: Map<number, { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }>;
   }
 ) {
-  const scopeAccountIds = [...new Set(snapshotAssets.map((asset) => asset.scopeAccountId))];
+  const snapshotAssetsState = snapshotAssets;
+  const scopeAccountIds = [...new Set(snapshotAssetsState.map((asset) => asset.scopeAccountId))];
   if (scopeAccountIds.length === 0) {
     scopeAccountIds.push(1);
   }
-  const snapshotRows = scopeAccountIds.map((scopeAccountId) => createSnapshot(scopeAccountId));
+  const snapshotRows = new Map(
+    scopeAccountIds.map((scopeAccountId) => [scopeAccountId, createSnapshot(scopeAccountId)])
+  );
   const accountsById = new Map(
     scopeAccountIds.map((id) => [
       id,
@@ -133,6 +136,20 @@ function createMockDb(
       },
     ])
   );
+  const persistSnapshot = async (params: {
+    assets: BalanceSnapshotAsset[];
+    snapshot: BalanceSnapshot;
+  }): Promise<Result<void, Error>> => {
+    snapshotRows.set(params.snapshot.scopeAccountId, params.snapshot);
+
+    const remainingAssets = snapshotAssetsState.filter(
+      (asset) => asset.scopeAccountId !== params.snapshot.scopeAccountId
+    );
+    snapshotAssetsState.splice(0, snapshotAssetsState.length, ...remainingAssets, ...params.assets);
+
+    return ok(undefined);
+  };
+  const replaceSnapshot = vi.fn().mockImplementation(persistSnapshot);
 
   return {
     accounts: {
@@ -167,16 +184,13 @@ function createMockDb(
         .mockImplementation(async (scopeAccountIds?: number[]) =>
           ok(
             scopeAccountIds
-              ? snapshotAssets.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
-              : snapshotAssets
+              ? snapshotAssetsState.filter((asset) => scopeAccountIds.includes(asset.scopeAccountId))
+              : snapshotAssetsState
           )
         ),
-      findSnapshot: vi
-        .fn()
-        .mockImplementation(async (scopeAccountId: number) =>
-          ok(snapshotRows.find((snapshot) => snapshot.scopeAccountId === scopeAccountId))
-        ),
-      findSnapshots: vi.fn().mockResolvedValue(ok(snapshotRows)),
+      findSnapshot: vi.fn().mockImplementation(async (scopeAccountId: number) => ok(snapshotRows.get(scopeAccountId))),
+      findSnapshots: vi.fn().mockImplementation(async () => ok([...snapshotRows.values()])),
+      replaceSnapshot,
     },
   };
 }
@@ -234,12 +248,16 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
 
 function createAssetsServices(
   db: ReturnType<typeof createMockDb>,
-  overrideStore: ReturnType<typeof createMockOverrideStore>
+  overrideStore: ReturnType<typeof createMockOverrideStore>,
+  options?: {
+    balanceSnapshotRebuilder?: BalanceSnapshotRebuilder | undefined;
+  }
 ) {
   const snapshotReader = new AssetSnapshotReader(
     db as unknown as DataSession,
     overrideStore as unknown as OverrideStore,
-    '/tmp/exitbook-assets'
+    '/tmp/exitbook-assets',
+    options?.balanceSnapshotRebuilder
   );
 
   return {
@@ -537,6 +555,78 @@ describe('asset command services', () => {
     expect(mockDb.accounts.findById).not.toHaveBeenCalled();
   });
 
+  it('rebuilds stale balance snapshots before reading assets', async () => {
+    const assetId = 'exchange:kraken:btc';
+    const freshnessByScope = new Map<
+      number,
+      { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }
+    >([[1, { status: 'stale', reason: 'upstream-rebuilt:processed-transactions' }]]);
+    const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'BTC', '25')], {
+      freshnessByScope,
+    });
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    const rebuildCalculatedSnapshot = vi.fn().mockImplementation(async (scopeAccountId: number) => {
+      freshnessByScope.delete(scopeAccountId);
+      return ok(undefined);
+    });
+    const balanceSnapshotRebuilder: BalanceSnapshotRebuilder = {
+      rebuildCalculatedSnapshot,
+    };
+
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore, {
+      balanceSnapshotRebuilder,
+    });
+
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const value = assertOk(result);
+
+    expect(rebuildCalculatedSnapshot).toHaveBeenCalledWith(1);
+    expect(value.assets).toEqual([
+      expect.objectContaining({
+        assetId,
+        currentQuantity: '25',
+      }),
+    ]);
+  });
+
+  it('builds missing balance snapshots before reading assets', async () => {
+    const assetId = 'blockchain:ethereum:0xheld';
+    const persistedSnapshotAssets: BalanceSnapshotAsset[] = [];
+    const freshnessByScope = new Map<
+      number,
+      { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }
+    >([[1, { status: 'stale', reason: 'balance snapshot has never been built' }]]);
+    const mockDb = createMockDb([], persistedSnapshotAssets, {
+      freshnessByScope,
+    });
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    const rebuildCalculatedSnapshot = vi.fn().mockImplementation(async (scopeAccountId: number) => {
+      persistedSnapshotAssets.push(createSnapshotAsset(assetId, 'HELD', '5', scopeAccountId));
+      freshnessByScope.delete(scopeAccountId);
+      return ok(undefined);
+    });
+    const balanceSnapshotRebuilder: BalanceSnapshotRebuilder = {
+      rebuildCalculatedSnapshot,
+    };
+
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore, {
+      balanceSnapshotRebuilder,
+    });
+
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const value = assertOk(result);
+
+    expect(rebuildCalculatedSnapshot).toHaveBeenCalledWith(1);
+    expect(value.assets).toEqual([
+      expect.objectContaining({
+        assetId,
+        currentQuantity: '5',
+      }),
+    ]);
+  });
+
   it('explains when all stored balance snapshots were invalidated', async () => {
     const assetId = 'exchange:kraken:btc';
     const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'BTC', '25')], {
@@ -553,6 +643,42 @@ describe('asset command services', () => {
     expect(error.message).toContain('invalidated stored balance snapshots for all scopes');
     expect(error.message).toContain('exitbook accounts refresh" to rebuild all stored balances');
     expect(error.message).toContain('exitbook accounts refresh 1aaaaaaaaa');
+  });
+
+  it('rewrites import-blocked rebuild errors for assets commands', async () => {
+    const assetId = 'exchange:kraken:btc';
+    const freshnessByScope = new Map<
+      number,
+      { reason?: string | undefined; status: 'building' | 'failed' | 'fresh' | 'stale' }
+    >([[1, { status: 'stale', reason: 'upstream-rebuilt:processed-transactions' }]]);
+    const mockDb = createMockDb([], [createSnapshotAsset(assetId, 'BTC', '25')], {
+      freshnessByScope,
+    });
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(false);
+    const balanceSnapshotRebuilder: BalanceSnapshotRebuilder = {
+      rebuildCalculatedSnapshot: vi
+        .fn()
+        .mockResolvedValue(
+          err(
+            new Error(
+              'No imported transaction data found for kraken. Run "exitbook import" first, then rerun "exitbook accounts refresh".'
+            )
+          )
+        ),
+    };
+
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore, {
+      balanceSnapshotRebuilder,
+    });
+
+    const result = await snapshotReader.view({ profileId: PROFILE_ID, profileKey: PROFILE_KEY });
+    const error = assertErr(result);
+
+    expect(error.message).toContain('Assets could not rebuild saved balances for scope account 1aaaaaaaaa');
+    expect(error.message).toContain('Run "exitbook import" first');
+    expect(error.message).toContain('rerun the same assets command');
+    expect(error.message).not.toContain('accounts refresh');
   });
 
   it('resolves symbols from snapshot-only holdings', async () => {
