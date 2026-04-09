@@ -16,7 +16,9 @@ import { detectCliOutputFormat, parseCliCommandOptionsWithOverridesResult } from
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import { isInteractiveTerminal } from '../../../runtime/interactive-terminal.js';
 import { EventRelay } from '../../../ui/shared/event-relay.js';
+import { createSpinner, failSpinner, stopSpinner, type SpinnerWrapper } from '../../shared/spinner.js';
 import {
   formatAccountSelectorLabel,
   getAccountSelectorErrorExitCode,
@@ -280,6 +282,8 @@ async function runAccountsRefreshAllTextWorkflow(
     errors: 0,
   };
   let needsImportGuidance = false;
+  const interactive = isInteractiveTerminal();
+  let activeSpinner: SpinnerWrapper | undefined;
 
   console.log(pc.dim(`Refreshing balances for ${formatCount(accounts.length, 'account')}...`));
 
@@ -294,31 +298,48 @@ async function runAccountsRefreshAllTextWorkflow(
 
   relay.connect((event) => {
     switch (event.type) {
-      case 'VERIFICATION_STARTED':
-        console.log(pc.dim(`• ${labels.get(event.accountId) ?? event.accountId}: refreshing...`));
+      case 'VERIFICATION_STARTED': {
+        const label = labels.get(event.accountId) ?? `${event.accountId}`;
+        if (interactive) {
+          activeSpinner = createSpinner(pc.dim(`${label}: refreshing...`), false);
+        } else {
+          console.log(pc.dim(`• ${label}: refreshing...`));
+        }
         return;
-      case 'VERIFICATION_COMPLETED':
+      }
+      case 'VERIFICATION_COMPLETED': {
         totals.verified += 1;
         totals.matches += event.result.matchCount;
         totals.mismatches += event.result.mismatchCount;
         totals.warnings += event.result.warningCount;
         totals.partialCoverageScopes += event.result.partialCoverageCount;
-        console.log(formatRefreshCompletionLine(labels.get(event.accountId) ?? `${event.accountId}`, event.result));
-        return;
-      case 'VERIFICATION_ERROR':
-        totals.errors += 1;
-        {
-          const errorPresentation = formatBatchRefreshError(
-            event.error,
-            platformKeys.get(event.accountId) ?? undefined
-          );
-          needsImportGuidance ||= errorPresentation.needsImportGuidance;
-          console.log(pc.red(`✗ ${labels.get(event.accountId) ?? event.accountId}: ${errorPresentation.message}`));
+        const label = labels.get(event.accountId) ?? `${event.accountId}`;
+        if (activeSpinner) {
+          completeRefreshSpinner(activeSpinner, label, event.result);
+          activeSpinner = undefined;
+        } else {
+          console.log(formatRefreshCompletionLine(label, event.result));
         }
         return;
+      }
+      case 'VERIFICATION_ERROR': {
+        totals.errors += 1;
+        const errorPresentation = formatBatchRefreshError(event.error, platformKeys.get(event.accountId) ?? undefined);
+        needsImportGuidance ||= errorPresentation.needsImportGuidance;
+        const label = labels.get(event.accountId) ?? `${event.accountId}`;
+        if (activeSpinner) {
+          failSpinner(activeSpinner, pc.red(`${label}: ${errorPresentation.message}`));
+          activeSpinner = undefined;
+        } else {
+          console.log(pc.red(`✗ ${label}: ${errorPresentation.message}`));
+        }
+        return;
+      }
       case 'VERIFICATION_SKIPPED':
         return;
       case 'ABORTING':
+        stopSpinner(activeSpinner);
+        activeSpinner = undefined;
         console.log(pc.yellow('Aborting refresh...'));
         return;
       case 'ALL_VERIFICATIONS_COMPLETE':
@@ -391,16 +412,38 @@ function logSingleRefreshResult(result: SingleRefreshResult): void {
   );
 }
 
-function formatRefreshCompletionLine(
-  label: string,
-  result: {
-    matchCount: number;
-    mismatchCount: number;
-    partialCoverageCount: number;
-    status: 'error' | 'failed' | 'pending' | 'skipped' | 'success' | 'verifying' | 'warning';
-    warningCount: number;
+interface RefreshCompletionResult {
+  matchCount: number;
+  mismatchCount: number;
+  partialCoverageCount: number;
+  status: 'error' | 'failed' | 'pending' | 'skipped' | 'success' | 'verifying' | 'warning';
+  warningCount: number;
+}
+
+function completeRefreshSpinner(spinner: SpinnerWrapper, label: string, result: RefreshCompletionResult): void {
+  const coverageSuffix = result.partialCoverageCount > 0 ? ' · partial coverage' : '';
+  const message = `${label}: ${result.status} · ${result.matchCount} match · ${result.mismatchCount} mismatch · ${result.warningCount} warning${coverageSuffix}`;
+
+  switch (result.status) {
+    case 'success':
+      stopSpinner(spinner, message);
+      return;
+    case 'warning':
+      spinner.ora.stopAndPersist({ symbol: pc.yellow('!'), text: pc.yellow(message) });
+      return;
+    case 'failed':
+    case 'error':
+      failSpinner(spinner, pc.red(message));
+      return;
+    case 'pending':
+    case 'verifying':
+    case 'skipped':
+      spinner.ora.stopAndPersist({ symbol: ' ', text: pc.dim(message) });
+      return;
   }
-): string {
+}
+
+function formatRefreshCompletionLine(label: string, result: RefreshCompletionResult): string {
   const coverageSuffix = result.partialCoverageCount > 0 ? ' · partial coverage' : '';
   const message = `${label}: ${result.status} · ${result.matchCount} match · ${result.mismatchCount} mismatch · ${result.warningCount} warning${coverageSuffix}`;
 
