@@ -502,12 +502,23 @@ function collectUserSolanaMovements(
 function buildUserAssetSet(inflows: readonly SolanaMovement[], outflows: readonly SolanaMovement[]): Set<string> {
   const userAssets = new Set<string>();
   for (const inflow of inflows) {
-    userAssets.add(inflow.tokenAddress || inflow.asset);
+    userAssets.add(getSolanaMovementAssetKey(inflow));
   }
   for (const outflow of outflows) {
-    userAssets.add(outflow.tokenAddress || outflow.asset);
+    userAssets.add(getSolanaMovementAssetKey(outflow));
   }
   return userAssets;
+}
+
+function getSolanaMovementAssetKey(movement: SolanaMovement): string {
+  return movement.tokenAddress || movement.asset;
+}
+
+function filterSolanaMovementsByAsset(
+  movements: readonly SolanaMovement[],
+  assetKey: string
+): readonly SolanaMovement[] {
+  return movements.filter((movement) => getSolanaMovementAssetKey(movement) === assetKey);
 }
 
 function inferCounterpartyAddressesFromCandidates(params: {
@@ -655,6 +666,27 @@ function inferCounterpartyAddresses(
     return primaryAsset === 'SOL'
       ? inferSolCounterpartyAddresses(tx, allWalletAddresses, hasInflows, hasOutflows)
       : inferTokenCounterpartyAddresses(tx, allWalletAddresses, primaryAsset, hasInflows, hasOutflows);
+  }
+
+  const nonSolAssets = Array.from(userAssets).filter((asset) => asset !== 'SOL');
+  if (userAssets.size === 2 && userAssets.has('SOL') && nonSolAssets.length === 1) {
+    const tokenAsset = nonSolAssets[0]!;
+    const tokenInflows = filterSolanaMovementsByAsset(inflows, tokenAsset);
+    const tokenOutflows = filterSolanaMovementsByAsset(outflows, tokenAsset);
+
+    if (
+      tokenInflows.length <= 1 &&
+      tokenOutflows.length <= 1 &&
+      (tokenInflows.length > 0 || tokenOutflows.length > 0)
+    ) {
+      return inferTokenCounterpartyAddresses(
+        tx,
+        allWalletAddresses,
+        tokenAsset,
+        tokenInflows.length > 0,
+        tokenOutflows.length > 0
+      );
+    }
   }
 
   if (userAssets.size > 1) {

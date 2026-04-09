@@ -831,6 +831,126 @@ describe('Solana Processor Utils', () => {
       expect(result.feePaidByUser).toBe(true);
     });
 
+    it('should infer token counterparty addresses when token outflow includes incidental SOL deltas', () => {
+      const tx = createTx({
+        feeAmount: '0.000067691',
+        feeCurrency: 'SOL' as Currency,
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '415651674',
+            postBalance: '411505423',
+          },
+        ],
+        tokenChanges: [
+          {
+            account: 'serviceUsdtAccount',
+            owner: 'serviceOwner456',
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '0',
+            postAmount: '165000000',
+          },
+          {
+            account: 'userUsdtAccount',
+            owner: userAddress,
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '165169516',
+            postAmount: '169516',
+          },
+        ],
+      });
+
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
+
+      expect(result.fromAddress).toBe(userAddress);
+      expect(result.toAddress).toBe('serviceOwner456');
+      expect(result.inferenceFailureReason).toBeUndefined();
+    });
+
+    it('should infer token counterparty addresses when token inflow includes incidental SOL fee deltas', () => {
+      const tx = createTx({
+        feeAmount: '0.000018235',
+        feeCurrency: 'SOL' as Currency,
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '411505427',
+            postBalance: '411487192',
+          },
+        ],
+        tokenChanges: [
+          {
+            account: 'serviceUsdtAccount',
+            owner: 'serviceOwner456',
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '165000000',
+            postAmount: '0',
+          },
+          {
+            account: 'userUsdtAccount',
+            owner: userAddress,
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '169516',
+            postAmount: '165169516',
+          },
+        ],
+      });
+
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
+
+      expect(result.fromAddress).toBe('serviceOwner456');
+      expect(result.toAddress).toBe(userAddress);
+      expect(result.inferenceFailureReason).toBeUndefined();
+    });
+
+    it('should keep multi-asset inference failure when multiple non-SOL assets move', () => {
+      const tx = createTx({
+        feeAmount: '0.000005',
+        feeCurrency: 'SOL' as Currency,
+        accountChanges: [
+          {
+            account: userAddress,
+            preBalance: '1000000000',
+            postBalance: '999995000',
+          },
+        ],
+        tokenChanges: [
+          {
+            account: 'userUsdcAccount',
+            owner: userAddress,
+            mint: 'USDCMint',
+            symbol: 'USDC',
+            decimals: 6,
+            preAmount: '1000000',
+            postAmount: '500000',
+          },
+          {
+            account: 'userUsdtAccount',
+            owner: userAddress,
+            mint: 'USDTMint',
+            symbol: 'USDT',
+            decimals: 6,
+            preAmount: '1000000',
+            postAmount: '500000',
+          },
+        ],
+      });
+
+      const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
+
+      expect(result.fromAddress).toBeUndefined();
+      expect(result.toAddress).toBeUndefined();
+      expect(result.inferenceFailureReason).toBe('multi_asset_user_delta');
+    });
+
     it('should determine feePaidByUser is false when user only has inflows', () => {
       const tx = createTx({
         feePayer: otherAddress,

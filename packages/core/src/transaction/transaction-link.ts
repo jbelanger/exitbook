@@ -94,6 +94,8 @@ export const TransactionLinkMetadataSchema = z
     feeBearingSourceTransactionId: z.number().int().positive().optional(),
     sameHashExternalSourceAllocations: z.array(SameHashExternalSourceAllocationSchema).optional(),
     sharedToAddress: z.string().optional(),
+    counterpartyRoundtrip: z.literal(true).optional(),
+    counterpartyRoundtripHours: z.string().optional(),
     transferProposalKey: z.string().optional(),
     overrideId: z.string().optional(),
     overrideLinkType: OverrideLinkTypeSchema.optional(),

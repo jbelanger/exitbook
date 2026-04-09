@@ -48,7 +48,7 @@ export async function buildLinksBrowsePresentation(
   database: LinksCommandDatabase,
   profileId: number,
   params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): Promise<Result<LinksBrowsePresentation, Error>> {
   if (params.gaps === true) {
     return buildLinksGapsBrowsePresentation(database, profileId, params, excludedAssetIds);
@@ -108,15 +108,16 @@ async function buildLinksGapsBrowsePresentation(
   database: LinksCommandDatabase,
   profileId: number,
   params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'gaps' }>, Error>> {
   const analysisResult = await loadLinksGapAnalysis(database, profileId, excludedAssetIds);
   if (analysisResult.isErr()) {
     return err(analysisResult.error);
   }
 
-  const state = createGapsViewState(analysisResult.value);
-  const gaps = analysisResult.value.issues.map((issue) => ({
+  const sortedAnalysis = sortLinkGapAnalysisByTimestamp(analysisResult.value);
+  const state = createGapsViewState(sortedAnalysis);
+  const gaps = sortedAnalysis.issues.map((issue) => ({
     issue,
     transactionRef: formatLinkSelectorRef(issue.txFingerprint),
   }));
@@ -224,7 +225,7 @@ function preselectGapsState(
 async function loadLinksGapAnalysis(
   database: LinksCommandDatabase,
   profileId: number,
-  excludedAssetIds?: ReadonlySet<string>  
+  excludedAssetIds?: ReadonlySet<string>
 ): Promise<Result<LinkGapAnalysis, Error>> {
   const transactionsResult = await database.transactions.findAll({ profileId });
   if (transactionsResult.isErr()) {
@@ -247,4 +248,44 @@ async function loadLinksGapAnalysis(
       excludedAssetIds,
     })
   );
+}
+
+function sortLinkGapAnalysisByTimestamp(analysis: LinkGapAnalysis): LinkGapAnalysis {
+  return {
+    ...analysis,
+    issues: [...analysis.issues].sort(compareLinkGapIssuesByTimestamp),
+  };
+}
+
+function compareLinkGapIssuesByTimestamp(
+  left: LinkGapAnalysis['issues'][number],
+  right: LinkGapAnalysis['issues'][number]
+): number {
+  const leftTimestamp = Date.parse(left.timestamp);
+  const rightTimestamp = Date.parse(right.timestamp);
+
+  if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+    return leftTimestamp - rightTimestamp;
+  }
+
+  const timestampCompare = left.timestamp.localeCompare(right.timestamp);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+
+  if (left.transactionId !== right.transactionId) {
+    return left.transactionId - right.transactionId;
+  }
+
+  const directionCompare = left.direction.localeCompare(right.direction);
+  if (directionCompare !== 0) {
+    return directionCompare;
+  }
+
+  const assetCompare = left.assetSymbol.localeCompare(right.assetSymbol);
+  if (assetCompare !== 0) {
+    return assetCompare;
+  }
+
+  return left.txFingerprint.localeCompare(right.txFingerprint);
 }
