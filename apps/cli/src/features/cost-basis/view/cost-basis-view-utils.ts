@@ -13,6 +13,7 @@ import {
 import { Decimal } from 'decimal.js';
 
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
+import type { CostBasisReadinessWarning } from '../cost-basis-readiness.js';
 
 import type {
   AcquisitionViewItem,
@@ -692,6 +693,7 @@ function deriveCanadaAcquisitionStatus(
 export interface CostBasisPresentationModel {
   assetItems: AssetCostBasisItem[];
   context: CalculationContext;
+  readinessWarnings: readonly CostBasisReadinessWarning[];
   summary: {
     assetsProcessed: string[];
     disposalsProcessed: number;
@@ -706,7 +708,10 @@ export interface CostBasisPresentationModel {
   };
 }
 
-export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult): CostBasisPresentationModel {
+export function buildPresentationModel(
+  costBasisResult: CostBasisWorkflowResult,
+  options?: { readinessWarnings?: readonly CostBasisReadinessWarning[] | undefined }
+): CostBasisPresentationModel {
   const filingFactsResult = buildCostBasisFilingFacts({ artifact: costBasisResult });
   if (filingFactsResult.isErr()) {
     throw filingFactsResult.error;
@@ -741,6 +746,7 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
           endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
         },
       },
+      readinessWarnings: options?.readinessWarnings ?? [],
       summary: {
         lotsCreated: filingFacts.summary.acquisitionCount,
         disposalsProcessed: filingFacts.summary.dispositionCount,
@@ -781,6 +787,7 @@ export function buildPresentationModel(costBasisResult: CostBasisWorkflowResult)
         endDate: costBasisResult.calculation.endDate.toISOString().split('T')[0] ?? '',
       },
     },
+    readinessWarnings: options?.readinessWarnings ?? [],
     summary: {
       lotsCreated: filingFacts.summary.acquisitionCount,
       disposalsProcessed: filingFacts.summary.dispositionCount,

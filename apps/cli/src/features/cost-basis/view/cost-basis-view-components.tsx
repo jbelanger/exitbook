@@ -42,6 +42,10 @@ export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
   buffer: 1, // bottom margin
 });
 
+export function getCostBasisAssetsChromeLines(readinessWarningCount = 0): number {
+  return COST_BASIS_ASSETS_CHROME_LINES + readinessWarningCount;
+}
+
 export const COST_BASIS_TIMELINE_CHROME_LINES = calculateChromeLines({
   beforeHeader: 1, // blank line
   header: 1, // "Timeline for {asset}"
@@ -112,6 +116,7 @@ const AssetSummaryView: FC<{
       <Text> </Text>
       <CostBasisHeader state={state} />
       <Text> </Text>
+      <CostBasisReadinessWarnings warnings={state.readinessWarnings} />
       <AssetList
         state={state}
         terminalHeight={terminalHeight}
@@ -142,6 +147,7 @@ const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
           {state.totalLots} <Text dimColor>lots created</Text>
         </Text>
         <Text> </Text>
+        <CostBasisReadinessWarnings warnings={state.readinessWarnings} />
         <Text>{'  '}No disposals in this period — no capital gains or losses to report.</Text>
         <Text> </Text>
         <Text>
@@ -161,6 +167,7 @@ const AssetEmptyState: FC<{ state: CostBasisAssetState }> = ({ state }) => {
         <Text bold>Cost Basis</Text> <Text dimColor>({methodLabel})</Text> 0 <Text dimColor>disposals</Text>
       </Text>
       <Text> </Text>
+      <CostBasisReadinessWarnings warnings={state.readinessWarnings} />
       <Text>
         {'  '}No transactions found in the date range {state.dateRange.startDate} to {state.dateRange.endDate}.
       </Text>
@@ -222,10 +229,34 @@ const CostBasisHeader: FC<{ state: CostBasisAssetState }> = ({ state }) => {
   );
 };
 
+const CostBasisReadinessWarnings: FC<{
+  warnings: CostBasisAssetState['readinessWarnings'];
+}> = ({ warnings }) => {
+  if (warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box flexDirection="column">
+      {warnings.map((warning) => (
+        <Text
+          key={warning.code}
+          color={warning.severity === 'blocked' ? 'red' : 'yellow'}
+        >
+          {'  '}⚠ {warning.message}
+        </Text>
+      ))}
+    </Box>
+  );
+};
+
 // ─── Asset List ──────────────────────────────────────────────────────────────
 
 const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = calculateVisibleRows(terminalHeight, COST_BASIS_ASSETS_CHROME_LINES);
+  const visibleRows = calculateVisibleRows(
+    terminalHeight,
+    getCostBasisAssetsChromeLines(state.readinessWarnings.length)
+  );
   const columns = createColumns(state.assets, {
     asset: { format: (item) => item.asset, minWidth: 6 },
     disposalCount: { format: (item) => `${item.disposalCount}`, align: 'right', minWidth: 5 },

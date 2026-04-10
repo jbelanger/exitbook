@@ -1,9 +1,5 @@
-import {
-  getDefaultCostBasisMethodForJurisdiction,
-  type CostBasisJurisdiction,
-  type CostBasisWorkflowResult,
-} from '@exitbook/accounting/cost-basis';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { getDefaultCostBasisMethodForJurisdiction, type CostBasisJurisdiction } from '@exitbook/accounting/cost-basis';
+import { ok, resultDoAsync, resultTry, resultTryAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Command } from 'commander';
 import React from 'react';
@@ -25,18 +21,19 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
+import { buildCostBasisReadinessWarnings } from '../cost-basis-readiness.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
 import { createCostBasisAssetState, createCostBasisTimelineState } from '../view/cost-basis-view-state.js';
-import { buildPresentationModel } from '../view/cost-basis-view-utils.js';
+import { buildPresentationModel, type CostBasisPresentationModel } from '../view/cost-basis-view-utils.js';
 
 import { withCostBasisCommandScope } from './cost-basis-command-scope.js';
 import { registerCostBasisExportCommand } from './cost-basis-export.js';
-import type { ValidatedCostBasisConfig } from './cost-basis-handler.js';
+import type { CostBasisArtifactExecutionResult, ValidatedCostBasisConfig } from './cost-basis-handler.js';
 import { buildCostBasisJsonData } from './cost-basis-json.js';
 import { CostBasisCommandOptionsSchema } from './cost-basis-option-schemas.js';
 import { promptForCostBasisParams } from './cost-basis-prompts.jsx';
 import { buildCostBasisInputFromFlags } from './cost-basis-utils.js';
-import { runCostBasis } from './run-cost-basis.js';
+import { runCostBasisArtifact } from './run-cost-basis.js';
 
 const logger = getLogger('cost-basis');
 
@@ -130,12 +127,14 @@ async function executeCostBasisJsonCommand(
   return resultDoAsync(async function* () {
     const result = yield* toCliResult(
       await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
-        runCostBasis(scope, params, { refresh: options.refresh })
+        runCostBasisArtifact(scope, params, { refresh: options.refresh })
       ),
       ExitCodes.GENERAL_ERROR
     );
 
-    return jsonSuccess(buildCostBasisJsonData(buildPresentationModel(result)));
+    const presentation = yield* toCliResult(buildCostBasisPresentation(result), ExitCodes.GENERAL_ERROR);
+
+    return jsonSuccess(buildCostBasisJsonData(presentation));
   });
 }
 
@@ -158,11 +157,11 @@ async function loadCostBasisTextResult(
   ctx: CommandRuntime,
   params: ValidatedCostBasisConfig,
   refresh: boolean | undefined
-): Promise<Result<CostBasisWorkflowResult, Error>> {
+): Promise<Result<CostBasisArtifactExecutionResult, Error>> {
   const spinner = createSpinner('Calculating cost basis...', false);
   try {
     return await withCostBasisCommandScope(ctx, { format: 'text', params }, (scope) =>
-      runCostBasis(scope, params, { refresh })
+      runCostBasisArtifact(scope, params, { refresh })
     );
   } finally {
     stopSpinner(spinner);
@@ -172,15 +171,16 @@ async function loadCostBasisTextResult(
 async function buildCostBasisTuiCompletion(
   ctx: CommandRuntime,
   options: CommandOptions,
-  result: CostBasisWorkflowResult
+  result: CostBasisArtifactExecutionResult
 ): Promise<Result<ReturnType<typeof silentSuccess>, Error>> {
-  try {
-    const presentation = buildPresentationModel(result);
+  return resultTryAsync(async function* () {
+    const presentation = yield* buildCostBasisPresentation(result);
     const initialState = createCostBasisAssetState(
       presentation.context,
       presentation.assetItems,
       presentation.summary,
       {
+        readinessWarnings: presentation.readinessWarnings,
         totalDisposals: presentation.summary.disposalsProcessed,
         totalLots: presentation.summary.lotsCreated,
       }
@@ -196,10 +196,8 @@ async function buildCostBasisTuiCompletion(
       })
     );
 
-    return ok(silentSuccess());
-  } catch (error) {
-    return err(error instanceof Error ? error : new Error(String(error)));
-  }
+    return silentSuccess();
+  }, 'Failed to render cost basis view');
 }
 
 async function resolveCostBasisTextParams(
@@ -238,4 +236,13 @@ function resolveAssetFilter(
 
   const assetItem = state.assets[assetIndex]!;
   return createCostBasisTimelineState(assetItem, state, assetIndex);
+}
+
+function buildCostBasisPresentation(
+  result: CostBasisArtifactExecutionResult
+): Result<CostBasisPresentationModel, Error> {
+  return resultTry(function* () {
+    const readinessWarnings = yield* buildCostBasisReadinessWarnings(result);
+    return buildPresentationModel(result.artifact, { readinessWarnings });
+  }, 'Failed to build cost basis presentation');
 }

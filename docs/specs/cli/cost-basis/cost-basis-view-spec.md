@@ -184,14 +184,19 @@ Cost Basis (FIFO · US · 2024 · USD)  12 disposals · 4 assets
 
 ### Warning Bar
 
-When transactions were excluded due to missing prices, a warning line appears between the header and the list:
+When cost-basis readiness issues remain, warning lines appear between the header and the list:
 
 ```
-  ⚠ 5 transactions excluded due to missing prices — run exitbook prices enrich
+  ⚠ 2 assets still require review before filing export.
+  ⚠ 3 transfers require manual review because linking is incomplete.
 ```
 
-- `⚠`: yellow
-- Warning text: yellow
+- One line per readiness warning
+- Asset-review blockers render in red
+- Incomplete-link warnings render in yellow
+- Current warning sources:
+  - unresolved asset review blockers in the scoped accounting set
+  - incomplete transfer linking in the scoped accounting set
 
 ### Calculation Errors
 
@@ -752,6 +757,20 @@ Bypasses the TUI. Outputs calculation results in JSON format.
     "startDate": "2024-01-01",
     "endDate": "2024-12-31"
   },
+  "readinessWarnings": [
+    {
+      "code": "UNRESOLVED_ASSET_REVIEW",
+      "severity": "blocked",
+      "count": 2,
+      "message": "2 assets still require review before filing export."
+    },
+    {
+      "code": "INCOMPLETE_TRANSFER_LINKING",
+      "severity": "warning",
+      "count": 3,
+      "message": "3 transfers require manual review because linking is incomplete."
+    }
+  ],
   "summary": {
     "transactionsProcessed": 245,
     "assetsProcessed": ["BTC", "ETH", "SOL", "PENDLE"],
@@ -784,8 +803,7 @@ Bypasses the TUI. Outputs calculation results in JSON format.
         }
       ]
     }
-  ],
-  "missingPricesWarning": "5 transactions were excluded due to missing prices."
+  ]
 }
 ```
 
@@ -799,14 +817,14 @@ Same conventions as all other TUI views.
 
 **Signal tier (icons + cursor):**
 
-| Icon | Color  | Meaning                  |
-| ---- | ------ | ------------------------ |
-| `⚠`  | yellow | Missing prices warning   |
-| `✗`  | red    | Per-asset calc error     |
-| `▸`  | —      | Cursor (bold)            |
-| `+`  | green  | Acquisition event marker |
-| `−`  | red    | Disposal event marker    |
-| `→`  | cyan   | Transfer event marker    |
+| Icon | Color      | Meaning                   |
+| ---- | ---------- | ------------------------- |
+| `⚠`  | yellow/red | Readiness warning/blocker |
+| `✗`  | red        | Per-asset calc error      |
+| `▸`  | —          | Cursor (bold)             |
+| `+`  | green      | Acquisition event marker  |
+| `−`  | red        | Disposal event marker     |
+| `→`  | cyan       | Transfer event marker     |
 
 **Content tier (what you read):**
 
@@ -1218,7 +1236,7 @@ Implement a `formatCryptoQuantity(value: string): string` utility:
 
 ### Terminal Size
 
-- Asset list: fills available height minus fixed chrome (header ~4, warning ~1, divider 1, detail ~10, controls ~2, scroll indicators ~2 = ~20 lines)
+- Asset list: fills available height minus fixed chrome (header ~4, warning ~0-2, divider 1, detail ~10, controls ~2, scroll indicators ~2 = ~19-21 lines)
 - Timeline: same layout, detail panel ~8-10 lines depending on event type
 - Minimum terminal width: 80 columns
 

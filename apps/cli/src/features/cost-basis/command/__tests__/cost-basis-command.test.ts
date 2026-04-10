@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
+  mockBuildCostBasisReadinessWarnings,
   mockBuildCostBasisInputFromFlags,
   mockBuildCostBasisJsonData,
   mockBuildPresentationModel,
@@ -16,10 +17,11 @@ const {
   mockPromptForCostBasisParams,
   mockRenderApp,
   mockRunCommand,
-  mockRunCostBasis,
+  mockRunCostBasisArtifact,
   mockStopSpinner,
   mockWithCostBasisCommandScope,
 } = vi.hoisted(() => ({
+  mockBuildCostBasisReadinessWarnings: vi.fn(),
   mockBuildCostBasisInputFromFlags: vi.fn(),
   mockBuildCostBasisJsonData: vi.fn(),
   mockBuildPresentationModel: vi.fn(),
@@ -30,7 +32,7 @@ const {
   mockPromptForCostBasisParams: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockRunCostBasis: vi.fn(),
+  mockRunCostBasisArtifact: vi.fn(),
   mockStopSpinner: vi.fn(),
   mockWithCostBasisCommandScope: vi.fn(),
 }));
@@ -38,6 +40,10 @@ const {
 vi.mock('../../../../runtime/command-runtime.js', () => ({
   renderApp: mockRenderApp,
   runCommand: mockRunCommand,
+}));
+
+vi.mock('../../cost-basis-readiness.js', () => ({
+  buildCostBasisReadinessWarnings: mockBuildCostBasisReadinessWarnings,
 }));
 
 vi.mock('../../../../cli/error.js', () => ({
@@ -58,7 +64,7 @@ vi.mock('../cost-basis-command-scope.js', () => ({
 }));
 
 vi.mock('../run-cost-basis.js', () => ({
-  runCostBasis: mockRunCostBasis,
+  runCostBasisArtifact: mockRunCostBasisArtifact,
 }));
 
 vi.mock('../cost-basis-utils.js', () => ({
@@ -134,6 +140,7 @@ describe('cost-basis command', () => {
       method: 'fifo',
       taxYear: 2024,
     },
+    readinessWarnings: [],
     summary: {
       disposalsProcessed: 1,
       lotsCreated: 2,
@@ -150,7 +157,16 @@ describe('cost-basis command', () => {
       async (_ctx: unknown, _options: unknown, operation: (value: typeof scope) => Promise<unknown>) => operation(scope)
     );
     mockBuildCostBasisInputFromFlags.mockReturnValue(ok(params));
-    mockRunCostBasis.mockResolvedValue(ok({ tag: 'workflow-result' }));
+    mockRunCostBasisArtifact.mockResolvedValue(
+      ok({
+        artifact: { tag: 'workflow-result' },
+        scopeKey: 'cost-basis:default',
+        snapshotId: 'snapshot-1',
+        sourceContext: { tag: 'source-context' },
+        assetReviewSummaries: new Map(),
+      })
+    );
+    mockBuildCostBasisReadinessWarnings.mockReturnValue(ok([]));
     mockBuildPresentationModel.mockReturnValue(presentation);
     mockBuildCostBasisJsonData.mockReturnValue({
       calculationId: 'calc-1',
@@ -158,6 +174,7 @@ describe('cost-basis command', () => {
       dateRange: { end: '2024-12-31', start: '2024-01-01' },
       jurisdiction: 'US',
       method: 'fifo',
+      readinessWarnings: [],
       summary: presentation.summary,
       taxYear: 2024,
       assets: [],
@@ -188,6 +205,7 @@ describe('cost-basis command', () => {
         dateRange: { end: '2024-12-31', start: '2024-01-01' },
         jurisdiction: 'US',
         method: 'fifo',
+        readinessWarnings: [],
         summary: presentation.summary,
         taxYear: 2024,
         assets: [],
