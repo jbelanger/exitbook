@@ -2,26 +2,16 @@ import type { LinkStatus, TransactionLink } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import {
-  buildLinkProposalRef,
-  buildLinkProposalSelector,
-  formatLinkSelectorRef,
-  resolveLinkGapSelector,
-  resolveLinkProposalSelector,
-} from '../link-selector.js';
-import type { LinkGapBrowseItem, LinkProposalBrowseItem } from '../links-browse-model.js';
-import type { LinkGapAnalysis } from '../links-gap-model.js';
+import { buildLinkProposalRef, buildLinkProposalSelector, resolveLinkProposalSelector } from '../link-selector.js';
+import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import type { LinkWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
-import { createGapsViewState, createLinksViewState } from '../view/index.js';
-import type { LinksViewGapsState, LinksViewLinksState } from '../view/links-view-state.js';
-
-import { loadLinksGapAnalysis } from './links-gap-analysis-support.js';
+import { createLinksViewState } from '../view/index.js';
+import type { LinksViewLinksState } from '../view/links-view-state.js';
 
 type LinksCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
 
 export interface LinksBrowseParams {
-  gaps?: boolean | undefined;
   maxConfidence?: number | undefined;
   minConfidence?: number | undefined;
   preselectInExplorer?: boolean | undefined;
@@ -30,45 +20,18 @@ export interface LinksBrowseParams {
   verbose?: boolean | undefined;
 }
 
-export type LinksBrowsePresentation =
-  | {
-      gaps: LinkGapBrowseItem[];
-      mode: 'gaps';
-      selectedGap?: LinkGapBrowseItem | undefined;
-      state: LinksViewGapsState;
-    }
-  | {
-      mode: 'links';
-      proposals: LinkProposalBrowseItem[];
-      selectedProposal?: LinkProposalBrowseItem | undefined;
-      state: LinksViewLinksState;
-    };
+export interface LinksBrowsePresentation {
+  mode: 'links';
+  proposals: LinkProposalBrowseItem[];
+  selectedProposal?: LinkProposalBrowseItem | undefined;
+  state: LinksViewLinksState;
+}
 
 export async function buildLinksBrowsePresentation(
   database: LinksCommandDatabase,
   profileId: number,
-  params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>,
-  resolvedTransactionFingerprints?: ReadonlySet<string>
-): Promise<Result<LinksBrowsePresentation, Error>> {
-  if (params.gaps === true) {
-    return buildLinksGapsBrowsePresentation(
-      database,
-      profileId,
-      params,
-      excludedAssetIds,
-      resolvedTransactionFingerprints
-    );
-  }
-
-  return buildLinksProposalBrowsePresentation(database, profileId, params);
-}
-
-async function buildLinksProposalBrowsePresentation(
-  database: LinksCommandDatabase,
-  profileId: number,
   params: LinksBrowseParams
-): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'links' }>, Error>> {
+): Promise<Result<LinksBrowsePresentation, Error>> {
   const linksResult = await database.transactionLinks.findAll({
     profileId,
     status: params.status,
@@ -107,48 +70,6 @@ async function buildLinksProposalBrowsePresentation(
     mode: 'links',
     proposals,
     selectedProposal,
-    state,
-  });
-}
-
-async function buildLinksGapsBrowsePresentation(
-  database: LinksCommandDatabase,
-  profileId: number,
-  params: LinksBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>,
-  resolvedTransactionFingerprints?: ReadonlySet<string>
-): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'gaps' }>, Error>> {
-  const analysisResult = await loadLinksGapAnalysis(database, profileId, {
-    excludedAssetIds,
-    resolvedTransactionFingerprints,
-  });
-  if (analysisResult.isErr()) {
-    return err(analysisResult.error);
-  }
-
-  const sortedAnalysis = sortLinkGapAnalysisByTimestamp(analysisResult.value);
-  const state = createGapsViewState(sortedAnalysis);
-  const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
-  const gaps = sortedAnalysis.issues.map((issue) => ({
-    issue,
-    transactionGapCount: gapCountsByTransactionFingerprint.get(issue.txFingerprint) ?? 1,
-    transactionRef: formatLinkSelectorRef(issue.txFingerprint),
-  }));
-  const selectedGapResult =
-    params.selector !== undefined ? resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : ok(undefined);
-  if (selectedGapResult.isErr()) {
-    return err(selectedGapResult.error);
-  }
-
-  const selectedGap = selectedGapResult.value?.item;
-  if (params.preselectInExplorer && selectedGap) {
-    preselectGapsState(state, gaps, selectedGap);
-  }
-
-  return ok({
-    mode: 'gaps',
-    gaps,
-    selectedGap,
     state,
   });
 }
@@ -198,13 +119,6 @@ function toProposalCandidates(
   }));
 }
 
-function toGapCandidates(gaps: LinkGapBrowseItem[]): { item: LinkGapBrowseItem; txFingerprint: string }[] {
-  return gaps.map((gap) => ({
-    item: gap,
-    txFingerprint: gap.issue.txFingerprint,
-  }));
-}
-
 function preselectLinksState(
   state: LinksViewLinksState,
   proposals: LinkProposalBrowseItem[],
@@ -219,68 +133,4 @@ function preselectLinksState(
 
   state.selectedIndex = selectedIndex;
   state.scrollOffset = selectedIndex;
-}
-
-function preselectGapsState(
-  state: LinksViewGapsState,
-  gaps: LinkGapBrowseItem[],
-  selectedGap: LinkGapBrowseItem
-): void {
-  const selectedIndex = gaps.findIndex((gap) => gap.issue.txFingerprint === selectedGap.issue.txFingerprint);
-  if (selectedIndex < 0) {
-    return;
-  }
-
-  state.selectedIndex = selectedIndex;
-  state.scrollOffset = selectedIndex;
-}
-
-function sortLinkGapAnalysisByTimestamp(analysis: LinkGapAnalysis): LinkGapAnalysis {
-  return {
-    ...analysis,
-    issues: [...analysis.issues].sort(compareLinkGapIssuesByTimestamp),
-  };
-}
-
-function countGapIssuesByTransactionFingerprint(analysis: LinkGapAnalysis): Map<string, number> {
-  const counts = new Map<string, number>();
-
-  for (const issue of analysis.issues) {
-    counts.set(issue.txFingerprint, (counts.get(issue.txFingerprint) ?? 0) + 1);
-  }
-
-  return counts;
-}
-
-function compareLinkGapIssuesByTimestamp(
-  left: LinkGapAnalysis['issues'][number],
-  right: LinkGapAnalysis['issues'][number]
-): number {
-  const leftTimestamp = Date.parse(left.timestamp);
-  const rightTimestamp = Date.parse(right.timestamp);
-
-  if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
-    return leftTimestamp - rightTimestamp;
-  }
-
-  const timestampCompare = left.timestamp.localeCompare(right.timestamp);
-  if (timestampCompare !== 0) {
-    return timestampCompare;
-  }
-
-  if (left.transactionId !== right.transactionId) {
-    return left.transactionId - right.transactionId;
-  }
-
-  const directionCompare = left.direction.localeCompare(right.direction);
-  if (directionCompare !== 0) {
-    return directionCompare;
-  }
-
-  const assetCompare = left.assetSymbol.localeCompare(right.assetSymbol);
-  if (assetCompare !== 0) {
-    return assetCompare;
-  }
-
-  return left.txFingerprint.localeCompare(right.txFingerprint);
 }

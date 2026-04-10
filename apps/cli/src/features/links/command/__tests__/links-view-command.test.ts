@@ -6,6 +6,11 @@ const { mockRunLinksBrowseCommand } = vi.hoisted(() => ({
 }));
 
 vi.mock('../links-browse-command.js', () => ({
+  registerLinksBrowseOptions: vi.fn((command: Command) => {
+    command.option('--json');
+    command.option('--verbose');
+    return command;
+  }),
   runLinksBrowseCommand: mockRunLinksBrowseCommand,
 }));
 
@@ -39,15 +44,15 @@ describe('links view command', () => {
     });
   });
 
-  it('routes gap selectors to static detail when --gaps is provided', async () => {
+  it('passes browse options through proposal detail routes', async () => {
     const program = createProgram();
 
-    await program.parseAsync(['links', 'view', 'txfp123abc', '--gaps', '--json'], { from: 'user' });
+    await program.parseAsync(['links', 'view', 'a1b2c3d4e5', '--json', '--verbose'], { from: 'user' });
 
     expect(mockRunLinksBrowseCommand).toHaveBeenCalledWith({
       commandId: 'links-view',
-      rawOptions: { gaps: true, json: true },
-      selector: 'txfp123abc',
+      rawOptions: { json: true, verbose: true },
+      selector: 'a1b2c3d4e5',
       surfaceSpec: {
         commandId: 'links-view',
         kind: 'static-detail',

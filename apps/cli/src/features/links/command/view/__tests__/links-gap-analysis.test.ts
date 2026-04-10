@@ -4,7 +4,7 @@ import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../../shared/__tests__/transaction-test-utils.js';
-import { analyzeLinkGaps } from '../links-gap-analysis.js';
+import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from '../links-gap-analysis.js';
 
 describe('analyzeLinkGaps', () => {
   const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';
@@ -341,8 +341,6 @@ describe('analyzeLinkGaps', () => {
     });
 
     expect(analysis.summary.total_issues).toBe(0);
-    expect(analysis.summary.resolved_issues).toBe(0);
-    expect(analysis.summary.resolved_transactions).toBe(0);
     expect(analysis.summary.uncovered_inflows).toBe(0);
     expect(analysis.summary.unmatched_outflows).toBe(0);
     expect(analysis.summary.assets).toHaveLength(0);
@@ -372,18 +370,17 @@ describe('analyzeLinkGaps', () => {
       },
     });
 
-    const analysis = analyzeLinkGaps([mixedDeposit], [], {
-      resolvedTransactionFingerprints: new Set([txFingerprint]),
-    });
+    const analysis = analyzeLinkGaps([mixedDeposit], []);
+    const visibleAnalysis = applyResolvedLinkGapVisibility(analysis, new Set([txFingerprint]));
 
-    expect(analysis.issues).toHaveLength(0);
-    expect(analysis.summary.total_issues).toBe(0);
-    expect(analysis.summary.uncovered_inflows).toBe(0);
-    expect(analysis.summary.unmatched_outflows).toBe(0);
-    expect(analysis.summary.affected_assets).toBe(0);
-    expect(analysis.summary.resolved_issues).toBe(2);
-    expect(analysis.summary.resolved_transactions).toBe(1);
-    expect(analysis.summary.assets).toHaveLength(0);
+    expect(visibleAnalysis.analysis.issues).toHaveLength(0);
+    expect(visibleAnalysis.analysis.summary.total_issues).toBe(0);
+    expect(visibleAnalysis.analysis.summary.uncovered_inflows).toBe(0);
+    expect(visibleAnalysis.analysis.summary.unmatched_outflows).toBe(0);
+    expect(visibleAnalysis.analysis.summary.affected_assets).toBe(0);
+    expect(visibleAnalysis.hiddenResolvedIssueCount).toBe(2);
+    expect(visibleAnalysis.hiddenResolvedTransactionCount).toBe(1);
+    expect(visibleAnalysis.analysis.summary.assets).toHaveLength(0);
   });
 
   it('should keep non-excluded inflow gaps in mixed one-sided transactions', () => {

@@ -63,7 +63,7 @@ export class LinksGapResolutionHandler {
       });
 
       const transaction = resolvedTransaction.transaction;
-      const affectedGapCount = gapAnalysis.issues.filter(
+      const affectedGapCount = gapAnalysis.analysis.issues.filter(
         (issue) => issue.txFingerprint === transaction.txFingerprint
       ).length;
       const isCurrentlyResolved = resolvedTransactionFingerprints.has(transaction.txFingerprint);

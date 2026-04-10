@@ -6,8 +6,8 @@ export type LinkGapDirection = 'inflow' | 'outflow';
 export interface LinkGapIssue {
   transactionId: number;
   txFingerprint: string;
-  source: string;
-  blockchain?: string | undefined;
+  platformKey: string;
+  blockchainName?: string | undefined;
   timestamp: string;
   assetSymbol: string;
   missingAmount: string;
@@ -39,8 +39,6 @@ export interface LinkGapAnalysis {
   summary: {
     affected_assets: number;
     assets: LinkGapAssetSummary[];
-    resolved_issues: number;
-    resolved_transactions: number;
     total_issues: number;
     uncovered_inflows: number;
     unmatched_outflows: number;

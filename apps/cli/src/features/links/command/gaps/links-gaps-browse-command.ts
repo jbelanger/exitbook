@@ -1,15 +1,40 @@
-import type { Result } from '@exitbook/foundation';
+import { OverrideStore, readResolvedLinkGapTxFingerprints } from '@exitbook/data/overrides';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
+import React from 'react';
 
-import { runCliRuntimeCommand, type CliCommandResult, type CliFailure } from '../../../../cli/command.js';
-import { detectCliOutputFormat } from '../../../../cli/options.js';
-import type { BrowseSurfaceSpec } from '../../../../cli/presentation.js';
-import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import {
-  executePreparedLinksBrowseCommand,
-  prepareLinksBrowseCommand,
-  type PreparedLinksBrowseCommand,
-} from '../links-browse-command.js';
+  createCliFailure,
+  ExitCodes,
+  runCliRuntimeCommand,
+  silentSuccess,
+  toCliResult,
+  type CliCommandResult,
+  type CliFailure,
+} from '../../../../cli/command.js';
+import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../../cli/options.js';
+import {
+  collapseEmptyExplorerToStatic,
+  type BrowseSurfaceSpec,
+  type ResolvedBrowsePresentation,
+} from '../../../../cli/presentation.js';
+import { loadAccountingExclusionPolicy } from '../../../../runtime/accounting-exclusion-policy.js';
+import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
+import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
+import { getLinkSelectorErrorExitCode } from '../../link-selector.js';
+import { LinksViewApp } from '../../view/index.js';
+import { buildLinksGapsBrowseCompletion, hasNavigableLinksGapsBrowseItems } from '../links-gaps-browse-output.js';
+import {
+  buildLinksGapsBrowsePresentation,
+  type LinksGapsBrowseParams,
+  type LinksGapsBrowsePresentation,
+} from '../links-gaps-browse-support.js';
+import { LinksGapsBrowseCommandOptionsSchema } from '../links-option-schemas.js';
+
+export interface PreparedLinksGapsBrowseCommand {
+  params: LinksGapsBrowseParams;
+  presentation: ResolvedBrowsePresentation;
+}
 
 interface ExecuteLinksGapsBrowseCommandInput {
   commandId: string;
@@ -24,18 +49,77 @@ export function registerLinksGapsBrowseOptions(command: Command): Command {
 
 export function prepareLinksGapsBrowseCommand(
   input: ExecuteLinksGapsBrowseCommandInput
-): Result<PreparedLinksBrowseCommand, CliFailure> {
-  return prepareLinksBrowseCommand({
-    ...input,
-    rawOptions: buildLinksGapsRawOptions(input.rawOptions),
+): Result<PreparedLinksGapsBrowseCommand, CliFailure> {
+  const parsedOptionsResult = parseCliBrowseOptionsResult(
+    input.rawOptions,
+    LinksGapsBrowseCommandOptionsSchema,
+    input.surfaceSpec
+  );
+  if (parsedOptionsResult.isErr()) {
+    return err(parsedOptionsResult.error);
+  }
+
+  const selector = input.selector?.trim();
+
+  return ok({
+    params: {
+      preselectInExplorer:
+        selector !== undefined && parsedOptionsResult.value.presentation.mode === 'tui' ? true : undefined,
+      selector,
+    },
+    presentation: parsedOptionsResult.value.presentation,
   });
 }
 
 export async function executePreparedLinksGapsBrowseCommand(
   runtime: CommandRuntime,
-  prepared: PreparedLinksBrowseCommand
+  prepared: PreparedLinksGapsBrowseCommand
 ): Promise<CliCommandResult> {
-  return executePreparedLinksBrowseCommand(runtime, prepared);
+  return resultDoAsync(async function* () {
+    const database = await runtime.database();
+    const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
+    const accountingExclusionPolicy = yield* toCliResult(
+      await loadAccountingExclusionPolicy(runtime.dataDir, profile.profileKey),
+      ExitCodes.GENERAL_ERROR
+    );
+    const overrideStore = new OverrideStore(runtime.dataDir);
+    const resolvedTransactionFingerprints = yield* toCliResult(
+      await readResolvedLinkGapTxFingerprints(overrideStore, profile.profileKey),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    const browsePresentationResult = await buildLinksGapsBrowsePresentation(
+      database,
+      profile.id,
+      prepared.params,
+      accountingExclusionPolicy.excludedAssetIds,
+      resolvedTransactionFingerprints
+    );
+    const browsePresentation = browsePresentationResult.isErr()
+      ? yield* err(
+          createCliFailure(browsePresentationResult.error, getLinkSelectorErrorExitCode(browsePresentationResult.error))
+        )
+      : browsePresentationResult.value;
+    const finalPresentation = collapseEmptyExplorerToStatic(prepared.presentation, {
+      hasNavigableItems: hasNavigableLinksGapsBrowseItems(browsePresentation),
+      shouldCollapseEmptyExplorer: prepared.params.selector === undefined,
+    });
+
+    if (finalPresentation.mode === 'tui') {
+      yield* toCliResult(await renderLinksGapsExploreTui(runtime, browsePresentation), ExitCodes.GENERAL_ERROR);
+      return silentSuccess();
+    }
+
+    return yield* toCliResult(
+      buildLinksGapsBrowseCompletion(
+        browsePresentation,
+        finalPresentation.staticKind,
+        finalPresentation.mode === 'json' ? 'json' : 'static',
+        prepared.params
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
+  });
 }
 
 export async function runLinksGapsBrowseCommand(input: ExecuteLinksGapsBrowseCommandInput): Promise<void> {
@@ -47,12 +131,21 @@ export async function runLinksGapsBrowseCommand(input: ExecuteLinksGapsBrowseCom
   });
 }
 
-function buildLinksGapsRawOptions(rawOptions: unknown): Record<string, unknown> {
-  const baseOptions =
-    typeof rawOptions === 'object' && rawOptions !== null ? { ...(rawOptions as Record<string, unknown>) } : {};
+async function renderLinksGapsExploreTui(
+  runtime: CommandRuntime,
+  browsePresentation: LinksGapsBrowsePresentation
+): Promise<Result<void, Error>> {
+  try {
+    await runtime.closeDatabase();
+    await renderApp((unmount) =>
+      React.createElement(LinksViewApp, {
+        initialState: browsePresentation.state,
+        onQuit: unmount,
+      })
+    );
 
-  return {
-    ...baseOptions,
-    gaps: true,
-  };
+    return ok(undefined);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
 }

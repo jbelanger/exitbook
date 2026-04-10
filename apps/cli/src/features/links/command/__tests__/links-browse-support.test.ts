@@ -1,115 +1,78 @@
+import type { Transaction } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockAnalyzeLinkGaps } = vi.hoisted(() => ({
-  mockAnalyzeLinkGaps: vi.fn(),
-}));
-
-vi.mock('../links-gap-analysis-support.js', () => ({
-  loadLinksGapAnalysis: mockAnalyzeLinkGaps,
-}));
-
-import { createMockGapAnalysis } from '../../__tests__/test-utils.js';
+import { createConfirmableTransferFixture } from '../../__tests__/test-utils.js';
 import { buildLinksBrowsePresentation } from '../links-browse-support.js';
 
 type LinksBrowseDatabase = Parameters<typeof buildLinksBrowsePresentation>[0];
 
-function createLinksBrowseDatabase(): LinksBrowseDatabase {
+function createLinksBrowseDatabase(transactions: Transaction[] = []): LinksBrowseDatabase {
+  const transactionsById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
+  const findAll = vi.fn();
+  const findById = vi.fn().mockImplementation(async (transactionId: number) => ok(transactionsById.get(transactionId)));
+
   return {
-    accounts: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
-    },
     transactionLinks: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
+      findAll,
     },
     transactions: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
+      findById,
     },
   } as unknown as LinksBrowseDatabase;
 }
 
 describe('links-browse-support', () => {
-  it('orders gap browsing data chronologically', async () => {
-    const analysis = createMockGapAnalysis();
-    analysis.issues = [analysis.issues[2]!, analysis.issues[0]!, analysis.issues[1]!];
-    mockAnalyzeLinkGaps.mockResolvedValue(ok(analysis));
-    const database = createLinksBrowseDatabase();
-
-    const result = await buildLinksBrowsePresentation(database, 42, { gaps: true });
-
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) {
-      throw result.error;
-    }
-
-    const presentation = result.value;
-    expect(presentation.mode).toBe('gaps');
-    if (presentation.mode !== 'gaps') {
-      throw new Error('Expected gaps browse presentation');
-    }
-
-    expect(presentation.gaps.map((gap) => gap.issue.txFingerprint)).toEqual([
-      'eth-inflow-1',
-      'eth-inflow-2',
-      'kraken-outflow-1',
-    ]);
-    expect(presentation.state.linkAnalysis.issues.map((issue) => issue.txFingerprint)).toEqual([
-      'eth-inflow-1',
-      'eth-inflow-2',
-      'kraken-outflow-1',
-    ]);
-  });
-
-  it('passes resolved transaction fingerprints into gap analysis', async () => {
-    mockAnalyzeLinkGaps.mockResolvedValue(ok(createMockGapAnalysis()));
-    const resolvedTransactionFingerprints = new Set(['eth-inflow-2']);
-    const database = createLinksBrowseDatabase();
-
-    const result = await buildLinksBrowsePresentation(
-      database,
-      42,
-      { gaps: true },
-      undefined,
-      resolvedTransactionFingerprints
-    );
-
-    expect(result.isOk()).toBe(true);
-    expect(mockAnalyzeLinkGaps).toHaveBeenCalledWith(database, 42, {
-      excludedAssetIds: undefined,
-      resolvedTransactionFingerprints,
+  it('builds proposal browse items and resolves proposal selectors', async () => {
+    const first = createConfirmableTransferFixture();
+    const second = createConfirmableTransferFixture({
+      sourceAmount: '2',
+      targetAmount: '2',
     });
-  });
+    second.link.id = 456;
+    second.link.sourceTransactionId = 21;
+    second.link.targetTransactionId = 22;
+    second.link.sourceMovementFingerprint = second.sourceTransaction.movements.outflows![0]!.movementFingerprint;
+    second.link.targetMovementFingerprint = second.targetTransaction.movements.inflows![0]!.movementFingerprint;
+    second.sourceTransaction.id = 21;
+    second.targetTransaction.id = 22;
+    second.sourceTransaction.datetime = '2024-01-02T12:00:00Z';
+    second.sourceTransaction.timestamp = Date.parse('2024-01-02T12:00:00Z');
+    second.targetTransaction.datetime = '2024-01-02T12:30:00Z';
+    second.targetTransaction.timestamp = Date.parse('2024-01-02T12:30:00Z');
 
-  it('treats duplicate gap rows on the same transaction as one selector target', async () => {
-    const analysis = createMockGapAnalysis();
-    analysis.issues = [
-      analysis.issues[0]!,
-      {
-        ...analysis.issues[0]!,
-        assetSymbol: 'USDC',
-        missingAmount: '25',
-        totalAmount: '25',
-      },
-      analysis.issues[1]!,
-    ];
-    mockAnalyzeLinkGaps.mockResolvedValue(ok(analysis));
+    const database = createLinksBrowseDatabase([
+      first.sourceTransaction,
+      first.targetTransaction,
+      second.sourceTransaction,
+      second.targetTransaction,
+    ]);
+    (database.transactionLinks.findAll as ReturnType<typeof vi.fn>).mockResolvedValue(ok([second.link, first.link]));
 
-    const result = await buildLinksBrowsePresentation(createLinksBrowseDatabase(), 42, {
-      gaps: true,
-      selector: 'eth-inflow-1',
+    const listResult = await buildLinksBrowsePresentation(database, 42, {});
+
+    expect(listResult.isOk()).toBe(true);
+    if (listResult.isErr()) {
+      throw listResult.error;
+    }
+
+    expect(listResult.value.mode).toBe('links');
+    expect(listResult.value.proposals).toHaveLength(2);
+    expect(listResult.value.proposals[0]?.proposal.representativeLink.id).toBe(first.link.id);
+    expect(listResult.value.proposals[1]?.proposal.representativeLink.id).toBe(second.link.id);
+
+    const selector = listResult.value.proposals[1]!.proposalRef;
+    const detailResult = await buildLinksBrowsePresentation(database, 42, {
+      preselectInExplorer: true,
+      selector,
     });
 
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) {
-      throw result.error;
+    expect(detailResult.isOk()).toBe(true);
+    if (detailResult.isErr()) {
+      throw detailResult.error;
     }
 
-    expect(result.value.mode).toBe('gaps');
-    if (result.value.mode !== 'gaps') {
-      throw new Error('Expected gaps browse presentation');
-    }
-
-    expect(result.value.selectedGap?.issue.txFingerprint).toBe('eth-inflow-1');
-    expect(result.value.selectedGap?.transactionGapCount).toBe(2);
+    expect(detailResult.value.selectedProposal?.proposalRef).toBe(selector);
+    expect(detailResult.value.state.selectedIndex).toBe(1);
   });
 });

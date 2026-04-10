@@ -10,7 +10,12 @@ const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 interface LinkGapAnalysisOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
-  resolvedTransactionFingerprints?: ReadonlySet<string> | undefined;
+}
+
+export interface ResolvedLinkGapVisibilityResult {
+  analysis: LinkGapAnalysis;
+  hiddenResolvedIssueCount: number;
+  hiddenResolvedTransactionCount: number;
 }
 
 interface GapAnalysisAccountContext {
@@ -441,8 +446,8 @@ function createLinkGapIssue(params: {
   return {
     transactionId: tx.id,
     txFingerprint: tx.txFingerprint,
-    source: tx.platformKey,
-    blockchain: tx.blockchain?.name,
+    platformKey: tx.platformKey,
+    blockchainName: tx.blockchain?.name,
     timestamp: tx.datetime,
     assetSymbol,
     missingAmount: uncoveredAmount.toFixed(),
@@ -566,13 +571,7 @@ function collectOutflowGapIssues(
   return issues;
 }
 
-function buildLinkGapSummary(
-  issues: readonly LinkGapIssue[],
-  overrides: {
-    resolvedIssueCount?: number | undefined;
-    resolvedTransactionCount?: number | undefined;
-  } = {}
-): LinkGapAnalysis['summary'] {
+function buildLinkGapSummary(issues: readonly LinkGapIssue[]): LinkGapAnalysis['summary'] {
   const inflowIssueCount = issues.reduce((count, issue) => (issue.direction === 'inflow' ? count + 1 : count), 0);
   const outflowIssueCount = issues.length - inflowIssueCount;
   const assetTotals = new Map<
@@ -615,8 +614,6 @@ function buildLinkGapSummary(
     uncovered_inflows: inflowIssueCount,
     unmatched_outflows: outflowIssueCount,
     affected_assets: assets.length,
-    resolved_issues: overrides.resolvedIssueCount ?? 0,
-    resolved_transactions: overrides.resolvedTransactionCount ?? 0,
     assets,
   };
 }
@@ -638,13 +635,24 @@ export function analyzeLinkGaps(
     ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
     ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
   ];
-  const resolvedIssueState = splitResolvedLinkGapIssues(issues, options.resolvedTransactionFingerprints);
+  return {
+    issues,
+    summary: buildLinkGapSummary(issues),
+  };
+}
+
+export function applyResolvedLinkGapVisibility(
+  analysis: LinkGapAnalysis,
+  resolvedTransactionFingerprints?: ReadonlySet<string>
+): ResolvedLinkGapVisibilityResult {
+  const resolvedIssueState = splitResolvedLinkGapIssues(analysis.issues, resolvedTransactionFingerprints);
 
   return {
-    issues: resolvedIssueState.visibleIssues,
-    summary: buildLinkGapSummary(resolvedIssueState.visibleIssues, {
-      resolvedIssueCount: resolvedIssueState.hiddenIssueCount,
-      resolvedTransactionCount: resolvedIssueState.hiddenTransactionCount,
-    }),
+    analysis: {
+      issues: resolvedIssueState.visibleIssues,
+      summary: buildLinkGapSummary(resolvedIssueState.visibleIssues),
+    },
+    hiddenResolvedIssueCount: resolvedIssueState.hiddenIssueCount,
+    hiddenResolvedTransactionCount: resolvedIssueState.hiddenTransactionCount,
   };
 }

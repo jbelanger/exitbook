@@ -612,8 +612,8 @@ function createMockGapAnalysis(): LinkGapAnalysis {
       {
         transactionId: 2041,
         txFingerprint: 'eth-inflow-1',
-        source: 'ethereum',
-        blockchain: 'ethereum',
+        platformKey: 'ethereum',
+        blockchainName: 'ethereum',
         timestamp: '2024-03-18T09:12:34Z',
         assetSymbol: 'ETH',
         missingAmount: '1.5',
@@ -628,8 +628,8 @@ function createMockGapAnalysis(): LinkGapAnalysis {
       {
         transactionId: 2198,
         txFingerprint: 'eth-inflow-2',
-        source: 'ethereum',
-        blockchain: 'ethereum',
+        platformKey: 'ethereum',
+        blockchainName: 'ethereum',
         timestamp: '2024-04-02T14:45:00Z',
         assetSymbol: 'ETH',
         missingAmount: '2.0',
@@ -643,7 +643,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
       {
         transactionId: 2456,
         txFingerprint: 'kraken-outflow-1',
-        source: 'kraken',
+        platformKey: 'kraken',
         timestamp: '2024-05-01T16:20:00Z',
         assetSymbol: 'ETH',
         missingAmount: '1.2',

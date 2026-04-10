@@ -13,12 +13,6 @@
 - `links gaps resolve <ref>` records a transaction-level reviewed exception
 - `links gaps reopen <ref>` removes a prior transaction-level exception
 
-Compatibility aliases remain supported:
-
-- `links --gaps` / `links list --gaps`
-- `links view <ref> --gaps`
-- `links explore [ref] --gaps`
-
 ## Subcommands
 
 | Command                    | Spec                                                           | Nature                                                                      |

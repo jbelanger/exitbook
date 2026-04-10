@@ -27,7 +27,7 @@ const LINKS_COMMAND_ID = 'links';
  * Structure:
  *   links                     - Static list of link proposals
  *   links list                - Explicit static list alias
- *   links view <ref>          - Static detail for one proposal or one gap
+ *   links view <ref>          - Static detail for one proposal
  *   links explore             - Interactive review explorer
  *   links gaps                - Gap list and transaction-level gap resolution workflow
  *   links run                 - Run the linking algorithm
@@ -47,10 +47,10 @@ export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime
 Examples:
   $ exitbook links
   $ exitbook links --status suggested
-  $ exitbook links gaps
-  $ exitbook links gaps view 3ab863db2a
   $ exitbook links view a1b2c3d4e5
   $ exitbook links explore --status suggested
+  $ exitbook links gaps
+  $ exitbook links gaps view 3ab863db2a
   $ exitbook links gaps explore
   $ exitbook links run
   $ exitbook links confirm a1b2c3d4e5
@@ -61,7 +61,7 @@ ${buildLinksBrowseOptionsHelpText()}
 
 Notes:
   - Use bare "links" or "links list" for static lists.
-  - Use "links view <ref>" for one static proposal or gap detail card.
+  - Use "links view <ref>" for one static proposal detail card.
   - Use "links gaps" for the dedicated gap workflow and transaction-level gap exceptions.
   - Use "links explore" for the interactive explorer.
   - Use "links run" to refresh suggestions before reviewing them.

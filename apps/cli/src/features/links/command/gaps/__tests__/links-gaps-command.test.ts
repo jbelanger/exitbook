@@ -70,7 +70,7 @@ describe('links gaps command', () => {
     );
     mockPrepareLinksGapsBrowseCommand.mockReturnValue(
       ok({
-        params: { gaps: true, selector: undefined },
+        params: { selector: undefined },
         presentation: { commandId: 'links-gaps', kind: 'static-list', mode: 'static', staticKind: 'list' },
       })
     );

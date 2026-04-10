@@ -38,7 +38,6 @@ Examples:
 Notes:
   - Gap refs use the persisted transaction fingerprint prefix shown in the gap list.
   - "resolve" hides that transaction from the open gaps lens without creating a link.
-  - Use legacy "--gaps" flags only when scripting older command surfaces.
 `
     )
     .action(async (tokens: string[] | undefined) => {

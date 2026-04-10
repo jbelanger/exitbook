@@ -16,10 +16,6 @@ Target UX:
 - `exitbook links gaps resolve <ref> [--reason <text>]`
 - `exitbook links gaps reopen <ref> [--reason <text>]`
 
-Compatibility:
-
-- Keep existing `links --gaps`, `links list --gaps`, `links view <ref> --gaps`, and `links explore [ref] --gaps` working as aliases during this phase.
-
 ## Key Decisions
 
 - Resolution is transaction-level, not gap-row-level.
@@ -28,6 +24,7 @@ Compatibility:
 - The gaps list hides resolved transactions by default.
 - `resolve` targets currently open gap refs.
 - `reopen` targets currently resolved gap refs from the override stream.
+- Compatibility aliases were removed in the follow-up cleanup pass; `links gaps` is now the only supported gap browse surface.
 
 ## Phase Plan
 
@@ -110,7 +107,6 @@ Planned files:
 Implementation notes:
 
 - `links gaps` should be the primary UX.
-- Existing `--gaps` paths should delegate to the same underlying gap browse plumbing for compatibility.
 - Resolve/reopen commands should accept the same short refs users see in `links gaps`.
 
 Validation:
@@ -170,6 +166,63 @@ Status:
   - real duplicate-ref smoke check passed:
     - `pnpm -s run dev links gaps view 59015268c9 --json`
 
+### Phase 4: Legacy Removal And Browse Split
+
+Purpose:
+
+- Remove the old `--gaps` compatibility path, split gap browsing from proposal browsing internally, and clean up the gap browse model.
+
+Files touched:
+
+- `apps/cli/src/features/links/command/links.ts`
+- `apps/cli/src/features/links/command/links-list.ts`
+- `apps/cli/src/features/links/command/links-view.ts`
+- `apps/cli/src/features/links/command/links-explore.ts`
+- `apps/cli/src/features/links/command/links-browse-command.ts`
+- `apps/cli/src/features/links/command/links-browse-output.ts`
+- `apps/cli/src/features/links/command/links-browse-support.ts`
+- `apps/cli/src/features/links/command/links-gap-analysis-support.ts`
+- `apps/cli/src/features/links/command/links-gaps-browse-output.ts`
+- `apps/cli/src/features/links/command/links-gaps-browse-support.ts`
+- `apps/cli/src/features/links/command/gaps/links-gaps-browse-command.ts`
+- `apps/cli/src/features/links/command/gaps/links-gaps.ts`
+- `apps/cli/src/features/links/command/gaps/links-gap-resolution-handler.ts`
+- `apps/cli/src/features/links/links-browse-model.ts`
+- `apps/cli/src/features/links/links-gap-model.ts`
+- `apps/cli/src/features/links/links-gaps-browse-model.ts`
+- `apps/cli/src/features/links/view/links-static-renderer.ts`
+- `apps/cli/src/features/links/view/links-view-components.tsx`
+- `apps/cli/src/features/links/view/links-view-state.ts`
+- `apps/cli/src/features/links/__tests__/test-utils.ts`
+- `apps/cli/src/features/links/command/__tests__/links-browse-support.test.ts`
+- `apps/cli/src/features/links/command/__tests__/links-gaps-browse-support.test.ts`
+- `apps/cli/src/features/links/command/__tests__/links-view-command.test.ts`
+- `apps/cli/src/features/links/command/__tests__/links-explore-command.test.ts`
+- `apps/cli/src/features/links/command/gaps/__tests__/links-gaps-command.test.ts`
+- `apps/cli/src/features/links/command/view/__tests__/links-gap-analysis.test.ts`
+- `apps/cli/src/features/links/view/__tests__/links-view-components.test.tsx`
+- `docs/specs/cli/links/README.md`
+- `docs/specs/cli/links/links-view-spec.md`
+
+Implementation notes:
+
+- Proposal browsing and gap browsing now have separate browse support/output models instead of a shared `gaps: true` mode switch.
+- Gap issues now use explicit `platformKey` and `blockchainName` fields instead of the overloaded `source` naming.
+- Hidden resolved counts moved out of `LinkGapAnalysis.summary` and into the gap browse/view state.
+- Legacy `links --gaps` command paths are removed; they now fail as unknown options.
+
+Validation:
+
+- Focused links command suite passed:
+  - `pnpm vitest run apps/cli/src/features/links/command apps/cli/src/features/links/view/__tests__/links-view-components.test.tsx`
+- Real CLI smoke checks passed:
+  - `pnpm run dev links --json`
+  - `pnpm run dev links gaps --json`
+  - `pnpm run dev links gaps view 59015268c9 --json`
+  - `pnpm run dev links --gaps --json` now fails with `unknown option '--gaps'`
+- Workspace build status:
+  - `pnpm build` still fails on the pre-existing unrelated compile error in `apps/cli/src/features/assets/command/__tests__/asset-command-services.test.ts`
+
 ## Open Questions
 
 - Whether `links gaps` should later gain a dedicated resolved-history surface.
@@ -177,8 +230,6 @@ Status:
 
 ## Smells To Revisit
 
-- The current gap selector is a short transaction fingerprint prefix but the code still talks about “gap” items as if they were row-unique identities.
-- The old `--gaps` lens leaks through several command names and specs; compatibility is fine, but the terminology is already split.
-- `LinkGapAnalysis.summary` is beginning to carry browse-oriented metadata as well as analytical totals, which may want a clearer separation later.
-- `links gaps` currently reuses legacy browse plumbing by injecting `gaps: true`; functionally correct, but it means the preferred UX still depends on the compatibility path internally.
+- The current gap selector is a short transaction fingerprint prefix but the code still talks about “gap” items as if they were row-unique identities in a few type names.
 - Multi-row transaction detail still shows a representative gap row plus `transactionGapCount`, not a true transaction-level aggregated detail model.
+- Gap list data still exposes inconsistent `blockchainName` values from upstream data (`solana` vs `SOL` vs `ADA`), which suggests a normalization seam is still missing between ingestion and presentation.

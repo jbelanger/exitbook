@@ -13,13 +13,6 @@ The `links` family now follows the standard browse contract:
 - proposals under `links`
 - gaps under `links gaps`
 
-Compatibility aliases remain supported for the old flag-driven gap lens:
-
-- `exitbook links --gaps`
-- `exitbook links list --gaps`
-- `exitbook links view <ref> --gaps`
-- `exitbook links explore [ref] --gaps`
-
 `links run`, `links confirm`, and `links reject` remain separate workflow/review commands.
 
 ## Selector Model
@@ -128,8 +121,6 @@ Commands:
 ```text
 exitbook links gaps
 exitbook links gaps --json
-exitbook links --gaps
-exitbook links list --gaps
 ```
 
 Behavior:
@@ -144,7 +135,7 @@ List columns:
 
 - `REF`
 - `DATE`
-- `SOURCE`
+- `PLATFORM`
 - `DIR`
 - `ASSET`
 - `MISSING`
@@ -158,12 +149,11 @@ Commands:
 ```text
 exitbook links gaps view <gap_ref>
 exitbook links gaps view <gap_ref> --json
-exitbook links view <gap_ref> --gaps
 ```
 
 Behavior:
 
-- Renders one gap detail card with transaction ref, fingerprint, source, date, operation, gap amount, coverage, and readiness.
+- Renders one gap detail card with transaction ref, fingerprint, platform, date, operation, gap amount, coverage, and readiness.
 - When the transaction has multiple gap rows, detail also shows the transaction-level gap-row count and makes it explicit that resolve/reopen are transaction-wide.
 - Includes next-step guidance:
   - review suggested proposals with `links explore --status suggested` when suggestions exist
@@ -177,7 +167,6 @@ Commands:
 ```text
 exitbook links gaps explore
 exitbook links gaps explore <gap_ref>
-exitbook links explore --gaps
 ```
 
 Behavior:
@@ -211,8 +200,8 @@ Behavior:
 - Proposal lists return proposal summary rows.
 - Gap lists return gap summary rows.
 - JSON list output includes standard view metadata with active filters, including:
-  - `resolvedIssuesHidden`
-  - `resolvedTransactionsHidden`
+  - `hiddenResolvedIssues`
+  - `hiddenResolvedTransactions`
 
 ### Detail
 

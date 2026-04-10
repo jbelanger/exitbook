@@ -1,4 +1,4 @@
-import { OverrideStore, readResolvedLinkGapTxFingerprints } from '@exitbook/data/overrides';
+import { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
@@ -18,7 +18,6 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
-import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { getLinkSelectorErrorExitCode } from '../link-selector.js';
@@ -55,10 +54,6 @@ const LINKS_BROWSE_OPTION_DEFINITIONS: LinksBrowseOptionDefinition[] = [
   {
     flags: '--status <status>',
     description: 'Filter proposals by status (suggested, confirmed, rejected)',
-  },
-  {
-    flags: '--gaps',
-    description: 'Show coverage gaps instead of link proposals',
   },
   {
     flags: '--min-confidence <score>',
@@ -133,7 +128,6 @@ export function prepareLinksBrowseCommand(
 
   return ok({
     params: {
-      gaps: options.gaps,
       maxConfidence: options.maxConfidence,
       minConfidence: options.minConfidence,
       preselectInExplorer: selector !== undefined && presentation.mode === 'tui' ? true : undefined,
@@ -161,30 +155,8 @@ export async function executePreparedLinksBrowseCommand(
   return resultDoAsync(async function* () {
     const database = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
-    let excludedAssetIds: ReadonlySet<string> | undefined;
-    let resolvedTransactionFingerprints: ReadonlySet<string> | undefined;
-    if (prepared.params.gaps === true) {
-      const overrideStore = new OverrideStore(runtime.dataDir);
-      const accountingExclusionPolicy = yield* toCliResult(
-        await loadAccountingExclusionPolicy(runtime.dataDir, profile.profileKey),
-        ExitCodes.GENERAL_ERROR
-      );
-      excludedAssetIds = accountingExclusionPolicy.excludedAssetIds;
 
-      const resolvedLinkGapTxFingerprints = yield* toCliResult(
-        await readResolvedLinkGapTxFingerprints(overrideStore, profile.profileKey),
-        ExitCodes.GENERAL_ERROR
-      );
-      resolvedTransactionFingerprints = resolvedLinkGapTxFingerprints;
-    }
-
-    const browsePresentationResult = await buildLinksBrowsePresentation(
-      database,
-      profile.id,
-      prepared.params,
-      excludedAssetIds,
-      resolvedTransactionFingerprints
-    );
+    const browsePresentationResult = await buildLinksBrowsePresentation(database, profile.id, prepared.params);
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(
           createCliFailure(browsePresentationResult.error, getLinkSelectorErrorExitCode(browsePresentationResult.error))
@@ -216,29 +188,17 @@ export async function executePreparedLinksBrowseCommand(
 }
 
 async function renderLinksExploreTui(
-  runtime: CommandRuntime,
+  _runtime: CommandRuntime,
   database: Awaited<ReturnType<CommandRuntime['database']>>,
   profile: { id: number; profileKey: string },
   browsePresentation: LinksBrowsePresentation
 ): Promise<Result<void, Error>> {
   try {
-    if (browsePresentation.mode === 'gaps') {
-      await runtime.closeDatabase();
-      await renderApp((unmount) =>
-        React.createElement(LinksViewApp, {
-          initialState: browsePresentation.state,
-          onQuit: unmount,
-        })
-      );
-
-      return ok(undefined);
-    }
-
     const reviewHandler = new LinksReviewHandler(
       database as never,
       profile.id,
       profile.profileKey,
-      new OverrideStore(runtime.dataDir)
+      new OverrideStore(_runtime.dataDir)
     );
 
     await renderApp((unmount) =>

@@ -8,7 +8,6 @@ const { mockRunLinksBrowseCommand } = vi.hoisted(() => ({
 vi.mock('../links-browse-command.js', () => ({
   registerLinksBrowseOptions: vi.fn((command: Command) => {
     command.option('--status <status>');
-    command.option('--gaps');
     command.option('--json');
     return command;
   }),

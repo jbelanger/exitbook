@@ -1,8 +1,8 @@
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
-import type { LinkGapBrowseItem, LinkProposalBrowseItem } from '../links-browse-model.js';
-import type { LinkGapAnalysis } from '../links-gap-model.js';
+import type { LinkProposalBrowseItem } from '../links-browse-model.js';
+import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 
 import {
   formatCompactAmount,
@@ -26,7 +26,7 @@ const LINK_LIST_COLUMN_ORDER = ['ref', 'date', 'asset', 'status', 'route', 'conf
 const GAP_LIST_COLUMN_ORDER = [
   'ref',
   'date',
-  'source',
+  'platform',
   'direction',
   'asset',
   'missing',
@@ -187,7 +187,7 @@ export function outputLinkGapsStaticList(state: LinksViewGapsState, items: LinkG
 }
 
 export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGapBrowseItem[]): string {
-  const lines: string[] = [buildGapListHeader(state.linkAnalysis, items.length), ''];
+  const lines: string[] = [buildGapListHeader(state, items.length), ''];
 
   if (items.length === 0) {
     lines.push('All movements have confirmed counterparties.');
@@ -197,29 +197,29 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
   const columns = createColumns(items, {
     ref: { format: (item) => item.transactionRef, minWidth: 'REF'.length },
     date: {
-      format: (item) => formatGapRowTimestamp(item.issue.timestamp),
+      format: (item) => formatGapRowTimestamp(item.gapIssue.timestamp),
       minWidth: 'DATE'.length,
     },
-    source: {
-      format: (item) => item.issue.blockchain ?? item.issue.source,
-      minWidth: 'SOURCE'.length,
+    platform: {
+      format: (item) => item.gapIssue.platformKey,
+      minWidth: 'PLATFORM'.length,
     },
     direction: {
-      format: (item) => (item.issue.direction === 'inflow' ? 'IN' : 'OUT'),
+      format: (item) => (item.gapIssue.direction === 'inflow' ? 'IN' : 'OUT'),
       minWidth: 'DIR'.length,
     },
     asset: {
-      format: (item) => item.issue.assetSymbol,
+      format: (item) => item.gapIssue.assetSymbol,
       minWidth: 'ASSET'.length,
     },
     missing: {
       align: 'right',
-      format: (item) => formatCompactAmount(item.issue.missingAmount),
+      format: (item) => formatCompactAmount(item.gapIssue.missingAmount),
       minWidth: 'MISSING'.length,
     },
     coverage: {
       align: 'right',
-      format: (item) => formatCoverage(item.issue.confirmedCoveragePercent),
+      format: (item) => formatCoverage(item.gapIssue.confirmedCoveragePercent),
       minWidth: 'COVERAGE'.length,
     },
     readiness: {
@@ -235,7 +235,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
         {
           ref: 'REF',
           date: 'DATE',
-          source: 'SOURCE',
+          platform: 'PLATFORM',
           direction: 'DIR',
           asset: 'ASSET',
           missing: 'MISSING',
@@ -250,7 +250,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
 
   for (const item of items) {
     const formatted = columns.format(item);
-    const coverage = parseFloat(item.issue.confirmedCoveragePercent);
+    const coverage = parseFloat(item.gapIssue.confirmedCoveragePercent);
 
     lines.push(
       buildTextTableRow(
@@ -258,12 +258,13 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
           ...formatted,
           ref: pc.bold(formatted.ref),
           date: pc.dim(formatted.date),
-          source: pc.cyan(formatted.source),
-          direction: item.issue.direction === 'inflow' ? pc.green(formatted.direction) : pc.yellow(formatted.direction),
+          platform: pc.cyan(formatted.platform),
+          direction:
+            item.gapIssue.direction === 'inflow' ? pc.green(formatted.direction) : pc.yellow(formatted.direction),
           asset: pc.cyan(formatted.asset),
           missing: pc.green(formatted.missing),
           coverage: colorizeText(getCoverageColor(coverage), formatted.coverage),
-          readiness: colorizeText(getGapSuggestionColor(item.issue), formatted.readiness),
+          readiness: colorizeText(getGapSuggestionColor(item.gapIssue), formatted.readiness),
         },
         GAP_LIST_COLUMN_ORDER,
         { gap: STATIC_LIST_COLUMN_GAP }
@@ -279,33 +280,37 @@ export function outputLinkGapStaticDetail(item: LinkGapBrowseItem): void {
 }
 
 export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
-  const { issue } = item;
-  const source = issue.blockchain ?? issue.source;
-  const coverageNum = parseFloat(issue.confirmedCoveragePercent);
-  const nextStep = issue.suggestedCount > 0 ? 'exitbook links explore --status suggested' : 'exitbook links run';
+  const { gapIssue } = item;
+  const coverageNum = parseFloat(gapIssue.confirmedCoveragePercent);
+  const nextStep = gapIssue.suggestedCount > 0 ? 'exitbook links explore --status suggested' : 'exitbook links run';
 
   const lines = [
-    `${pc.bold(`Link gap ${item.transactionRef}`)} ${pc.cyan(issue.assetSymbol)} ${pc.yellow(`[${issue.direction}]`)}`,
+    `${pc.bold(`Link gap ${item.transactionRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(
+      `[${gapIssue.direction}]`
+    )}`,
     '',
     buildDetailLine('Transaction ref', item.transactionRef),
-    buildDetailLine('Transaction', `#${issue.transactionId}`),
-    buildDetailLine('Fingerprint', issue.txFingerprint),
+    buildDetailLine('Transaction', `#${gapIssue.transactionId}`),
+    buildDetailLine('Fingerprint', gapIssue.txFingerprint),
     ...(item.transactionGapCount > 1
       ? [
           buildDetailLine('Gap rows on tx', String(item.transactionGapCount)),
           buildDetailLine('Resolve scope', 'Transaction-wide'),
         ]
       : []),
-    buildDetailLine('Source', source),
-    buildDetailLine('Date', issue.timestamp),
-    buildDetailLine('Operation', `${issue.operationCategory}/${issue.operationType}`),
-    buildDetailLine('Missing', `${issue.missingAmount} ${issue.assetSymbol}`),
-    buildDetailLine('Total', `${issue.totalAmount} ${issue.assetSymbol}`),
+    buildDetailLine('Platform', gapIssue.platformKey),
+    ...(gapIssue.blockchainName && gapIssue.blockchainName !== gapIssue.platformKey
+      ? [buildDetailLine('Blockchain', gapIssue.blockchainName)]
+      : []),
+    buildDetailLine('Date', gapIssue.timestamp),
+    buildDetailLine('Operation', `${gapIssue.operationCategory}/${gapIssue.operationType}`),
+    buildDetailLine('Missing', `${gapIssue.missingAmount} ${gapIssue.assetSymbol}`),
+    buildDetailLine('Total', `${gapIssue.totalAmount} ${gapIssue.assetSymbol}`),
     buildDetailLine(
       'Coverage',
-      colorizeText(getCoverageColor(coverageNum), `${issue.confirmedCoveragePercent}% confirmed`)
+      colorizeText(getCoverageColor(coverageNum), `${gapIssue.confirmedCoveragePercent}% confirmed`)
     ),
-    buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(issue), formatGapReadiness(item))),
+    buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.transactionRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.transactionRef}`),
     buildDetailLine('Next', nextStep),
@@ -343,20 +348,25 @@ function buildLinksEmptyStateLines(state: LinksViewLinksState): string[] {
   return ['No link proposals found.', '', pc.dim('Tip: exitbook links run')];
 }
 
-function buildGapListHeader(analysis: LinkGapAnalysis, visibleCount: number): string {
-  const readyToReview = analysis.issues.filter((issue) => issue.suggestedCount > 0).length;
-  const needsInvestigation = analysis.summary.total_issues - readyToReview;
+function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): string {
+  const { linkAnalysis } = state;
+  const readyToReview = linkAnalysis.issues.filter((issue) => issue.suggestedCount > 0).length;
+  const needsInvestigation = linkAnalysis.summary.total_issues - readyToReview;
   const metadata = [
     `${visibleCount} shown`,
-    ...(analysis.summary.resolved_transactions > 0
+    ...(state.hiddenResolvedTransactionCount > 0
       ? [
-          `${analysis.summary.resolved_transactions} resolved transaction${
-            analysis.summary.resolved_transactions === 1 ? '' : 's'
+          `${state.hiddenResolvedTransactionCount} resolved transaction${
+            state.hiddenResolvedTransactionCount === 1 ? '' : 's'
           } hidden`,
         ]
       : []),
-    `${analysis.summary.uncovered_inflows} uncovered inflow${analysis.summary.uncovered_inflows === 1 ? '' : 's'}`,
-    `${analysis.summary.unmatched_outflows} unmatched outflow${analysis.summary.unmatched_outflows === 1 ? '' : 's'}`,
+    `${linkAnalysis.summary.uncovered_inflows} uncovered inflow${
+      linkAnalysis.summary.uncovered_inflows === 1 ? '' : 's'
+    }`,
+    `${linkAnalysis.summary.unmatched_outflows} unmatched outflow${
+      linkAnalysis.summary.unmatched_outflows === 1 ? '' : 's'
+    }`,
     `${readyToReview} ready to review`,
     `${needsInvestigation} manual review`,
   ];
@@ -419,11 +429,11 @@ function colorizeConfidence(item: LinkProposalBrowseItem, value: string): string
 }
 
 function formatGapReadiness(item: LinkGapBrowseItem): string {
-  if (item.issue.suggestedCount === 0) {
+  if (item.gapIssue.suggestedCount === 0) {
     return 'manual review';
   }
 
-  return `${item.issue.suggestedCount} suggested${
-    item.issue.highestSuggestedConfidencePercent ? ` (${item.issue.highestSuggestedConfidencePercent}%)` : ''
+  return `${item.gapIssue.suggestedCount} suggested${
+    item.gapIssue.highestSuggestedConfidencePercent ? ` (${item.gapIssue.highestSuggestedConfidencePercent}%)` : ''
   }`;
 }

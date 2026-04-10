@@ -617,6 +617,15 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
       <Text bold>Transaction Links (gaps)</Text>
       <Text>
         <Text color="yellow">{summary.total_issues} gaps</Text>
+        {state.hiddenResolvedTransactionCount > 0 && (
+          <>
+            <Text dimColor> · </Text>
+            <Text dimColor>
+              {state.hiddenResolvedTransactionCount} resolved transaction
+              {state.hiddenResolvedTransactionCount !== 1 ? 's' : ''} hidden
+            </Text>
+          </>
+        )}
         <Text dimColor> · </Text>
         <Text color={summary.uncovered_inflows > 0 ? 'green' : 'dim'}>
           {summary.uncovered_inflows} uncovered inflow{summary.uncovered_inflows !== 1 ? 's' : ''}
@@ -732,7 +741,7 @@ const GapRow: FC<{
   isSelected: boolean;
   issue: LinkGapIssue;
 }> = ({ issue, isSelected }) => {
-  const source = issue.blockchain ?? issue.source;
+  const platform = issue.platformKey;
   const timestamp = formatGapRowTimestamp(issue.timestamp);
   const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
   const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
@@ -741,7 +750,7 @@ const GapRow: FC<{
 
   return (
     <SelectableRow isSelected={isSelected}>
-      <Text color="yellow">⚠</Text> #{issue.transactionId} <Text color="cyan">{source}</Text>{' '}
+      <Text color="yellow">⚠</Text> #{issue.transactionId} <Text color="cyan">{platform}</Text>{' '}
       <Text dimColor>{timestamp}</Text> <Text color={dirColor}>{dir}</Text>{' '}
       <Text color="green">{formatCompactAmount(issue.missingAmount)}</Text>{' '}
       {truncateText(issue.assetSymbol, GAP_ROW_ASSET_SYMBOL_MAX_WIDTH)} <Text dimColor>missing</Text>
@@ -777,7 +786,6 @@ const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
 
 function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
   const txId = `#${issue.transactionId}`;
-  const source = issue.blockchain ?? issue.source;
   const operation = `${issue.operationCategory}/${issue.operationType}`;
   const directionLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
   const coverageNum = parseFloat(issue.confirmedCoveragePercent);
@@ -790,9 +798,18 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
 
   return [
     <Text key="title">
-      <Text bold>▸ {txId}</Text> <Text color="cyan">{source}</Text> <Text dimColor>{operation}</Text>{' '}
+      <Text bold>▸ {txId}</Text> <Text color="cyan">{issue.platformKey}</Text> <Text dimColor>{operation}</Text>{' '}
       <Text dimColor>{issue.timestamp}</Text>
     </Text>,
+    ...(issue.blockchainName && issue.blockchainName !== issue.platformKey
+      ? [
+          <Text key="blockchain">
+            {'  '}
+            <Text dimColor>Blockchain: </Text>
+            {issue.blockchainName}
+          </Text>,
+        ]
+      : []),
     <Text key="missing">
       {'  '}
       <Text dimColor>Gap: </Text>

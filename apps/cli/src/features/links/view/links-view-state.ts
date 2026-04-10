@@ -5,6 +5,7 @@
 import type { LinkStatus } from '@exitbook/core';
 
 import type { LinkGapAnalysis } from '../links-gap-model.js';
+import type { LinksGapBrowseHiddenCounts } from '../links-gaps-browse-model.js';
 import type { LinkStatusCounts, LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
 
@@ -58,6 +59,8 @@ export interface LinksViewGapsState {
   mode: 'gaps';
 
   linkAnalysis: LinkGapAnalysis;
+  hiddenResolvedIssueCount: number;
+  hiddenResolvedTransactionCount: number;
   selectedIndex: number;
   scrollOffset: number;
 }
@@ -165,10 +168,18 @@ function getProposalDisplayTime(item: TransferProposalWithTransactions): number 
 /**
  * Create initial gaps view state
  */
-export function createGapsViewState(analysis: LinkGapAnalysis): LinksViewGapsState {
+export function createGapsViewState(
+  analysis: LinkGapAnalysis,
+  hiddenCounts: LinksGapBrowseHiddenCounts = {
+    hiddenResolvedIssueCount: 0,
+    hiddenResolvedTransactionCount: 0,
+  }
+): LinksViewGapsState {
   return {
     mode: 'gaps',
     linkAnalysis: analysis,
+    hiddenResolvedIssueCount: hiddenCounts.hiddenResolvedIssueCount,
+    hiddenResolvedTransactionCount: hiddenCounts.hiddenResolvedTransactionCount,
     selectedIndex: 0,
     scrollOffset: 0,
   };
