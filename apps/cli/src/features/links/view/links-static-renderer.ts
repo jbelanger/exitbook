@@ -300,7 +300,8 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       colorizeText(getCoverageColor(coverageNum), `${issue.confirmedCoveragePercent}% confirmed`)
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(issue), formatGapReadiness(item))),
-    buildDetailLine('Explore', `exitbook links explore ${item.transactionRef} --gaps`),
+    buildDetailLine('Explore', `exitbook links gaps explore ${item.transactionRef}`),
+    buildDetailLine('Resolve', `exitbook links gaps resolve ${item.transactionRef}`),
     buildDetailLine('Next', nextStep),
   ];
 

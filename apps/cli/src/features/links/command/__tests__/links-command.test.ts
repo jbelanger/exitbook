@@ -6,6 +6,7 @@ const {
   mockExecutePreparedLinksBrowseCommand,
   mockExitCliFailure,
   mockPrepareLinksBrowseCommand,
+  mockRegisterLinksGapsCommand,
   mockRegisterLinksConfirmCommand,
   mockRegisterLinksExploreCommand,
   mockRegisterLinksListCommand,
@@ -17,6 +18,7 @@ const {
   mockExecutePreparedLinksBrowseCommand: vi.fn(),
   mockExitCliFailure: vi.fn(),
   mockPrepareLinksBrowseCommand: vi.fn(),
+  mockRegisterLinksGapsCommand: vi.fn(),
   mockRegisterLinksConfirmCommand: vi.fn(),
   mockRegisterLinksExploreCommand: vi.fn(),
   mockRegisterLinksListCommand: vi.fn(),
@@ -55,6 +57,10 @@ vi.mock('../links-view.js', () => ({
 
 vi.mock('../links-explore.js', () => ({
   registerLinksExploreCommand: mockRegisterLinksExploreCommand,
+}));
+
+vi.mock('../gaps/links-gaps.js', () => ({
+  registerLinksGapsCommand: mockRegisterLinksGapsCommand,
 }));
 
 vi.mock('../run/links-run.js', () => ({
@@ -129,5 +135,11 @@ describe('links root command', () => {
 
     expect(mockPrepareLinksBrowseCommand).not.toHaveBeenCalled();
     expect(mockExecutePreparedLinksBrowseCommand).not.toHaveBeenCalled();
+  });
+
+  it('registers the dedicated links gaps workflow', () => {
+    createProgram();
+
+    expect(mockRegisterLinksGapsCommand).toHaveBeenCalledOnce();
   });
 });

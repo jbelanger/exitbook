@@ -5,8 +5,8 @@ const { mockAnalyzeLinkGaps } = vi.hoisted(() => ({
   mockAnalyzeLinkGaps: vi.fn(),
 }));
 
-vi.mock('../view/links-gap-analysis.js', () => ({
-  analyzeLinkGaps: mockAnalyzeLinkGaps,
+vi.mock('../links-gap-analysis-support.js', () => ({
+  loadLinksGapAnalysis: mockAnalyzeLinkGaps,
 }));
 
 import { createMockGapAnalysis } from '../../__tests__/test-utils.js';
@@ -32,9 +32,10 @@ describe('links-browse-support', () => {
   it('orders gap browsing data chronologically', async () => {
     const analysis = createMockGapAnalysis();
     analysis.issues = [analysis.issues[2]!, analysis.issues[0]!, analysis.issues[1]!];
-    mockAnalyzeLinkGaps.mockReturnValue(analysis);
+    mockAnalyzeLinkGaps.mockResolvedValue(ok(analysis));
+    const database = createLinksBrowseDatabase();
 
-    const result = await buildLinksBrowsePresentation(createLinksBrowseDatabase(), 42, { gaps: true });
+    const result = await buildLinksBrowsePresentation(database, 42, { gaps: true });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -60,11 +61,12 @@ describe('links-browse-support', () => {
   });
 
   it('passes resolved transaction fingerprints into gap analysis', async () => {
-    mockAnalyzeLinkGaps.mockReturnValue(createMockGapAnalysis());
+    mockAnalyzeLinkGaps.mockResolvedValue(ok(createMockGapAnalysis()));
     const resolvedTransactionFingerprints = new Set(['eth-inflow-2']);
+    const database = createLinksBrowseDatabase();
 
     const result = await buildLinksBrowsePresentation(
-      createLinksBrowseDatabase(),
+      database,
       42,
       { gaps: true },
       undefined,
@@ -72,8 +74,7 @@ describe('links-browse-support', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(mockAnalyzeLinkGaps).toHaveBeenCalledWith([], [], {
-      accounts: [],
+    expect(mockAnalyzeLinkGaps).toHaveBeenCalledWith(database, 42, {
       excludedAssetIds: undefined,
       resolvedTransactionFingerprints,
     });

@@ -6,6 +6,7 @@ import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '
 import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
+import { registerLinksGapsCommand } from './gaps/links-gaps.js';
 import {
   buildLinksBrowseOptionsHelpText,
   executePreparedLinksBrowseCommand,
@@ -28,6 +29,7 @@ const LINKS_COMMAND_ID = 'links';
  *   links list                - Explicit static list alias
  *   links view <ref>          - Static detail for one proposal or one gap
  *   links explore             - Interactive review explorer
+ *   links gaps                - Gap list and transaction-level gap resolution workflow
  *   links run                 - Run the linking algorithm
  *   links confirm <ref>       - Confirm a suggested proposal
  *   links reject <ref>        - Reject a proposal
@@ -45,12 +47,14 @@ export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime
 Examples:
   $ exitbook links
   $ exitbook links --status suggested
-  $ exitbook links --gaps
+  $ exitbook links gaps
+  $ exitbook links gaps view 3ab863db2a
   $ exitbook links view a1b2c3d4e5
   $ exitbook links explore --status suggested
-  $ exitbook links explore --gaps
+  $ exitbook links gaps explore
   $ exitbook links run
   $ exitbook links confirm a1b2c3d4e5
+  $ exitbook links gaps resolve 3ab863db2a
 
 Browse Options:
 ${buildLinksBrowseOptionsHelpText()}
@@ -58,6 +62,7 @@ ${buildLinksBrowseOptionsHelpText()}
 Notes:
   - Use bare "links" or "links list" for static lists.
   - Use "links view <ref>" for one static proposal or gap detail card.
+  - Use "links gaps" for the dedicated gap workflow and transaction-level gap exceptions.
   - Use "links explore" for the interactive explorer.
   - Use "links run" to refresh suggestions before reviewing them.
 `
@@ -97,6 +102,7 @@ Notes:
   registerLinksListCommand(links);
   registerLinksViewCommand(links);
   registerLinksExploreCommand(links);
+  registerLinksGapsCommand(links);
   registerLinksRunCommand(links, appRuntime);
   registerLinksConfirmCommand(links);
   registerLinksRejectCommand(links);

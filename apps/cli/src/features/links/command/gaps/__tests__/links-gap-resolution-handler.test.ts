@@ -1,0 +1,245 @@
+import type { OverrideEvent, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
+import type { Currency } from '@exitbook/foundation';
+import { ok } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
+import { describe, expect, it, vi } from 'vitest';
+
+import { createPersistedTransaction } from '../../../../../features/shared/__tests__/transaction-test-utils.js';
+import { LinksGapResolutionHandler } from '../links-gap-resolution-handler.js';
+
+function createBlockchainDeposit(
+  overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
+    fees?: TransactionDraft['fees'];
+    movements?: TransactionDraft['movements'];
+  } = {}
+): Transaction {
+  return createPersistedTransaction({
+    id: 11,
+    accountId: 1,
+    txFingerprint: 'btc-gap-transaction-fingerprint',
+    datetime: '2026-03-21T17:12:00.000Z',
+    timestamp: Date.parse('2026-03-21T17:12:00.000Z'),
+    platformKey: 'bitcoin',
+    platformKind: 'blockchain',
+    status: 'success',
+    blockchain: {
+      name: 'bitcoin',
+      transaction_hash: 'hash',
+      is_confirmed: true,
+    },
+    movements: {
+      inflows: [
+        {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossAmount: parseDecimal('0.0018'),
+          netAmount: parseDecimal('0.0018'),
+        },
+      ],
+      outflows: [],
+    },
+    fees: [],
+    operation: {
+      category: 'transfer',
+      type: 'deposit',
+    },
+    ...overrides,
+  });
+}
+
+function createConfirmedLink(targetTransactionId: number): TransactionLink {
+  return {
+    id: 91,
+    sourceTransactionId: 7,
+    targetTransactionId,
+    assetSymbol: 'BTC' as Currency,
+    sourceAssetId: 'test:btc',
+    targetAssetId: 'test:btc',
+    sourceAmount: parseDecimal('0.0018'),
+    targetAmount: parseDecimal('0.0018'),
+    sourceMovementFingerprint: 'movement:test:btc:7:outflow:0',
+    targetMovementFingerprint: `movement:test:btc:${targetTransactionId}:inflow:0`,
+    linkType: 'exchange_to_blockchain',
+    confidenceScore: parseDecimal('1'),
+    matchCriteria: {
+      assetMatch: true,
+      amountSimilarity: parseDecimal('1'),
+      timingValid: true,
+      timingHours: 1,
+      addressMatch: true,
+    },
+    status: 'confirmed',
+    reviewedBy: undefined,
+    reviewedAt: undefined,
+    createdAt: new Date('2026-03-21T17:12:00.000Z'),
+    updatedAt: new Date('2026-03-21T17:12:00.000Z'),
+    metadata: undefined,
+  };
+}
+
+function createLinkGapResolveEvent(txFingerprint: string): OverrideEvent {
+  return {
+    id: `gap-resolve:${txFingerprint}`,
+    created_at: '2026-04-09T12:00:00.000Z',
+    profile_key: 'default',
+    actor: 'user',
+    source: 'cli',
+    scope: 'link-gap-resolve',
+    payload: {
+      type: 'link_gap_resolve',
+      tx_fingerprint: txFingerprint,
+    },
+  };
+}
+
+function createOverrideStore(overrides?: { appendResult?: OverrideEvent; gapResolutionEvents?: OverrideEvent[] }): {
+  append: ReturnType<typeof vi.fn>;
+  exists: ReturnType<typeof vi.fn>;
+  readByScopes: ReturnType<typeof vi.fn>;
+} {
+  return {
+    append: vi.fn().mockResolvedValue(ok(overrides?.appendResult ?? createLinkGapResolveEvent('a'.repeat(64)))),
+    exists: vi.fn().mockReturnValue((overrides?.gapResolutionEvents?.length ?? 0) > 0),
+    readByScopes: vi.fn().mockImplementation(async (_profileKey: string, scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return ok([]);
+      }
+
+      if (scopes.includes('link-gap-resolve') || scopes.includes('link-gap-reopen')) {
+        return ok(overrides?.gapResolutionEvents ?? []);
+      }
+
+      return ok([]);
+    }),
+  };
+}
+
+function createDatabase(transaction: Transaction, links: TransactionLink[] = []) {
+  return {
+    accounts: {
+      findAll: vi.fn().mockResolvedValue(ok([])),
+    },
+    transactionLinks: {
+      findAll: vi.fn().mockResolvedValue(ok(links)),
+    },
+    transactions: {
+      findAll: vi.fn().mockResolvedValue(ok([transaction])),
+      findByFingerprintRef: vi.fn().mockResolvedValue(ok(transaction)),
+    },
+  };
+}
+
+describe('LinksGapResolutionHandler', () => {
+  it('writes a resolve override for an unresolved gap transaction', async () => {
+    const transaction = createBlockchainDeposit();
+    const database = createDatabase(transaction);
+    const overrideStore = createOverrideStore();
+    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+
+    const result = await handler.resolve({
+      selector: transaction.txFingerprint.slice(0, 10),
+      reason: 'BullBitcoin purchase sent directly to wallet',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value).toMatchObject({
+      action: 'resolve',
+      affectedGapCount: 1,
+      changed: true,
+      platformKey: 'bitcoin',
+      reason: 'BullBitcoin purchase sent directly to wallet',
+      transactionId: 11,
+      transactionRef: transaction.txFingerprint.slice(0, 10),
+      txFingerprint: transaction.txFingerprint,
+    });
+    expect(overrideStore.append).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'link-gap-resolve',
+      payload: {
+        type: 'link_gap_resolve',
+        tx_fingerprint: transaction.txFingerprint,
+      },
+      reason: 'BullBitcoin purchase sent directly to wallet',
+    });
+  });
+
+  it('returns unchanged when the transaction is already resolved', async () => {
+    const transaction = createBlockchainDeposit();
+    const database = createDatabase(transaction);
+    const overrideStore = createOverrideStore({
+      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint)],
+    });
+    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+
+    const result = await handler.resolve({
+      selector: transaction.txFingerprint.slice(0, 10),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.changed).toBe(false);
+    expect(result.value.affectedGapCount).toBe(1);
+    expect(overrideStore.append).not.toHaveBeenCalled();
+  });
+
+  it('writes a reopen override for a resolved transaction', async () => {
+    const transaction = createBlockchainDeposit();
+    const database = createDatabase(transaction);
+    const overrideStore = createOverrideStore({
+      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint)],
+    });
+    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+
+    const result = await handler.reopen({
+      selector: transaction.txFingerprint.slice(0, 10),
+      reason: 'Recheck after importing BullBitcoin history',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value).toMatchObject({
+      action: 'reopen',
+      affectedGapCount: 1,
+      changed: true,
+      reason: 'Recheck after importing BullBitcoin history',
+    });
+    expect(overrideStore.append).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'link-gap-reopen',
+      payload: {
+        type: 'link_gap_reopen',
+        tx_fingerprint: transaction.txFingerprint,
+      },
+      reason: 'Recheck after importing BullBitcoin history',
+    });
+  });
+
+  it('fails when the transaction does not currently produce a gap', async () => {
+    const transaction = createBlockchainDeposit();
+    const database = createDatabase(transaction, [createConfirmedLink(transaction.id)]);
+    const overrideStore = createOverrideStore();
+    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+
+    const result = await handler.resolve({
+      selector: transaction.txFingerprint.slice(0, 10),
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      throw new Error('Expected resolve to fail when no gap is present');
+    }
+
+    expect(result.error.message).toContain('does not currently have unresolved link gaps');
+    expect(overrideStore.append).not.toHaveBeenCalled();
+  });
+});

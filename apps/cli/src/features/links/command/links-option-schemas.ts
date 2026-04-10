@@ -51,3 +51,7 @@ export const LinksRunCommandOptionsSchema = z
   );
 
 export const LinksReviewCommandOptionsSchema = JsonFlagSchema;
+
+export const LinksGapResolutionCommandOptionsSchema = JsonFlagSchema.extend({
+  reason: z.string().trim().min(1).optional(),
+});

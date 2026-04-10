@@ -15,11 +15,13 @@ export function registerLinksListCommand(linksCommand: Command): void {
 Examples:
   $ exitbook links list
   $ exitbook links list --status suggested
+  $ exitbook links gaps
   $ exitbook links list --gaps
   $ exitbook links list --json
 
 Notes:
-  - Use "links view <ref>" for one static detail card.
+  - Prefer "links gaps" for the dedicated gap workflow; "--gaps" remains a compatibility alias here.
+  - Use "links view <ref>" or "links gaps view <ref>" for one static detail card.
   - Use "links explore" for the interactive review explorer.
 `
       )

@@ -1,6 +1,6 @@
 # Links Gaps Resolution Tracker
 
-Status: in progress
+Status: phase 3 in progress
 Owner: Codex
 Last updated: 2026-04-09
 
@@ -119,6 +119,24 @@ Validation:
 - Handler tests for idempotent resolve/reopen behavior.
 - End-to-end local CLI smoke runs for `links gaps` and compatibility aliases.
 
+Status:
+
+- Completed on 2026-04-09.
+- Focused suite passed:
+  - `packages/data/src/overrides/__tests__/link-gap-resolution-replay.test.ts`
+  - `packages/data/src/overrides/__tests__/override-store.test.ts`
+  - `apps/cli/src/features/links/command/view/__tests__/links-gap-analysis.test.ts`
+  - `apps/cli/src/features/links/command/__tests__/links-browse-support.test.ts`
+  - `apps/cli/src/features/links/command/gaps/__tests__/links-gap-resolution-handler.test.ts`
+  - `apps/cli/src/features/links/command/gaps/__tests__/links-gap-resolution-command.test.ts`
+  - `apps/cli/src/features/links/command/gaps/__tests__/links-gaps-command.test.ts`
+  - `apps/cli/src/features/links/command/__tests__/links-command.test.ts`
+  - `apps/cli/src/features/links/command/__tests__/links-view-command.test.ts`
+  - `apps/cli/src/features/links/command/__tests__/links-explore-command.test.ts`
+- Real CLI smoke checks passed:
+  - `pnpm -s run dev links gaps --json`
+  - `pnpm -s run dev links --gaps --json`
+
 ### Phase 3: Spec And Polish
 
 Purpose:
@@ -146,3 +164,4 @@ Validation:
 - The current gap selector is a short transaction fingerprint prefix but the code still talks about “gap” items as if they were row-unique identities.
 - The old `--gaps` lens leaks through several command names and specs; compatibility is fine, but the terminology is already split.
 - `LinkGapAnalysis.summary` is beginning to carry browse-oriented metadata as well as analytical totals, which may want a clearer separation later.
+- `links gaps` currently reuses legacy browse plumbing by injecting `gaps: true`; functionally correct, but it means the preferred UX still depends on the compatibility path internally.

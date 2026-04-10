@@ -16,7 +16,7 @@ import { buildTransferProposalItems } from '../transfer-proposals.js';
 import { createGapsViewState, createLinksViewState } from '../view/index.js';
 import type { LinksViewGapsState, LinksViewLinksState } from '../view/links-view-state.js';
 
-import { analyzeLinkGaps } from './view/links-gap-analysis.js';
+import { loadLinksGapAnalysis } from './links-gap-analysis-support.js';
 
 type LinksCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
 
@@ -118,12 +118,10 @@ async function buildLinksGapsBrowsePresentation(
   excludedAssetIds?: ReadonlySet<string>,
   resolvedTransactionFingerprints?: ReadonlySet<string>
 ): Promise<Result<Extract<LinksBrowsePresentation, { mode: 'gaps' }>, Error>> {
-  const analysisResult = await loadLinksGapAnalysis(
-    database,
-    profileId,
+  const analysisResult = await loadLinksGapAnalysis(database, profileId, {
     excludedAssetIds,
-    resolvedTransactionFingerprints
-  );
+    resolvedTransactionFingerprints,
+  });
   if (analysisResult.isErr()) {
     return err(analysisResult.error);
   }
@@ -233,36 +231,6 @@ function preselectGapsState(
 
   state.selectedIndex = selectedIndex;
   state.scrollOffset = selectedIndex;
-}
-
-async function loadLinksGapAnalysis(
-  database: LinksCommandDatabase,
-  profileId: number,
-  excludedAssetIds?: ReadonlySet<string>,
-  resolvedTransactionFingerprints?: ReadonlySet<string>
-): Promise<Result<LinkGapAnalysis, Error>> {
-  const transactionsResult = await database.transactions.findAll({ profileId });
-  if (transactionsResult.isErr()) {
-    return err(transactionsResult.error);
-  }
-
-  const linksResult = await database.transactionLinks.findAll({ profileId });
-  if (linksResult.isErr()) {
-    return err(linksResult.error);
-  }
-
-  const accountsResult = await database.accounts.findAll({ profileId });
-  if (accountsResult.isErr()) {
-    return err(accountsResult.error);
-  }
-
-  return ok(
-    analyzeLinkGaps(transactionsResult.value, linksResult.value, {
-      accounts: accountsResult.value,
-      excludedAssetIds,
-      resolvedTransactionFingerprints,
-    })
-  );
 }
 
 function sortLinkGapAnalysisByTimestamp(analysis: LinkGapAnalysis): LinkGapAnalysis {

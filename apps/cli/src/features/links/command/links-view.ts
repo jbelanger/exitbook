@@ -13,12 +13,13 @@ export function registerLinksViewCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links view a1b2c3d4e5
+  $ exitbook links gaps view txfp123abc
   $ exitbook links view txfp123abc --gaps
   $ exitbook links view a1b2c3d4e5 --json
 
 Notes:
   - Proposal selectors use a short ref derived from the transfer proposal key.
-  - Gap selectors use the persisted transaction fingerprint prefix together with --gaps.
+  - Prefer "links gaps view <ref>" for gap detail; "--gaps" remains a compatibility alias.
   - Use "links explore" when you want the interactive explorer.
 `
     )
