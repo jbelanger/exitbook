@@ -1,4 +1,10 @@
 import { getDefaultRecommendedAction } from './tax-package-issue-recommendations.js';
+import {
+  formatIncompleteTransferLinkingIssueSummary,
+  formatIncompleteTransferLinkingNotice,
+  formatUnresolvedAssetReviewIssueDetails,
+  formatUnresolvedAssetReviewIssueSummary,
+} from './tax-package-readiness-messages.js';
 import type { TaxPackageValidatedScope } from './tax-package-scope-validator.js';
 import type {
   TaxPackageIssue,
@@ -30,8 +36,12 @@ export function evaluateTaxPackageReadiness(
       buildReadinessIssue(
         'UNRESOLVED_ASSET_REVIEW',
         'blocked',
-        'Assets still require review before filing export.',
-        `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unresolvedAssetReviewCount ?? 0} assets still require review resolution.`
+        formatUnresolvedAssetReviewIssueSummary(),
+        formatUnresolvedAssetReviewIssueDetails({
+          count: input.metadata?.unresolvedAssetReviewCount ?? 0,
+          jurisdiction: input.scope.config.jurisdiction,
+          taxYear: input.scope.config.taxYear,
+        })
       )
     );
   }
@@ -81,8 +91,8 @@ export function evaluateTaxPackageReadiness(
       buildReadinessIssue(
         'INCOMPLETE_TRANSFER_LINKING',
         'warning',
-        'Some transfers were not fully linked.',
-        `${input.metadata?.incompleteTransferLinkCount ?? 0} transfers require manual review because linking is incomplete.`
+        formatIncompleteTransferLinkingIssueSummary(),
+        formatIncompleteTransferLinkingNotice(input.metadata?.incompleteTransferLinkCount ?? 0)
       )
     );
   }

@@ -1,6 +1,8 @@
 import {
   buildTaxPackageBuildContext,
   deriveTaxPackageReadinessMetadata,
+  formatIncompleteTransferLinkingNotice,
+  formatUnresolvedAssetReviewNotice,
   type CostBasisContext,
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting/cost-basis';
@@ -49,7 +51,7 @@ export function buildCostBasisReadinessWarnings(
       warnings.push({
         code: 'UNRESOLVED_ASSET_REVIEW',
         count: unresolvedAssetReviewCount,
-        message: formatAssetReviewWarning(unresolvedAssetReviewCount),
+        message: formatUnresolvedAssetReviewNotice(unresolvedAssetReviewCount),
         severity: 'blocked',
       });
     }
@@ -58,19 +60,11 @@ export function buildCostBasisReadinessWarnings(
       warnings.push({
         code: 'INCOMPLETE_TRANSFER_LINKING',
         count: incompleteTransferLinkCount,
-        message: formatIncompleteTransferWarning(incompleteTransferLinkCount),
+        message: formatIncompleteTransferLinkingNotice(incompleteTransferLinkCount),
         severity: 'warning',
       });
     }
 
     return warnings;
   }, 'Failed to derive cost basis readiness warnings');
-}
-
-function formatAssetReviewWarning(count: number): string {
-  return `${count} ${count === 1 ? 'asset still requires' : 'assets still require'} review before filing export.`;
-}
-
-function formatIncompleteTransferWarning(count: number): string {
-  return `${count} ${count === 1 ? 'transfer requires' : 'transfers require'} manual review because linking is incomplete.`;
 }
