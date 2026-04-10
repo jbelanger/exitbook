@@ -5,7 +5,7 @@ import { PartialMatchStrategy } from './partial-match-strategy.js';
 import { SameHashExternalOutflowStrategy } from './same-hash-external-outflow-strategy.js';
 import type { ILinkingStrategy } from './types.js';
 
-/** Default strategy ordering: exact hash → same-hash external groups → heuristic → partial */
+/** Default strategy ordering: exact hash → same-hash external groups → counterparty roundtrip → heuristic → partial */
 export function defaultStrategies(): ILinkingStrategy[] {
   return [
     new ExactHashStrategy(),

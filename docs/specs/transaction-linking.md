@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-19
+last_verified: 2026-04-10
 status: canonical
 ---
 
@@ -24,7 +24,7 @@ override replay, and the persisted link contract.
 | Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
 | Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
 | Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
-| Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                                                    |
+| Strategy order         | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `amount-timing` → `partial-match`                                                                         |
 | Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
 | Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
 
@@ -269,8 +269,9 @@ Default order:
 
 1. `exact-hash`
 2. `same-hash external outflow`
-3. `amount-timing`
-4. `partial-match`
+3. `counterparty-roundtrip`
+4. `amount-timing`
+5. `partial-match`
 
 Hard filters:
 
@@ -322,6 +323,17 @@ group amount =
 - expands the accepted group match back into pairwise partial links, assigning the single deduplicated fee to one deterministic fee-bearing source and using gross amounts for the remaining sources
 - uses the synthetic group match confidence and status for every expanded link
 
+Counterparty roundtrip fast path:
+
+- only considers blockchain outflow→inflow pairs
+- source candidate must have a `toAddress` and target candidate must have a `fromAddress`
+- source and target must be on the same `platformKey` and `accountId`
+- source and target must have equivalent assets and equal amounts
+- source `toAddress` must equal target `fromAddress`
+- if both source `fromAddress` and target `toAddress` are present, they must also match
+- target timestamp must be after source timestamp and within `30 days`
+- accepted pairs are emitted as `blockchain_to_blockchain` links with confidence `1.0`
+
 ### Capacity Allocation And Partial Matches
 
 Potential matches are sorted by:
@@ -365,6 +377,9 @@ Persisted metadata rules:
   - `dedupedSameHashFee`
   - `feeBearingSourceTransactionId`
   - `sameHashExternalSourceAllocations`
+- counterparty roundtrip links additionally store:
+  - `counterpartyRoundtrip=true`
+  - `counterpartyRoundtripHours`
 - score breakdown is stored when available
 - hash-match target excess allowance is recorded in metadata when used
 

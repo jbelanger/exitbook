@@ -88,6 +88,89 @@ describe('SolanaProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.type).toBe('deposit');
   });
 
+  test('drops unsolicited SOL dust fan-out deposits', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigDustFanout',
+      eventId: '0xeventDustFanout',
+      slot: 100050,
+      feeAmount: '0.000005',
+      feeCurrency: 'SOL',
+      feePayer: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000000100',
+        },
+        ...Array.from({ length: 11 }, (_, index) => ({
+          account: `fanout${index}`,
+          preBalance: '1000000',
+          postBalance: '1000100',
+        })),
+      ],
+      instructions: Array.from({ length: 12 }, () => ({
+        programId: '11111111111111111111111111111111',
+      })),
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toEqual([]);
+  });
+
+  test('keeps tiny direct SOL deposits when fan-out evidence is absent', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigTinyDirect',
+      eventId: '0xeventTinyDirect',
+      slot: 100051,
+      feeAmount: '0.000005',
+      feeCurrency: 'SOL',
+      accountChanges: [
+        {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '15000',
+          postBalance: '0',
+        },
+        {
+          account: USER_ADDRESS,
+          preBalance: '1000000000',
+          postBalance: '1000010000',
+        },
+      ],
+      instructions: [
+        {
+          programId: 'ComputeBudget111111111111111111111111111111',
+        },
+        {
+          programId: '11111111111111111111111111111111',
+        },
+      ],
+      feePayer: EXTERNAL_ADDRESS,
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.operation.type).toBe('deposit');
+    expect(result.value[0]?.movements.inflows[0]?.netAmount.toFixed()).toBe('0.00001');
+  });
+
   test('classifies outgoing SOL transfer as withdrawal', async () => {
     const processor = createProcessor();
 

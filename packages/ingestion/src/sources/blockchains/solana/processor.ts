@@ -14,7 +14,11 @@ import { BaseTransactionProcessor } from '../../../features/process/base-transac
 import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
-import { analyzeSolanaFundFlow, classifySolanaOperationFromFundFlow } from './processor-utils.js';
+import {
+  analyzeSolanaFundFlow,
+  classifySolanaOperationFromFundFlow,
+  isSolanaUnsolicitedDustFanout,
+} from './processor-utils.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
@@ -61,6 +65,22 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
         }
 
         const fundFlow = fundFlowResult.value;
+
+        if (isSolanaUnsolicitedDustFanout(normalizedTx, fundFlow)) {
+          this.logger.warn(
+            {
+              txId: normalizedTx.id,
+              eventId: normalizedTx.eventId,
+              fromAddress: fundFlow.fromAddress,
+              toAddress: fundFlow.toAddress,
+              feeAmount: fundFlow.feeAmount,
+              instructionCount: fundFlow.instructionCount,
+              primaryAmount: fundFlow.inflows[0]?.amount,
+            },
+            'Dropping unsolicited Solana dust fan-out deposit'
+          );
+          continue;
+        }
 
         // Determine transaction type and operation classification based on fund flow
         const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions);

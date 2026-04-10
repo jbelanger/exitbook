@@ -80,6 +80,12 @@ const NFT_PROGRAMS: string[] = [
   'CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz', // Coral Cube
 ];
 
+const SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
+const COMPUTE_BUDGET_PROGRAM_ID = 'ComputeBudget111111111111111111111111111111';
+const MAX_UNSOLICITED_SOL_DUST_AMOUNT = parseDecimal('0.00001');
+const MIN_DUST_FANOUT_SYSTEM_INSTRUCTIONS = 10;
+const MIN_DUST_FANOUT_ACCOUNT_CHANGES = 10;
+
 function hasMatchingProgram(instructions: SolanaTransaction['instructions'], programIds: string[]): boolean {
   if (!instructions) return false;
   return instructions.some((instruction) => instruction.programId && programIds.includes(instruction.programId));
@@ -99,6 +105,62 @@ export function detectSolanaTokenTransferInstructions(instructions: SolanaTransa
 
 export function detectSolanaNFTInstructions(instructions: SolanaTransaction['instructions']): boolean {
   return hasMatchingProgram(instructions, NFT_PROGRAMS);
+}
+
+/**
+ * Identify unsolicited SOL dust sprays that do not represent a user-initiated transaction.
+ *
+ * These rows show up as tiny native SOL deposits where:
+ * - the fee was paid externally,
+ * - there are no token changes,
+ * - instructions are only system transfers / compute budget,
+ * - and the transaction fans out to many recipients in one batch.
+ *
+ * We drop these during processing so they never become link gaps or accounting inputs.
+ */
+export function isSolanaUnsolicitedDustFanout(tx: SolanaTransaction, fundFlow: SolanaFundFlow): boolean {
+  if (tx.status !== 'success') {
+    return false;
+  }
+
+  if (fundFlow.feePaidByUser || fundFlow.outflows.length > 0 || fundFlow.inflows.length !== 1) {
+    return false;
+  }
+
+  if ((tx.tokenChanges?.length ?? 0) > 0 || fundFlow.hasStaking || fundFlow.hasSwaps || fundFlow.hasTokenTransfers) {
+    return false;
+  }
+
+  const inflow = fundFlow.inflows[0];
+  if (!inflow || inflow.asset !== 'SOL' || inflow.tokenAddress !== undefined) {
+    return false;
+  }
+
+  if (parseDecimal(inflow.amount).greaterThan(MAX_UNSOLICITED_SOL_DUST_AMOUNT)) {
+    return false;
+  }
+
+  const programIds = (tx.instructions ?? []).flatMap((instruction) =>
+    instruction.programId ? [instruction.programId] : []
+  );
+  if (programIds.length === 0) {
+    return false;
+  }
+
+  const containsOnlySystemPrograms = programIds.every(
+    (programId) => programId === SYSTEM_PROGRAM_ID || programId === COMPUTE_BUDGET_PROGRAM_ID
+  );
+  if (!containsOnlySystemPrograms) {
+    return false;
+  }
+
+  const systemInstructionCount = programIds.filter((programId) => programId === SYSTEM_PROGRAM_ID).length;
+  const accountChangeCount = tx.accountChanges?.length ?? 0;
+
+  return (
+    systemInstructionCount >= MIN_DUST_FANOUT_SYSTEM_INSTRUCTIONS ||
+    accountChangeCount >= MIN_DUST_FANOUT_ACCOUNT_CHANGES
+  );
 }
 
 /**

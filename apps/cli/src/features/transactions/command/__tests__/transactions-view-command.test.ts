@@ -157,7 +157,21 @@ describe('transactions view command', () => {
 
   it('outputs detail JSON for one transaction fingerprint ref', async () => {
     const program = createProgram();
-    const transaction = createTransaction({ id: 42, txFingerprint: createFingerprint('f') });
+    const transaction = createTransaction({
+      id: 42,
+      txFingerprint: createFingerprint('f'),
+      platformKey: 'coinbase',
+      platformKind: 'exchange',
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
+      blockchain: {
+        name: 'solana',
+        transaction_hash: '4XDm1S4vvNCXUztCHsP55Z7H8d8cY3niaKMqtPsrnxJxHzbYFQNnWxytneDzUBLruRvZLhVWWC6JATqGfs9kbq4K',
+        is_confirmed: true,
+      },
+    });
     const fingerprintRef = transaction.txFingerprint.slice(0, 10);
 
     mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
@@ -169,7 +183,14 @@ describe('transactions view command', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           id: 42,
+          platformKey: 'coinbase',
+          platformKind: 'exchange',
           txFingerprint: transaction.txFingerprint,
+          blockchain: expect.objectContaining({
+            name: 'solana',
+            transactionHash: transaction.blockchain?.transaction_hash,
+            isConfirmed: true,
+          }),
         }),
         meta: expect.objectContaining({
           count: 1,

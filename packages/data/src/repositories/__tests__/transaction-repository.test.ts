@@ -1404,6 +1404,29 @@ describe('TransactionRepository', () => {
       expect(resolved?.id).toBe(transactionId);
     });
 
+    it('materializes blockchain confirmation flags as booleans', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'ethereum',
+            platformKind: 'blockchain',
+            identityReference: 'confirmed-bool-ref',
+            blockchain: {
+              name: 'ethereum',
+              transaction_hash: 'confirmed-bool-ref',
+              is_confirmed: true,
+            },
+          }),
+          1
+        )
+      );
+
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+
+      expect(transaction?.blockchain?.is_confirmed).toBe(true);
+      expect(typeof transaction?.blockchain?.is_confirmed).toBe('boolean');
+    });
+
     it('returns undefined when a fingerprint ref only matches another profile', async () => {
       const transactionId = assertOk(
         await repo.create(

@@ -36,6 +36,14 @@ export interface MaterializeTransactionNoteOverridesParams extends TransactionMa
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
 const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
 
+function normalizeSqliteBoolean(value: boolean | number | null | undefined): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  return value === 1;
+}
+
 function parseStoredNotes(notesJson: string | null): Result<TransactionNote[] | undefined, Error> {
   if (!notesJson) {
     return ok(undefined);
@@ -331,7 +339,7 @@ export function rowToTransaction(
     transaction.blockchain = {
       name: row.blockchain_name,
       transaction_hash: row.blockchain_transaction_hash ?? '',
-      is_confirmed: row.blockchain_is_confirmed ?? false,
+      is_confirmed: normalizeSqliteBoolean(row.blockchain_is_confirmed as boolean | number | null | undefined),
       block_height: row.blockchain_block_height ?? undefined,
     };
   }

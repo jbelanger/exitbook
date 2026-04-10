@@ -11,6 +11,7 @@ import {
   detectSolanaStakingInstructions,
   detectSolanaSwapInstructions,
   detectSolanaTokenTransferInstructions,
+  isSolanaUnsolicitedDustFanout,
 } from '../processor-utils.js';
 import type { SolanaFundFlow, SolanaMovement } from '../types.js';
 
@@ -1269,6 +1270,93 @@ describe('Solana Processor Utils', () => {
 
       // SOL outflow (0.999995) is larger than USDC (0.5)
       expect(result.primary.asset).toBe('SOL');
+    });
+  });
+
+  describe('isSolanaUnsolicitedDustFanout', () => {
+    const createTx = (overrides: Partial<SolanaTransaction> = {}): SolanaTransaction => ({
+      id: 'tx-dust',
+      eventId: 'event-dust',
+      providerName: 'helius',
+      status: 'success',
+      timestamp: Date.now(),
+      feeAmount: '0.000005',
+      feeCurrency: 'SOL',
+      feePayer: 'sender111',
+      accountChanges: [],
+      instructions: [],
+      ...overrides,
+    });
+
+    const createFundFlow = (overrides: Partial<SolanaFundFlow> = {}): SolanaFundFlow => ({
+      feeAmount: '0.000005',
+      feeCurrency: 'SOL' as Currency,
+      feePaidByUser: false,
+      feeAbsorbedByMovement: false,
+      fromAddress: 'sender111',
+      toAddress: 'user111',
+      hasMultipleInstructions: true,
+      hasStaking: false,
+      hasSwaps: false,
+      hasTokenTransfers: false,
+      instructionCount: 12,
+      transactionCount: 1,
+      inflows: [{ amount: '0.0000001', asset: 'SOL' as Currency }],
+      outflows: [],
+      primary: { amount: '0.0000001', asset: 'SOL' as Currency },
+      ...overrides,
+    });
+
+    it('returns true for unsolicited system-program dust fan-outs', () => {
+      const tx = createTx({
+        accountChanges: Array.from({ length: 12 }, (_, index) => ({
+          account: `acct-${index}`,
+          preBalance: '1000',
+          postBalance: '1100',
+        })),
+        instructions: Array.from({ length: 12 }, () => ({
+          programId: '11111111111111111111111111111111',
+        })),
+      });
+
+      expect(isSolanaUnsolicitedDustFanout(tx, createFundFlow())).toBe(true);
+    });
+
+    it('returns false for direct tiny deposits without fan-out evidence', () => {
+      const tx = createTx({
+        accountChanges: [
+          {
+            account: 'sender111',
+            preBalance: '15000',
+            postBalance: '0',
+          },
+          {
+            account: 'user111',
+            preBalance: '1000',
+            postBalance: '11000',
+          },
+        ],
+        instructions: [
+          {
+            programId: 'ComputeBudget111111111111111111111111111111',
+          },
+          {
+            programId: '11111111111111111111111111111111',
+          },
+        ],
+      });
+
+      expect(
+        isSolanaUnsolicitedDustFanout(
+          tx,
+          createFundFlow({
+            instructionCount: 2,
+            hasMultipleInstructions: true,
+            inflows: [{ amount: '0.00001', asset: 'SOL' as Currency }],
+            primary: { amount: '0.00001', asset: 'SOL' as Currency },
+          })
+        )
+      ).toBe(false);
     });
   });
 

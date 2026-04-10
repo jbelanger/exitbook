@@ -57,7 +57,7 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
   return {
     id: tx.id,
     platformKey: tx.platformKey,
-    platformKind: tx.blockchain ? 'blockchain' : 'exchange',
+    platformKind: tx.platformKind,
     txFingerprint: tx.txFingerprint,
     datetime: tx.datetime,
     operationCategory: tx.operation.category,
