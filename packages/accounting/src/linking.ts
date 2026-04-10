@@ -7,3 +7,9 @@ export {
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
 } from './linking/shared/transfer-proposals.js';
+export {
+  buildConfirmedLinkFromExactMovements,
+  buildManualLinkOverrideMetadata,
+  prepareManualLinkFromTransactions,
+} from './linking/orchestration/manual-link-utils.js';
+export type { PreparedManualLink } from './linking/orchestration/manual-link-utils.js';

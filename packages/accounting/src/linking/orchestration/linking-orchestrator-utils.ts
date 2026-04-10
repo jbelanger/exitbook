@@ -1,11 +1,11 @@
 import type { NewTransactionLink, Transaction } from '@exitbook/core';
-import { parseDecimal, type Currency } from '@exitbook/foundation';
+import { type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
-import { determineLinkType } from '../strategies/amount-timing-utils.js';
 
+import { buildConfirmedLinkFromExactMovements, buildManualLinkOverrideMetadata } from './manual-link-utils.js';
 import type { OrphanedLinkOverride } from './override-replay.js';
 
 const logger = getLogger('linking-orchestrator-utils');
@@ -79,34 +79,24 @@ export function buildLinkFromOrphanedOverride(
     return err(new Error('Cannot resolve orphaned override: exact target movement identity no longer resolves'));
   }
 
-  // Derive structural link type from source/target transaction platformKind
-  // (override's linkType is a user-facing category like 'transfer'/'trade', not the DB link_type)
-  const linkType = determineLinkType(sourceTx.platformKind, targetTx.platformKind);
-
-  return ok({
-    sourceTransactionId: entry.sourceTransactionId,
-    targetTransactionId: entry.targetTransactionId,
-    assetSymbol: entry.assetSymbol as Currency,
-    sourceAssetId: exactSourceMovement.assetId,
-    targetAssetId: exactTargetMovement.assetId,
-    sourceAmount: exactSourceMovement.amount,
-    targetAmount: exactTargetMovement.amount,
-    sourceMovementFingerprint: exactSourceMovement.movementFingerprint,
-    targetMovementFingerprint: exactTargetMovement.movementFingerprint,
-    linkType,
-    confidenceScore: parseDecimal('1'),
-    matchCriteria: {
-      assetMatch: true,
-      amountSimilarity: parseDecimal('0'),
-      timingValid: true,
-      timingHours: 0,
-    },
-    status: 'confirmed',
+  const manualLinkResult = buildConfirmedLinkFromExactMovements({
+    sourceTransaction: sourceTx,
+    targetTransaction: targetTx,
+    sourceMovement: exactSourceMovement,
+    targetMovement: exactTargetMovement,
     reviewedBy: entry.override.actor,
     reviewedAt: new Date(entry.override.created_at),
+    metadata: buildManualLinkOverrideMetadata(entry.override.id, entry.linkType),
+  });
+  if (manualLinkResult.isErr()) {
+    return err(manualLinkResult.error);
+  }
+
+  return ok({
+    ...manualLinkResult.value,
+    assetSymbol: entry.assetSymbol as Currency,
     createdAt: now,
     updatedAt: now,
-    metadata: { overrideId: entry.override.id, overrideLinkType: entry.linkType },
   });
 }
 

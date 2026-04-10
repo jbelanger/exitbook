@@ -1,9 +1,15 @@
 // Shared utility for writing link/unlink override events from CLI handlers.
 // Resolves transaction fingerprints and delegates to OverrideStore.
 
-import { computeResolvedLinkFingerprint, type CreateOverrideEventOptions, type TransactionLink } from '@exitbook/core';
+import {
+  computeResolvedLinkFingerprint,
+  type CreateOverrideEventOptions,
+  type NewTransactionLink,
+  type OverrideEvent,
+  type TransactionLink,
+} from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
-import type { Result } from '@exitbook/foundation';
+import { err, resultDoAsync, resultTryAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 const logger = getLogger('LinkOverrideUtils');
@@ -11,6 +17,19 @@ const logger = getLogger('LinkOverrideUtils');
 interface TransactionFingerprintReader {
   findById(transactionId: number): Promise<Result<{ txFingerprint: string } | undefined, Error>>;
 }
+
+type LinkOverrideIdentity = Pick<
+  TransactionLink | NewTransactionLink,
+  | 'assetSymbol'
+  | 'sourceAmount'
+  | 'sourceAssetId'
+  | 'sourceMovementFingerprint'
+  | 'sourceTransactionId'
+  | 'targetAmount'
+  | 'targetAssetId'
+  | 'targetMovementFingerprint'
+  | 'targetTransactionId'
+>;
 
 /**
  * Write a link_override (confirm) event to the override store.
@@ -21,32 +40,9 @@ export async function writeLinkOverrideEvent(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   profileKey: string,
-  link: TransactionLink
+  link: LinkOverrideIdentity
 ): Promise<void> {
-  const fingerprints = await resolveFingerprints(txRepo, link);
-  if (!fingerprints) return;
-
-  const options: CreateOverrideEventOptions = {
-    profileKey,
-    scope: 'link',
-    payload: {
-      type: 'link_override',
-      action: 'confirm',
-      link_type: 'transfer',
-      source_fingerprint: fingerprints.sourceFp,
-      target_fingerprint: fingerprints.targetFp,
-      asset: link.assetSymbol,
-      resolved_link_fingerprint: fingerprints.resolvedLinkFp,
-      source_asset_id: link.sourceAssetId,
-      target_asset_id: link.targetAssetId,
-      source_movement_fingerprint: link.sourceMovementFingerprint,
-      target_movement_fingerprint: link.targetMovementFingerprint,
-      source_amount: link.sourceAmount.toFixed(),
-      target_amount: link.targetAmount.toFixed(),
-    },
-  };
-
-  const appendResult = await overrideStore.append(options);
+  const appendResult = await appendLinkOverrideEvent(txRepo, overrideStore, profileKey, link);
   if (appendResult.isErr()) {
     logger.warn({ error: appendResult.error }, 'Failed to write link override event');
   }
@@ -61,72 +57,99 @@ export async function writeUnlinkOverrideEvent(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   profileKey: string,
-  link: TransactionLink
+  link: LinkOverrideIdentity
 ): Promise<void> {
-  const fingerprints = await resolveFingerprints(txRepo, link);
-  if (!fingerprints) return;
-
-  const options: CreateOverrideEventOptions = {
-    profileKey,
-    scope: 'unlink',
-    payload: {
-      type: 'unlink_override',
-      resolved_link_fingerprint: fingerprints.resolvedLinkFp,
-    },
-  };
-
-  const appendResult = await overrideStore.append(options);
+  const appendResult = await appendUnlinkOverrideEvent(txRepo, overrideStore, profileKey, link);
   if (appendResult.isErr()) {
     logger.warn({ error: appendResult.error }, 'Failed to write unlink override event');
   }
 }
 
+export async function appendLinkOverrideEvent(
+  txRepo: TransactionFingerprintReader,
+  overrideStore: OverrideStore,
+  profileKey: string,
+  link: LinkOverrideIdentity,
+  reason?: string
+): Promise<Result<OverrideEvent, Error>> {
+  return resultDoAsync(async function* () {
+    const fingerprints = yield* await resolveFingerprints(txRepo, link);
+
+    return yield* await overrideStore.append({
+      profileKey,
+      scope: 'link',
+      reason,
+      payload: {
+        type: 'link_override',
+        action: 'confirm',
+        link_type: 'transfer',
+        source_fingerprint: fingerprints.sourceFp,
+        target_fingerprint: fingerprints.targetFp,
+        asset: link.assetSymbol,
+        resolved_link_fingerprint: fingerprints.resolvedLinkFp,
+        source_asset_id: link.sourceAssetId,
+        target_asset_id: link.targetAssetId,
+        source_movement_fingerprint: link.sourceMovementFingerprint,
+        target_movement_fingerprint: link.targetMovementFingerprint,
+        source_amount: link.sourceAmount.toFixed(),
+        target_amount: link.targetAmount.toFixed(),
+      },
+    } satisfies CreateOverrideEventOptions);
+  });
+}
+
+export async function appendUnlinkOverrideEvent(
+  txRepo: TransactionFingerprintReader,
+  overrideStore: OverrideStore,
+  profileKey: string,
+  link: LinkOverrideIdentity
+): Promise<Result<OverrideEvent, Error>> {
+  return resultDoAsync(async function* () {
+    const fingerprints = yield* await resolveFingerprints(txRepo, link);
+
+    return yield* await overrideStore.append({
+      profileKey,
+      scope: 'unlink',
+      payload: {
+        type: 'unlink_override',
+        resolved_link_fingerprint: fingerprints.resolvedLinkFp,
+      },
+    } satisfies CreateOverrideEventOptions);
+  });
+}
+
 /**
  * Resolve transaction and exact link fingerprints from transaction IDs.
- * Returns undefined if any step fails (with warnings logged).
+ * Returns a typed error when transaction lookup or fingerprint construction fails.
  */
 async function resolveFingerprints(
   txRepo: TransactionFingerprintReader,
-  link: TransactionLink
-): Promise<{ resolvedLinkFp: string; sourceFp: string; targetFp: string } | undefined> {
-  try {
+  link: LinkOverrideIdentity
+): Promise<Result<{ resolvedLinkFp: string; sourceFp: string; targetFp: string }, Error>> {
+  return resultTryAsync(async function* () {
     const [sourceResult, targetResult] = await Promise.all([
       txRepo.findById(link.sourceTransactionId),
       txRepo.findById(link.targetTransactionId),
     ]);
 
-    if (sourceResult.isErr() || targetResult.isErr()) {
-      logger.warn('Failed to fetch transactions for override event');
-      return undefined;
-    }
-
-    const sourceTx = sourceResult.value;
-    const targetTx = targetResult.value;
+    const sourceTx = yield* sourceResult;
+    const targetTx = yield* targetResult;
 
     if (!sourceTx || !targetTx) {
-      logger.warn('Source or target transaction not found for override event');
-      return undefined;
+      return yield* err(new Error('Source or target transaction not found for override event'));
     }
 
-    const resolvedLinkFpResult = computeResolvedLinkFingerprint({
+    const resolvedLinkFp = yield* computeResolvedLinkFingerprint({
       sourceAssetId: link.sourceAssetId,
       targetAssetId: link.targetAssetId,
       sourceMovementFingerprint: link.sourceMovementFingerprint,
       targetMovementFingerprint: link.targetMovementFingerprint,
     });
 
-    if (resolvedLinkFpResult.isErr()) {
-      logger.warn('Failed to compute resolved link fingerprint for override event');
-      return undefined;
-    }
-
     return {
       sourceFp: sourceTx.txFingerprint,
       targetFp: targetTx.txFingerprint,
-      resolvedLinkFp: resolvedLinkFpResult.value,
+      resolvedLinkFp,
     };
-  } catch (error) {
-    logger.warn({ error }, 'Unexpected error resolving fingerprints for override event');
-    return undefined;
-  }
+  }, 'Unexpected error resolving fingerprints for override event');
 }

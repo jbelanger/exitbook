@@ -13,7 +13,7 @@ The `links` family now follows the standard browse contract:
 - proposals under `links`
 - gaps under `links gaps`
 
-`links run`, `links confirm`, and `links reject` remain separate workflow/review commands.
+`links run`, `links create`, `links confirm`, and `links reject` remain separate workflow/review commands.
 
 ## Selector Model
 
@@ -89,6 +89,7 @@ Behavior:
 - Includes proposal ref, status, route, confidence, matched amount, and leg list.
 - `--verbose` adds full address details where available.
 - Suggested proposals include `links confirm <proposal_ref>` and `links reject <proposal_ref>` next-step hints using the same proposal ref.
+- When no proposal exists but the exact pair is already known, the manual path is `links create <source_ref> <target_ref> --asset <symbol>`.
 
 Invalid combinations:
 
@@ -211,8 +212,9 @@ Behavior:
 
 ## Review Commands
 
-`links confirm <proposal_ref>` and `links reject <proposal_ref>` stay as standalone review mutations.
+`links create <source_ref> <target_ref> --asset <symbol>`, `links confirm <proposal_ref>`, and `links reject <proposal_ref>` stay as standalone mutations around the browse surface.
 
+- `links create` is transaction-scoped and exact-movement-scoped rather than proposal-scoped.
 - They target the same proposal ref used by `links view <proposal_ref>` and `links explore <proposal_ref>`.
 - They remain standalone review mutations rather than becoming selector-based browse commands.
 

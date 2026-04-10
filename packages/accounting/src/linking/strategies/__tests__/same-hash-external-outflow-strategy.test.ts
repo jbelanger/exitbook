@@ -234,12 +234,14 @@ describe('SameHashExternalOutflowStrategy', () => {
       return;
     }
 
-    expect(result.value.links).toHaveLength(2);
-    expect([...result.value.consumedCandidateIds].sort((left, right) => left - right)).toEqual([1, 2, 100]);
+    expect(result.value.links).toHaveLength(3);
+    expect([...result.value.consumedCandidateIds].sort((left, right) => left - right)).toEqual([1, 2, 3, 100]);
     expect(result.value.links.every((link) => link.status === 'suggested')).toBe(true);
     expect(result.value.links.every((link) => link.confidenceScore.eq(parseDecimal('1')))).toBe(true);
 
-    const firstLink = result.value.links.find((link) => link.sourceTransactionId === 10);
+    const firstLink = result.value.links.find(
+      (link) => link.sourceTransactionId === 10 && link.linkType === 'blockchain_to_exchange'
+    );
     expect(firstLink?.sourceAmount.toFixed()).toBe('1.5');
     expect(firstLink?.metadata?.['sameHashMixedExternalGroup']).toBe(true);
     expect(firstLink?.metadata?.['sameHashTrackedSiblingInflowAmount']).toBe('1.2');
@@ -261,8 +263,104 @@ describe('SameHashExternalOutflowStrategy', () => {
       },
     ]);
 
-    const secondLink = result.value.links.find((link) => link.sourceTransactionId === 11);
+    const secondLink = result.value.links.find(
+      (link) => link.sourceTransactionId === 11 && link.linkType === 'blockchain_to_exchange'
+    );
     expect(secondLink?.sourceAmount.toFixed()).toBe('0.6');
+
+    const internalLink = result.value.links.find((link) => link.linkType === 'blockchain_internal');
+    expect(internalLink).toMatchObject({
+      sourceTransactionId: 11,
+      targetTransactionId: 12,
+      linkType: 'blockchain_internal',
+    });
+    expect(internalLink?.sourceAmount.toFixed()).toBe('1.2');
+    expect(internalLink?.targetAmount.toFixed()).toBe('1.2');
+    expect(internalLink?.metadata?.['partialMatch']).toBe(true);
+    expect(internalLink?.metadata?.['fullSourceAmount']).toBe('1.8');
+    expect(internalLink?.metadata?.['consumedAmount']).toBe('1.2');
+    expect(internalLink?.metadata?.['sameHashResidualAllocationPolicy']).toBe('exact_residual_single_source');
+    expect(internalLink?.metadata?.['blockchainTxHash']).toBe(hash);
+  });
+
+  it('skips the residual internal link when change is spread across multiple source capacities', () => {
+    const hash = '0xambiguous-residual';
+    const timestamp = new Date('2024-01-01T12:00:00Z');
+    const toAddress = 'addr-1';
+
+    const sources = [
+      createLinkableMovement({
+        id: 1,
+        transactionId: 10,
+        accountId: 1,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('1.4'),
+        grossAmount: parseDecimal('1.5'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:10:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 2,
+        transactionId: 11,
+        accountId: 2,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('1.8'),
+        grossAmount: parseDecimal('1.9'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:11:outflow:0',
+      }),
+    ];
+
+    const targets = [
+      createLinkableMovement({
+        id: 3,
+        transactionId: 12,
+        accountId: 3,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('2.3'),
+        direction: 'in',
+        timestamp,
+        blockchainTxHash: hash,
+        movementFingerprint: 'movement:bitcoin:12:inflow:0',
+      }),
+      createLinkableMovement({
+        id: 100,
+        transactionId: 20,
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        assetId: 'exchange:kraken:btc',
+        amount: parseDecimal('1'),
+        direction: 'in',
+        timestamp: new Date('2024-01-01T12:10:00Z'),
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:kraken:20:inflow:0',
+      }),
+    ];
+
+    const strategy = new SameHashExternalOutflowStrategy();
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value.links).toHaveLength(1);
+    expect(result.value.links[0]?.linkType).toBe('blockchain_to_exchange');
+    expect(result.value.links.find((link) => link.linkType === 'blockchain_internal')).toBeUndefined();
   });
 
   it('skips mixed groups when the residual does not land at the shared external address', () => {

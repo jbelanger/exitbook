@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockExecutePreparedLinksBrowseCommand,
   mockExitCliFailure,
+  mockRegisterLinksCreateCommand,
   mockPrepareLinksBrowseCommand,
   mockRegisterLinksGapsCommand,
   mockRegisterLinksConfirmCommand,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   mockExecutePreparedLinksBrowseCommand: vi.fn(),
   mockExitCliFailure: vi.fn(),
+  mockRegisterLinksCreateCommand: vi.fn(),
   mockPrepareLinksBrowseCommand: vi.fn(),
   mockRegisterLinksGapsCommand: vi.fn(),
   mockRegisterLinksConfirmCommand: vi.fn(),
@@ -57,6 +59,10 @@ vi.mock('../links-view.js', () => ({
 
 vi.mock('../links-explore.js', () => ({
   registerLinksExploreCommand: mockRegisterLinksExploreCommand,
+}));
+
+vi.mock('../create/links-create-command.js', () => ({
+  registerLinksCreateCommand: mockRegisterLinksCreateCommand,
 }));
 
 vi.mock('../gaps/links-gaps.js', () => ({
@@ -140,6 +146,7 @@ describe('links root command', () => {
   it('registers the dedicated links gaps workflow', () => {
     createProgram();
 
+    expect(mockRegisterLinksCreateCommand).toHaveBeenCalledOnce();
     expect(mockRegisterLinksGapsCommand).toHaveBeenCalledOnce();
   });
 });

@@ -1,3 +1,4 @@
+import { CurrencySchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
@@ -43,6 +44,11 @@ export const LinksRunCommandOptionsSchema = z
   );
 
 export const LinksReviewCommandOptionsSchema = JsonFlagSchema;
+
+export const LinksCreateCommandOptionsSchema = JsonFlagSchema.extend({
+  asset: CurrencySchema,
+  reason: z.string().trim().min(1).optional(),
+});
 
 export const LinksGapResolutionCommandOptionsSchema = JsonFlagSchema.extend({
   reason: z.string().trim().min(1).optional(),

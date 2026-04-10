@@ -13,20 +13,20 @@ override replay, and the persisted link contract.
 
 ## Quick Reference
 
-| Concept                | Key Rule                                                                                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime boundary       | Linking builds linkable movements in memory from processed transactions; it does not persist a pre-linking shadow table                                |
-| Linkable movement unit | One `LinkableMovement` per inflow or outflow movement                                                                                                  |
-| Matching amount        | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                           |
-| Structural trades      | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                               |
-| Same-hash grouping     | Blockchain transactions group by normalized hash, then by `assetId`                                                                                    |
-| Internal-link topology | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                  |
-| Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                             |
-| Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                      |
-| Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1` |
-| Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                        |
-| Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides materialize only when exactly one source and one target movement resolve            |
-| Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                               |
+| Concept                | Key Rule                                                                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime boundary       | Linking builds linkable movements in memory from processed transactions; it does not persist a pre-linking shadow table                                                            |
+| Linkable movement unit | One `LinkableMovement` per inflow or outflow movement                                                                                                                              |
+| Matching amount        | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                                                       |
+| Structural trades      | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                                                           |
+| Same-hash grouping     | Blockchain transactions group by normalized hash, then by `assetId`                                                                                                                |
+| Internal-link topology | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                                              |
+| Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
+| Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
+| Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
+| Strategy order         | `exact-hash` → `same-hash external outflow` → `amount-timing` → `partial-match`                                                                                                    |
+| Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
+| Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
 
 ## Goals
 

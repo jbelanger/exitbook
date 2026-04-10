@@ -39,6 +39,8 @@ interface ResolvedGroupMatch {
  * 1. reconstructs the same-hash outflow group amount using a single deduplicated fee
  * 2. finds one exact inbound match for the full group
  * 3. expands that group match back into pairwise partial links
+ * 4. emits a conservative residual blockchain_internal link when the leftover change
+ *    can be attributed to exactly one tracked source and one tracked sibling inflow
  */
 export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
   readonly name = 'same-hash-external-outflow';
@@ -82,6 +84,10 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
         group.sources,
         resolvedMatch.sourceAllocations
       );
+      const residualInternalLinkResult = buildResidualInternalLink(group, resolvedMatch, now);
+      if (residualInternalLinkResult.isErr()) {
+        return err(residualInternalLinkResult.error);
+      }
 
       for (const match of expandedMatches) {
         const linkResult = createTransactionLink(match, resolvedMatch.status, now);
@@ -111,6 +117,23 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
 
         links.push(link);
         consumedCandidateIds.add(match.sourceMovement.id);
+      }
+
+      const residualInternalLink = residualInternalLinkResult.value;
+      if (residualInternalLink) {
+        links.push(residualInternalLink);
+        const residualSource = group.sources.find(
+          (source) => source.transactionId === residualInternalLink.sourceTransactionId
+        );
+        const siblingInflow = group.siblingInflows.find(
+          (target) => target.transactionId === residualInternalLink.targetTransactionId
+        );
+        if (residualSource) {
+          consumedCandidateIds.add(residualSource.id);
+        }
+        if (siblingInflow) {
+          consumedCandidateIds.add(siblingInflow.id);
+        }
       }
 
       consumedCandidateIds.add(resolvedMatch.groupMatch.targetMovement.id);
@@ -284,6 +307,80 @@ function buildSourceAllocations(sourceAllocations: SameHashUtxoSourceAllocation[
       ...(unlinkedAmount.gt(0) ? { unlinkedAmount: unlinkedAmount.toFixed() } : {}),
     };
   });
+}
+
+function buildResidualInternalLink(
+  group: SameHashExternalOutflowGroup,
+  resolvedMatch: ResolvedGroupMatch,
+  now: Date
+): Result<NewTransactionLink | undefined, Error> {
+  if (group.siblingInflows.length !== 1) {
+    return ok(undefined);
+  }
+
+  const siblingInflow = group.siblingInflows[0]!;
+  const residualAllocations = resolvedMatch.sourceAllocations.filter((allocation) =>
+    allocation.unallocatedAmount.gt(0)
+  );
+  if (residualAllocations.length !== 1) {
+    return ok(undefined);
+  }
+
+  const residualAllocation = residualAllocations[0]!;
+  if (!residualAllocation.unallocatedAmount.eq(siblingInflow.amount)) {
+    return ok(undefined);
+  }
+
+  const residualSource = group.sources.find((source) => source.transactionId === residualAllocation.txId);
+  if (!residualSource) {
+    return err(
+      new Error(`Same-hash residual internal link could not find source transaction ${residualAllocation.txId}`)
+    );
+  }
+
+  if (residualSource.accountId === siblingInflow.accountId) {
+    return ok(undefined);
+  }
+
+  const sourceMovement: LinkableMovement = {
+    ...residualSource,
+    amount: residualAllocation.capacityAmount,
+  };
+
+  const linkResult = createTransactionLink(
+    {
+      sourceMovement,
+      targetMovement: siblingInflow,
+      confidenceScore: parseDecimal('1'),
+      matchCriteria: {
+        assetMatch: true,
+        amountSimilarity: parseDecimal('1'),
+        timingValid: true,
+        timingHours: 0,
+        addressMatch: undefined,
+        hashMatch: true,
+      },
+      linkType: 'blockchain_internal',
+      consumedAmount: residualAllocation.unallocatedAmount,
+    },
+    resolvedMatch.status,
+    now
+  );
+  if (linkResult.isErr()) {
+    return err(linkResult.error);
+  }
+
+  linkResult.value.metadata = {
+    ...linkResult.value.metadata,
+    blockchainTxHash: group.hash,
+    blockchain: residualSource.platformKey,
+    sameHashMixedExternalGroup: true,
+    sameHashTrackedSiblingInflowAmount: siblingInflow.amount.toFixed(),
+    sameHashTrackedSiblingInflowCount: 1,
+    sameHashResidualAllocationPolicy: 'exact_residual_single_source',
+  };
+
+  return ok(linkResult.value);
 }
 
 function sourceGross(source: LinkableMovement): Decimal {

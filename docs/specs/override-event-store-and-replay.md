@@ -117,6 +117,7 @@ This is direction-aware, movement-aware, and asset-id-aware.
 
 | Command                                     | Database mutation                               | Override event                                                                           |
 | ------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `links create <src> <dst> --asset <symbol>` | creates or confirms one exact manual link row   | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
 | `links confirm <ref>`                       | sets link status to `confirmed`                 | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
 | `links reject <ref>`                        | sets link status to `rejected`                  | appends `scope='unlink'`, `type='unlink_override'`                                       |
 | `links gaps resolve <ref>`                  | hides that transaction from the open gaps lens  | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                            |
@@ -130,6 +131,7 @@ Additional rules:
 
 - idempotent confirm/reject and note set/clear no-ops do not append a new event
 - append failures are logged as warnings and do not fail the primary CLI command
+- `links create` is the exception: override persistence is required because it is the durable source of truth for a user-authored link, so append failure aborts the command before `transaction_links` is mutated
 
 ### Link Gap Resolution Replay
 
@@ -182,6 +184,11 @@ Important rules:
 
 An orphaned confirmed override is a final `confirm` state whose source and target
 transactions resolve, but whose pair was not rediscovered by the algorithm.
+
+These confirmed states may come from either:
+
+- `links confirm <ref>` on an algorithmic suggestion
+- `links create <src> <dst> --asset <symbol>` for a user-authored exact pair
 
 Materialization rules:
 
