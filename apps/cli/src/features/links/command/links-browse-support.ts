@@ -128,8 +128,10 @@ async function buildLinksGapsBrowsePresentation(
 
   const sortedAnalysis = sortLinkGapAnalysisByTimestamp(analysisResult.value);
   const state = createGapsViewState(sortedAnalysis);
+  const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
   const gaps = sortedAnalysis.issues.map((issue) => ({
     issue,
+    transactionGapCount: gapCountsByTransactionFingerprint.get(issue.txFingerprint) ?? 1,
     transactionRef: formatLinkSelectorRef(issue.txFingerprint),
   }));
   const selectedGapResult =
@@ -238,6 +240,16 @@ function sortLinkGapAnalysisByTimestamp(analysis: LinkGapAnalysis): LinkGapAnaly
     ...analysis,
     issues: [...analysis.issues].sort(compareLinkGapIssuesByTimestamp),
   };
+}
+
+function countGapIssuesByTransactionFingerprint(analysis: LinkGapAnalysis): Map<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const issue of analysis.issues) {
+    counts.set(issue.txFingerprint, (counts.get(issue.txFingerprint) ?? 0) + 1);
+  }
+
+  return counts;
 }
 
 function compareLinkGapIssuesByTimestamp(

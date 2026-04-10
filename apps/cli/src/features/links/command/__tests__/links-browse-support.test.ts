@@ -79,4 +79,37 @@ describe('links-browse-support', () => {
       resolvedTransactionFingerprints,
     });
   });
+
+  it('treats duplicate gap rows on the same transaction as one selector target', async () => {
+    const analysis = createMockGapAnalysis();
+    analysis.issues = [
+      analysis.issues[0]!,
+      {
+        ...analysis.issues[0]!,
+        assetSymbol: 'USDC',
+        missingAmount: '25',
+        totalAmount: '25',
+      },
+      analysis.issues[1]!,
+    ];
+    mockAnalyzeLinkGaps.mockResolvedValue(ok(analysis));
+
+    const result = await buildLinksBrowsePresentation(createLinksBrowseDatabase(), 42, {
+      gaps: true,
+      selector: 'eth-inflow-1',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.mode).toBe('gaps');
+    if (result.value.mode !== 'gaps') {
+      throw new Error('Expected gaps browse presentation');
+    }
+
+    expect(result.value.selectedGap?.issue.txFingerprint).toBe('eth-inflow-1');
+    expect(result.value.selectedGap?.transactionGapCount).toBe(2);
+  });
 });

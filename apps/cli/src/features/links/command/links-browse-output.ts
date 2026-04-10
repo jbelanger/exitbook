@@ -190,6 +190,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     kind: 'gap',
     ref: item.transactionRef,
     transactionId: item.issue.transactionId,
+    transactionGapCount: item.transactionGapCount,
     txFingerprint: item.issue.txFingerprint,
     source: item.issue.source,
     blockchain: item.issue.blockchain,

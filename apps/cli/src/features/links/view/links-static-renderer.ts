@@ -290,6 +290,12 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     buildDetailLine('Transaction ref', item.transactionRef),
     buildDetailLine('Transaction', `#${issue.transactionId}`),
     buildDetailLine('Fingerprint', issue.txFingerprint),
+    ...(item.transactionGapCount > 1
+      ? [
+          buildDetailLine('Gap rows on tx', String(item.transactionGapCount)),
+          buildDetailLine('Resolve scope', 'Transaction-wide'),
+        ]
+      : []),
     buildDetailLine('Source', source),
     buildDetailLine('Date', issue.timestamp),
     buildDetailLine('Operation', `${issue.operationCategory}/${issue.operationType}`),

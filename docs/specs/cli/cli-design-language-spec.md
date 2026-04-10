@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-31
+last_verified: 2026-04-09
 status: draft
 ---
 
@@ -25,13 +25,13 @@ Every command should clearly belong to one of those questions.
 
 ## User Journey Map
 
-| Journey              | User question                                | Primary commands                                                                |
-| -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
-| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                              |
-| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh`         |
-| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links explore --gaps`, `assets`, `prices` |
-| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`           |
-| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                         |
+| Journey              | User question                                | Primary commands                                                        |
+| -------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| Workspace setup      | "What dataset am I working in?"              | `profiles`, `accounts`, `blockchains`, `providers`                      |
+| Sync and rebuild     | "How do I get or regenerate current data?"   | `import`, `reprocess`, `links run`, `prices enrich`, `accounts refresh` |
+| Review and resolve   | "What is suspicious, missing, or ambiguous?" | `accounts`, `transactions`, `links`, `links gaps`, `assets`, `prices`   |
+| Analyze and export   | "What does my data mean?"                    | `portfolio`, `cost-basis`, `transactions export`, `cost-basis export`   |
+| Cleanup and recovery | "How do I reset safely?"                     | `clear`                                                                 |
 
 These journeys are the primary navigation system for humans. Technical ownership and package layout are secondary.
 

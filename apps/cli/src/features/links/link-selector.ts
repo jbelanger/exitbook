@@ -91,8 +91,16 @@ export function resolveLinkGapSelector<TItem>(
   candidates: LinkGapSelectorCandidate<TItem>[],
   selector: string
 ): Result<ResolvedLinkSelector<TItem>, Error> {
+  const uniqueCandidatesByTransaction = new Map<string, LinkGapSelectorCandidate<TItem>>();
+
+  for (const candidate of candidates) {
+    if (!uniqueCandidatesByTransaction.has(candidate.txFingerprint)) {
+      uniqueCandidatesByTransaction.set(candidate.txFingerprint, candidate);
+    }
+  }
+
   return resolveLinkSelector(
-    candidates.map((candidate) => ({
+    [...uniqueCandidatesByTransaction.values()].map((candidate) => ({
       fullValue: candidate.txFingerprint,
       item: candidate.item,
     })),

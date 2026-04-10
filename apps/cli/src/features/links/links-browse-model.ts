@@ -8,5 +8,6 @@ export interface LinkProposalBrowseItem {
 
 export interface LinkGapBrowseItem {
   issue: LinkGapIssue;
+  transactionGapCount: number;
   transactionRef: string;
 }

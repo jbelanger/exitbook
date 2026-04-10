@@ -1,6 +1,6 @@
 # Links Gaps Resolution Tracker
 
-Status: phase 3 in progress
+Status: completed
 Owner: Codex
 Last updated: 2026-04-09
 
@@ -154,6 +154,22 @@ Validation:
 
 - Re-read help text, JSON metadata, and spec language for consistency.
 
+Status:
+
+- Completed on 2026-04-09.
+- Spec updates landed in:
+  - `docs/specs/cli/links/README.md`
+  - `docs/specs/cli/links/links-view-spec.md`
+  - `docs/specs/cli/cli-design-language-spec.md`
+  - `docs/specs/cli/prices/README.md`
+- Additional polish landed:
+  - gap selectors now dedupe by transaction fingerprint for detail/explore
+  - gap detail and JSON now expose `transactionGapCount` for multi-row transactions
+- Validation:
+  - focused suite passed: 10 files / 57 tests
+  - real duplicate-ref smoke check passed:
+    - `pnpm -s run dev links gaps view 59015268c9 --json`
+
 ## Open Questions
 
 - Whether `links gaps` should later gain a dedicated resolved-history surface.
@@ -165,3 +181,4 @@ Validation:
 - The old `--gaps` lens leaks through several command names and specs; compatibility is fine, but the terminology is already split.
 - `LinkGapAnalysis.summary` is beginning to carry browse-oriented metadata as well as analytical totals, which may want a clearer separation later.
 - `links gaps` currently reuses legacy browse plumbing by injecting `gaps: true`; functionally correct, but it means the preferred UX still depends on the compatibility path internally.
+- Multi-row transaction detail still shows a representative gap row plus `transactionGapCount`, not a true transaction-level aggregated detail model.
