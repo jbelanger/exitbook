@@ -53,7 +53,7 @@ vi.mock('../../../../profiles/profile-resolution.js', () => ({
 }));
 
 vi.mock('../links-create-handler.js', () => ({
-  LinksCreateHandler: vi.fn().mockImplementation(function MockLinksCreateHandler(...args: unknown[]) {
+  ManualLinkCreateHandler: vi.fn().mockImplementation(function MockManualLinkCreateHandler(...args: unknown[]) {
     mockHandlerConstructor(...args);
     return {
       create: mockCreate,

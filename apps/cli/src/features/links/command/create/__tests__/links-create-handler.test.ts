@@ -34,11 +34,11 @@ vi.mock('../../review/link-review-policy.js', () => ({
   getDefaultReviewer: mockGetDefaultReviewer,
 }));
 
-vi.mock('../../review/links-override-utils.js', () => ({
+vi.mock('../../review/links-override-append.js', () => ({
   appendLinkOverrideEvent: mockAppendLinkOverrideEvent,
 }));
 
-import { LinksCreateHandler } from '../links-create-handler.js';
+import { ManualLinkCreateHandler } from '../links-create-handler.js';
 
 function createPreparedManualLink() {
   const fixture = createConfirmableTransferFixture({ sourceAmount: '80.61', targetAmount: '80.61' });
@@ -116,7 +116,7 @@ function createDatabase(
   };
 }
 
-describe('LinksCreateHandler', () => {
+describe('ManualLinkCreateHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDefaultReviewer.mockReturnValue('cli-user');
@@ -134,7 +134,7 @@ describe('LinksCreateHandler', () => {
     const database = createDatabase(prepared);
     database.transactionLinks.create.mockResolvedValue(ok(91));
     mockPrepareManualLinkFromTransactions.mockReturnValue(ok(prepared));
-    const handler = new LinksCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
+    const handler = new ManualLinkCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
 
     const result = await handler.create({
       assetSymbol: prepared.link.assetSymbol,
@@ -191,7 +191,7 @@ describe('LinksCreateHandler', () => {
     const database = createDatabase(prepared, [existingLink]);
     database.transactionLinks.updateStatuses.mockResolvedValue(ok(1));
     mockPrepareManualLinkFromTransactions.mockReturnValue(ok(prepared));
-    const handler = new LinksCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
+    const handler = new ManualLinkCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
 
     const result = await handler.create({
       assetSymbol: prepared.link.assetSymbol,
@@ -231,7 +231,7 @@ describe('LinksCreateHandler', () => {
     };
     const database = createDatabase(prepared, [existingLink]);
     mockPrepareManualLinkFromTransactions.mockReturnValue(ok(prepared));
-    const handler = new LinksCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
+    const handler = new ManualLinkCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
 
     const result = await handler.create({
       assetSymbol: prepared.link.assetSymbol,
@@ -274,7 +274,7 @@ describe('LinksCreateHandler', () => {
     const secondLink = { ...firstLink, id: 56 };
     const database = createDatabase(prepared, [firstLink, secondLink]);
     mockPrepareManualLinkFromTransactions.mockReturnValue(ok(prepared));
-    const handler = new LinksCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
+    const handler = new ManualLinkCreateHandler(database as never, 1, 'default', { tag: 'override-store' } as never);
 
     const result = await handler.create({
       assetSymbol: prepared.link.assetSymbol,

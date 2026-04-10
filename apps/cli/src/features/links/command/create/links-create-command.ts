@@ -18,7 +18,7 @@ import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { getTransactionSelectorErrorExitCode } from '../../../transactions/transaction-selector.js';
 import { LinksCreateCommandOptionsSchema } from '../links-option-schemas.js';
 
-import { LinksCreateHandler, type LinksCreateResult } from './links-create-handler.js';
+import { ManualLinkCreateHandler, type LinksCreateResult } from './links-create-handler.js';
 
 const TransactionSelectorSchema = z.string().trim().min(1, 'Transaction ref must not be empty');
 
@@ -95,7 +95,7 @@ async function executeLinksCreateCommandResult(
       return yield* err(createCliFailure(profileResult.error, ExitCodes.GENERAL_ERROR));
     }
 
-    const handler = new LinksCreateHandler(
+    const handler = new ManualLinkCreateHandler(
       database,
       profileResult.value.id,
       profileResult.value.profileKey,

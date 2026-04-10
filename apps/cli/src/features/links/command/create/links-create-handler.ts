@@ -25,9 +25,9 @@ import {
   type ResolvedTransactionSelector,
 } from '../../../transactions/transaction-selector.js';
 import { getDefaultReviewer } from '../review/link-review-policy.js';
-import { appendLinkOverrideEvent } from '../review/links-override-utils.js';
+import { appendLinkOverrideEvent } from '../review/links-override-append.js';
 
-const logger = getLogger('LinksCreateHandler');
+const logger = getLogger('ManualLinkCreateHandler');
 
 type LinksCreateDatabase = Pick<DataSession, 'executeInTransaction'> & {
   transactionLinks: Pick<DataSession['transactionLinks'], 'create' | 'findAll' | 'updateStatuses'>;
@@ -65,7 +65,7 @@ export interface LinksCreateResult {
   targetTransactionRef: string;
 }
 
-export class LinksCreateHandler {
+export class ManualLinkCreateHandler {
   constructor(
     private readonly db: LinksCreateDatabase,
     private readonly profileId: number,
