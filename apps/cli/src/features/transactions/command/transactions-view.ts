@@ -15,7 +15,7 @@ Examples:
   $ exitbook transactions view a1b2c3d4e5 --json
 
 Notes:
-  - Transaction selectors use the persisted transaction fingerprint prefix.
+  - Transaction selectors use the TX-REF shown in the transactions list.
   - Use "transactions explore" when you want the interactive explorer.
 `
       )

@@ -17,6 +17,7 @@ import {
 import type { TransactionsViewState } from './transactions-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
+const TRANSACTION_REF_COLUMN_LABEL = 'TX-REF';
 const TRANSACTION_LIST_COLUMN_ORDER = [
   'transactionRef',
   'datetime',
@@ -66,7 +67,7 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
     platform: { format: (item) => item.platformKey, minWidth: 10 },
     transactionRef: {
       format: (item) => formatTransactionFingerprintRef(item.txFingerprint),
-      minWidth: 'REF'.length,
+      minWidth: TRANSACTION_REF_COLUMN_LABEL.length,
     },
   });
 
@@ -82,7 +83,7 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
           flags: 'FLAGS',
           operation: 'OPERATION',
           platform: 'PLATFORM',
-          transactionRef: 'REF',
+          transactionRef: TRANSACTION_REF_COLUMN_LABEL,
         },
         TRANSACTION_LIST_COLUMN_ORDER,
         { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
@@ -121,6 +122,7 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
   const lines = [
     `${pc.bold(`Transaction #${transaction.id}`)} ${pc.dim(formatTransactionFingerprintRef(transaction.txFingerprint))} ${pc.cyan(transaction.platformKey)} ${pc.dim(formatTransactionOperation(transaction.operationCategory, transaction.operationType))}`,
     '',
+    buildDetailLine('Transaction ref', formatTransactionFingerprintRef(transaction.txFingerprint)),
     buildDetailLine('Fingerprint', transaction.txFingerprint),
     buildDetailLine('Date', formatTransactionTimestamp(transaction.datetime)),
     buildDetailLine('Platform', transaction.platformKey),

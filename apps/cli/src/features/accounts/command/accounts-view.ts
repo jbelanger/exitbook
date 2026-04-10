@@ -26,6 +26,9 @@ Common Usage:
   - Use "exitbook accounts explore" when you want navigation instead of one-off detail
   - Use "exitbook accounts refresh" to rebuild and verify balances
 
+Notes:
+  - Selectors accept account names and the ACCT-REF shown in the accounts list.
+
 Account Types:
   blockchain, exchange-api, exchange-csv
 `

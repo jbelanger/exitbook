@@ -86,7 +86,7 @@ Examples:
 
 Notes:
   - ${capitalize(definition.commandName)}ing a proposal may update multiple related link rows in the same suggestion group.
-  - Proposal refs use the same short ref shown by "links", "links view", and "links explore".
+  - Proposal selectors use the same LINK-REF shown by "links", "links view", and "links explore".
 `
     )
     .argument('<proposal-ref>', `Proposal ref to ${definition.commandName}`)

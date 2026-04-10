@@ -22,6 +22,8 @@ import {
 import type { LinksViewGapsState, LinksViewLinksState } from './links-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
+const LINK_REF_COLUMN_LABEL = 'LINK-REF';
+const TRANSACTION_REF_COLUMN_LABEL = 'TX-REF';
 const LINK_LIST_COLUMN_ORDER = ['ref', 'date', 'asset', 'status', 'route', 'confidence', 'legs'] as const;
 const GAP_LIST_COLUMN_ORDER = [
   'ref',
@@ -47,7 +49,7 @@ export function buildLinksStaticList(state: LinksViewLinksState, items: LinkProp
   }
 
   const columns = createColumns(items, {
-    ref: { format: (item) => item.proposalRef, minWidth: 'REF'.length },
+    ref: { format: (item) => item.proposalRef, minWidth: LINK_REF_COLUMN_LABEL.length },
     date: {
       format: (item) => formatLinkDate(item.proposal.representativeLeg),
       minWidth: 'DATE'.length,
@@ -81,7 +83,7 @@ export function buildLinksStaticList(state: LinksViewLinksState, items: LinkProp
       buildTextTableHeader(
         columns.widths,
         {
-          ref: 'REF',
+          ref: LINK_REF_COLUMN_LABEL,
           date: 'DATE',
           asset: 'ASSET',
           status: 'STATUS',
@@ -144,7 +146,7 @@ export function buildLinkProposalStaticDetail(item: LinkProposalBrowseItem, verb
       `[${proposal.status}]`
     )}`,
     '',
-    buildDetailLine('Ref', item.proposalRef),
+    buildDetailLine('Link ref', item.proposalRef),
     buildDetailLine('Status', colorizeStatus(statusDisplay.iconColor, proposal.status)),
     buildDetailLine('Route', formatProposalRoute(proposal)),
     buildDetailLine('Type', linkType),
@@ -195,7 +197,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
   }
 
   const columns = createColumns(items, {
-    ref: { format: (item) => item.transactionRef, minWidth: 'REF'.length },
+    ref: { format: (item) => item.transactionRef, minWidth: TRANSACTION_REF_COLUMN_LABEL.length },
     date: {
       format: (item) => formatGapRowTimestamp(item.gapIssue.timestamp),
       minWidth: 'DATE'.length,
@@ -233,7 +235,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
       buildTextTableHeader(
         columns.widths,
         {
-          ref: 'REF',
+          ref: TRANSACTION_REF_COLUMN_LABEL,
           date: 'DATE',
           platform: 'PLATFORM',
           direction: 'DIR',

@@ -118,4 +118,30 @@ describe('links-gaps-browse-support', () => {
     expect(result.value.selectedGap?.gapIssue.txFingerprint).toBe('eth-inflow-1');
     expect(result.value.selectedGap?.transactionGapCount).toBe(2);
   });
+
+  it('formats gap transaction refs with the transaction ref formatter', async () => {
+    const analysis = createMockGapAnalysis();
+    analysis.issues = [
+      {
+        ...analysis.issues[0]!,
+        txFingerprint: '1234567890abcdef-gap',
+      },
+    ];
+    mockLoadLinksGapAnalysis.mockResolvedValue(
+      ok({
+        analysis,
+        hiddenResolvedIssueCount: 0,
+        hiddenResolvedTransactionCount: 0,
+      })
+    );
+
+    const result = await buildLinksGapsBrowsePresentation(createLinksGapsBrowseDatabase(), 42, {});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.gaps[0]?.transactionRef).toBe('1234567890');
+  });
 });

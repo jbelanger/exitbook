@@ -32,6 +32,7 @@ import {
 import type { AccountsListViewState } from './accounts-view-state.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
+const ACCOUNT_REF_COLUMN_LABEL = 'ACCT-REF';
 const ACCOUNT_LIST_COLUMN_ORDER = ['accountRef', 'name', 'platform', 'type', 'assets', 'identifier'] as const;
 
 export function outputAccountsStaticList(state: AccountsListViewState): void {
@@ -50,7 +51,7 @@ export function buildAccountsStaticList(state: AccountsListViewState): string {
     accountRef: {
       format: (item) => formatAccountFingerprintRef(item.accountFingerprint),
       align: 'left',
-      minWidth: ACCOUNT_FINGERPRINT_REF_LENGTH,
+      minWidth: Math.max(ACCOUNT_FINGERPRINT_REF_LENGTH, ACCOUNT_REF_COLUMN_LABEL.length),
     },
     name: { format: (item) => truncateLabel(item.name ?? item.identifier, item.name ? 20 : 28) },
     platform: { format: (item) => item.platformKey, minWidth: 12 },
@@ -86,6 +87,7 @@ export function buildAccountStaticDetail(account: AccountDetailViewItem): string
     `${pc.bold(title)}${account.name ? ` ${pc.dim(fingerprintRef)}` : ''} ${pc.cyan(account.platformKey)} ${pc.dim(type)}`,
     '',
     buildDetailLine('Name', account.name ?? pc.dim('—')),
+    buildDetailLine('Account ref', fingerprintRef),
     buildDetailLine('Fingerprint', account.accountFingerprint),
     buildDetailLine('Identifier', account.identifier),
     buildDetailLine('Provider', account.providerName ? pc.cyan(account.providerName) : pc.dim('—')),
@@ -186,7 +188,7 @@ function buildListColumnHeader(
     buildTextTableHeader(
       columns.widths,
       {
-        accountRef: 'REF',
+        accountRef: ACCOUNT_REF_COLUMN_LABEL,
         assets: 'ASSETS',
         identifier: 'IDENTIFIER',
         name: 'NAME',

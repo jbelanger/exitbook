@@ -17,8 +17,8 @@ Examples:
   $ exitbook links view a1b2c3d4e5 --json
 
 Notes:
-  - Proposal selectors use a short ref derived from the transfer proposal key.
-  - Use "links gaps view <ref>" for gap detail.
+  - Proposal selectors use the LINK-REF derived from the transfer proposal key.
+  - Use "links gaps view <tx-ref>" for transaction gap detail.
   - Use "links explore" when you want the interactive explorer.
 `
       )

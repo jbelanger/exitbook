@@ -68,7 +68,7 @@ Refresh never prints the full account detail card. Users inspect refreshed data 
 `<selector>` resolves in this order:
 
 1. exact account name
-2. unique fingerprint prefix
+2. unique account fingerprint prefix, shown in the list as `ACCT-REF`
 
 Rules:
 
@@ -167,7 +167,7 @@ Accounts{optional filter label} {total} total · {type counts...}
 
 Table columns:
 
-- `REF`
+- `ACCT-REF`
 - `NAME`
 - `PLATFORM`
 - `TYPE`
@@ -190,10 +190,11 @@ Applies to:
 Body order:
 
 1. title line with name, fingerprint prefix, platform, and type
-2. account identity and provider fields
-3. `Imports`
-4. optional `Derived addresses`
-5. `Balances`
+2. `Account ref`
+3. account identity and provider fields
+4. `Imports`
+5. optional `Derived addresses`
+6. `Balances`
 
 Rules:
 

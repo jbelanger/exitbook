@@ -28,13 +28,13 @@ const LINKS_COMMAND_ID = 'links';
  * Structure:
  *   links                     - Static list of link proposals
  *   links list                - Explicit static list alias
- *   links view <ref>          - Static detail for one proposal
+ *   links view <link-ref>     - Static detail for one proposal
  *   links explore             - Interactive review explorer
  *   links create <src> <dst>  - Create a confirmed manual link
  *   links gaps                - Gap list and transaction-level gap resolution workflow
  *   links run                 - Run the linking algorithm
- *   links confirm <ref>       - Confirm a suggested proposal
- *   links reject <ref>        - Reject a proposal
+ *   links confirm <link-ref>  - Confirm a suggested proposal
+ *   links reject <link-ref>   - Reject a proposal
  */
 export function registerLinksCommand(program: Command, appRuntime: CliAppRuntime): void {
   const links = program
@@ -64,7 +64,7 @@ ${buildLinksBrowseOptionsHelpText()}
 
 Notes:
   - Use bare "links" or "links list" for static lists.
-  - Use "links view <ref>" for one static proposal detail card.
+  - Use "links view <link-ref>" for one static proposal detail card.
   - Use "links create <source-ref> <target-ref> --asset <symbol>" when you know the exact pair and no proposal exists.
   - Use "links gaps" for the dedicated gap workflow and transaction-level gap exceptions.
   - Use "links explore" for the interactive explorer.

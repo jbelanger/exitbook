@@ -2,7 +2,7 @@
 
 ## Overview
 
-`exitbook links confirm <ref>` and `exitbook links reject <ref>` remain as standalone CLI commands for scripting and non-TUI workflows. They use the same proposal ref contract as `links view` and `links explore`.
+`exitbook links confirm <link-ref>` and `exitbook links reject <link-ref>` remain as standalone CLI commands for scripting and non-TUI workflows. They use the same `LINK-REF` contract as `links view` and `links explore`.
 
 ---
 
@@ -56,7 +56,7 @@ Single line, no box/table. All information on one line:
 | `✗` (reject)                          | dim        |
 | `⚠` (error/already)                   | yellow     |
 | Action text (`Confirmed`, `Rejected`) | white/bold |
-| Ref                                   | white      |
+| Link ref                              | white      |
 | Asset                                 | white      |
 | Amounts                               | green      |
 | Arrow `→`                             | dim        |
@@ -86,6 +86,6 @@ Current implementation:
 
 - These commands fetch the link + source/target transactions to build the summary line
 - The Ink render is a single `render()` → `unmount()` — no interactivity, no refresh loop
-- Proposal refs are the same shortened proposal-key refs used by `links`, `links view`, and `links explore`
+- Proposal selectors use the same `LINK-REF` shown by `links`, `links view`, and `links explore`
 - The handler logic still operates on the representative numeric link ID internally after CLI ref resolution
-- Accepts proposal ref prefixes and fails on ambiguous prefixes the same way the browse commands do
+- Accepts `LINK-REF` prefixes and fails on ambiguous prefixes the same way the browse commands do

@@ -36,7 +36,7 @@ Examples:
   $ exitbook links gaps reopen 3ab863db2a
 
 Notes:
-  - Gap refs use the persisted transaction fingerprint prefix shown in the gap list.
+  - Gap selectors use the TX-REF shown in the gap list.
   - "resolve" hides that transaction from the open gaps lens without creating a link.
 `
     )
@@ -105,7 +105,7 @@ Examples:
 
 Common Usage:
   - Diagnose unresolved blockchain coverage gaps
-  - Jump directly to one gap transaction by fingerprint ref
+  - Jump directly to one gap transaction by TX-REF
   - Review a gap before resolving it as an intentional no-link transaction
 `
       )

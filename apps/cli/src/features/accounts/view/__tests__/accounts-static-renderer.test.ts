@@ -64,7 +64,7 @@ describe('buildAccountsStaticList', () => {
     });
 
     expect(stripAnsi(output)).toContain('Accounts (kraken) 1 total · 1 exchange-api\n');
-    expect(stripAnsi(output)).toContain('\nREF         NAME');
+    expect(stripAnsi(output)).toContain('\nACCT-REF    NAME');
     expect(stripAnsi(output)).toContain('PLATFORM');
     expect(stripAnsi(output)).toContain('TYPE');
     expect(stripAnsi(output)).toContain('ASSETS');
@@ -106,7 +106,7 @@ describe('buildAccountsStaticList', () => {
 
     expect(stripAnsi(output)).toContain('Accounts (kraken) 0 total\n');
     expect(stripAnsi(output)).toContain('No accounts found for kraken.');
-    expect(stripAnsi(output)).not.toContain('REF');
+    expect(stripAnsi(output)).not.toContain('ACCT-REF');
     expect(stripAnsi(output).startsWith('\n')).toBe(false);
     expect(stripAnsi(output).endsWith('\n\n')).toBe(false);
     expect(stripAnsi(output)).not.toContain('Tip:');
@@ -190,6 +190,7 @@ describe('buildAccountStaticDetail', () => {
 
     expect(stripAnsi(output)).toContain('kraken-main 1234567890 kraken exchange-api\n');
     expect(stripAnsi(output)).toContain('Name: kraken-main');
+    expect(stripAnsi(output)).toContain('Account ref: 1234567890');
     expect(stripAnsi(output)).toContain(`Fingerprint: ${parentFingerprint}`);
     expect(stripAnsi(output)).toContain('Identifier: acct-1');
     expect(stripAnsi(output)).toContain('Provider: kraken-api');

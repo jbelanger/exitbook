@@ -18,7 +18,7 @@ Examples:
   $ exitbook links list --json
 
 Notes:
-  - Use "links view <ref>" for one static detail card.
+  - Use "links view <link-ref>" for one static detail card.
   - Use "links gaps" for unresolved coverage gaps and gap exceptions.
   - Use "links explore" for the interactive review explorer.
 `

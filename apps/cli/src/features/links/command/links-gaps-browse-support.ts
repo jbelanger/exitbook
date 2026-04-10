@@ -1,7 +1,8 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { formatLinkSelectorRef, resolveLinkGapSelector } from '../link-selector.js';
+import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
+import { resolveLinkGapSelector } from '../link-selector.js';
 import type { LinkGapAnalysis } from '../links-gap-model.js';
 import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import { createGapsViewState } from '../view/index.js';
@@ -46,7 +47,7 @@ export async function buildLinksGapsBrowsePresentation(
   const gaps = sortedAnalysis.issues.map((gapIssue) => ({
     gapIssue,
     transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
-    transactionRef: formatLinkSelectorRef(gapIssue.txFingerprint),
+    transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
   }));
   const selectedGapResult =
     params.selector !== undefined ? resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : ok(undefined);

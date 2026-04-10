@@ -5,8 +5,8 @@
 The `links` family now follows the standard browse contract:
 
 - `exitbook links` / `exitbook links list` -> static list
-- `exitbook links view <ref>` -> static detail
-- `exitbook links explore [ref]` -> interactive explorer
+- `exitbook links view <link-ref>` -> static detail
+- `exitbook links explore [link-ref]` -> interactive explorer
 
 `links` has two browse families:
 
@@ -19,18 +19,18 @@ The `links` family now follows the standard browse contract:
 
 ### Proposal Selectors
 
-`links view <ref>` and `links explore <ref>` target a transfer proposal.
+`links view <link-ref>` and `links explore <link-ref>` target a transfer proposal.
 
-- The selector is a short ref derived from the transfer proposal key.
-- The displayed `REF` column uses the first 10 hex chars of the SHA-256 digest of that proposal key.
+- The selector is a short `LINK-REF` derived from the transfer proposal key.
+- The displayed `LINK-REF` column uses the first 10 hex chars of the SHA-256 digest of that proposal key.
 - Ambiguous ref prefixes must fail and tell the user to provide a longer ref.
 
 ### Gap Selectors
 
-`links gaps view <ref>`, `links gaps explore <ref>`, `links gaps resolve <ref>`, and `links gaps reopen <ref>` target a transaction ref inside the gaps workflow.
+`links gaps view <tx-ref>`, `links gaps explore <tx-ref>`, `links gaps resolve <tx-ref>`, and `links gaps reopen <tx-ref>` target a transaction ref inside the gaps workflow.
 
 - The selector is the prefix of the persisted transaction fingerprint.
-- The displayed `REF` column uses that shortened prefix.
+- The displayed `TX-REF` column uses that shortened prefix.
 - One transaction may still produce multiple gap rows in the static list.
 - When that happens, selector resolution stays transaction-level:
   - the command resolves by transaction fingerprint, not by asset row
@@ -65,7 +65,7 @@ Filters:
 
 List columns:
 
-- `REF`
+- `LINK-REF`
 - `DATE`
 - `ASSET`
 - `STATUS`
@@ -86,9 +86,9 @@ exitbook links view <proposal_ref> --json
 Behavior:
 
 - Renders one durable proposal detail card.
-- Includes proposal ref, status, route, confidence, matched amount, and leg list.
+- Includes `LINK-REF`, status, route, confidence, matched amount, and leg list.
 - `--verbose` adds full address details where available.
-- Suggested proposals include `links confirm <proposal_ref>` and `links reject <proposal_ref>` next-step hints using the same proposal ref.
+- Suggested proposals include `links confirm <proposal_ref>` and `links reject <proposal_ref>` next-step hints using the same `LINK-REF`.
 - When no proposal exists but the exact pair is already known, the manual path is `links create <source_ref> <target_ref> --asset <symbol>`.
 
 Invalid combinations:
@@ -134,7 +134,7 @@ Behavior:
 
 List columns:
 
-- `REF`
+- `TX-REF`
 - `DATE`
 - `PLATFORM`
 - `DIR`
@@ -154,7 +154,7 @@ exitbook links gaps view <gap_ref> --json
 
 Behavior:
 
-- Renders one gap detail card with transaction ref, fingerprint, platform, date, operation, gap amount, coverage, and readiness.
+- Renders one gap detail card with `TX-REF`, fingerprint, platform, date, operation, gap amount, coverage, and readiness.
 - When the transaction has multiple gap rows, detail also shows the transaction-level gap-row count and makes it explicit that resolve/reopen are transaction-wide.
 - Includes next-step guidance:
   - review suggested proposals with `links explore --status suggested` when suggestions exist
@@ -191,7 +191,7 @@ Behavior:
 
 - `resolve` records a transaction-level reviewed exception without creating a link.
 - `reopen` removes that transaction-level exception and returns the transaction to the open gaps lens.
-- These commands use the same transaction ref shown in the gap list and gap detail.
+- These commands use the same `TX-REF` shown in the gap list and gap detail.
 - `--reason` stores free-form audit context on the override event.
 
 ## JSON Contract
@@ -215,7 +215,7 @@ Behavior:
 `links create <source_ref> <target_ref> --asset <symbol>`, `links confirm <proposal_ref>`, and `links reject <proposal_ref>` stay as standalone mutations around the browse surface.
 
 - `links create` is transaction-scoped and exact-movement-scoped rather than proposal-scoped.
-- They target the same proposal ref used by `links view <proposal_ref>` and `links explore <proposal_ref>`.
+- They target the same `LINK-REF` used by `links view <proposal_ref>` and `links explore <proposal_ref>`.
 - They remain standalone review mutations rather than becoming selector-based browse commands.
 
 ## Semantic Rules
