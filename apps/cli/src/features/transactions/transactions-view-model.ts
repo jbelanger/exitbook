@@ -33,8 +33,9 @@ export interface TransactionViewItem {
   datetime: string;
   operationCategory: string;
   operationType: string;
-  sentSummary?: string | undefined;
-  receivedSummary?: string | undefined;
+  debitSummary?: string | undefined;
+  creditSummary?: string | undefined;
+  feeSummary?: string | undefined;
   primaryAsset: string | undefined;
   primaryAmount: string | undefined;
   primaryDirection: 'in' | 'out' | undefined;

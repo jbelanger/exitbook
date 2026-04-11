@@ -170,6 +170,11 @@ Projection design:
 - do not store only formatted strings if the view is likely to evolve again
 - prefer structured fields on `TransactionViewItem`, then format in renderer
 
+Implementation note from Phase 2:
+
+- the browse view kept `debitSummary` / `creditSummary` / `feeSummary` strings on `TransactionViewItem`
+- reason: the view model already exposes full `inflows` / `outflows` / `fees` detail for JSON and detail rendering, so adding parallel balance-impact arrays here would duplicate transaction detail rather than clarify it
+
 Preferred browse-view model direction:
 
 ```ts
@@ -261,6 +266,7 @@ Targeted verification commands to use during migration:
 Current unrelated verification blocker already present in repo:
 
 - `pnpm --filter @exitbook/ingestion exec tsc --noEmit` fails on [packages/ingestion/src/sources/blockchains/solana/**tests**/processor.test.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/__tests__/processor.test.ts) line 171 with `TS2532: Object is possibly 'undefined'.`
+- `pnpm --filter exitbook-cli exec tsc --noEmit` fails on [apps/cli/src/features/assets/command/**tests**/asset-command-services.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/__tests__/asset-command-services.test.ts) line 5 with `TS2305: Module '"@exitbook/core"' has no exported member 'Result'.`
 
 ## Smells Encountered Already
 
@@ -297,9 +303,20 @@ These are not permission to leave debt behind. They are here so we can deliberat
    - `primaryMovementAmount`
    - `primaryMovementDirection`
 
-2. `buildMovementSummary()` in [transaction-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts) is too generic for a balance-sensitive migration.
-   Better name if the temporary code survives:
-   - `buildGrossMovementSideSummary()`
+2. `buildBalanceImpactSummary()` in [transaction-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts) currently mixes asset ordering, zero filtering, and final string formatting.
+   Better split if reuse grows:
+   - `orderBalanceImpactAssetsForDisplay()`
+   - `formatBalanceImpactSummary()`
+
+### Phase 2 Smells
+
+1. Static detail still centers the legacy `Primary` line even though the browse list is now balance-oriented.
+   File:
+   - [apps/cli/src/features/transactions/view/transactions-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-static-renderer.ts)
+     Risk:
+   - list and detail now speak slightly different semantic dialects
+     Follow-up:
+   - decide whether detail should add explicit `Debit` / `Credit` / `Fees` summary lines or rename `Primary` to `Primary movement`
 
 ## Exit Criteria
 

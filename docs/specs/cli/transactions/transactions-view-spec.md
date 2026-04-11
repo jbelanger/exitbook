@@ -139,18 +139,21 @@ Table columns:
 - `DATE`
 - `PLATFORM`
 - `OPERATION`
-- `SENT`
-- `RECEIVED`
+- `DEBIT`
+- `CREDIT`
+- `FEES`
 - `FLAGS`
 
 Rules:
 
-- `SENT` is a compact summary of outflow movements and `RECEIVED` is a compact summary of inflow movements
-- each side summary formats movements as `{amount} {asset}`
-- when a side has multiple movements with the same asset symbol, the list aggregates them into one `{amount} {asset}` entry for that symbol
-- when a side has multiple asset symbols, entries are joined with `+` in first-seen order
-- empty sides render as `—`
-- fees are not folded into `SENT` or `RECEIVED`; they remain separate detail data
+- `DEBIT` is a compact summary of balance debits from outflow `grossAmount`
+- `CREDIT` is a compact summary of balance credits from inflow `grossAmount`
+- `FEES` is a compact summary of additional fee debits where `fee.settlement !== 'on-chain'`
+- each summary entry formats as `{amount} {asset}`
+- repeated assets on the same summary side are aggregated into one entry
+- multi-asset summaries join entries with `+` in first-seen order
+- empty summaries render as `—`
+- `on-chain` fees do not appear in `FEES` because they are already embedded in the debited movement amount
 - category counts only render for non-zero categories
 - static list never renders controls, selected-row chrome, or a detail panel
 - the unfiltered empty state points users at `exitbook import --help`
@@ -203,7 +206,7 @@ Layout:
 
 Rules:
 
-- the explorer list uses the same sent/received side summaries as the static list, but without list headers
+- the explorer list uses the same debit/credit/fee summaries as the static list, but without list headers
 - selector-based explorer opens on the full unfiltered list with the requested transaction pre-selected
 - non-selector explorer honors browse filters and `--limit`
 - inline export remains explorer-only and is triggered from inside the TUI
@@ -228,8 +231,9 @@ Shape:
       "id": 2456,
       "txFingerprint": "…",
       "platformKey": "kraken",
-      "sentSummary": "24,500 USD",
-      "receivedSummary": "0.25 BTC"
+      "debitSummary": "24,500 USD",
+      "creditSummary": "0.25 BTC",
+      "feeSummary": "12.50 USD"
     }
   ],
   "meta": {
@@ -248,7 +252,7 @@ Rules:
 
 - `transactions` and `transactions list` return the full static-list result set
 - `transactions explore --json` applies the explorer `--limit`
-- `sentSummary` and `receivedSummary` use the same side-summary rules as the human list surfaces
+- `debitSummary`, `creditSummary`, and `feeSummary` use the same balance-summary rules as the human list surfaces
 
 ### Detail JSON
 

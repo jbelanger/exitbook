@@ -5,8 +5,8 @@ import type { TransactionViewItem } from '../transactions-view-model.js';
 
 import {
   buildCategoryParts,
+  formatTransactionBalanceSummary,
   formatTransactionDirection,
-  formatTransactionMovementSummary,
   formatTransactionFingerprintRef,
   formatTransactionFlags,
   formatTransactionOperation,
@@ -23,8 +23,9 @@ const TRANSACTION_LIST_COLUMN_ORDER = [
   'datetime',
   'platform',
   'operation',
-  'sent',
-  'received',
+  'debit',
+  'credit',
+  'fees',
   'flags',
 ] as const;
 
@@ -41,6 +42,14 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
   }
 
   const columns = createColumns(state.transactions, {
+    credit: {
+      format: (item) => formatTransactionBalanceSummary(item.creditSummary),
+      minWidth: 10,
+    },
+    debit: {
+      format: (item) => formatTransactionBalanceSummary(item.debitSummary),
+      minWidth: 10,
+    },
     datetime: {
       format: (item) => formatTransactionTimestamp(item.datetime).slice(0, 16),
       minWidth: 'DATE'.length,
@@ -49,19 +58,15 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       format: (item) => formatTransactionFlags(item),
       minWidth: 8,
     },
+    fees: {
+      format: (item) => formatTransactionBalanceSummary(item.feeSummary),
+      minWidth: 'FEES'.length,
+    },
     operation: {
       format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
       minWidth: 18,
     },
     platform: { format: (item) => item.platformKey, minWidth: 10 },
-    received: {
-      format: (item) => formatTransactionMovementSummary(item.receivedSummary),
-      minWidth: 10,
-    },
-    sent: {
-      format: (item) => formatTransactionMovementSummary(item.sentSummary),
-      minWidth: 10,
-    },
     transactionRef: {
       format: (item) => formatTransactionFingerprintRef(item.txFingerprint),
       minWidth: TRANSACTION_REF_COLUMN_LABEL.length,
@@ -73,12 +78,13 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       buildTextTableHeader(
         columns.widths,
         {
+          credit: 'CREDIT',
+          debit: 'DEBIT',
           datetime: 'DATE',
           flags: 'FLAGS',
+          fees: 'FEES',
           operation: 'OPERATION',
           platform: 'PLATFORM',
-          received: 'RECEIVED',
-          sent: 'SENT',
           transactionRef: TRANSACTION_REF_COLUMN_LABEL,
         },
         TRANSACTION_LIST_COLUMN_ORDER,
@@ -93,12 +99,13 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       buildTextTableRow(
         {
           ...formatted,
+          credit: formatted.credit === '—' ? pc.dim(formatted.credit) : pc.green(formatted.credit),
+          debit: formatted.debit === '—' ? pc.dim(formatted.debit) : pc.yellow(formatted.debit),
           datetime: pc.dim(formatted.datetime),
           flags: formatted.flags === '—' ? pc.dim(formatted.flags) : pc.yellow(formatted.flags),
+          fees: formatted.fees === '—' ? pc.dim(formatted.fees) : pc.red(formatted.fees),
           operation: pc.dim(formatted.operation),
           platform: pc.cyan(formatted.platform),
-          received: formatted.received === '—' ? pc.dim(formatted.received) : pc.green(formatted.received),
-          sent: formatted.sent === '—' ? pc.dim(formatted.sent) : pc.yellow(formatted.sent),
         },
         TRANSACTION_LIST_COLUMN_ORDER,
         { gap: STATIC_LIST_COLUMN_GAP }

@@ -19,8 +19,9 @@ function createTransactionViewItem(): TransactionViewItem {
     datetime: '2026-03-01T12:00:00.000Z',
     operationCategory: 'trade',
     operationType: 'buy',
-    sentSummary: '48,250 USD',
-    receivedSummary: '1.25 BTC',
+    debitSummary: '48,250 USD',
+    creditSummary: '1.25 BTC',
+    feeSummary: '12.5 USD',
     primaryAsset: 'BTC',
     primaryAmount: '1.25000000',
     primaryDirection: 'in',
@@ -44,18 +45,20 @@ describe('transactions static renderer', () => {
     const output = buildTransactionsStaticList(state);
 
     expect(stripAnsi(output)).toContain('TX-REF');
-    expect(stripAnsi(output)).toContain('SENT');
-    expect(stripAnsi(output)).toContain('RECEIVED');
+    expect(stripAnsi(output)).toContain('DEBIT');
+    expect(stripAnsi(output)).toContain('CREDIT');
+    expect(stripAnsi(output)).toContain('FEES');
   });
 
-  it('renders sent and received summaries for two-sided trades', () => {
+  it('renders debit, credit, and fee summaries for two-sided trades', () => {
     const state = createTransactionsViewState(
       [
         {
           ...createTransactionViewItem(),
           operationType: 'swap',
-          sentSummary: '250 CAD',
-          receivedSummary: '0.0035 BTC',
+          debitSummary: '250 CAD',
+          creditSummary: '0.0035 BTC',
+          feeSummary: '1.25 CAD',
           primaryAsset: 'CAD',
           primaryAmount: '250',
           primaryDirection: 'out',
@@ -69,17 +72,19 @@ describe('transactions static renderer', () => {
 
     expect(stripAnsi(output)).toContain('250 CAD');
     expect(stripAnsi(output)).toContain('0.0035 BTC');
+    expect(stripAnsi(output)).toContain('1.25 CAD');
   });
 
-  it('renders em dashes for empty sent or received sides', () => {
+  it('renders em dashes for empty debit, credit, or fee columns', () => {
     const state = createTransactionsViewState(
       [
         {
           ...createTransactionViewItem(),
           operationCategory: 'transfer',
           operationType: 'deposit',
-          sentSummary: undefined,
-          receivedSummary: '2 ETH',
+          debitSummary: undefined,
+          creditSummary: '2 ETH',
+          feeSummary: undefined,
           primaryAsset: 'ETH',
           primaryAmount: '2',
           primaryDirection: 'in',

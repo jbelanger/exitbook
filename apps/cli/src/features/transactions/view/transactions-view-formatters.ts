@@ -22,7 +22,7 @@ export function formatTransactionOperation(category: string, type: string): stri
   return `${category}/${type}`;
 }
 
-export function formatTransactionMovementSummary(summary: string | undefined): string {
+export function formatTransactionBalanceSummary(summary: string | undefined): string {
   return summary ?? '—';
 }
 

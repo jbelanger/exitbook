@@ -25,7 +25,7 @@ import {
 } from './transactions-view-controller.js';
 import {
   buildCategoryParts,
-  formatTransactionMovementSummary,
+  formatTransactionBalanceSummary,
   formatTransactionOperation,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
@@ -166,19 +166,23 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
   const columns = useMemo(
     () =>
       createColumns(transactions, {
+        credit: {
+          format: (item) => formatTransactionBalanceSummary(item.creditSummary),
+          minWidth: 10,
+        },
+        debit: {
+          format: (item) => formatTransactionBalanceSummary(item.debitSummary),
+          minWidth: 10,
+        },
+        fees: {
+          format: (item) => formatTransactionBalanceSummary(item.feeSummary),
+          minWidth: 5,
+        },
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
         platform: { format: (item) => item.platformKey, minWidth: 10 },
         operation: {
           format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
           minWidth: 15,
-        },
-        received: {
-          format: (item) => formatTransactionMovementSummary(item.receivedSummary),
-          minWidth: 10,
-        },
-        sent: {
-          format: (item) => formatTransactionMovementSummary(item.sentSummary),
-          minWidth: 10,
         },
       }),
     [transactions]
@@ -221,11 +225,11 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const TransactionRow: FC<{
-  columns: Columns<TransactionViewItem, 'txId' | 'platform' | 'operation' | 'sent' | 'received'>;
+  columns: Columns<TransactionViewItem, 'txId' | 'platform' | 'operation' | 'debit' | 'credit' | 'fees'>;
   isSelected: boolean;
   item: TransactionViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const { txId, platform, operation, received, sent } = columns.format(item);
+  const { credit, debit, fees, txId, platform, operation } = columns.format(item);
   const timestamp = formatTransactionTimestamp(item.datetime).slice(0, 16);
   const { icon, iconColor } = getTransactionPriceStatusDisplay(item.priceStatus);
 
@@ -237,7 +241,7 @@ const TransactionRow: FC<{
         dimWhenUnselected
         isSelected={isSelected}
       >
-        {txId} {platform} {timestamp} {operation} {sent} {received} {icon}
+        {txId} {platform} {timestamp} {operation} {debit} {credit} {fees} {icon}
       </SelectableRow>
     );
   }
@@ -247,18 +251,22 @@ const TransactionRow: FC<{
       {txId} <Text color="cyan">{platform}</Text> <Text dimColor>{timestamp}</Text> <Text dimColor>{operation}</Text>{' '}
       <SummaryValue
         color="yellow"
-        value={sent}
+        value={debit}
       />{' '}
       <SummaryValue
         color="green"
-        value={received}
+        value={credit}
+      />{' '}
+      <SummaryValue
+        color="red"
+        value={fees}
       />{' '}
       <Text color={iconColor}>{icon}</Text>
     </SelectableRow>
   );
 };
 
-const SummaryValue: FC<{ color: 'green' | 'yellow'; value: string }> = ({ color, value }) => {
+const SummaryValue: FC<{ color: 'green' | 'red' | 'yellow'; value: string }> = ({ color, value }) => {
   if (value === '—') {
     return <Text dimColor>{value}</Text>;
   }
