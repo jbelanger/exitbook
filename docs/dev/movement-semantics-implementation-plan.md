@@ -237,7 +237,7 @@ Explicit non-goals from this analysis:
 Current active phase:
 
 - `Phase 3: Diagnostics Consumer Migration`
-- active step: `Step 3.2: Migrate accounting/reporting consumers`
+- active step: `Step 3.3: Migrate ingestion/balance/review consumers`
 
 ## Phase 3: Diagnostics Consumer Migration
 
@@ -338,6 +338,12 @@ Acceptance criteria:
 - no machine branching on legacy note content in accounting export/readiness paths
 - regression coverage for migrated diagnostic codes
 
+Current status:
+
+- completed for the readiness/reporting slice
+- stale export/readiness DTO fields now use `diagnosticCode` / `diagnosticMessage`
+- review-gate messaging now refers to diagnostics, not import notes
+
 #### Step 3.3: Migrate ingestion/balance/review consumers
 
 Primary targets:
@@ -354,6 +360,14 @@ Acceptance criteria:
 
 - balance/review behavior is derived from diagnostics or explicit flags
 - no machine consumer uses the free-form user-note surface
+
+Current status:
+
+- active
+- live ingestion/review code now uses diagnostic terminology internally instead of note terminology
+- remaining work is narrower than expected:
+  - make the `isSpam` + diagnostics contract explicit
+  - decide whether persisted asset-review evidence kinds such as `scam-note` should be renamed in a dedicated schema-level slice
 
 #### Step 3.4: Migrate CLI/view/export surfaces
 

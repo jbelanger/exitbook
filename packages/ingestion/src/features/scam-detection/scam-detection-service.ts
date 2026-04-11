@@ -21,13 +21,13 @@ export class ScamDetectionService implements IScamDetectionService {
 
   /**
    * Detect scams in movements using pre-fetched metadata.
-   * Returns a map of transaction index to scam note (first scam found per transaction).
+   * Returns a map of transaction index to scam diagnostics.
    * Emits scam.batch.summary event after processing.
    *
    * @param movements - Movements with context (contract, amount, isAirdrop, txIndex)
    * @param metadataMap - Pre-fetched metadata keyed by contract address (may contain undefined for unfound contracts)
    * @param blockchain - Blockchain identifier for event emission
-   * @returns Map of transaction index to scam note
+   * @returns Map of transaction index to scam diagnostics
    */
   detectScams(
     movements: MovementWithContext[],
@@ -37,7 +37,7 @@ export class ScamDetectionService implements IScamDetectionService {
     this.batchCounter += 1;
     const scamDiagnostics = new Map<number, TransactionDiagnostic[]>();
     const exampleSymbols: string[] = [];
-    let totalScamNotes = 0;
+    let totalScamDiagnostics = 0;
 
     for (const movement of movements) {
       let scamDiagnostic: TransactionDiagnostic | undefined;
@@ -100,12 +100,12 @@ export class ScamDetectionService implements IScamDetectionService {
         }
       }
 
-      // Store scam note for this transaction (if found)
+      // Store the scam diagnostic for this transaction when detection succeeds.
       if (scamDiagnostic) {
         const existing = scamDiagnostics.get(movement.transactionIndex) ?? [];
         existing.push(scamDiagnostic);
         scamDiagnostics.set(movement.transactionIndex, existing);
-        totalScamNotes += 1;
+        totalScamDiagnostics += 1;
 
         // Collect first 3 example symbols
         if (exampleSymbols.length < 3) {
@@ -121,7 +121,7 @@ export class ScamDetectionService implements IScamDetectionService {
         blockchain,
         batchNumber: this.batchCounter,
         totalScanned: movements.length,
-        scamsFound: totalScamNotes,
+        scamsFound: totalScamDiagnostics,
         exampleSymbols,
       });
     }

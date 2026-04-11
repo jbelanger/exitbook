@@ -183,9 +183,9 @@ export function detectScamToken(
     // Unknown verification or verified contract with no other indicators = no flag
   }
 
-  // Generate warning note if suspicious patterns found
+  // Generate a transaction diagnostic when suspicious patterns are found.
   if (suspiciousIndicators.length > 0) {
-    const noteType = riskLevel === 'error' ? 'SCAM_TOKEN' : 'SUSPICIOUS_AIRDROP';
+    const diagnosticCode = riskLevel === 'error' ? 'SCAM_TOKEN' : 'SUSPICIOUS_AIRDROP';
 
     return {
       message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
@@ -199,7 +199,7 @@ export function detectScamToken(
         verifiedContract: tokenMetadata.verifiedContract,
       },
       severity: riskLevel,
-      code: noteType,
+      code: diagnosticCode,
     };
   }
 

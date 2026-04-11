@@ -8,10 +8,10 @@ const logger = getLogger('asset-review-service');
 interface AssetSignal {
   assetId: string;
   hasSpamFlag: boolean;
-  scamNoteHasError: boolean;
-  scamNoteCount: number;
-  suspiciousAirdropNoteHasError: boolean;
-  suspiciousAirdropNoteCount: number;
+  scamDiagnosticHasError: boolean;
+  scamDiagnosticCount: number;
+  suspiciousAirdropDiagnosticHasError: boolean;
+  suspiciousAirdropDiagnosticCount: number;
   symbols: Set<string>;
 }
 
@@ -177,10 +177,10 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
       const signal = signalsByAssetId.get(entry.assetId) ?? {
         assetId: entry.assetId,
         hasSpamFlag: false,
-        scamNoteHasError: false,
-        scamNoteCount: 0,
-        suspiciousAirdropNoteHasError: false,
-        suspiciousAirdropNoteCount: 0,
+        scamDiagnosticHasError: false,
+        scamDiagnosticCount: 0,
+        suspiciousAirdropDiagnosticHasError: false,
+        suspiciousAirdropDiagnosticCount: 0,
         symbols: new Set<string>(),
       };
 
@@ -188,25 +188,30 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
       if (!assetIdsSeenInTransaction.has(entry.assetId)) {
         assetIdsSeenInTransaction.add(entry.assetId);
 
-        const applicableNotes = collectApplicableNotes(transaction, entry.assetId, entry.assetSymbol, primaryAssetIds);
+        const applicableDiagnostics = collectApplicableDiagnostics(
+          transaction,
+          entry.assetId,
+          entry.assetSymbol,
+          primaryAssetIds
+        );
         const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(entry.assetId);
 
         if (
           transaction.isSpam === true &&
-          (applicableNotes.some((note) => note.code === 'SCAM_TOKEN') ||
-            (applicableNotes.length === 0 && isOnlyPrimaryAsset))
+          (applicableDiagnostics.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN') ||
+            (applicableDiagnostics.length === 0 && isOnlyPrimaryAsset))
         ) {
           signal.hasSpamFlag = true;
         }
 
-        for (const note of applicableNotes) {
-          if (note.code === 'SCAM_TOKEN') {
-            signal.scamNoteCount += 1;
-            signal.scamNoteHasError ||= note.severity !== 'warning';
+        for (const diagnostic of applicableDiagnostics) {
+          if (diagnostic.code === 'SCAM_TOKEN') {
+            signal.scamDiagnosticCount += 1;
+            signal.scamDiagnosticHasError ||= diagnostic.severity !== 'warning';
           }
-          if (note.code === 'SUSPICIOUS_AIRDROP') {
-            signal.suspiciousAirdropNoteCount += 1;
-            signal.suspiciousAirdropNoteHasError ||= note.severity === 'error';
+          if (diagnostic.code === 'SUSPICIOUS_AIRDROP') {
+            signal.suspiciousAirdropDiagnosticCount += 1;
+            signal.suspiciousAirdropDiagnosticHasError ||= diagnostic.severity === 'error';
           }
         }
       }
@@ -289,40 +294,40 @@ function collectPrimaryAssetIds(transaction: Transaction): Set<string> {
   return primaryAssetIds;
 }
 
-function collectApplicableNotes(
+function collectApplicableDiagnostics(
   transaction: Transaction,
   assetId: string,
   assetSymbol: string,
   primaryAssetIds: Set<string>
 ): TransactionDiagnostic[] {
   const diagnostics = transaction.diagnostics ?? [];
-  const exactMatches = diagnostics.filter((diagnostic) => noteTargetsAsset(diagnostic, assetId));
+  const exactMatches = diagnostics.filter((diagnostic) => diagnosticTargetsAsset(diagnostic, assetId));
   if (exactMatches.length > 0) {
     return exactMatches;
   }
 
   const applicableDiagnostics: TransactionDiagnostic[] = [];
-  const symbolMatches = diagnostics.filter((diagnostic) => noteTargetsSymbol(diagnostic, assetSymbol));
+  const symbolMatches = diagnostics.filter((diagnostic) => diagnosticTargetsSymbol(diagnostic, assetSymbol));
   if (symbolMatches.length > 0 && symbolTargetIsUnambiguous(transaction, assetId, assetSymbol)) {
     applicableDiagnostics.push(...symbolMatches);
   }
 
   const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(assetId);
   if (isOnlyPrimaryAsset) {
-    applicableDiagnostics.push(...diagnostics.filter((diagnostic) => noteHasNoTarget(diagnostic)));
+    applicableDiagnostics.push(...diagnostics.filter((diagnostic) => diagnosticHasNoTarget(diagnostic)));
   }
 
   return applicableDiagnostics;
 }
 
-function noteTargetsAsset(note: TransactionDiagnostic, assetId: string): boolean {
-  const noteAssetId: unknown = note.metadata?.['assetId'];
-  if (typeof noteAssetId === 'string' && noteAssetId === assetId) {
+function diagnosticTargetsAsset(diagnostic: TransactionDiagnostic, assetId: string): boolean {
+  const diagnosticAssetId: unknown = diagnostic.metadata?.['assetId'];
+  if (typeof diagnosticAssetId === 'string' && diagnosticAssetId === assetId) {
     return true;
   }
 
-  const noteContractAddress: unknown = note.metadata?.['contractAddress'];
-  if (typeof noteContractAddress !== 'string' || noteContractAddress.trim() === '') {
+  const diagnosticContractAddress: unknown = diagnostic.metadata?.['contractAddress'];
+  if (typeof diagnosticContractAddress !== 'string' || diagnosticContractAddress.trim() === '') {
     return false;
   }
 
@@ -335,23 +340,24 @@ function noteTargetsAsset(note: TransactionDiagnostic, assetId: string): boolean
     parsedAssetId.value.namespace === 'blockchain' &&
     typeof parsedAssetId.value.ref === 'string' &&
     parsedAssetId.value.ref !== 'native' &&
-    parsedAssetId.value.ref.toLowerCase() === noteContractAddress.toLowerCase()
+    parsedAssetId.value.ref.toLowerCase() === diagnosticContractAddress.toLowerCase()
   );
 }
 
-function noteTargetsSymbol(note: TransactionDiagnostic, assetSymbol: string): boolean {
-  const noteAssetSymbol: unknown = note.metadata?.['assetSymbol'] ?? note.metadata?.['scamAsset'];
+function diagnosticTargetsSymbol(diagnostic: TransactionDiagnostic, assetSymbol: string): boolean {
+  const diagnosticAssetSymbol: unknown = diagnostic.metadata?.['assetSymbol'] ?? diagnostic.metadata?.['scamAsset'];
   return (
-    typeof noteAssetSymbol === 'string' && noteAssetSymbol.trim().toLowerCase() === assetSymbol.trim().toLowerCase()
+    typeof diagnosticAssetSymbol === 'string' &&
+    diagnosticAssetSymbol.trim().toLowerCase() === assetSymbol.trim().toLowerCase()
   );
 }
 
-function noteHasNoTarget(note: TransactionDiagnostic): boolean {
+function diagnosticHasNoTarget(diagnostic: TransactionDiagnostic): boolean {
   return (
-    note.metadata?.['assetId'] === undefined &&
-    note.metadata?.['contractAddress'] === undefined &&
-    note.metadata?.['assetSymbol'] === undefined &&
-    note.metadata?.['scamAsset'] === undefined
+    diagnostic.metadata?.['assetId'] === undefined &&
+    diagnostic.metadata?.['contractAddress'] === undefined &&
+    diagnostic.metadata?.['assetSymbol'] === undefined &&
+    diagnostic.metadata?.['scamAsset'] === undefined
   );
 }
 
@@ -400,24 +406,24 @@ function buildAssetEvidence(
     });
   }
 
-  if (signal.scamNoteCount > 0) {
+  if (signal.scamDiagnosticCount > 0) {
     evidence.push({
       kind: 'scam-note',
-      severity: signal.scamNoteHasError ? 'error' : 'warning',
-      message: `${signal.scamNoteCount} processed transaction(s) carried SCAM_TOKEN warnings`,
+      severity: signal.scamDiagnosticHasError ? 'error' : 'warning',
+      message: `${signal.scamDiagnosticCount} processed transaction(s) carried SCAM_TOKEN warnings`,
       metadata: {
-        count: signal.scamNoteCount,
+        count: signal.scamDiagnosticCount,
       },
     });
   }
 
-  if (signal.suspiciousAirdropNoteCount > 0) {
+  if (signal.suspiciousAirdropDiagnosticCount > 0) {
     evidence.push({
       kind: 'suspicious-airdrop-note',
-      severity: signal.suspiciousAirdropNoteHasError ? 'error' : 'warning',
-      message: `${signal.suspiciousAirdropNoteCount} processed transaction(s) carried SUSPICIOUS_AIRDROP warnings`,
+      severity: signal.suspiciousAirdropDiagnosticHasError ? 'error' : 'warning',
+      message: `${signal.suspiciousAirdropDiagnosticCount} processed transaction(s) carried SUSPICIOUS_AIRDROP warnings`,
       metadata: {
-        count: signal.suspiciousAirdropNoteCount,
+        count: signal.suspiciousAirdropDiagnosticCount,
       },
     });
   }
