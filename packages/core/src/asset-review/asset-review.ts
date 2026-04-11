@@ -7,8 +7,8 @@ const AssetReferenceStatusSchema = z.enum(['matched', 'unmatched', 'unknown']);
 export const AssetReviewEvidenceSchema = z.object({
   kind: z.enum([
     'provider-spam-flag',
-    'scam-note',
-    'suspicious-airdrop-note',
+    'scam-diagnostic',
+    'suspicious-airdrop-diagnostic',
     'same-symbol-ambiguity',
     'spam-flag',
     'unmatched-reference',

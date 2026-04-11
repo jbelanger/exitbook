@@ -237,7 +237,7 @@ Explicit non-goals from this analysis:
 Current active phase:
 
 - `Phase 3: Diagnostics Consumer Migration`
-- active step: `Step 3.3: Migrate ingestion/balance/review consumers`
+- active step: `Step 3.3 / 3.4 closeout`
 
 ## Phase 3: Diagnostics Consumer Migration
 
@@ -298,16 +298,16 @@ Acceptance criteria:
 
 Inventory result:
 
-| Surface                                    | Primary file(s)                                                                                                                                                                                         | Current source                                                      | Status                          | Required action                                                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Tax readiness / accounting export metadata | `/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/export/tax-package-readiness-metadata.ts`                                                                                                  | `diagnostics` only                                                  | Mostly migrated                 | Behavior is already correct; rename stale `noteType` / `noteMessage` DTO fields to `diagnosticCode` / `diagnosticMessage` in Step 3.2 |
-| Balance exclusion / scam balance filtering | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts`                                                                                                                  | Mixed: `isSpam` + `diagnostics`                                     | Contract cleanup in progress    | Keep explicit spam flag if still needed, but route spam/scam checks through one shared helper instead of open-coded checks            |
-| Asset review summary building              | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/asset-review/asset-review-service.ts`                                                                                                         | Mixed: `diagnostics` + `isSpam`                                     | Partially migrated              | Behavior already reads diagnostics, but helpers and counters still use stale “note” naming; clean API and naming in Step 3.3          |
-| Scam detection producer/service            | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-utils.ts`, `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-service.ts`  | `TransactionDiagnostic` production                                  | Migrated behavior, stale naming | No model change needed; remove stale `note` variable/comment naming in Step 3.3                                                       |
-| Transaction projection for CLI/TUI         | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts`                                                                                                            | `diagnostics` + `userNotes`                                         | Migrated                        | No behavior work needed                                                                                                               |
-| Transaction static/TUI rendering           | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-static-renderer.ts`, `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-view-components.tsx` | `diagnostics` + `userNotes`                                         | Migrated                        | No behavior work needed                                                                                                               |
-| Transaction export                         | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/command/transactions-export-utils.ts`                                                                                                      | Explicit fields only; does not yet export diagnostics or user notes | Partial                         | Decide in Step 3.4 whether export should carry diagnostics/user notes explicitly or remain operational-only by design                 |
-| Links feature                              | `/Users/joel/Dev/exitbook/apps/cli/src/features/links/`                                                                                                                                                 | No note-like machine consumer found                                 | Clean                           | No Phase 3 migration work required here                                                                                               |
+| Surface                                    | Primary file(s)                                                                                                                                                                                         | Current source                                               | Status                          | Required action                                                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Tax readiness / accounting export metadata | `/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/export/tax-package-readiness-metadata.ts`                                                                                                  | `diagnostics` only                                           | Mostly migrated                 | Behavior is already correct; rename stale `noteType` / `noteMessage` DTO fields to `diagnosticCode` / `diagnosticMessage` in Step 3.2 |
+| Balance exclusion / scam balance filtering | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts`                                                                                                                  | Mixed: `isSpam` + `diagnostics`                              | Contract cleanup in progress    | Keep explicit spam flag if still needed, but route spam/scam checks through one shared helper instead of open-coded checks            |
+| Asset review summary building              | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/asset-review/asset-review-service.ts`                                                                                                         | Mixed: `diagnostics` + `isSpam`                              | Partially migrated              | Behavior already reads diagnostics, but helpers and counters still use stale “note” naming; clean API and naming in Step 3.3          |
+| Scam detection producer/service            | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-utils.ts`, `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-service.ts`  | `TransactionDiagnostic` production                           | Migrated behavior, stale naming | No model change needed; remove stale `note` variable/comment naming in Step 3.3                                                       |
+| Transaction projection for CLI/TUI         | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts`                                                                                                            | `diagnostics` + `userNotes`                                  | Migrated                        | No behavior work needed                                                                                                               |
+| Transaction static/TUI rendering           | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-static-renderer.ts`, `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-view-components.tsx` | `diagnostics` + `userNotes`                                  | Migrated                        | No behavior work needed                                                                                                               |
+| Transaction export                         | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/command/transactions-export-utils.ts`                                                                                                      | `diagnostics` + `userNotes` explicit in JSON and CSV outputs | Migrated                        | Keep diagnostics and user notes explicit in export contracts                                                                          |
+| Links feature                              | `/Users/joel/Dev/exitbook/apps/cli/src/features/links/`                                                                                                                                                 | No note-like machine consumer found                          | Clean                           | No Phase 3 migration work required here                                                                                               |
 
 Step 3.1 conclusion:
 
@@ -366,9 +366,9 @@ Current status:
 - active
 - live ingestion/review code now uses diagnostic terminology internally instead of note terminology
 - the `isSpam` + diagnostics contract is now partially centralized through shared helpers for balance/gaps
-- remaining work is narrower than expected:
-  - decide whether asset-review should also consume the shared helper directly for spam/scam checks
-  - decide whether persisted asset-review evidence kinds such as `scam-note` should be renamed in a dedicated schema-level slice
+- persisted asset-review evidence vocabulary has been renamed away from `*-note` to `*-diagnostic`
+- remaining work is now mostly one design choice:
+  - decide whether `isSpam` remains a persisted convenience flag or becomes a fully derived display/projection field
 
 #### Step 3.4: Migrate CLI/view/export surfaces
 
@@ -388,6 +388,14 @@ Acceptance criteria:
 
 - UI clearly separates system diagnostics from user notes
 - export format is explicit about which field is which
+
+Current status:
+
+- transaction projection and render surfaces were already clean
+- export is now explicit:
+  - JSON includes `diagnostics` and `userNotes`
+  - simple CSV includes flattened diagnostic/user-note columns
+  - normalized CSV includes dedicated diagnostics and user-notes files
 
 #### Step 3.5: Remove remaining machine-note legacy
 

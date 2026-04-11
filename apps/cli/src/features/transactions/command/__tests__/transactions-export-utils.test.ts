@@ -191,6 +191,20 @@ describe('export-utils', () => {
           inflows: [{ assetId: 'test:btc', assetSymbol: 'BTC' as Currency, grossAmount: parseDecimal('1.5') }],
           outflows: [],
         },
+        diagnostics: [
+          {
+            code: 'classification_uncertain',
+            message: 'Needs review',
+            severity: 'warning',
+          },
+        ],
+        userNotes: [
+          {
+            message: 'User note',
+            createdAt: '2026-03-15T12:00:00.000Z',
+            author: 'user',
+          },
+        ],
       });
 
       const result = convertToCSV([transaction]);
@@ -198,6 +212,9 @@ describe('export-utils', () => {
       expect(result).toContain('id,tx_fingerprint,platform_key,operation_category');
       expect(result).toContain('1,ext-1,kraken,trade,buy');
       expect(result).toContain('BTC,1.5');
+      expect(result).toContain('classification_uncertain');
+      expect(result).toContain('Needs review');
+      expect(result).toContain('User note');
     });
 
     it('should convert multiple transactions to CSV', () => {
@@ -411,6 +428,21 @@ describe('export-utils', () => {
             settlement: 'balance',
           },
         ],
+        diagnostics: [
+          {
+            code: 'classification_uncertain',
+            message: 'Needs review',
+            severity: 'warning',
+            metadata: { source: 'provider' },
+          },
+        ],
+        userNotes: [
+          {
+            message: 'Cold storage transfer',
+            createdAt: '2026-03-15T12:00:00.000Z',
+            author: 'user',
+          },
+        ],
       });
 
       const link: TransactionLink = {
@@ -448,6 +480,10 @@ describe('export-utils', () => {
       expect(result.movementsCsv).toContain('1,out,test:usd,USD,30000');
       expect(result.feesCsv).toContain('tx_id,asset_id,asset_symbol,amount');
       expect(result.feesCsv).toContain('1,test:usd,USD,10,platform,balance');
+      expect(result.diagnosticsCsv).toContain('tx_id,code,severity,message,metadata_json');
+      expect(result.diagnosticsCsv).toContain('1,classification_uncertain,warning,Needs review');
+      expect(result.userNotesCsv).toContain('tx_id,created_at,author,message');
+      expect(result.userNotesCsv).toContain('1,2026-03-15T12:00:00.000Z,user,Cold storage transfer');
       expect(result.linksCsv).toContain('link_id,source_transaction_id,target_transaction_id');
       expect(result.linksCsv).toContain('1,1,2,BTC,1.5,1.49');
     });

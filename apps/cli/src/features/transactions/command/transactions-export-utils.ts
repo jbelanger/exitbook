@@ -1,7 +1,14 @@
 // Pure utility functions for export command
 // All functions are pure - no side effects
 
-import type { FeeMovementDraft, PriceAtTxTime, Transaction, TransactionLink } from '@exitbook/core';
+import type {
+  FeeMovementDraft,
+  PriceAtTxTime,
+  Transaction,
+  TransactionDiagnostic,
+  TransactionLink,
+  UserNote,
+} from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 import { err, ok, resultDo } from '@exitbook/foundation';
 import type { z } from 'zod';
@@ -118,6 +125,9 @@ export function convertToCSV(transactions: Transaction[]): string {
     'network_fee_amounts',
     'platform_fee_assets',
     'platform_fee_amounts',
+    'diagnostic_codes',
+    'diagnostic_messages',
+    'user_note_messages',
     'status',
   ];
   const csvLines = [headers.join(',')];
@@ -143,6 +153,9 @@ export function convertToCSV(transactions: Transaction[]): string {
       formatFeeAmounts(networkFees),
       formatFeeAssets(platformFees),
       formatFeeAmounts(platformFees),
+      formatDiagnosticCodes(tx.diagnostics),
+      formatDiagnosticMessages(tx.diagnostics),
+      formatUserNoteMessages(tx.userNotes),
       tx.status ?? '',
     ];
 
@@ -156,6 +169,8 @@ export interface NormalizedCsvOutput {
   transactionsCsv: string;
   movementsCsv: string;
   feesCsv: string;
+  diagnosticsCsv: string;
+  userNotesCsv: string;
   linksCsv: string;
 }
 
@@ -164,7 +179,7 @@ export function convertToNormalizedCSV(
   links: TransactionLink[] = []
 ): NormalizedCsvOutput {
   if (transactions.length === 0) {
-    return { transactionsCsv: '', movementsCsv: '', feesCsv: '', linksCsv: '' };
+    return { transactionsCsv: '', movementsCsv: '', feesCsv: '', diagnosticsCsv: '', userNotesCsv: '', linksCsv: '' };
   }
 
   const transactionHeaders = [
@@ -239,9 +254,15 @@ export function convertToNormalizedCSV(
     'metadata_json',
   ];
 
+  const diagnosticHeaders = ['tx_id', 'code', 'severity', 'message', 'metadata_json'];
+
+  const userNoteHeaders = ['tx_id', 'created_at', 'author', 'message'];
+
   const transactionLines = [transactionHeaders.join(',')];
   const movementLines = [movementHeaders.join(',')];
   const feeLines = [feeHeaders.join(',')];
+  const diagnosticLines = [diagnosticHeaders.join(',')];
+  const userNoteLines = [userNoteHeaders.join(',')];
   const linkLines = [linkHeaders.join(',')];
 
   for (const tx of transactions) {
@@ -313,6 +334,22 @@ export function convertToNormalizedCSV(
         ])
       );
     }
+
+    for (const diagnostic of tx.diagnostics ?? []) {
+      diagnosticLines.push(
+        formatCsvLine([
+          tx.id,
+          diagnostic.code,
+          diagnostic.severity ?? '',
+          diagnostic.message,
+          diagnostic.metadata ? JSON.stringify(diagnostic.metadata) : '',
+        ])
+      );
+    }
+
+    for (const userNote of tx.userNotes ?? []) {
+      userNoteLines.push(formatCsvLine([tx.id, userNote.createdAt, userNote.author ?? '', userNote.message]));
+    }
   }
 
   for (const link of links) {
@@ -341,6 +378,8 @@ export function convertToNormalizedCSV(
     transactionsCsv: transactionLines.join('\n'),
     movementsCsv: movementLines.join('\n'),
     feesCsv: feeLines.join('\n'),
+    diagnosticsCsv: diagnosticLines.join('\n'),
+    userNotesCsv: userNoteLines.join('\n'),
     linksCsv: linkLines.join('\n'),
   };
 }
@@ -367,6 +406,21 @@ function formatFeeAssets(fees: FeeMovementDraft[]): string {
 function formatFeeAmounts(fees: FeeMovementDraft[]): string {
   if (fees.length === 0) return '';
   return fees.map((fee) => fee.amount.toFixed()).join(';');
+}
+
+function formatDiagnosticCodes(diagnostics: readonly TransactionDiagnostic[] | undefined): string {
+  if (!diagnostics || diagnostics.length === 0) return '';
+  return diagnostics.map((diagnostic) => diagnostic.code).join(';');
+}
+
+function formatDiagnosticMessages(diagnostics: readonly TransactionDiagnostic[] | undefined): string {
+  if (!diagnostics || diagnostics.length === 0) return '';
+  return diagnostics.map((diagnostic) => diagnostic.message).join(';');
+}
+
+function formatUserNoteMessages(userNotes: readonly UserNote[] | undefined): string {
+  if (!userNotes || userNotes.length === 0) return '';
+  return userNotes.map((userNote) => userNote.message).join(';');
 }
 
 function formatPriceFields(priceAtTxTime: PriceAtTxTime | undefined): string[] {

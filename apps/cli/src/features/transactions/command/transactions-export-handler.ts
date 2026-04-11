@@ -123,6 +123,14 @@ function buildNormalizedCsvOutputs(outputPath: string, normalized: NormalizedCsv
       content: normalized.feesCsv,
     },
     {
+      path: `${basePath}.diagnostics.csv`,
+      content: normalized.diagnosticsCsv,
+    },
+    {
+      path: `${basePath}.user-notes.csv`,
+      content: normalized.userNotesCsv,
+    },
+    {
       path: `${basePath}.links.csv`,
       content: normalized.linksCsv,
     },

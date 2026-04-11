@@ -408,7 +408,7 @@ function buildAssetEvidence(
 
   if (signal.scamDiagnosticCount > 0) {
     evidence.push({
-      kind: 'scam-note',
+      kind: 'scam-diagnostic',
       severity: signal.scamDiagnosticHasError ? 'error' : 'warning',
       message: `${signal.scamDiagnosticCount} processed transaction(s) carried SCAM_TOKEN warnings`,
       metadata: {
@@ -419,7 +419,7 @@ function buildAssetEvidence(
 
   if (signal.suspiciousAirdropDiagnosticCount > 0) {
     evidence.push({
-      kind: 'suspicious-airdrop-note',
+      kind: 'suspicious-airdrop-diagnostic',
       severity: signal.suspiciousAirdropDiagnosticHasError ? 'error' : 'warning',
       message: `${signal.suspiciousAirdropDiagnosticCount} processed transaction(s) carried SUSPICIOUS_AIRDROP warnings`,
       metadata: {

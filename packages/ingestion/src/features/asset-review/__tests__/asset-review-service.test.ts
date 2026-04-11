@@ -183,7 +183,7 @@ describe('buildAssetReviewSummaries', () => {
       accountingBlocked: true,
       warningSummary: '1 processed transaction(s) carried SCAM_TOKEN warnings',
     });
-    expect(summary?.evidence.map((item) => item.kind)).toEqual(['scam-note']);
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic']);
   });
 
   it('does not smear token scam evidence onto an unrelated fee asset in the same transaction', async () => {
@@ -218,7 +218,7 @@ describe('buildAssetReviewSummaries', () => {
       reviewStatus: 'needs-review',
       accountingBlocked: true,
     });
-    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-note', 'spam-flag']);
+    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic', 'spam-flag']);
     expect(summaries.get(nativeAssetId)).toMatchObject({
       reviewStatus: 'clear',
       accountingBlocked: false,
@@ -257,7 +257,7 @@ describe('buildAssetReviewSummaries', () => {
       reviewStatus: 'needs-review',
       accountingBlocked: false,
     });
-    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-note']);
+    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic']);
     expect(summaries.get(otherAssetId)).toMatchObject({
       reviewStatus: 'clear',
       accountingBlocked: false,
@@ -582,7 +582,7 @@ describe('buildAssetReviewSummaries', () => {
       accountingBlocked: false,
       confirmedEvidenceFingerprint: initialFingerprint,
     });
-    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-note']);
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-diagnostic']);
   });
 
   it('keeps warning-only evidence visible without blocking accounting', async () => {
@@ -614,7 +614,7 @@ describe('buildAssetReviewSummaries', () => {
       reviewStatus: 'needs-review',
       accountingBlocked: false,
     });
-    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-note']);
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-diagnostic']);
   });
 
   it('does not turn warning-only SCAM_TOKEN notes into blocking error evidence', async () => {
@@ -649,7 +649,7 @@ describe('buildAssetReviewSummaries', () => {
     });
     expect(summary?.evidence).toEqual([
       {
-        kind: 'scam-note',
+        kind: 'scam-diagnostic',
         severity: 'warning',
         message: '1 processed transaction(s) carried SCAM_TOKEN warnings',
         metadata: {

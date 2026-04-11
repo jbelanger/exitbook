@@ -80,12 +80,14 @@ describe('TransactionsExportHandler', () => {
       expect(exportResult.transactionCount).toBe(2);
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('normalized');
-      expect(exportResult.outputs).toHaveLength(4);
+      expect(exportResult.outputs).toHaveLength(6);
       expect(exportResult.outputs[0]?.path).toBe('./data/transactions.csv');
       expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,account_id');
       expect(exportResult.outputs[0]?.content).toContain('1,ext-1,1,kraken,trade');
       expect(exportResult.outputs[0]?.content).toContain('2,ext-2,1,kraken,trade');
-      expect(exportResult.outputs[3]?.path).toBe('./data/transactions.links.csv');
+      expect(exportResult.outputs[3]?.path).toBe('./data/transactions.diagnostics.csv');
+      expect(exportResult.outputs[4]?.path).toBe('./data/transactions.user-notes.csv');
+      expect(exportResult.outputs[5]?.path).toBe('./data/transactions.links.csv');
 
       expect(mockTransactionRepository.findAll).toHaveBeenCalledWith({ profileId: 1, includeExcluded: true });
       expect(mockTransactionLinkQueries.findByTransactionIds).toHaveBeenCalledWith([1, 2]);
@@ -146,6 +148,39 @@ describe('TransactionsExportHandler', () => {
           message: 'Cold storage transfer',
           createdAt: '2026-03-15T12:00:00.000Z',
           author: 'user',
+        },
+      ]);
+    });
+
+    it('should include diagnostics in JSON exports', async () => {
+      const params: ExportHandlerParams = {
+        profileId: 1,
+        format: 'json',
+        outputPath: './data/transactions.json',
+      };
+      const transactions = [
+        {
+          ...createMockTransaction(1, 'kraken', 'BTC'),
+          diagnostics: [
+            {
+              code: 'classification_uncertain',
+              message: 'Needs review',
+              severity: 'warning',
+            },
+          ],
+        },
+      ];
+      mockTransactionRepository.findAll.mockResolvedValue(ok(transactions));
+
+      const result = await handler.execute(params);
+      const exportResult = assertOk(result);
+      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as Transaction[];
+
+      expect(parsedContent[0]?.diagnostics).toEqual([
+        {
+          code: 'classification_uncertain',
+          message: 'Needs review',
+          severity: 'warning',
         },
       ]);
     });

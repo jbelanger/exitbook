@@ -72,11 +72,11 @@ export function getAssetReason(asset: AssetViewItem): string | undefined {
     return 'possible spam';
   }
 
-  if (asset.evidence.some((item) => item.kind === 'scam-note')) {
+  if (asset.evidence.some((item) => item.kind === 'scam-diagnostic')) {
     return 'scam warnings in imported transactions';
   }
 
-  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-note')) {
+  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-diagnostic')) {
     return 'suspicious airdrop warnings';
   }
 
@@ -147,9 +147,9 @@ export function formatAssetEvidenceMessage(kind: AssetViewItem['evidence'][numbe
       return 'Imported transactions marked this asset as spam.';
     case 'unmatched-reference':
       return 'Canonical reference lookup could not match this token.';
-    case 'scam-note':
+    case 'scam-diagnostic':
       return 'Imported transactions include scam warnings.';
-    case 'suspicious-airdrop-note':
+    case 'suspicious-airdrop-diagnostic':
       return 'Imported transactions include suspicious airdrop warnings.';
     case 'same-symbol-ambiguity':
       return 'The same symbol appears on the same chain in multiple assets.';
@@ -213,7 +213,7 @@ function countDistinctReasonCategories(asset: AssetViewItem): number {
     )
   )
     count++;
-  if (asset.evidence.some((item) => item.kind === 'scam-note')) count++;
-  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-note')) count++;
+  if (asset.evidence.some((item) => item.kind === 'scam-diagnostic')) count++;
+  if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-diagnostic')) count++;
   return count;
 }

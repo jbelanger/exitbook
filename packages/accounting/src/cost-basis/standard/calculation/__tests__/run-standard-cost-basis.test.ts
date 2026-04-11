@@ -364,7 +364,7 @@ describe('runCostBasisPipeline', () => {
             warningSummary: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
             evidence: [
               {
-                kind: 'suspicious-airdrop-note',
+                kind: 'suspicious-airdrop-diagnostic',
                 severity: 'warning',
                 message: '1 processed transaction(s) carried SUSPICIOUS_AIRDROP warnings',
               },
