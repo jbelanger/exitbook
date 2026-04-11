@@ -911,6 +911,100 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.assets).toHaveLength(0);
   });
 
+  it('should cue same-account same-chain uncovered flows that look like a correlated service swap', () => {
+    const solanaSelfAddress = 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm';
+    const renderWithdrawal = createBlockchainWithdrawal({
+      id: 121,
+      accountId: 7,
+      txFingerprint: 'render-withdrawal-service-swap',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:02:12.000Z',
+      timestamp: Date.parse('2026-03-13T00:02:12.000Z'),
+      from: solanaSelfAddress,
+      to: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'render-withdrawal-service-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:render',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('100'),
+            netAmount: parseDecimal('100'),
+          },
+        ],
+      },
+    });
+    const solRebateDeposit = createBlockchainDeposit({
+      id: 122,
+      accountId: 7,
+      txFingerprint: 'sol-rebate-service-swap',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:02:43.000Z',
+      timestamp: Date.parse('2026-03-13T00:02:43.000Z'),
+      from: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+      to: solanaSelfAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'sol-rebate-service-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.00001'),
+            netAmount: parseDecimal('0.00001'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+    const usdtDeposit = createBlockchainDeposit({
+      id: 123,
+      accountId: 7,
+      txFingerprint: 'usdt-deposit-service-swap',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:03:04.000Z',
+      timestamp: Date.parse('2026-03-13T00:03:04.000Z'),
+      from: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+      to: solanaSelfAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'usdt-deposit-service-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('165.1695'),
+            netAmount: parseDecimal('165.1695'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([renderWithdrawal, solRebateDeposit, usdtDeposit], []);
+
+    expect(analysis.summary.total_issues).toBe(3);
+    expect(analysis.issues.map((issue) => issue.gapCue)).toStrictEqual([
+      'likely_correlated_service_swap',
+      'likely_correlated_service_swap',
+      'likely_correlated_service_swap',
+    ]);
+  });
+
   it('should keep one-sided blockchain flows when no nearby swap supports service-flow suppression', () => {
     const syrupDeposit = createBlockchainDeposit({
       id: 111,
@@ -988,6 +1082,107 @@ describe('analyzeLinkGaps', () => {
         outflowMissingAmount: '0',
       },
     ]);
+    expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
+  });
+
+  it('should not cue isolated one-sided blockchain flows', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 113,
+          txFingerprint: 'isolated-solana-inflow',
+          platformKey: 'solana',
+          platformKind: 'blockchain',
+          datetime: '2026-03-13T00:02:43.000Z',
+          timestamp: Date.parse('2026-03-13T00:02:43.000Z'),
+          from: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+          to: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+          blockchain: {
+            name: 'solana',
+            transaction_hash: 'isolated-solana-inflow-hash',
+            is_confirmed: true,
+          },
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:solana:usdt',
+                assetSymbol: 'USDT' as Currency,
+                grossAmount: parseDecimal('165.1695'),
+                netAmount: parseDecimal('165.1695'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.gapCue).toBeUndefined();
+  });
+
+  it('should not cue same-window uncovered flows when they use the same asset id', () => {
+    const solanaSelfAddress = 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm';
+    const solWithdrawal = createBlockchainWithdrawal({
+      id: 124,
+      accountId: 7,
+      txFingerprint: 'sol-withdrawal-non-swap',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:02:12.000Z',
+      timestamp: Date.parse('2026-03-13T00:02:12.000Z'),
+      from: solanaSelfAddress,
+      to: 'SomeService1111111111111111111111111111111111',
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'sol-withdrawal-non-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.75'),
+            netAmount: parseDecimal('0.75'),
+          },
+        ],
+      },
+    });
+    const solDeposit = createBlockchainDeposit({
+      id: 125,
+      accountId: 7,
+      txFingerprint: 'sol-deposit-non-swap',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:02:43.000Z',
+      timestamp: Date.parse('2026-03-13T00:02:43.000Z'),
+      from: 'SomeService1111111111111111111111111111111111',
+      to: solanaSelfAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'sol-deposit-non-swap-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.2'),
+            netAmount: parseDecimal('0.2'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([solWithdrawal, solDeposit], []);
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
   });
 
   it('should suppress cross-chain one-sided blockchain flows for the same user when they look like a service-mediated swap', () => {

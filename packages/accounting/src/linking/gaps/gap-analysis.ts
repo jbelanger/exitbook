@@ -2,9 +2,17 @@ import type { Account, Transaction, TransactionLink } from '@exitbook/core';
 import { parseAssetId, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import { buildLinkGapIssueKey, type LinkGapAnalysis, type LinkGapAssetSummary, type LinkGapDirection, type LinkGapIssue } from './gap-model.js';
+import {
+  buildLinkGapIssueKey,
+  type GapCueKind,
+  type LinkGapAnalysis,
+  type LinkGapAssetSummary,
+  type LinkGapDirection,
+  type LinkGapIssue,
+} from './gap-model.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
+const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_SUPPRESSED_NOTE_TYPES = new Set(['SCAM_TOKEN', 'SUSPICIOUS_AIRDROP']);
 
@@ -44,6 +52,16 @@ interface LinkCoverageIndex {
 interface AssetTotalsEntry {
   amount: Decimal;
   assetSymbol: string;
+}
+
+interface GapCueCandidate {
+  accountId: number;
+  assetId: string;
+  blockchainName: string;
+  direction: LinkGapDirection;
+  issueKey: string;
+  selfAddress: string;
+  timestampMs: number;
 }
 
 function normalizeAddress(address: string | undefined): string | undefined {
@@ -522,6 +540,142 @@ function createLinkGapIssue(params: {
   };
 }
 
+function buildTransactionById(transactions: readonly Transaction[]): Map<number, Transaction> {
+  const transactionById = new Map<number, Transaction>();
+
+  for (const tx of transactions) {
+    transactionById.set(tx.id, tx);
+  }
+
+  return transactionById;
+}
+
+function buildGapCueCandidates(
+  issues: readonly LinkGapIssue[],
+  transactionById: ReadonlyMap<number, Transaction>
+): GapCueCandidate[] {
+  const candidates: GapCueCandidate[] = [];
+
+  for (const issue of issues) {
+    const tx = transactionById.get(issue.transactionId);
+    if (!tx?.blockchain) {
+      continue;
+    }
+
+    const selfAddress = normalizeAddress(issue.direction === 'inflow' ? tx.to : tx.from);
+    if (selfAddress === undefined) {
+      continue;
+    }
+
+    candidates.push({
+      accountId: tx.accountId,
+      assetId: issue.assetId,
+      blockchainName: tx.blockchain.name,
+      direction: issue.direction,
+      issueKey: buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      selfAddress,
+      timestampMs: tx.timestamp,
+    });
+  }
+
+  return candidates;
+}
+
+function getCorrelatedServiceSwapCue(windowCandidates: readonly GapCueCandidate[]): GapCueKind | undefined {
+  if (windowCandidates.length < 2) {
+    return undefined;
+  }
+
+  const directions = new Set(windowCandidates.map((candidate) => candidate.direction));
+  if (!directions.has('inflow') || !directions.has('outflow')) {
+    return undefined;
+  }
+
+  const assetIds = new Set(windowCandidates.map((candidate) => candidate.assetId));
+  if (assetIds.size < 2) {
+    return undefined;
+  }
+
+  return 'likely_correlated_service_swap';
+}
+
+function detectGapCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[]
+): Map<string, GapCueKind> {
+  const transactionById = buildTransactionById(transactions);
+  const candidates = buildGapCueCandidates(issues, transactionById);
+  if (candidates.length === 0) {
+    return new Map<string, GapCueKind>();
+  }
+
+  const candidatesByGroup = new Map<string, GapCueCandidate[]>();
+  for (const candidate of candidates) {
+    const groupKey = `${candidate.accountId}|${candidate.blockchainName}|${candidate.selfAddress}`;
+    const existing = candidatesByGroup.get(groupKey);
+    if (existing) {
+      existing.push(candidate);
+      continue;
+    }
+
+    candidatesByGroup.set(groupKey, [candidate]);
+  }
+
+  const cueByIssueKey = new Map<string, GapCueKind>();
+
+  for (const groupCandidates of candidatesByGroup.values()) {
+    const sortedCandidates = [...groupCandidates].sort((left, right) => left.timestampMs - right.timestampMs);
+
+    for (let startIndex = 0; startIndex < sortedCandidates.length; startIndex += 1) {
+      const windowStart = sortedCandidates[startIndex]!;
+      const windowCandidates = [windowStart];
+
+      for (let endIndex = startIndex + 1; endIndex < sortedCandidates.length; endIndex += 1) {
+        const candidate = sortedCandidates[endIndex]!;
+        if (candidate.timestampMs - windowStart.timestampMs > CORRELATED_SERVICE_SWAP_WINDOW_MS) {
+          break;
+        }
+
+        windowCandidates.push(candidate);
+      }
+
+      const cue = getCorrelatedServiceSwapCue(windowCandidates);
+      if (!cue) {
+        continue;
+      }
+
+      for (const candidate of windowCandidates) {
+        cueByIssueKey.set(candidate.issueKey, cue);
+      }
+    }
+  }
+
+  return cueByIssueKey;
+}
+
+function applyGapCues(issues: readonly LinkGapIssue[], transactions: readonly Transaction[]): LinkGapIssue[] {
+  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions);
+  if (cueByIssueKey.size === 0) {
+    return [...issues];
+  }
+
+  return issues.map((issue) => ({
+    ...issue,
+    gapCue:
+      cueByIssueKey.get(
+        buildLinkGapIssueKey({
+          txFingerprint: issue.txFingerprint,
+          assetId: issue.assetId,
+          direction: issue.direction,
+        })
+      ) ?? issue.gapCue,
+  }));
+}
+
 function shouldSuppressGapByPolicy(tx: Transaction): boolean {
   if (tx.excludedFromAccounting === true || tx.isSpam === true) {
     return true;
@@ -714,10 +868,14 @@ export function analyzeLinkGaps(
     accountContextById,
     options.excludedAssetIds
   );
-  const issues = [
+  const rawIssues = [
     ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
     ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
   ];
+  // This cue is intentionally local to the gaps lens. It complements, rather than
+  // replaces, the existing suppression heuristics for explicit same-account swaps
+  // and cross-account service-flow pairs.
+  const issues = applyGapCues(rawIssues, transactions);
   return {
     issues,
     summary: buildLinkGapSummary(issues),

@@ -7,6 +7,7 @@ import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import {
   formatCompactAmount,
   formatCoverage,
+  formatGapCueLabel,
   formatGapRowTimestamp,
   formatLinkDate,
   formatLinkTypeDisplay,
@@ -287,9 +288,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const nextStep = gapIssue.suggestedCount > 0 ? 'exitbook links explore --status suggested' : 'exitbook links run';
 
   const lines = [
-    `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(
-      `[${gapIssue.direction}]`
-    )}`,
+    `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(`[${gapIssue.direction}]`)}`,
     '',
     buildDetailLine('Gap ref', item.gapRef),
     buildDetailLine('Transaction ref', item.transactionRef),
@@ -310,6 +309,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       colorizeText(getCoverageColor(coverageNum), `${gapIssue.confirmedCoveragePercent}% confirmed`)
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
+    ...(gapIssue.gapCue ? [buildDetailLine('Cue', colorizeText('cyan', formatGapCueLabel(gapIssue.gapCue)))] : []),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),
     buildDetailLine('Next', nextStep),
@@ -424,11 +424,14 @@ function colorizeConfidence(item: LinkProposalBrowseItem, value: string): string
 }
 
 function formatGapReadiness(item: LinkGapBrowseItem): string {
-  if (item.gapIssue.suggestedCount === 0) {
-    return 'manual review';
-  }
+  const readiness =
+    item.gapIssue.suggestedCount === 0
+      ? 'manual review'
+      : `${item.gapIssue.suggestedCount} suggested${
+          item.gapIssue.highestSuggestedConfidencePercent
+            ? ` (${item.gapIssue.highestSuggestedConfidencePercent}%)`
+            : ''
+        }`;
 
-  return `${item.gapIssue.suggestedCount} suggested${
-    item.gapIssue.highestSuggestedConfidencePercent ? ` (${item.gapIssue.highestSuggestedConfidencePercent}%)` : ''
-  }`;
+  return item.gapIssue.gapCue ? `${readiness} · ${formatGapCueLabel(item.gapIssue.gapCue)}` : readiness;
 }

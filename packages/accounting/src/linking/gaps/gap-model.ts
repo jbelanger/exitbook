@@ -2,6 +2,7 @@
  * Link gap issue details.
  */
 export type LinkGapDirection = 'inflow' | 'outflow';
+export type GapCueKind = 'likely_correlated_service_swap';
 
 export interface LinkGapIssueIdentity {
   assetId: string;
@@ -25,6 +26,7 @@ export interface LinkGapIssue {
   suggestedCount: number;
   highestSuggestedConfidencePercent?: string | undefined;
   direction: LinkGapDirection;
+  gapCue?: GapCueKind | undefined;
 }
 
 /**

@@ -128,6 +128,7 @@ Behavior:
 - Gap rows are ordered chronologically.
 - Resolved gap issues are hidden by default.
 - Header and JSON metadata report how many resolved gap issues are hidden.
+- Rows may include an inline cue when the analyzer recognizes a likely pattern without suppressing the issue.
 
 List columns:
 
@@ -152,6 +153,7 @@ exitbook links gaps view <gap-ref> --json
 Behavior:
 
 - Renders one gap detail card with `GAP-REF`, transaction ref, fingerprint, platform, date, operation, asset id, gap amount, coverage, and readiness.
+- When present, detail also shows a cue line describing the likely pattern behind the issue.
 - When the transaction has multiple gap rows, detail also shows the count of open gap rows still present on that transaction.
 - Includes next-step guidance:
   - review suggested proposals with `links explore --status suggested` when suggestions exist
@@ -199,6 +201,7 @@ Behavior:
 - Gap lists return gap summary rows.
 - JSON list output includes standard view metadata with active filters, including:
   - `hiddenResolvedIssues`
+- Gap rows include `gapCue` when the analyzer derives one.
 
 ### Detail
 

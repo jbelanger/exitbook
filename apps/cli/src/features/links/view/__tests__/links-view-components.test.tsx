@@ -396,7 +396,12 @@ describe('LinksViewApp - gaps mode', () => {
   });
 
   it('renders gap rows with correct formatting', () => {
-    const state = createGapsViewState(createMockGapAnalysis());
+    const analysis = createMockGapAnalysis();
+    analysis.issues[0] = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_correlated_service_swap',
+    };
+    const state = createGapsViewState(analysis);
     const { lastFrame } = render(
       <LinksViewApp
         initialState={state}
@@ -412,6 +417,7 @@ describe('LinksViewApp - gaps mode', () => {
     expect(frame).toContain('ETH');
     expect(frame).toContain('IN');
     expect(frame).toContain('OUT');
+    expect(frame).toContain('likely correlated service swap');
   });
 
   it('uses scientific notation for tiny non-zero gap amounts in the row summary', () => {
@@ -437,7 +443,12 @@ describe('LinksViewApp - gaps mode', () => {
   });
 
   it('renders detail panel for selected gap', () => {
-    const state = createGapsViewState(createMockGapAnalysis());
+    const analysis = createMockGapAnalysis();
+    analysis.issues[0] = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_correlated_service_swap',
+    };
+    const state = createGapsViewState(analysis);
     const { lastFrame } = render(
       <LinksViewApp
         initialState={state}
@@ -450,6 +461,8 @@ describe('LinksViewApp - gaps mode', () => {
     expect(frame).toContain('1.5');
     expect(frame).toContain('inflow');
     expect(frame).toContain('Readiness:');
+    expect(frame).toContain('Cue:');
+    expect(frame).toContain('likely correlated service swap');
     expect(frame).toContain('Next:');
     expect(frame).toContain('exitbook links run');
   });

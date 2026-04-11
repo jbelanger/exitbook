@@ -17,6 +17,7 @@ export { analyzeLinkGaps, applyResolvedLinkGapVisibility } from './linking/gaps/
 export type { AnalyzeLinkGapsOptions, ResolvedLinkGapVisibilityResult } from './linking/gaps/gap-analysis.js';
 export { buildLinkGapIssueKey } from './linking/gaps/gap-model.js';
 export type {
+  GapCueKind,
   LinkGapAnalysis,
   LinkGapAssetSummary,
   LinkGapDirection,

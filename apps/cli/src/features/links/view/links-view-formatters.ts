@@ -1,4 +1,4 @@
-import type { LinkGapIssue } from '@exitbook/accounting/linking';
+import type { GapCueKind, LinkGapIssue } from '@exitbook/accounting/linking';
 import {
   hasImpliedFeeAmount,
   isPartialMatchLinkMetadata,
@@ -164,6 +164,13 @@ export function getGapSuggestionColor(issue: LinkGapIssue): string {
   return issue.highestSuggestedConfidencePercent
     ? getConfidenceColor(parseFloat(issue.highestSuggestedConfidencePercent) / 100)
     : 'green';
+}
+
+export function formatGapCueLabel(cue: GapCueKind): string {
+  switch (cue) {
+    case 'likely_correlated_service_swap':
+      return 'likely correlated service swap';
+  }
 }
 
 export function formatLinkTypeDisplay(

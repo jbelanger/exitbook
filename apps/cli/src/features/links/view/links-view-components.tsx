@@ -24,6 +24,7 @@ import {
   formatCompactAmount,
   formatConfidenceScore,
   formatCoverage,
+  formatGapCueLabel,
   formatGapRowTimestamp,
   formatLinkDate,
   formatLinkTypeDisplay,
@@ -759,6 +760,12 @@ const GapRow: FC<{
           <Text color={getCoverageColor(coverage)}>{formatCoverage(issue.confirmedCoveragePercent)}</Text>
         </>
       )}
+      {issue.gapCue && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color="cyan">{formatGapCueLabel(issue.gapCue)}</Text>
+        </>
+      )}
       <Text dimColor> · </Text>
       {renderGapSuggestionSummary(issue)}
     </SelectableRow>
@@ -841,6 +848,15 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
         <Text color="yellow">no suggested candidates</Text>
       )}
     </Text>,
+    ...(issue.gapCue
+      ? [
+          <Text key="cue">
+            {'  '}
+            <Text dimColor>Cue: </Text>
+            <Text color="cyan">{formatGapCueLabel(issue.gapCue)}</Text>
+          </Text>,
+        ]
+      : []),
     <Text key="external">
       {'  '}
       <Text dimColor>Reference: </Text>

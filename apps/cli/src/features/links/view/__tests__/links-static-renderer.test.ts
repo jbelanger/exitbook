@@ -34,7 +34,10 @@ describe('links static renderer', () => {
 
   it('labels gap rows with GAP-REF and detail with Gap ref', () => {
     const analysis = createMockGapAnalysis();
-    const gapIssue = analysis.issues[0]!;
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_correlated_service_swap' as const,
+    };
     const state = createGapsViewState({
       ...analysis,
       issues: [gapIssue],
@@ -56,7 +59,9 @@ describe('links static renderer', () => {
     const detailOutput = buildLinkGapStaticDetail(items[0]!);
 
     expect(stripAnsi(listOutput)).toContain('GAP-REF');
+    expect(stripAnsi(listOutput)).toContain('likely correlated service swap');
     expect(stripAnsi(detailOutput)).toContain(`Gap ref: ${items[0]!.gapRef}`);
     expect(stripAnsi(detailOutput)).toContain(`Transaction ref: ${items[0]!.transactionRef}`);
+    expect(stripAnsi(detailOutput)).toContain('Cue: likely correlated service swap');
   });
 });

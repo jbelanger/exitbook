@@ -163,11 +163,13 @@ Minimal UX:
 - static detail shows one line:
   - `Cue: likely correlated service swap`
 - TUI gap detail panel shows the same cue
+- static list appends the cue to the readiness text
+- TUI list row appends the cue inline after coverage when present
 
-Optional list treatment:
+List treatment rule:
 
-- add a subtle suffix or badge in list rows only if it stays readable
-- do not add a new column in this phase unless the output still scans cleanly
+- do not add a new column in this phase
+- keep the cue as an inline suffix so the table shape stays stable
 
 ## Detailed Implementation Plan
 
@@ -242,7 +244,7 @@ Changes:
 
 1. Add a small formatter for `GapCueKind -> human label`.
 2. Show the cue in gap detail output.
-3. Optionally show a dim inline cue badge in list/explorer rows if it stays readable.
+3. Show the cue inline in list/explorer rows without adding a new column.
 
 Do not:
 
@@ -254,7 +256,7 @@ Do not:
 
 Files:
 
-- [packages/accounting/src/linking/gaps/__tests__/gap-analysis.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/gaps/__tests__/gap-analysis.test.ts)
+- [packages/accounting/src/linking/gaps/**tests**/gap-analysis.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/gaps/__tests__/gap-analysis.test.ts)
 - existing CLI renderer tests only if output text changes there
 
 Required positive test:
