@@ -72,8 +72,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       allocationUncertainCount: 1,
       allocationUncertainDetails: [
         {
-          noteMessage: 'Per-asset proceeds split is not exact',
-          noteType: 'allocation_uncertain',
+          diagnosticCode: 'allocation_uncertain',
+          diagnosticMessage: 'Per-asset proceeds split is not exact',
           operationCategory: retainedTransaction.operation.category,
           operationType: retainedTransaction.operation.type,
           reference: retainedTransaction.txFingerprint,
@@ -87,8 +87,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       unknownTransactionClassificationCount: 1,
       unknownTransactionClassificationDetails: [
         {
-          noteMessage: 'Needs review',
-          noteType: 'classification_uncertain',
+          diagnosticCode: 'classification_uncertain',
+          diagnosticMessage: 'Needs review',
           operationCategory: retainedTransaction.operation.category,
           operationType: retainedTransaction.operation.type,
           reference: retainedTransaction.txFingerprint,

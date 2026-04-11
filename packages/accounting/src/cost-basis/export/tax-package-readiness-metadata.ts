@@ -61,8 +61,8 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
 
     return [
       {
-        noteMessage: matchingDiagnostic.message,
-        noteType: matchingDiagnostic.code,
+        diagnosticCode: matchingDiagnostic.code,
+        diagnosticMessage: matchingDiagnostic.message,
         operationCategory: transaction.operation.category,
         operationType: transaction.operation.type,
         reference: transaction.txFingerprint,

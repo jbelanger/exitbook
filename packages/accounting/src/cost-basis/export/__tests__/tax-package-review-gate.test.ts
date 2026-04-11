@@ -159,9 +159,9 @@ describe('evaluateTaxPackageReadiness', () => {
         unknownTransactionClassificationCount: 1,
         unknownTransactionClassificationDetails: [
           {
-            noteMessage:
+            diagnosticCode: 'classification_uncertain',
+            diagnosticMessage:
               'Kraken group TSDEF5I-HNFS4-PZQ2KE has complex multi-leg fund flow and was materialized conservatively as a transfer.',
-            noteType: 'classification_uncertain',
             operationCategory: 'transfer',
             operationType: 'transfer',
             reference: 'LI54ES-YRZMF-F2MYUQ',
@@ -209,9 +209,9 @@ describe('evaluateTaxPackageReadiness', () => {
         allocationUncertainCount: 1,
         allocationUncertainDetails: [
           {
-            noteMessage:
+            diagnosticCode: 'allocation_uncertain',
+            diagnosticMessage:
               'Kraken dustsweeping group TSDEF5I-HNFS4-PZQ2KE was classified as a dust conversion, but Kraken does not provide an exact per-asset proceeds allocation across every disposed asset in the group.',
-            noteType: 'allocation_uncertain',
             operationCategory: 'trade',
             operationType: 'swap',
             reference: 'LI54ES-YRZMF-F2MYUQ',

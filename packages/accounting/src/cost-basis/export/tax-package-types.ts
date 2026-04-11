@@ -45,8 +45,8 @@ export interface TaxPackageSummaryTotals {
 }
 
 interface TaxPackageTransactionIssueDetailBase {
-  noteMessage: string;
-  noteType: string;
+  diagnosticCode: string;
+  diagnosticMessage: string;
   operationCategory?: string | undefined;
   operationType?: string | undefined;
   reference: string;

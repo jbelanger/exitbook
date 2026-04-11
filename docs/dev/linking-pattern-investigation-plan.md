@@ -62,13 +62,17 @@ These questions apply to every pattern:
 
 ## Track 0: Movement Semantics and Diagnostics Foundation
 
-Status: investigate/design now
+Status: active implementation track
 Expected value: very high
 Likely destination: cross-cutting core/persistence/processing refactor
 
 Canonical spec draft:
 
 - [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
+
+Execution tracker:
+
+- [movement-semantics-implementation-plan.md](/Users/joel/Dev/exitbook/docs/dev/movement-semantics-implementation-plan.md)
 
 ### Why This Comes First
 
@@ -224,6 +228,38 @@ Benefit:
 - link-propagated and ratio-derived pricing becomes easier to constrain to economically meaningful movements
 - price enrichment stays generic instead of learning chain-specific exclusions
 
+### Delivery Rule
+
+Track 0 is no longer “investigate while doing other things.”
+
+It is now a gated implementation track with explicit phases:
+
+1. finish the active phase in the implementation plan
+2. verify it fully
+3. only then resume downstream pattern-specific work
+
+No pattern track below should start new implementation work that depends on unresolved Track 0 semantics.
+
+### Current Foundation State
+
+- Phase 1 complete: machine-authored diagnostics and user notes are separated
+- Phase 2 complete: transfer-oriented consumers now use transfer-eligible movements
+- Phase 2.5 complete: cross-chain producer audit is written in the implementation plan
+
+Current producer shortlist from that audit:
+
+- `NEAR` contract rewards -> likely `staking_reward`
+- `Substrate` staking reward inflows -> likely `staking_reward`
+- `EVM` partial beacon withdrawals -> likely `staking_reward`
+- `NEAR` gas refunds -> possible `refund_rebate`
+- `Substrate` governance refunds -> possible `refund_rebate`
+
+Explicit rejections from the audit:
+
+- no shared Cosmos `movementRole` work yet
+- no Solana `protocol_overhead` role yet
+- no Bitcoin / XRP / Theta role work at this stage
+
 ### Consequence For Track 1 (ADA)
 
 The Cardano staking-withdrawal case is no longer just a Track 1 linking investigation.
@@ -276,25 +312,23 @@ This is not a cue-first problem. It looks like a possible N:1 linking strategy.
 
 #### Current Finding
 
-The confirmed Cardano case is first an **upstream provider/processing problem**, not a new linking-strategy candidate.
+The original Cardano case is no longer evidence for a new linking strategy.
 
-What the chain data actually shows for hash `0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf`:
+What happened:
 
-- the transaction has `withdrawal_count: 1`
-- Blockfrost `/txs/{hash}/withdrawals` returns one staking withdrawal of `10.524451 ADA`
-- the three child-address rows were also each recording the full on-chain fee, overstating the residual by another `0.382746 ADA`
+- provider normalization now preserves Blockfrost withdrawals
+- Cardano processing now emits `movementRole='staking_reward'` for attributable staking withdrawals
+- transfer-oriented consumers now ignore non-principal movements
 
-So the earlier unresolved target residual `10.907197 ADA` was not evidence of a fourth unknown transfer source. It was:
+Result:
 
-- `10.524451 ADA` staking withdrawal not preserved in normalized/processed data
-- `0.382746 ADA` duplicated fee across sibling per-address projections
+- the old Cardano ambiguity no longer blocks `links run`
+- the corrected ADA case no longer appears as an open transfer-gap symptom
 
-That means the first fix belongs upstream:
+So this track is now narrower:
 
-- fetch and preserve Cardano withdrawals during provider normalization
-- stop duplicating one Cardano on-chain fee across every sibling child-address projection
-
-Only after that correction should we reevaluate whether any linking strategy is needed for the remaining shape.
+- do **not** pursue a Cardano-specific linking strategy for the original case
+- keep the shared-hash batched-deposit investigation focused on any remaining post-foundation cases, especially Bitcoin examples from the shared-hash scan
 
 #### Investigation Questions
 
@@ -308,22 +342,17 @@ Only after that correction should we reevaluate whether any linking strategy is 
 
 Current Cardano case:
 
-- do **not** add a new linking strategy yet
-- fix provider/processing first
-- then reassess whether the corrected shape still needs either:
-  - shared-hash aggregated deposit linking
-  - or only a cue such as `likely_batched_exchange_deposit`
+- resolved by upstream/provider + movement-semantics work
+- no new linking strategy needed for that specific case
 
 Preferred long-term order:
 
-1. upstream normalization / processing fix
-2. rerun the real Cardano case
-3. only then decide if `accounting/linking` needs a new strategy
+1. validate remaining shared-hash examples after foundation work
+2. prove exact amount conservation on a still-open case
+3. only then decide if `accounting/linking` needs a generic shared-hash aggregated-deposit strategy
 
 #### Required Tests
 
-- positive: current Cardano case preserves staking withdrawal semantics and does not duplicate fees
-- negative: current Cardano case still does not auto-link until a corrected post-fix evaluation justifies it
 - positive: at least one Bitcoin case from the shared-hash scan
 - negative: same hash but mismatched asset
 - negative: same hash but amount totals do not reconcile
