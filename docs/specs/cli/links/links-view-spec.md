@@ -27,15 +27,12 @@ The `links` family now follows the standard browse contract:
 
 ### Gap Selectors
 
-`links gaps view <tx-ref>`, `links gaps explore <tx-ref>`, `links gaps resolve <tx-ref>`, and `links gaps reopen <tx-ref>` target a transaction ref inside the gaps workflow.
+`links gaps view <gap-ref>`, `links gaps explore <gap-ref>`, `links gaps resolve <gap-ref>`, and `links gaps reopen <gap-ref>` target one gap issue inside the gaps workflow.
 
-- The selector is the prefix of the persisted transaction fingerprint.
-- The displayed `TX-REF` column uses that shortened prefix.
+- The selector is a short `GAP-REF` derived from `txFingerprint + assetId + direction`.
+- The displayed `GAP-REF` column uses the first 10 hex chars of the SHA-256 digest of that issue identity.
 - One transaction may still produce multiple gap rows in the static list.
-- When that happens, selector resolution stays transaction-level:
-  - the command resolves by transaction fingerprint, not by asset row
-  - static detail and JSON detail expose the count of gap rows on that transaction
-  - `resolve` / `reopen` always apply to the whole transaction
+- When that happens, each row has its own selector and `resolve` / `reopen` apply only to that asset-direction issue.
 
 ## Proposal Lens
 
@@ -127,14 +124,14 @@ exitbook links gaps --json
 Behavior:
 
 - Shows coverage-gap issues, not proposals.
-- Each row corresponds to one unresolved movement coverage issue.
+- Each row corresponds to one unresolved asset-direction coverage issue.
 - Gap rows are ordered chronologically.
-- Resolved transactions are hidden by default.
-- Header and JSON metadata report how many resolved transactions are hidden.
+- Resolved gap issues are hidden by default.
+- Header and JSON metadata report how many resolved gap issues are hidden.
 
 List columns:
 
-- `TX-REF`
+- `GAP-REF`
 - `DATE`
 - `PLATFORM`
 - `DIR`
@@ -148,17 +145,17 @@ List columns:
 Commands:
 
 ```text
-exitbook links gaps view <gap_ref>
-exitbook links gaps view <gap_ref> --json
+exitbook links gaps view <gap-ref>
+exitbook links gaps view <gap-ref> --json
 ```
 
 Behavior:
 
-- Renders one gap detail card with `TX-REF`, fingerprint, platform, date, operation, gap amount, coverage, and readiness.
-- When the transaction has multiple gap rows, detail also shows the transaction-level gap-row count and makes it explicit that resolve/reopen are transaction-wide.
+- Renders one gap detail card with `GAP-REF`, transaction ref, fingerprint, platform, date, operation, asset id, gap amount, coverage, and readiness.
+- When the transaction has multiple gap rows, detail also shows the count of open gap rows still present on that transaction.
 - Includes next-step guidance:
   - review suggested proposals with `links explore --status suggested` when suggestions exist
-  - use `links gaps resolve <gap_ref>` when the transaction intentionally has no internal link
+  - use `links gaps resolve <gap-ref>` when the transaction intentionally has no internal link
   - rerun `links run` when no suggestions exist yet
 
 ### Interactive Explorer
@@ -167,7 +164,7 @@ Commands:
 
 ```text
 exitbook links gaps explore
-exitbook links gaps explore <gap_ref>
+exitbook links gaps explore <gap-ref>
 ```
 
 Behavior:
@@ -181,17 +178,17 @@ Behavior:
 Commands:
 
 ```text
-exitbook links gaps resolve <gap_ref>
-exitbook links gaps resolve <gap_ref> --reason "BullBitcoin purchase sent directly to wallet"
-exitbook links gaps reopen <gap_ref>
-exitbook links gaps reopen <gap_ref> --json
+exitbook links gaps resolve <gap-ref>
+exitbook links gaps resolve <gap-ref> --reason "BullBitcoin purchase sent directly to wallet"
+exitbook links gaps reopen <gap-ref>
+exitbook links gaps reopen <gap-ref> --json
 ```
 
 Behavior:
 
-- `resolve` records a transaction-level reviewed exception without creating a link.
-- `reopen` removes that transaction-level exception and returns the transaction to the open gaps lens.
-- These commands use the same `TX-REF` shown in the gap list and gap detail.
+- `resolve` records an issue-level reviewed exception without creating a link.
+- `reopen` removes that issue-level exception and returns that gap issue to the open gaps lens.
+- These commands use the same `GAP-REF` shown in the gap list and gap detail.
 - `--reason` stores free-form audit context on the override event.
 
 ## JSON Contract
@@ -202,12 +199,11 @@ Behavior:
 - Gap lists return gap summary rows.
 - JSON list output includes standard view metadata with active filters, including:
   - `hiddenResolvedIssues`
-  - `hiddenResolvedTransactions`
 
 ### Detail
 
 - Proposal detail returns one proposal object with leg-level detail.
-- Gap detail returns one gap object plus transaction-level gap count metadata.
+- Gap detail returns one gap object plus `transactionGapCount` metadata for the containing transaction.
 - Detail metadata includes the selected ref.
 
 ## Review Commands

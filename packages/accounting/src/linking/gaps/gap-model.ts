@@ -3,6 +3,12 @@
  */
 export type LinkGapDirection = 'inflow' | 'outflow';
 
+export interface LinkGapIssueIdentity {
+  assetId: string;
+  direction: LinkGapDirection;
+  txFingerprint: string;
+}
+
 export interface LinkGapIssue {
   transactionId: number;
   txFingerprint: string;
@@ -44,4 +50,8 @@ export interface LinkGapAnalysis {
     uncovered_inflows: number;
     unmatched_outflows: number;
   };
+}
+
+export function buildLinkGapIssueKey(identity: LinkGapIssueIdentity): string {
+  return `${identity.txFingerprint}|${identity.assetId}|${identity.direction}`;
 }

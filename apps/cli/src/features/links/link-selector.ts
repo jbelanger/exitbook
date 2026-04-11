@@ -1,3 +1,4 @@
+import type { LinkGapDirection } from '@exitbook/accounting/linking';
 import type { TransactionLink } from '@exitbook/core';
 import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 
@@ -14,8 +15,8 @@ export interface LinkProposalSelectorCandidate<TItem> {
 }
 
 export interface LinkGapSelectorCandidate<TItem> {
+  gapSelector: string;
   item: TItem;
-  txFingerprint: string;
 }
 
 export interface ResolvedLinkSelector<TItem> {
@@ -56,6 +57,22 @@ export function buildLinkProposalRef(proposalKey: string): string {
   return formatLinkSelectorRef(buildLinkProposalSelector(proposalKey));
 }
 
+export function buildLinkGapSelector(identity: {
+  assetId: string;
+  direction: LinkGapDirection;
+  txFingerprint: string;
+}): string {
+  return sha256Hex(`${identity.txFingerprint}:${identity.assetId}:${identity.direction}`);
+}
+
+export function buildLinkGapRef(identity: {
+  assetId: string;
+  direction: LinkGapDirection;
+  txFingerprint: string;
+}): string {
+  return formatLinkSelectorRef(buildLinkGapSelector(identity));
+}
+
 export function resolveLinkProposalSelector<TItem>(
   candidates: LinkProposalSelectorCandidate<TItem>[],
   selector: string
@@ -91,17 +108,9 @@ export function resolveLinkGapSelector<TItem>(
   candidates: LinkGapSelectorCandidate<TItem>[],
   selector: string
 ): Result<ResolvedLinkSelector<TItem>, Error> {
-  const uniqueCandidatesByTransaction = new Map<string, LinkGapSelectorCandidate<TItem>>();
-
-  for (const candidate of candidates) {
-    if (!uniqueCandidatesByTransaction.has(candidate.txFingerprint)) {
-      uniqueCandidatesByTransaction.set(candidate.txFingerprint, candidate);
-    }
-  }
-
   return resolveLinkSelector(
-    [...uniqueCandidatesByTransaction.values()].map((candidate) => ({
-      fullValue: candidate.txFingerprint,
+    candidates.map((candidate) => ({
+      fullValue: candidate.gapSelector,
       item: candidate.item,
     })),
     selector,

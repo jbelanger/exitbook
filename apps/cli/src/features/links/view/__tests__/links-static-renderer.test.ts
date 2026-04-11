@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createMockGapAnalysis, createMockLinksBatch } from '../../__tests__/test-utils.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
-import { buildLinkProposalRef } from '../../link-selector.js';
+import { buildLinkGapRef, buildLinkProposalRef } from '../../link-selector.js';
 import {
   buildLinkGapStaticDetail,
   buildLinkGapsStaticList,
@@ -32,7 +32,7 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain(`Link ref: ${items[0]!.proposalRef}`);
   });
 
-  it('labels gap rows with TX-REF and detail with Transaction ref', () => {
+  it('labels gap rows with GAP-REF and detail with Gap ref', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = analysis.issues[0]!;
     const state = createGapsViewState({
@@ -41,6 +41,11 @@ describe('links static renderer', () => {
     });
     const items = [
       {
+        gapRef: buildLinkGapRef({
+          txFingerprint: gapIssue.txFingerprint,
+          assetId: gapIssue.assetId,
+          direction: gapIssue.direction,
+        }),
         gapIssue,
         transactionGapCount: 1,
         transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
@@ -50,7 +55,8 @@ describe('links static renderer', () => {
     const listOutput = buildLinkGapsStaticList(state, items);
     const detailOutput = buildLinkGapStaticDetail(items[0]!);
 
-    expect(stripAnsi(listOutput)).toContain('TX-REF');
+    expect(stripAnsi(listOutput)).toContain('GAP-REF');
+    expect(stripAnsi(detailOutput)).toContain(`Gap ref: ${items[0]!.gapRef}`);
     expect(stripAnsi(detailOutput)).toContain(`Transaction ref: ${items[0]!.transactionRef}`);
   });
 });

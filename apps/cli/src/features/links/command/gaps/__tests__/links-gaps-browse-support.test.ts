@@ -10,6 +10,7 @@ vi.mock('../load-links-gap-analysis.js', () => ({
 }));
 
 import { createMockGapAnalysis } from '../../../__tests__/test-utils.js';
+import { buildLinkGapRef } from '../../../link-selector.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
 
 type LinksGapsBrowseDatabase = Parameters<typeof buildLinksGapsBrowsePresentation>[0];
@@ -36,7 +37,6 @@ describe('links-gaps-browse-support', () => {
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
-        hiddenResolvedTransactionCount: 0,
       })
     );
 
@@ -59,55 +59,51 @@ describe('links-gaps-browse-support', () => {
     ]);
   });
 
-  it('passes resolved transaction fingerprints into gap analysis loading', async () => {
+  it('passes resolved issue keys into gap analysis loading', async () => {
     mockLoadLinksGapAnalysis.mockResolvedValue(
       ok({
         analysis: createMockGapAnalysis(),
         hiddenResolvedIssueCount: 1,
-        hiddenResolvedTransactionCount: 1,
       })
     );
-    const resolvedTransactionFingerprints = new Set(['eth-inflow-2']);
+    const resolvedIssueKeys = new Set(['eth-inflow-2|blockchain:ethereum:native|inflow']);
     const excludedAssetIds = new Set(['test:eth']);
     const database = createLinksGapsBrowseDatabase();
 
-    const result = await buildLinksGapsBrowsePresentation(
-      database,
-      42,
-      {},
-      excludedAssetIds,
-      resolvedTransactionFingerprints
-    );
+    const result = await buildLinksGapsBrowsePresentation(database, 42, {}, excludedAssetIds, resolvedIssueKeys);
 
     expect(result.isOk()).toBe(true);
     expect(mockLoadLinksGapAnalysis).toHaveBeenCalledWith(database, 42, {
       excludedAssetIds,
-      resolvedTransactionFingerprints,
+      resolvedIssueKeys,
     });
   });
 
-  it('treats duplicate gap rows on the same transaction as one selector target', async () => {
+  it('treats same-transaction gap rows as distinct selector targets', async () => {
     const analysis = createMockGapAnalysis();
-    analysis.issues = [
-      analysis.issues[0]!,
-      {
-        ...analysis.issues[0]!,
-        assetSymbol: 'USDC',
-        missingAmount: '25',
-        totalAmount: '25',
-      },
-      analysis.issues[1]!,
-    ];
+    const secondGap = {
+      ...analysis.issues[0]!,
+      assetId: 'blockchain:ethereum:0xusdc',
+      assetSymbol: 'USDC',
+      missingAmount: '25',
+      totalAmount: '25',
+    };
+    analysis.issues = [analysis.issues[0]!, secondGap, analysis.issues[1]!];
     mockLoadLinksGapAnalysis.mockResolvedValue(
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
-        hiddenResolvedTransactionCount: 0,
       })
     );
 
+    const secondGapRef = buildLinkGapRef({
+      txFingerprint: secondGap.txFingerprint,
+      assetId: secondGap.assetId,
+      direction: secondGap.direction,
+    });
     const result = await buildLinksGapsBrowsePresentation(createLinksGapsBrowseDatabase(), 42, {
-      selector: 'eth-inflow-1',
+      preselectInExplorer: true,
+      selector: secondGapRef,
     });
 
     expect(result.isOk()).toBe(true);
@@ -115,8 +111,10 @@ describe('links-gaps-browse-support', () => {
       throw result.error;
     }
 
-    expect(result.value.selectedGap?.gapIssue.txFingerprint).toBe('eth-inflow-1');
+    expect(result.value.selectedGap?.gapRef).toBe(secondGapRef);
+    expect(result.value.selectedGap?.gapIssue.assetId).toBe('blockchain:ethereum:0xusdc');
     expect(result.value.selectedGap?.transactionGapCount).toBe(2);
+    expect(result.value.state.selectedIndex).toBe(1);
   });
 
   it('formats gap transaction refs with the transaction ref formatter', async () => {
@@ -131,7 +129,6 @@ describe('links-gaps-browse-support', () => {
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
-        hiddenResolvedTransactionCount: 0,
       })
     );
 

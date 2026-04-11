@@ -2,7 +2,7 @@ import type { Account, Transaction, TransactionLink } from '@exitbook/core';
 import { parseAssetId, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from './gap-model.js';
+import { buildLinkGapIssueKey, type LinkGapAnalysis, type LinkGapAssetSummary, type LinkGapDirection, type LinkGapIssue } from './gap-model.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
@@ -16,7 +16,6 @@ export interface AnalyzeLinkGapsOptions {
 export interface ResolvedLinkGapVisibilityResult {
   analysis: LinkGapAnalysis;
   hiddenResolvedIssueCount: number;
-  hiddenResolvedTransactionCount: number;
 }
 
 interface GapAnalysisAccountContext {
@@ -452,28 +451,32 @@ function classifySuppressedGapTransactionIds(
 
 function splitResolvedLinkGapIssues(
   issues: readonly LinkGapIssue[],
-  resolvedTransactionFingerprints?: ReadonlySet<string>
+  resolvedIssueKeys?: ReadonlySet<string>
 ): {
   hiddenIssueCount: number;
-  hiddenTransactionCount: number;
   visibleIssues: LinkGapIssue[];
 } {
-  if (!resolvedTransactionFingerprints || resolvedTransactionFingerprints.size === 0) {
+  if (!resolvedIssueKeys || resolvedIssueKeys.size === 0) {
     return {
       hiddenIssueCount: 0,
-      hiddenTransactionCount: 0,
       visibleIssues: [...issues],
     };
   }
 
-  const hiddenTransactionFingerprints = new Set<string>();
   const visibleIssues: LinkGapIssue[] = [];
   let hiddenIssueCount = 0;
 
   for (const issue of issues) {
-    if (resolvedTransactionFingerprints.has(issue.txFingerprint)) {
+    if (
+      resolvedIssueKeys.has(
+        buildLinkGapIssueKey({
+          txFingerprint: issue.txFingerprint,
+          assetId: issue.assetId,
+          direction: issue.direction,
+        })
+      )
+    ) {
       hiddenIssueCount += 1;
-      hiddenTransactionFingerprints.add(issue.txFingerprint);
       continue;
     }
 
@@ -482,7 +485,6 @@ function splitResolvedLinkGapIssues(
 
   return {
     hiddenIssueCount,
-    hiddenTransactionCount: hiddenTransactionFingerprints.size,
     visibleIssues,
   };
 }
@@ -724,9 +726,9 @@ export function analyzeLinkGaps(
 
 export function applyResolvedLinkGapVisibility(
   analysis: LinkGapAnalysis,
-  resolvedTransactionFingerprints?: ReadonlySet<string>
+  resolvedIssueKeys?: ReadonlySet<string>
 ): ResolvedLinkGapVisibilityResult {
-  const resolvedIssueState = splitResolvedLinkGapIssues(analysis.issues, resolvedTransactionFingerprints);
+  const resolvedIssueState = splitResolvedLinkGapIssues(analysis.issues, resolvedIssueKeys);
 
   return {
     analysis: {
@@ -734,6 +736,5 @@ export function applyResolvedLinkGapVisibility(
       summary: buildLinkGapSummary(resolvedIssueState.visibleIssues),
     },
     hiddenResolvedIssueCount: resolvedIssueState.hiddenIssueCount,
-    hiddenResolvedTransactionCount: resolvedIssueState.hiddenTransactionCount,
   };
 }

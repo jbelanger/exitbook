@@ -1,16 +1,22 @@
+import { buildLinkGapIssueKey } from '@exitbook/accounting/linking';
 import type { OverrideEvent } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { readResolvedLinkGapTxFingerprints, replayLinkGapResolutionEvents } from '../link-gap-resolution-replay.js';
+import { readResolvedLinkGapIssueKeys, replayResolvedLinkGapIssues } from '../link-gap-resolution-replay.js';
 
-function createLinkGapResolutionEvent(txFingerprint: string, overrides?: Partial<OverrideEvent>): OverrideEvent {
+function createLinkGapResolutionEvent(
+  txFingerprint: string,
+  assetId: string,
+  direction: 'inflow' | 'outflow',
+  overrides?: Partial<OverrideEvent>
+): OverrideEvent {
   const payloadType = overrides?.payload?.type;
   const isReopen = payloadType === 'link_gap_reopen';
 
   return {
-    id: overrides?.id ?? `link-gap:${txFingerprint}:${isReopen ? 'reopen' : 'resolve'}`,
+    id: overrides?.id ?? `link-gap:${txFingerprint}:${assetId}:${direction}:${isReopen ? 'reopen' : 'resolve'}`,
     created_at: overrides?.created_at ?? '2026-04-09T12:00:00.000Z',
     profile_key: overrides?.profile_key ?? 'default',
     actor: overrides?.actor ?? 'user',
@@ -22,34 +28,46 @@ function createLinkGapResolutionEvent(txFingerprint: string, overrides?: Partial
       ({
         type: 'link_gap_resolve',
         tx_fingerprint: txFingerprint,
+        asset_id: assetId,
+        direction,
       } satisfies OverrideEvent['payload']),
   };
 }
 
 describe('link gap resolution replay', () => {
-  it('keeps the latest resolution state per transaction fingerprint', () => {
-    const firstFingerprint = 'a'.repeat(64);
-    const secondFingerprint = 'b'.repeat(64);
+  it('keeps the latest resolution state per gap issue identity', () => {
+    const txFingerprint = 'a'.repeat(64);
+    const otherFingerprint = 'b'.repeat(64);
 
-    const result = replayLinkGapResolutionEvents([
-      createLinkGapResolutionEvent(firstFingerprint),
-      createLinkGapResolutionEvent(secondFingerprint),
-      createLinkGapResolutionEvent(firstFingerprint, {
+    const result = replayResolvedLinkGapIssues([
+      createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow'),
+      createLinkGapResolutionEvent(txFingerprint, 'test:usdt', 'inflow'),
+      createLinkGapResolutionEvent(otherFingerprint, 'test:btc', 'outflow'),
+      createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow', {
         payload: {
           type: 'link_gap_reopen',
-          tx_fingerprint: firstFingerprint,
+          tx_fingerprint: txFingerprint,
+          asset_id: 'test:btc',
+          direction: 'inflow',
         },
         scope: 'link-gap-reopen',
       }),
     ]);
 
-    const resolvedTxFingerprints = assertOk(result);
-    expect(resolvedTxFingerprints.has(firstFingerprint)).toBe(false);
-    expect(resolvedTxFingerprints.has(secondFingerprint)).toBe(true);
+    const resolvedIssueKeys = assertOk(result);
+    expect(resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }))).toBe(
+      false
+    );
+    expect(
+      resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:usdt', direction: 'inflow' }))
+    ).toBe(true);
+    expect(
+      resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint: otherFingerprint, assetId: 'test:btc', direction: 'outflow' }))
+    ).toBe(true);
   });
 
   it('fails replay when a non-link-gap scope is provided', () => {
-    const result = replayLinkGapResolutionEvents([
+    const result = replayResolvedLinkGapIssues([
       {
         id: 'note:1',
         created_at: '2026-04-09T12:00:00.000Z',
@@ -73,14 +91,18 @@ describe('link gap resolution replay', () => {
     const txFingerprint = 'd'.repeat(64);
     const overrideStore = {
       exists: vi.fn().mockReturnValue(true),
-      readByScopes: vi.fn().mockResolvedValue(ok([createLinkGapResolutionEvent(txFingerprint)])),
+      readByScopes: vi.fn().mockResolvedValue(
+        ok([createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow')])
+      ),
     };
 
-    const result = await readResolvedLinkGapTxFingerprints(overrideStore, 'default');
+    const result = await readResolvedLinkGapIssueKeys(overrideStore, 'default');
 
-    const resolvedTxFingerprints = assertOk(result);
+    const resolvedIssueKeys = assertOk(result);
     expect(overrideStore.readByScopes).toHaveBeenCalledWith('default', ['link-gap-resolve', 'link-gap-reopen']);
-    expect(resolvedTxFingerprints.has(txFingerprint)).toBe(true);
+    expect(
+      resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }))
+    ).toBe(true);
   });
 
   it('returns an empty set when the override store is missing', async () => {
@@ -89,7 +111,7 @@ describe('link gap resolution replay', () => {
       readByScopes: vi.fn(),
     };
 
-    const result = await readResolvedLinkGapTxFingerprints(overrideStore, 'default');
+    const result = await readResolvedLinkGapIssueKeys(overrideStore, 'default');
 
     expect(assertOk(result).size).toBe(0);
     expect(overrideStore.readByScopes).not.toHaveBeenCalled();

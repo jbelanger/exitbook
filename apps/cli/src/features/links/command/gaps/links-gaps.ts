@@ -24,20 +24,20 @@ export function registerLinksGapsCommand(linksCommand: Command): void {
     .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
-    .description('Review unresolved link coverage gaps and resolve transaction-level exceptions')
+    .description('Review unresolved link coverage gaps and resolve issue-level exceptions')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook links gaps
-  $ exitbook links gaps view 3ab863db2a
+  $ exitbook links gaps view a1b2c3d4e5
   $ exitbook links gaps explore
-  $ exitbook links gaps resolve 3ab863db2a --reason "BullBitcoin purchase sent directly to wallet"
-  $ exitbook links gaps reopen 3ab863db2a
+  $ exitbook links gaps resolve a1b2c3d4e5 --reason "BullBitcoin purchase sent directly to wallet"
+  $ exitbook links gaps reopen a1b2c3d4e5
 
 Notes:
-  - Gap selectors use the TX-REF shown in the gap list.
-  - "resolve" hides that transaction from the open gaps lens without creating a link.
+  - Gap selectors use the GAP-REF shown in the gap list.
+  - "resolve" hides that specific gap from the open gaps lens without creating a link.
 `
     )
     .action(async (tokens: string[] | undefined) => {
@@ -79,8 +79,8 @@ Notes:
         'after',
         `
 Examples:
-  $ exitbook links gaps view 3ab863db2a
-  $ exitbook links gaps view 3ab863db2a --json
+  $ exitbook links gaps view a1b2c3d4e5
+  $ exitbook links gaps view a1b2c3d4e5 --json
 `
       )
   ).action(async (selector: string, rawOptions: unknown) => {
@@ -101,12 +101,12 @@ Examples:
         `
 Examples:
   $ exitbook links gaps explore
-  $ exitbook links gaps explore 3ab863db2a
+  $ exitbook links gaps explore a1b2c3d4e5
 
 Common Usage:
   - Diagnose unresolved blockchain coverage gaps
-  - Jump directly to one gap transaction by TX-REF
-  - Review a gap before resolving it as an intentional no-link transaction
+  - Jump directly to one gap by GAP-REF
+  - Review a gap before resolving it as an intentional no-link gap
 `
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {

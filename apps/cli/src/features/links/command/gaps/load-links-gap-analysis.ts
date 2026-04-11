@@ -6,13 +6,12 @@ type LinksGapAnalysisDatabase = Pick<DataSession, 'accounts' | 'transactionLinks
 
 export interface LoadLinksGapAnalysisOptions {
   excludedAssetIds?: ReadonlySet<string> | undefined;
-  resolvedTransactionFingerprints?: ReadonlySet<string> | undefined;
+  resolvedIssueKeys?: ReadonlySet<string> | undefined;
 }
 
 export interface LoadedLinksGapAnalysis {
   analysis: LinkGapAnalysis;
   hiddenResolvedIssueCount: number;
-  hiddenResolvedTransactionCount: number;
 }
 
 export async function loadLinksGapAnalysis(
@@ -30,6 +29,6 @@ export async function loadLinksGapAnalysis(
       excludedAssetIds: options.excludedAssetIds,
     });
 
-    return applyResolvedLinkGapVisibility(analysis, options.resolvedTransactionFingerprints);
+    return applyResolvedLinkGapVisibility(analysis, options.resolvedIssueKeys);
   });
 }

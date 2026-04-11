@@ -9,10 +9,10 @@
 - `links explore [link-ref]` opens the interactive proposal explorer
 - `links create <source-ref> <target-ref> --asset <symbol>` creates a confirmed manual link when no suggestion exists
 - `links gaps` renders the static gap list
-- `links gaps view <tx-ref>` renders one static gap detail card
-- `links gaps explore [tx-ref]` opens the interactive gaps explorer
-- `links gaps resolve <tx-ref>` records a transaction-level reviewed exception
-- `links gaps reopen <tx-ref>` removes a prior transaction-level exception
+- `links gaps view <gap-ref>` renders one static gap detail card
+- `links gaps explore [gap-ref]` opens the interactive gaps explorer
+- `links gaps resolve <gap-ref>` records an issue-level reviewed exception
+- `links gaps reopen <gap-ref>` removes a prior issue-level exception
 
 ## Subcommands
 
@@ -22,11 +22,11 @@
 | `links view <link-ref>`       | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one proposal                                              |
 | `links explore`               | [links-view-spec.md](./links-view-spec.md)                     | Interactive explorer for proposals                                          |
 | `links create <src> <dst>`    | [links-create-spec.md](./links-create-spec.md)                 | Confirm an exact manual transfer link between two known transactions        |
-| `links gaps`                  | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for unresolved gap rows with transaction-level selectors |
-| `links gaps view <tx-ref>`    | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one selected `TX-REF` in the gaps workflow                |
-| `links gaps explore [tx-ref]` | [links-view-spec.md](./links-view-spec.md)                     | Interactive gaps explorer                                                   |
-| `links gaps resolve <tx-ref>` | [links-view-spec.md](./links-view-spec.md)                     | Record a transaction-level gap exception without creating a link            |
-| `links gaps reopen <tx-ref>`  | [links-view-spec.md](./links-view-spec.md)                     | Reopen a previously-resolved transaction-level gap exception                |
+| `links gaps`                  | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for unresolved gap rows with issue-level selectors       |
+| `links gaps view <gap-ref>`   | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one selected `GAP-REF` in the gaps workflow               |
+| `links gaps explore [gap-ref]`| [links-view-spec.md](./links-view-spec.md)                     | Interactive gaps explorer                                                   |
+| `links gaps resolve <gap-ref>`| [links-view-spec.md](./links-view-spec.md)                     | Record an issue-level gap exception without creating a link                 |
+| `links gaps reopen <gap-ref>` | [links-view-spec.md](./links-view-spec.md)                     | Reopen a previously-resolved issue-level gap exception                      |
 | `links run`                   | [links-run-spec.md](./links-run-spec.md)                       | Workflow command that refreshes proposals                                   |
 | `links confirm <link-ref>`    | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation using the same derived `LINK-REF` as browse surfaces        |
 | `links reject <link-ref>`     | [links-confirm-reject-spec.md](./links-confirm-reject-spec.md) | Review mutation using the same derived `LINK-REF` as browse surfaces        |
@@ -38,4 +38,4 @@
 - **Manual exact links stay scriptable** — `links create` is the no-proposal path when the user already knows the correct source/target pair
 - **Confirm/reject stay as standalone commands** — the explorer is for triage, but review mutations remain scriptable
 - **`gaps` is a first-class sub-workflow** — coverage analysis stays distinct from the link proposal lifecycle and now has its own command family
-- **Gap exceptions are transaction-level** — resolving a gap hides the transaction from the open-gaps lens without inventing a synthetic link
+- **Gap exceptions are issue-level** — resolving a gap hides one `txFingerprint + assetId + direction` issue from the open-gaps lens without inventing a synthetic link

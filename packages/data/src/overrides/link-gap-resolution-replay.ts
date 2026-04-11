@@ -1,13 +1,26 @@
+import { buildLinkGapIssueKey, type LinkGapIssueIdentity } from '@exitbook/accounting/linking';
 import type { OverrideEvent } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { OverrideStore } from './override-store.js';
 
+export type ResolvedLinkGapIssue = LinkGapIssueIdentity;
+
+function buildResolvedLinkGapIssueFromOverride(
+  payload: Extract<OverrideEvent['payload'], { type: 'link_gap_resolve' | 'link_gap_reopen' }>
+): ResolvedLinkGapIssue {
+  return {
+    txFingerprint: payload.tx_fingerprint,
+    assetId: payload.asset_id,
+    direction: payload.direction,
+  };
+}
+
 /**
  * Replay link-gap resolution overrides with latest-event-wins semantics.
  */
-export function replayLinkGapResolutionEvents(overrides: OverrideEvent[]): Result<Set<string>, Error> {
-  const resolvedByFingerprint = new Map<string, boolean>();
+export function replayResolvedLinkGapIssues(overrides: OverrideEvent[]): Result<Set<string>, Error> {
+  const resolvedByIssueKey = new Map<string, boolean>();
 
   for (const override of overrides) {
     switch (override.scope) {
@@ -20,7 +33,7 @@ export function replayLinkGapResolutionEvents(overrides: OverrideEvent[]): Resul
           );
         }
 
-        resolvedByFingerprint.set(override.payload.tx_fingerprint, true);
+        resolvedByIssueKey.set(buildLinkGapIssueKey(buildResolvedLinkGapIssueFromOverride(override.payload)), true);
         break;
       }
 
@@ -33,7 +46,7 @@ export function replayLinkGapResolutionEvents(overrides: OverrideEvent[]): Resul
           );
         }
 
-        resolvedByFingerprint.set(override.payload.tx_fingerprint, false);
+        resolvedByIssueKey.set(buildLinkGapIssueKey(buildResolvedLinkGapIssueFromOverride(override.payload)), false);
         break;
       }
 
@@ -46,20 +59,20 @@ export function replayLinkGapResolutionEvents(overrides: OverrideEvent[]): Resul
     }
   }
 
-  const resolvedTxFingerprints = new Set<string>();
-  for (const [txFingerprint, isResolved] of resolvedByFingerprint) {
+  const resolvedIssueKeys = new Set<string>();
+  for (const [issueKey, isResolved] of resolvedByIssueKey) {
     if (isResolved) {
-      resolvedTxFingerprints.add(txFingerprint);
+      resolvedIssueKeys.add(issueKey);
     }
   }
 
-  return ok(resolvedTxFingerprints);
+  return ok(resolvedIssueKeys);
 }
 
 /**
  * Read and replay link-gap resolution overrides from the durable override store.
  */
-export async function readResolvedLinkGapTxFingerprints(
+export async function readResolvedLinkGapIssueKeys(
   overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
   profileKey: string
 ): Promise<Result<Set<string>, Error>> {
@@ -72,5 +85,5 @@ export async function readResolvedLinkGapTxFingerprints(
     return err(new Error(`Failed to read link gap resolution override events: ${overridesResult.error.message}`));
   }
 
-  return replayLinkGapResolutionEvents(overridesResult.value);
+  return replayResolvedLinkGapIssues(overridesResult.value);
 }

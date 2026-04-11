@@ -132,6 +132,8 @@ describe('OverrideStore', () => {
     it('should append a link gap resolve event', async () => {
       const payload = {
         type: 'link_gap_resolve',
+        asset_id: 'test:btc',
+        direction: 'inflow',
         tx_fingerprint: createTxFingerprint('f6'),
       } satisfies CreateOverrideEventOptions['payload'];
 
@@ -395,6 +397,8 @@ describe('OverrideStore', () => {
         scope: 'link-gap-resolve',
         payload: {
           type: 'link_gap_resolve',
+          asset_id: 'test:btc',
+          direction: 'inflow',
           tx_fingerprint: createTxFingerprint('f6'),
         },
       });
@@ -402,6 +406,8 @@ describe('OverrideStore', () => {
         scope: 'link-gap-reopen',
         payload: {
           type: 'link_gap_reopen',
+          asset_id: 'test:btc',
+          direction: 'inflow',
           tx_fingerprint: createTxFingerprint('f6'),
         },
       });

@@ -1,13 +1,11 @@
+import { buildLinkGapIssueKey, type LinkGapDirection, type LinkGapIssue } from '@exitbook/accounting/linking';
 import type { CreateOverrideEventOptions } from '@exitbook/core';
-import { readExcludedAssetIds, readResolvedLinkGapTxFingerprints, type OverrideStore } from '@exitbook/data/overrides';
+import { readExcludedAssetIds, readResolvedLinkGapIssueKeys, type OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
-import {
-  formatTransactionFingerprintRef,
-  resolveOwnedTransactionSelector,
-  type ResolvedTransactionSelector,
-} from '../../../transactions/transaction-selector.js';
+import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
+import { buildLinkGapRef, buildLinkGapSelector, resolveLinkGapSelector } from '../../link-selector.js';
 
 import { loadLinksGapAnalysis } from './load-links-gap-analysis.js';
 
@@ -23,13 +21,24 @@ export interface LinksGapResolutionParams {
 
 export interface LinksGapResolutionResult {
   action: LinksGapResolutionAction;
-  affectedGapCount: number;
+  assetId: string;
+  assetSymbol: string;
   changed: boolean;
+  direction: LinkGapDirection;
+  gapRef: string;
   platformKey: string;
   reason?: string | undefined;
+  transactionGapCount: number;
   transactionId: number;
   transactionRef: string;
   txFingerprint: string;
+}
+
+interface ResolvedLinkGapSelection {
+  gapIssue: LinkGapIssue;
+  gapRef: string;
+  transactionGapCount: number;
+  transactionRef: string;
 }
 
 export class LinksGapResolutionHandler {
@@ -53,31 +62,22 @@ export class LinksGapResolutionHandler {
     action: LinksGapResolutionAction
   ): Promise<Result<LinksGapResolutionResult, Error>> {
     return resultDoAsync(async function* (self) {
-      const resolvedTransaction = yield* await self.resolveTransaction(params.selector);
       const excludedAssetIds = yield* await readExcludedAssetIds(self.overrideStore, self.profileKey);
-      const resolvedTransactionFingerprints = yield* await readResolvedLinkGapTxFingerprints(
-        self.overrideStore,
-        self.profileKey
-      );
+      const resolvedIssueKeys = yield* await readResolvedLinkGapIssueKeys(self.overrideStore, self.profileKey);
       const gapAnalysis = yield* await loadLinksGapAnalysis(self.db, self.profileId, {
         excludedAssetIds,
       });
-
-      const transaction = resolvedTransaction.transaction;
-      const affectedGapCount = gapAnalysis.analysis.issues.filter(
-        (issue) => issue.txFingerprint === transaction.txFingerprint
-      ).length;
-      const isCurrentlyResolved = resolvedTransactionFingerprints.has(transaction.txFingerprint);
+      const selectedGap = yield* self.resolveGap(gapAnalysis.analysis.issues, params.selector);
+      const issueKey = buildLinkGapIssueKey({
+        txFingerprint: selectedGap.gapIssue.txFingerprint,
+        assetId: selectedGap.gapIssue.assetId,
+        direction: selectedGap.gapIssue.direction,
+      });
+      const isCurrentlyResolved = resolvedIssueKeys.has(issueKey);
 
       if (action === 'resolve') {
         if (isCurrentlyResolved) {
-          return self.buildResult(resolvedTransaction, action, false, affectedGapCount, params.reason);
-        }
-
-        if (affectedGapCount === 0) {
-          return yield* err(
-            new Error(`Transaction ref '${resolvedTransaction.value}' does not currently have unresolved link gaps`)
-          );
+          return self.buildResult(selectedGap, action, false, params.reason);
         }
 
         yield* await self.appendOverride({
@@ -85,16 +85,18 @@ export class LinksGapResolutionHandler {
           scope: 'link-gap-resolve',
           payload: {
             type: 'link_gap_resolve',
-            tx_fingerprint: transaction.txFingerprint,
+            tx_fingerprint: selectedGap.gapIssue.txFingerprint,
+            asset_id: selectedGap.gapIssue.assetId,
+            direction: selectedGap.gapIssue.direction,
           },
           reason: params.reason,
         });
 
-        return self.buildResult(resolvedTransaction, action, true, affectedGapCount, params.reason);
+        return self.buildResult(selectedGap, action, true, params.reason);
       }
 
       if (!isCurrentlyResolved) {
-        return self.buildResult(resolvedTransaction, action, false, affectedGapCount, params.reason);
+        return self.buildResult(selectedGap, action, false, params.reason);
       }
 
       yield* await self.appendOverride({
@@ -102,43 +104,72 @@ export class LinksGapResolutionHandler {
         scope: 'link-gap-reopen',
         payload: {
           type: 'link_gap_reopen',
-          tx_fingerprint: transaction.txFingerprint,
+          tx_fingerprint: selectedGap.gapIssue.txFingerprint,
+          asset_id: selectedGap.gapIssue.assetId,
+          direction: selectedGap.gapIssue.direction,
         },
         reason: params.reason,
       });
 
-      return self.buildResult(resolvedTransaction, action, true, affectedGapCount, params.reason);
+      return self.buildResult(selectedGap, action, true, params.reason);
     }, this);
   }
 
   private buildResult(
-    resolvedTransaction: ResolvedTransactionSelector,
+    resolvedGap: ResolvedLinkGapSelection,
     action: LinksGapResolutionAction,
     changed: boolean,
-    affectedGapCount: number,
     reason?: string
   ): LinksGapResolutionResult {
     return {
       action,
-      affectedGapCount,
+      assetId: resolvedGap.gapIssue.assetId,
+      assetSymbol: resolvedGap.gapIssue.assetSymbol,
       changed,
-      platformKey: resolvedTransaction.transaction.platformKey,
+      direction: resolvedGap.gapIssue.direction,
+      gapRef: resolvedGap.gapRef,
+      platformKey: resolvedGap.gapIssue.platformKey,
       reason,
-      transactionId: resolvedTransaction.transaction.id,
-      transactionRef: formatTransactionFingerprintRef(resolvedTransaction.transaction.txFingerprint),
-      txFingerprint: resolvedTransaction.transaction.txFingerprint,
+      transactionGapCount: resolvedGap.transactionGapCount,
+      transactionId: resolvedGap.gapIssue.transactionId,
+      transactionRef: resolvedGap.transactionRef,
+      txFingerprint: resolvedGap.gapIssue.txFingerprint,
     };
   }
 
-  private async resolveTransaction(selector: string): Promise<Result<ResolvedTransactionSelector, Error>> {
-    return resolveOwnedTransactionSelector(
-      {
-        getByFingerprintRef: async (profileId, fingerprintRef) =>
-          this.db.transactions.findByFingerprintRef(profileId, fingerprintRef),
+  private resolveGap(issues: readonly LinkGapIssue[], selector: string): Result<ResolvedLinkGapSelection, Error> {
+    const gapCountByTransactionFingerprint = new Map<string, number>();
+    for (const issue of issues) {
+      gapCountByTransactionFingerprint.set(
+        issue.txFingerprint,
+        (gapCountByTransactionFingerprint.get(issue.txFingerprint) ?? 0) + 1
+      );
+    }
+
+    const candidates = issues.map((issue) => ({
+      gapSelector: buildLinkGapSelector({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      item: {
+        gapIssue: issue,
+        gapRef: buildLinkGapRef({
+          txFingerprint: issue.txFingerprint,
+          assetId: issue.assetId,
+          direction: issue.direction,
+        }),
+        transactionGapCount: gapCountByTransactionFingerprint.get(issue.txFingerprint) ?? 1,
+        transactionRef: formatTransactionFingerprintRef(issue.txFingerprint),
       },
-      this.profileId,
-      selector
-    );
+    }));
+
+    const resolvedGap = resolveLinkGapSelector(candidates, selector);
+    if (resolvedGap.isErr()) {
+      return err(resolvedGap.error);
+    }
+
+    return ok(resolvedGap.value.item);
   }
 
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {

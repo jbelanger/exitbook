@@ -31,7 +31,7 @@ const LINKS_COMMAND_ID = 'links';
  *   links view <link-ref>     - Static detail for one proposal
  *   links explore             - Interactive review explorer
  *   links create <src> <dst>  - Create a confirmed manual link
- *   links gaps                - Gap list and transaction-level gap resolution workflow
+ *   links gaps                - Gap list and issue-level gap resolution workflow
  *   links run                 - Run the linking algorithm
  *   links confirm <link-ref>  - Confirm a suggested proposal
  *   links reject <link-ref>   - Reject a proposal
@@ -53,11 +53,11 @@ Examples:
   $ exitbook links explore --status suggested
   $ exitbook links create e96a8b7baa b7c08af224 --asset RENDER
   $ exitbook links gaps
-  $ exitbook links gaps view 3ab863db2a
+  $ exitbook links gaps view a1b2c3d4e5
   $ exitbook links gaps explore
   $ exitbook links run
   $ exitbook links confirm a1b2c3d4e5
-  $ exitbook links gaps resolve 3ab863db2a
+  $ exitbook links gaps resolve a1b2c3d4e5
 
 Browse Options:
 ${buildLinksBrowseOptionsHelpText()}
@@ -66,7 +66,7 @@ Notes:
   - Use bare "links" or "links list" for static lists.
   - Use "links view <link-ref>" for one static proposal detail card.
   - Use "links create <source-ref> <target-ref> --asset <symbol>" when you know the exact pair and no proposal exists.
-  - Use "links gaps" for the dedicated gap workflow and transaction-level gap exceptions.
+  - Use "links gaps" for the dedicated gap workflow and issue-level gap exceptions.
   - Use "links explore" for the interactive explorer.
   - Use "links run" to refresh suggestions before reviewing them.
 `

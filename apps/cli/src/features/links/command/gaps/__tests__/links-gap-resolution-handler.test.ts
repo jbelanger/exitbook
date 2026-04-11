@@ -5,6 +5,7 @@ import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../../../features/shared/__tests__/transaction-test-utils.js';
+import { buildLinkGapRef } from '../../../link-selector.js';
 import { LinksGapResolutionHandler } from '../links-gap-resolution-handler.js';
 
 function createBlockchainDeposit(
@@ -77,9 +78,13 @@ function createConfirmedLink(targetTransactionId: number): TransactionLink {
   };
 }
 
-function createLinkGapResolveEvent(txFingerprint: string): OverrideEvent {
+function createLinkGapResolveEvent(
+  txFingerprint: string,
+  assetId = 'test:btc',
+  direction: 'inflow' | 'outflow' = 'inflow'
+): OverrideEvent {
   return {
-    id: `gap-resolve:${txFingerprint}`,
+    id: `gap-resolve:${txFingerprint}:${assetId}:${direction}`,
     created_at: '2026-04-09T12:00:00.000Z',
     profile_key: 'default',
     actor: 'user',
@@ -87,6 +92,8 @@ function createLinkGapResolveEvent(txFingerprint: string): OverrideEvent {
     scope: 'link-gap-resolve',
     payload: {
       type: 'link_gap_resolve',
+      asset_id: assetId,
+      direction,
       tx_fingerprint: txFingerprint,
     },
   };
@@ -130,14 +137,20 @@ function createDatabase(transaction: Transaction, links: TransactionLink[] = [])
 }
 
 describe('LinksGapResolutionHandler', () => {
-  it('writes a resolve override for an unresolved gap transaction', async () => {
+  it('writes a resolve override for an unresolved gap issue', async () => {
     const transaction = createBlockchainDeposit();
+    const gapIdentity = {
+      txFingerprint: transaction.txFingerprint,
+      assetId: 'test:btc',
+      direction: 'inflow' as const,
+    };
+    const gapRef = buildLinkGapRef(gapIdentity);
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore();
     const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
 
     const result = await handler.resolve({
-      selector: transaction.txFingerprint.slice(0, 10),
+      selector: gapRef,
       reason: 'BullBitcoin purchase sent directly to wallet',
     });
 
@@ -148,10 +161,14 @@ describe('LinksGapResolutionHandler', () => {
 
     expect(result.value).toMatchObject({
       action: 'resolve',
-      affectedGapCount: 1,
+      assetId: 'test:btc',
+      assetSymbol: 'BTC',
       changed: true,
+      direction: 'inflow',
+      gapRef,
       platformKey: 'bitcoin',
       reason: 'BullBitcoin purchase sent directly to wallet',
+      transactionGapCount: 1,
       transactionId: 11,
       transactionRef: transaction.txFingerprint.slice(0, 10),
       txFingerprint: transaction.txFingerprint,
@@ -161,6 +178,8 @@ describe('LinksGapResolutionHandler', () => {
       scope: 'link-gap-resolve',
       payload: {
         type: 'link_gap_resolve',
+        asset_id: 'test:btc',
+        direction: 'inflow',
         tx_fingerprint: transaction.txFingerprint,
       },
       reason: 'BullBitcoin purchase sent directly to wallet',
@@ -169,14 +188,19 @@ describe('LinksGapResolutionHandler', () => {
 
   it('returns unchanged when the transaction is already resolved', async () => {
     const transaction = createBlockchainDeposit();
+    const gapIdentity = {
+      txFingerprint: transaction.txFingerprint,
+      assetId: 'test:btc',
+      direction: 'inflow' as const,
+    };
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore({
-      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint)],
+      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction)],
     });
     const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
 
     const result = await handler.resolve({
-      selector: transaction.txFingerprint.slice(0, 10),
+      selector: buildLinkGapRef(gapIdentity),
     });
 
     expect(result.isOk()).toBe(true);
@@ -185,20 +209,25 @@ describe('LinksGapResolutionHandler', () => {
     }
 
     expect(result.value.changed).toBe(false);
-    expect(result.value.affectedGapCount).toBe(1);
+    expect(result.value.gapRef).toBe(buildLinkGapRef(gapIdentity));
     expect(overrideStore.append).not.toHaveBeenCalled();
   });
 
-  it('writes a reopen override for a resolved transaction', async () => {
+  it('writes a reopen override for a resolved gap issue', async () => {
     const transaction = createBlockchainDeposit();
+    const gapIdentity = {
+      txFingerprint: transaction.txFingerprint,
+      assetId: 'test:btc',
+      direction: 'inflow' as const,
+    };
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore({
-      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint)],
+      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction)],
     });
     const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
 
     const result = await handler.reopen({
-      selector: transaction.txFingerprint.slice(0, 10),
+      selector: buildLinkGapRef(gapIdentity),
       reason: 'Recheck after importing BullBitcoin history',
     });
 
@@ -209,29 +238,39 @@ describe('LinksGapResolutionHandler', () => {
 
     expect(result.value).toMatchObject({
       action: 'reopen',
-      affectedGapCount: 1,
+      assetId: 'test:btc',
       changed: true,
+      direction: 'inflow',
+      gapRef: buildLinkGapRef(gapIdentity),
       reason: 'Recheck after importing BullBitcoin history',
+      transactionGapCount: 1,
     });
     expect(overrideStore.append).toHaveBeenCalledWith({
       profileKey: 'default',
       scope: 'link-gap-reopen',
       payload: {
         type: 'link_gap_reopen',
+        asset_id: 'test:btc',
+        direction: 'inflow',
         tx_fingerprint: transaction.txFingerprint,
       },
       reason: 'Recheck after importing BullBitcoin history',
     });
   });
 
-  it('fails when the transaction does not currently produce a gap', async () => {
+  it('fails when the selected gap does not currently exist', async () => {
     const transaction = createBlockchainDeposit();
+    const gapRef = buildLinkGapRef({
+      txFingerprint: transaction.txFingerprint,
+      assetId: 'test:btc',
+      direction: 'inflow',
+    });
     const database = createDatabase(transaction, [createConfirmedLink(transaction.id)]);
     const overrideStore = createOverrideStore();
     const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
 
     const result = await handler.resolve({
-      selector: transaction.txFingerprint.slice(0, 10),
+      selector: gapRef,
     });
 
     expect(result.isErr()).toBe(true);
@@ -239,7 +278,7 @@ describe('LinksGapResolutionHandler', () => {
       throw new Error('Expected resolve to fail when no gap is present');
     }
 
-    expect(result.error.message).toContain('does not currently have unresolved link gaps');
+    expect(result.error.message).toContain(`Link gap ref '${gapRef.toLowerCase()}' not found`);
     expect(overrideStore.append).not.toHaveBeenCalled();
   });
 });

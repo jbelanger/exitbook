@@ -617,12 +617,11 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
       <Text bold>Transaction Links (gaps)</Text>
       <Text>
         <Text color="yellow">{summary.total_issues} gaps</Text>
-        {state.hiddenResolvedTransactionCount > 0 && (
+        {state.hiddenResolvedIssueCount > 0 && (
           <>
             <Text dimColor> · </Text>
             <Text dimColor>
-              {state.hiddenResolvedTransactionCount} resolved transaction
-              {state.hiddenResolvedTransactionCount !== 1 ? 's' : ''} hidden
+              {state.hiddenResolvedIssueCount} resolved gap{state.hiddenResolvedIssueCount !== 1 ? 's' : ''} hidden
             </Text>
           </>
         )}

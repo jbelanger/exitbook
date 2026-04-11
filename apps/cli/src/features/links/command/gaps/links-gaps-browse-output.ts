@@ -68,7 +68,6 @@ function buildLinksGapsBrowseJsonCompletion(
           uncoveredInflows: browsePresentation.state.linkAnalysis.summary.uncovered_inflows,
           unmatchedOutflows: browsePresentation.state.linkAnalysis.summary.unmatched_outflows,
           hiddenResolvedIssues: browsePresentation.state.hiddenResolvedIssueCount,
-          hiddenResolvedTransactions: browsePresentation.state.hiddenResolvedTransactionCount,
         })
       ),
     },
@@ -79,7 +78,8 @@ function buildLinksGapsBrowseJsonCompletion(
 function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
   return {
     kind: 'gap',
-    ref: item.transactionRef,
+    ref: item.gapRef,
+    transactionRef: item.transactionRef,
     transactionId: item.gapIssue.transactionId,
     transactionGapCount: item.transactionGapCount,
     txFingerprint: item.gapIssue.txFingerprint,

@@ -23,7 +23,7 @@ import type { LinksViewGapsState, LinksViewLinksState } from './links-view-state
 
 const STATIC_LIST_COLUMN_GAP = '  ';
 const LINK_REF_COLUMN_LABEL = 'LINK-REF';
-const TRANSACTION_REF_COLUMN_LABEL = 'TX-REF';
+const GAP_REF_COLUMN_LABEL = 'GAP-REF';
 const LINK_LIST_COLUMN_ORDER = ['ref', 'date', 'asset', 'status', 'route', 'confidence', 'legs'] as const;
 const GAP_LIST_COLUMN_ORDER = [
   'ref',
@@ -197,7 +197,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
   }
 
   const columns = createColumns(items, {
-    ref: { format: (item) => item.transactionRef, minWidth: TRANSACTION_REF_COLUMN_LABEL.length },
+    ref: { format: (item) => item.gapRef, minWidth: GAP_REF_COLUMN_LABEL.length },
     date: {
       format: (item) => formatGapRowTimestamp(item.gapIssue.timestamp),
       minWidth: 'DATE'.length,
@@ -235,7 +235,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
       buildTextTableHeader(
         columns.widths,
         {
-          ref: TRANSACTION_REF_COLUMN_LABEL,
+          ref: GAP_REF_COLUMN_LABEL,
           date: 'DATE',
           platform: 'PLATFORM',
           direction: 'DIR',
@@ -287,25 +287,22 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const nextStep = gapIssue.suggestedCount > 0 ? 'exitbook links explore --status suggested' : 'exitbook links run';
 
   const lines = [
-    `${pc.bold(`Link gap ${item.transactionRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(
+    `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(
       `[${gapIssue.direction}]`
     )}`,
     '',
+    buildDetailLine('Gap ref', item.gapRef),
     buildDetailLine('Transaction ref', item.transactionRef),
     buildDetailLine('Transaction', `#${gapIssue.transactionId}`),
     buildDetailLine('Fingerprint', gapIssue.txFingerprint),
-    ...(item.transactionGapCount > 1
-      ? [
-          buildDetailLine('Gap rows on tx', String(item.transactionGapCount)),
-          buildDetailLine('Resolve scope', 'Transaction-wide'),
-        ]
-      : []),
+    ...(item.transactionGapCount > 1 ? [buildDetailLine('Open gap rows on tx', String(item.transactionGapCount))] : []),
     buildDetailLine('Platform', gapIssue.platformKey),
     ...(gapIssue.blockchainName && gapIssue.blockchainName !== gapIssue.platformKey
       ? [buildDetailLine('Blockchain', gapIssue.blockchainName)]
       : []),
     buildDetailLine('Date', gapIssue.timestamp),
     buildDetailLine('Operation', `${gapIssue.operationCategory}/${gapIssue.operationType}`),
+    buildDetailLine('Asset ID', gapIssue.assetId),
     buildDetailLine('Missing', `${gapIssue.missingAmount} ${gapIssue.assetSymbol}`),
     buildDetailLine('Total', `${gapIssue.totalAmount} ${gapIssue.assetSymbol}`),
     buildDetailLine(
@@ -313,8 +310,8 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       colorizeText(getCoverageColor(coverageNum), `${gapIssue.confirmedCoveragePercent}% confirmed`)
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
-    buildDetailLine('Explore', `exitbook links gaps explore ${item.transactionRef}`),
-    buildDetailLine('Resolve', `exitbook links gaps resolve ${item.transactionRef}`),
+    buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
+    buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),
     buildDetailLine('Next', nextStep),
   ];
 
@@ -356,12 +353,8 @@ function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): st
   const needsInvestigation = linkAnalysis.summary.total_issues - readyToReview;
   const metadata = [
     `${visibleCount} shown`,
-    ...(state.hiddenResolvedTransactionCount > 0
-      ? [
-          `${state.hiddenResolvedTransactionCount} resolved transaction${
-            state.hiddenResolvedTransactionCount === 1 ? '' : 's'
-          } hidden`,
-        ]
+    ...(state.hiddenResolvedIssueCount > 0
+      ? [`${state.hiddenResolvedIssueCount} resolved gap${state.hiddenResolvedIssueCount === 1 ? '' : 's'} hidden`]
       : []),
     `${linkAnalysis.summary.uncovered_inflows} uncovered inflow${
       linkAnalysis.summary.uncovered_inflows === 1 ? '' : 's'

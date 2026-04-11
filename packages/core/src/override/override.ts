@@ -22,6 +22,8 @@ export const ScopeSchema = z.enum([
  */
 export const LinkActionSchema = z.enum(['confirm']);
 
+export const LinkGapDirectionSchema = z.enum(['inflow', 'outflow']);
+
 /**
  * Override link type - transfer or trade (user-facing category, distinct from DB LinkType)
  */
@@ -86,19 +88,23 @@ export const UnlinkOverridePayloadSchema = z.object({
 
 /**
  * Link gap resolve payload
- * User marks a transaction-level link gap as intentionally resolved without a link.
+ * User marks a specific asset-direction link gap as intentionally resolved without a link.
  */
 export const LinkGapResolvePayloadSchema = z.object({
   type: z.literal('link_gap_resolve'),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
+  direction: LinkGapDirectionSchema,
   tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
 });
 
 /**
  * Link gap reopen payload
- * User reopens a previously-resolved transaction-level link gap.
+ * User reopens a previously-resolved asset-direction link gap.
  */
 export const LinkGapReopenPayloadSchema = z.object({
   type: z.literal('link_gap_reopen'),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
+  direction: LinkGapDirectionSchema,
   tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
 });
 
@@ -235,6 +241,7 @@ export const OverrideEventSchema = z
  */
 export type Scope = z.infer<typeof ScopeSchema>;
 export type LinkAction = z.infer<typeof LinkActionSchema>;
+export type LinkGapDirection = z.infer<typeof LinkGapDirectionSchema>;
 export type OverrideLinkType = z.infer<typeof OverrideLinkTypeSchema>;
 export type PriceOverridePayload = z.infer<typeof PriceOverridePayloadSchema>;
 export type FxOverridePayload = z.infer<typeof FxOverridePayloadSchema>;

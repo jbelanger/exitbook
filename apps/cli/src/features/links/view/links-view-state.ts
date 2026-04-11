@@ -60,7 +60,6 @@ export interface LinksViewGapsState {
 
   linkAnalysis: LinkGapAnalysis;
   hiddenResolvedIssueCount: number;
-  hiddenResolvedTransactionCount: number;
   selectedIndex: number;
   scrollOffset: number;
 }
@@ -172,14 +171,12 @@ export function createGapsViewState(
   analysis: LinkGapAnalysis,
   hiddenCounts: LinksGapBrowseHiddenCounts = {
     hiddenResolvedIssueCount: 0,
-    hiddenResolvedTransactionCount: 0,
   }
 ): LinksViewGapsState {
   return {
     mode: 'gaps',
     linkAnalysis: analysis,
     hiddenResolvedIssueCount: hiddenCounts.hiddenResolvedIssueCount,
-    hiddenResolvedTransactionCount: hiddenCounts.hiddenResolvedTransactionCount,
     selectedIndex: 0,
     scrollOffset: 0,
   };

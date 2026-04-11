@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-09
+last_verified: 2026-04-11
 status: canonical
 ---
 
@@ -120,8 +120,8 @@ This is direction-aware, movement-aware, and asset-id-aware.
 | `links create <src> <dst> --asset <symbol>` | creates or confirms one exact manual link row   | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
 | `links confirm <ref>`                       | sets link status to `confirmed`                 | appends `scope='link'`, `type='link_override'`, `action='confirm'`                       |
 | `links reject <ref>`                        | sets link status to `rejected`                  | appends `scope='unlink'`, `type='unlink_override'`                                       |
-| `links gaps resolve <ref>`                  | hides that transaction from the open gaps lens  | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                            |
-| `links gaps reopen <ref>`                   | reopens a previously-resolved gap transaction   | appends `scope='link-gap-reopen'`, `type='link_gap_reopen'`                              |
+| `links gaps resolve <ref>`                  | hides that specific gap issue from the open gaps lens | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                       |
+| `links gaps reopen <ref>`                   | reopens a previously-resolved gap issue              | appends `scope='link-gap-reopen'`, `type='link_gap_reopen'`                         |
 | `transactions edit note <id> --message ...` | materializes a durable note on that transaction | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='set'`   |
 | `transactions edit note <id> --clear`       | clears the durable note on that transaction     | appends `scope='transaction-note'`, `type='transaction_note_override'`, `action='clear'` |
 | `prices set ...`                            | saves manual price                              | appends `scope='price'`, `type='price_override'`                                         |
@@ -144,16 +144,16 @@ Replay input:
 Replay semantics:
 
 1. replay gap-resolution events in append order
-2. key the projected state by `tx_fingerprint`
-3. `link-gap-resolve` marks the transaction fingerprint as resolved
-4. `link-gap-reopen` removes that transaction fingerprint from the resolved set
-5. the final replay result is a `Set<txFingerprint>` for currently resolved transactions
+2. key the projected state by `tx_fingerprint + asset_id + direction`
+3. `link-gap-resolve` marks that issue identity as resolved
+4. `link-gap-reopen` removes that issue identity from the resolved set
+5. the final replay result is a `Set<linkGapIssueKey>` for currently resolved issue identities
 
 Consumption rules:
 
 - gap resolution only affects the gaps lens; it does not alter `transaction_links`
-- replay is latest-event-wins per `tx_fingerprint`
-- transactions resolved this way are hidden from open gap browse output, but remain in processed transactions
+- replay is latest-event-wins per `tx_fingerprint + asset_id + direction`
+- gap issues resolved this way are hidden from open gap browse output, but remain in processed transactions
 
 ### Link Replay Rules (`links run`)
 

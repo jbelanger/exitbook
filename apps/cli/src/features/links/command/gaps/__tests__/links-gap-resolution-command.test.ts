@@ -108,10 +108,14 @@ describe('links gap resolution commands', () => {
     mockResolve.mockResolvedValue(
       ok({
         action: 'resolve',
-        affectedGapCount: 1,
+        assetId: 'blockchain:bitcoin:native',
+        assetSymbol: 'BTC',
         changed: true,
+        direction: 'inflow',
+        gapRef: 'a1b2c3d4e5',
         platformKey: 'bitcoin',
         reason: 'BullBitcoin purchase sent directly to wallet',
+        transactionGapCount: 2,
         transactionId: 1834,
         transactionRef: '3ab863db2a',
         txFingerprint: '3ab863db2a-full-fingerprint',
@@ -119,31 +123,37 @@ describe('links gap resolution commands', () => {
     );
 
     await program.parseAsync(
-      ['links', 'gaps', 'resolve', '3ab863db2a', '--reason', 'BullBitcoin purchase sent directly to wallet'],
+      ['links', 'gaps', 'resolve', 'a1b2c3d4e5', '--reason', 'BullBitcoin purchase sent directly to wallet'],
       { from: 'user' }
     );
 
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-links');
     expect(mockHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, 1, 'default', mockOverrideStoreInstance);
     expect(mockResolve).toHaveBeenCalledWith({
-      selector: '3ab863db2a',
+      selector: 'a1b2c3d4e5',
       reason: 'BullBitcoin purchase sent directly to wallet',
     });
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
-    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Link gap transaction resolved');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Link gap resolved');
+    expect(consoleLogSpy).toHaveBeenCalledWith('   Gap: a1b2c3d4e5 (BTC / inflow)');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Transaction: #1834 (bitcoin / 3ab863db2a)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('   Asset ID: blockchain:bitcoin:native');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Fingerprint: 3ab863db2a-full-fingerprint');
-    expect(consoleLogSpy).toHaveBeenCalledWith('   Gap rows: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('   Open gap rows on tx: 2');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Reason: BullBitcoin purchase sent directly to wallet');
   });
 
-  it('reopens a gap transaction in JSON mode', async () => {
+  it('reopens a gap in JSON mode', async () => {
     const program = createProgram();
     const result = {
       action: 'reopen',
-      affectedGapCount: 2,
+      assetId: 'blockchain:solana:native',
+      assetSymbol: 'SOL',
       changed: true,
+      direction: 'outflow',
+      gapRef: '761aacb377',
       platformKey: 'solana',
+      transactionGapCount: 2,
       transactionId: 761,
       transactionRef: '761aacb377',
       txFingerprint: '761aacb377-full-fingerprint',

@@ -1,4 +1,4 @@
-import { OverrideStore, readResolvedLinkGapTxFingerprints } from '@exitbook/data/overrides';
+import { OverrideStore, readResolvedLinkGapIssueKeys } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
@@ -84,8 +84,8 @@ export async function executePreparedLinksGapsBrowseCommand(
       ExitCodes.GENERAL_ERROR
     );
     const overrideStore = new OverrideStore(runtime.dataDir);
-    const resolvedTransactionFingerprints = yield* toCliResult(
-      await readResolvedLinkGapTxFingerprints(overrideStore, profile.profileKey),
+    const resolvedIssueKeys = yield* toCliResult(
+      await readResolvedLinkGapIssueKeys(overrideStore, profile.profileKey),
       ExitCodes.GENERAL_ERROR
     );
 
@@ -94,7 +94,7 @@ export async function executePreparedLinksGapsBrowseCommand(
       profile.id,
       prepared.params,
       accountingExclusionPolicy.excludedAssetIds,
-      resolvedTransactionFingerprints
+      resolvedIssueKeys
     );
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(

@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
-import { resolveLinkGapSelector } from '../../link-selector.js';
+import { buildLinkGapRef, buildLinkGapSelector, resolveLinkGapSelector } from '../../link-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
@@ -28,11 +28,11 @@ export async function buildLinksGapsBrowsePresentation(
   profileId: number,
   params: LinksGapsBrowseParams,
   excludedAssetIds?: ReadonlySet<string>,
-  resolvedTransactionFingerprints?: ReadonlySet<string>
+  resolvedIssueKeys?: ReadonlySet<string>
 ): Promise<Result<LinksGapsBrowsePresentation, Error>> {
   const loadedGapAnalysisResult = await loadLinksGapAnalysis(database, profileId, {
     excludedAssetIds,
-    resolvedTransactionFingerprints,
+    resolvedIssueKeys,
   });
   if (loadedGapAnalysisResult.isErr()) {
     return err(loadedGapAnalysisResult.error);
@@ -41,10 +41,14 @@ export async function buildLinksGapsBrowsePresentation(
   const sortedAnalysis = sortLinkGapAnalysisByTimestamp(loadedGapAnalysisResult.value.analysis);
   const state = createGapsViewState(sortedAnalysis, {
     hiddenResolvedIssueCount: loadedGapAnalysisResult.value.hiddenResolvedIssueCount,
-    hiddenResolvedTransactionCount: loadedGapAnalysisResult.value.hiddenResolvedTransactionCount,
   });
   const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
   const gaps = sortedAnalysis.issues.map((gapIssue) => ({
+    gapRef: buildLinkGapRef({
+      txFingerprint: gapIssue.txFingerprint,
+      assetId: gapIssue.assetId,
+      direction: gapIssue.direction,
+    }),
     gapIssue,
     transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
     transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
@@ -67,10 +71,14 @@ export async function buildLinksGapsBrowsePresentation(
   });
 }
 
-function toGapCandidates(gaps: LinkGapBrowseItem[]): { item: LinkGapBrowseItem; txFingerprint: string }[] {
+function toGapCandidates(gaps: LinkGapBrowseItem[]): { gapSelector: string; item: LinkGapBrowseItem }[] {
   return gaps.map((gap) => ({
+    gapSelector: buildLinkGapSelector({
+      txFingerprint: gap.gapIssue.txFingerprint,
+      assetId: gap.gapIssue.assetId,
+      direction: gap.gapIssue.direction,
+    }),
     item: gap,
-    txFingerprint: gap.gapIssue.txFingerprint,
   }));
 }
 
@@ -79,7 +87,7 @@ function preselectGapsState(
   gaps: LinkGapBrowseItem[],
   selectedGap: LinkGapBrowseItem
 ): void {
-  const selectedIndex = gaps.findIndex((gap) => gap.gapIssue.txFingerprint === selectedGap.gapIssue.txFingerprint);
+  const selectedIndex = gaps.findIndex((gap) => gap.gapRef === selectedGap.gapRef);
   if (selectedIndex < 0) {
     return;
   }

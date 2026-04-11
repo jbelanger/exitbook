@@ -40,13 +40,13 @@ const LINKS_GAP_RESOLUTION_COMMANDS = {
     action: 'reopen',
     commandId: 'links-gaps-reopen',
     commandName: 'reopen',
-    description: 'Reopen a previously-resolved transaction-level link gap',
+    description: 'Reopen a previously-resolved link gap',
   },
   resolve: {
     action: 'resolve',
     commandId: 'links-gaps-resolve',
     commandName: 'resolve',
-    description: 'Resolve a transaction-level link gap without creating a link',
+    description: 'Resolve a link gap without creating a link',
   },
 } as const satisfies Record<LinksGapResolutionAction, LinksGapResolutionCommandDefinition<LinksGapResolutionAction>>;
 
@@ -69,9 +69,9 @@ function registerLinksGapResolutionCommand<TAction extends LinksGapResolutionAct
       'after',
       `
 Examples:
-  $ exitbook links gaps ${definition.commandName} 3ab863db2a
-  $ exitbook links gaps ${definition.commandName} 3ab863db2a --reason "BullBitcoin purchase sent directly to wallet"
-  $ exitbook links gaps ${definition.commandName} 3ab863db2a --json
+  $ exitbook links gaps ${definition.commandName} a1b2c3d4e5
+  $ exitbook links gaps ${definition.commandName} a1b2c3d4e5 --reason "BullBitcoin purchase sent directly to wallet"
+  $ exitbook links gaps ${definition.commandName} a1b2c3d4e5 --json
 `
     )
     .option('--reason <text>', 'Optional audit reason stored with the override event')
@@ -163,18 +163,18 @@ function parseGapSelectorResult(rawSelector: string): Result<string, ReturnType<
 
 function printLinksGapResolutionResult(result: LinksGapResolutionResult): void {
   if (result.action === 'resolve') {
-    console.log(
-      formatSuccessLine(result.changed ? 'Link gap transaction resolved' : 'Link gap transaction already resolved')
-    );
+    console.log(formatSuccessLine(result.changed ? 'Link gap resolved' : 'Link gap already resolved'));
   } else {
-    console.log(
-      formatSuccessLine(result.changed ? 'Link gap transaction reopened' : 'Link gap transaction already open')
-    );
+    console.log(formatSuccessLine(result.changed ? 'Link gap reopened' : 'Link gap already open'));
   }
 
+  console.log(`   Gap: ${result.gapRef} (${result.assetSymbol} / ${result.direction})`);
   console.log(`   Transaction: #${result.transactionId} (${result.platformKey} / ${result.transactionRef})`);
+  console.log(`   Asset ID: ${result.assetId}`);
   console.log(`   Fingerprint: ${result.txFingerprint}`);
-  console.log(`   Gap rows: ${result.affectedGapCount}`);
+  if (result.transactionGapCount > 1) {
+    console.log(`   Open gap rows on tx: ${result.transactionGapCount}`);
+  }
   if (result.reason) {
     console.log(`   Reason: ${result.reason}`);
   }
