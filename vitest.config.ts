@@ -1,10 +1,12 @@
+import path from 'node:path';
+
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: [path.resolve(import.meta.dirname, 'vitest.setup.ts')],
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.e2e.test.ts', '**/*e2e*.test.ts'],
     testTimeout: 60000,
