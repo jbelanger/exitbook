@@ -62,7 +62,6 @@ async function seedDatabase(db: KyselyDB): Promise<void> {
         tx_fingerprint: seedTxFingerprint('test', 1, identityReference),
         transaction_status: 'success',
         transaction_datetime: new Date().toISOString(),
-        is_spam: false,
         excluded_from_accounting: false,
         created_at: new Date().toISOString(),
       })
@@ -298,7 +297,6 @@ describe('TransactionLinkRepository', () => {
             tx_fingerprint: seedTxFingerprint('business', 2, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
           })
@@ -391,7 +389,6 @@ describe('TransactionLinkRepository', () => {
             tx_fingerprint: seedTxFingerprint('test-2', 2, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
           })
@@ -443,7 +440,6 @@ describe('TransactionLinkRepository', () => {
             tx_fingerprint: seedTxFingerprint('test-2', 2, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
           })
@@ -485,7 +481,6 @@ describe('TransactionLinkRepository', () => {
             tx_fingerprint: seedTxFingerprint('business', 2, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
           })

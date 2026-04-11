@@ -40,7 +40,6 @@ describe('buildProcessingPorts', () => {
         tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-1'),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
-        is_spam: false,
         excluded_from_accounting: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

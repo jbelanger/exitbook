@@ -482,13 +482,19 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.unmatched_outflows).toBe(0);
   });
 
-  it('should suppress gap issues for spam-flagged transactions', () => {
+  it('should suppress gap issues for SCAM_TOKEN transactions', () => {
     const analysis = analyzeLinkGaps(
       [
         createBlockchainDeposit({
           id: 29,
           txFingerprint: 'spam-gap',
-          isSpam: true,
+          diagnostics: [
+            {
+              code: 'SCAM_TOKEN',
+              message: 'Scam token detected',
+              severity: 'error',
+            },
+          ],
         }),
       ],
       []

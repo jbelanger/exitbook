@@ -177,12 +177,12 @@ Current consumers:
 
 Current smell:
 
-- scam and suspicious-airdrop state is split across `isSpam` and note types
+- scam and suspicious-airdrop state can still be missing upstream even though diagnostics are now the only machine signal
 
 Benefit:
 
-- scam/suspicious state can move to typed diagnostics and explicit flags
-- review workflows stop depending on free-form note arrays
+- scam/suspicious state can stay in typed diagnostics
+- review workflows stop depending on free-form note arrays or duplicate spam flags
 
 #### 7. Persistence and Override Model
 
@@ -492,8 +492,8 @@ Open gaps:
 
 Raw normalized data for at least two of these contains explicit promo/airdrop memo text, but the stored transactions still have:
 
-- `notes: []`
-- `isSpam: false`
+- `diagnostics: []`
+- `excludedFromAccounting: false`
 
 #### Hypothesis
 

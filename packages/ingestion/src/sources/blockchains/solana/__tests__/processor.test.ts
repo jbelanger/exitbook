@@ -1426,8 +1426,7 @@ describe('SolanaProcessor - Scam Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should be flagged as spam with SCAM_TOKEN note
-    expect(transaction.isSpam).toBe(true);
+    // Should carry a SCAM_TOKEN diagnostic
     expect(transaction.diagnostics).toBeDefined();
     expect(transaction.diagnostics?.[0]?.code).toBe('SCAM_TOKEN');
     expect(transaction.diagnostics?.[0]?.severity).toBe('error');

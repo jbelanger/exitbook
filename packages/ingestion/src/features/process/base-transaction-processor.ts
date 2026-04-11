@@ -135,10 +135,6 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
         continue;
       }
 
-      if (diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
-        tx.isSpam = true;
-      }
-
       tx.diagnostics = [...(tx.diagnostics || []), ...diagnostics];
     }
   }

@@ -46,11 +46,11 @@ export function formatTransactionDirection(direction: TransactionViewItem['prima
 }
 
 export function formatTransactionFlags(
-  transaction: Pick<TransactionViewItem, 'excludedFromAccounting' | 'isSpam'>
+  transaction: Pick<TransactionViewItem, 'excludedFromAccounting' | 'hasSpamDiagnostic'>
 ): string {
   const flags: string[] = [];
   if (transaction.excludedFromAccounting) flags.push('excluded');
-  if (transaction.isSpam) flags.push('spam');
+  if (transaction.hasSpamDiagnostic) flags.push('spam');
   return flags.length > 0 ? flags.join(',') : '—';
 }
 

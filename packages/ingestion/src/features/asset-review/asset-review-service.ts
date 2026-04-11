@@ -7,7 +7,6 @@ const logger = getLogger('asset-review-service');
 
 interface AssetSignal {
   assetId: string;
-  hasSpamFlag: boolean;
   scamDiagnosticHasError: boolean;
   scamDiagnosticCount: number;
   suspiciousAirdropDiagnosticHasError: boolean;
@@ -176,7 +175,6 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
     for (const entry of assetEntries) {
       const signal = signalsByAssetId.get(entry.assetId) ?? {
         assetId: entry.assetId,
-        hasSpamFlag: false,
         scamDiagnosticHasError: false,
         scamDiagnosticCount: 0,
         suspiciousAirdropDiagnosticHasError: false,
@@ -194,15 +192,6 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
           entry.assetSymbol,
           primaryAssetIds
         );
-        const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(entry.assetId);
-
-        if (
-          transaction.isSpam === true &&
-          (applicableDiagnostics.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN') ||
-            (applicableDiagnostics.length === 0 && isOnlyPrimaryAsset))
-        ) {
-          signal.hasSpamFlag = true;
-        }
 
         for (const diagnostic of applicableDiagnostics) {
           if (diagnostic.code === 'SCAM_TOKEN') {
@@ -395,14 +384,6 @@ function buildAssetEvidence(
         provider: metadata.source,
         verifiedContract: metadata.verifiedContract,
       },
-    });
-  }
-
-  if (signal.hasSpamFlag) {
-    evidence.push({
-      kind: 'spam-flag',
-      severity: 'error',
-      message: 'Processed transactions marked this asset as spam',
     });
   }
 

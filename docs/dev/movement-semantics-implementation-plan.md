@@ -236,12 +236,12 @@ Explicit non-goals from this analysis:
 
 Current active phase:
 
-- `Phase 3: Diagnostics Consumer Migration`
-- active step: `Step 3.3 / 3.4 closeout`
+- `Phase 3: Diagnostics Consumer Migration` is complete in the current worktree
+- next phase remains `Phase 4: Additional Deterministic Movement-Role Producers`
 
 ## Phase 3: Diagnostics Consumer Migration
 
-Status: active
+Status: complete
 Goal:
 
 - remove remaining machine workflow dependence on legacy `notes` semantics
@@ -286,7 +286,6 @@ Output of this step:
 - list each consumer
 - identify current source:
   - `diagnostics`
-  - `isSpam`
   - legacy note semantics
   - mixed/duplicated
 - assign each to a concrete migration subtask
@@ -301,8 +300,8 @@ Inventory result:
 | Surface                                    | Primary file(s)                                                                                                                                                                                         | Current source                                               | Status                          | Required action                                                                                                                       |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Tax readiness / accounting export metadata | `/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/export/tax-package-readiness-metadata.ts`                                                                                                  | `diagnostics` only                                           | Mostly migrated                 | Behavior is already correct; rename stale `noteType` / `noteMessage` DTO fields to `diagnosticCode` / `diagnosticMessage` in Step 3.2 |
-| Balance exclusion / scam balance filtering | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts`                                                                                                                  | Mixed: `isSpam` + `diagnostics`                              | Contract cleanup in progress    | Keep explicit spam flag if still needed, but route spam/scam checks through one shared helper instead of open-coded checks            |
-| Asset review summary building              | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/asset-review/asset-review-service.ts`                                                                                                         | Mixed: `diagnostics` + `isSpam`                              | Partially migrated              | Behavior already reads diagnostics, but helpers and counters still use stale “note” naming; clean API and naming in Step 3.3          |
+| Balance exclusion / scam balance filtering | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-workflow.ts`                                                                                                                  | `diagnostics` via shared helper                              | Migrated                        | No remaining model work; keep spam/scam checks routed through one shared helper                                                       |
+| Asset review summary building              | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/asset-review/asset-review-service.ts`                                                                                                         | `diagnostics` only                                           | Migrated                        | No separate spam projection remains; asset review now derives scam evidence directly from diagnostics                                 |
 | Scam detection producer/service            | `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-utils.ts`, `/Users/joel/Dev/exitbook/packages/ingestion/src/features/scam-detection/scam-detection-service.ts`  | `TransactionDiagnostic` production                           | Migrated behavior, stale naming | No model change needed; remove stale `note` variable/comment naming in Step 3.3                                                       |
 | Transaction projection for CLI/TUI         | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts`                                                                                                            | `diagnostics` + `userNotes`                                  | Migrated                        | No behavior work needed                                                                                                               |
 | Transaction static/TUI rendering           | `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-static-renderer.ts`, `/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-view-components.tsx` | `diagnostics` + `userNotes`                                  | Migrated                        | No behavior work needed                                                                                                               |
@@ -314,7 +313,6 @@ Step 3.1 conclusion:
 - there is no active machine workflow still branching on legacy `Transaction.notes`
 - the remaining work is mostly:
   - stale machine terminology (`note*` names for diagnostics)
-  - explicit `isSpam` + diagnostics contract cleanup
   - transaction export/product decision on whether diagnostics and user notes should be exported explicitly
 
 First migration slice after inventory:
@@ -354,21 +352,20 @@ Primary targets:
 
 Expected change:
 
-- policy and review flows consume `diagnostics` and explicit flags, not note parsing
+- policy and review flows consume `diagnostics`, not note parsing
 
 Acceptance criteria:
 
-- balance/review behavior is derived from diagnostics or explicit flags
+- balance/review behavior is derived from diagnostics
 - no machine consumer uses the free-form user-note surface
 
 Current status:
 
-- active
+- completed
 - live ingestion/review code now uses diagnostic terminology internally instead of note terminology
-- the `isSpam` + diagnostics contract is now partially centralized through shared helpers for balance/gaps
+- scam/spam checks now resolve from diagnostics only through shared helpers for balance/gaps/views
 - persisted asset-review evidence vocabulary has been renamed away from `*-note` to `*-diagnostic`
-- remaining work is now mostly one design choice:
-  - decide whether `isSpam` remains a persisted convenience flag or becomes a fully derived display/projection field
+- the derived `spam-flag` asset-review evidence was removed because it duplicated `SCAM_TOKEN` diagnostics
 
 #### Step 3.4: Migrate CLI/view/export surfaces
 
@@ -396,6 +393,8 @@ Current status:
   - JSON includes `diagnostics` and `userNotes`
   - simple CSV includes flattened diagnostic/user-note columns
   - normalized CSV includes dedicated diagnostics and user-notes files
+- stored `isSpam` has been removed from the transaction model and persistence
+- asset review no longer synthesizes a duplicate `spam-flag` evidence kind from `SCAM_TOKEN` diagnostics
 
 #### Step 3.5: Remove remaining machine-note legacy
 
@@ -423,6 +422,17 @@ Required before Phase 3 is marked complete:
 - one live command verification for at least:
   - `pnpm run dev links gaps --json`
   - a transaction/render surface affected by the migration
+
+Verification completed in the current worktree:
+
+- targeted test slices across core, accounting, data, ingestion, assets, and transactions are green
+- `pnpm --filter @exitbook/core build`
+- `pnpm --filter @exitbook/data build`
+- `pnpm --filter @exitbook/ingestion build`
+- `pnpm --filter @exitbook/accounting build`
+- `pnpm --filter ./apps/cli build`
+- `pnpm run dev links gaps --json`
+- `pnpm run dev transactions view e9cf3d8fb7 --json`
 
 ## Future Phases
 

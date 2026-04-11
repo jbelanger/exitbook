@@ -117,9 +117,6 @@ function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny,
     diagnostics: z.array(TransactionDiagnosticSchema).optional(),
     userNotes: z.array(UserNoteSchema).optional(),
 
-    // Spam detection
-    isSpam: z.boolean().optional(),
-
     // Accounting exclusion
     excludedFromAccounting: z.boolean().optional(),
   });

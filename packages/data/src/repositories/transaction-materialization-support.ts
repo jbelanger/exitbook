@@ -310,7 +310,6 @@ export function rowToTransaction(
       category: row.operation_category ?? 'transfer',
       type: row.operation_type ?? 'transfer',
     },
-    isSpam: row.is_spam ? true : undefined,
     excludedFromAccounting: row.excluded_from_accounting ? true : undefined,
   };
 
@@ -397,7 +396,7 @@ export async function materializeTransactionUserNoteOverrides(
     db,
     logger,
     async (trx) => {
-      const rowsById = new Map<number, { id: number; tx_fingerprint: string; user_notes_json: unknown; }>();
+      const rowsById = new Map<number, { id: number; tx_fingerprint: string; user_notes_json: unknown }>();
       const batchedTransactionIds =
         params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
           ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)

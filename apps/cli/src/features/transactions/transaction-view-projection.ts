@@ -4,7 +4,7 @@ import type {
   Transaction,
   TransactionBalanceImpactAssetEntry,
 } from '@exitbook/core';
-import { buildTransactionBalanceImpact, computePrimaryMovement } from '@exitbook/core';
+import { buildTransactionBalanceImpact, computePrimaryMovement, isTransactionMarkedSpam } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
 
 import type { FeeDisplayItem, MovementDisplayItem, TransactionViewItem } from './transactions-view-model.js';
@@ -180,6 +180,6 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
       message: userNote.message,
     })),
     excludedFromAccounting: tx.excludedFromAccounting ?? false,
-    isSpam: tx.isSpam ?? false,
+    hasSpamDiagnostic: isTransactionMarkedSpam(tx),
   };
 }

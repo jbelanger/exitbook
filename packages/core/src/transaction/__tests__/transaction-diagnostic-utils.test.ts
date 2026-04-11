@@ -18,11 +18,10 @@ function createDiagnostics(codes: string[]): TransactionDiagnostic[] {
 }
 
 function createTransaction(
-  overrides: Partial<Pick<Transaction, 'diagnostics' | 'isSpam'>> = {}
-): Pick<Transaction, 'diagnostics' | 'isSpam'> {
+  overrides: Partial<Pick<Transaction, 'diagnostics'>> = {}
+): Pick<Transaction, 'diagnostics'> {
   return {
     diagnostics: overrides.diagnostics,
-    isSpam: overrides.isSpam,
   };
 }
 
@@ -52,8 +51,7 @@ describe('transaction diagnostic utils', () => {
     );
   });
 
-  it('treats isSpam or SCAM_TOKEN as a spam-marked transaction', () => {
-    expect(isTransactionMarkedSpam(createTransaction({ isSpam: true }))).toBe(true);
+  it('treats SCAM_TOKEN as a spam-marked transaction', () => {
     expect(isTransactionMarkedSpam(createTransaction({ diagnostics: createDiagnostics(['SCAM_TOKEN']) }))).toBe(true);
     expect(isTransactionMarkedSpam(createTransaction({ diagnostics: createDiagnostics(['SUSPICIOUS_AIRDROP']) }))).toBe(
       false

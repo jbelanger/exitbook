@@ -14,7 +14,7 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
     currentQuantity: '100',
     evidence: [
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'Provider flagged this token as spam',
       },
@@ -125,7 +125,7 @@ describe('AssetsViewApp', () => {
       [
         createAsset({
           evidence: [
-            { kind: 'spam-flag', severity: 'error', message: 'spam' },
+            { kind: 'scam-diagnostic', severity: 'error', message: 'spam' },
             { kind: 'same-symbol-ambiguity', severity: 'warning', message: 'ambiguity' },
           ],
         }),
@@ -279,7 +279,7 @@ describe('AssetsViewApp', () => {
           confirmationIsStale: false,
           evidence: [
             {
-              kind: 'spam-flag',
+              kind: 'scam-diagnostic',
               severity: 'error',
               message: 'Provider flagged this token as spam',
             },
@@ -296,10 +296,10 @@ describe('AssetsViewApp', () => {
 
     expect(frame).toContain('Review Queue');
     expect(frame).toContain('[Review]');
-    expect(frame).toContain('possible spam');
-    expect(frame).toContain('Why: possible spam');
+    expect(frame).toContain('scam warnings in imported transactions');
+    expect(frame).toContain('Why: scam warnings in imported transactions');
     expect(frame).toContain('Action: Press c to mark it reviewed, or x to exclude it.');
-    expect(frame).toContain('Imported transactions marked this asset as spam.');
+    expect(frame).toContain('Imported transactions include scam warnings.');
     expect(frame).not.toContain('Next action:');
     expect(frame).not.toContain('Reference:');
   });

@@ -83,9 +83,9 @@ These distinctions matter for cost-basis calculation: on-chain fees reduce dispo
 
 ### Scam and spam detection during processing
 
-**Decision**: `BaseTransactionProcessor.runScamDetection()` runs during the processing phase, before transactions are saved. Detected spam is flagged (`isSpam = true`) and annotated with notes, but the transaction is still stored.
+**Decision**: `BaseTransactionProcessor.runScamDetection()` runs during the processing phase, before transactions are saved. Detected spam/scam activity is recorded in `transactionDiagnostics`, but the transaction is still stored.
 
-**Why**: Airdrop spam is rampant on EVM chains. Unsolicited token transfers appear as real inflows, inflating portfolio balances and polluting transaction lists. Detecting spam during processing (rather than at display time) ensures the flag is persisted and available to all downstream consumers — balance calculations, cost-basis, and UI filtering.
+**Why**: Airdrop spam is rampant on EVM chains. Unsolicited token transfers appear as real inflows, inflating portfolio balances and polluting transaction lists. Detecting spam during processing (rather than at display time) ensures the diagnostic is persisted and available to all downstream consumers — balance calculations, cost-basis, and UI filtering.
 
 Flagged transactions are stored rather than dropped because a false positive on spam detection would silently delete real transactions.
 

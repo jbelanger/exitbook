@@ -73,9 +73,8 @@ and needs review.
 Current risk evidence kinds:
 
 - `provider-spam-flag`
-- `spam-flag`
-- `scam-note`
-- `suspicious-airdrop-note`
+- `scam-diagnostic`
+- `suspicious-airdrop-diagnostic`
 - `same-symbol-ambiguity`
 
 Risk evidence can drive `needs-review` or `accountingBlocked`, but it does not
@@ -166,10 +165,9 @@ interface AssetReviewSummary {
   evidence: Array<{
     kind:
       | 'provider-spam-flag'
-      | 'scam-note'
-      | 'suspicious-airdrop-note'
+      | 'scam-diagnostic'
+      | 'suspicious-airdrop-diagnostic'
       | 'same-symbol-ambiguity'
-      | 'spam-flag'
       | 'unmatched-reference';
     severity: 'warning' | 'error';
     message: string;
@@ -330,23 +328,21 @@ Current evidence rules:
 
 - `token_metadata.possibleSpam === true` produces `provider-spam-flag`
   (`error`)
-- `transaction.isSpam === true` produces `spam-flag` (`error`) when the asset
-  is the only primary asset or a targeted scam note applies to it
-- one or more `SCAM_TOKEN` notes produce `scam-note`
-- one or more `SUSPICIOUS_AIRDROP` notes produce
-  `suspicious-airdrop-note`
+- one or more applicable `SCAM_TOKEN` diagnostics produce `scam-diagnostic`
+- one or more applicable `SUSPICIOUS_AIRDROP` diagnostics produce
+  `suspicious-airdrop-diagnostic`
 - `referenceStatus === 'unmatched'` produces `unmatched-reference`
   (`warning`)
 
 Severity rules:
 
-- `scam-note` is `error` if any contributing `SCAM_TOKEN` note is not
+- `scam-diagnostic` is `error` if any contributing `SCAM_TOKEN` diagnostic is not
   `warning`; otherwise it is `warning`
-- `suspicious-airdrop-note` is `error` only if any contributing
-  `SUSPICIOUS_AIRDROP` note is `error`; warning-only airdrop notes stay
+- `suspicious-airdrop-diagnostic` is `error` only if any contributing
+  `SUSPICIOUS_AIRDROP` diagnostic is `error`; warning-only airdrop diagnostics stay
   non-blocking
 
-Count-based note evidence stores `{ count }` in metadata.
+Count-based diagnostic evidence stores `{ count }` in metadata.
 
 ### Same-Symbol Ambiguity
 

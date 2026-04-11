@@ -14,7 +14,7 @@ Defines how Exitbook excludes transactions or assets from accounting-facing work
 | Concept              | Key Rule                                                                                          |
 | -------------------- | ------------------------------------------------------------------------------------------------- |
 | Baseline exclusion   | Whole-transaction exclusion is persisted on `transactions.excluded_from_accounting`               |
-| Spam default         | `isSpam: true` auto-excludes unless `excludedFromAccounting: false` is set explicitly             |
+| Spam/scam signal     | diagnostics may inform review surfaces, but they do not auto-set baseline exclusion               |
 | User policy source   | Asset exclusions come from override events, not a balances projection or cached transaction field |
 | Policy identity      | User exclusions are keyed by `profileKey + assetId`, never by display symbol alone                |
 | Scoped seam          | Asset exclusion is applied after `buildCostBasisScopedTransactions()`                             |
@@ -46,13 +46,13 @@ Current write rule:
 
 ```text
 excluded_from_accounting =
-  transaction.excludedFromAccounting ?? transaction.isSpam ?? false
+  transaction.excludedFromAccounting ?? false
 ```
 
 Consequences:
 
-- `isSpam: true` auto-excludes by default.
-- `excludedFromAccounting: false` explicitly prevents that auto-exclusion.
+- `excludedFromAccounting` is the only persisted whole-transaction exclusion input.
+- spam/scam diagnostics remain available to downstream review and visibility policy, but they do not auto-write the baseline exclusion flag.
 - Repository reads round-trip exclusion as `true | undefined`, not strict `true | false`.
 
 ### Accounting Exclusion Policy
@@ -222,14 +222,12 @@ These are operator surfaces, not accounting filters.
 ### Transactions
 
 ```sql
-excluded_from_accounting INTEGER NOT NULL DEFAULT 0,
-is_spam INTEGER NOT NULL DEFAULT 0
+excluded_from_accounting INTEGER NOT NULL DEFAULT 0
 ```
 
 Semantics:
 
 - `excluded_from_accounting` is the persisted whole-transaction baseline exclusion flag.
-- `is_spam` is importer/processor intent that auto-feeds the baseline exclusion rule unless explicitly overridden.
 
 ### Override Events
 

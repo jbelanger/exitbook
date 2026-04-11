@@ -54,7 +54,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
           warningSummary: 'Suspicious asset evidence',
           evidence: [
             {
-              kind: 'spam-flag',
+              kind: 'scam-diagnostic',
               severity: 'error',
               message: 'Flagged for review',
             },

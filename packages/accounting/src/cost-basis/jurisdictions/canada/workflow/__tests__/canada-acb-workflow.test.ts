@@ -18,7 +18,7 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
     warningSummary: 'Suspicious asset evidence requires review',
     evidence: [
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'Processed transactions marked this asset as spam',
       },

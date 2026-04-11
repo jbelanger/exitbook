@@ -198,7 +198,6 @@ export function convertToNormalizedCSV(
     'block_height',
     'transaction_hash',
     'is_confirmed',
-    'is_spam',
     'excluded_from_accounting',
   ];
 
@@ -283,7 +282,6 @@ export function convertToNormalizedCSV(
         tx.blockchain?.block_height,
         tx.blockchain?.transaction_hash,
         tx.blockchain?.is_confirmed,
-        tx.isSpam,
         tx.excludedFromAccounting,
       ])
     );

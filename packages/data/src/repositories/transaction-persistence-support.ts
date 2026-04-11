@@ -339,7 +339,6 @@ export function buildInsertValues(
       account_id: accountId,
       diagnostics_json: diagnosticsJsonResult.value ?? null,
       user_notes_json: userNotesJsonResult.value ?? null,
-      is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
       platform_key: transaction.platformKey,
       platform_kind: transaction.platformKind,

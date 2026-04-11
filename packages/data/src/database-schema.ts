@@ -138,9 +138,6 @@ export interface TransactionsTable {
   // User-authored notes (Array<UserNote>)
   user_notes_json: JSONString | null;
 
-  // Spam detection
-  is_spam: boolean; // SQLite: INTEGER (0/1), default 0
-
   // Accounting exclusions
   excluded_from_accounting: boolean; // Skip from price enrichment and cost basis (e.g., scam tokens)
 

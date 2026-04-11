@@ -56,7 +56,6 @@ describe('buildProcessedTransactionsResetPorts', () => {
         tx_fingerprint: seedTxFingerprint('test', accountId, identityReference),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
-        is_spam: false,
         excluded_from_accounting: false,
         created_at: new Date().toISOString(),
       })

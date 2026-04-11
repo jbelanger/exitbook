@@ -10,7 +10,6 @@ export const AssetReviewEvidenceSchema = z.object({
     'scam-diagnostic',
     'suspicious-airdrop-diagnostic',
     'same-symbol-ambiguity',
-    'spam-flag',
     'unmatched-reference',
   ]),
   severity: z.enum(['warning', 'error']),

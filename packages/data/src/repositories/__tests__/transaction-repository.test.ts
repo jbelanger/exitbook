@@ -156,7 +156,6 @@ describe('TransactionRepository', () => {
             tx_fingerprint: seedTxFingerprint(platformKey, accountId, identityReference),
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             operation_type: 'deposit',
             created_at: new Date().toISOString(),
@@ -213,7 +212,6 @@ describe('TransactionRepository', () => {
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            is_spam: false,
             excluded_from_accounting: false,
             operation_type: 'transfer',
             created_at: new Date().toISOString(),
@@ -249,7 +247,7 @@ describe('TransactionRepository', () => {
           .execute();
       }
 
-      // 2 scam token transactions (is_spam persisted, excluded_from_accounting true for filter coverage)
+      // 2 scam token transactions (diagnostics persisted, excluded_from_accounting true for filter coverage)
       for (let i = 4; i <= 5; i++) {
         const identityReference = `scam-tx-${i}`;
         const txFingerprint = seedTxFingerprint('ethereum', 1, identityReference);
@@ -266,7 +264,6 @@ describe('TransactionRepository', () => {
             diagnostics_json: JSON.stringify([
               { code: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' },
             ]),
-            is_spam: true,
             excluded_from_accounting: true,
             operation_type: 'transfer',
             created_at: new Date().toISOString(),
@@ -332,7 +329,7 @@ describe('TransactionRepository', () => {
     });
   });
 
-  describe('save — isSpam field', () => {
+  describe('save — diagnostics persistence', () => {
     beforeEach(async () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
@@ -342,7 +339,7 @@ describe('TransactionRepository', () => {
       await seedImportSession(db, 1, 1);
     });
 
-    it('persists isSpam=true without auto-excluding from accounting', async () => {
+    it('persists SCAM_TOKEN diagnostics without auto-excluding from accounting', async () => {
       const tx = {
         blockchain: {
           is_confirmed: true,
@@ -351,7 +348,6 @@ describe('TransactionRepository', () => {
         },
         datetime: new Date().toISOString(),
         fees: [],
-        isSpam: true,
         movements: {
           inflows: [
             {
@@ -363,12 +359,14 @@ describe('TransactionRepository', () => {
           ],
           outflows: [],
         },
-        note: {
-          message: '⚠️ Scam token detected',
-          metadata: { scamReason: 'Flagged by provider', scamAsset: 'SCAM' },
-          severity: 'error' as const,
-          type: 'SCAM_TOKEN',
-        },
+        diagnostics: [
+          {
+            code: 'SCAM_TOKEN',
+            message: 'Scam token detected',
+            metadata: { scamReason: 'Flagged by provider', scamAsset: 'SCAM' },
+            severity: 'error' as const,
+          },
+        ],
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
         platformKind: 'blockchain' as const,
@@ -383,12 +381,12 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-1'))
         .executeTakeFirst();
+      expect(row?.diagnostics_json).toContain('SCAM_TOKEN');
       const movementRow = await db
         .selectFrom('transaction_movements')
         .selectAll()
         .where('transaction_id', '=', row!.id)
         .executeTakeFirst();
-      expect(row?.is_spam).toBe(1);
       expect(row?.excluded_from_accounting).toBe(0);
       expect(row?.tx_fingerprint).toBe(seedTxFingerprint('ethereum', 1, 'spam-tx-1'));
       expect(movementRow?.movement_fingerprint).toBe(
@@ -400,7 +398,7 @@ describe('TransactionRepository', () => {
       );
     });
 
-    it('persists isSpam=false and does not exclude from accounting', async () => {
+    it('persists transactions without diagnostics and does not exclude from accounting', async () => {
       const tx = {
         blockchain: {
           is_confirmed: true,
@@ -409,7 +407,6 @@ describe('TransactionRepository', () => {
         },
         datetime: new Date().toISOString(),
         fees: [],
-        isSpam: false,
         movements: {
           inflows: [
             {
@@ -435,11 +432,11 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'legit-tx-1'))
         .executeTakeFirst();
-      expect(row?.is_spam).toBe(0);
+      expect(row?.diagnostics_json).toBeNull();
       expect(row?.excluded_from_accounting).toBe(0);
     });
 
-    it('defaults isSpam to false when not specified', async () => {
+    it('defaults diagnostics_json to null when not specified', async () => {
       const tx = {
         blockchain: {
           is_confirmed: true,
@@ -473,10 +470,10 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'normal-tx-1'))
         .executeTakeFirst();
-      expect(row?.is_spam).toBe(0);
+      expect(row?.diagnostics_json).toBeNull();
     });
 
-    it('respects explicit excludedFromAccounting=false even when isSpam=true', async () => {
+    it('respects explicit excludedFromAccounting=false even when diagnostics mark the transaction as scam', async () => {
       const tx = {
         blockchain: {
           is_confirmed: true,
@@ -485,8 +482,14 @@ describe('TransactionRepository', () => {
         },
         datetime: new Date().toISOString(),
         excludedFromAccounting: false,
+        diagnostics: [
+          {
+            code: 'SCAM_TOKEN',
+            message: 'Scam token detected',
+            severity: 'error' as const,
+          },
+        ],
         fees: [],
-        isSpam: true,
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
@@ -502,11 +505,11 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-2'))
         .executeTakeFirst();
-      expect(row?.is_spam).toBe(1);
+      expect(row?.diagnostics_json).toContain('SCAM_TOKEN');
       expect(row?.excluded_from_accounting).toBe(0);
     });
 
-    it('does not auto-exclude when isSpam=true and excludedFromAccounting is not set', async () => {
+    it('does not auto-exclude when scam diagnostics are present and excludedFromAccounting is not set', async () => {
       const tx = {
         blockchain: {
           is_confirmed: true,
@@ -514,8 +517,14 @@ describe('TransactionRepository', () => {
           transaction_hash: 'spam-tx-3',
         },
         datetime: new Date().toISOString(),
+        diagnostics: [
+          {
+            code: 'SCAM_TOKEN',
+            message: 'Scam token detected',
+            severity: 'error' as const,
+          },
+        ],
         fees: [],
-        isSpam: true,
         movements: { inflows: [], outflows: [] },
         operation: { category: 'transfer' as const, type: 'deposit' as const },
         platformKey: 'ethereum',
@@ -531,7 +540,7 @@ describe('TransactionRepository', () => {
         .selectAll()
         .where('tx_fingerprint', '=', seedTxFingerprint('ethereum', 1, 'spam-tx-3'))
         .executeTakeFirst();
-      expect(row?.is_spam).toBe(1);
+      expect(row?.diagnostics_json).toContain('SCAM_TOKEN');
       expect(row?.excluded_from_accounting).toBe(0);
     });
   });
@@ -661,7 +670,6 @@ describe('TransactionRepository', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
-          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -812,7 +820,6 @@ describe('TransactionRepository', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
-          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -948,7 +955,6 @@ describe('TransactionRepository', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'swap',
-          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -1042,7 +1048,6 @@ describe('TransactionRepository', () => {
           transaction_status: 'success',
           transaction_datetime: new Date().toISOString(),
           operation_type: 'deposit',
-          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -1156,7 +1161,6 @@ describe('TransactionRepository', () => {
               message: 'Imported from CSV',
             },
           ]),
-          is_spam: false,
           excluded_from_accounting: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -1222,7 +1226,6 @@ describe('TransactionRepository', () => {
                 author: 'user',
               },
             ]),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -1242,7 +1245,6 @@ describe('TransactionRepository', () => {
                 author: 'user',
               },
             ]),
-            is_spam: false,
             excluded_from_accounting: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -1473,7 +1475,6 @@ describe('TransactionRepository', () => {
             tx_fingerprint: firstFingerprint,
             transaction_status: 'success',
             transaction_datetime: '2025-01-01T00:00:00.000Z',
-            is_spam: false,
             excluded_from_accounting: false,
             operation_type: 'deposit',
             created_at: new Date().toISOString(),
@@ -1487,7 +1488,6 @@ describe('TransactionRepository', () => {
             tx_fingerprint: secondFingerprint,
             transaction_status: 'success',
             transaction_datetime: '2025-01-02T00:00:00.000Z',
-            is_spam: false,
             excluded_from_accounting: false,
             operation_type: 'deposit',
             created_at: new Date().toISOString(),
@@ -1522,7 +1522,6 @@ describe('TransactionRepository', () => {
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: transactionDatetime,
-            is_spam: false,
             excluded_from_accounting: false,
             operation_type: 'deposit',
             created_at: new Date().toISOString(),

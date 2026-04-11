@@ -23,7 +23,6 @@ function createTransaction(params: {
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   includeFeeWithSameAsset?: boolean | undefined;
-  isSpam?: boolean | undefined;
   platformKey?: string | undefined;
   txFingerprint: string;
 }): Transaction {
@@ -93,7 +92,6 @@ function createTransaction(params: {
     platformKey: params.platformKey ?? 'ethereum',
     platformKind: 'blockchain',
     status: 'success',
-    isSpam: params.isSpam,
     movements: {
       inflows,
       outflows: [],
@@ -111,7 +109,6 @@ function createMultiAssetTransaction(params: {
   diagnostics?: Transaction['diagnostics'];
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
-  isSpam?: boolean | undefined;
   platformKey?: string | undefined;
   primaryAssets: { assetId: string; assetSymbol: string }[];
   txFingerprint: string;
@@ -140,7 +137,6 @@ function createMultiAssetTransaction(params: {
     platformKey: params.platformKey ?? 'ethereum',
     platformKind: 'blockchain',
     status: 'success',
-    isSpam: params.isSpam,
     movements: {
       inflows,
       outflows: [],
@@ -196,7 +192,6 @@ describe('buildAssetReviewSummaries', () => {
         txFingerprint: 'tx-1',
         assetId: scamAssetId,
         assetSymbol: 'SCAM',
-        isSpam: true,
         fees: [{ assetId: nativeAssetId, assetSymbol: 'ETH' }],
         diagnostics: [
           {
@@ -218,7 +213,7 @@ describe('buildAssetReviewSummaries', () => {
       reviewStatus: 'needs-review',
       accountingBlocked: true,
     });
-    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic', 'spam-flag']);
+    expect(summaries.get(scamAssetId)?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic']);
     expect(summaries.get(nativeAssetId)).toMatchObject({
       reviewStatus: 'clear',
       accountingBlocked: false,
@@ -493,7 +488,13 @@ describe('buildAssetReviewSummaries', () => {
         txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'SCAM',
-        isSpam: true,
+        diagnostics: [
+          {
+            code: 'SCAM_TOKEN',
+            severity: 'error',
+            message: 'Provider marked this token as scam',
+          },
+        ],
       }),
     ]);
     const initialFingerprint = assertOk(initialResult).get(assetId)?.evidenceFingerprint;
@@ -505,7 +506,13 @@ describe('buildAssetReviewSummaries', () => {
           txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'SCAM',
-          isSpam: true,
+          diagnostics: [
+            {
+              code: 'SCAM_TOKEN',
+              severity: 'error',
+              message: 'Provider marked this token as scam',
+            },
+          ],
         }),
       ],
       {
@@ -539,7 +546,13 @@ describe('buildAssetReviewSummaries', () => {
         txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'SCAM',
-        isSpam: true,
+        diagnostics: [
+          {
+            code: 'SCAM_TOKEN',
+            severity: 'error',
+            message: 'Provider marked this token as scam',
+          },
+        ],
       }),
     ]);
     const initialFingerprint = assertOk(initialResult).get(assetId)?.evidenceFingerprint;
@@ -551,8 +564,12 @@ describe('buildAssetReviewSummaries', () => {
           txFingerprint: 'tx-1',
           assetId,
           assetSymbol: 'SCAM',
-          isSpam: true,
           diagnostics: [
+            {
+              code: 'SCAM_TOKEN',
+              severity: 'error',
+              message: 'Provider marked this token as scam',
+            },
             {
               code: 'SUSPICIOUS_AIRDROP',
               severity: 'warning',
@@ -579,10 +596,10 @@ describe('buildAssetReviewSummaries', () => {
     expect(summary).toMatchObject({
       reviewStatus: 'needs-review',
       confirmationIsStale: true,
-      accountingBlocked: false,
+      accountingBlocked: true,
       confirmedEvidenceFingerprint: initialFingerprint,
     });
-    expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-diagnostic']);
+    expect(summary?.evidence.map((item) => item.kind)).toEqual(['scam-diagnostic', 'suspicious-airdrop-diagnostic']);
   });
 
   it('keeps warning-only evidence visible without blocking accounting', async () => {

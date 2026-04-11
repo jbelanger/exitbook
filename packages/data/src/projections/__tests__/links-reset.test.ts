@@ -35,7 +35,6 @@ describe('buildLinksResetPorts', () => {
         tx_fingerprint: seedTxFingerprint('test', 1, tx1Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
-        is_spam: false,
         excluded_from_accounting: false,
         created_at: new Date().toISOString(),
       })
@@ -51,7 +50,6 @@ describe('buildLinksResetPorts', () => {
         tx_fingerprint: seedTxFingerprint('test', 2, tx2Fingerprint),
         transaction_status: 'success',
         transaction_datetime: '2025-01-01T00:00:00.000Z',
-        is_spam: false,
         excluded_from_accounting: false,
         created_at: new Date().toISOString(),
       })

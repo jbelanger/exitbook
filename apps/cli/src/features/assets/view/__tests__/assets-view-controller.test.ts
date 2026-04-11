@@ -13,7 +13,7 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
     currentQuantity: '100',
     evidence: [
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'Suspicious asset evidence requires review',
       },
@@ -267,7 +267,7 @@ describe('assetsViewReducer', () => {
       review: {
         accountingBlocked: true,
         confirmationIsStale: false,
-        evidence: [{ kind: 'spam-flag', severity: 'error', message: 'spam' }],
+        evidence: [{ kind: 'scam-diagnostic', severity: 'error', message: 'spam' }],
         evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
         referenceStatus: 'unknown',
         reviewStatus: 'needs-review',

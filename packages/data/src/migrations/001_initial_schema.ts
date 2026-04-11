@@ -181,7 +181,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('to_address', 'text')
     .addColumn('diagnostics_json', 'text') // Array<TransactionDiagnostic>
     .addColumn('user_notes_json', 'text') // Array<UserNote>
-    .addColumn('is_spam', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
     // Structured movements - REMOVED (normalized to transaction_movements table)
     // Structured fees - REMOVED (normalized to transaction_movements table)
@@ -634,7 +633,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('metadata_json', 'text')
     .addCheckConstraint(
       'asset_review_evidence_kind_valid',
-      sql`kind IN ('provider-spam-flag', 'scam-diagnostic', 'suspicious-airdrop-diagnostic', 'same-symbol-ambiguity', 'spam-flag', 'unmatched-reference')`
+      sql`kind IN ('provider-spam-flag', 'scam-diagnostic', 'suspicious-airdrop-diagnostic', 'same-symbol-ambiguity', 'unmatched-reference')`
     )
     .addCheckConstraint('asset_review_evidence_severity_valid', sql`severity IN ('warning', 'error')`)
     .addCheckConstraint(

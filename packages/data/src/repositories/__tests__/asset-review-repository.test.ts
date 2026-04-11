@@ -21,7 +21,7 @@ function createSummary(assetId: string, overrides: Partial<AssetReviewSummary> =
     warningSummary: 'Suspicious asset evidence requires review',
     evidence: [
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'Processed transactions marked this asset as spam',
       },
@@ -60,7 +60,7 @@ describe('AssetReviewRepository', () => {
               },
             },
             {
-              kind: 'spam-flag',
+              kind: 'scam-diagnostic',
               severity: 'error',
               message: 'Processed transactions marked this asset as spam',
             },
@@ -95,7 +95,7 @@ describe('AssetReviewRepository', () => {
         },
       },
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'Processed transactions marked this asset as spam',
       },
@@ -159,7 +159,7 @@ describe('AssetReviewRepository', () => {
         profile_id: PROFILE_ID,
         asset_id: 'blockchain:ethereum:0xscam',
         position: 0,
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'bad metadata row',
         metadata_json: '[]',
@@ -198,7 +198,7 @@ describe('AssetReviewRepository', () => {
             },
           },
           {
-            kind: 'spam-flag',
+            kind: 'scam-diagnostic',
             severity: 'error',
             message: `Spam asset ${index}`,
           },

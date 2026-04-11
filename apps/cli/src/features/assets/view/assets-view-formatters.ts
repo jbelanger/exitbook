@@ -64,11 +64,7 @@ export function getAssetReason(asset: AssetViewItem): string | undefined {
     return 'same symbol conflict';
   }
 
-  if (
-    asset.evidence.some(
-      (item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag' || item.kind === 'unmatched-reference'
-    )
-  ) {
+  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'unmatched-reference')) {
     return 'possible spam';
   }
 
@@ -143,8 +139,6 @@ export function formatAssetEvidenceMessage(kind: AssetViewItem['evidence'][numbe
   switch (kind) {
     case 'provider-spam-flag':
       return 'A provider marked this token as spam.';
-    case 'spam-flag':
-      return 'Imported transactions marked this asset as spam.';
     case 'unmatched-reference':
       return 'Canonical reference lookup could not match this token.';
     case 'scam-diagnostic':
@@ -207,12 +201,7 @@ function countDistinctReasonCategories(asset: AssetViewItem): number {
   let count = 0;
   if (asset.confirmationIsStale) count++;
   if (asset.evidence.some((item) => item.kind === 'same-symbol-ambiguity')) count++;
-  if (
-    asset.evidence.some(
-      (item) => item.kind === 'provider-spam-flag' || item.kind === 'spam-flag' || item.kind === 'unmatched-reference'
-    )
-  )
-    count++;
+  if (asset.evidence.some((item) => item.kind === 'provider-spam-flag' || item.kind === 'unmatched-reference')) count++;
   if (asset.evidence.some((item) => item.kind === 'scam-diagnostic')) count++;
   if (asset.evidence.some((item) => item.kind === 'suspicious-airdrop-diagnostic')) count++;
   return count;

@@ -25,6 +25,6 @@ export function transactionHasAnyDiagnosticCode(
   return hasAnyDiagnosticCode(transaction.diagnostics, codes);
 }
 
-export function isTransactionMarkedSpam(transaction: Pick<Transaction, 'diagnostics' | 'isSpam'>): boolean {
-  return transaction.isSpam === true || transactionHasDiagnosticCode(transaction, 'SCAM_TOKEN');
+export function isTransactionMarkedSpam(transaction: Pick<Transaction, 'diagnostics'>): boolean {
+  return transactionHasDiagnosticCode(transaction, 'SCAM_TOKEN');
 }

@@ -19,7 +19,7 @@ function createAsset(overrides: Partial<AssetViewItem> = {}): AssetViewItem {
     currentQuantity: '100',
     evidence: [
       {
-        kind: 'spam-flag',
+        kind: 'scam-diagnostic',
         severity: 'error',
         message: 'spam',
       },
@@ -64,7 +64,7 @@ describe('buildAssetsStaticList', () => {
     expect(stripAnsi(output)).toContain('ASSET ID');
     expect(stripAnsi(output)).toContain('SCAM');
     expect(stripAnsi(output)).toContain('Review');
-    expect(stripAnsi(output)).toContain('possible spam');
+    expect(stripAnsi(output)).toContain('scam warnings in imported transactions');
     expect(stripAnsi(output)).toContain('blockchain:ethereum:0xscam');
     expect(stripAnsi(output)).toContain('BTC');
     expect(stripAnsi(output)).not.toContain('q quit');

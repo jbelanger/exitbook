@@ -146,17 +146,16 @@ Rules:
 
 ## Migration Map From Current Notes
 
-| Current note type / field              | Future home                                                        |
-| -------------------------------------- | ------------------------------------------------------------------ |
-| `staking_withdrawal`                   | `movementRole='staking_reward'`                                    |
-| `bridge_transfer`                      | `transactionDiagnostics`                                           |
-| `classification_uncertain`             | `transactionDiagnostics`                                           |
-| `classification_failed`                | `transactionDiagnostics`                                           |
-| `contract_interaction`                 | `transactionDiagnostics`                                           |
-| `allocation_uncertain`                 | `transactionDiagnostics`                                           |
-| `SCAM_TOKEN` / `SUSPICIOUS_AIRDROP`    | `transactionDiagnostics`                                           |
-| `isSpam`                               | explicit transaction flag derived from diagnostics / scam workflow |
-| free-form durable transaction override | `userNotes`                                                        |
+| Current note type / field              | Future home                     |
+| -------------------------------------- | ------------------------------- |
+| `staking_withdrawal`                   | `movementRole='staking_reward'` |
+| `bridge_transfer`                      | `transactionDiagnostics`        |
+| `classification_uncertain`             | `transactionDiagnostics`        |
+| `classification_failed`                | `transactionDiagnostics`        |
+| `contract_interaction`                 | `transactionDiagnostics`        |
+| `allocation_uncertain`                 | `transactionDiagnostics`        |
+| `SCAM_TOKEN` / `SUSPICIOUS_AIRDROP`    | `transactionDiagnostics`        |
+| free-form durable transaction override | `userNotes`                     |
 
 ## Behavioral Rules
 
@@ -236,7 +235,6 @@ interface Transaction {
   fees: FeeMovement[];
   diagnostics?: TransactionDiagnostic[] | undefined;
   userNotes?: UserNote[] | undefined;
-  isSpam?: boolean | undefined;
   excludedFromAccounting?: boolean | undefined;
 }
 ```
