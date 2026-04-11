@@ -28,6 +28,9 @@ export interface CardanoFundFlow {
   feeCurrency: Currency;
   feePaidByUser: boolean;
 
+  // Cardano-specific wallet-scope semantics
+  attributedWithdrawalAmount?: string | undefined;
+
   // Addresses involved
   fromAddress?: string | undefined;
   toAddress?: string | undefined;

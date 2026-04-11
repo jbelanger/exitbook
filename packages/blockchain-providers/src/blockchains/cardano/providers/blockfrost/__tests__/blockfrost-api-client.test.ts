@@ -104,6 +104,15 @@ function buildTransactionUtxosResponse() {
   };
 }
 
+function buildTransactionWithdrawalsResponse() {
+  return [
+    {
+      address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+      amount: '10524451',
+    },
+  ];
+}
+
 // ── Test suite ──────────────────────────────────────────────────────
 
 describe('BlockfrostApiClient', () => {
@@ -382,6 +391,30 @@ describe('BlockfrostApiClient', () => {
       expect(transactions[0]!.providerName).toBe('blockfrost');
       expect(transactions[0]!.currency).toBe('ADA');
       expect(transactions[0]!.status).toBe('success');
+    });
+
+    it('should fetch and map staking withdrawals when present', async () => {
+      mockGet.mockResolvedValueOnce(ok([buildTransactionHashResponse()]));
+      mockGet.mockResolvedValueOnce(ok({ ...buildTransactionDetailsResponse(), withdrawal_count: 1 }));
+      mockGet.mockResolvedValueOnce(ok(buildTransactionUtxosResponse()));
+      mockGet.mockResolvedValueOnce(ok(buildTransactionWithdrawalsResponse()));
+
+      const transactions: CardanoTransaction[] = [];
+      for await (const result of client.executeStreaming<CardanoTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions[0]?.withdrawals).toEqual([
+        {
+          address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+          amount: '10.524451',
+          currency: 'ADA',
+        },
+      ]);
     });
 
     it('should handle 404 during streaming as empty result', async () => {

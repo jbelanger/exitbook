@@ -1072,6 +1072,7 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 5,
           valid_contract: true,
+          withdrawals: [],
         };
 
         const result = BlockfrostTransactionWithMetadataSchema.safeParse(valid);
@@ -1102,6 +1103,7 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 0,
           valid_contract: false,
+          withdrawals: [],
         };
 
         const result = BlockfrostTransactionWithMetadataSchema.safeParse(valid);
@@ -1159,6 +1161,7 @@ describe('blockfrost.schemas', () => {
           fees: 'not-a-number',
           tx_index: 0,
           valid_contract: true,
+          withdrawals: [],
         };
 
         const result = BlockfrostTransactionWithMetadataSchema.safeParse(invalid);
@@ -1192,6 +1195,7 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 0,
           valid_contract: true,
+          withdrawals: [],
         };
 
         const result = BlockfrostTransactionWithMetadataSchema.safeParse(invalid);
@@ -1222,6 +1226,7 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: -1,
           valid_contract: true,
+          withdrawals: [],
         };
 
         const result = BlockfrostTransactionWithMetadataSchema.safeParse(invalid);

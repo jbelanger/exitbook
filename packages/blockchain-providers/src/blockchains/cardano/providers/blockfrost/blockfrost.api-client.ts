@@ -28,22 +28,28 @@ import type { CardanoTransaction } from '../../schemas.js';
 import { createRawBalanceData } from '../../utils.js';
 
 import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
-import type { BlockfrostTransactionHash, BlockfrostTransactionWithMetadata } from './blockfrost.schemas.js';
+import type {
+  BlockfrostTransactionHash,
+  BlockfrostTransactionWithMetadata,
+  BlockfrostWithdrawal,
+} from './blockfrost.schemas.js';
 import {
   BlockfrostAddressSchema,
   BlockfrostHealthSchema,
   BlockfrostTransactionDetailsSchema,
   BlockfrostTransactionHashSchema,
   BlockfrostTransactionUtxosSchema,
+  BlockfrostWithdrawalSchema,
 } from './blockfrost.schemas.js';
 
 /**
  * Blockfrost API client for Cardano blockchain data.
  *
- * Implements a three-call pattern to fetch complete transaction data:
+ * Implements a conditional three/four-call pattern to fetch complete transaction data:
  * 1. GET /addresses/{address}/transactions - Fetches transaction hashes with basic metadata
  * 2. GET /txs/{hash} - Fetches complete transaction details including fees and block info
  * 3. GET /txs/{hash}/utxos - Fetches detailed UTXO data for each transaction
+ * 4. GET /txs/{hash}/withdrawals - Fetches staking reward withdrawals when present
  *
  * Blockfrost requires an API key provided via the BLOCKFROST_API_KEY environment variable.
  * The API key is sent in the "project_id" header for authentication.
@@ -352,8 +358,8 @@ export class BlockfrostApiClient extends BaseApiClient {
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<CardanoTransaction>, Error>> {
-    // Use smaller page size to minimize API usage (each tx = 3 API calls: hash + details + utxos)
-    // 10 transactions = 31 API calls per batch (1 for hashes + 10 details + 10 utxos)
+    // Use smaller page size to minimize API usage (each tx = 3-4 API calls depending on withdrawals)
+    // 10 transactions = 31-41 API calls per batch (1 for hashes + 10 details + 10 utxos + optional 10 withdrawals)
     const pageSize = 10;
 
     const fetchPage = async (
@@ -445,6 +451,23 @@ export class BlockfrostApiClient extends BaseApiClient {
 
         const rawUtxo = utxoResult.value;
 
+        let withdrawals: BlockfrostWithdrawal[] = [];
+        if (txDetails.withdrawal_count > 0) {
+          const withdrawalsResult = await this.httpClient.get(`/txs/${txHash}/withdrawals`, {
+            headers: { project_id: this.apiKey },
+            schema: z.array(BlockfrostWithdrawalSchema),
+          });
+
+          if (withdrawalsResult.isErr()) {
+            this.logger.error(
+              `Failed to fetch staking withdrawals for transaction - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(withdrawalsResult.error)}`
+            );
+            return err(withdrawalsResult.error);
+          }
+
+          withdrawals = withdrawalsResult.value;
+        }
+
         // Combine UTXO data with transaction metadata
         const combinedData: BlockfrostTransactionWithMetadata = {
           ...rawUtxo,
@@ -454,6 +477,7 @@ export class BlockfrostApiClient extends BaseApiClient {
           fees: txDetails.fees,
           tx_index: txHashEntry.tx_index,
           valid_contract: txDetails.valid_contract,
+          withdrawals,
         };
 
         transactions.push(combinedData);

@@ -66,7 +66,7 @@ These questions apply to every pattern:
 
 Status: investigate first
 Expected value: high
-Likely destination: linking strategy if safe
+Likely destination: linking strategy if safe, otherwise cue
 
 #### Evidence
 
@@ -97,6 +97,28 @@ The chain-side provider materializes one transfer row per funded source/account 
 
 This is not a cue-first problem. It looks like a possible N:1 linking strategy.
 
+#### Current Finding
+
+The confirmed Cardano case is first an **upstream provider/processing problem**, not a new linking-strategy candidate.
+
+What the chain data actually shows for hash `0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf`:
+
+- the transaction has `withdrawal_count: 1`
+- Blockfrost `/txs/{hash}/withdrawals` returns one staking withdrawal of `10.524451 ADA`
+- the three child-address rows were also each recording the full on-chain fee, overstating the residual by another `0.382746 ADA`
+
+So the earlier unresolved target residual `10.907197 ADA` was not evidence of a fourth unknown transfer source. It was:
+
+- `10.524451 ADA` staking withdrawal not preserved in normalized/processed data
+- `0.382746 ADA` duplicated fee across sibling per-address projections
+
+That means the first fix belongs upstream:
+
+- fetch and preserve Cardano withdrawals during provider normalization
+- stop duplicating one Cardano on-chain fee across every sibling child-address projection
+
+Only after that correction should we reevaluate whether any linking strategy is needed for the remaining shape.
+
 #### Investigation Questions
 
 1. Are all rows on the same asset id, not just the same symbol?
@@ -107,18 +129,24 @@ This is not a cue-first problem. It looks like a possible N:1 linking strategy.
 
 #### Candidate Outcome
 
-Preferred:
+Current Cardano case:
 
-- new linking strategy in `accounting/linking` for **shared-hash aggregated deposits**
+- do **not** add a new linking strategy yet
+- fix provider/processing first
+- then reassess whether the corrected shape still needs either:
+  - shared-hash aggregated deposit linking
+  - or only a cue such as `likely_batched_exchange_deposit`
 
-Fallbacks:
+Preferred long-term order:
 
-- upstream normalization fix if the chain-side transaction should never split this way
-- gap cue `likely_batched_exchange_deposit` only if linking is not safe
+1. upstream normalization / processing fix
+2. rerun the real Cardano case
+3. only then decide if `accounting/linking` needs a new strategy
 
 #### Required Tests
 
-- positive: Cardano case above
+- positive: current Cardano case preserves staking withdrawal semantics and does not duplicate fees
+- negative: current Cardano case still does not auto-link until a corrected post-fix evaluation justifies it
 - positive: at least one Bitcoin case from the shared-hash scan
 - negative: same hash but mismatched asset
 - negative: same hash but amount totals do not reconcile

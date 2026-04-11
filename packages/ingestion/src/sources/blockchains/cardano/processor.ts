@@ -132,6 +132,31 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
           continue;
         }
 
+        const notes = [];
+
+        if (fundFlow.attributedWithdrawalAmount) {
+          notes.push({
+            message: `Includes staking reward withdrawal of ${fundFlow.attributedWithdrawalAmount} ADA in the same on-chain transaction.`,
+            metadata: {
+              withdrawalAmount: fundFlow.attributedWithdrawalAmount,
+            },
+            severity: 'info' as const,
+            type: 'staking_withdrawal',
+          });
+        }
+
+        if (fundFlow.classificationUncertainty) {
+          notes.push({
+            message: fundFlow.classificationUncertainty,
+            metadata: {
+              inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+              outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+            },
+            severity: 'info' as const,
+            type: 'classification_uncertain',
+          });
+        }
+
         const processedTransaction: TransactionDraft = {
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -171,20 +196,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
             is_confirmed: normalizedTx.status === 'success',
           },
 
-          // Add note if there's classification uncertainty
-          notes: fundFlow.classificationUncertainty
-            ? [
-                {
-                  message: fundFlow.classificationUncertainty,
-                  metadata: {
-                    inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
-                    outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
-                  },
-                  severity: 'info',
-                  type: 'classification_uncertain',
-                },
-              ]
-            : undefined,
+          notes: notes.length > 0 ? notes : undefined,
         };
 
         // Collect token movements for batch scam detection later

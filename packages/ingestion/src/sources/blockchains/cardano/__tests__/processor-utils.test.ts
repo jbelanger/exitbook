@@ -13,6 +13,7 @@ import {
 import type { CardanoFundFlow, CardanoMovement } from '../types.js';
 
 const USER_ADDRESS = 'addr1qyuser111111111111111111111111111111111111111111111111111111';
+const SIBLING_USER_ADDRESS = 'addr1qysibling111111111111111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'addr1qyexternal11111111111111111111111111111111111111111111111111';
 
 function createTransaction(overrides: Partial<CardanoTransaction> = {}): CardanoTransaction {
@@ -257,6 +258,97 @@ describe('analyzeCardanoFundFlow', () => {
     expect(fundFlow.fromAddress).toBe(EXTERNAL_ADDRESS);
     expect(fundFlow.toAddress).toBe(USER_ADDRESS);
     expect(fundFlow.feePaidByUser).toBe(false);
+  });
+
+  test('attributes staking withdrawal when there is a single user-owned input address', () => {
+    const normalizedTx = createTransaction({
+      inputs: [
+        {
+          address: USER_ADDRESS,
+          amounts: [{ quantity: '10000000', unit: 'lovelace' }],
+          outputIndex: 0,
+          txHash: 'prev-withdrawal',
+        },
+      ],
+      outputs: [
+        {
+          address: EXTERNAL_ADDRESS,
+          amounts: [{ quantity: '10830000', unit: 'lovelace' }],
+          outputIndex: 0,
+        },
+      ],
+      withdrawals: [
+        {
+          address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+          amount: '1',
+          currency: 'ADA',
+        },
+      ],
+    });
+
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.attributedWithdrawalAmount).toBe('1');
+    expect(result.value.inflows).toContainEqual({
+      amount: '1',
+      asset: 'ADA',
+      decimals: 6,
+      unit: 'lovelace',
+    });
+    expect(result.value.classificationUncertainty).toBeUndefined();
+  });
+
+  test('allocates fee proportionally and leaves staking withdrawal unattributed across sibling inputs', () => {
+    const normalizedTx = createTransaction({
+      feeAmount: '0.17',
+      inputs: [
+        {
+          address: USER_ADDRESS,
+          amounts: [{ quantity: '6000000', unit: 'lovelace' }],
+          outputIndex: 0,
+          txHash: 'prev-a',
+        },
+        {
+          address: SIBLING_USER_ADDRESS,
+          amounts: [{ quantity: '4000000', unit: 'lovelace' }],
+          outputIndex: 1,
+          txHash: 'prev-b',
+        },
+      ],
+      outputs: [
+        {
+          address: EXTERNAL_ADDRESS,
+          amounts: [{ quantity: '10830000', unit: 'lovelace' }],
+          outputIndex: 0,
+        },
+      ],
+      withdrawals: [
+        {
+          address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+          amount: '1',
+          currency: 'ADA',
+        },
+      ],
+    });
+
+    const result = analyzeCardanoFundFlow(normalizedTx, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS, SIBLING_USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.feeAmount).toBe('0.102');
+    expect(result.value.attributedWithdrawalAmount).toBeUndefined();
+    expect(result.value.inflows).toHaveLength(0);
+    expect(result.value.classificationUncertainty).toContain('wallet-scoped staking withdrawal of 1 ADA');
   });
 
   test('handles transaction with change correctly', () => {

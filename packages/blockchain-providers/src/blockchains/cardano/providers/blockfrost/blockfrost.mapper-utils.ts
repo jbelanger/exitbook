@@ -15,6 +15,7 @@ import {
 import {
   BlockfrostTransactionWithMetadataSchema,
   type BlockfrostAssetAmount,
+  type BlockfrostWithdrawal,
   type BlockfrostTransactionWithMetadata,
   type BlockfrostUtxoInput,
   type BlockfrostUtxoOutput,
@@ -105,6 +106,15 @@ function mapBlockfrostTransactionInternal(
     outputIndex: output.output_index,
   }));
 
+  const withdrawals =
+    rawData.withdrawals.length > 0
+      ? rawData.withdrawals.map((withdrawal: BlockfrostWithdrawal) => ({
+          address: withdrawal.address,
+          amount: lovelaceToAda(withdrawal.amount),
+          currency: 'ADA' as const,
+        }))
+      : undefined;
+
   // Determine transaction status based on smart contract validation
   // valid_contract = false means the smart contract failed
   const status = rawData.valid_contract ? 'success' : 'failed';
@@ -132,6 +142,7 @@ function mapBlockfrostTransactionInternal(
     providerName: 'blockfrost',
     status,
     timestamp,
+    withdrawals,
   };
 
   return ok(normalized);

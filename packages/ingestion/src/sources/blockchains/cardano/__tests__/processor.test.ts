@@ -8,6 +8,7 @@ import { describe, expect, test } from 'vitest';
 import { CardanoProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'addr1quser1111111111111111111111111111111111111111111111111111';
+const SIBLING_USER_ADDRESS = 'addr1qsibling11111111111111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'addr1qexternal11111111111111111111111111111111111111111111111';
 
 function createProcessor() {
@@ -264,6 +265,75 @@ describe('CardanoProcessor', () => {
     // Cardano consolidates multiple outputs of same asset
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('10');
+  });
+
+  test('records staking withdrawal inflow when attributable to a single user-owned input address', async () => {
+    const processor = createProcessor();
+
+    const normalizedData: CardanoTransaction[] = [
+      createTransaction({
+        id: 'tx-withdrawal-1',
+        feeAmount: '0.17',
+        inputs: [createInput(USER_ADDRESS, '10000000', 'lovelace', { txHash: 'prev-withdrawal-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '10830000')],
+        withdrawals: [
+          {
+            address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+            amount: '1',
+            currency: 'ADA',
+          },
+        ],
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('1');
+    expect(transaction?.notes?.some((note) => note.type === 'staking_withdrawal')).toBe(true);
+  });
+
+  test('allocates fee proportionally and keeps wallet-scoped withdrawal unattributed across sibling inputs', async () => {
+    const processor = createProcessor();
+
+    const normalizedData: CardanoTransaction[] = [
+      createTransaction({
+        id: 'tx-withdrawal-2',
+        feeAmount: '0.17',
+        inputs: [
+          createInput(USER_ADDRESS, '6000000', 'lovelace', { txHash: 'prev-a' }),
+          createInput(SIBLING_USER_ADDRESS, '4000000', 'lovelace', { txHash: 'prev-b', outputIndex: 1 }),
+        ],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '10830000')],
+        withdrawals: [
+          {
+            address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+            amount: '1',
+            currency: 'ADA',
+          },
+        ],
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS, SIBLING_USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction?.fees[0]?.amount.toFixed()).toBe('0.102');
+    expect(transaction?.movements.inflows).toHaveLength(0);
+    expect(transaction?.notes?.some((note) => note.type === 'classification_uncertain')).toBe(true);
+    expect(transaction?.notes?.[0]?.message).toContain('wallet-scoped staking withdrawal of 1 ADA');
   });
 
   test('multi-asset transaction - handles native tokens and ADA', async () => {

@@ -73,6 +73,19 @@ const CardanoTransactionOutputSchema = z.object({
 });
 
 /**
+ * Schema for Cardano staking reward withdrawals.
+ *
+ * Cardano reward withdrawals are wallet-scope balance movements sourced from a
+ * stake address, not from a spent UTXO. Providers surface them separately from
+ * normal inputs/outputs.
+ */
+const CardanoWithdrawalSchema = z.object({
+  address: CardanoAddressSchema,
+  amount: DecimalStringSchema,
+  currency: z.literal('ADA'),
+});
+
+/**
  * Schema for normalized Cardano transaction
  *
  * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
@@ -92,10 +105,12 @@ export const CardanoTransactionSchema = NormalizedTransactionBaseSchema.extend({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
+  withdrawals: z.array(CardanoWithdrawalSchema).optional(),
 });
 
 // Type exports inferred from schemas (single source of truth)
 export type CardanoAssetAmount = z.infer<typeof CardanoAssetAmountSchema>;
 export type CardanoTransactionInput = z.infer<typeof CardanoTransactionInputSchema>;
 export type CardanoTransactionOutput = z.infer<typeof CardanoTransactionOutputSchema>;
+export type CardanoWithdrawal = z.infer<typeof CardanoWithdrawalSchema>;
 export type CardanoTransaction = z.infer<typeof CardanoTransactionSchema>;

@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/unbound-method -- acceptable for tests */
 import type { FeeMovementDraft, Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createFeeMovement,
@@ -34,6 +35,16 @@ const noopLogger = {
     /* no-op */
   },
 } as Logger;
+
+function createSpyLogger(): Logger {
+  return {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as Logger;
+}
 
 function createBlockchainTx(
   id: number,
@@ -779,8 +790,8 @@ describe('buildCostBasisScopedTransactions', () => {
     });
   });
 
-  describe('ambiguous same-hash groups (Rule errors)', () => {
-    it('should return Err for mixed inflow/outflow on same participant', () => {
+  describe('ambiguous same-hash groups', () => {
+    it('should warn and skip mixed inflow/outflow on same participant', () => {
       // Same transaction has both inflow and outflow for BTC
       const tx1 = createBlockchainTx(
         1,
@@ -802,13 +813,21 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([tx1, tx2], noopLogger);
-      const error = assertErr(result);
-      expect(error.message).toContain('Ambiguous');
-      expect(error.message).toContain('inflows and outflows');
+      const logger = createSpyLogger();
+      const result = buildCostBasisScopedTransactions([tx1, tx2], logger);
+      const value = assertOk(result);
+
+      expect(value.transactions).toHaveLength(2);
+      expect(value.transactions.find((transaction) => transaction.tx.id === 1)?.movements.inflows).toHaveLength(1);
+      expect(value.transactions.find((transaction) => transaction.tx.id === 1)?.movements.outflows).toHaveLength(1);
+      expect(value.transactions.find((transaction) => transaction.tx.id === 2)?.movements.inflows).toHaveLength(1);
+      expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+        expect.objectContaining({ mixedTxIds: [1] }),
+        expect.stringContaining('both inflows and outflows')
+      );
     });
 
-    it('should return Err for multi-movement participant', () => {
+    it('should warn and skip multi-movement participant', () => {
       // Sender has two outflow movements for BTC in one tx
       const senderTx = materializeTestTransaction({
         id: 1,
@@ -851,10 +870,17 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
-      const error = assertErr(result);
-      expect(error.message).toContain('Ambiguous');
-      expect(error.message).toContain('outflow movements');
+      const logger = createSpyLogger();
+      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], logger);
+      const value = assertOk(result);
+
+      expect(value.transactions).toHaveLength(2);
+      expect(value.transactions.find((transaction) => transaction.tx.id === 1)?.movements.outflows).toHaveLength(2);
+      expect(value.transactions.find((transaction) => transaction.tx.id === 2)?.movements.inflows).toHaveLength(1);
+      expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+        expect.objectContaining({ senderTxId: 1, senderOutflowMovementCount: 2 }),
+        expect.stringContaining('multiple outflow movements')
+      );
     });
 
     it('should return Err when internal inflows plus fee exceed sender outflow', () => {

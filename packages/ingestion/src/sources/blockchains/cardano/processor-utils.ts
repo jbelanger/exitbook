@@ -18,6 +18,66 @@ interface AssetAccumulator {
   symbol?: Currency | undefined;
 }
 
+function sumPrimaryOwnedAdaInputs(tx: CardanoTransaction, primaryAddress: string): Decimal {
+  let total = parseDecimal('0');
+
+  for (const input of tx.inputs) {
+    if (input.address !== primaryAddress) {
+      continue;
+    }
+
+    for (const assetAmount of input.amounts) {
+      if (assetAmount.unit !== 'lovelace') {
+        continue;
+      }
+
+      total = total.plus(parseDecimal(normalizeCardanoAmount(assetAmount.quantity, 6)));
+    }
+  }
+
+  return total;
+}
+
+function sumUserOwnedAdaInputsAcrossProfile(
+  tx: CardanoTransaction,
+  userAddresses: string[]
+): {
+  userOwnedInputAddressCount: number;
+  userOwnedTotalAdaInputAmount: Decimal;
+} {
+  const userAddressSet = new Set(userAddresses);
+  const ownedInputAddresses = new Set<string>();
+  let total = parseDecimal('0');
+
+  for (const input of tx.inputs) {
+    if (!userAddressSet.has(input.address)) {
+      continue;
+    }
+
+    ownedInputAddresses.add(input.address);
+
+    for (const assetAmount of input.amounts) {
+      if (assetAmount.unit !== 'lovelace') {
+        continue;
+      }
+
+      total = total.plus(parseDecimal(normalizeCardanoAmount(assetAmount.quantity, 6)));
+    }
+  }
+
+  return {
+    userOwnedInputAddressCount: ownedInputAddresses.size,
+    userOwnedTotalAdaInputAmount: total,
+  };
+}
+
+function sumWithdrawalAmount(tx: CardanoTransaction): Decimal {
+  return (tx.withdrawals ?? []).reduce(
+    (sum, withdrawal) => sum.plus(parseDecimal(withdrawal.amount)),
+    parseDecimal('0')
+  );
+}
+
 /**
  * Convert lovelace (smallest unit) to ADA
  * 1 ADA = 1,000,000 lovelace
@@ -183,15 +243,40 @@ export function analyzeCardanoFundFlow(
     }
   }
 
-  // Consolidate movements by asset
-  const consolidatedInflows = consolidateCardanoMovements(inflows);
-  const consolidatedOutflows = consolidateCardanoMovements(outflows);
-
   // Determine fee information
   // Fee is always paid in ADA and deducted from user's balance
   // feeAmount is already in ADA (converted from lovelace in the mapper)
-  const feeAmount = tx.feeAmount || '0';
-  const feePaidByUser = userOwnsInput && !isZeroDecimal(feeAmount);
+  const chainFeeAmount = tx.feeAmount || '0';
+  const feePaidByUser = userOwnsInput && !isZeroDecimal(chainFeeAmount);
+  const primaryOwnedAdaInputAmount = sumPrimaryOwnedAdaInputs(tx, userAddress);
+  const { userOwnedInputAddressCount, userOwnedTotalAdaInputAmount } = sumUserOwnedAdaInputsAcrossProfile(
+    tx,
+    context.userAddresses
+  );
+  let feeAmount = chainFeeAmount;
+
+  if (feePaidByUser && userOwnedInputAddressCount > 1 && !userOwnedTotalAdaInputAmount.isZero()) {
+    feeAmount = parseDecimal(chainFeeAmount)
+      .times(primaryOwnedAdaInputAmount)
+      .dividedBy(userOwnedTotalAdaInputAmount)
+      .toFixed();
+  }
+
+  const withdrawalAmount = sumWithdrawalAmount(tx);
+  let attributedWithdrawalAmount: string | undefined;
+  if (!withdrawalAmount.isZero() && userOwnsInput && userOwnedInputAddressCount <= 1) {
+    inflows.push({
+      amount: withdrawalAmount.toFixed(),
+      asset: 'ADA' as Currency,
+      decimals: 6,
+      unit: 'lovelace',
+    });
+    attributedWithdrawalAmount = withdrawalAmount.toFixed();
+  }
+
+  // Consolidate movements by asset after adding any withdrawal-derived inflows.
+  const consolidatedInflows = consolidateCardanoMovements(inflows);
+  const consolidatedOutflows = consolidateCardanoMovements(outflows);
 
   // ADR-005: For UTXO chains, preserve gross amounts (includes fee) in outflows.
   // The fee is recorded separately with settlement='on-chain', and the processor
@@ -235,13 +320,22 @@ export function analyzeCardanoFundFlow(
     : { amount: '0', asset: 'ADA' as Currency, unit: 'lovelace' };
 
   // Track uncertainty for complex transactions
-  let classificationUncertainty: string | undefined;
+  const classificationNotes: string[] = [];
   if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
-    classificationUncertainty = `Complex multi-asset transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be a token swap or batch operation.`;
+    classificationNotes.push(
+      `Complex multi-asset transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be a token swap or batch operation.`
+    );
+  }
+
+  if (!withdrawalAmount.isZero() && userOwnsInput && userOwnedInputAddressCount > 1) {
+    classificationNotes.push(
+      `Cardano transaction includes wallet-scoped staking withdrawal of ${withdrawalAmount.toFixed()} ADA that cannot be attributed to a single derived address in the current per-address projection.`
+    );
   }
 
   const fundFlow: CardanoFundFlow = {
-    classificationUncertainty,
+    attributedWithdrawalAmount,
+    classificationUncertainty: classificationNotes.length > 0 ? classificationNotes.join(' ') : undefined,
     feeAmount,
     feeCurrency: 'ADA' as Currency,
     feePaidByUser,

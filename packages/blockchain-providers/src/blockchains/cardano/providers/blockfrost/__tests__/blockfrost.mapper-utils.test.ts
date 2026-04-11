@@ -194,6 +194,7 @@ describe('blockfrost.mapper-utils', () => {
       fees: '170000',
       tx_index: 5,
       valid_contract: true,
+      withdrawals: [],
     });
 
     describe('Basic transaction mapping', () => {
@@ -270,6 +271,31 @@ describe('blockfrost.mapper-utils', () => {
             ],
             outputIndex: 0,
           });
+        }
+      });
+
+      it('should map staking withdrawals when present', () => {
+        const mockTransaction: BlockfrostTransactionWithMetadata = {
+          ...createBaseFixture(),
+          withdrawals: [
+            {
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              amount: '10524451',
+            },
+          ],
+        };
+
+        const result = mapBlockfrostTransaction(mockTransaction);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.withdrawals).toEqual([
+            {
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              amount: '10.524451',
+              currency: 'ADA',
+            },
+          ]);
         }
       });
     });
@@ -750,6 +776,7 @@ describe('blockfrost.mapper-utils', () => {
           fees: '300000',
           tx_index: 12,
           valid_contract: true,
+          withdrawals: [],
         };
 
         const result = mapBlockfrostTransaction(mockTransaction);

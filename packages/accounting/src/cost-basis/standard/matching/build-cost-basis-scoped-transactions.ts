@@ -161,7 +161,7 @@ export function buildCostBasisScopedTransactions(
   const feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[] = [];
 
   for (const group of groupsResult.value) {
-    const decisionResult = reduceSameHashGroupForCostBasis(group);
+    const decisionResult = reduceSameHashGroupForCostBasis(group, logger);
     if (decisionResult.isErr()) return err(decisionResult.error);
 
     const decision = decisionResult.value;
@@ -384,7 +384,8 @@ function groupSameHashTransactionsForCostBasis(
 // ---------------------------------------------------------------------------
 
 function reduceSameHashGroupForCostBasis(
-  group: CostBasisSameHashAssetGroup
+  group: CostBasisSameHashAssetGroup,
+  logger: Logger
 ): Result<SameHashDecision | undefined, Error> {
   const pureOutflows: CostBasisSameHashParticipant[] = [];
   const pureInflows: CostBasisSameHashParticipant[] = [];
@@ -405,12 +406,17 @@ function reduceSameHashGroupForCostBasis(
 
   // Rule 4 (ambiguous): mixed inflow/outflow on same participant
   if (mixed.length > 0) {
-    return err(
-      new Error(
-        `Ambiguous same-hash group: participant has both inflows and outflows for ${group.assetSymbol} ` +
-          `in hash ${group.normalizedHash} (${group.blockchain}), participant txIds: [${mixed.map((p) => p.txId).join(', ')}]`
-      )
+    logger.warn(
+      {
+        hash: group.normalizedHash,
+        blockchain: group.blockchain,
+        assetId: group.assetId,
+        asset: group.assetSymbol,
+        mixedTxIds: mixed.map((participant) => participant.txId),
+      },
+      'Ambiguous same-hash group: participant has both inflows and outflows for same asset; skipping cost-basis scoping'
     );
+    return ok(undefined);
   }
 
   // Rule 2: pure outflows + pure inflows → internal tracked sibling quantity exists
@@ -421,12 +427,18 @@ function reduceSameHashGroupForCostBasis(
   // Ambiguity: multi-movement participants
   for (const sender of pureOutflows) {
     if (sender.outflowMovementCount !== 1) {
-      return err(
-        new Error(
-          `Ambiguous same-hash group: sender has ${sender.outflowMovementCount} outflow movements for ${group.assetSymbol} ` +
-            `in hash ${group.normalizedHash} (${group.blockchain}), sender txId: ${sender.txId}`
-        )
+      logger.warn(
+        {
+          hash: group.normalizedHash,
+          blockchain: group.blockchain,
+          assetId: group.assetId,
+          asset: group.assetSymbol,
+          senderTxId: sender.txId,
+          senderOutflowMovementCount: sender.outflowMovementCount,
+        },
+        'Ambiguous same-hash group: sender has multiple outflow movements for same asset; skipping cost-basis scoping'
       );
+      return ok(undefined);
     }
   }
 
@@ -455,12 +467,18 @@ function reduceSameHashGroupForCostBasis(
 
   for (const receiver of pureInflows) {
     if (receiver.inflowMovementCount !== 1) {
-      return err(
-        new Error(
-          `Ambiguous same-hash group: receiver has ${receiver.inflowMovementCount} inflow movements for ${group.assetSymbol} ` +
-            `in hash ${group.normalizedHash} (${group.blockchain}), receiver txId: ${receiver.txId}`
-        )
+      logger.warn(
+        {
+          hash: group.normalizedHash,
+          blockchain: group.blockchain,
+          assetId: group.assetId,
+          asset: group.assetSymbol,
+          receiverTxId: receiver.txId,
+          receiverInflowMovementCount: receiver.inflowMovementCount,
+        },
+        'Ambiguous same-hash group: receiver has multiple inflow movements for same asset; skipping cost-basis scoping'
       );
+      return ok(undefined);
     }
   }
 

@@ -99,6 +99,16 @@ export const BlockfrostTransactionUtxosSchema = z
   .strict();
 
 /**
+ * Schema for Blockfrost staking reward withdrawals from /txs/{hash}/withdrawals.
+ */
+export const BlockfrostWithdrawalSchema = z
+  .object({
+    address: CardanoAddressSchema,
+    amount: z.string().regex(/^\d+$/, 'Withdrawal amount must be a numeric string (lovelace)'),
+  })
+  .strict();
+
+/**
  * Schema for Blockfrost transaction details from /txs/{hash}
  * Returns complete transaction information including fees, block metadata, and status
  */
@@ -148,6 +158,7 @@ export const BlockfrostTransactionWithMetadataSchema = BlockfrostTransactionUtxo
   fees: z.string().regex(/^\d+$/, 'Fee must be a numeric string (lovelace)'),
   tx_index: z.number().nonnegative('Transaction index must be non-negative'),
   valid_contract: z.boolean(),
+  withdrawals: z.array(BlockfrostWithdrawalSchema),
 });
 
 /**
@@ -177,6 +188,7 @@ export const BlockfrostHealthSchema = z
 // Type exports inferred from schemas
 export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHashSchema>;
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;
+export type BlockfrostWithdrawal = z.infer<typeof BlockfrostWithdrawalSchema>;
 export type BlockfrostUtxoInput = z.infer<typeof BlockfrostUtxoInputSchema>;
 export type BlockfrostUtxoOutput = z.infer<typeof BlockfrostUtxoOutputSchema>;
 export type BlockfrostTransactionWithMetadata = z.infer<typeof BlockfrostTransactionWithMetadataSchema>;
