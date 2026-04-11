@@ -168,7 +168,7 @@ describe('SolanaProcessor - Fund Flow Direction', () => {
 
     expect(result.value).toHaveLength(1);
     expect(result.value[0]?.operation.type).toBe('deposit');
-    expect(result.value[0]?.movements.inflows[0]?.netAmount.toFixed()).toBe('0.00001');
+    expect(result.value[0]?.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('0.00001');
   });
 
   test('classifies outgoing SOL transfer as withdrawal', async () => {

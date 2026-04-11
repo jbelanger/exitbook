@@ -2,6 +2,7 @@
  * Links view TUI components
  */
 
+import type { LinkGapAssetSummary, LinkGapIssue } from '@exitbook/accounting/linking';
 import type { LinkStatus } from '@exitbook/core';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
@@ -15,7 +16,6 @@ import {
   SelectableRow,
 } from '../../../ui/shared/index.js';
 import { buildLinkProposalRef } from '../link-selector.js';
-import type { LinkGapAssetSummary, LinkGapIssue } from '../links-gap-model.js';
 import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 
 import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
@@ -719,7 +719,7 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
         const actualIndex = startIndex + windowIndex;
         return (
           <GapRow
-            key={`${issue.transactionId}-${issue.assetSymbol}-${issue.direction}`}
+            key={`${issue.transactionId}-${issue.assetId}-${issue.direction}`}
             issue={issue}
             isSelected={actualIndex === selectedIndex}
           />

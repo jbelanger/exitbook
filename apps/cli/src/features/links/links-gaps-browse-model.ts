@@ -1,4 +1,4 @@
-import type { LinkGapIssue } from './links-gap-model.js';
+import type { LinkGapIssue } from '@exitbook/accounting/linking';
 
 export interface LinkGapBrowseItem {
   gapIssue: LinkGapIssue;

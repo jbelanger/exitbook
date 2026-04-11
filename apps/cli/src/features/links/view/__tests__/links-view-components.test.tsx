@@ -2,13 +2,13 @@
  * Tests for links view components
  */
 
+import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { Transaction, TransactionLink } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { LinkGapAnalysis } from '../../links-gap-model.js';
 import type { LinkWithTransactions } from '../../links-view-model.js';
 import { LinksViewApp } from '../links-view-components.jsx';
 import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
@@ -615,6 +615,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
         platformKey: 'ethereum',
         blockchainName: 'ethereum',
         timestamp: '2024-03-18T09:12:34Z',
+        assetId: 'blockchain:ethereum:native',
         assetSymbol: 'ETH',
         missingAmount: '1.5',
         totalAmount: '1.5',
@@ -631,6 +632,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
         platformKey: 'ethereum',
         blockchainName: 'ethereum',
         timestamp: '2024-04-02T14:45:00Z',
+        assetId: 'blockchain:ethereum:native',
         assetSymbol: 'ETH',
         missingAmount: '2.0',
         totalAmount: '2.0',
@@ -645,6 +647,7 @@ function createMockGapAnalysis(): LinkGapAnalysis {
         txFingerprint: 'kraken-outflow-1',
         platformKey: 'kraken',
         timestamp: '2024-05-01T16:20:00Z',
+        assetId: 'exchange:kraken:eth',
         assetSymbol: 'ETH',
         missingAmount: '1.2',
         totalAmount: '1.2',

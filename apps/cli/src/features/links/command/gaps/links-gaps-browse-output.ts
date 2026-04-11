@@ -1,9 +1,9 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import { jsonSuccess, textSuccess, type CliCompletion } from '../../../cli/command.js';
-import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
-import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
-import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../view/links-static-renderer.js';
+import { jsonSuccess, textSuccess, type CliCompletion } from '../../../../cli/command.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.js';
+import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
+import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../../view/links-static-renderer.js';
 
 import type { LinksGapsBrowseParams, LinksGapsBrowsePresentation } from './links-gaps-browse-support.js';
 
@@ -86,6 +86,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     platformKey: item.gapIssue.platformKey,
     blockchainName: item.gapIssue.blockchainName,
     timestamp: item.gapIssue.timestamp,
+    assetId: item.gapIssue.assetId,
     assetSymbol: item.gapIssue.assetSymbol,
     missingAmount: item.gapIssue.missingAmount,
     totalAmount: item.gapIssue.totalAmount,

@@ -1,14 +1,14 @@
+import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
-import { resolveLinkGapSelector } from '../link-selector.js';
-import type { LinkGapAnalysis } from '../links-gap-model.js';
-import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
-import { createGapsViewState } from '../view/index.js';
-import type { LinksViewGapsState } from '../view/links-view-state.js';
+import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
+import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
+import { resolveLinkGapSelector } from '../../link-selector.js';
+import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
+import { createGapsViewState } from '../../view/index.js';
+import type { LinksViewGapsState } from '../../view/links-view-state.js';
 
-import { loadLinksGapAnalysis } from './links-gap-analysis-support.js';
+import { loadLinksGapAnalysis } from './load-links-gap-analysis.js';
 
 type LinksGapsCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
 
@@ -133,6 +133,11 @@ function compareLinkGapIssuesByTimestamp(
   const assetCompare = left.assetSymbol.localeCompare(right.assetSymbol);
   if (assetCompare !== 0) {
     return assetCompare;
+  }
+
+  const assetIdCompare = left.assetId.localeCompare(right.assetId);
+  if (assetIdCompare !== 0) {
+    return assetIdCompare;
   }
 
   return left.txFingerprint.localeCompare(right.txFingerprint);

@@ -2,9 +2,9 @@
  * Links view TUI state
  */
 
+import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { LinkStatus } from '@exitbook/core';
 
-import type { LinkGapAnalysis } from '../links-gap-model.js';
 import type { LinksGapBrowseHiddenCounts } from '../links-gaps-browse-model.js';
 import type { LinkStatusCounts, LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';

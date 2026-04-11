@@ -23,13 +23,14 @@ import { renderApp, type CommandRuntime } from '../../../../runtime/command-runt
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { getLinkSelectorErrorExitCode } from '../../link-selector.js';
 import { LinksViewApp } from '../../view/index.js';
-import { buildLinksGapsBrowseCompletion, hasNavigableLinksGapsBrowseItems } from '../links-gaps-browse-output.js';
+import { LinksGapsBrowseCommandOptionsSchema } from '../links-option-schemas.js';
+
+import { buildLinksGapsBrowseCompletion, hasNavigableLinksGapsBrowseItems } from './links-gaps-browse-output.js';
 import {
   buildLinksGapsBrowsePresentation,
   type LinksGapsBrowseParams,
   type LinksGapsBrowsePresentation,
-} from '../links-gaps-browse-support.js';
-import { LinksGapsBrowseCommandOptionsSchema } from '../links-option-schemas.js';
+} from './links-gaps-browse-support.js';
 
 export interface PreparedLinksGapsBrowseCommand {
   params: LinksGapsBrowseParams;

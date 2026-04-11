@@ -8,7 +8,8 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../../../transactions/transaction-selector.js';
-import { loadLinksGapAnalysis } from '../links-gap-analysis-support.js';
+
+import { loadLinksGapAnalysis } from './load-links-gap-analysis.js';
 
 type LinksGapResolutionStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type LinksGapResolutionDatabase = Pick<DataSession, 'accounts' | 'transactionLinks' | 'transactions'>;

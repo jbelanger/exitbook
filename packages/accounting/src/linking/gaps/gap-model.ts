@@ -9,6 +9,7 @@ export interface LinkGapIssue {
   platformKey: string;
   blockchainName?: string | undefined;
   timestamp: string;
+  assetId: string;
   assetSymbol: string;
   missingAmount: string;
   totalAmount: string;

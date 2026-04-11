@@ -5,11 +5,11 @@ const { mockLoadLinksGapAnalysis } = vi.hoisted(() => ({
   mockLoadLinksGapAnalysis: vi.fn(),
 }));
 
-vi.mock('../links-gap-analysis-support.js', () => ({
+vi.mock('../load-links-gap-analysis.js', () => ({
   loadLinksGapAnalysis: mockLoadLinksGapAnalysis,
 }));
 
-import { createMockGapAnalysis } from '../../__tests__/test-utils.js';
+import { createMockGapAnalysis } from '../../../__tests__/test-utils.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
 
 type LinksGapsBrowseDatabase = Parameters<typeof buildLinksGapsBrowsePresentation>[0];

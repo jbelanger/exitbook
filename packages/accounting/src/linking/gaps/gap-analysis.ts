@@ -1,13 +1,14 @@
 import type { Account, Transaction, TransactionLink } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/foundation';
+import { parseAssetId, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from '../../links-gap-model.js';
+import type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from './gap-model.js';
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
+const GAP_SUPPRESSED_NOTE_TYPES = new Set(['SCAM_TOKEN', 'SUSPICIOUS_AIRDROP']);
 
-interface LinkGapAnalysisOptions {
+export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
 }
@@ -253,6 +254,62 @@ function hasMatchingSelfAddress(tx: Transaction, selfAddress: string): boolean {
   return normalizeAddress(tx.from) === selfAddress || normalizeAddress(tx.to) === selfAddress;
 }
 
+function hasExplicitNetworkFeeInAsset(tx: Transaction, assetId: string): boolean {
+  return tx.fees.some(
+    (fee) =>
+      fee.assetId === assetId && fee.scope === 'network' && fee.settlement === 'balance' && fee.amount.greaterThan(0)
+  );
+}
+
+function isBlockchainNativeAssetForTransaction(tx: Transaction, assetId: string): boolean {
+  if (!tx.blockchain) {
+    return false;
+  }
+
+  const parsedAssetId = parseAssetId(assetId);
+  return (
+    parsedAssetId.isOk() &&
+    parsedAssetId.value.namespace === 'blockchain' &&
+    parsedAssetId.value.chain === tx.blockchain.name &&
+    parsedAssetId.value.ref === 'native'
+  );
+}
+
+function getConfirmedCoverageAmountForSourceAsset(
+  txId: number,
+  assetId: string,
+  coverageIndex: LinkCoverageIndex
+): Decimal {
+  const confirmedLinks = coverageIndex.confirmedBySourceTxId.get(txId) ?? [];
+  return confirmedLinks
+    .filter((link) => link.sourceAssetId === assetId)
+    .reduce((sum, link) => sum.plus(link.sourceAmount), parseDecimal('0'));
+}
+
+function isResidualFeeAssetGapOnOtherwiseCoveredSend(
+  tx: Transaction,
+  assetId: string,
+  coverageIndex: LinkCoverageIndex
+): boolean {
+  if (
+    tx.id === undefined ||
+    !isBlockchainNativeAssetForTransaction(tx, assetId) ||
+    !hasExplicitNetworkFeeInAsset(tx, assetId)
+  ) {
+    return false;
+  }
+
+  const outflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.outflows ?? []);
+  const otherOutflowAssets = Array.from(outflowTotals.entries()).filter(([otherAssetId]) => otherAssetId !== assetId);
+  if (otherOutflowAssets.length === 0) {
+    return false;
+  }
+
+  return otherOutflowAssets.every(([otherAssetId, { amount }]) =>
+    getConfirmedCoverageAmountForSourceAsset(tx.id, otherAssetId, coverageIndex).greaterThanOrEqualTo(amount)
+  );
+}
+
 function getCounterpartyAddress(activity: OneSidedBlockchainActivity): string | undefined {
   return activity.direction === 'outflow'
     ? normalizeAddress(activity.transaction.to)
@@ -431,6 +488,7 @@ function splitResolvedLinkGapIssues(
 }
 
 function createLinkGapIssue(params: {
+  assetId: string;
   assetSymbol: string;
   confirmedAmount: Decimal;
   direction: LinkGapDirection;
@@ -439,7 +497,7 @@ function createLinkGapIssue(params: {
   tx: Transaction;
   uncoveredAmount: Decimal;
 }): LinkGapIssue {
-  const { tx, assetSymbol, uncoveredAmount, totalAmount, confirmedAmount, suggestedLinks, direction } = params;
+  const { tx, assetId, assetSymbol, uncoveredAmount, totalAmount, confirmedAmount, suggestedLinks, direction } = params;
 
   const coveragePercent = totalAmount.isZero() ? parseDecimal('0') : confirmedAmount.dividedBy(totalAmount).times(100);
 
@@ -449,6 +507,7 @@ function createLinkGapIssue(params: {
     platformKey: tx.platformKey,
     blockchainName: tx.blockchain?.name,
     timestamp: tx.datetime,
+    assetId,
     assetSymbol,
     missingAmount: uncoveredAmount.toFixed(),
     totalAmount: totalAmount.toFixed(),
@@ -461,6 +520,14 @@ function createLinkGapIssue(params: {
   };
 }
 
+function shouldSuppressGapByPolicy(tx: Transaction): boolean {
+  if (tx.excludedFromAccounting === true || tx.isSpam === true) {
+    return true;
+  }
+
+  return tx.notes?.some((note) => GAP_SUPPRESSED_NOTE_TYPES.has(note.type)) ?? false;
+}
+
 function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
@@ -471,6 +538,10 @@ function collectInflowGapIssues(
 
   for (const tx of transactions) {
     if (tx.id !== undefined && suppressedTxIds.has(tx.id)) {
+      continue;
+    }
+
+    if (shouldSuppressGapByPolicy(tx)) {
       continue;
     }
 
@@ -502,6 +573,7 @@ function collectInflowGapIssues(
       issues.push(
         createLinkGapIssue({
           tx,
+          assetId,
           assetSymbol,
           uncoveredAmount,
           totalAmount,
@@ -529,6 +601,10 @@ function collectOutflowGapIssues(
       continue;
     }
 
+    if (shouldSuppressGapByPolicy(tx)) {
+      continue;
+    }
+
     const inflows = tx.movements.inflows ?? [];
     const outflows = tx.movements.outflows ?? [];
     if (outflows.length === 0 || inflows.length > 0 || !isTransferSendTransaction(tx)) {
@@ -550,6 +626,10 @@ function collectOutflowGapIssues(
         continue;
       }
 
+      if (isResidualFeeAssetGapOnOtherwiseCoveredSend(tx, assetId, coverageIndex)) {
+        continue;
+      }
+
       const suggestedLinks = (
         (tx.id !== undefined ? coverageIndex.suggestedBySourceTxId.get(tx.id) : undefined) ?? []
       ).filter((link) => link.sourceAssetId === assetId);
@@ -557,6 +637,7 @@ function collectOutflowGapIssues(
       issues.push(
         createLinkGapIssue({
           tx,
+          assetId,
           assetSymbol,
           uncoveredAmount,
           totalAmount,
@@ -621,7 +702,7 @@ function buildLinkGapSummary(issues: readonly LinkGapIssue[]): LinkGapAnalysis['
 export function analyzeLinkGaps(
   transactions: Transaction[],
   links: TransactionLink[],
-  options: LinkGapAnalysisOptions = {}
+  options: AnalyzeLinkGapsOptions = {}
 ): LinkGapAnalysis {
   const coverageIndex = buildLinkCoverageIndex(links);
   const accountContextById = buildAccountContextById(options.accounts);

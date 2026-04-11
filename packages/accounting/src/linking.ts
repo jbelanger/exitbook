@@ -13,3 +13,6 @@ export {
   prepareManualLinkFromTransactions,
 } from './linking/orchestration/manual-link-utils.js';
 export type { PreparedManualLink } from './linking/orchestration/manual-link-utils.js';
+export { analyzeLinkGaps, applyResolvedLinkGapVisibility } from './linking/gaps/gap-analysis.js';
+export type { AnalyzeLinkGapsOptions, ResolvedLinkGapVisibilityResult } from './linking/gaps/gap-analysis.js';
+export type { LinkGapAnalysis, LinkGapAssetSummary, LinkGapDirection, LinkGapIssue } from './linking/gaps/gap-model.js';

@@ -3,8 +3,8 @@ import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { createPersistedTransaction } from '../../../../shared/__tests__/transaction-test-utils.js';
-import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from '../links-gap-analysis.js';
+import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
+import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from '../gap-analysis.js';
 
 describe('analyzeLinkGaps', () => {
   const selfAddress = '0x1234567890abcdef1234567890abcdef12345678';
@@ -25,7 +25,7 @@ describe('analyzeLinkGaps', () => {
       movements?: TransactionDraft['movements'];
     } = {}
   ): Transaction =>
-    createPersistedTransaction({
+    materializeTestTransaction({
       id: 1,
       accountId: 1,
       txFingerprint: String(overrides.txFingerprint ?? 'tx-123'),
@@ -186,6 +186,7 @@ describe('analyzeLinkGaps', () => {
     confidenceScore: string;
     id: number;
     linkType: TransactionLink['linkType'];
+    metadata?: TransactionLink['metadata'];
     sourceAmount: string;
     sourceAssetId: string;
     sourceTransactionId: number;
@@ -217,7 +218,7 @@ describe('analyzeLinkGaps', () => {
     reviewedAt: undefined,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
-    metadata: undefined,
+    ...(params.metadata === undefined ? {} : { metadata: params.metadata }),
   });
 
   it('should flag deposits without confirmed links', () => {
@@ -346,6 +347,127 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.assets).toHaveLength(0);
   });
 
+  it('should keep same-symbol inflow gaps distinct when asset ids differ', () => {
+    const mixedDeposit = createBlockchainDeposit({
+      id: 25,
+      txFingerprint: 'same-symbol-different-asset-ids',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('125'),
+            netAmount: parseDecimal('125'),
+          },
+          {
+            assetId: 'blockchain:ethereum:0x1234567890abcdef1234567890abcdef12345678',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('75'),
+            netAmount: parseDecimal('75'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([mixedDeposit], []);
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.map((issue) => issue.assetId)).toStrictEqual([
+      'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      'blockchain:ethereum:0x1234567890abcdef1234567890abcdef12345678',
+    ]);
+    expect(analysis.summary.assets).toStrictEqual([
+      {
+        assetSymbol: 'USDC',
+        inflowOccurrences: 2,
+        inflowMissingAmount: '200',
+        outflowOccurrences: 0,
+        outflowMissingAmount: '0',
+      },
+    ]);
+  });
+
+  it('should suppress gap issues for transactions excluded from accounting', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 26,
+          txFingerprint: 'excluded-gap',
+          excludedFromAccounting: true,
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
+  it('should suppress gap issues for scam-marked transactions', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 27,
+          txFingerprint: 'scam-gap',
+          notes: [
+            {
+              type: 'SCAM_TOKEN',
+              message: 'Known scam token',
+              severity: 'error',
+            },
+          ],
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
+  it('should suppress gap issues for suspicious-airdrop transactions', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 28,
+          txFingerprint: 'suspicious-airdrop-gap',
+          notes: [
+            {
+              type: 'SUSPICIOUS_AIRDROP',
+              message: 'Likely airdrop bait',
+              severity: 'warning',
+            },
+          ],
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
+  it('should suppress gap issues for spam-flagged transactions', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 29,
+          txFingerprint: 'spam-gap',
+          isSpam: true,
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
   it('should hide resolved transaction-level gaps and track hidden counts', () => {
     const txFingerprint = 'resolved-gap';
     const mixedDeposit = createBlockchainDeposit({
@@ -467,6 +589,232 @@ describe('analyzeLinkGaps', () => {
       outflowOccurrences: 1,
       outflowMissingAmount: '0.5',
     });
+  });
+
+  it('should suppress residual fee-asset outflow gaps when every other outflow asset is fully covered', () => {
+    const withdrawal = createBlockchainWithdrawal({
+      id: 210,
+      accountId: 7,
+      txFingerprint: 'solana-linked-send-source',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:24:54.000Z',
+      timestamp: Date.parse('2026-03-13T00:24:54.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'linked-send-source-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('165'),
+            netAmount: parseDecimal('165'),
+          },
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.00407856'),
+            netAmount: parseDecimal('0.00407856'),
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'blockchain:solana:native',
+          assetSymbol: 'SOL' as Currency,
+          amount: parseDecimal('0.000067691'),
+          scope: 'network',
+          settlement: 'balance',
+        },
+      ],
+    });
+
+    const links: TransactionLink[] = [
+      createMockLink({
+        id: 763,
+        sourceTransactionId: withdrawal.id,
+        targetTransactionId: 211,
+        assetSymbol: 'USDT',
+        sourceAssetId: 'blockchain:solana:usdt',
+        targetAssetId: 'blockchain:solana:usdt',
+        sourceAmount: '165',
+        targetAmount: '165',
+        linkType: 'blockchain_to_blockchain',
+        confidenceScore: '1',
+        metadata: {
+          variance: '0',
+          variancePct: '0.00',
+        },
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps([withdrawal], links);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should suppress residual native outflow gaps for blockchain-to-exchange sends when the principal asset is fully covered', () => {
+    const withdrawal = createBlockchainWithdrawal({
+      id: 220,
+      accountId: 7,
+      txFingerprint: 'solana-exchange-send-source',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2024-03-25T11:19:21.000Z',
+      timestamp: Date.parse('2024-03-25T11:19:21.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'exchange-send-source-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:usdc',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('568.637'),
+            netAmount: parseDecimal('568.637'),
+          },
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.00203928'),
+            netAmount: parseDecimal('0.00203928'),
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'blockchain:solana:native',
+          assetSymbol: 'SOL' as Currency,
+          amount: parseDecimal('0.000025'),
+          scope: 'network',
+          settlement: 'balance',
+        },
+      ],
+    });
+
+    const links: TransactionLink[] = [
+      createMockLink({
+        id: 764,
+        sourceTransactionId: withdrawal.id,
+        targetTransactionId: 221,
+        assetSymbol: 'USDC',
+        sourceAssetId: 'blockchain:solana:usdc',
+        targetAssetId: 'exchange:kucoin:usdc',
+        sourceAmount: '568.637',
+        targetAmount: '568.637',
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: '1',
+        metadata: {
+          variance: '0',
+          variancePct: '0.00',
+        },
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps([withdrawal], links);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.summary.assets).toHaveLength(0);
+  });
+
+  it('should keep residual native outflow gaps when another outflow asset is only partially covered', () => {
+    const withdrawal = createBlockchainWithdrawal({
+      id: 230,
+      accountId: 7,
+      txFingerprint: 'solana-partial-principal-coverage',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2026-03-13T00:24:54.000Z',
+      timestamp: Date.parse('2026-03-13T00:24:54.000Z'),
+      from: selfAddress,
+      to: serviceOutAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'partial-principal-coverage-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('165'),
+            netAmount: parseDecimal('165'),
+          },
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.00407856'),
+            netAmount: parseDecimal('0.00407856'),
+          },
+        ],
+      },
+      fees: [
+        {
+          assetId: 'blockchain:solana:native',
+          assetSymbol: 'SOL' as Currency,
+          amount: parseDecimal('0.000067691'),
+          scope: 'network',
+          settlement: 'balance',
+        },
+      ],
+    });
+
+    const links: TransactionLink[] = [
+      createMockLink({
+        id: 765,
+        sourceTransactionId: withdrawal.id,
+        targetTransactionId: 231,
+        assetSymbol: 'USDT',
+        sourceAssetId: 'blockchain:solana:usdt',
+        targetAssetId: 'blockchain:solana:usdt',
+        sourceAmount: '100',
+        targetAmount: '100',
+        linkType: 'blockchain_to_blockchain',
+        confidenceScore: '1',
+        metadata: {
+          variance: '0',
+          variancePct: '0.00',
+        },
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps([withdrawal], links);
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.summary.unmatched_outflows).toBe(2);
+    expect(analysis.summary.assets).toStrictEqual([
+      {
+        assetSymbol: 'SOL',
+        inflowOccurrences: 0,
+        inflowMissingAmount: '0',
+        outflowOccurrences: 1,
+        outflowMissingAmount: '0.00407856',
+      },
+      {
+        assetSymbol: 'USDT',
+        inflowOccurrences: 0,
+        inflowMissingAmount: '0',
+        outflowOccurrences: 1,
+        outflowMissingAmount: '65',
+      },
+    ]);
   });
 
   it('should suppress nearby one-sided blockchain flows when they look like a service-mediated cross-asset flow', () => {

@@ -1,3 +1,4 @@
+import type { LinkGapIssue } from '@exitbook/accounting/linking';
 import {
   hasImpliedFeeAmount,
   isPartialMatchLinkMetadata,
@@ -8,7 +9,6 @@ import {
 } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { LinkGapIssue } from '../links-gap-model.js';
 import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 
 export interface LinkAmountDisplay {

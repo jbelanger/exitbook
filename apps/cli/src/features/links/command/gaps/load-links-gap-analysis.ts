@@ -1,9 +1,6 @@
+import { analyzeLinkGaps, applyResolvedLinkGapVisibility, type LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
-
-import type { LinkGapAnalysis } from '../links-gap-model.js';
-
-import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from './view/links-gap-analysis.js';
 
 type LinksGapAnalysisDatabase = Pick<DataSession, 'accounts' | 'transactionLinks' | 'transactions'>;
 
