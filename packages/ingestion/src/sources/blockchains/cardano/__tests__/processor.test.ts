@@ -296,6 +296,7 @@ describe('CardanoProcessor', () => {
 
     const [transaction] = result.value;
     expect(transaction?.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('1');
+    expect(transaction?.movements.inflows?.[0]?.movementRole).toBe('staking_reward');
     expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'staking_withdrawal')).toBe(true);
   });
 

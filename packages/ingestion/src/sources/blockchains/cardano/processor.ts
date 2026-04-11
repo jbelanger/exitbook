@@ -93,6 +93,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
             assetId: assetIdResult.value,
             assetSymbol: inflow.asset,
             grossAmount: amount,
+            movementRole: inflow.movementRole,
             netAmount: amount,
           });
         }
@@ -124,6 +125,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
             assetId: assetIdResult.value,
             assetSymbol: outflow.asset,
             grossAmount,
+            movementRole: outflow.movementRole,
             netAmount,
           });
         }

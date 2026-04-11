@@ -156,6 +156,23 @@ describe('consolidateCardanoMovements', () => {
     const result = consolidateCardanoMovements(movements);
     expect(result).toHaveLength(2);
   });
+
+  test('keeps same-asset movements with different roles separate', () => {
+    const movements: CardanoMovement[] = [
+      { amount: '1', asset: 'ADA' as Currency, unit: 'lovelace' },
+      { amount: '0.5', asset: 'ADA' as Currency, movementRole: 'staking_reward', unit: 'lovelace' },
+    ];
+
+    const result = consolidateCardanoMovements(movements);
+    expect(result).toHaveLength(2);
+    expect(result).toContainEqual({ amount: '1', asset: 'ADA', unit: 'lovelace' });
+    expect(result).toContainEqual({
+      amount: '0.5',
+      asset: 'ADA',
+      movementRole: 'staking_reward',
+      unit: 'lovelace',
+    });
+  });
 });
 
 describe('analyzeCardanoFundFlow', () => {
@@ -299,6 +316,7 @@ describe('analyzeCardanoFundFlow', () => {
       amount: '1',
       asset: 'ADA',
       decimals: 6,
+      movementRole: 'staking_reward',
       unit: 'lovelace',
     });
     expect(result.value.classificationUncertainty).toBeUndefined();

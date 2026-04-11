@@ -245,6 +245,36 @@ describe('analyzeLinkGaps', () => {
     });
   });
 
+  it('should ignore staking-reward inflows for transfer gap detection', () => {
+    const transactions: Transaction[] = [
+      createBlockchainDeposit({
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('1'),
+              movementRole: 'staking_reward',
+              netAmount: parseDecimal('1'),
+            },
+          ],
+          outflows: [],
+        },
+        blockchain: {
+          name: 'cardano',
+          transaction_hash: 'cardano-staking-reward',
+          is_confirmed: true,
+        },
+        txFingerprint: 'cardano-staking-reward',
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps(transactions, []);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.issues).toHaveLength(0);
+  });
+
   it('should treat confirmed links as coverage', () => {
     const transactions: Transaction[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [

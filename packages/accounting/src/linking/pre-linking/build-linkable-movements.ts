@@ -1,4 +1,4 @@
-import type { NewTransactionLink, Transaction } from '@exitbook/core';
+import { filterTransferEligibleMovements, type NewTransactionLink, type Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
@@ -50,7 +50,7 @@ export function buildLinkableMovements(
       ? normalizeTransactionHash(tx.blockchain.transaction_hash)
       : undefined;
 
-    const inflows = tx.movements.inflows ?? [];
+    const inflows = filterTransferEligibleMovements(tx.movements.inflows);
     for (const inflow of inflows) {
       const amount = inflow.netAmount ?? inflow.grossAmount;
       const grossAmount = inflow.netAmount && !inflow.netAmount.eq(inflow.grossAmount) ? inflow.grossAmount : undefined;
@@ -74,7 +74,7 @@ export function buildLinkableMovements(
       );
     }
 
-    const outflows = tx.movements.outflows ?? [];
+    const outflows = filterTransferEligibleMovements(tx.movements.outflows);
     for (const outflow of outflows) {
       // Apply outflow reduction if one exists for this tx+asset
       const reduction = outflowReductions.get(tx.id)?.get(outflow.assetId);
@@ -206,8 +206,8 @@ function attachInternalLinkFingerprints(
  * - Same-asset inflows and outflows (e.g., NEAR storage refunds)
  */
 function isStructuralTrade(tx: Transaction): boolean {
-  const inflows = tx.movements.inflows ?? [];
-  const outflows = tx.movements.outflows ?? [];
+  const inflows = filterTransferEligibleMovements(tx.movements.inflows);
+  const outflows = filterTransferEligibleMovements(tx.movements.outflows);
 
   if (inflows.length === 0 || outflows.length === 0) {
     return false;

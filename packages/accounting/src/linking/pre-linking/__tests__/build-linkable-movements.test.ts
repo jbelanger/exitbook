@@ -120,6 +120,29 @@ describe('buildLinkableMovements', () => {
     expect(result.linkableMovements[0]?.movementFingerprint).toBe('movement:stored:outflow:0');
   });
 
+  it('ignores non-principal movements when building transfer candidates', () => {
+    const transactions = [
+      createTransaction({
+        id: 8,
+        source: 'blockchain:cardano',
+        platformKind: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        inflows: [{ assetSymbol: 'ADA', amount: '1', movementRole: 'staking_reward' }],
+        outflows: [{ assetSymbol: 'ADA', amount: '5' }],
+        blockchain: { name: 'cardano', transaction_hash: '0xcardano-role', is_confirmed: true },
+      }),
+    ];
+
+    const result = assertOk(buildLinkableMovements(transactions, logger));
+
+    expect(result.linkableMovements).toHaveLength(1);
+    expect(result.linkableMovements[0]).toMatchObject({
+      transactionId: 8,
+      direction: 'out',
+      assetSymbol: 'ADA',
+    });
+  });
+
   it('marks structural trades as excluded', () => {
     const transactions = [
       createTransaction({

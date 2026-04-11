@@ -1,4 +1,4 @@
-import type { Account, Transaction, TransactionLink } from '@exitbook/core';
+import { filterTransferEligibleMovements, type Account, type Transaction, type TransactionLink } from '@exitbook/core';
 import { parseAssetId, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -194,8 +194,14 @@ function getOneSidedBlockchainActivity(
     return undefined;
   }
 
-  const inflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.inflows ?? [], excludedAssetIds);
-  const outflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.outflows ?? [], excludedAssetIds);
+  const inflowTotals = buildPositiveAssetTotalsByAssetId(
+    filterTransferEligibleMovements(tx.movements.inflows),
+    excludedAssetIds
+  );
+  const outflowTotals = buildPositiveAssetTotalsByAssetId(
+    filterTransferEligibleMovements(tx.movements.outflows),
+    excludedAssetIds
+  );
 
   if (outflowTotals.size === 0 && inflowTotals.size > 0 && !isExcludedInflowGapTransaction(tx)) {
     const entry = getSingleAssetEntryById(inflowTotals);
@@ -316,7 +322,7 @@ function isResidualFeeAssetGapOnOtherwiseCoveredSend(
     return false;
   }
 
-  const outflowTotals = buildPositiveAssetTotalsByAssetId(tx.movements.outflows ?? []);
+  const outflowTotals = buildPositiveAssetTotalsByAssetId(filterTransferEligibleMovements(tx.movements.outflows));
   const otherOutflowAssets = Array.from(outflowTotals.entries()).filter(([otherAssetId]) => otherAssetId !== assetId);
   if (otherOutflowAssets.length === 0) {
     return false;
@@ -701,8 +707,8 @@ function collectInflowGapIssues(
       continue;
     }
 
-    const inflows = tx.movements.inflows ?? [];
-    const outflows = tx.movements.outflows ?? [];
+    const inflows = filterTransferEligibleMovements(tx.movements.inflows);
+    const outflows = filterTransferEligibleMovements(tx.movements.outflows);
     if (!tx.blockchain || inflows.length === 0 || outflows.length > 0 || isExcludedInflowGapTransaction(tx)) {
       continue;
     }
@@ -761,8 +767,8 @@ function collectOutflowGapIssues(
       continue;
     }
 
-    const inflows = tx.movements.inflows ?? [];
-    const outflows = tx.movements.outflows ?? [];
+    const inflows = filterTransferEligibleMovements(tx.movements.inflows);
+    const outflows = filterTransferEligibleMovements(tx.movements.outflows);
     if (outflows.length === 0 || inflows.length > 0 || !isTransferSendTransaction(tx)) {
       continue;
     }

@@ -827,6 +827,68 @@ describe('buildCostBasisScopedTransactions', () => {
       );
     });
 
+    it('should ignore non-principal inflows when evaluating same-hash ambiguity', () => {
+      const tx1 = materializeTestTransaction({
+        id: 1,
+        accountId: 1,
+        identityReference: 'ext-role-1',
+        datetime: '2024-01-01T00:00:00Z',
+        timestamp: new Date('2024-01-01T00:00:00Z').getTime(),
+        platformKey: 'cardano',
+        platformKind: 'blockchain',
+        status: 'success',
+        movements: {
+          inflows: [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('0.5'),
+              movementRole: 'staking_reward',
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          ],
+          outflows: [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('2'),
+              priceAtTxTime: createPriceAtTxTime('1'),
+            },
+          ],
+        },
+        fees: [],
+        operation: { category: 'transfer', type: 'transfer' },
+        blockchain: { name: 'cardano', transaction_hash: '0xhash-role', is_confirmed: true },
+      });
+
+      const tx2 = createBlockchainTx(
+        2,
+        2,
+        '2024-01-01T00:00:00Z',
+        'cardano',
+        '0xhash-role',
+        [{ assetId: 'blockchain:cardano:native', assetSymbol: 'ADA', amount: '0.5', price: '1' }],
+        []
+      );
+
+      const logger = createSpyLogger();
+      const result = buildCostBasisScopedTransactions([tx1, tx2], logger);
+      const value = assertOk(result);
+
+      const senderScoped = value.transactions.find((transaction) => transaction.tx.id === 1)!;
+      const receiverScoped = value.transactions.find((transaction) => transaction.tx.id === 2)!;
+
+      expect(senderScoped.movements.inflows).toHaveLength(1);
+      expect(senderScoped.movements.inflows[0]!.movementRole).toBe('staking_reward');
+      expect(senderScoped.movements.outflows).toHaveLength(1);
+      expect(senderScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('1.5');
+      expect(receiverScoped.movements.inflows).toHaveLength(0);
+      expect(vi.mocked(logger.warn)).not.toHaveBeenCalledWith(
+        expect.objectContaining({ mixedTxIds: [1] }),
+        expect.stringContaining('both inflows and outflows')
+      );
+    });
+
     it('should warn and skip multi-movement participant', () => {
       // Sender has two outflow movements for BTC in one tx
       const senderTx = materializeTestTransaction({

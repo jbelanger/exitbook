@@ -1,4 +1,4 @@
-import type { AssetMovement, Transaction } from '@exitbook/core';
+import { filterTransferEligibleMovements, type AssetMovement, type Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
@@ -189,6 +189,7 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
+      movementRole: raw.movementRole,
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
       movementFingerprint: raw.movementFingerprint,
@@ -201,6 +202,7 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
       assetId: raw.assetId,
       assetSymbol: raw.assetSymbol,
       grossAmount: new Decimal(raw.grossAmount.toString()),
+      movementRole: raw.movementRole,
       netAmount: raw.netAmount !== undefined ? new Decimal(raw.netAmount.toString()) : undefined,
       priceAtTxTime: raw.priceAtTxTime,
       movementFingerprint: raw.movementFingerprint,
@@ -264,7 +266,7 @@ function groupSameHashTransactionsForCostBasis(
     // Collect all assets involved — key by assetId
     const assetMap = new Map<string, { assetId: string; assetSymbol: string }>();
     for (const tx of txs) {
-      for (const inflow of tx.movements.inflows ?? []) {
+      for (const inflow of filterTransferEligibleMovements(tx.movements.inflows)) {
         const existing = assetMap.get(inflow.assetId);
         if (existing && existing.assetSymbol !== inflow.assetSymbol) {
           return err(
@@ -276,7 +278,7 @@ function groupSameHashTransactionsForCostBasis(
         }
         assetMap.set(inflow.assetId, { assetId: inflow.assetId, assetSymbol: inflow.assetSymbol });
       }
-      for (const outflow of tx.movements.outflows ?? []) {
+      for (const outflow of filterTransferEligibleMovements(tx.movements.outflows)) {
         const existing = assetMap.get(outflow.assetId);
         if (existing && existing.assetSymbol !== outflow.assetSymbol) {
           return err(
@@ -322,7 +324,7 @@ function groupSameHashTransactionsForCostBasis(
         let outflowMovementFingerprint: string | undefined;
         let inflowMovementFingerprint: string | undefined;
 
-        for (const inflow of scoped.movements.inflows) {
+        for (const inflow of filterTransferEligibleMovements(scoped.movements.inflows)) {
           if (inflow.assetId !== assetId) continue;
           inflowGrossAmount = inflowGrossAmount.plus(inflow.grossAmount);
           inflowMovementCount++;
@@ -333,7 +335,7 @@ function groupSameHashTransactionsForCostBasis(
           }
         }
 
-        for (const outflow of scoped.movements.outflows) {
+        for (const outflow of filterTransferEligibleMovements(scoped.movements.outflows)) {
           if (outflow.assetId !== assetId) continue;
           outflowGrossAmount = outflowGrossAmount.plus(outflow.grossAmount);
           outflowMovementCount++;

@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import { filterTransferEligibleMovements, type Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
@@ -66,10 +66,10 @@ export function groupSameHashTransactions(transactions: Transaction[]): SameHash
     // Collect all assets involved across all transactions in this hash group
     const assetMap = new Map<string, { assetId: string; assetSymbol: string }>();
     for (const tx of txs) {
-      for (const inflow of tx.movements.inflows ?? []) {
+      for (const inflow of filterTransferEligibleMovements(tx.movements.inflows)) {
         assetMap.set(inflow.assetId, { assetId: inflow.assetId, assetSymbol: inflow.assetSymbol });
       }
-      for (const outflow of tx.movements.outflows ?? []) {
+      for (const outflow of filterTransferEligibleMovements(tx.movements.outflows)) {
         assetMap.set(outflow.assetId, { assetId: outflow.assetId, assetSymbol: outflow.assetSymbol });
       }
     }
@@ -84,13 +84,13 @@ export function groupSameHashTransactions(transactions: Transaction[]): SameHash
         let inflowMovementCount = 0;
         let outflowMovementCount = 0;
 
-        for (const inflow of tx.movements.inflows ?? []) {
+        for (const inflow of filterTransferEligibleMovements(tx.movements.inflows)) {
           if (inflow.assetId !== assetId) continue;
           inflowGrossAmount = inflowGrossAmount.plus(inflow.grossAmount);
           inflowMovementCount++;
         }
 
-        for (const outflow of tx.movements.outflows ?? []) {
+        for (const outflow of filterTransferEligibleMovements(tx.movements.outflows)) {
           if (outflow.assetId !== assetId) continue;
           outflowGrossAmount = outflowGrossAmount.plus(outflow.grossAmount);
           outflowMovementCount++;

@@ -1,7 +1,7 @@
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { AssetMovementDraft, MovementDirection } from './movement.js';
+import type { AssetMovementDraft, MovementDirection, MovementRole } from './movement.js';
 
 /**
  * Result of computing primary movement from inflows/outflows
@@ -10,6 +10,24 @@ export interface PrimaryMovement {
   assetSymbol: string;
   amount: Decimal;
   direction: MovementDirection;
+}
+
+interface MovementRoleCarrier {
+  movementRole?: MovementRole | undefined;
+}
+
+export function getMovementRole(movement: MovementRoleCarrier): MovementRole {
+  return movement.movementRole ?? 'principal';
+}
+
+export function isTransferEligibleMovement(movement: MovementRoleCarrier): boolean {
+  return getMovementRole(movement) === 'principal';
+}
+
+export function filterTransferEligibleMovements<T extends MovementRoleCarrier>(
+  movements: readonly T[] | undefined
+): T[] {
+  return (movements ?? []).filter(isTransferEligibleMovement);
 }
 
 /**

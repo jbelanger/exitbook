@@ -1,3 +1,4 @@
+import type { MovementRole } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 
 /**
@@ -7,6 +8,7 @@ export interface CardanoMovement {
   amount: string;
   asset: Currency;
   decimals?: number | undefined;
+  movementRole?: MovementRole | undefined;
   policyId?: string | undefined; // Policy ID for native tokens
   assetName?: string | undefined; // Asset name for native tokens
   unit: string; // Full unit identifier (lovelace for ADA, policyId+assetName for tokens)

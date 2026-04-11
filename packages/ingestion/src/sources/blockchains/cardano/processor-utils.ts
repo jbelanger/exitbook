@@ -14,9 +14,12 @@ interface AssetAccumulator {
   amount: Decimal;
   assetName?: string | undefined;
   decimals?: number | undefined;
+  movementRole?: CardanoMovement['movementRole'];
   policyId?: string | undefined;
   symbol?: Currency | undefined;
 }
+
+type ConsolidationRole = NonNullable<CardanoMovement['movementRole']>;
 
 function sumPrimaryOwnedAdaInputs(tx: CardanoTransaction, primaryAddress: string): Decimal {
   let total = parseDecimal('0');
@@ -126,31 +129,41 @@ export function parseCardanoAssetUnit(unit: string): {
  */
 
 export function consolidateCardanoMovements(movements: CardanoMovement[]): CardanoMovement[] {
-  const assetMap = new Map<string, AssetAccumulator>();
+  const assetMap = new Map<string, Map<ConsolidationRole, AssetAccumulator>>();
 
   for (const movement of movements) {
-    const existing = assetMap.get(movement.unit);
+    const movementRole: ConsolidationRole = movement.movementRole ?? 'principal';
+    const roleMap = assetMap.get(movement.unit) ?? new Map<ConsolidationRole, AssetAccumulator>();
+    const existing = roleMap.get(movementRole);
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      assetMap.set(movement.unit, {
+      roleMap.set(movementRole, {
         amount: parseDecimal(movement.amount),
         decimals: movement.decimals,
         policyId: movement.policyId,
         assetName: movement.assetName,
+        movementRole: movement.movementRole,
         symbol: movement.asset,
       });
     }
+
+    if (!assetMap.has(movement.unit)) {
+      assetMap.set(movement.unit, roleMap);
+    }
   }
 
-  return Array.from(assetMap.entries()).map(([unit, data]) => ({
-    amount: data.amount.toFixed(),
-    asset: (data.symbol || unit) as Currency,
-    assetName: data.assetName,
-    decimals: data.decimals,
-    policyId: data.policyId,
-    unit,
-  }));
+  return Array.from(assetMap.entries()).flatMap(([unit, roleMap]) =>
+    Array.from(roleMap.values()).map((data) => ({
+      amount: data.amount.toFixed(),
+      asset: (data.symbol || unit) as Currency,
+      assetName: data.assetName,
+      decimals: data.decimals,
+      movementRole: data.movementRole,
+      policyId: data.policyId,
+      unit,
+    }))
+  );
 }
 
 /**
@@ -269,6 +282,7 @@ export function analyzeCardanoFundFlow(
       amount: withdrawalAmount.toFixed(),
       asset: 'ADA' as Currency,
       decimals: 6,
+      movementRole: 'staking_reward',
       unit: 'lovelace',
     });
     attributedWithdrawalAmount = withdrawalAmount.toFixed();

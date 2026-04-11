@@ -1,4 +1,4 @@
-import type { Transaction, TransactionLink } from '@exitbook/core';
+import type { MovementRole, Transaction, TransactionLink } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -92,8 +92,20 @@ export function createTransaction(params: {
   datetime: string;
   from?: string;
   id: number;
-  inflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
-  outflows?: { amount: string; assetId?: string | undefined; assetSymbol: string; netAmount?: string | undefined }[];
+  inflows?: {
+    amount: string;
+    assetId?: string | undefined;
+    assetSymbol: string;
+    movementRole?: MovementRole | undefined;
+    netAmount?: string | undefined;
+  }[];
+  outflows?: {
+    amount: string;
+    assetId?: string | undefined;
+    assetSymbol: string;
+    movementRole?: MovementRole | undefined;
+    netAmount?: string | undefined;
+  }[];
   platformKind?: 'blockchain' | 'exchange';
   source: string;
   to?: string;
@@ -127,6 +139,7 @@ export function createTransaction(params: {
           assetId: movement.assetId ?? `test:${movement.assetSymbol.toLowerCase()}`,
           assetSymbol: movement.assetSymbol as Currency,
           grossAmount: parseDecimal(movement.amount),
+          movementRole: movement.movementRole,
           netAmount: movement.netAmount ? parseDecimal(movement.netAmount) : parseDecimal(movement.amount),
         })) ?? [],
       outflows:
@@ -134,6 +147,7 @@ export function createTransaction(params: {
           assetId: movement.assetId ?? `test:${movement.assetSymbol.toLowerCase()}`,
           assetSymbol: movement.assetSymbol as Currency,
           grossAmount: parseDecimal(movement.amount),
+          movementRole: movement.movementRole,
           netAmount: movement.netAmount ? parseDecimal(movement.netAmount) : parseDecimal(movement.amount),
         })) ?? [],
     },
