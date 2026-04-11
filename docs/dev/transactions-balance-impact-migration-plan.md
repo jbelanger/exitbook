@@ -318,6 +318,14 @@ These are not permission to leave debt behind. They are here so we can deliberat
      Follow-up:
    - decide whether detail should add explicit `Debit` / `Credit` / `Fees` summary lines or rename `Primary` to `Primary movement`
 
+### Phase 3 Smells
+
+1. `computeTransactionFiatValue()` in [portfolio-history-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts) still owns the rule for excluding `on-chain` fees from fiat weighting.
+   Risk:
+   - balance delta semantics are now shared, but balance-aware fiat weighting is still local to the portfolio history surface
+     Follow-up:
+   - if another surface needs the same valuation semantics, extract a shared helper instead of copying this rule again
+
 ## Exit Criteria
 
 We are done when all of the following are true:

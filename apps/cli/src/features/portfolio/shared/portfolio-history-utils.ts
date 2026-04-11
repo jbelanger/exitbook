@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import { buildTransactionBalanceImpact, type Transaction } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import type { PortfolioTransactionItem } from './portfolio-history-types.js';
@@ -57,25 +57,13 @@ export function buildTransactionItems(
   const assetIdSet = new Set(Array.isArray(assetIds) ? assetIds : [assetIds]);
 
   for (const tx of transactions) {
-    let netAmount = new Decimal(0);
-
-    for (const inflow of tx.movements.inflows ?? []) {
-      if (assetIdSet.has(inflow.assetId)) {
-        netAmount = netAmount.plus(inflow.grossAmount);
+    const netAmount = buildTransactionBalanceImpact(tx).assets.reduce((sum, assetImpact) => {
+      if (!assetIdSet.has(assetImpact.assetId)) {
+        return sum;
       }
-    }
 
-    for (const outflow of tx.movements.outflows ?? []) {
-      if (assetIdSet.has(outflow.assetId)) {
-        netAmount = netAmount.minus(outflow.grossAmount);
-      }
-    }
-
-    for (const fee of tx.fees ?? []) {
-      if (assetIdSet.has(fee.assetId)) {
-        netAmount = netAmount.minus(fee.amount);
-      }
-    }
+      return sum.plus(assetImpact.netBalanceDelta);
+    }, new Decimal(0));
 
     const assetDirection: 'in' | 'out' = netAmount.gte(0) ? 'in' : 'out';
     const inflows = (tx.movements.inflows ?? []).map((inflow) => ({
@@ -145,7 +133,7 @@ function computeTransactionFiatValue(
   }
 
   for (const fee of tx.fees ?? []) {
-    if (!assetIdSet.has(fee.assetId) || fee.priceAtTxTime === undefined) {
+    if (fee.settlement === 'on-chain' || !assetIdSet.has(fee.assetId) || fee.priceAtTxTime === undefined) {
       continue;
     }
     weightedPriceSum = weightedPriceSum.plus(fee.priceAtTxTime.price.amount.times(fee.amount.abs()));

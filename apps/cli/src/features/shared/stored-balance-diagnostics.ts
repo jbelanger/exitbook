@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import { buildTransactionBalanceImpact, type Transaction } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -36,41 +36,30 @@ export function buildStoredBalanceAssetDiagnosticsSummary(params: {
   let latestDate: string | undefined;
 
   for (const tx of params.transactions) {
-    let touched = false;
+    const assetImpact = buildTransactionBalanceImpact(tx).assets.find((entry) => entry.assetId === params.assetId);
 
-    for (const inflow of tx.movements.inflows ?? []) {
-      if (inflow.assetId !== params.assetId) continue;
-      touched = true;
-      inflowTotal = inflowTotal.plus(inflow.grossAmount);
-      if (!assetSymbol) {
-        assetSymbol = inflow.assetSymbol;
-      }
+    if (!assetImpact) {
+      continue;
     }
 
-    for (const outflow of tx.movements.outflows ?? []) {
-      if (outflow.assetId !== params.assetId) continue;
-      touched = true;
-      outflowTotal = outflowTotal.plus(outflow.grossAmount);
-      if (!assetSymbol) {
-        assetSymbol = outflow.assetSymbol;
-      }
+    const touched =
+      !assetImpact.creditGross.isZero() || !assetImpact.debitGross.isZero() || !assetImpact.separateFeeDebit.isZero();
+
+    if (!touched) {
+      continue;
     }
 
-    for (const fee of tx.fees ?? []) {
-      if (fee.assetId !== params.assetId) continue;
-      if (fee.settlement === 'on-chain') continue;
-      touched = true;
-      feeTotal = feeTotal.plus(fee.amount);
-      if (!assetSymbol) {
-        assetSymbol = fee.assetSymbol;
-      }
+    inflowTotal = inflowTotal.plus(assetImpact.creditGross);
+    outflowTotal = outflowTotal.plus(assetImpact.debitGross);
+    feeTotal = feeTotal.plus(assetImpact.separateFeeDebit);
+
+    if (!assetSymbol) {
+      assetSymbol = assetImpact.assetSymbol;
     }
 
-    if (touched) {
-      txCount++;
-      if (!earliestDate || tx.datetime < earliestDate) earliestDate = tx.datetime;
-      if (!latestDate || tx.datetime > latestDate) latestDate = tx.datetime;
-    }
+    txCount++;
+    if (!earliestDate || tx.datetime < earliestDate) earliestDate = tx.datetime;
+    if (!latestDate || tx.datetime > latestDate) latestDate = tx.datetime;
   }
 
   const net = inflowTotal.minus(outflowTotal).minus(feeTotal);

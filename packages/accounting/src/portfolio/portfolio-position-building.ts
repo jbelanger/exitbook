@@ -2,7 +2,7 @@
  * Portfolio position-building and aggregation helpers.
  */
 
-import type { Transaction } from '@exitbook/core';
+import { buildTransactionBalanceImpact, type Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -799,19 +799,12 @@ export function buildAccountAssetBalances(
     const balances: Record<string, Decimal> = {};
 
     for (const tx of txs) {
-      for (const inflow of tx.movements.inflows ?? []) {
-        balances[inflow.assetId] = (balances[inflow.assetId] ?? new Decimal(0)).plus(inflow.grossAmount);
-      }
+      const balanceImpact = buildTransactionBalanceImpact(tx);
 
-      for (const outflow of tx.movements.outflows ?? []) {
-        balances[outflow.assetId] = (balances[outflow.assetId] ?? new Decimal(0)).minus(outflow.grossAmount);
-      }
-
-      for (const fee of tx.fees ?? []) {
-        if (fee.settlement === 'on-chain') {
-          continue;
-        }
-        balances[fee.assetId] = (balances[fee.assetId] ?? new Decimal(0)).minus(fee.amount);
+      for (const assetImpact of balanceImpact.assets) {
+        balances[assetImpact.assetId] = (balances[assetImpact.assetId] ?? new Decimal(0)).plus(
+          assetImpact.netBalanceDelta
+        );
       }
     }
 
