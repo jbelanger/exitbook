@@ -168,6 +168,14 @@ export {
 } from './asset-review/asset-review.js';
 
 export {
+  hasAnyDiagnosticCode,
+  hasDiagnosticCode,
+  isTransactionMarkedSpam,
+  transactionHasAnyDiagnosticCode,
+  transactionHasDiagnosticCode,
+} from './transaction/transaction-diagnostic-utils.js';
+
+export {
   PROJECTION_DEFINITIONS,
   cascadeInvalidation,
   rebuildPlan,

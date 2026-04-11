@@ -7,6 +7,7 @@ import type {
   ImportSession,
   Transaction,
 } from '@exitbook/core';
+import { isTransactionMarkedSpam } from '@exitbook/core';
 import { createExchangeClient } from '@exitbook/exchange-providers';
 import { parseAssetId, parseDecimal, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -784,10 +785,7 @@ function collectExcludedAssetInfo(transactions: Transaction[]): {
   };
 
   for (const tx of excludedTransactions) {
-    const isScam =
-      tx.isSpam === true || (tx.diagnostics?.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN') ?? false);
-
-    if (isScam) {
+    if (isTransactionMarkedSpam(tx)) {
       for (const inflow of tx.movements.inflows ?? []) {
         if (shouldMarkScamAsset(inflow.assetId)) spamAssetIds.add(inflow.assetId);
       }

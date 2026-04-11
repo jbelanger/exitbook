@@ -1,4 +1,11 @@
-import { filterTransferEligibleMovements, type Account, type Transaction, type TransactionLink } from '@exitbook/core';
+import {
+  filterTransferEligibleMovements,
+  isTransactionMarkedSpam,
+  transactionHasDiagnosticCode,
+  type Account,
+  type Transaction,
+  type TransactionLink,
+} from '@exitbook/core';
 import { parseAssetId, parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -14,7 +21,6 @@ import {
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
-const GAP_SUPPRESSED_DIAGNOSTIC_CODES = new Set(['SCAM_TOKEN', 'SUSPICIOUS_AIRDROP']);
 
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
@@ -683,11 +689,11 @@ function applyGapCues(issues: readonly LinkGapIssue[], transactions: readonly Tr
 }
 
 function shouldSuppressGapByPolicy(tx: Transaction): boolean {
-  if (tx.excludedFromAccounting === true || tx.isSpam === true) {
+  if (tx.excludedFromAccounting === true || isTransactionMarkedSpam(tx)) {
     return true;
   }
 
-  return tx.diagnostics?.some((diagnostic) => GAP_SUPPRESSED_DIAGNOSTIC_CODES.has(diagnostic.code)) ?? false;
+  return transactionHasDiagnosticCode(tx, 'SUSPICIOUS_AIRDROP');
 }
 
 function collectInflowGapIssues(
