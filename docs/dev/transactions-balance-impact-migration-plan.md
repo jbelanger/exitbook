@@ -258,6 +258,10 @@ Targeted verification commands to use during migration:
 - `pnpm vitest run apps/cli/src/features/transactions/...`
 - `pnpm vitest run apps/cli/src/features/portfolio/...`
 
+Current unrelated verification blocker already present in repo:
+
+- `pnpm --filter @exitbook/ingestion exec tsc --noEmit` fails on [packages/ingestion/src/sources/blockchains/solana/**tests**/processor.test.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/__tests__/processor.test.ts) line 171 with `TS2532: Object is possibly 'undefined'.`
+
 ## Smells Encountered Already
 
 These are not permission to leave debt behind. They are here so we can deliberately clean them or explicitly defer them.
@@ -279,6 +283,11 @@ These are not permission to leave debt behind. They are here so we can deliberat
 3. `external` fee behavior is implicit in current balance code rather than called out in one canonical helper.
    Risk:
    - a future refactor could accidentally exclude it from balance effect in one consumer but not another
+
+4. [packages/core/src/index.ts](/Users/joel/Dev/exitbook/packages/core/src/index.ts) is a hand-maintained root barrel.
+   Risk:
+   - adding a new transaction export in `packages/core/src/transaction/index.ts` does not automatically make it available from `@exitbook/core`
+   - this already caused one runtime failure during Phase 1 when `buildTransactionBalanceImpact` existed locally but was missing from the root export list
 
 ### Naming Smells
 

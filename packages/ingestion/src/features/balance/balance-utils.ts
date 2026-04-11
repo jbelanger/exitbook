@@ -1,4 +1,4 @@
-import type { Account, Transaction } from '@exitbook/core';
+import { buildTransactionBalanceImpact, type Account, type Transaction } from '@exitbook/core';
 import { parseDecimal, tryParseDecimal } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
@@ -95,62 +95,19 @@ export function calculateBalances(transactions: Transaction[]): BalanceCalculati
   const assetMetadata: Record<string, string> = {};
 
   for (const transaction of transactions) {
-    processTransactionForBalance(transaction, balances, assetMetadata);
+    const balanceImpact = buildTransactionBalanceImpact(transaction);
+
+    for (const assetImpact of balanceImpact.assets) {
+      if (!balances[assetImpact.assetId]) {
+        balances[assetImpact.assetId] = parseDecimal('0');
+      }
+
+      assetMetadata[assetImpact.assetId] = assetImpact.assetSymbol;
+      balances[assetImpact.assetId] = balances[assetImpact.assetId]!.plus(assetImpact.netBalanceDelta);
+    }
   }
 
   return { balances, assetMetadata };
-}
-
-/**
- * Process a single transaction's movements and fees to update balances.
- * Handles inflows, outflows, and fees from the transaction's structured data.
- * Groups balances by assetId (unique identity) rather than assetSymbol (display label).
- * Also tracks assetId -> assetSymbol mapping for display purposes.
- */
-function processTransactionForBalance(
-  transaction: Transaction,
-  balances: Record<string, Decimal>,
-  assetMetadata: Record<string, string>
-): void {
-  const ensureBalance = (assetId: string, assetSymbol: string) => {
-    if (!balances[assetId]) {
-      balances[assetId] = parseDecimal('0');
-    }
-    assetMetadata[assetId] = assetSymbol;
-  };
-
-  // Process inflows (what user gained)
-  const inflows = transaction.movements.inflows;
-  if (inflows && Array.isArray(inflows) && inflows.length > 0) {
-    for (const inflow of inflows) {
-      ensureBalance(inflow.assetId, inflow.assetSymbol);
-      // Use grossAmount - it represents what the user's balance increased by
-      // (netAmount is for transfer matching, not balance calculation)
-      balances[inflow.assetId] = balances[inflow.assetId]!.plus(inflow.grossAmount);
-    }
-  }
-
-  // Process outflows (what user lost)
-  const outflows = transaction.movements.outflows;
-  if (outflows && Array.isArray(outflows) && outflows.length > 0) {
-    for (const outflow of outflows) {
-      ensureBalance(outflow.assetId, outflow.assetSymbol);
-      // grossAmount includes the fee for UTXO chains; for account-based chains fee is deducted separately below
-      balances[outflow.assetId] = balances[outflow.assetId]!.minus(outflow.grossAmount);
-    }
-  }
-
-  // Only subtract fees with settlement='balance' separately.
-  // Fees with settlement='on-chain' are already included in grossAmount (UTXO chains).
-  if (transaction.fees && Array.isArray(transaction.fees) && transaction.fees.length > 0) {
-    for (const fee of transaction.fees) {
-      if (fee.settlement === 'on-chain') {
-        continue;
-      }
-      ensureBalance(fee.assetId, fee.assetSymbol);
-      balances[fee.assetId] = balances[fee.assetId]!.minus(fee.amount);
-    }
-  }
 }
 
 // ─── Balance parsing ────────────────────────────────────────────────────────
