@@ -22,9 +22,9 @@ function createTransactionViewItem(): TransactionViewItem {
     debitSummary: '48,250 USD',
     creditSummary: '1.25 BTC',
     feeSummary: '12.5 USD',
-    primaryAsset: 'BTC',
-    primaryAmount: '1.25000000',
-    primaryDirection: 'in',
+    primaryMovementAsset: 'BTC',
+    primaryMovementAmount: '1.25000000',
+    primaryMovementDirection: 'in',
     inflows: [],
     outflows: [],
     fees: [],
@@ -59,9 +59,9 @@ describe('transactions static renderer', () => {
           debitSummary: '250 CAD',
           creditSummary: '0.0035 BTC',
           feeSummary: '1.25 CAD',
-          primaryAsset: 'CAD',
-          primaryAmount: '250',
-          primaryDirection: 'out',
+          primaryMovementAsset: 'CAD',
+          primaryMovementAmount: '250',
+          primaryMovementDirection: 'out',
         },
       ],
       {},
@@ -85,9 +85,9 @@ describe('transactions static renderer', () => {
           debitSummary: undefined,
           creditSummary: '2 ETH',
           feeSummary: undefined,
-          primaryAsset: 'ETH',
-          primaryAmount: '2',
-          primaryDirection: 'in',
+          primaryMovementAsset: 'ETH',
+          primaryMovementAmount: '2',
+          primaryMovementDirection: 'in',
         },
       ],
       {},
@@ -105,5 +105,9 @@ describe('transactions static renderer', () => {
 
     expect(stripAnsi(output)).toContain('Transaction ref: 1234567890');
     expect(stripAnsi(output)).toContain('Fingerprint: 1234567890abcdef-transaction');
+    expect(stripAnsi(output)).toContain('Debit: 48,250 USD');
+    expect(stripAnsi(output)).toContain('Credit: 1.25 BTC');
+    expect(stripAnsi(output)).toContain('Fees: 12.5 USD');
+    expect(stripAnsi(output)).toContain('Primary movement: 1.25000000 BTC IN');
   });
 });

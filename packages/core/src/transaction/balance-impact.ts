@@ -1,6 +1,7 @@
 import { parseDecimal } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
+import type { PriceAtTxTime } from './movement.js';
 import type { Transaction } from './transaction.js';
 
 export interface TransactionBalanceImpactAssetEntry {
@@ -15,6 +16,13 @@ export interface TransactionBalanceImpactAssetEntry {
 
 export interface TransactionBalanceImpact {
   assets: TransactionBalanceImpactAssetEntry[];
+}
+
+export interface TransactionBalanceImpactPricingInput {
+  amount: Decimal;
+  assetId: string;
+  assetSymbol: string;
+  priceAtTxTime: PriceAtTxTime;
 }
 
 const ZERO_DECIMAL = parseDecimal('0');
@@ -63,6 +71,8 @@ export function buildTransactionBalanceImpact(
       continue;
     }
 
+    // Under current balance semantics, every non-on-chain fee settlement is
+    // an additional balance debit, including `balance` and `external`.
     entry.separateFeeDebit = entry.separateFeeDebit.plus(fee.amount);
     entry.netBalanceDelta = entry.netBalanceDelta.minus(fee.amount);
   }
@@ -70,4 +80,52 @@ export function buildTransactionBalanceImpact(
   return {
     assets: [...assets.values()],
   };
+}
+
+export function collectTransactionBalanceImpactPricingInputs(
+  transaction: Pick<Transaction, 'fees' | 'movements'>,
+  assetIds: ReadonlySet<string>
+): TransactionBalanceImpactPricingInput[] {
+  const pricingInputs: TransactionBalanceImpactPricingInput[] = [];
+
+  for (const inflow of transaction.movements.inflows ?? []) {
+    if (!assetIds.has(inflow.assetId) || inflow.priceAtTxTime === undefined) {
+      continue;
+    }
+
+    pricingInputs.push({
+      assetId: inflow.assetId,
+      assetSymbol: inflow.assetSymbol,
+      amount: inflow.grossAmount.abs(),
+      priceAtTxTime: inflow.priceAtTxTime,
+    });
+  }
+
+  for (const outflow of transaction.movements.outflows ?? []) {
+    if (!assetIds.has(outflow.assetId) || outflow.priceAtTxTime === undefined) {
+      continue;
+    }
+
+    pricingInputs.push({
+      assetId: outflow.assetId,
+      assetSymbol: outflow.assetSymbol,
+      amount: outflow.grossAmount.abs(),
+      priceAtTxTime: outflow.priceAtTxTime,
+    });
+  }
+
+  for (const fee of transaction.fees ?? []) {
+    if (fee.settlement === 'on-chain' || !assetIds.has(fee.assetId) || fee.priceAtTxTime === undefined) {
+      continue;
+    }
+
+    pricingInputs.push({
+      assetId: fee.assetId,
+      assetSymbol: fee.assetSymbol,
+      amount: fee.amount.abs(),
+      priceAtTxTime: fee.priceAtTxTime,
+    });
+  }
+
+  return pricingInputs;
 }

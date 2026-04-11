@@ -1,4 +1,8 @@
-import { buildTransactionBalanceImpact, type Transaction } from '@exitbook/core';
+import {
+  buildTransactionBalanceImpact,
+  collectTransactionBalanceImpactPricingInputs,
+  type Transaction,
+} from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 import type { PortfolioTransactionItem } from './portfolio-history-types.js';
@@ -113,32 +117,12 @@ function computeTransactionFiatValue(
     return undefined;
   }
 
-  let weightedPriceSum = new Decimal(0);
-  let pricedQuantity = new Decimal(0);
-
-  for (const inflow of tx.movements.inflows ?? []) {
-    if (!assetIdSet.has(inflow.assetId) || inflow.priceAtTxTime === undefined) {
-      continue;
-    }
-    weightedPriceSum = weightedPriceSum.plus(inflow.priceAtTxTime.price.amount.times(inflow.grossAmount.abs()));
-    pricedQuantity = pricedQuantity.plus(inflow.grossAmount.abs());
-  }
-
-  for (const outflow of tx.movements.outflows ?? []) {
-    if (!assetIdSet.has(outflow.assetId) || outflow.priceAtTxTime === undefined) {
-      continue;
-    }
-    weightedPriceSum = weightedPriceSum.plus(outflow.priceAtTxTime.price.amount.times(outflow.grossAmount.abs()));
-    pricedQuantity = pricedQuantity.plus(outflow.grossAmount.abs());
-  }
-
-  for (const fee of tx.fees ?? []) {
-    if (fee.settlement === 'on-chain' || !assetIdSet.has(fee.assetId) || fee.priceAtTxTime === undefined) {
-      continue;
-    }
-    weightedPriceSum = weightedPriceSum.plus(fee.priceAtTxTime.price.amount.times(fee.amount.abs()));
-    pricedQuantity = pricedQuantity.plus(fee.amount.abs());
-  }
+  const pricingInputs = collectTransactionBalanceImpactPricingInputs(tx, assetIdSet);
+  const weightedPriceSum = pricingInputs.reduce(
+    (sum, pricingInput) => sum.plus(pricingInput.priceAtTxTime.price.amount.times(pricingInput.amount)),
+    new Decimal(0)
+  );
+  const pricedQuantity = pricingInputs.reduce((sum, pricingInput) => sum.plus(pricingInput.amount), new Decimal(0));
 
   if (pricedQuantity.isZero()) {
     return undefined;

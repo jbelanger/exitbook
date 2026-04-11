@@ -1,6 +1,6 @@
 # Transactions Balance-Impact Migration Plan
 
-Status: temporary dev plan
+Status: completed temporary dev plan
 Owner: Codex + Joel
 Scope: transaction browse surfaces, shared balance math, duplicate balance-style projections
 
@@ -266,65 +266,11 @@ Targeted verification commands to use during migration:
 Current unrelated verification blocker already present in repo:
 
 - `pnpm --filter @exitbook/ingestion exec tsc --noEmit` fails on [packages/ingestion/src/sources/blockchains/solana/**tests**/processor.test.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/__tests__/processor.test.ts) line 171 with `TS2532: Object is possibly 'undefined'.`
-- `pnpm --filter exitbook-cli exec tsc --noEmit` fails on [apps/cli/src/features/assets/command/**tests**/asset-command-services.test.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/assets/command/__tests__/asset-command-services.test.ts) line 5 with `TS2305: Module '"@exitbook/core"' has no exported member 'Result'.`
 
-## Smells Encountered Already
+Migration smell follow-up status:
 
-These are not permission to leave debt behind. They are here so we can deliberately clean them or explicitly defer them.
-
-### Cross-Cutting Smells
-
-1. Duplicate balance math already exists in multiple packages.
-   Files:
-   - [packages/ingestion/src/features/balance/balance-utils.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/features/balance/balance-utils.ts)
-   - [packages/accounting/src/portfolio/portfolio-position-building.ts](/Users/joel/Dev/exitbook/packages/accounting/src/portfolio/portfolio-position-building.ts)
-   - [apps/cli/src/features/shared/stored-balance-diagnostics.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/shared/stored-balance-diagnostics.ts)
-   - [apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts)
-   - [apps/cli/src/features/transactions/transaction-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts)
-
-2. Portfolio history currently subtracts all fees, including `on-chain` fees, which can double-count balance impact.
-   File:
-   - [apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts)
-
-3. `external` fee behavior is implicit in current balance code rather than called out in one canonical helper.
-   Risk:
-   - a future refactor could accidentally exclude it from balance effect in one consumer but not another
-
-4. [packages/core/src/index.ts](/Users/joel/Dev/exitbook/packages/core/src/index.ts) is a hand-maintained root barrel.
-   Risk:
-   - adding a new transaction export in `packages/core/src/transaction/index.ts` does not automatically make it available from `@exitbook/core`
-   - this already caused one runtime failure during Phase 1 when `buildTransactionBalanceImpact` existed locally but was missing from the root export list
-
-### Naming Smells
-
-1. `primaryAsset`, `primaryAmount`, and `primaryDirection` in [transactions-view-model.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transactions-view-model.ts) are now list-unrelated legacy detail fields.
-   Better names if retained:
-   - `primaryMovementAsset`
-   - `primaryMovementAmount`
-   - `primaryMovementDirection`
-
-2. `buildBalanceImpactSummary()` in [transaction-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts) currently mixes asset ordering, zero filtering, and final string formatting.
-   Better split if reuse grows:
-   - `orderBalanceImpactAssetsForDisplay()`
-   - `formatBalanceImpactSummary()`
-
-### Phase 2 Smells
-
-1. Static detail still centers the legacy `Primary` line even though the browse list is now balance-oriented.
-   File:
-   - [apps/cli/src/features/transactions/view/transactions-static-renderer.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/view/transactions-static-renderer.ts)
-     Risk:
-   - list and detail now speak slightly different semantic dialects
-     Follow-up:
-   - decide whether detail should add explicit `Debit` / `Credit` / `Fees` summary lines or rename `Primary` to `Primary movement`
-
-### Phase 3 Smells
-
-1. `computeTransactionFiatValue()` in [portfolio-history-utils.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/portfolio/shared/portfolio-history-utils.ts) still owns the rule for excluding `on-chain` fees from fiat weighting.
-   Risk:
-   - balance delta semantics are now shared, but balance-aware fiat weighting is still local to the portfolio history surface
-     Follow-up:
-   - if another surface needs the same valuation semantics, extract a shared helper instead of copying this rule again
+- all smells documented during the migration were addressed in code before completion
+- the remaining unrelated repo blocker is the pre-existing ingestion typecheck error above
 
 ## Exit Criteria
 

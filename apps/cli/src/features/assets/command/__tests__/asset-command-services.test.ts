@@ -2,13 +2,12 @@ import type {
   AssetReviewSummary,
   BalanceSnapshot,
   BalanceSnapshotAsset,
-  Result,
   OverrideEvent,
   Transaction,
 } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
-import type { Currency } from '@exitbook/foundation';
+import type { Currency, Result } from '@exitbook/foundation';
 import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

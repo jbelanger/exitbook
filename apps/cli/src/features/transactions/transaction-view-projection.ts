@@ -35,7 +35,7 @@ function toFeeDisplayItem(fee: FeeMovementDraft): FeeDisplayItem {
   };
 }
 
-function formatSummaryAmount(amount: AssetMovementDraft['grossAmount']): string {
+function formatBalanceImpactAmount(amount: AssetMovementDraft['grossAmount']): string {
   const numericAmount = Number.parseFloat(amount.toFixed());
 
   if (Number.isNaN(numericAmount)) {
@@ -45,12 +45,11 @@ function formatSummaryAmount(amount: AssetMovementDraft['grossAmount']): string 
   return numericAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
 }
 
-function buildBalanceImpactSummary(
-  assetImpacts: readonly TransactionBalanceImpactAssetEntry[],
+function orderBalanceImpactAssetsForDisplay(
+  assetImpactsById: ReadonlyMap<string, TransactionBalanceImpactAssetEntry>,
   orderedAssetIds: readonly string[],
   getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovementDraft['grossAmount']
-): string | undefined {
-  const assetImpactsById = new Map(assetImpacts.map((assetImpact) => [assetImpact.assetId, assetImpact]));
+): TransactionBalanceImpactAssetEntry[] {
   const seenAssetIds = new Set<string>();
   const orderedEntries: TransactionBalanceImpactAssetEntry[] = [];
 
@@ -68,7 +67,7 @@ function buildBalanceImpactSummary(
     orderedEntries.push(assetImpact);
   }
 
-  for (const assetImpact of assetImpacts) {
+  for (const assetImpact of assetImpactsById.values()) {
     if (seenAssetIds.has(assetImpact.assetId) || getAmount(assetImpact).isZero()) {
       continue;
     }
@@ -76,12 +75,19 @@ function buildBalanceImpactSummary(
     orderedEntries.push(assetImpact);
   }
 
+  return orderedEntries;
+}
+
+function formatBalanceImpactSummary(
+  orderedEntries: readonly TransactionBalanceImpactAssetEntry[],
+  getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovementDraft['grossAmount']
+): string | undefined {
   if (orderedEntries.length === 0) {
     return undefined;
   }
 
   return orderedEntries
-    .map((assetImpact) => `${formatSummaryAmount(getAmount(assetImpact))} ${assetImpact.assetSymbol}`)
+    .map((assetImpact) => `${formatBalanceImpactAmount(getAmount(assetImpact))} ${assetImpact.assetSymbol}`)
     .join(' + ');
 }
 
@@ -109,6 +115,9 @@ export function getTransactionPriceStatus(tx: Transaction): TransactionViewItem[
 export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
   const primaryMovement = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
   const balanceImpact = buildTransactionBalanceImpact(tx);
+  const balanceImpactAssetsById = new Map(
+    balanceImpact.assets.map((assetImpact) => [assetImpact.assetId, assetImpact])
+  );
 
   return {
     id: tx.id,
@@ -118,24 +127,34 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
     datetime: tx.datetime,
     operationCategory: tx.operation.category,
     operationType: tx.operation.type,
-    debitSummary: buildBalanceImpactSummary(
-      balanceImpact.assets,
-      (tx.movements.outflows ?? []).map((movement) => movement.assetId),
+    debitSummary: formatBalanceImpactSummary(
+      orderBalanceImpactAssetsForDisplay(
+        balanceImpactAssetsById,
+        (tx.movements.outflows ?? []).map((movement) => movement.assetId),
+        (assetImpact) => assetImpact.debitGross
+      ),
       (assetImpact) => assetImpact.debitGross
     ),
-    creditSummary: buildBalanceImpactSummary(
-      balanceImpact.assets,
-      (tx.movements.inflows ?? []).map((movement) => movement.assetId),
+    creditSummary: formatBalanceImpactSummary(
+      orderBalanceImpactAssetsForDisplay(
+        balanceImpactAssetsById,
+        (tx.movements.inflows ?? []).map((movement) => movement.assetId),
+        (assetImpact) => assetImpact.creditGross
+      ),
       (assetImpact) => assetImpact.creditGross
     ),
-    feeSummary: buildBalanceImpactSummary(
-      balanceImpact.assets,
-      (tx.fees ?? []).filter((fee) => fee.settlement !== 'on-chain').map((fee) => fee.assetId),
+    feeSummary: formatBalanceImpactSummary(
+      orderBalanceImpactAssetsForDisplay(
+        balanceImpactAssetsById,
+        (tx.fees ?? []).filter((fee) => fee.settlement !== 'on-chain').map((fee) => fee.assetId),
+        (assetImpact) => assetImpact.separateFeeDebit
+      ),
       (assetImpact) => assetImpact.separateFeeDebit
     ),
-    primaryAsset: primaryMovement?.assetSymbol ?? undefined,
-    primaryAmount: primaryMovement?.amount.toFixed() ?? undefined,
-    primaryDirection: primaryMovement?.direction === 'neutral' ? undefined : (primaryMovement?.direction ?? undefined),
+    primaryMovementAsset: primaryMovement?.assetSymbol ?? undefined,
+    primaryMovementAmount: primaryMovement?.amount.toFixed() ?? undefined,
+    primaryMovementDirection:
+      primaryMovement?.direction === 'neutral' ? undefined : (primaryMovement?.direction ?? undefined),
     inflows: (tx.movements.inflows ?? []).map(toMovementDisplayItem),
     outflows: (tx.movements.outflows ?? []).map(toMovementDisplayItem),
     fees: (tx.fees ?? []).map(toFeeDisplayItem),

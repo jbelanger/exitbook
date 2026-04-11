@@ -131,7 +131,10 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
     buildDetailLine('Date', formatTransactionTimestamp(transaction.datetime)),
     buildDetailLine('Platform', transaction.platformKey),
     buildDetailLine('Operation', `${transaction.operationCategory}/${transaction.operationType}`),
-    buildDetailLine('Primary', buildPrimarySummary(transaction)),
+    buildDetailLine('Debit', formatTransactionBalanceSummary(transaction.debitSummary)),
+    buildDetailLine('Credit', formatTransactionBalanceSummary(transaction.creditSummary)),
+    buildDetailLine('Fees', formatTransactionBalanceSummary(transaction.feeSummary)),
+    buildDetailLine('Primary movement', buildPrimaryMovementSummary(transaction)),
     buildDetailLine('Price', colorizeStatusLabel(priceStatus.iconColor, priceStatus.label)),
     buildDetailLine('Flags', flags === '—' ? pc.dim(flags) : flags),
   ];
@@ -224,13 +227,13 @@ function buildMovementLines(label: string, prefix: '+' | '-', movements: Transac
   return lines;
 }
 
-function buildPrimarySummary(transaction: TransactionViewItem): string {
-  if (!transaction.primaryAsset || !transaction.primaryAmount) {
+function buildPrimaryMovementSummary(transaction: TransactionViewItem): string {
+  if (!transaction.primaryMovementAsset || !transaction.primaryMovementAmount) {
     return pc.dim('—');
   }
 
-  const direction = formatTransactionDirection(transaction.primaryDirection);
-  return `${transaction.primaryAmount} ${transaction.primaryAsset}${direction === '—' ? '' : ` ${direction}`}`;
+  const direction = formatTransactionDirection(transaction.primaryMovementDirection);
+  return `${transaction.primaryMovementAmount} ${transaction.primaryMovementAsset}${direction === '—' ? '' : ` ${direction}`}`;
 }
 
 function colorizeStatusLabel(color: TransactionsStatusColor, value: string): string {

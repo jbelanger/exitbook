@@ -36,9 +36,9 @@ export interface TransactionViewItem {
   debitSummary?: string | undefined;
   creditSummary?: string | undefined;
   feeSummary?: string | undefined;
-  primaryAsset: string | undefined;
-  primaryAmount: string | undefined;
-  primaryDirection: 'in' | 'out' | undefined;
+  primaryMovementAsset: string | undefined;
+  primaryMovementAmount: string | undefined;
+  primaryMovementDirection: 'in' | 'out' | undefined;
   inflows: MovementDisplayItem[];
   outflows: MovementDisplayItem[];
   fees: FeeDisplayItem[];

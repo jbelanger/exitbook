@@ -48,8 +48,8 @@ describe('toTransactionViewItem', () => {
     expect(item.debitSummary).toBe('250 CAD');
     expect(item.creditSummary).toBe('0.0035 BTC');
     expect(item.feeSummary).toBeUndefined();
-    expect(item.primaryAsset).toBe('CAD');
-    expect(item.primaryDirection).toBe('out');
+    expect(item.primaryMovementAsset).toBe('CAD');
+    expect(item.primaryMovementDirection).toBe('out');
   });
 
   it('aggregates repeated assets into balance summaries', () => {

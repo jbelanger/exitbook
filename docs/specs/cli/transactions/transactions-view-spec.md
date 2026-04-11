@@ -173,20 +173,25 @@ Body order:
 4. `Date`
 5. `Platform`
 6. `Operation`
-7. `Primary`
-8. `Price`
-9. `Flags`
-10. optional `From`
-11. optional `To`
-12. optional blockchain metadata block
-13. optional `Inflows`
-14. optional `Outflows`
-15. optional `Fees`
-16. optional `Notes`
+7. `Debit`
+8. `Credit`
+9. `Fees`
+10. `Primary movement`
+11. `Price`
+12. `Flags`
+13. optional `From`
+14. optional `To`
+15. optional blockchain metadata block
+16. optional `Inflows`
+17. optional `Outflows`
+18. optional transaction-fee detail block
+19. optional `Notes`
 
 Rules:
 
 - static detail is transaction-first and never opens inline export
+- `Debit`, `Credit`, and `Fees` use the same balance-summary semantics as the browse list
+- `Primary movement` is supplementary detail only and may render `—` when no primary movement can be derived
 - blockchain metadata appears only when present on the processed transaction
 - notes render in full and are not artificially capped
 

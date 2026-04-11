@@ -39,7 +39,7 @@ export function formatTransactionTimestamp(isoString: string): string {
   return isoString.replace('T', ' ').replace('Z', '').substring(0, 19);
 }
 
-export function formatTransactionDirection(direction: TransactionViewItem['primaryDirection']): string {
+export function formatTransactionDirection(direction: TransactionViewItem['primaryMovementDirection']): string {
   if (direction === 'in') return 'IN';
   if (direction === 'out') return 'OUT';
   return '—';

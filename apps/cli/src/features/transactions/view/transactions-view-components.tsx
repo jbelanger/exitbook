@@ -274,6 +274,14 @@ const SummaryValue: FC<{ color: 'green' | 'red' | 'yellow'; value: string }> = (
   return <Text color={color}>{value}</Text>;
 };
 
+const SummaryValueInline: FC<{ color: 'green' | 'red' | 'yellow'; value: string | undefined }> = ({ color, value }) => {
+  if (!value) {
+    return <Text dimColor>—</Text>;
+  }
+
+  return <Text color={color}>{value}</Text>;
+};
+
 // ─── Detail Panel ───────────────────────────────────────────────────────────
 
 const TransactionDetailPanel: FC<{ state: TransactionsViewState }> = ({ state }) => {
@@ -295,6 +303,26 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
     <Text key="title">
       <Text bold>▸ #{selected.id}</Text> <Text color="cyan">{selected.platformKey}</Text>{' '}
       <Text dimColor>{operation}</Text> <Text dimColor>{fullTimestamp}</Text>
+    </Text>,
+    <Text key="balance-summary">
+      {'  '}
+      <Text dimColor>Debit: </Text>
+      <SummaryValueInline
+        color="yellow"
+        value={selected.debitSummary}
+      />
+      {'  '}
+      <Text dimColor>Credit: </Text>
+      <SummaryValueInline
+        color="green"
+        value={selected.creditSummary}
+      />
+      {'  '}
+      <Text dimColor>Fees: </Text>
+      <SummaryValueInline
+        color="red"
+        value={selected.feeSummary}
+      />
     </Text>,
   ];
 

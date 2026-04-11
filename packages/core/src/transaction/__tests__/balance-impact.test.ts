@@ -1,7 +1,7 @@
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { buildTransactionBalanceImpact } from '../balance-impact.js';
+import { buildTransactionBalanceImpact, collectTransactionBalanceImpactPricingInputs } from '../balance-impact.js';
 import type { Transaction } from '../transaction.js';
 
 function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -192,5 +192,83 @@ describe('buildTransactionBalanceImpact', () => {
     expect(impact.assets[0]?.assetId).toBe('asset:usd');
     expect(impact.assets[0]?.separateFeeDebit.toFixed()).toBe('15');
     expect(impact.assets[0]?.netBalanceDelta.toFixed()).toBe('-15');
+  });
+
+  it('collects priced balance-impact inputs without double counting on-chain fees', () => {
+    const pricingInputs = collectTransactionBalanceImpactPricingInputs(
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'asset:btc',
+              assetSymbol: 'BTC' as Currency,
+              movementFingerprint: 'inflow:btc:1',
+              grossAmount: parseDecimal('0.25'),
+              netAmount: parseDecimal('0.25'),
+              priceAtTxTime: {
+                price: { amount: parseDecimal('65000'), currency: 'USD' as Currency },
+                source: 'test',
+                fetchedAt: new Date('2026-01-01T00:00:00.000Z'),
+                granularity: 'exact',
+              },
+            },
+          ],
+          outflows: [
+            {
+              assetId: 'asset:btc',
+              assetSymbol: 'BTC' as Currency,
+              movementFingerprint: 'outflow:btc:1',
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('0.999'),
+              priceAtTxTime: {
+                price: { amount: parseDecimal('64000'), currency: 'USD' as Currency },
+                source: 'test',
+                fetchedAt: new Date('2026-01-01T00:00:00.000Z'),
+                granularity: 'exact',
+              },
+            },
+          ],
+        },
+        fees: [
+          {
+            assetId: 'asset:btc',
+            assetSymbol: 'BTC' as Currency,
+            movementFingerprint: 'fee:btc:1',
+            amount: parseDecimal('0.001'),
+            scope: 'network',
+            settlement: 'on-chain',
+            priceAtTxTime: {
+              price: { amount: parseDecimal('66000'), currency: 'USD' as Currency },
+              source: 'test',
+              fetchedAt: new Date('2026-01-01T00:00:00.000Z'),
+              granularity: 'exact',
+            },
+          },
+          {
+            assetId: 'asset:btc',
+            assetSymbol: 'BTC' as Currency,
+            movementFingerprint: 'fee:btc:2',
+            amount: parseDecimal('0.01'),
+            scope: 'platform',
+            settlement: 'external',
+            priceAtTxTime: {
+              price: { amount: parseDecimal('63000'), currency: 'USD' as Currency },
+              source: 'test',
+              fetchedAt: new Date('2026-01-01T00:00:00.000Z'),
+              granularity: 'exact',
+            },
+          },
+        ],
+      }),
+      new Set(['asset:btc'])
+    );
+
+    expect(pricingInputs).toHaveLength(3);
+    expect(pricingInputs.map((input) => input.amount.toFixed())).toEqual(['0.25', '1', '0.01']);
+    expect(pricingInputs.map((input) => input.priceAtTxTime.price.amount.toFixed())).toEqual([
+      '65000',
+      '64000',
+      '63000',
+    ]);
   });
 });
