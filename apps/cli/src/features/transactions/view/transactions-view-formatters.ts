@@ -22,6 +22,10 @@ export function formatTransactionOperation(category: string, type: string): stri
   return `${category}/${type}`;
 }
 
+export function formatTransactionMovementSummary(summary: string | undefined): string {
+  return summary ?? '—';
+}
+
 export function formatTransactionAmount(amount: string, width: number): string {
   const num = Number.parseFloat(amount);
   if (Number.isNaN(num)) {

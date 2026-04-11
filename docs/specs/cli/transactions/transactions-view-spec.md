@@ -139,14 +139,18 @@ Table columns:
 - `DATE`
 - `PLATFORM`
 - `OPERATION`
-- `ASSET`
-- `DIR`
-- `AMOUNT`
+- `SENT`
+- `RECEIVED`
 - `FLAGS`
 
 Rules:
 
-- the list uses the primary movement summary, not every movement in the transaction
+- `SENT` is a compact summary of outflow movements and `RECEIVED` is a compact summary of inflow movements
+- each side summary formats movements as `{amount} {asset}`
+- when a side has multiple movements with the same asset symbol, the list aggregates them into one `{amount} {asset}` entry for that symbol
+- when a side has multiple asset symbols, entries are joined with `+` in first-seen order
+- empty sides render as `—`
+- fees are not folded into `SENT` or `RECEIVED`; they remain separate detail data
 - category counts only render for non-zero categories
 - static list never renders controls, selected-row chrome, or a detail panel
 - the unfiltered empty state points users at `exitbook import --help`
@@ -199,6 +203,7 @@ Layout:
 
 Rules:
 
+- the explorer list uses the same sent/received side summaries as the static list, but without list headers
 - selector-based explorer opens on the full unfiltered list with the requested transaction pre-selected
 - non-selector explorer honors browse filters and `--limit`
 - inline export remains explorer-only and is triggered from inside the TUI
@@ -222,7 +227,9 @@ Shape:
     {
       "id": 2456,
       "txFingerprint": "…",
-      "platformKey": "kraken"
+      "platformKey": "kraken",
+      "sentSummary": "24,500 USD",
+      "receivedSummary": "0.25 BTC"
     }
   ],
   "meta": {
@@ -241,6 +248,7 @@ Rules:
 
 - `transactions` and `transactions list` return the full static-list result set
 - `transactions explore --json` applies the explorer `--limit`
+- `sentSummary` and `receivedSummary` use the same side-summary rules as the human list surfaces
 
 ### Detail JSON
 

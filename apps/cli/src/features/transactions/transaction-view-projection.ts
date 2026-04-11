@@ -30,6 +30,36 @@ function toFeeDisplayItem(fee: FeeMovementDraft): FeeDisplayItem {
   };
 }
 
+function formatMovementSummaryAmount(amount: AssetMovementDraft['grossAmount']): string {
+  const numericAmount = Number.parseFloat(amount.toFixed());
+
+  if (Number.isNaN(numericAmount)) {
+    return amount.toFixed();
+  }
+
+  return numericAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+}
+
+function buildMovementSummary(movements: readonly AssetMovementDraft[]): string | undefined {
+  if (movements.length === 0) {
+    return undefined;
+  }
+
+  const amountsByAssetSymbol = new Map<string, AssetMovementDraft['grossAmount']>();
+
+  for (const movement of movements) {
+    const existingAmount = amountsByAssetSymbol.get(movement.assetSymbol);
+    amountsByAssetSymbol.set(
+      movement.assetSymbol,
+      existingAmount ? existingAmount.plus(movement.grossAmount) : movement.grossAmount
+    );
+  }
+
+  return [...amountsByAssetSymbol.entries()]
+    .map(([assetSymbol, amount]) => `${formatMovementSummaryAmount(amount)} ${assetSymbol}`)
+    .join(' + ');
+}
+
 export function getTransactionPriceStatus(tx: Transaction): TransactionViewItem['priceStatus'] {
   const allMovements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
   const nonFiatMovements = allMovements.filter((movement) => !isFiatAsset(movement.assetSymbol));
@@ -62,6 +92,8 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
     datetime: tx.datetime,
     operationCategory: tx.operation.category,
     operationType: tx.operation.type,
+    sentSummary: buildMovementSummary(tx.movements.outflows ?? []),
+    receivedSummary: buildMovementSummary(tx.movements.inflows ?? []),
     primaryAsset: primaryMovement?.assetSymbol ?? undefined,
     primaryAmount: primaryMovement?.amount.toFixed() ?? undefined,
     primaryDirection: primaryMovement?.direction === 'neutral' ? undefined : (primaryMovement?.direction ?? undefined),

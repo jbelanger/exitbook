@@ -25,7 +25,7 @@ import {
 } from './transactions-view-controller.js';
 import {
   buildCategoryParts,
-  formatTransactionAmount,
+  formatTransactionMovementSummary,
   formatTransactionOperation,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
@@ -172,11 +172,13 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
           format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
           minWidth: 15,
         },
-        asset: { format: (item) => item.primaryAsset ?? '', minWidth: 10 },
-        amount: {
-          format: (item) => formatTransactionAmount(item.primaryAmount ?? '', 12),
-          align: 'right',
-          minWidth: 12,
+        received: {
+          format: (item) => formatTransactionMovementSummary(item.receivedSummary),
+          minWidth: 10,
+        },
+        sent: {
+          format: (item) => formatTransactionMovementSummary(item.sentSummary),
+          minWidth: 10,
         },
       }),
     [transactions]
@@ -219,13 +221,12 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 const TransactionRow: FC<{
-  columns: Columns<TransactionViewItem, 'txId' | 'platform' | 'operation' | 'asset' | 'amount'>;
+  columns: Columns<TransactionViewItem, 'txId' | 'platform' | 'operation' | 'sent' | 'received'>;
   isSelected: boolean;
   item: TransactionViewItem;
 }> = ({ item, isSelected, columns }) => {
-  const { txId, platform, operation, asset, amount } = columns.format(item);
+  const { txId, platform, operation, received, sent } = columns.format(item);
   const timestamp = formatTransactionTimestamp(item.datetime).slice(0, 16);
-  const dir = item.primaryDirection === 'in' ? 'IN ' : item.primaryDirection === 'out' ? 'OUT' : '   ';
   const { icon, iconColor } = getTransactionPriceStatusDisplay(item.priceStatus);
 
   const isExcluded = item.excludedFromAccounting;
@@ -236,20 +237,33 @@ const TransactionRow: FC<{
         dimWhenUnselected
         isSelected={isSelected}
       >
-        {txId} {platform} {timestamp} {operation} {asset} {dir} {amount} {icon}
+        {txId} {platform} {timestamp} {operation} {sent} {received} {icon}
       </SelectableRow>
     );
   }
 
-  const dirColor = item.primaryDirection === 'in' ? 'green' : 'yellow';
-
   return (
     <SelectableRow isSelected={isSelected}>
       {txId} <Text color="cyan">{platform}</Text> <Text dimColor>{timestamp}</Text> <Text dimColor>{operation}</Text>{' '}
-      {asset} <Text color={dirColor}>{dir}</Text> <Text color="green">{amount}</Text>{' '}
+      <SummaryValue
+        color="yellow"
+        value={sent}
+      />{' '}
+      <SummaryValue
+        color="green"
+        value={received}
+      />{' '}
       <Text color={iconColor}>{icon}</Text>
     </SelectableRow>
   );
+};
+
+const SummaryValue: FC<{ color: 'green' | 'yellow'; value: string }> = ({ color, value }) => {
+  if (value === '—') {
+    return <Text dimColor>{value}</Text>;
+  }
+
+  return <Text color={color}>{value}</Text>;
 };
 
 // ─── Detail Panel ───────────────────────────────────────────────────────────

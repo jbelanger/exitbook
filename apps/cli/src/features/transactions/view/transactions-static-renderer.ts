@@ -5,8 +5,8 @@ import type { TransactionViewItem } from '../transactions-view-model.js';
 
 import {
   buildCategoryParts,
-  formatTransactionAmount,
   formatTransactionDirection,
+  formatTransactionMovementSummary,
   formatTransactionFingerprintRef,
   formatTransactionFlags,
   formatTransactionOperation,
@@ -23,9 +23,8 @@ const TRANSACTION_LIST_COLUMN_ORDER = [
   'datetime',
   'platform',
   'operation',
-  'asset',
-  'direction',
-  'amount',
+  'sent',
+  'received',
   'flags',
 ] as const;
 
@@ -42,19 +41,9 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
   }
 
   const columns = createColumns(state.transactions, {
-    amount: {
-      align: 'right',
-      format: (item) => formatTransactionAmount(item.primaryAmount ?? '', 12),
-      minWidth: 12,
-    },
-    asset: { format: (item) => item.primaryAsset ?? '—', minWidth: 8 },
     datetime: {
       format: (item) => formatTransactionTimestamp(item.datetime).slice(0, 16),
       minWidth: 'DATE'.length,
-    },
-    direction: {
-      format: (item) => formatTransactionDirection(item.primaryDirection),
-      minWidth: 3,
     },
     flags: {
       format: (item) => formatTransactionFlags(item),
@@ -65,6 +54,14 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       minWidth: 18,
     },
     platform: { format: (item) => item.platformKey, minWidth: 10 },
+    received: {
+      format: (item) => formatTransactionMovementSummary(item.receivedSummary),
+      minWidth: 10,
+    },
+    sent: {
+      format: (item) => formatTransactionMovementSummary(item.sentSummary),
+      minWidth: 10,
+    },
     transactionRef: {
       format: (item) => formatTransactionFingerprintRef(item.txFingerprint),
       minWidth: TRANSACTION_REF_COLUMN_LABEL.length,
@@ -76,13 +73,12 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       buildTextTableHeader(
         columns.widths,
         {
-          amount: 'AMOUNT',
-          asset: 'ASSET',
           datetime: 'DATE',
-          direction: 'DIR',
           flags: 'FLAGS',
           operation: 'OPERATION',
           platform: 'PLATFORM',
+          received: 'RECEIVED',
+          sent: 'SENT',
           transactionRef: TRANSACTION_REF_COLUMN_LABEL,
         },
         TRANSACTION_LIST_COLUMN_ORDER,
@@ -97,11 +93,12 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       buildTextTableRow(
         {
           ...formatted,
-          amount: pc.green(formatted.amount),
           datetime: pc.dim(formatted.datetime),
           flags: formatted.flags === '—' ? pc.dim(formatted.flags) : pc.yellow(formatted.flags),
           operation: pc.dim(formatted.operation),
           platform: pc.cyan(formatted.platform),
+          received: formatted.received === '—' ? pc.dim(formatted.received) : pc.green(formatted.received),
+          sent: formatted.sent === '—' ? pc.dim(formatted.sent) : pc.yellow(formatted.sent),
         },
         TRANSACTION_LIST_COLUMN_ORDER,
         { gap: STATIC_LIST_COLUMN_GAP }

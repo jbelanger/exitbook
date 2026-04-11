@@ -33,6 +33,8 @@ export interface TransactionViewItem {
   datetime: string;
   operationCategory: string;
   operationType: string;
+  sentSummary?: string | undefined;
+  receivedSummary?: string | undefined;
   primaryAsset: string | undefined;
   primaryAmount: string | undefined;
   primaryDirection: 'in' | 'out' | undefined;
