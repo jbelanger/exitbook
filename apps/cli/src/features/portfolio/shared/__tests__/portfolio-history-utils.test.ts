@@ -41,7 +41,8 @@ function createTransaction(params: {
     fees: params.fees,
     from: 'wallet-a',
     to: 'wallet-b',
-    notes: [],
+    diagnostics: [],
+    userNotes: [],
   });
 }
 

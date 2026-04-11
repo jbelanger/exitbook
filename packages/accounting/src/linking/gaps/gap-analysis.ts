@@ -14,7 +14,7 @@ import {
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
-const GAP_SUPPRESSED_NOTE_TYPES = new Set(['SCAM_TOKEN', 'SUSPICIOUS_AIRDROP']);
+const GAP_SUPPRESSED_DIAGNOSTIC_CODES = new Set(['SCAM_TOKEN', 'SUSPICIOUS_AIRDROP']);
 
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
@@ -681,7 +681,7 @@ function shouldSuppressGapByPolicy(tx: Transaction): boolean {
     return true;
   }
 
-  return tx.notes?.some((note) => GAP_SUPPRESSED_NOTE_TYPES.has(note.type)) ?? false;
+  return tx.diagnostics?.some((diagnostic) => GAP_SUPPRESSED_DIAGNOSTIC_CODES.has(diagnostic.code)) ?? false;
 }
 
 function collectInflowGapIssues(

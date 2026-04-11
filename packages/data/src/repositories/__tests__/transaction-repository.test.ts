@@ -263,7 +263,9 @@ describe('TransactionRepository', () => {
             tx_fingerprint: txFingerprint,
             transaction_status: 'success',
             transaction_datetime: new Date().toISOString(),
-            notes_json: JSON.stringify([{ type: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' }]),
+            diagnostics_json: JSON.stringify([
+              { code: 'SCAM_TOKEN', message: 'Scam token detected', severity: 'error' },
+            ]),
             is_spam: true,
             excluded_from_accounting: true,
             operation_type: 'transfer',
@@ -305,7 +307,7 @@ describe('TransactionRepository', () => {
       const txs = assertOk(await repo.findAll({ accountId: 1 }));
 
       expect(txs).toHaveLength(3);
-      expect(txs.every((tx) => !tx.notes?.some((n) => n.type === 'SCAM_TOKEN'))).toBe(true);
+      expect(txs.every((tx) => !tx.diagnostics?.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN'))).toBe(true);
       expect(txs[0]?.txFingerprint).toBe(seedTxFingerprint('ethereum', 1, 'tx-1'));
       expect(txs[0]?.movements.inflows?.[0]?.movementFingerprint).toBe(
         seedAssetMovementFingerprint(seedTxFingerprint('ethereum', 1, 'tx-1'), 'inflow', {
@@ -325,7 +327,7 @@ describe('TransactionRepository', () => {
       const txs = assertOk(await repo.findAll({ accountId: 1, includeExcluded: true }));
 
       expect(txs).toHaveLength(5);
-      const scamTxs = txs.filter((tx) => tx.notes?.some((n) => n.type === 'SCAM_TOKEN'));
+      const scamTxs = txs.filter((tx) => tx.diagnostics?.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN'));
       expect(scamTxs).toHaveLength(2);
     });
   });
@@ -1125,7 +1127,7 @@ describe('TransactionRepository', () => {
     });
   });
 
-  describe('materializeTransactionNoteOverrides', () => {
+  describe('materializeTransactionUserNoteOverrides', () => {
     beforeEach(async () => {
       db = await createTestDatabase();
       repo = new TransactionRepository(db);
@@ -1137,7 +1139,7 @@ describe('TransactionRepository', () => {
       await seedImportSession(db, 2, 2);
     });
 
-    it('appends a materialized user note while preserving existing non-override notes', async () => {
+    it('appends a materialized user note while preserving existing diagnostics', async () => {
       await db
         .insertInto('transactions')
         .values({
@@ -1148,9 +1150,9 @@ describe('TransactionRepository', () => {
           tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-11'),
           transaction_status: 'success',
           transaction_datetime: '2025-01-01T00:00:00.000Z',
-          notes_json: JSON.stringify([
+          diagnostics_json: JSON.stringify([
             {
-              type: 'system_flag',
+              code: 'system_flag',
               message: 'Imported from CSV',
             },
           ]),
@@ -1164,9 +1166,18 @@ describe('TransactionRepository', () => {
       const fingerprint = seedTxFingerprint('kraken', 1, 'tx-11');
 
       const updated = assertOk(
-        await repo.materializeTransactionNoteOverrides({
+        await repo.materializeTransactionUserNoteOverrides({
           accountIds: [1],
-          notesByFingerprint: new Map([[fingerprint, 'Moved to cold storage']]),
+          userNoteByFingerprint: new Map([
+            [
+              fingerprint,
+              {
+                message: 'Moved to cold storage',
+                createdAt: '2026-03-15T12:00:00.000Z',
+                author: 'user',
+              },
+            ],
+          ]),
         })
       );
 
@@ -1174,21 +1185,20 @@ describe('TransactionRepository', () => {
 
       const row = await db
         .selectFrom('transactions')
-        .select(['notes_json'])
+        .select(['diagnostics_json', 'user_notes_json'])
         .where('id', '=', 11)
         .executeTakeFirstOrThrow();
-      expect(JSON.parse((row.notes_json as string | null) ?? '[]')).toEqual([
+      expect(JSON.parse((row.diagnostics_json as string | null) ?? '[]')).toEqual([
         {
-          type: 'system_flag',
+          code: 'system_flag',
           message: 'Imported from CSV',
         },
+      ]);
+      expect(JSON.parse((row.user_notes_json as string | null) ?? '[]')).toEqual([
         {
-          type: 'user_note',
           message: 'Moved to cold storage',
-          metadata: {
-            actor: 'user',
-            source: 'override-store',
-          },
+          createdAt: '2026-03-15T12:00:00.000Z',
+          author: 'user',
         },
       ]);
     });
@@ -1205,14 +1215,11 @@ describe('TransactionRepository', () => {
             tx_fingerprint: seedTxFingerprint('kraken', 1, 'tx-21'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-02T00:00:00.000Z',
-            notes_json: JSON.stringify([
+            user_notes_json: JSON.stringify([
               {
-                type: 'user_note',
                 message: 'Old note',
-                metadata: {
-                  actor: 'user',
-                  source: 'override-store',
-                },
+                createdAt: '2026-03-01T00:00:00.000Z',
+                author: 'user',
               },
             ]),
             is_spam: false,
@@ -1228,14 +1235,11 @@ describe('TransactionRepository', () => {
             tx_fingerprint: seedTxFingerprint('coinbase', 2, 'tx-22'),
             transaction_status: 'success',
             transaction_datetime: '2025-01-03T00:00:00.000Z',
-            notes_json: JSON.stringify([
+            user_notes_json: JSON.stringify([
               {
-                type: 'user_note',
                 message: 'Remove me',
-                metadata: {
-                  actor: 'user',
-                  source: 'override-store',
-                },
+                createdAt: '2026-03-02T00:00:00.000Z',
+                author: 'user',
               },
             ]),
             is_spam: false,
@@ -1249,9 +1253,18 @@ describe('TransactionRepository', () => {
       const fingerprint = seedTxFingerprint('kraken', 1, 'tx-21');
 
       const updated = assertOk(
-        await repo.materializeTransactionNoteOverrides({
+        await repo.materializeTransactionUserNoteOverrides({
           transactionIds: [21, 22],
-          notesByFingerprint: new Map([[fingerprint, 'Updated note']]),
+          userNoteByFingerprint: new Map([
+            [
+              fingerprint,
+              {
+                message: 'Updated note',
+                createdAt: '2026-03-15T12:00:00.000Z',
+                author: 'user',
+              },
+            ],
+          ]),
         })
       );
 
@@ -1259,29 +1272,26 @@ describe('TransactionRepository', () => {
 
       const rows = await db
         .selectFrom('transactions')
-        .select(['id', 'notes_json'])
+        .select(['id', 'user_notes_json'])
         .where('id', 'in', [21, 22])
         .orderBy('id', 'asc')
         .execute();
 
-      expect(JSON.parse((rows[0]?.notes_json as string | null) ?? '[]')).toEqual([
+      expect(JSON.parse((rows[0]?.user_notes_json as string | null) ?? '[]')).toEqual([
         {
-          type: 'user_note',
           message: 'Updated note',
-          metadata: {
-            actor: 'user',
-            source: 'override-store',
-          },
+          createdAt: '2026-03-15T12:00:00.000Z',
+          author: 'user',
         },
       ]);
-      expect(rows[1]?.notes_json).toBeNull();
+      expect(rows[1]?.user_notes_json).toBeNull();
     });
 
     it('returns zero when scoping is explicitly empty', async () => {
       const updated = assertOk(
-        await repo.materializeTransactionNoteOverrides({
+        await repo.materializeTransactionUserNoteOverrides({
           accountIds: [],
-          notesByFingerprint: new Map(),
+          userNoteByFingerprint: new Map(),
         })
       );
 

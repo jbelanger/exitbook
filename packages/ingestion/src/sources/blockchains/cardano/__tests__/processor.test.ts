@@ -296,7 +296,7 @@ describe('CardanoProcessor', () => {
 
     const [transaction] = result.value;
     expect(transaction?.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('1');
-    expect(transaction?.notes?.some((note) => note.type === 'staking_withdrawal')).toBe(true);
+    expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'staking_withdrawal')).toBe(true);
   });
 
   test('allocates fee proportionally and keeps wallet-scoped withdrawal unattributed across sibling inputs', async () => {
@@ -332,8 +332,8 @@ describe('CardanoProcessor', () => {
     const [transaction] = result.value;
     expect(transaction?.fees[0]?.amount.toFixed()).toBe('0.102');
     expect(transaction?.movements.inflows).toHaveLength(0);
-    expect(transaction?.notes?.some((note) => note.type === 'classification_uncertain')).toBe(true);
-    expect(transaction?.notes?.[0]?.message).toContain('wallet-scoped staking withdrawal of 1 ADA');
+    expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'classification_uncertain')).toBe(true);
+    expect(transaction?.diagnostics?.[0]?.message).toContain('wallet-scoped staking withdrawal of 1 ADA');
   });
 
   test('multi-asset transaction - handles native tokens and ADA', async () => {

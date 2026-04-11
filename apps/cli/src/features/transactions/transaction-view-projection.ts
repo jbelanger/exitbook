@@ -169,10 +169,15 @@ export function toTransactionViewItem(tx: Transaction): TransactionViewItem {
       : undefined,
     from: tx.from ?? undefined,
     to: tx.to ?? undefined,
-    notes: (tx.notes ?? []).map((note) => ({
-      type: note.type,
-      message: note.message,
-      severity: note.severity,
+    diagnostics: (tx.diagnostics ?? []).map((diagnostic) => ({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      severity: diagnostic.severity,
+    })),
+    userNotes: (tx.userNotes ?? []).map((userNote) => ({
+      author: userNote.author,
+      createdAt: userNote.createdAt,
+      message: userNote.message,
     })),
     excludedFromAccounting: tx.excludedFromAccounting ?? false,
     isSpam: tx.isSpam ?? false,

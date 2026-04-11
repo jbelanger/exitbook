@@ -117,7 +117,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
             transaction_hash: normalizedTx.id,
             is_confirmed: normalizedTx.status === 'success',
           },
-          notes: classification.notes,
+          diagnostics: classification.diagnostics,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
           platformKey: this.chainConfig.chainName,

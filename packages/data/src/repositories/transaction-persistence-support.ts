@@ -2,7 +2,8 @@
 import {
   AssetMovementDraftSchema,
   FeeMovementDraftSchema,
-  TransactionNoteSchema,
+  TransactionDiagnosticSchema,
+  UserNoteSchema,
   buildAssetMovementCanonicalMaterial,
   buildFeeMovementCanonicalMaterial,
   computeMovementFingerprint,
@@ -108,6 +109,7 @@ function assetMovementToRow(
     movement_fingerprint: movementFingerprint,
     asset_id: movement.assetId,
     asset_symbol: movement.assetSymbol,
+    movement_role: movement.movementRole ?? 'principal',
     gross_amount: movement.grossAmount.toFixed(),
     net_amount: (movement.netAmount ?? movement.grossAmount).toFixed(),
     fee_amount: null,
@@ -139,6 +141,7 @@ function feeMovementToRow(
     movement_fingerprint: movementFingerprint,
     asset_id: fee.assetId,
     asset_symbol: fee.assetSymbol,
+    movement_role: null,
     gross_amount: null,
     net_amount: null,
     fee_amount: fee.amount.toFixed(),
@@ -280,10 +283,17 @@ export function buildInsertValues(
   accountId: number,
   createdAt?: string
 ): Result<BuildInsertValuesResult, Error> {
-  if (transaction.notes !== undefined) {
-    const notesValidation = z.array(TransactionNoteSchema).safeParse(transaction.notes);
-    if (!notesValidation.success) {
-      return err(new Error(`Invalid notes: ${notesValidation.error.message}`));
+  if (transaction.diagnostics !== undefined) {
+    const diagnosticsValidation = z.array(TransactionDiagnosticSchema).safeParse(transaction.diagnostics);
+    if (!diagnosticsValidation.success) {
+      return err(new Error(`Invalid diagnostics: ${diagnosticsValidation.error.message}`));
+    }
+  }
+
+  if (transaction.userNotes !== undefined) {
+    const userNotesValidation = z.array(UserNoteSchema).safeParse(transaction.userNotes);
+    if (!userNotesValidation.success) {
+      return err(new Error(`Invalid userNotes: ${userNotesValidation.error.message}`));
     }
   }
 
@@ -301,10 +311,18 @@ export function buildInsertValues(
     return err(validationResult.error);
   }
 
-  const notesJsonResult =
-    transaction.notes && transaction.notes.length > 0 ? serializeToJson(transaction.notes) : ok(undefined);
-  if (notesJsonResult.isErr()) {
-    return err(notesJsonResult.error);
+  const diagnosticsJsonResult =
+    transaction.diagnostics && transaction.diagnostics.length > 0
+      ? serializeToJson(transaction.diagnostics)
+      : ok(undefined);
+  if (diagnosticsJsonResult.isErr()) {
+    return err(diagnosticsJsonResult.error);
+  }
+
+  const userNotesJsonResult =
+    transaction.userNotes && transaction.userNotes.length > 0 ? serializeToJson(transaction.userNotes) : ok(undefined);
+  if (userNotesJsonResult.isErr()) {
+    return err(userNotesJsonResult.error);
   }
 
   const txFingerprintResult = deriveTransactionFingerprint(transaction, accountFingerprint);
@@ -319,7 +337,8 @@ export function buildInsertValues(
       tx_fingerprint: txFingerprint,
       from_address: transaction.from ?? null,
       account_id: accountId,
-      notes_json: notesJsonResult.value ?? null,
+      diagnostics_json: diagnosticsJsonResult.value ?? null,
+      user_notes_json: userNotesJsonResult.value ?? null,
       is_spam: transaction.isSpam ?? false,
       excluded_from_accounting: transaction.excludedFromAccounting ?? false,
       platform_key: transaction.platformKey,

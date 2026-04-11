@@ -36,7 +36,8 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
       ],
     },
     fees: [],
-    notes: [],
+    diagnostics: [],
+    userNotes: [],
     ...overrides,
   };
 }

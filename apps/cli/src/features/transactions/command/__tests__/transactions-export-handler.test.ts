@@ -126,14 +126,11 @@ describe('TransactionsExportHandler', () => {
       const transactions = [
         {
           ...createMockTransaction(1, 'kraken', 'BTC'),
-          notes: [
+          userNotes: [
             {
-              type: 'user_note',
               message: 'Cold storage transfer',
-              metadata: {
-                actor: 'user',
-                source: 'override-store',
-              },
+              createdAt: '2026-03-15T12:00:00.000Z',
+              author: 'user',
             },
           ],
         },
@@ -144,14 +141,11 @@ describe('TransactionsExportHandler', () => {
       const exportResult = assertOk(result);
       const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as Transaction[];
 
-      expect(parsedContent[0]?.notes).toEqual([
+      expect(parsedContent[0]?.userNotes).toEqual([
         {
-          type: 'user_note',
           message: 'Cold storage transfer',
-          metadata: {
-            actor: 'user',
-            source: 'override-store',
-          },
+          createdAt: '2026-03-15T12:00:00.000Z',
+          author: 'user',
         },
       ]);
     });

@@ -446,7 +446,7 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('deposit');
-      expect(classification.notes).toBeUndefined();
+      expect(classification.diagnostics).toBeUndefined();
     });
 
     it('should classify simple withdrawal', () => {
@@ -470,7 +470,7 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('withdrawal');
-      expect(classification.notes).toBeUndefined();
+      expect(classification.diagnostics).toBeUndefined();
     });
 
     it('should classify self-transfer', () => {
@@ -494,7 +494,7 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('transfer');
-      expect(classification.notes).toBeUndefined();
+      expect(classification.diagnostics).toBeUndefined();
     });
 
     it('should classify fee-only transaction', () => {
@@ -541,10 +541,10 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('transfer');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('contract_interaction');
-      expect(classification.notes?.[0]?.message).toContain('Contract interaction');
-      expect(classification.notes?.[0]?.message).toContain('zero value');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('contract_interaction');
+      expect(classification.diagnostics?.[0]?.message).toContain('Contract interaction');
+      expect(classification.diagnostics?.[0]?.message).toContain('zero value');
     });
 
     it('should classify Peggy bridge deposit', () => {
@@ -568,9 +568,9 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('deposit');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('bridge_transfer');
-      expect(classification.notes?.[0]?.message).toContain('Peggy bridge from Ethereum');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(classification.diagnostics?.[0]?.message).toContain('Peggy bridge from Ethereum');
     });
 
     it('should classify Peggy bridge withdrawal', () => {
@@ -594,9 +594,9 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('withdrawal');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('bridge_transfer');
-      expect(classification.notes?.[0]?.message).toContain('Peggy bridge to Ethereum');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(classification.diagnostics?.[0]?.message).toContain('Peggy bridge to Ethereum');
     });
 
     it('should classify IBC transfer deposit', () => {
@@ -620,9 +620,9 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('deposit');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('bridge_transfer');
-      expect(classification.notes?.[0]?.message).toContain('IBC transfer from another chain');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(classification.diagnostics?.[0]?.message).toContain('IBC transfer from another chain');
     });
 
     it('should classify IBC transfer withdrawal', () => {
@@ -646,9 +646,9 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('withdrawal');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('bridge_transfer');
-      expect(classification.notes?.[0]?.message).toContain('IBC transfer to another chain');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(classification.diagnostics?.[0]?.message).toContain('IBC transfer to another chain');
     });
 
     it('should classify single asset swap', () => {
@@ -672,11 +672,11 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('trade');
       expect(classification.operation.type).toBe('swap');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('swap');
-      expect(classification.notes?.[0]?.message).toContain('Asset swap');
-      expect(classification.notes?.[0]?.message).toContain('INJ');
-      expect(classification.notes?.[0]?.message).toContain('USDT');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('swap');
+      expect(classification.diagnostics?.[0]?.message).toContain('Asset swap');
+      expect(classification.diagnostics?.[0]?.message).toContain('INJ');
+      expect(classification.diagnostics?.[0]?.message).toContain('USDT');
     });
 
     it('should handle complex multi-asset transaction with uncertainty', () => {
@@ -708,11 +708,11 @@ describe('Cosmos Processor Utils', () => {
 
       expect(classification.operation.category).toBe('transfer');
       expect(classification.operation.type).toBe('transfer');
-      expect(classification.notes).toBeDefined();
-      expect(classification.notes?.[0]?.type).toBe('classification_uncertain');
-      expect(classification.notes?.[0]?.message).toContain('Complex transaction');
-      expect(classification.notes?.[0]?.metadata).toHaveProperty('inflows');
-      expect(classification.notes?.[0]?.metadata).toHaveProperty('outflows');
+      expect(classification.diagnostics).toBeDefined();
+      expect(classification.diagnostics?.[0]?.code).toBe('classification_uncertain');
+      expect(classification.diagnostics?.[0]?.message).toContain('Complex transaction');
+      expect(classification.diagnostics?.[0]?.metadata).toHaveProperty('inflows');
+      expect(classification.diagnostics?.[0]?.metadata).toHaveProperty('outflows');
     });
 
     it('should fallback to transfer for unmatched patterns', () => {

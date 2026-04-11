@@ -33,16 +33,23 @@ export const OperationTypeSchema = z.enum([
   'airdrop',
 ]);
 
-// Transaction note schema - allows additional properties for flexible metadata
-export const TransactionNoteSchema = z.object({
-  type: z.string(),
+// Machine-authored transaction diagnostic schema
+export const TransactionDiagnosticSchema = z.object({
+  code: z.string().min(1, 'Diagnostic code must not be empty'),
   message: z.string(),
   severity: z.enum(['info', 'warning', 'error']).optional(),
-  metadata: z.record(z.string(), z.any()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+// User-authored free-form transaction note schema
+export const UserNoteSchema = z.object({
+  message: z.string().min(1, 'User note message must not be empty'),
+  createdAt: z.string().datetime(),
+  author: z.string().min(1, 'User note author must not be empty').optional(),
 });
 
 /**
- * Operation classification result with optional notes
+ * Operation classification result with optional diagnostics.
  * Used by transaction processors to classify operations
  */
 export interface OperationClassification {
@@ -50,7 +57,7 @@ export interface OperationClassification {
     category: OperationCategory;
     type: OperationType;
   };
-  notes?: TransactionNote[] | undefined;
+  diagnostics?: TransactionDiagnostic[] | undefined;
 }
 
 export interface TransactionMaterializationScope {
@@ -107,7 +114,8 @@ function createTransactionBaseFieldsSchema<TMovementSchema extends z.ZodTypeAny,
       .optional(),
 
     // Optional fields
-    notes: z.array(TransactionNoteSchema).optional(),
+    diagnostics: z.array(TransactionDiagnosticSchema).optional(),
+    userNotes: z.array(UserNoteSchema).optional(),
 
     // Spam detection
     isSpam: z.boolean().optional(),
@@ -177,6 +185,7 @@ export type TransactionStatus = z.infer<typeof TransactionStatusSchema>;
 export type OperationCategory = z.infer<typeof OperationCategorySchema>;
 export type OperationType = z.infer<typeof OperationTypeSchema>;
 
-export type TransactionNote = z.infer<typeof TransactionNoteSchema>;
+export type TransactionDiagnostic = z.infer<typeof TransactionDiagnosticSchema>;
+export type UserNote = z.infer<typeof UserNoteSchema>;
 export type TransactionDraft = z.infer<typeof TransactionDraftSchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;

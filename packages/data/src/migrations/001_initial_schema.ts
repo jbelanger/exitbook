@@ -179,7 +179,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('transaction_datetime', 'text', (col) => col.notNull())
     .addColumn('from_address', 'text')
     .addColumn('to_address', 'text')
-    .addColumn('notes_json', 'text') // Array<TransactionNote>
+    .addColumn('diagnostics_json', 'text') // Array<TransactionDiagnostic>
+    .addColumn('user_notes_json', 'text') // Array<UserNote>
     .addColumn('is_spam', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
     // Structured movements - REMOVED (normalized to transaction_movements table)
@@ -207,7 +208,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'transactions_operation_type_valid',
       sql`operation_type IS NULL OR operation_type IN ('buy', 'sell', 'deposit', 'withdrawal', 'stake', 'unstake', 'reward', 'swap', 'fee', 'batch', 'transfer', 'refund', 'vote', 'proposal', 'airdrop')`
     )
-    .addCheckConstraint('transactions_notes_json_valid', sql`notes_json IS NULL OR json_valid(notes_json)`)
+    .addCheckConstraint(
+      'transactions_diagnostics_json_valid',
+      sql`diagnostics_json IS NULL OR json_valid(diagnostics_json)`
+    )
+    .addCheckConstraint(
+      'transactions_user_notes_json_valid',
+      sql`user_notes_json IS NULL OR json_valid(user_notes_json)`
+    )
     // REMOVED: movements_inflows, movements_outflows, fees check constraints (normalized to transaction_movements)
     .execute();
 
@@ -246,6 +254,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('movement_fingerprint', 'text', (col) => col.notNull())
     .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('movement_role', 'text') // NULL for fee rows
     // Amount fields
     .addColumn('gross_amount', 'text') // NULL for fee rows
     .addColumn('net_amount', 'text') // NULL for fee rows
@@ -263,6 +272,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('fx_source', 'text')
     .addColumn('fx_timestamp', 'text')
     .addCheckConstraint('transaction_movements_type_valid', sql`movement_type IN ('inflow', 'outflow', 'fee')`)
+    .addCheckConstraint(
+      'transaction_movements_role_valid',
+      sql`movement_role IS NULL OR movement_role IN ('principal', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+    )
     .addCheckConstraint(
       'transaction_movements_fee_scope_valid',
       sql`fee_scope IS NULL OR fee_scope IN ('network', 'platform', 'spread', 'tax', 'other')`

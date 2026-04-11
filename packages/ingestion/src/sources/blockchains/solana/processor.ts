@@ -173,7 +173,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
 
           operation: classification.operation,
 
-          notes: classification.notes,
+          diagnostics: classification.diagnostics,
 
           blockchain: {
             name: 'solana',

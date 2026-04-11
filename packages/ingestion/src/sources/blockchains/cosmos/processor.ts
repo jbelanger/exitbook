@@ -153,7 +153,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
 
           operation: classification.operation,
 
-          notes: classification.notes,
+          diagnostics: classification.diagnostics,
 
           blockchain: {
             name: this.chainConfig.chainName,

@@ -294,7 +294,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.diagnostics).toBeUndefined(); // No note for normal small deposits
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -395,9 +395,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
-    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge from Ethereum');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Peggy bridge from Ethereum');
   });
 
   test('detects Peggy bridge withdrawal', async () => {
@@ -432,9 +432,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
 
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
-    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge to Ethereum');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Peggy bridge to Ethereum');
   });
 
   test('detects IBC transfer deposit', async () => {
@@ -472,9 +472,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
-    expect(transaction.notes?.[0]?.message).toContain('IBC transfer from another chain');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('IBC transfer from another chain');
   });
 
   test('detects IBC transfer withdrawal', async () => {
@@ -512,9 +512,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify IBC classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
-    expect(transaction.notes?.[0]?.message).toContain('IBC transfer to another chain');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('IBC transfer to another chain');
   });
 
   test('handles Peggy bridge deposit of native asset with Ethereum token address', async () => {
@@ -558,9 +558,9 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
     // Verify it's classified as a bridge deposit
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('bridge_transfer');
-    expect(transaction.notes?.[0]?.message).toContain('Peggy bridge from Ethereum');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Peggy bridge from Ethereum');
 
     // CRITICAL: Verify the assetId is for native INJ, not a token
     // This is the bug we're fixing - it should NOT create a token assetId
@@ -798,10 +798,10 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('contract_interaction');
-    expect(transaction.notes?.[0]?.message).toContain('Contract interaction');
-    expect(transaction.notes?.[0]?.message).toContain('zero value');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('contract_interaction');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Contract interaction');
+    expect(transaction.diagnostics?.[0]?.message).toContain('zero value');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');

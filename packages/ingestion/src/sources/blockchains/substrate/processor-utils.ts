@@ -243,7 +243,7 @@ export function determineOperationFromFundFlow(
     // Nominate and chill are staking operations (no funds move)
     if (transaction.call?.includes('nominate') || transaction.call?.includes('chill')) {
       return {
-        notes: [
+        diagnostics: [
           {
             message: `Staking operation (${transaction.call}) with no fund movement. Changes validator selection but doesn't affect balance.`,
             metadata: {
@@ -251,7 +251,7 @@ export function determineOperationFromFundFlow(
               module: fundFlow.module,
             },
             severity: 'info',
-            type: 'staking_operation',
+            code: 'staking_operation',
           },
         ],
         operation: {
@@ -280,7 +280,7 @@ export function determineOperationFromFundFlow(
 
     // Staking transaction with no movements (fee-only)
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Staking transaction with no asset movement. Fee-only staking operation.`,
           metadata: {
@@ -288,7 +288,7 @@ export function determineOperationFromFundFlow(
             feeCurrency: fundFlow.feeCurrency,
           },
           severity: 'info',
-          type: 'fee_only_staking',
+          code: 'fee_only_staking',
         },
       ],
       operation: {
@@ -321,7 +321,7 @@ export function determineOperationFromFundFlow(
   // Pattern 3: Utility batch (complex - add uncertainty note)
   if (fundFlow.hasUtilityBatch) {
     return {
-      notes: [
+      diagnostics: [
         {
           message:
             fundFlow.classificationUncertainty ||
@@ -332,7 +332,7 @@ export function determineOperationFromFundFlow(
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'warning',
-          type: 'batch_operation',
+          code: 'batch_operation',
         },
       ],
       operation: {
@@ -345,7 +345,7 @@ export function determineOperationFromFundFlow(
   // Pattern 4: Proxy operations (add note)
   if (fundFlow.hasProxy) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Proxy transaction. User authorized another account to perform operations.`,
           metadata: {
@@ -353,7 +353,7 @@ export function determineOperationFromFundFlow(
             module: fundFlow.module,
           },
           severity: 'info',
-          type: 'proxy_operation',
+          code: 'proxy_operation',
         },
       ],
       operation: {
@@ -366,7 +366,7 @@ export function determineOperationFromFundFlow(
   // Pattern 5: Multisig operations (add note)
   if (fundFlow.hasMultisig) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Multisig transaction. Requires multiple signatures to execute.`,
           metadata: {
@@ -374,7 +374,7 @@ export function determineOperationFromFundFlow(
             module: fundFlow.module,
           },
           severity: 'info',
-          type: 'multisig_operation',
+          code: 'multisig_operation',
         },
       ],
       operation: {
@@ -431,7 +431,7 @@ export function determineOperationFromFundFlow(
 
   // Pattern 10: Unknown/complex transaction
   return {
-    notes: [
+    diagnostics: [
       {
         message: `Unable to classify transaction with confidence. Module: ${fundFlow.module}, Call: ${fundFlow.call}`,
         metadata: {
@@ -441,7 +441,7 @@ export function determineOperationFromFundFlow(
           outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
         },
         severity: 'warning',
-        type: 'classification_failed',
+        code: 'classification_failed',
       },
     ],
     operation: {

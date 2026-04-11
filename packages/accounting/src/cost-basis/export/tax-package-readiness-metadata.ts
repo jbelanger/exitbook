@@ -9,8 +9,8 @@ import type {
   TaxPackageUnknownTransactionClassificationDetail,
 } from './tax-package-types.js';
 
-const ALLOCATION_UNCERTAIN_NOTE_TYPES = new Set(['allocation_uncertain']);
-const UNKNOWN_CLASSIFICATION_NOTE_TYPES = new Set(['classification_uncertain', 'classification_failed']);
+const ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES = new Set(['allocation_uncertain']);
+const UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES = new Set(['classification_uncertain', 'classification_failed']);
 
 export function deriveTaxPackageReadinessMetadata(params: {
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
@@ -19,7 +19,7 @@ export function deriveTaxPackageReadinessMetadata(params: {
   const retainedTransactions = getRetainedTransactions(params.context);
   const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
     retainedTransactions,
-    ALLOCATION_UNCERTAIN_NOTE_TYPES
+    ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES
   );
   const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(retainedTransactions);
 
@@ -45,24 +45,24 @@ function collectUnknownTransactionClassificationDetails(
 ): TaxPackageUnknownTransactionClassificationDetail[] {
   return collectTransactionIssueDetails<TaxPackageUnknownTransactionClassificationDetail>(
     transactions,
-    UNKNOWN_CLASSIFICATION_NOTE_TYPES
+    UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES
   );
 }
 
 function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
   transactions: readonly Transaction[],
-  noteTypes: ReadonlySet<string>
+  diagnosticCodes: ReadonlySet<string>
 ): TDetail[] {
   return transactions.flatMap((transaction) => {
-    const matchingNote = transaction.notes?.find((note) => noteTypes.has(note.type));
-    if (!matchingNote) {
+    const matchingDiagnostic = transaction.diagnostics?.find((diagnostic) => diagnosticCodes.has(diagnostic.code));
+    if (!matchingDiagnostic) {
       return [];
     }
 
     return [
       {
-        noteMessage: matchingNote.message,
-        noteType: matchingNote.type,
+        noteMessage: matchingDiagnostic.message,
+        noteType: matchingDiagnostic.code,
         operationCategory: transaction.operation.category,
         operationType: transaction.operation.type,
         reference: transaction.txFingerprint,

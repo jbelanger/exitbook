@@ -124,22 +124,22 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
       return; // No service available
     }
 
-    // Get scam notes keyed by transaction index
-    const scamNotes = this.scamDetectionService.detectScams(movements, metadataMap, this.platformKey);
+    // Get scam diagnostics keyed by transaction index
+    const scamDiagnostics = this.scamDetectionService.detectScams(movements, metadataMap, this.platformKey);
 
-    // Apply notes to transactions
-    for (const [txIndex, notes] of scamNotes) {
+    // Apply diagnostics to transactions
+    for (const [txIndex, diagnostics] of scamDiagnostics) {
       const tx = transactions[txIndex];
       if (!tx) {
-        this.logger.warn(`Transaction at index ${txIndex} not found when applying scam detection notes`);
+        this.logger.warn(`Transaction at index ${txIndex} not found when applying scam detection diagnostics`);
         continue;
       }
 
-      if (notes.some((note) => note.severity === 'error')) {
+      if (diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
         tx.isSpam = true;
       }
 
-      tx.notes = [...(tx.notes || []), ...notes];
+      tx.diagnostics = [...(tx.diagnostics || []), ...diagnostics];
     }
   }
 
@@ -211,8 +211,8 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   }
 
   private shouldDropZeroValueContractInteraction(transaction: TransactionDraft): boolean {
-    const notes = transaction.notes;
-    if (!notes || !notes.some((note) => note.type === 'contract_interaction')) {
+    const diagnostics = transaction.diagnostics;
+    if (!diagnostics || !diagnostics.some((diagnostic) => diagnostic.code === 'contract_interaction')) {
       return false;
     }
 

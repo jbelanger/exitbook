@@ -399,38 +399,66 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
     );
   }
 
-  if (selected.notes.length > 0) {
-    rows.push(<Text key="blank-notes"> </Text>, ...buildNoteRows(selected));
+  if (selected.diagnostics.length > 0) {
+    rows.push(<Text key="blank-diagnostics"> </Text>, ...buildDiagnosticRows(selected));
+  }
+
+  if (selected.userNotes.length > 0) {
+    rows.push(<Text key="blank-user-notes"> </Text>, ...buildUserNoteRows(selected));
   }
 
   rows.push(<Text key="blank-blockchain"> </Text>, ...buildBlockchainRows(selected));
   return rows;
 }
 
-function buildNoteRows(selected: TransactionViewItem): ReactElement[] {
+function buildDiagnosticRows(selected: TransactionViewItem): ReactElement[] {
   const rows: ReactElement[] = [
     <Text
-      key="notes-label"
+      key="diagnostics-label"
       dimColor
     >
-      {'  '}Notes
+      {'  '}Diagnostics
     </Text>,
   ];
 
   rows.push(
-    ...selected.notes.map((note, index) => {
-      const prefix = note.type === 'user_note' ? 'user' : note.type;
-      const severity = note.severity ? ` [${note.severity}]` : '';
+    ...selected.diagnostics.map((diagnostic, index) => {
+      const severity = diagnostic.severity ? ` [${diagnostic.severity}]` : '';
       return (
-        <Text key={`note-${index}`}>
+        <Text key={`diagnostic-${index}`}>
           {'    '}
-          {note.type === 'user_note' ? <Text color="cyan">{prefix}</Text> : <Text>{prefix}</Text>}
+          <Text>{diagnostic.code}</Text>
           <Text dimColor>{severity}</Text>
           {'  '}
-          {note.message}
+          {diagnostic.message}
         </Text>
       );
     })
+  );
+
+  return rows;
+}
+
+function buildUserNoteRows(selected: TransactionViewItem): ReactElement[] {
+  const rows: ReactElement[] = [
+    <Text
+      key="user-notes-label"
+      dimColor
+    >
+      {'  '}User Notes
+    </Text>,
+  ];
+
+  rows.push(
+    ...selected.userNotes.map((userNote, index) => (
+      <Text key={`user-note-${index}`}>
+        {'    '}
+        <Text color="cyan">user</Text>
+        {'  '}
+        {userNote.message}
+        <Text dimColor>{` (${userNote.createdAt}${userNote.author ? ` · ${userNote.author}` : ''})`}</Text>
+      </Text>
+    ))
   );
 
   return rows;

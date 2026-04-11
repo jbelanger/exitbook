@@ -252,12 +252,12 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
 
       expect(result.operation).toEqual({ category: 'staking', type: 'reward' });
-      expect(result.notes).toHaveLength(1);
-      expect(result.notes?.[0]?.type).toBe('consensus_withdrawal');
-      expect(result.notes?.[0]?.severity).toBe('info');
-      expect(result.notes?.[0]?.message).toContain('Partial withdrawal');
-      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(false);
-      expect(result.notes?.[0]?.metadata?.['taxClassification']).toContain('taxable');
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics?.[0]?.code).toBe('consensus_withdrawal');
+      expect(result.diagnostics?.[0]?.severity).toBe('info');
+      expect(result.diagnostics?.[0]?.message).toContain('Partial withdrawal');
+      expect(result.diagnostics?.[0]?.metadata?.['needsReview']).toBe(false);
+      expect(result.diagnostics?.[0]?.metadata?.['taxClassification']).toContain('taxable');
     });
 
     it('classifies large withdrawal (≥32 ETH) as principal return with warning', () => {
@@ -296,13 +296,13 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
 
       expect(result.operation).toEqual({ category: 'staking', type: 'deposit' });
-      expect(result.notes).toHaveLength(1);
-      expect(result.notes?.[0]?.type).toBe('consensus_withdrawal');
-      expect(result.notes?.[0]?.severity).toBe('warning');
-      expect(result.notes?.[0]?.message).toContain('Full withdrawal');
-      expect(result.notes?.[0]?.message).toContain('≥32 ETH');
-      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(true);
-      expect(result.notes?.[0]?.metadata?.['taxClassification']).toContain('non-taxable');
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics?.[0]?.code).toBe('consensus_withdrawal');
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
+      expect(result.diagnostics?.[0]?.message).toContain('Full withdrawal');
+      expect(result.diagnostics?.[0]?.message).toContain('≥32 ETH');
+      expect(result.diagnostics?.[0]?.metadata?.['needsReview']).toBe(true);
+      expect(result.diagnostics?.[0]?.metadata?.['taxClassification']).toContain('non-taxable');
     });
 
     it('classifies exactly 32 ETH as principal return', () => {
@@ -341,8 +341,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, [beaconTx]);
 
       expect(result.operation).toEqual({ category: 'staking', type: 'deposit' });
-      expect(result.notes?.[0]?.severity).toBe('warning');
-      expect(result.notes?.[0]?.metadata?.['needsReview']).toBe(true);
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
+      expect(result.diagnostics?.[0]?.metadata?.['needsReview']).toBe(true);
     });
   });
 
@@ -365,8 +365,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.notes?.[0]?.type).toBe('contract_interaction');
-      expect(result.notes?.[0]?.severity).toBe('info');
+      expect(result.diagnostics?.[0]?.code).toBe('contract_interaction');
+      expect(result.diagnostics?.[0]?.severity).toBe('info');
     });
 
     it('classifies staking operation as transfer with note', () => {
@@ -387,7 +387,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.notes?.[0]?.type).toBe('contract_interaction');
+      expect(result.diagnostics?.[0]?.code).toBe('contract_interaction');
     });
   });
 
@@ -410,7 +410,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'fee', type: 'fee' });
-      expect(result.notes).toBeUndefined();
+      expect(result.diagnostics).toBeUndefined();
     });
   });
 
@@ -433,7 +433,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'trade', type: 'swap' });
-      expect(result.notes).toBeUndefined();
+      expect(result.diagnostics).toBeUndefined();
     });
   });
 
@@ -456,7 +456,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'deposit' });
-      expect(result.notes).toBeUndefined();
+      expect(result.diagnostics).toBeUndefined();
     });
 
     it('classifies multi-asset deposit when multiple inflows present', () => {
@@ -502,7 +502,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
-      expect(result.notes).toBeUndefined();
+      expect(result.diagnostics).toBeUndefined();
     });
 
     it('classifies multi-asset withdrawal when multiple outflows present', () => {
@@ -548,7 +548,7 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.notes).toBeUndefined();
+      expect(result.diagnostics).toBeUndefined();
     });
   });
 
@@ -579,10 +579,10 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.notes?.[0]?.type).toBe('classification_uncertain');
-      expect(result.notes?.[0]?.severity).toBe('info');
-      expect(result.notes?.[0]?.metadata).toHaveProperty('inflows');
-      expect(result.notes?.[0]?.metadata).toHaveProperty('outflows');
+      expect(result.diagnostics?.[0]?.code).toBe('classification_uncertain');
+      expect(result.diagnostics?.[0]?.severity).toBe('info');
+      expect(result.diagnostics?.[0]?.metadata).toHaveProperty('inflows');
+      expect(result.diagnostics?.[0]?.metadata).toHaveProperty('outflows');
     });
   });
 
@@ -607,8 +607,8 @@ describe('determineEvmOperationFromFundFlow', () => {
       const result = determineEvmOperationFromFundFlow(fundFlow, []);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.notes?.[0]?.type).toBe('classification_failed');
-      expect(result.notes?.[0]?.severity).toBe('warning');
+      expect(result.diagnostics?.[0]?.code).toBe('classification_failed');
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
     });
   });
 });

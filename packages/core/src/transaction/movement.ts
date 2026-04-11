@@ -12,6 +12,8 @@ import { z } from 'zod';
 // Movement direction schema
 export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
+export const MovementRoleSchema = z.enum(['principal', 'staking_reward', 'protocol_overhead', 'refund_rebate']);
+
 export const PriceAtTxTimeSchema = z.object({
   price: MoneySchema, // Always in USD after normalization (storage currency)
   quotedPrice: MoneySchema.optional(), // Transaction-time quoted price before normalization
@@ -45,6 +47,7 @@ const AssetMovementFieldsSchema = z.object({
   assetSymbol: CurrencySchema, // Display symbol (e.g., USDC, ETH)
   grossAmount: DecimalSchema, // Amount venue debited/credited (REQUIRED)
   netAmount: DecimalSchema.optional(), // Amount on-chain (repository defaults to grossAmount during save)
+  movementRole: MovementRoleSchema.optional(),
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
 });
 
@@ -135,6 +138,7 @@ export const FeeMovementSchema = FeeMovementDraftSchema.extend({
 });
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
+export type MovementRole = z.infer<typeof MovementRoleSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovementDraft = z.infer<typeof AssetMovementDraftSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;

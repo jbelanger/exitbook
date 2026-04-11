@@ -412,9 +412,9 @@ describe('analyzeLinkGaps', () => {
         createBlockchainDeposit({
           id: 27,
           txFingerprint: 'scam-gap',
-          notes: [
+          diagnostics: [
             {
-              type: 'SCAM_TOKEN',
+              code: 'SCAM_TOKEN',
               message: 'Known scam token',
               severity: 'error',
             },
@@ -435,9 +435,9 @@ describe('analyzeLinkGaps', () => {
         createBlockchainDeposit({
           id: 28,
           txFingerprint: 'suspicious-airdrop-gap',
-          notes: [
+          diagnostics: [
             {
-              type: 'SUSPICIOUS_AIRDROP',
+              code: 'SUSPICIOUS_AIRDROP',
               message: 'Likely airdrop bait',
               severity: 'warning',
             },

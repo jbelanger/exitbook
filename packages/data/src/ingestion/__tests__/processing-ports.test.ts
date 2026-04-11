@@ -29,7 +29,7 @@ describe('buildProcessingPorts', () => {
     await db.destroy();
   });
 
-  it('exposes transaction note materialization through processing ports', async () => {
+  it('exposes transaction user note materialization through processing ports', async () => {
     await db
       .insertInto('transactions')
       .values({
@@ -58,9 +58,9 @@ describe('buildProcessingPorts', () => {
             created_at: '2026-03-15T12:00:00.000Z',
             actor: 'user',
             source: 'cli',
-            scope: 'transaction-note',
+            scope: 'transaction-user-note',
             payload: {
-              type: 'transaction_note_override',
+              type: 'transaction_user_note_override',
               action: 'set',
               tx_fingerprint: txFingerprint,
               message: 'Remember this withdrawal',
@@ -75,22 +75,19 @@ describe('buildProcessingPorts', () => {
       overrideStore,
     });
 
-    const updatedCount = assertOk(await ports.transactionNotes.materializeStoredNotes({ transactionIds: [1] }));
+    const updatedCount = assertOk(await ports.transactionUserNotes.materializeStoredUserNotes({ transactionIds: [1] }));
     expect(updatedCount).toBe(1);
 
     const row = await db
       .selectFrom('transactions')
-      .select(['notes_json'])
+      .select(['user_notes_json'])
       .where('id', '=', 1)
       .executeTakeFirstOrThrow();
-    expect(JSON.parse((row.notes_json as string | null) ?? '[]')).toEqual([
+    expect(JSON.parse((row.user_notes_json as string | null) ?? '[]')).toEqual([
       {
-        type: 'user_note',
         message: 'Remember this withdrawal',
-        metadata: {
-          actor: 'user',
-          source: 'override-store',
-        },
+        createdAt: '2026-03-15T12:00:00.000Z',
+        author: 'user',
       },
     ]);
   });

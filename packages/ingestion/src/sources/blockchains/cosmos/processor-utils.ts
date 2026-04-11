@@ -183,12 +183,12 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Pattern 1: Contract interaction with zero value (approval, delegation, state change)
   if (isAmountZero && fundFlow.hasContractInteraction) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: 'Contract interaction with zero value. May be approval, delegation, or other state change.',
           metadata: { hasContractInteraction: fundFlow.hasContractInteraction },
           severity: 'info',
-          type: 'contract_interaction',
+          code: 'contract_interaction',
         },
       ],
       operation: { category: 'transfer', type: 'transfer' },
@@ -203,7 +203,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Pattern 3: Bridge deposit (receiving funds from another chain)
   if (fundFlow.hasBridgeTransfer && outflows.length === 0 && inflows.length >= 1) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Bridge deposit via ${bridgeDepositLabel(fundFlow.bridgeType)}.`,
           metadata: {
@@ -212,7 +212,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
             sourceChain: fundFlow.sourceChain,
           },
           severity: 'info',
-          type: 'bridge_transfer',
+          code: 'bridge_transfer',
         },
       ],
       operation: { category: 'transfer', type: 'deposit' },
@@ -222,7 +222,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Pattern 4: Bridge withdrawal (sending funds to another chain)
   if (fundFlow.hasBridgeTransfer && outflows.length >= 1 && inflows.length === 0) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Bridge withdrawal via ${bridgeWithdrawalLabel(fundFlow.bridgeType)}.`,
           metadata: {
@@ -231,7 +231,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
             sourceChain: fundFlow.sourceChain,
           },
           severity: 'info',
-          type: 'bridge_transfer',
+          code: 'bridge_transfer',
         },
       ],
       operation: { category: 'transfer', type: 'withdrawal' },
@@ -246,12 +246,12 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
     // Pattern 5: Different assets = swap
     if (outAsset !== inAsset) {
       return {
-        notes: [
+        diagnostics: [
           {
             message: `Asset swap: ${outAsset} → ${inAsset}.`,
             metadata: { inAsset, outAsset },
             severity: 'info',
-            type: 'swap',
+            code: 'swap',
           },
         ],
         operation: { category: 'trade', type: 'swap' },
@@ -275,7 +275,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
   // Pattern 9: Complex multi-asset transaction (uncertain)
   if (fundFlow.classificationUncertainty) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -283,7 +283,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          code: 'classification_uncertain',
         },
       ],
       operation: { category: 'transfer', type: 'transfer' },
@@ -292,7 +292,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
 
   // Fallback: no confident pattern matched
   return {
-    notes: [
+    diagnostics: [
       {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {
@@ -300,7 +300,7 @@ export function determineOperationFromFundFlow(fundFlow: CosmosFundFlow): Operat
           outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
         },
         severity: 'warning',
-        type: 'classification_failed',
+        code: 'classification_failed',
       },
     ],
     operation: { category: 'transfer', type: 'transfer' },

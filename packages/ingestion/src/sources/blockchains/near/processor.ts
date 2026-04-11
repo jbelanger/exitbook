@@ -508,7 +508,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
       fees: feeMovements,
 
       operation: classification.operation,
-      notes: classification.notes,
+      diagnostics: classification.diagnostics,
 
       blockchain: {
         name: 'near',

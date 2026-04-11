@@ -1,5 +1,5 @@
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import type { OperationClassification, TransactionNote } from '@exitbook/core';
+import type { OperationClassification, TransactionDiagnostic } from '@exitbook/core';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/foundation';
 import { type Result, err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -221,7 +221,7 @@ export function classifySolanaOperationFromFundFlow(
       return classification;
     }
 
-    const inferenceNote: TransactionNote = {
+    const inferenceNote: TransactionDiagnostic = {
       message: `Could not infer transaction counterparty: ${fundFlow.inferenceFailureReason}`,
       metadata: {
         inferenceFailureReason: fundFlow.inferenceFailureReason,
@@ -229,12 +229,12 @@ export function classifySolanaOperationFromFundFlow(
         toAddress: fundFlow.toAddress,
       },
       severity: 'info',
-      type: 'inference_failed',
+      code: 'inference_failed',
     };
 
     return {
       ...classification,
-      notes: classification.notes ? [...classification.notes, inferenceNote] : [inferenceNote],
+      diagnostics: classification.diagnostics ? [...classification.diagnostics, inferenceNote] : [inferenceNote],
     };
   };
 
@@ -262,7 +262,7 @@ export function classifySolanaOperationFromFundFlow(
 
     // Complex staking with both inflows and outflows
     return addInferenceFailureNote({
-      notes: [
+      diagnostics: [
         {
           message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
           metadata: {
@@ -271,7 +271,7 @@ export function classifySolanaOperationFromFundFlow(
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          code: 'classification_uncertain',
         },
       ],
       operation: {
@@ -317,7 +317,7 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 4: DEX swap detected by program (less confident than single-asset swap)
   if (fundFlow.hasSwaps) {
     return addInferenceFailureNote({
-      notes: [
+      diagnostics: [
         {
           message: 'DEX program detected. Classified as swap based on program analysis.',
           metadata: {
@@ -326,7 +326,7 @@ export function classifySolanaOperationFromFundFlow(
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'program_based_classification',
+          code: 'program_based_classification',
         },
       ],
       operation: {
@@ -359,7 +359,7 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add note)
   if (fundFlow.classificationUncertainty) {
     return addInferenceFailureNote({
-      notes: [
+      diagnostics: [
         {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -367,7 +367,7 @@ export function classifySolanaOperationFromFundFlow(
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          code: 'classification_uncertain',
         },
       ],
       operation: {
@@ -380,7 +380,7 @@ export function classifySolanaOperationFromFundFlow(
   // Pattern 9: Batch operations (multiple instructions)
   if (fundFlow.hasMultipleInstructions && fundFlow.instructionCount > 3) {
     return addInferenceFailureNote({
-      notes: [
+      diagnostics: [
         {
           message: `Batch transaction with ${fundFlow.instructionCount} instructions. May contain multiple operations.`,
           metadata: {
@@ -390,7 +390,7 @@ export function classifySolanaOperationFromFundFlow(
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'batch_operation',
+          code: 'batch_operation',
         },
       ],
       operation: {
@@ -402,7 +402,7 @@ export function classifySolanaOperationFromFundFlow(
 
   // Ultimate fallback: Couldn't match any confident pattern
   return addInferenceFailureNote({
-    notes: [
+    diagnostics: [
       {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {
@@ -410,7 +410,7 @@ export function classifySolanaOperationFromFundFlow(
           outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
         },
         severity: 'warning',
-        type: 'classification_failed',
+        code: 'classification_failed',
       },
     ],
     operation: {

@@ -168,12 +168,21 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
       })
     );
   }
-  if (transaction.notes.length > 0) {
-    lines.push('', pc.dim(`Notes (${transaction.notes.length})`));
+  if (transaction.diagnostics.length > 0) {
+    lines.push('', pc.dim(`Diagnostics (${transaction.diagnostics.length})`));
     lines.push(
-      ...transaction.notes.map((note) => {
-        const severitySuffix = note.severity ? ` ${pc.dim(`(${note.severity})`)}` : '';
-        return `  [${note.type}] ${note.message}${severitySuffix}`;
+      ...transaction.diagnostics.map((diagnostic) => {
+        const severitySuffix = diagnostic.severity ? ` ${pc.dim(`(${diagnostic.severity})`)}` : '';
+        return `  [${diagnostic.code}] ${diagnostic.message}${severitySuffix}`;
+      })
+    );
+  }
+  if (transaction.userNotes.length > 0) {
+    lines.push('', pc.dim(`User notes (${transaction.userNotes.length})`));
+    lines.push(
+      ...transaction.userNotes.map((userNote) => {
+        const authorPrefix = userNote.author ? `${userNote.author} · ` : '';
+        return `  ${pc.cyan(authorPrefix)}${userNote.message}${pc.dim(` (${formatTransactionTimestamp(userNote.createdAt)})`)}`;
       })
     );
   }

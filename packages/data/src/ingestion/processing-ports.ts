@@ -4,11 +4,11 @@ import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
-import { materializeStoredTransactionNoteOverrides } from '../overrides/transaction-note-replay.js';
+import { materializeStoredTransactionUserNoteOverrides } from '../overrides/transaction-user-note-replay.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 import { computeAccountHash } from '../utils/account-hash.js';
 
-async function materializeProfileScopedTransactionNotes(
+async function materializeProfileScopedTransactionUserNotes(
   db: DataSession,
   overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
   scope: TransactionMaterializationScope
@@ -44,7 +44,7 @@ async function materializeProfileScopedTransactionNotes(
 
     let updatedCount = 0;
     for (const [profileKey, accountIds] of scopedAccountIdsByProfileKey) {
-      const materializeResult = yield* await materializeStoredTransactionNoteOverrides(
+      const materializeResult = yield* await materializeStoredTransactionUserNoteOverrides(
         db.transactions,
         overrideStore,
         profileKey,
@@ -114,9 +114,9 @@ export function buildProcessingPorts(
         }),
     },
 
-    transactionNotes: {
-      materializeStoredNotes: (scope) =>
-        materializeProfileScopedTransactionNotes(db, options.overrideStore, scope ?? {}),
+    transactionUserNotes: {
+      materializeStoredUserNotes: (scope) =>
+        materializeProfileScopedTransactionUserNotes(db, options.overrideStore, scope ?? {}),
     },
 
     importSessionLookup: {

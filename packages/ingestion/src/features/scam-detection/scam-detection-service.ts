@@ -1,5 +1,5 @@
 import { type TokenMetadataRecord } from '@exitbook/blockchain-providers';
-import type { TransactionNote } from '@exitbook/core';
+import type { TransactionDiagnostic } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getLogger } from '@exitbook/logger';
 
@@ -33,41 +33,41 @@ export class ScamDetectionService implements IScamDetectionService {
     movements: MovementWithContext[],
     metadataMap: Map<string, TokenMetadataRecord | undefined>,
     blockchain?: string
-  ): Map<number, TransactionNote[]> {
+  ): Map<number, TransactionDiagnostic[]> {
     this.batchCounter += 1;
-    const scamNotes = new Map<number, TransactionNote[]>();
+    const scamDiagnostics = new Map<number, TransactionDiagnostic[]>();
     const exampleSymbols: string[] = [];
     let totalScamNotes = 0;
 
     for (const movement of movements) {
-      let scamNote: TransactionNote | undefined;
+      let scamDiagnostic: TransactionDiagnostic | undefined;
 
       // Tier 1: Metadata-based detection (contract address expected for token movements)
       const metadata = metadataMap.get(movement.contractAddress);
       if (metadata) {
-        scamNote = detectScamToken(movement.contractAddress, metadata, {
+        scamDiagnostic = detectScamToken(movement.contractAddress, metadata, {
           amount: movement.amount,
           isAirdrop: movement.isAirdrop,
         });
 
-        if (scamNote) {
-          scamNote = {
-            ...scamNote,
+        if (scamDiagnostic) {
+          scamDiagnostic = {
+            ...scamDiagnostic,
             metadata: {
-              ...(scamNote.metadata ?? {}),
+              ...(scamDiagnostic.metadata ?? {}),
               assetSymbol: movement.asset,
               contractAddress: movement.contractAddress.toLowerCase(),
             },
           };
         }
 
-        if (scamNote) {
+        if (scamDiagnostic) {
           logger.debug(
             {
               contractAddress: movement.contractAddress,
               asset: movement.asset,
-              detectionSource: scamNote.metadata?.['detectionSource'],
-              indicators: scamNote.metadata?.['indicators'],
+              detectionSource: scamDiagnostic.metadata?.['detectionSource'],
+              indicators: scamDiagnostic.metadata?.['indicators'],
             },
             'Scam detected via metadata'
           );
@@ -80,10 +80,10 @@ export class ScamDetectionService implements IScamDetectionService {
       }
 
       // Tier 2: Symbol-only detection (fallback when no metadata available)
-      if (!scamNote) {
+      if (!scamDiagnostic) {
         const scamResult = detectScamFromSymbol(movement.asset);
         if (scamResult.isScam) {
-          scamNote = {
+          scamDiagnostic = {
             message: `⚠️ Potential scam token (${movement.asset}): ${scamResult.reason}`,
             metadata: {
               assetSymbol: movement.asset,
@@ -93,7 +93,7 @@ export class ScamDetectionService implements IScamDetectionService {
               detectionSource: 'symbol',
             },
             severity: 'warning' as const,
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
           };
 
           logger.debug({ asset: movement.asset, reason: scamResult.reason }, 'Scam detected via symbol check');
@@ -101,10 +101,10 @@ export class ScamDetectionService implements IScamDetectionService {
       }
 
       // Store scam note for this transaction (if found)
-      if (scamNote) {
-        const existing = scamNotes.get(movement.transactionIndex) ?? [];
-        existing.push(scamNote);
-        scamNotes.set(movement.transactionIndex, existing);
+      if (scamDiagnostic) {
+        const existing = scamDiagnostics.get(movement.transactionIndex) ?? [];
+        existing.push(scamDiagnostic);
+        scamDiagnostics.set(movement.transactionIndex, existing);
         totalScamNotes += 1;
 
         // Collect first 3 example symbols
@@ -126,6 +126,6 @@ export class ScamDetectionService implements IScamDetectionService {
       });
     }
 
-    return scamNotes;
+    return scamDiagnostics;
   }
 }

@@ -19,11 +19,11 @@ function materializeMovementFingerprint(
 function createTransaction(params: {
   assetId: string;
   assetSymbol: string;
+  diagnostics?: Transaction['diagnostics'];
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   includeFeeWithSameAsset?: boolean | undefined;
   isSpam?: boolean | undefined;
-  notes?: Transaction['notes'];
   platformKey?: string | undefined;
   txFingerprint: string;
 }): Transaction {
@@ -103,15 +103,15 @@ function createTransaction(params: {
       category: 'transfer',
       type: 'deposit',
     },
-    notes: params.notes,
+    diagnostics: params.diagnostics,
   };
 }
 
 function createMultiAssetTransaction(params: {
+  diagnostics?: Transaction['diagnostics'];
   fees?: { assetId: string; assetSymbol: string }[] | undefined;
   id: number;
   isSpam?: boolean | undefined;
-  notes?: Transaction['notes'];
   platformKey?: string | undefined;
   primaryAssets: { assetId: string; assetSymbol: string }[];
   txFingerprint: string;
@@ -150,7 +150,7 @@ function createMultiAssetTransaction(params: {
       category: 'transfer',
       type: 'deposit',
     },
-    notes: params.notes,
+    diagnostics: params.diagnostics,
   };
 }
 
@@ -164,9 +164,9 @@ describe('buildAssetReviewSummaries', () => {
         assetId,
         assetSymbol: 'SCAM',
         includeFeeWithSameAsset: true,
-        notes: [
+        diagnostics: [
           {
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
             severity: 'error',
             message: 'Provider marked this token as scam',
           },
@@ -198,9 +198,9 @@ describe('buildAssetReviewSummaries', () => {
         assetSymbol: 'SCAM',
         isSpam: true,
         fees: [{ assetId: nativeAssetId, assetSymbol: 'ETH' }],
-        notes: [
+        diagnostics: [
           {
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
             severity: 'error',
             message: 'Provider marked this token as scam',
             metadata: {
@@ -238,9 +238,9 @@ describe('buildAssetReviewSummaries', () => {
           { assetId: scamAssetId, assetSymbol: 'SCAM' },
           { assetId: otherAssetId, assetSymbol: 'OTHER' },
         ],
-        notes: [
+        diagnostics: [
           {
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
             severity: 'warning',
             message: 'Symbol-targeted scam note',
             metadata: {
@@ -278,9 +278,9 @@ describe('buildAssetReviewSummaries', () => {
           { assetId: firstAssetId, assetSymbol: 'SCAM' },
           { assetId: secondAssetId, assetSymbol: 'SCAM' },
         ],
-        notes: [
+        diagnostics: [
           {
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
             severity: 'warning',
             message: 'Ambiguous symbol-targeted scam note',
             metadata: {
@@ -552,9 +552,9 @@ describe('buildAssetReviewSummaries', () => {
           assetId,
           assetSymbol: 'SCAM',
           isSpam: true,
-          notes: [
+          diagnostics: [
             {
-              type: 'SUSPICIOUS_AIRDROP',
+              code: 'SUSPICIOUS_AIRDROP',
               severity: 'warning',
               message: 'Unsolicited token airdrop',
             },
@@ -594,9 +594,9 @@ describe('buildAssetReviewSummaries', () => {
         txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'WARN',
-        notes: [
+        diagnostics: [
           {
-            type: 'SUSPICIOUS_AIRDROP',
+            code: 'SUSPICIOUS_AIRDROP',
             severity: 'warning',
             message: 'Unsolicited token airdrop',
             metadata: {
@@ -626,9 +626,9 @@ describe('buildAssetReviewSummaries', () => {
         txFingerprint: 'tx-1',
         assetId,
         assetSymbol: 'WARN',
-        notes: [
+        diagnostics: [
           {
-            type: 'SCAM_TOKEN',
+            code: 'SCAM_TOKEN',
             severity: 'warning',
             message: 'Suspicious symbol-based token warning',
             metadata: {

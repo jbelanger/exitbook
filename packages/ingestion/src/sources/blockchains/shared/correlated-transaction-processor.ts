@@ -186,7 +186,7 @@ export async function processCorrelatedTransactions<
             ]
           : [],
       operation: classification.operation,
-      notes: classification.notes,
+      diagnostics: classification.diagnostics,
       blockchain: {
         name: params.chainName,
         block_height: primaryTx.blockHeight,

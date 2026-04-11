@@ -60,6 +60,183 @@ These questions apply to every pattern:
 - If linking is possible, is it 1:1, 1:N, N:1, or N:N?
 - If linking is not possible, is the right fallback a cue or upstream suppression/classification?
 
+## Track 0: Movement Semantics and Diagnostics Foundation
+
+Status: investigate/design now
+Expected value: very high
+Likely destination: cross-cutting core/persistence/processing refactor
+
+Canonical spec draft:
+
+- [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
+
+### Why This Comes First
+
+The ADA staking-withdrawal case exposed the real architectural gap:
+
+- processors can know that a movement is **not** transfer principal
+- downstream linking/cost-basis/gaps only see raw inflows/outflows
+- `Transaction.notes` are currently doing machine work they are not strong enough to own
+
+If we keep solving these cases with downstream heuristics, we will accumulate:
+
+- chain-specific transfer exceptions in `accounting`
+- more note-type parsing across unrelated packages
+- more gap-only behavior that does not improve the underlying model
+
+The right fix is a shared semantic layer:
+
+- first-class `movementRole` on every inflow/outflow
+- typed `transactionDiagnostics` for machine-authored review signals
+- `userNotes` reserved for human-authored notes only
+
+Identity rule from the draft spec:
+
+- semantic refactors must not churn `movementFingerprint`
+- Track 0 therefore includes replay/override compatibility validation where movement semantics matter
+
+### Benefit Scan Across the Codebase
+
+#### 1. Linking and Same-Hash Scoping
+
+Current consumers:
+
+- `packages/accounting/src/linking/pre-linking/build-linkable-movements.ts`
+- `packages/accounting/src/linking/pre-linking/group-same-hash-transactions.ts`
+- `packages/accounting/src/cost-basis/standard/matching/build-cost-basis-scoped-transactions.ts`
+
+Benefit:
+
+- transfer logic can consume **transfer-eligible** movements instead of raw inflow/outflow presence
+- ADA staking-withdrawal cases stop looking like mixed transfer participants
+- future protocol-overhead movements do not require chain-specific exceptions in linking
+
+#### 2. Gap Analysis
+
+Current consumer:
+
+- `packages/accounting/src/linking/gaps/gap-analysis.ts`
+
+Benefit:
+
+- deterministic non-transfer movements stop appearing as unmatched transfer gaps
+- gap cues can combine typed diagnostics with movement roles instead of ad hoc note parsing
+- fewer suppression heuristics in the gaps lens
+
+#### 3. Cost Basis and Transfer Scoping
+
+Current consumers:
+
+- `packages/accounting/src/cost-basis/standard/matching/build-cost-basis-scoped-transactions.ts`
+- `packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts`
+
+Benefit:
+
+- mixed-intent transactions stop forcing false transfer ambiguity
+- transfer-source accounting can stay generic while processors remain chain-aware
+- non-principal reward or overhead legs remain in accounting without pretending to be transfer legs
+
+#### 4. Balance and Portfolio
+
+Current consumers:
+
+- `packages/ingestion/src/features/balance/balance-workflow.ts`
+- `packages/accounting/src/portfolio/portfolio-handler.ts`
+
+Benefit:
+
+- balance math still counts all movements, but the semantic distinction becomes explicit
+- spam/policy decisions remain separate from movement semantics
+- protocol-overhead handling becomes explainable without changing balance-impact math
+
+#### 5. Tax Readiness and Reporting
+
+Current consumer:
+
+- `packages/accounting/src/cost-basis/export/tax-package-readiness-metadata.ts`
+
+Current smell:
+
+- readiness metadata currently scans note types such as `allocation_uncertain` and `classification_uncertain`
+
+Benefit:
+
+- reporting can consume typed diagnostics instead of note strings
+- readiness output becomes more stable and easier to evolve
+
+#### 6. Asset Review and Scam Detection
+
+Current consumers:
+
+- `packages/ingestion/src/features/asset-review/asset-review-service.ts`
+- `packages/ingestion/src/features/scam-detection/`
+
+Current smell:
+
+- scam and suspicious-airdrop state is split across `isSpam` and note types
+
+Benefit:
+
+- scam/suspicious state can move to typed diagnostics and explicit flags
+- review workflows stop depending on free-form note arrays
+
+#### 7. Persistence and Override Model
+
+Current consumers:
+
+- `packages/data/src/repositories/transaction-materialization-support.ts`
+- `packages/data/src/overrides/transaction-user-note-replay.ts`
+- `packages/core/src/override/override.ts`
+
+Current smell:
+
+- user-note overrides currently need a dedicated `user_notes_json` projection separate from processor-authored diagnostics
+
+Benefit:
+
+- machine-authored state and user-authored notes stop sharing a field
+- override scope becomes user-note-only instead of mutating machine state
+
+#### 8. Transaction UX and Export
+
+Current consumers:
+
+- `apps/cli/src/features/transactions/transaction-view-projection.ts`
+- `apps/cli/src/features/transactions/view/transactions-static-renderer.ts`
+- `apps/cli/src/features/transactions/command/transactions-export-utils.ts`
+
+Benefit:
+
+- UI can present user notes separately from system diagnostics
+- exports can carry typed diagnostics explicitly instead of flattening note strings
+- operators no longer have to guess whether a note is human-authored or machine-authored
+
+#### 9. Price Enrichment and Price Derivation
+
+Current consumers:
+
+- `packages/accounting/src/price-enrichment/enrichment/price-inference-rules.ts`
+- `packages/accounting/src/price-enrichment/enrichment/price-normalization-utils.ts`
+
+Benefit:
+
+- transaction-level price inference can reason over principal movements without accidentally treating protocol-overhead or reward legs as trade legs
+- link-propagated and ratio-derived pricing becomes easier to constrain to economically meaningful movements
+- price enrichment stays generic instead of learning chain-specific exclusions
+
+### Consequence For Track 1 (ADA)
+
+The Cardano staking-withdrawal case is no longer just a Track 1 linking investigation.
+
+New sequencing:
+
+1. provider / processor correctness
+2. movement semantics foundation
+3. rerun the corrected ADA case
+4. only then decide whether any linking strategy is still needed
+
+Track 1 should not grow a Cardano-specific linking exception while Track 0 is unresolved.
+
 ## Pattern Tracks
 
 ### Track 1: Shared-Hash Batched Exchange Deposit

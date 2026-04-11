@@ -98,7 +98,8 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
     from: overrides.from,
     to: overrides.to,
     blockchain: overrides.blockchain,
-    notes: overrides.notes,
+    diagnostics: overrides.diagnostics,
+    userNotes: overrides.userNotes,
     excludedFromAccounting: overrides.excludedFromAccounting,
     isSpam: overrides.isSpam,
   });

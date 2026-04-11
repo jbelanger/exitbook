@@ -38,6 +38,6 @@ describe('theta/processor-utils', () => {
 
     expect(result.operation.category).toBe('transfer');
     expect(result.operation.type).toBe('deposit');
-    expect(result.notes).toBeUndefined();
+    expect(result.diagnostics).toBeUndefined();
   });
 });

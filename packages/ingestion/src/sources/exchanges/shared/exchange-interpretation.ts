@@ -1,4 +1,4 @@
-import type { OperationClassification, TransactionNote, TransactionStatus } from '@exitbook/core';
+import type { OperationClassification, TransactionDiagnostic, TransactionStatus } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 
 import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnostic.js';
@@ -28,7 +28,7 @@ export interface ConfirmedExchangeTransactionDraft {
     outflows: ExchangeMovementDraft[];
   };
   fees: ExchangeFeeDraft[];
-  notes?: TransactionNote[] | undefined;
+  diagnostics?: TransactionDiagnostic[] | undefined;
   from?: string | undefined;
   to?: string | undefined;
   blockchain?:

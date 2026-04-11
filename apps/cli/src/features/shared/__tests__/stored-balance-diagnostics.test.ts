@@ -28,7 +28,8 @@ function createTransaction(params: {
       outflows: params.outflows,
     },
     fees: params.fees,
-    notes: [],
+    diagnostics: [],
+    userNotes: [],
   });
 }
 

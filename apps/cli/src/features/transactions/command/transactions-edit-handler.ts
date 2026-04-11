@@ -1,7 +1,7 @@
 import type { CreateOverrideEventOptions } from '@exitbook/core';
 import {
-  materializeStoredTransactionNoteOverrides,
-  readTransactionNoteOverrides,
+  materializeStoredTransactionUserNoteOverrides,
+  readTransactionUserNoteOverrides,
   type OverrideStore,
 } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
@@ -15,7 +15,7 @@ interface TransactionIdentity {
   txFingerprint: string;
 }
 
-interface TransactionNoteSetParams {
+interface TransactionUserNoteSetParams {
   message: string;
   profileId: number;
   profileKey: string;
@@ -23,14 +23,14 @@ interface TransactionNoteSetParams {
   transactionId: number;
 }
 
-interface TransactionNoteClearParams {
+interface TransactionUserNoteClearParams {
   profileId: number;
   profileKey: string;
   reason?: string | undefined;
   transactionId: number;
 }
 
-export interface TransactionNoteEditResult {
+export interface TransactionUserNoteEditResult {
   action: 'set' | 'clear';
   changed: boolean;
   note?: string | undefined;
@@ -46,19 +46,19 @@ export class TransactionsEditHandler {
     private readonly overrideStore: TransactionEditOverrideStore
   ) {}
 
-  async setNote(params: TransactionNoteSetParams): Promise<Result<TransactionNoteEditResult, Error>> {
+  async setNote(params: TransactionUserNoteSetParams): Promise<Result<TransactionUserNoteEditResult, Error>> {
     const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
-    if (noteOverridesResult.isErr()) {
-      return err(noteOverridesResult.error);
+    const userNoteOverridesResult = await readTransactionUserNoteOverrides(this.overrideStore, params.profileKey);
+    if (userNoteOverridesResult.isErr()) {
+      return err(userNoteOverridesResult.error);
     }
 
-    const existingNote = noteOverridesResult.value.get(identityResult.value.txFingerprint);
-    if (existingNote === params.message) {
+    const existingUserNote = userNoteOverridesResult.value.get(identityResult.value.txFingerprint);
+    if (existingUserNote?.message === params.message) {
       return ok({
         action: 'set',
         changed: false,
@@ -72,9 +72,9 @@ export class TransactionsEditHandler {
 
     const appendResult = await this.appendOverride({
       profileKey: params.profileKey,
-      scope: 'transaction-note',
+      scope: 'transaction-user-note',
       payload: {
-        type: 'transaction_note_override',
+        type: 'transaction_user_note_override',
         action: 'set',
         tx_fingerprint: identityResult.value.txFingerprint,
         message: params.message,
@@ -85,7 +85,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
+    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -101,18 +101,18 @@ export class TransactionsEditHandler {
     });
   }
 
-  async clearNote(params: TransactionNoteClearParams): Promise<Result<TransactionNoteEditResult, Error>> {
+  async clearNote(params: TransactionUserNoteClearParams): Promise<Result<TransactionUserNoteEditResult, Error>> {
     const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
     if (identityResult.isErr()) {
       return err(identityResult.error);
     }
 
-    const noteOverridesResult = await readTransactionNoteOverrides(this.overrideStore, params.profileKey);
-    if (noteOverridesResult.isErr()) {
-      return err(noteOverridesResult.error);
+    const userNoteOverridesResult = await readTransactionUserNoteOverrides(this.overrideStore, params.profileKey);
+    if (userNoteOverridesResult.isErr()) {
+      return err(userNoteOverridesResult.error);
     }
 
-    if (!noteOverridesResult.value.has(identityResult.value.txFingerprint)) {
+    if (!userNoteOverridesResult.value.has(identityResult.value.txFingerprint)) {
       return ok({
         action: 'clear',
         changed: false,
@@ -125,9 +125,9 @@ export class TransactionsEditHandler {
 
     const appendResult = await this.appendOverride({
       profileKey: params.profileKey,
-      scope: 'transaction-note',
+      scope: 'transaction-user-note',
       payload: {
-        type: 'transaction_note_override',
+        type: 'transaction_user_note_override',
         action: 'clear',
         tx_fingerprint: identityResult.value.txFingerprint,
       },
@@ -137,7 +137,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionNote(params.profileKey, params.transactionId);
+    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -155,14 +155,17 @@ export class TransactionsEditHandler {
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {
     const appendResult = await this.overrideStore.append(options);
     if (appendResult.isErr()) {
-      return err(new Error(`Failed to write transaction note override event: ${appendResult.error.message}`));
+      return err(new Error(`Failed to write transaction user note override event: ${appendResult.error.message}`));
     }
 
     return ok(undefined);
   }
 
-  private async materializeTransactionNote(profileKey: string, transactionId: number): Promise<Result<void, Error>> {
-    const materializeResult = await materializeStoredTransactionNoteOverrides(
+  private async materializeTransactionUserNote(
+    profileKey: string,
+    transactionId: number
+  ): Promise<Result<void, Error>> {
+    const materializeResult = await materializeStoredTransactionUserNoteOverrides(
       this.db.transactions,
       this.overrideStore,
       profileKey,
@@ -171,7 +174,7 @@ export class TransactionsEditHandler {
       }
     );
     if (materializeResult.isErr()) {
-      return err(new Error(`Failed to materialize transaction note override: ${materializeResult.error.message}`));
+      return err(new Error(`Failed to materialize transaction user note override: ${materializeResult.error.message}`));
     }
 
     return ok(undefined);

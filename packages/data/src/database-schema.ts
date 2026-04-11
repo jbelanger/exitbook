@@ -132,8 +132,11 @@ export interface TransactionsTable {
   from_address: string | null;
   to_address: string | null;
 
-  // Notes (Array<TransactionNote>)
-  notes_json: JSONString | null;
+  // Machine diagnostics (Array<TransactionDiagnostic>)
+  diagnostics_json: JSONString | null;
+
+  // User-authored notes (Array<UserNote>)
+  user_notes_json: JSONString | null;
 
   // Spam detection
   is_spam: boolean; // SQLite: INTEGER (0/1), default 0
@@ -183,6 +186,7 @@ export interface TransactionMovementsTable {
   movement_fingerprint: string; // Canonical persisted movement identity (e.g. movement:<movementHash>:1)
   asset_id: string;
   asset_symbol: string;
+  movement_role: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate' | null;
   // Amount fields (inflow/outflow only)
   gross_amount: DecimalString | null;
   net_amount: DecimalString | null;

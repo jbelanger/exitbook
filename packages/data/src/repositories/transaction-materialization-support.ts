@@ -1,14 +1,17 @@
 import {
   AssetMovementSchema,
   FeeMovementSchema,
-  TransactionNoteSchema,
+  MovementRoleSchema,
+  TransactionDiagnosticSchema,
+  UserNoteSchema,
   buildAssetMovementCanonicalMaterial,
   buildFeeMovementCanonicalMaterial,
   type AssetMovement,
   type FeeMovement,
   type Transaction,
   type TransactionMaterializationScope,
-  type TransactionNote,
+  type TransactionDiagnostic,
+  type UserNote,
 } from '@exitbook/core';
 import { CurrencySchema, parseDecimal } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
@@ -29,12 +32,9 @@ interface WarningLogger {
   warn(context: unknown, message: string): void;
 }
 
-export interface MaterializeTransactionNoteOverridesParams extends TransactionMaterializationScope {
-  notesByFingerprint: ReadonlyMap<string, string>;
+export interface MaterializeTransactionUserNoteOverridesParams extends TransactionMaterializationScope {
+  userNoteByFingerprint: ReadonlyMap<string, UserNote>;
 }
-
-const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE = 'user_note';
-const MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE = 'override-store';
 
 function normalizeSqliteBoolean(value: boolean | number | null | undefined): boolean {
   if (typeof value === 'boolean') {
@@ -44,42 +44,20 @@ function normalizeSqliteBoolean(value: boolean | number | null | undefined): boo
   return value === 1;
 }
 
-function parseStoredNotes(notesJson: string | null): Result<TransactionNote[] | undefined, Error> {
-  if (!notesJson) {
+function parseStoredDiagnostics(diagnosticsJson: string | null): Result<TransactionDiagnostic[] | undefined, Error> {
+  if (!diagnosticsJson) {
     return ok(undefined);
   }
 
-  return parseWithSchema(notesJson, z.array(TransactionNoteSchema));
+  return parseWithSchema(diagnosticsJson, z.array(TransactionDiagnosticSchema));
 }
 
-function isMaterializedOverrideStoreUserNote(note: TransactionNote): boolean {
-  return (
-    note.type === MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE &&
-    note.metadata?.['source'] === MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE
-  );
-}
-
-function projectOverrideStoreUserNote(
-  existingNotes: TransactionNote[] | undefined,
-  overrideNote: string | undefined
-): TransactionNote[] | undefined {
-  const preservedNotes = (existingNotes ?? []).filter((note) => !isMaterializedOverrideStoreUserNote(note));
-
-  if (!overrideNote) {
-    return preservedNotes.length > 0 ? preservedNotes : undefined;
+function parseStoredUserNotes(userNotesJson: string | null): Result<UserNote[] | undefined, Error> {
+  if (!userNotesJson) {
+    return ok(undefined);
   }
 
-  return [
-    ...preservedNotes,
-    {
-      type: MATERIALIZED_OVERRIDE_STORE_USER_NOTE_TYPE,
-      message: overrideNote,
-      metadata: {
-        actor: 'user',
-        source: MATERIALIZED_OVERRIDE_STORE_USER_NOTE_SOURCE,
-      },
-    } satisfies TransactionNote,
-  ];
+  return parseWithSchema(userNotesJson, z.array(UserNoteSchema));
 }
 
 function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
@@ -94,6 +72,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
   const movement: AssetMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
+    movementRole: MovementRoleSchema.parse(row.movement_role ?? 'principal'),
     movementFingerprint: row.movement_fingerprint,
     grossAmount: parseDecimal(row.gross_amount),
     netAmount: row.net_amount ? parseDecimal(row.net_amount) : parseDecimal(row.gross_amount),
@@ -344,15 +323,27 @@ export function rowToTransaction(
     };
   }
 
-  if (row.notes_json) {
-    const notesResult = parseStoredNotes(row.notes_json as string | null);
-    if (notesResult.isErr()) {
-      logger.warn({ error: notesResult.error, transactionId: row.id }, 'Failed to parse notes');
-      return err(new Error(`Transaction ${row.id} notes parse failed: ${notesResult.error.message}`));
+  if (row.diagnostics_json) {
+    const diagnosticsResult = parseStoredDiagnostics(row.diagnostics_json as string | null);
+    if (diagnosticsResult.isErr()) {
+      logger.warn({ error: diagnosticsResult.error, transactionId: row.id }, 'Failed to parse diagnostics');
+      return err(new Error(`Transaction ${row.id} diagnostics parse failed: ${diagnosticsResult.error.message}`));
     }
 
-    if (notesResult.value && notesResult.value.length > 0) {
-      transaction.notes = notesResult.value;
+    if (diagnosticsResult.value && diagnosticsResult.value.length > 0) {
+      transaction.diagnostics = diagnosticsResult.value;
+    }
+  }
+
+  if (row.user_notes_json) {
+    const userNotesResult = parseStoredUserNotes(row.user_notes_json as string | null);
+    if (userNotesResult.isErr()) {
+      logger.warn({ error: userNotesResult.error, transactionId: row.id }, 'Failed to parse user notes');
+      return err(new Error(`Transaction ${row.id} user notes parse failed: ${userNotesResult.error.message}`));
+    }
+
+    if (userNotesResult.value && userNotesResult.value.length > 0) {
+      transaction.userNotes = userNotesResult.value;
     }
   }
 
@@ -385,14 +376,14 @@ export function rowToTransaction(
   return ok(transaction);
 }
 
-function serializeMaterializedNotes(notes: TransactionNote[] | undefined): Result<string | undefined, Error> {
-  return notes ? serializeToJson(notes) : ok(undefined);
+function serializeMaterializedUserNotes(userNotes: UserNote[] | undefined): Result<string | undefined, Error> {
+  return userNotes ? serializeToJson(userNotes) : ok(undefined);
 }
 
-export async function materializeTransactionNoteOverrides(
+export async function materializeTransactionUserNoteOverrides(
   db: KyselyDB,
   logger: Logger,
-  params: MaterializeTransactionNoteOverridesParams
+  params: MaterializeTransactionUserNoteOverridesParams
 ): Promise<Result<number, Error>> {
   if (params.accountIds !== undefined && params.accountIds.length === 0) {
     return ok(0);
@@ -406,7 +397,7 @@ export async function materializeTransactionNoteOverrides(
     db,
     logger,
     async (trx) => {
-      const rowsById = new Map<number, { id: number; notes_json: unknown; tx_fingerprint: string }>();
+      const rowsById = new Map<number, { id: number; tx_fingerprint: string; user_notes_json: unknown; }>();
       const batchedTransactionIds =
         params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
           ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
@@ -418,7 +409,7 @@ export async function materializeTransactionNoteOverrides(
 
       for (const transactionIdBatch of batchedTransactionIds) {
         for (const accountIdBatch of batchedAccountIds) {
-          let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'notes_json']);
+          let batchedQuery = trx.selectFrom('transactions').select(['id', 'tx_fingerprint', 'user_notes_json']);
 
           if (accountIdBatch) {
             batchedQuery = batchedQuery.where('account_id', 'in', accountIdBatch);
@@ -439,26 +430,25 @@ export async function materializeTransactionNoteOverrides(
       let updatedCount = 0;
 
       for (const row of rows) {
-        const existingNotesResult = parseStoredNotes(row.notes_json as string | null);
-        if (existingNotesResult.isErr()) {
+        const existingUserNotesResult = parseStoredUserNotes(row.user_notes_json as string | null);
+        if (existingUserNotesResult.isErr()) {
           return err(
-            new Error(`Failed to parse notes for transaction ${row.id}: ${existingNotesResult.error.message}`)
+            new Error(`Failed to parse user notes for transaction ${row.id}: ${existingUserNotesResult.error.message}`)
           );
         }
 
-        const nextNotes = projectOverrideStoreUserNote(
-          existingNotesResult.value,
-          params.notesByFingerprint.get(row.tx_fingerprint)
-        );
+        const nextUserNotes = params.userNoteByFingerprint.has(row.tx_fingerprint)
+          ? [params.userNoteByFingerprint.get(row.tx_fingerprint)!]
+          : undefined;
 
-        if (JSON.stringify(existingNotesResult.value ?? []) === JSON.stringify(nextNotes ?? [])) {
+        if (JSON.stringify(existingUserNotesResult.value ?? []) === JSON.stringify(nextUserNotes ?? [])) {
           continue;
         }
 
-        const notesJsonResult = serializeMaterializedNotes(nextNotes);
-        if (notesJsonResult.isErr()) {
+        const userNotesJsonResult = serializeMaterializedUserNotes(nextUserNotes);
+        if (userNotesJsonResult.isErr()) {
           return err(
-            new Error(`Failed to serialize notes for transaction ${row.id}: ${notesJsonResult.error.message}`)
+            new Error(`Failed to serialize user notes for transaction ${row.id}: ${userNotesJsonResult.error.message}`)
           );
         }
 
@@ -466,7 +456,7 @@ export async function materializeTransactionNoteOverrides(
           .updateTable('transactions')
           .set({
             // eslint-disable-next-line unicorn/no-null -- clearing persisted JSON column requires null
-            notes_json: notesJsonResult.value ?? null,
+            user_notes_json: userNotesJsonResult.value ?? null,
             updated_at: new Date().toISOString(),
           })
           .where('id', '=', row.id)
@@ -477,6 +467,6 @@ export async function materializeTransactionNoteOverrides(
 
       return ok(updatedCount);
     },
-    'Failed to materialize transaction note overrides'
+    'Failed to materialize transaction user note overrides'
   );
 }

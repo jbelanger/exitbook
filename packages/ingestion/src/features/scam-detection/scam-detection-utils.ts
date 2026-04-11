@@ -1,5 +1,5 @@
 import { type TokenMetadataRecord } from '@exitbook/blockchain-providers';
-import type { TransactionNote } from '@exitbook/core';
+import type { TransactionDiagnostic } from '@exitbook/core';
 import { parseDecimal, tryParseDecimal } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -45,7 +45,7 @@ const UNICODE_DOT_OBFUSCATION = /[\u2024\u2027\u2218\u2219\u22c5\u00b7\u0387\u16
  * @param contractAddress - Token contract address
  * @param tokenMetadata - Token metadata from repository (includes professional spam flags)
  * @param transactionContext - Optional context about the transaction (for heuristics)
- * @returns TransactionNote if suspicious patterns detected, undefined otherwise
+ * @returns TransactionDiagnostic if suspicious patterns detected, undefined otherwise
  */
 export function detectScamToken(
   contractAddress: string,
@@ -54,7 +54,7 @@ export function detectScamToken(
     amount: Decimal;
     isAirdrop: boolean;
   }
-): TransactionNote | undefined {
+): TransactionDiagnostic | undefined {
   const suspiciousIndicators: string[] = [];
   let riskLevel: 'warning' | 'error' = 'warning';
   let detectionSource: 'professional' | 'pattern' | 'heuristic' = 'pattern';
@@ -67,7 +67,7 @@ export function detectScamToken(
 
     // Return immediately - trust professional detection
     return {
-      type: 'SCAM_TOKEN',
+      code: 'SCAM_TOKEN',
       message: `⚠️ Scam token detected by ${tokenMetadata.source}: ${contractAddress.slice(0, 8)}...`,
       severity: 'error',
       metadata: {
@@ -199,7 +199,7 @@ export function detectScamToken(
         verifiedContract: tokenMetadata.verifiedContract,
       },
       severity: riskLevel,
-      type: noteType,
+      code: noteType,
     };
   }
 

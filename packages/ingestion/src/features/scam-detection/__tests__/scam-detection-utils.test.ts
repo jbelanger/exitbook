@@ -25,7 +25,7 @@ describe('scam-detection-utils', () => {
 
         expect(result).toBeDefined();
         expect(result?.severity).toBe('error');
-        expect(result?.type).toBe('SCAM_TOKEN');
+        expect(result?.code).toBe('SCAM_TOKEN');
         expect(result?.message).toContain('Scam token detected by moralis');
         expect(result?.metadata?.['detectionSource']).toBe('professional');
       });

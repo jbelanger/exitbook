@@ -147,9 +147,9 @@ export function determineEvmOperationFromFundFlow(
         category: 'staking',
         type: isPrincipalReturn ? 'deposit' : 'reward',
       },
-      notes: [
+      diagnostics: [
         {
-          type: 'consensus_withdrawal',
+          code: 'consensus_withdrawal',
           message: isPrincipalReturn
             ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
             : 'Partial withdrawal (<32 ETH) - staking reward',
@@ -172,7 +172,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
   // Approvals, staking operations, state changes - classified as transfer with note
   if (isZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: `Contract interaction with zero value. May be approval, staking, or other state change.`,
           metadata: {
@@ -180,7 +180,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
             hasTokenTransfers: fundFlow.hasTokenTransfers,
           },
           severity: 'info',
-          type: 'contract_interaction',
+          code: 'contract_interaction',
         },
       ],
       operation: {
@@ -259,7 +259,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
   // Multiple inflows or outflows - could be LP, batch, multi-swap
   if (fundFlow.classificationUncertainty) {
     return {
-      notes: [
+      diagnostics: [
         {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -267,7 +267,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'info',
-          type: 'classification_uncertain',
+          code: 'classification_uncertain',
         },
       ],
       operation: {
@@ -279,7 +279,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
 
   // Ultimate fallback: Couldn't match any confident pattern
   return {
-    notes: [
+    diagnostics: [
       {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {
@@ -287,7 +287,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
           outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
         },
         severity: 'warning',
-        type: 'classification_failed',
+        code: 'classification_failed',
       },
     ],
     operation: {

@@ -10,7 +10,7 @@ export const ScopeSchema = z.enum([
   'unlink',
   'link-gap-resolve',
   'link-gap-reopen',
-  'transaction-note',
+  'transaction-user-note',
   'asset-exclude',
   'asset-include',
   'asset-review-confirm',
@@ -109,12 +109,12 @@ export const LinkGapReopenPayloadSchema = z.object({
 });
 
 /**
- * Transaction note override payload
+ * Transaction user-note override payload
  * User attaches or clears a durable note on a specific transaction fingerprint.
  */
-export const TransactionNoteOverridePayloadSchema = z
+export const TransactionUserNoteOverridePayloadSchema = z
   .object({
-    type: z.literal('transaction_note_override'),
+    type: z.literal('transaction_user_note_override'),
     tx_fingerprint: z.string().min(1, 'Transaction fingerprint must not be empty'),
     action: z.enum(['set', 'clear']),
     message: z.string().min(1, 'Note message must not be empty').optional(),
@@ -184,7 +184,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   UnlinkOverridePayloadSchema,
   LinkGapResolvePayloadSchema,
   LinkGapReopenPayloadSchema,
-  TransactionNoteOverridePayloadSchema,
+  TransactionUserNoteOverridePayloadSchema,
   AssetExcludePayloadSchema,
   AssetIncludePayloadSchema,
   AssetReviewConfirmPayloadSchema,
@@ -202,7 +202,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   unlink: 'unlink_override',
   'link-gap-resolve': 'link_gap_resolve',
   'link-gap-reopen': 'link_gap_reopen',
-  'transaction-note': 'transaction_note_override',
+  'transaction-user-note': 'transaction_user_note_override',
   'asset-exclude': 'asset_exclude',
   'asset-include': 'asset_include',
   'asset-review-confirm': 'asset_review_confirm',
@@ -249,7 +249,7 @@ export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
 export type LinkGapResolvePayload = z.infer<typeof LinkGapResolvePayloadSchema>;
 export type LinkGapReopenPayload = z.infer<typeof LinkGapReopenPayloadSchema>;
-export type TransactionNoteOverridePayload = z.infer<typeof TransactionNoteOverridePayloadSchema>;
+export type TransactionUserNoteOverridePayload = z.infer<typeof TransactionUserNoteOverridePayloadSchema>;
 export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
 export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayloadSchema>;

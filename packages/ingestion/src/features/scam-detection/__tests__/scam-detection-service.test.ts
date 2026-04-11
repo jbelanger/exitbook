@@ -48,7 +48,7 @@ describe('ScamDetectionService', () => {
     const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
-    expect(note?.type).toBe('SCAM_TOKEN');
+    expect(note?.code).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('professional');
     expect(note?.metadata?.['assetSymbol']).toBe('TOKEN');
     expect(note?.metadata?.['contractAddress']).toBe('0xabc');
@@ -70,7 +70,7 @@ describe('ScamDetectionService', () => {
     const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('warning');
-    expect(note?.type).toBe('SCAM_TOKEN');
+    expect(note?.code).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('symbol');
     expect(note?.metadata?.['assetSymbol']).toBe('ClaimRewards.com');
     expect(note?.metadata?.['contractAddress']).toBe('0xdef');
@@ -104,7 +104,7 @@ describe('ScamDetectionService', () => {
     const note = result.get(0)?.[0];
     expect(note).toBeDefined();
     expect(note?.severity).toBe('error');
-    expect(note?.type).toBe('SCAM_TOKEN');
+    expect(note?.code).toBe('SCAM_TOKEN');
     expect(note?.metadata?.['detectionSource']).toBe('heuristic');
   });
 
@@ -138,6 +138,6 @@ describe('ScamDetectionService', () => {
     expect(result.size).toBe(1);
     const notes = result.get(0);
     expect(notes).toHaveLength(2);
-    expect(notes?.map((note) => note.metadata?.['detectionSource'] as unknown)).toEqual(['professional', 'symbol']);
+    expect(notes?.map((note) => note.metadata?.['detectionSource'])).toEqual(['professional', 'symbol']);
   });
 });

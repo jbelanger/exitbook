@@ -784,7 +784,8 @@ function collectExcludedAssetInfo(transactions: Transaction[]): {
   };
 
   for (const tx of excludedTransactions) {
-    const isScam = tx.isSpam === true || (tx.notes?.some((note) => note.type === 'SCAM_TOKEN') ?? false);
+    const isScam =
+      tx.isSpam === true || (tx.diagnostics?.some((diagnostic) => diagnostic.code === 'SCAM_TOKEN') ?? false);
 
     if (isScam) {
       for (const inflow of tx.movements.inflows ?? []) {

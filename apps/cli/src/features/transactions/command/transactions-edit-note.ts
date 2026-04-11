@@ -17,7 +17,7 @@ import { formatSuccessLine } from '../../../cli/success.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
-import { TransactionsEditHandler, type TransactionNoteEditResult } from './transactions-edit-handler.js';
+import { TransactionsEditHandler, type TransactionUserNoteEditResult } from './transactions-edit-handler.js';
 import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
 
 const TransactionIdArgumentSchema = z.coerce.number().int().positive();
@@ -126,7 +126,7 @@ function parseTransactionId(rawTransactionId: string): Result<number, Error> {
   return ok(transactionIdResult.data);
 }
 
-function printTransactionsEditNoteResult(result: TransactionNoteEditResult): void {
+function printTransactionsEditNoteResult(result: TransactionUserNoteEditResult): void {
   if (result.action === 'set') {
     console.log(formatSuccessLine(result.changed ? 'Transaction note saved' : 'Transaction note unchanged'));
   } else {

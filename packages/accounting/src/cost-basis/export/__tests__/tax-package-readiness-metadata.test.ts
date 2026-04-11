@@ -19,14 +19,14 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       throw new Error('Missing retained transaction for readiness metadata test');
     }
 
-    retainedTransaction.notes = [
+    retainedTransaction.diagnostics = [
       {
-        type: 'classification_uncertain',
+        code: 'classification_uncertain',
         message: 'Needs review',
         severity: 'warning',
       },
       {
-        type: 'allocation_uncertain',
+        code: 'allocation_uncertain',
         message: 'Per-asset proceeds split is not exact',
         severity: 'warning',
       },

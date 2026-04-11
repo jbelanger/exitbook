@@ -32,7 +32,8 @@ function createTransactionViewItem(): TransactionViewItem {
     blockchain: undefined,
     from: undefined,
     to: undefined,
-    notes: [],
+    diagnostics: [],
+    userNotes: [],
     excludedFromAccounting: false,
     isSpam: false,
   };

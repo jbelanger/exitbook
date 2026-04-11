@@ -55,14 +55,16 @@ describe('link gap resolution replay', () => {
     ]);
 
     const resolvedIssueKeys = assertOk(result);
-    expect(resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }))).toBe(
-      false
-    );
+    expect(
+      resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }))
+    ).toBe(false);
     expect(
       resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint, assetId: 'test:usdt', direction: 'inflow' }))
     ).toBe(true);
     expect(
-      resolvedIssueKeys.has(buildLinkGapIssueKey({ txFingerprint: otherFingerprint, assetId: 'test:btc', direction: 'outflow' }))
+      resolvedIssueKeys.has(
+        buildLinkGapIssueKey({ txFingerprint: otherFingerprint, assetId: 'test:btc', direction: 'outflow' })
+      )
     ).toBe(true);
   });
 
@@ -74,9 +76,9 @@ describe('link gap resolution replay', () => {
         profile_key: 'default',
         actor: 'user',
         source: 'cli',
-        scope: 'transaction-note',
+        scope: 'transaction-user-note',
         payload: {
-          type: 'transaction_note_override',
+          type: 'transaction_user_note_override',
           action: 'set',
           tx_fingerprint: 'c'.repeat(64),
           message: 'not allowed here',
@@ -91,9 +93,7 @@ describe('link gap resolution replay', () => {
     const txFingerprint = 'd'.repeat(64);
     const overrideStore = {
       exists: vi.fn().mockReturnValue(true),
-      readByScopes: vi.fn().mockResolvedValue(
-        ok([createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow')])
-      ),
+      readByScopes: vi.fn().mockResolvedValue(ok([createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow')])),
     };
 
     const result = await readResolvedLinkGapIssueKeys(overrideStore, 'default');

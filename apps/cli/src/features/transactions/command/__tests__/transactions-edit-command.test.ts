@@ -34,7 +34,7 @@ vi.mock('@exitbook/data/overrides', () => ({
     mockOverrideStoreConstructor(...args);
     return mockOverrideStoreInstance;
   }),
-  readTransactionNoteOverrides: vi.fn(),
+  readTransactionUserNoteOverrides: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({

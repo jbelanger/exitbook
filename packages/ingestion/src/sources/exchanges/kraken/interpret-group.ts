@@ -1,4 +1,4 @@
-import type { TransactionNote } from '@exitbook/core';
+import type { TransactionDiagnostic } from '@exitbook/core';
 import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 
@@ -142,7 +142,7 @@ function buildDraft(
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[],
   fees: ExchangeFeeDraft[],
-  notes?: TransactionNote[]
+  diagnostics?: TransactionDiagnostic[]
 ): ConfirmedExchangeTransactionDraft {
   const primaryEvent = group.events[0];
   if (!primaryEvent) {
@@ -159,7 +159,7 @@ function buildDraft(
       outflows,
     },
     fees,
-    ...(notes && notes.length > 0 ? { notes } : {}),
+    ...(diagnostics && diagnostics.length > 0 ? { diagnostics } : {}),
     evidence: {
       providerEventIds: group.events.map((event) => event.providerEventId),
       interpretationRule: `kraken:${operation.type}`,
@@ -167,18 +167,18 @@ function buildDraft(
   };
 }
 
-function buildDustSweepingNotes(
+function buildDustSweepingDiagnostics(
   group: ExchangeCorrelationGroup,
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[]
-): TransactionNote[] | undefined {
+): TransactionDiagnostic[] | undefined {
   if (inflows.length <= 1 && outflows.length <= 1) {
     return undefined;
   }
 
   return [
     {
-      type: 'allocation_uncertain',
+      code: 'allocation_uncertain',
       severity: 'warning',
       message: `Kraken dustsweeping group ${group.correlationKey} was classified as a dust conversion, but Kraken does not provide an exact per-asset proceeds allocation across every disposed asset in the group.`,
       metadata: {
@@ -386,7 +386,7 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
         consolidatedInflows,
         consolidatedOutflows,
         consolidatedFees,
-        buildDustSweepingNotes(group, consolidatedInflows, consolidatedOutflows)
+        buildDustSweepingDiagnostics(group, consolidatedInflows, consolidatedOutflows)
       ),
     };
   }
@@ -424,8 +424,8 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
     };
   }
 
-  const uncertaintyNote: TransactionNote = {
-    type: 'classification_uncertain',
+  const uncertaintyNote: TransactionDiagnostic = {
+    code: 'classification_uncertain',
     severity: 'info',
     message: `Kraken group ${group.correlationKey} has complex multi-leg fund flow and was materialized conservatively as a transfer.`,
     metadata: {

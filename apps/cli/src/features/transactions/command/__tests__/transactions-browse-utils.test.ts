@@ -34,7 +34,8 @@ function createTestTransaction(
       type: 'buy',
     },
     blockchain: undefined,
-    notes: undefined,
+    diagnostics: undefined,
+    userNotes: undefined,
     excludedFromAccounting: false,
     ...overrides,
   });

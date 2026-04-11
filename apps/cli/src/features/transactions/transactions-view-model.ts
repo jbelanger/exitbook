@@ -53,7 +53,8 @@ export interface TransactionViewItem {
     | undefined;
   from: string | undefined;
   to: string | undefined;
-  notes: { message: string; severity?: string | undefined; type: string }[];
+  diagnostics: { code: string; message: string; severity?: string | undefined }[];
+  userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;
   isSpam: boolean;
 }

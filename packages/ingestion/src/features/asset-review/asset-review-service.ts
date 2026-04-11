@@ -1,5 +1,5 @@
 import { type TokenMetadataRecord, type TokenReferenceLookupResult } from '@exitbook/blockchain-providers';
-import type { AssetReviewEvidence, AssetReviewSummary, TransactionNote, Transaction } from '@exitbook/core';
+import type { AssetReviewEvidence, AssetReviewSummary, TransactionDiagnostic, Transaction } from '@exitbook/core';
 import { buildBlockchainTokenAssetId, err, ok, parseAssetId, sha256Hex, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
@@ -193,18 +193,18 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
 
         if (
           transaction.isSpam === true &&
-          (applicableNotes.some((note) => note.type === 'SCAM_TOKEN') ||
+          (applicableNotes.some((note) => note.code === 'SCAM_TOKEN') ||
             (applicableNotes.length === 0 && isOnlyPrimaryAsset))
         ) {
           signal.hasSpamFlag = true;
         }
 
         for (const note of applicableNotes) {
-          if (note.type === 'SCAM_TOKEN') {
+          if (note.code === 'SCAM_TOKEN') {
             signal.scamNoteCount += 1;
             signal.scamNoteHasError ||= note.severity !== 'warning';
           }
-          if (note.type === 'SUSPICIOUS_AIRDROP') {
+          if (note.code === 'SUSPICIOUS_AIRDROP') {
             signal.suspiciousAirdropNoteCount += 1;
             signal.suspiciousAirdropNoteHasError ||= note.severity === 'error';
           }
@@ -294,28 +294,28 @@ function collectApplicableNotes(
   assetId: string,
   assetSymbol: string,
   primaryAssetIds: Set<string>
-): TransactionNote[] {
-  const notes = transaction.notes ?? [];
-  const exactMatches = notes.filter((note) => noteTargetsAsset(note, assetId));
+): TransactionDiagnostic[] {
+  const diagnostics = transaction.diagnostics ?? [];
+  const exactMatches = diagnostics.filter((diagnostic) => noteTargetsAsset(diagnostic, assetId));
   if (exactMatches.length > 0) {
     return exactMatches;
   }
 
-  const applicableNotes: TransactionNote[] = [];
-  const symbolMatches = notes.filter((note) => noteTargetsSymbol(note, assetSymbol));
+  const applicableDiagnostics: TransactionDiagnostic[] = [];
+  const symbolMatches = diagnostics.filter((diagnostic) => noteTargetsSymbol(diagnostic, assetSymbol));
   if (symbolMatches.length > 0 && symbolTargetIsUnambiguous(transaction, assetId, assetSymbol)) {
-    applicableNotes.push(...symbolMatches);
+    applicableDiagnostics.push(...symbolMatches);
   }
 
   const isOnlyPrimaryAsset = primaryAssetIds.size === 1 && primaryAssetIds.has(assetId);
   if (isOnlyPrimaryAsset) {
-    applicableNotes.push(...notes.filter((note) => noteHasNoTarget(note)));
+    applicableDiagnostics.push(...diagnostics.filter((diagnostic) => noteHasNoTarget(diagnostic)));
   }
 
-  return applicableNotes;
+  return applicableDiagnostics;
 }
 
-function noteTargetsAsset(note: TransactionNote, assetId: string): boolean {
+function noteTargetsAsset(note: TransactionDiagnostic, assetId: string): boolean {
   const noteAssetId: unknown = note.metadata?.['assetId'];
   if (typeof noteAssetId === 'string' && noteAssetId === assetId) {
     return true;
@@ -339,14 +339,14 @@ function noteTargetsAsset(note: TransactionNote, assetId: string): boolean {
   );
 }
 
-function noteTargetsSymbol(note: TransactionNote, assetSymbol: string): boolean {
+function noteTargetsSymbol(note: TransactionDiagnostic, assetSymbol: string): boolean {
   const noteAssetSymbol: unknown = note.metadata?.['assetSymbol'] ?? note.metadata?.['scamAsset'];
   return (
     typeof noteAssetSymbol === 'string' && noteAssetSymbol.trim().toLowerCase() === assetSymbol.trim().toLowerCase()
   );
 }
 
-function noteHasNoTarget(note: TransactionNote): boolean {
+function noteHasNoTarget(note: TransactionDiagnostic): boolean {
   return (
     note.metadata?.['assetId'] === undefined &&
     note.metadata?.['contractAddress'] === undefined &&

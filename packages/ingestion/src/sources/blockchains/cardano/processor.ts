@@ -132,28 +132,28 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
           continue;
         }
 
-        const notes = [];
+        const diagnostics = [];
 
         if (fundFlow.attributedWithdrawalAmount) {
-          notes.push({
+          diagnostics.push({
             message: `Includes staking reward withdrawal of ${fundFlow.attributedWithdrawalAmount} ADA in the same on-chain transaction.`,
             metadata: {
               withdrawalAmount: fundFlow.attributedWithdrawalAmount,
             },
             severity: 'info' as const,
-            type: 'staking_withdrawal',
+            code: 'staking_withdrawal',
           });
         }
 
         if (fundFlow.classificationUncertainty) {
-          notes.push({
+          diagnostics.push({
             message: fundFlow.classificationUncertainty,
             metadata: {
               inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
               outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
             },
             severity: 'info' as const,
-            type: 'classification_uncertain',
+            code: 'classification_uncertain',
           });
         }
 
@@ -196,7 +196,7 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
             is_confirmed: normalizedTx.status === 'success',
           },
 
-          notes: notes.length > 0 ? notes : undefined,
+          diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
         };
 
         // Collect token movements for batch scam detection later

@@ -416,7 +416,7 @@ describe('SolanaProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits, no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.diagnostics).toBeUndefined(); // No note for normal small deposits
   });
 
   test('handles failed transactions', async () => {
@@ -752,8 +752,8 @@ describe('SolanaProcessor - Multi-Asset Tracking', () => {
     expect(usdtInflow).toBeDefined();
     expect(usdtInflow?.netAmount?.toFixed()).toBe('500');
 
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('classification_uncertain');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('classification_uncertain');
   });
 
   test('consolidates duplicate assets', async () => {
@@ -1078,10 +1078,10 @@ describe('SolanaProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('classification_uncertain');
-    expect(transaction.notes?.[0]?.severity).toBe('info');
-    expect(transaction.notes?.[0]?.message).toContain('Complex transaction');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('classification_uncertain');
+    expect(transaction.diagnostics?.[0]?.severity).toBe('info');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Complex transaction');
 
     // Should track all assets
     expect(transaction.movements.outflows).toHaveLength(2); // SOL and USDC
@@ -1428,9 +1428,9 @@ describe('SolanaProcessor - Scam Detection', () => {
 
     // Should be flagged as spam with SCAM_TOKEN note
     expect(transaction.isSpam).toBe(true);
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('SCAM_TOKEN');
-    expect(transaction.notes?.[0]?.severity).toBe('error');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('SCAM_TOKEN');
+    expect(transaction.diagnostics?.[0]?.severity).toBe('error');
 
     // Should still be classified as deposit
     expect(transaction.operation.type).toBe('deposit');

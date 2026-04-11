@@ -169,9 +169,9 @@ describe('KrakenProcessor', () => {
     expect(transaction.operation).toEqual({ category: 'trade', type: 'swap' });
     expect(transaction.movements.inflows).toHaveLength(1);
     expect(transaction.movements.outflows).toHaveLength(2);
-    expect(transaction.notes?.[0]?.type).toBe('allocation_uncertain');
-    expect(transaction.notes?.[0]?.message).toContain('dust conversion');
-    expect(transaction.notes?.[0]?.message).toContain('exact per-asset proceeds allocation');
+    expect(transaction.diagnostics?.[0]?.code).toBe('allocation_uncertain');
+    expect(transaction.diagnostics?.[0]?.message).toContain('dust conversion');
+    expect(transaction.diagnostics?.[0]?.message).toContain('exact per-asset proceeds allocation');
     expect(transaction.fees[0]?.assetSymbol).toBe('CAD');
     expect(transaction.fees[0]?.amount.toFixed()).toBe('0.008');
   });

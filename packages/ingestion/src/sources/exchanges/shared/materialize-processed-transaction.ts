@@ -39,7 +39,7 @@ export function materializeProcessedTransaction(draft: ConfirmedExchangeTransact
     identityMaterial: {
       componentEventIds,
     },
-    ...(draft.notes && draft.notes.length > 0 ? { notes: draft.notes } : {}),
+    ...(draft.diagnostics && draft.diagnostics.length > 0 ? { diagnostics: draft.diagnostics } : {}),
     ...(draft.blockchain
       ? {
           blockchain: {

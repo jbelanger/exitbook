@@ -750,7 +750,7 @@ describe('EvmProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.notes).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.diagnostics).toBeUndefined(); // No note for normal small deposits
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -1328,12 +1328,12 @@ describe('EvmProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('classification_uncertain');
-    expect(transaction.notes?.[0]?.severity).toBe('info');
-    expect(transaction.notes?.[0]?.message).toContain('Complex transaction');
-    expect(transaction.notes?.[0]?.message).toContain('2 outflow(s)');
-    expect(transaction.notes?.[0]?.message).toContain('1 inflow(s)');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('classification_uncertain');
+    expect(transaction.diagnostics?.[0]?.severity).toBe('info');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Complex transaction');
+    expect(transaction.diagnostics?.[0]?.message).toContain('2 outflow(s)');
+    expect(transaction.diagnostics?.[0]?.message).toContain('1 inflow(s)');
 
     // Still classified as transfer (conservative)
     expect(transaction.operation.category).toBe('transfer');
@@ -1372,10 +1372,10 @@ describe('EvmProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    expect(transaction.notes).toBeDefined();
-    expect(transaction.notes?.[0]?.type).toBe('contract_interaction');
-    expect(transaction.notes?.[0]?.message).toContain('Contract interaction');
-    expect(transaction.notes?.[0]?.message).toContain('zero value');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('contract_interaction');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Contract interaction');
+    expect(transaction.diagnostics?.[0]?.message).toContain('zero value');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');
