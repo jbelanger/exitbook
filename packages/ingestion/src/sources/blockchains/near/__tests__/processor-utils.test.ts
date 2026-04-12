@@ -771,6 +771,44 @@ describe('NEAR Processor Utils - extractFlows', () => {
     expect(flows[0]!.amount.toFixed()).toBe('1');
     expect(flows[0]!.direction).toBe('in');
     expect(flows[0]!.flowType).toBe('native');
+    expect(flows[0]!.movementRole).toBeUndefined();
+  });
+
+  test('should assign staking_reward role to receipt-backed CONTRACT_REWARD inflows', () => {
+    const receipt: NearReceipt = {
+      ...createReceipt(),
+      balanceChanges: [
+        createBalanceChange({
+          direction: 'INBOUND',
+          cause: 'CONTRACT_REWARD',
+          deltaAmountYocto: '1000000000000000000000000',
+        }),
+      ],
+    };
+
+    const flows = extractFlows(receipt, 'alice.near');
+
+    expect(flows).toHaveLength(1);
+    expect(flows[0]!.movementRole).toBe('staking_reward');
+  });
+
+  test('should not assign staking_reward role to synthetic CONTRACT_REWARD inflows', () => {
+    const receipt: NearReceipt = {
+      ...createReceipt(),
+      isSynthetic: true,
+      balanceChanges: [
+        createBalanceChange({
+          direction: 'INBOUND',
+          cause: 'CONTRACT_REWARD',
+          deltaAmountYocto: '1000000000000000000000000',
+        }),
+      ],
+    };
+
+    const flows = extractFlows(receipt, 'alice.near');
+
+    expect(flows).toHaveLength(1);
+    expect(flows[0]!.movementRole).toBeUndefined();
   });
 
   test('should extract NEAR outflow from OUTBOUND balance change', () => {
@@ -985,6 +1023,32 @@ describe('NEAR Processor Utils - consolidateByAsset', () => {
   test('should handle empty movements', () => {
     const consolidated = consolidateByAsset([]);
     expect(consolidated.size).toBe(0);
+  });
+
+  test('should keep movements with different roles separate', () => {
+    const movements: NearFlowMovement[] = [
+      {
+        asset: 'NEAR' as Currency,
+        amount: parseDecimal('1'),
+        direction: 'in',
+        flowType: 'native',
+        movementRole: 'staking_reward',
+      },
+      {
+        asset: 'NEAR' as Currency,
+        amount: parseDecimal('2'),
+        direction: 'in',
+        flowType: 'native',
+      },
+    ];
+
+    const consolidated = consolidateByAsset(movements);
+
+    expect(consolidated.size).toBe(2);
+    expect(consolidated.get('NEAR')).toBeDefined();
+    expect(consolidated.get('NEAR::staking_reward')).toBeDefined();
+    expect(consolidated.get('NEAR::staking_reward')!.amount.toFixed()).toBe('1');
+    expect(consolidated.get('NEAR')!.amount.toFixed()).toBe('2');
   });
 
   test('should preserve movement properties', () => {

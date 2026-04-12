@@ -394,6 +394,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
         assetId: assetIdResult.value,
         assetSymbol: inflow.asset,
         grossAmount: inflow.amount,
+        movementRole: inflow.movementRole,
         netAmount: inflow.amount,
       });
 
@@ -420,6 +421,7 @@ export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
         assetId: assetIdResult.value,
         assetSymbol: outflow.asset,
         grossAmount: outflow.amount,
+        movementRole: outflow.movementRole,
         netAmount: outflow.amount,
       });
 

@@ -1,4 +1,5 @@
 import { type NearBalanceChangeCause, type NearTokenTransfer } from '@exitbook/blockchain-providers/near';
+import type { MovementRole } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
@@ -25,6 +26,16 @@ export interface NearFlowMovement {
   contractAddress?: string | undefined;
   direction: 'in' | 'out';
   flowType: 'native' | 'token_transfer' | 'fee' | 'unknown';
+  movementRole?: MovementRole | undefined;
+}
+
+interface NearFlowAccumulator {
+  amount: Decimal;
+  contractAddress?: string | undefined;
+  direction: 'in' | 'out';
+  flowType: 'native' | 'token_transfer' | 'fee' | 'unknown';
+  movementRole?: MovementRole | undefined;
+  asset: Currency;
 }
 
 interface FeeExtractionResult {
@@ -143,6 +154,7 @@ export function extractFlows(receipt: NearReceipt, primaryAddress: string): Near
       amount: normalizedAmount,
       direction,
       flowType: 'native',
+      movementRole: deriveNearNativeMovementRole(receipt, activity.cause, direction),
     });
   }
 
@@ -181,19 +193,53 @@ export function extractTokenTransferFlows(
 }
 
 export function consolidateByAsset(movements: NearFlowMovement[]): Map<string, NearFlowMovement> {
-  const consolidated = new Map<string, NearFlowMovement>();
+  const consolidated = new Map<string, Map<MovementRole, NearFlowAccumulator>>();
 
   for (const movement of movements) {
-    const key = movement.contractAddress || movement.asset;
-    const existing = consolidated.get(key);
+    const assetKey = movement.contractAddress || movement.asset;
+    const movementRole = movement.movementRole ?? 'principal';
+    const roleMap = consolidated.get(assetKey) ?? new Map<MovementRole, NearFlowAccumulator>();
+    const existing = roleMap.get(movementRole);
     if (existing) {
       existing.amount = existing.amount.plus(movement.amount);
     } else {
-      consolidated.set(key, { ...movement });
+      roleMap.set(movementRole, { ...movement });
+    }
+
+    if (!consolidated.has(assetKey)) {
+      consolidated.set(assetKey, roleMap);
     }
   }
 
-  return consolidated;
+  return new Map(
+    Array.from(consolidated.entries()).flatMap(([assetKey, roleMap]) =>
+      Array.from(roleMap.values()).map((movement) => [
+        buildConsolidatedNearMovementKey(assetKey, movement.movementRole),
+        movement,
+      ])
+    )
+  );
+}
+
+function buildConsolidatedNearMovementKey(assetKey: string, movementRole?: MovementRole  ): string {
+  const normalizedRole = movementRole ?? 'principal';
+  return normalizedRole === 'principal' ? assetKey : `${assetKey}::${normalizedRole}`;
+}
+
+function deriveNearNativeMovementRole(
+  receipt: NearReceipt,
+  cause: NearBalanceChangeCause,
+  direction: 'in' | 'out'
+): MovementRole | undefined {
+  if (receipt.isSynthetic) {
+    return undefined;
+  }
+
+  if (direction === 'in' && cause === 'CONTRACT_REWARD') {
+    return 'staking_reward';
+  }
+
+  return undefined;
 }
 
 export function isFeeOnlyFromOutflows(

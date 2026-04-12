@@ -523,7 +523,7 @@ Completion notes:
 
 #### Phase 4.2: NEAR Contract Rewards
 
-Status: blocked
+Status: completed
 
 Scope:
 
@@ -539,6 +539,32 @@ Primary files:
 Open finding from audit:
 
 - NEAR file layout is split across correlation, flow extraction, and operation classification. This is still a good candidate, but it is a broader edit surface than EVM beacon withdrawals.
+
+Acceptance criteria:
+
+- receipt-backed native `CONTRACT_REWARD` inflows persist `movementRole='staking_reward'`
+- synthetic transaction-level fallback does not get a non-principal role
+- no accounting/linking/gaps special-casing is added
+- targeted tests and package builds pass
+
+Completion notes:
+
+- implemented in the current worktree
+- NEAR movement consolidation is now role-aware, so future same-asset non-principal inflows will not be silently merged into principal inflows
+- `receipt.isSynthetic` is the load-bearing boundary for safe producer behavior in this slice; receipt-backed reward evidence is deterministic enough, synthetic fallback is not
+- NEAR transaction-level operation classification remains intentionally broader than movement-role assignment in this slice; `staking/reward` can still be inferred from reward-like causes even when no movement role is assigned
+- targeted tests passed
+- `pnpm --filter @exitbook/core build`
+- `pnpm --filter @exitbook/ingestion build`
+- `pnpm --filter @exitbook/accounting build`
+- `pnpm run dev reprocess`
+- `pnpm run dev links run --json`
+
+Findings worth revisiting:
+
+- the rebuilt local workspace still has `0` processed NEAR `staking/reward` transactions and `0` raw `CONTRACT_REWARD` examples, so this slice is validated by regression coverage and pipeline safety checks rather than live local data
+- `GAS_REFUND` should stay out of scope until we have real examples; the current cause vocabulary is not enough on its own to justify `refund_rebate`
+- NEAR's split across correlation, flow extraction, and operation classification remains a real edit-surface smell, but the current seam is acceptable because the role assignment stays isolated to flow extraction and processor output
 
 #### Phase 4.3: Substrate Staking Rewards
 

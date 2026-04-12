@@ -1088,6 +1088,35 @@ describe('NearProcessor', () => {
       // Orphaned ambiguous-cause balance change attached to transaction-level receipt
       expect(tx.movements.inflows).toHaveLength(1);
       expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('1');
+      expect(tx.movements.inflows![0]!.movementRole).toBeUndefined();
+    });
+
+    test('should mark receipt-backed CONTRACT_REWARD inflows as staking_reward', async () => {
+      const mockProviderManager = createMockProviderManager();
+      const processor = new NearProcessor(mockProviderManager);
+
+      const events: NearStreamEvent[] = [
+        createTransactionEvent({ transactionHash: 'tx-reward' }),
+        createReceiptEvent({ receiptId: 'receipt-reward', transactionHash: 'tx-reward' }),
+        createBalanceChangeEvent({
+          receiptId: 'receipt-reward',
+          direction: 'INBOUND',
+          cause: 'CONTRACT_REWARD',
+          deltaAmountYocto: '1000000000000000000000000',
+        }),
+      ];
+
+      const result = await processor.process(events, createFundFlowContext());
+
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+
+      const tx = result.value[0]!;
+      expect(tx.operation.category).toBe('staking');
+      expect(tx.operation.type).toBe('reward');
+      expect(tx.movements.inflows).toHaveLength(1);
+      expect(tx.movements.inflows![0]!.grossAmount.toFixed()).toBe('1');
+      expect(tx.movements.inflows![0]!.movementRole).toBe('staking_reward');
     });
 
     test('should consolidate multiple balance changes of same asset', async () => {
