@@ -326,7 +326,14 @@ Known diagnostic-only fallback:
 - Cardano wallet-scoped staking withdrawals that cannot be attributed to one derived payment address in the current per-address projection
   - remain per-address principal movements
   - emit `unattributed_staking_reward_component`
-  - may also emit `classification_uncertain`
+  - do not emit `classification_uncertain` when the residual is otherwise modeled exactly through explained transfer residual handling
+
+Current exact processor normalization:
+
+- supported account-based swap transactions that return a partial amount of the sold asset in the same on-chain transaction
+  - collapse the returned input-asset amount into the sold leg at processing time
+  - materialize as the net principal outflow plus the acquired asset inflow
+  - do not emit `classification_uncertain` when the resulting shape is an exact one-in / one-out swap
 
 ## Export Surface
 

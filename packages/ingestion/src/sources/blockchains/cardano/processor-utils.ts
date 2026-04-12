@@ -337,23 +337,18 @@ export function analyzeCardanoFundFlow(
     : { amount: '0', asset: 'ADA' as Currency, unit: 'lovelace' };
 
   // Track uncertainty for complex transactions
-  const classificationNotes: string[] = [];
+  const operationClassificationNotes: string[] = [];
   if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
-    classificationNotes.push(
+    operationClassificationNotes.push(
       `Complex multi-asset transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be a token swap or batch operation.`
-    );
-  }
-
-  if (!withdrawalAmount.isZero() && userOwnsInput && userOwnedInputAddressCount > 1) {
-    classificationNotes.push(
-      `Cardano transaction includes wallet-scoped staking withdrawal of ${withdrawalAmount.toFixed()} ADA that cannot be attributed to a single derived address in the current per-address projection.`
     );
   }
 
   const fundFlow: CardanoFundFlow = {
     attributedWithdrawalAmount,
     unattributedWithdrawalAmount,
-    classificationUncertainty: classificationNotes.length > 0 ? classificationNotes.join(' ') : undefined,
+    operationClassificationUncertainty:
+      operationClassificationNotes.length > 0 ? operationClassificationNotes.join(' ') : undefined,
     feeAmount,
     feeCurrency: 'ADA' as Currency,
     feePaidByUser,

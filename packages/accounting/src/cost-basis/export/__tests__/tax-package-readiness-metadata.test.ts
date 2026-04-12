@@ -1,5 +1,5 @@
 import type { AssetReviewSummary } from '@exitbook/core';
-import { parseDecimal } from '@exitbook/foundation';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
@@ -12,7 +12,7 @@ import {
 } from './test-utils.js';
 
 describe('deriveTaxPackageReadinessMetadata', () => {
-  it('derives live Canada readiness signals from retained transactions and tax-report transfers', () => {
+  it('derives live Canada readiness signals from tax-relevant transactions and tax-report transfers', () => {
     const context = createCanadaPackageBuildContext();
     const retainedTransaction = context.sourceContext.transactionsById.get(11);
     if (!retainedTransaction) {
@@ -43,9 +43,9 @@ describe('deriveTaxPackageReadinessMetadata', () => {
 
     const assetReviewSummaries = new Map<string, AssetReviewSummary>([
       [
-        'test:btc',
+        'exchange:kraken:btc',
         {
-          assetId: 'test:btc',
+          assetId: 'exchange:kraken:btc',
           reviewStatus: 'needs-review',
           referenceStatus: 'matched',
           evidenceFingerprint: 'asset-review:v1:btc',
@@ -110,6 +110,81 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         },
       ],
       unresolvedAssetReviewCount: 1,
+    });
+  });
+
+  it('ignores retained Canada transactions that do not participate in tax input semantics', () => {
+    const context = createCanadaPackageBuildContext();
+    const sourceTransaction = context.sourceContext.transactionsById.get(11);
+    if (!sourceTransaction) {
+      throw new Error('Missing source transaction for Canada readiness scope regression test');
+    }
+
+    context.sourceContext.transactionsById.set(99, {
+      ...sourceTransaction,
+      id: 99,
+      txFingerprint: 'cardano-wallet-scope-only',
+      platformKey: 'cardano',
+      datetime: '2024-07-25T20:32:02.000Z',
+      diagnostics: [
+        {
+          code: 'classification_uncertain',
+          message: 'Wallet-scoped staking withdrawal cannot be attributed to one derived address.',
+          severity: 'warning',
+        },
+        {
+          code: 'allocation_uncertain',
+          message: 'Residual staking reward component is known at wallet scope only.',
+          severity: 'warning',
+        },
+      ],
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:cardano:native',
+            assetSymbol: 'ADA' as Currency,
+            grossAmount: parseDecimal('10.524451'),
+            netAmount: parseDecimal('10.524451'),
+            movementFingerprint: 'movement:cardano:99:ada:inflow:0',
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+    });
+    context.workflowResult.executionMeta.retainedTransactionIds.push(99);
+
+    const metadata = deriveTaxPackageReadinessMetadata({
+      context,
+      assetReviewSummaries: new Map<string, AssetReviewSummary>([
+        [
+          'blockchain:cardano:native',
+          {
+            assetId: 'blockchain:cardano:native',
+            reviewStatus: 'needs-review',
+            referenceStatus: 'matched',
+            evidenceFingerprint: 'asset-review:v1:ada',
+            confirmationIsStale: false,
+            accountingBlocked: true,
+            warningSummary: 'Ignored for this readiness slice',
+            evidence: [
+              {
+                kind: 'same-symbol-ambiguity',
+                severity: 'warning',
+                message: 'Ignored test evidence',
+              },
+            ],
+          },
+        ],
+      ]),
+    });
+
+    expect(metadata).toMatchObject({
+      allocationUncertainCount: 0,
+      allocationUncertainDetails: [],
+      unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
+      unresolvedAssetReviewCount: 0,
     });
   });
 
@@ -191,6 +266,33 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       unknownTransactionClassificationCount: 0,
       unknownTransactionClassificationDetails: [],
       unresolvedAssetReviewCount: 0,
+    });
+  });
+
+  it('ignores retained standard-workflow transactions that do not back lots, disposals, or transfers', () => {
+    const context = createStandardPackageBuildContext();
+    const sourceTransaction = context.sourceContext.transactionsById.get(3);
+    if (!sourceTransaction) {
+      throw new Error('Missing source transaction for standard readiness scope regression test');
+    }
+
+    context.sourceContext.transactionsById.set(99, {
+      ...sourceTransaction,
+      id: 99,
+      txFingerprint: 'ignored-standard-retained',
+      diagnostics: [
+        {
+          code: 'classification_failed',
+          message: 'Provider payload is inconsistent for operation classification.',
+          severity: 'error',
+        },
+      ],
+    });
+    context.workflowResult.executionMeta.retainedTransactionIds.push(99);
+
+    expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
+      unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
     });
   });
 

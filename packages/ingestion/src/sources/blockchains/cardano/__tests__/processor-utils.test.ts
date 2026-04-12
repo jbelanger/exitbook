@@ -41,7 +41,6 @@ function createFundFlow(overrides: Partial<CardanoFundFlow> = {}): CardanoFundFl
   };
 
   return {
-    classificationUncertainty: undefined,
     feeAmount: '0.17',
     feeCurrency: 'ADA' as Currency,
     feePaidByUser: false,
@@ -52,6 +51,7 @@ function createFundFlow(overrides: Partial<CardanoFundFlow> = {}): CardanoFundFl
     isOutgoing: false,
     outflows: [],
     outputCount: 1,
+    operationClassificationUncertainty: undefined,
     primary: defaultMovement,
     toAddress: USER_ADDRESS,
     ...overrides,
@@ -319,7 +319,7 @@ describe('analyzeCardanoFundFlow', () => {
       movementRole: 'staking_reward',
       unit: 'lovelace',
     });
-    expect(result.value.classificationUncertainty).toBeUndefined();
+    expect(result.value.operationClassificationUncertainty).toBeUndefined();
   });
 
   test('allocates fee proportionally and leaves staking withdrawal unattributed across sibling inputs', () => {
@@ -366,7 +366,7 @@ describe('analyzeCardanoFundFlow', () => {
     expect(result.value.feeAmount).toBe('0.102');
     expect(result.value.attributedWithdrawalAmount).toBeUndefined();
     expect(result.value.inflows).toHaveLength(0);
-    expect(result.value.classificationUncertainty).toContain('wallet-scoped staking withdrawal of 1 ADA');
+    expect(result.value.operationClassificationUncertainty).toBeUndefined();
   });
 
   test('handles transaction with change correctly', () => {
@@ -501,7 +501,7 @@ describe('analyzeCardanoFundFlow', () => {
     // Track both ADA and MILK movements
     expect(fundFlow.outflows).toHaveLength(2); // ADA and MILK
     expect(fundFlow.inflows).toHaveLength(1); // MILK change
-    expect(fundFlow.classificationUncertainty).toBeDefined();
+    expect(fundFlow.operationClassificationUncertainty).toBeDefined();
   });
 
   test('performs case-insensitive address matching', () => {

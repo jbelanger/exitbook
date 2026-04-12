@@ -681,6 +681,24 @@ Open caution:
 - unexplained residuals must still remain visible and reviewable
 - future residual-role expansion should reuse the same exactness contract rather than growing chain-specific exceptions
 
+Additional live finding from export readiness tightening on `2026-04-12`:
+
+- the remaining Cardano CA-2024 export blockers were not a readiness-policy problem after all; they came from stale `classification_uncertain` diagnostics that overlapped with already-explained staking residual semantics
+- once those generic Cardano classification diagnostics were removed for the exact wallet-scoped staking residual case, the live Canada tax-package export dropped to one real blocker:
+  - Arbitrum tx `2976969230a71ad35315014212302ccd1d74b989d3df016770f024be5f3d915b`
+- conclusion:
+  - readiness tightening should key off tax-relevant source participation
+  - processor diagnostics must also avoid emitting generic blockers when a more precise typed semantic path already closes the case
+
+Additional live finding from the Arbitrum export blocker on `2026-04-12`:
+
+- the remaining blocker transaction was not a genuinely unclassifiable DeFi shape; it was a recurring account-based swap pattern where the router returned unused native input in the same transaction
+- treating that shape as a generic multi-inflow transfer would force users into processor-code fixes for a deterministic pattern
+- conclusion:
+  - exact returned-input-asset swap refunds should be normalized in shared account-based processor logic as net sold outflow + acquired inflow
+  - this belongs in processor modeling, not as a tax/export override policy
+  - separate product gap remains: genuinely unresolved transaction classification still lacks a durable user override path
+
 ## Phase 6: Broader Consumer Adoption Outside Transfer Workflows
 
 Status: blocked

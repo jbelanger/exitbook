@@ -83,7 +83,7 @@ Under the current canonical per-address model:
 - instead, the processor:
   - keeps the per-address processed rows
   - emits `unattributed_staking_reward_component`
-  - may emit `classification_uncertain`
+  - does not emit `classification_uncertain` when the only remaining ambiguity is the wallet-scoped staking residual already modeled through explained transfer residual handling
 
 This preserves per-address processed provenance without forcing wallet-scope processed transaction aggregation.
 

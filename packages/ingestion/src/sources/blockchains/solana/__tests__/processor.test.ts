@@ -8,6 +8,7 @@ import type { IngestionEvent } from '../../../../events.js';
 import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
+const SECONDARY_USER_ADDRESS = 'user55555555555555555555555555555555555555';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
@@ -568,6 +569,74 @@ describe('SolanaProcessor - Swap Detection', () => {
 
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows![0]?.assetSymbol).toBe('USDC');
+  });
+
+  test('collapses returned sold-asset rebate for DEX swap transactions', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigSwapRefund1',
+      eventId: '0xevent10b',
+      slot: 100011,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '5000005000',
+          postBalance: '0', // spent 5 SOL from the primary wallet account
+        },
+        {
+          account: SECONDARY_USER_ADDRESS,
+          preBalance: '0',
+          postBalance: '100183093', // +0.100183093 SOL rebate to another owned account
+        },
+      ],
+      instructions: [
+        {
+          programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+        },
+      ],
+      tokenChanges: [
+        {
+          account: TOKEN_ACCOUNT,
+          decimals: 6,
+          mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          owner: USER_ADDRESS,
+          preAmount: '0',
+          postAmount: '1000000000',
+          symbol: 'USDC',
+        },
+      ],
+      feePayer: USER_ADDRESS,
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS, SECONDARY_USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.category).toBe('trade');
+    expect(transaction.operation.type).toBe('swap');
+    expect(transaction.diagnostics).toBeUndefined();
+
+    expect(transaction.movements.inflows).toBeDefined();
+    expect(transaction.movements.outflows).toBeDefined();
+    if (!transaction.movements.inflows || !transaction.movements.outflows) return;
+
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.assetSymbol).toBe('USDC');
+    expect(transaction.movements.inflows[0]?.netAmount?.toFixed()).toBe('1000');
+
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows[0]?.assetSymbol).toBe('SOL');
+    expect(transaction.movements.outflows[0]?.netAmount?.toFixed()).toBe('4.899816907');
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.000005');
   });
 });
 

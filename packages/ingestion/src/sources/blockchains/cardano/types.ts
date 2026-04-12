@@ -46,6 +46,7 @@ export interface CardanoFundFlow {
   inputCount: number;
   outputCount: number;
 
-  // Classification uncertainty tracking
-  classificationUncertainty?: string | undefined;
+  // Generic operation-classification uncertainty only.
+  // Specific typed residual semantics must use dedicated diagnostics instead.
+  operationClassificationUncertainty?: string | undefined;
 }

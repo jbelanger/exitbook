@@ -333,7 +333,7 @@ describe('CardanoProcessor', () => {
     const [transaction] = result.value;
     expect(transaction?.fees[0]?.amount.toFixed()).toBe('0.102');
     expect(transaction?.movements.inflows).toHaveLength(0);
-    expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'classification_uncertain')).toBe(true);
+    expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'classification_uncertain')).toBe(false);
     expect(
       transaction?.diagnostics?.some(
         (diagnostic) =>

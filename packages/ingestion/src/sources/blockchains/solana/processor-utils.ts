@@ -6,6 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
+import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-swap-refund-utils.js';
 
 import type { SolanaFlowAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
@@ -951,6 +952,16 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
     return err(flowAnalysisResult.error.message);
   }
   const flowAnalysis = flowAnalysisResult.value;
+  const normalizedSwapRefund = collapseReturnedInputAssetSwapRefund({
+    enabled: hasSwaps,
+    inflows: flowAnalysis.inflows,
+    outflows: flowAnalysis.outflows,
+  });
+  const normalizedPrimaryFallback: SolanaMovement = { amount: '0', asset: 'SOL' as Currency };
+  const normalizedPrimary =
+    findLargestMovement(normalizedSwapRefund.inflows) ??
+    findLargestMovement(normalizedSwapRefund.outflows) ??
+    normalizedPrimaryFallback;
 
   const fundFlow: SolanaFundFlow = {
     computeUnitsUsed: tx.computeUnitsConsumed,
@@ -967,12 +978,15 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
     instructionCount,
     transactionCount: 1, // Always 1 for Solana (no correlation like EVM)
 
-    inflows: flowAnalysis.inflows,
-    outflows: flowAnalysis.outflows,
-    primary: flowAnalysis.primary,
+    inflows: normalizedSwapRefund.inflows,
+    outflows: normalizedSwapRefund.outflows,
+    primary: normalizedPrimary,
 
     // Classification uncertainty
-    classificationUncertainty: flowAnalysis.classificationUncertainty,
+    classificationUncertainty: buildClassificationUncertainty(
+      normalizedSwapRefund.inflows,
+      normalizedSwapRefund.outflows
+    ),
     inferenceFailureReason: flowAnalysis.inferenceFailureReason,
   };
 

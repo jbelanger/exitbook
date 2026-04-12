@@ -176,11 +176,11 @@ describe('evaluateTaxPackageReadiness', () => {
     expect(result.status).toBe('blocked');
     expect(result.blockingIssues.map((issue) => issue.code)).toEqual(['UNKNOWN_TRANSACTION_CLASSIFICATION']);
     expect(result.blockingIssues[0]?.summary).toBe(
-      'A retained transaction still has unresolved operation classification.'
+      'A tax-relevant transaction still has unresolved operation classification.'
     );
     expect(result.blockingIssues[0]?.affectedArtifact).toBe('source transaction');
     expect(result.blockingIssues[0]?.affectedRowRef).toBe('LI54ES-YRZMF-F2MYUQ');
-    expect(result.blockingIssues[0]?.details).toContain('kraken LI54ES-YRZMF-F2MYUQ');
+    expect(result.blockingIssues[0]?.details).toContain('Tax-relevant transaction kraken LI54ES-YRZMF-F2MYUQ');
     expect(result.blockingIssues[0]?.details).toContain('materialized as transfer/transfer');
     expect(result.blockingIssues[0]?.recommendedAction).toBe(
       'Review the transaction operation classification (for example transfer, swap, reward, or fee) before filing.'

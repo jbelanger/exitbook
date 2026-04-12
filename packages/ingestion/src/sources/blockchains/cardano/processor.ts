@@ -162,9 +162,9 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
           });
         }
 
-        if (fundFlow.classificationUncertainty) {
+        if (fundFlow.operationClassificationUncertainty) {
           diagnostics.push({
-            message: fundFlow.classificationUncertainty,
+            message: fundFlow.operationClassificationUncertainty,
             metadata: {
               inflows: fundFlow.inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
               outflows: fundFlow.outflows.map((o) => ({ amount: o.amount, asset: o.asset })),

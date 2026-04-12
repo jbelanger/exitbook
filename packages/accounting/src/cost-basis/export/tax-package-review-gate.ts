@@ -54,7 +54,7 @@ export function evaluateTaxPackageReadiness(
           buildReadinessIssue(
             'UNKNOWN_TRANSACTION_CLASSIFICATION',
             'blocked',
-            'A retained transaction still has unresolved operation classification.',
+            'A tax-relevant transaction still has unresolved operation classification.',
             buildUnknownTransactionClassificationDetail(detail),
             {
               affectedArtifact: 'source transaction',
@@ -68,8 +68,8 @@ export function evaluateTaxPackageReadiness(
         buildReadinessIssue(
           'UNKNOWN_TRANSACTION_CLASSIFICATION',
           'blocked',
-          'Some retained transactions still have unresolved operation classification.',
-          `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unknownTransactionClassificationCount ?? 0} retained transactions still require operation classification review.`
+          'Some tax-relevant transactions still have unresolved operation classification.',
+          `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${input.metadata?.unknownTransactionClassificationCount ?? 0} tax-relevant transactions still require operation classification review.`
         )
       );
     }
@@ -105,7 +105,7 @@ export function evaluateTaxPackageReadiness(
           buildReadinessIssue(
             'UNCERTAIN_PROCEEDS_ALLOCATION',
             'warning',
-            'A retained transaction has uncertain proceeds allocation across disposed assets.',
+            'A tax-relevant transaction has uncertain proceeds allocation across disposed assets.',
             buildUncertainProceedsAllocationDetail(detail),
             {
               affectedArtifact: 'source transaction',
@@ -119,8 +119,8 @@ export function evaluateTaxPackageReadiness(
         buildReadinessIssue(
           'UNCERTAIN_PROCEEDS_ALLOCATION',
           'warning',
-          'Some retained transactions have uncertain proceeds allocation across disposed assets.',
-          `${input.metadata?.allocationUncertainCount ?? 0} retained transactions could not be assigned an exact per-asset proceeds split from provider data.`
+          'Some tax-relevant transactions have uncertain proceeds allocation across disposed assets.',
+          `${input.metadata?.allocationUncertainCount ?? 0} tax-relevant transactions could not be assigned an exact per-asset proceeds split from provider data.`
         )
       );
     }
@@ -160,7 +160,7 @@ function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTr
       ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
       : '';
 
-  return `Retained transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
+  return `Tax-relevant transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
 }
 
 function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProceedsAllocationDetail): string {
@@ -169,5 +169,5 @@ function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProce
       ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
       : '';
 
-  return `Retained transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
+  return `Tax-relevant transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
 }

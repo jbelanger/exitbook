@@ -162,8 +162,16 @@ Metadata derivation rules:
 
 - `fxFallbackCount` comes from display-report FX fallback markers on standard workflow reports
 - `incompleteTransferLinkCount` comes from non-confirmed-link standard transfers or incomplete Canada transfer linkage
-- `unknownTransactionClassificationCount` comes from retained transactions with unresolved classification diagnostics
-- `unresolvedAssetReviewCount` counts in-scope assets still blocked by asset review
+- `unknownTransactionClassificationCount` comes from tax-relevant source transactions with unresolved classification diagnostics
+- `allocationUncertainCount` comes from tax-relevant source transactions with allocation diagnostics
+- `unresolvedAssetReviewCount` counts tax-relevant assets still blocked by asset review
+
+Tax-relevant scope rules:
+
+- readiness evaluation does not use `executionMeta.retainedTransactionIds` as a direct proxy for filing sensitivity
+- Canada derives tax-relevant source transactions and assets from `inputContext.inputEvents`
+- standard workflow derives tax-relevant source transactions and assets from lots, disposals, and transfers
+- retained transactions that survive scoping but do not participate in tax input semantics must not block filing export by themselves
 
 ### Export Pipeline
 

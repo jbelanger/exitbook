@@ -6,6 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { AddressContext } from '../../../shared/types/processors.js';
+import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-swap-refund-utils.js';
 
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
@@ -442,8 +443,13 @@ export function analyzeEvmFundFlow(
   const { fromAddress, toAddress } = addressState;
 
   // Consolidate duplicate assets (sum amounts for same asset)
-  const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
-  const consolidatedOutflows = consolidateEvmMovementsByAsset(outflows);
+  const consolidatedMovements = collapseReturnedInputAssetSwapRefund({
+    enabled: hasInternalTransactions && hasTokenTransfers,
+    inflows: consolidateEvmMovementsByAsset(inflows),
+    outflows: consolidateEvmMovementsByAsset(outflows),
+  });
+  const consolidatedInflows = consolidatedMovements.inflows;
+  const consolidatedOutflows = consolidatedMovements.outflows;
 
   const beaconAmount =
     consolidatedInflows.length === 1 && consolidatedOutflows.length === 0

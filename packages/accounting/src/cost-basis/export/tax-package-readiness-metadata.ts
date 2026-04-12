@@ -1,6 +1,7 @@
 import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 
 import { collectBlockingAssetReviewSummaries } from '../standard/validation/asset-review-preflight.js';
+import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import type {
@@ -17,13 +18,15 @@ export function deriveTaxPackageReadinessMetadata(params: {
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   context: TaxPackageBuildContext;
 }): TaxPackageReadinessMetadata {
-  const retainedTransactions = getRetainedTransactions(params.context);
+  const readinessScope = deriveTaxPackageReadinessScope(params.context);
+  const taxRelevantTransactions = getTransactionsById(params.context, readinessScope.transactionIds);
   const incompleteTransferLinkDetails = collectIncompleteTransferLinkDetails(params.context);
   const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
-    retainedTransactions,
+    taxRelevantTransactions,
     ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES
   );
-  const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(retainedTransactions);
+  const unknownTransactionClassificationDetails =
+    collectUnknownTransactionClassificationDetails(taxRelevantTransactions);
 
   return {
     allocationUncertainCount: allocationUncertainDetails.length,
@@ -33,14 +36,98 @@ export function deriveTaxPackageReadinessMetadata(params: {
     incompleteTransferLinkDetails,
     unknownTransactionClassificationCount: unknownTransactionClassificationDetails.length,
     unknownTransactionClassificationDetails,
-    unresolvedAssetReviewCount: countScopedAssetsRequiringReview(retainedTransactions, params.assetReviewSummaries),
+    unresolvedAssetReviewCount: countTaxRelevantAssetsRequiringReview(
+      readinessScope.assetIds,
+      params.assetReviewSummaries
+    ),
   };
 }
 
-function getRetainedTransactions(context: TaxPackageBuildContext): Transaction[] {
-  return context.workflowResult.executionMeta.retainedTransactionIds
+function getTransactionsById(context: TaxPackageBuildContext, transactionIds: ReadonlySet<number>): Transaction[] {
+  return [...transactionIds]
     .map((transactionId) => context.sourceContext.transactionsById.get(transactionId))
     .filter((transaction): transaction is Transaction => transaction !== undefined);
+}
+
+interface TaxPackageReadinessScope {
+  assetIds: ReadonlySet<string>;
+  transactionIds: ReadonlySet<number>;
+}
+
+function deriveTaxPackageReadinessScope(context: TaxPackageBuildContext): TaxPackageReadinessScope {
+  const { workflowResult } = context;
+
+  if (workflowResult.kind === 'canada-workflow') {
+    return deriveCanadaReadinessScope(workflowResult);
+  }
+
+  return deriveStandardReadinessScope(workflowResult);
+}
+
+function deriveCanadaReadinessScope(
+  workflowResult: Extract<CostBasisWorkflowResult, { kind: 'canada-workflow' }>
+): TaxPackageReadinessScope {
+  const inputContext = workflowResult.inputContext;
+  if (!inputContext) {
+    throw new Error('Canada tax-package readiness requires inputContext');
+  }
+
+  const assetIds = new Set<string>();
+  const transactionIds = new Set<number>();
+
+  for (const inputEvent of inputContext.inputEvents) {
+    assetIds.add(inputEvent.assetId);
+    transactionIds.add(inputEvent.transactionId);
+
+    if (inputEvent.kind === 'fee-adjustment') {
+      assetIds.add(inputEvent.feeAssetId);
+    }
+
+    if (inputEvent.sourceTransactionId !== undefined) {
+      transactionIds.add(inputEvent.sourceTransactionId);
+    }
+  }
+
+  return { assetIds, transactionIds };
+}
+
+function deriveStandardReadinessScope(
+  workflowResult: Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>
+): TaxPackageReadinessScope {
+  const lotsById = new Map(workflowResult.lots.map((lot) => [lot.id, lot] as const));
+  const assetIds = new Set<string>();
+  const transactionIds = new Set<number>();
+
+  for (const lot of workflowResult.lots) {
+    assetIds.add(lot.assetId);
+    transactionIds.add(lot.acquisitionTransactionId);
+  }
+
+  for (const disposal of workflowResult.disposals) {
+    transactionIds.add(disposal.disposalTransactionId);
+
+    const sourceLot = lotsById.get(disposal.lotId);
+    if (!sourceLot) {
+      throw new Error(`Missing source lot ${disposal.lotId} for readiness disposal scope`);
+    }
+
+    assetIds.add(sourceLot.assetId);
+    transactionIds.add(sourceLot.acquisitionTransactionId);
+  }
+
+  for (const transfer of workflowResult.lotTransfers) {
+    transactionIds.add(transfer.sourceTransactionId);
+    transactionIds.add(transfer.targetTransactionId);
+
+    const sourceLot = lotsById.get(transfer.sourceLotId);
+    if (!sourceLot) {
+      throw new Error(`Missing source lot ${transfer.sourceLotId} for readiness transfer scope`);
+    }
+
+    assetIds.add(sourceLot.assetId);
+  }
+
+  return { assetIds, transactionIds };
 }
 
 function collectUnknownTransactionClassificationDetails(
@@ -77,24 +164,11 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
   });
 }
 
-function countScopedAssetsRequiringReview(
-  transactions: readonly Transaction[],
+function countTaxRelevantAssetsRequiringReview(
+  assetIds: ReadonlySet<string>,
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): number {
-  const assetsInScope = new Set<string>();
-  for (const transaction of transactions) {
-    for (const inflow of transaction.movements.inflows ?? []) {
-      assetsInScope.add(inflow.assetId);
-    }
-    for (const outflow of transaction.movements.outflows ?? []) {
-      assetsInScope.add(outflow.assetId);
-    }
-    for (const fee of transaction.fees ?? []) {
-      assetsInScope.add(fee.assetId);
-    }
-  }
-
-  return collectBlockingAssetReviewSummaries(assetsInScope, assetReviewSummaries).length;
+  return collectBlockingAssetReviewSummaries(assetIds, assetReviewSummaries).length;
 }
 
 function collectIncompleteTransferLinkDetails(

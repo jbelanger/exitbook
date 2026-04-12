@@ -272,6 +272,99 @@ describe('analyzeEvmFundFlow', () => {
     ]);
   });
 
+  it('collapses returned input-asset refunds for swap-like router transactions', () => {
+    const chainConfig: EvmChainConfig = {
+      chainId: 42161,
+      chainName: 'arbitrum',
+      nativeCurrency: 'ETH' as Currency,
+      nativeDecimals: 18,
+      transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
+    };
+    const context: AddressContext = {
+      primaryAddress: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+      userAddresses: ['0xba7dd2a5726a5a94b3556537e7212277e0e76cbf'],
+    };
+
+    const txGroup: EvmTransaction[] = [
+      {
+        amount: '36801703759966916',
+        currency: 'ETH',
+        eventId: '0xswap-refund-0',
+        feeAmount: '2493390000000',
+        feeCurrency: 'ETH' as Currency,
+        from: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        gasPrice: '10000000',
+        gasUsed: '249339',
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1716525810000,
+        to: '0x5e325eda8064b456f4781070c0738d849c824258',
+        tokenType: 'native',
+        type: 'transfer',
+      },
+      {
+        amount: '183093053532173',
+        currency: 'ETH',
+        eventId: '0xswap-refund-internal-0',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x5e325eda8064b456f4781070c0738d849c824258',
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1716525810000,
+        to: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        tokenType: 'native',
+        type: 'internal',
+      },
+      {
+        amount: '50000000000000000000',
+        currency: 'IMX',
+        eventId: '0xswap-refund-token-0',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x5e325eda8064b456f4781070c0738d849c824258',
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1716525810000,
+        to: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        tokenAddress: '0x3cfd99593a7f035f717142095a3898e3fca7783e',
+        tokenDecimals: 18,
+        tokenSymbol: 'IMX',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.inflows).toEqual([
+      {
+        amount: '50',
+        asset: 'IMX' as Currency,
+        tokenAddress: '0x3cfd99593a7f035f717142095a3898e3fca7783e',
+        tokenDecimals: 18,
+      },
+    ]);
+    expect(result.value.outflows).toEqual([
+      {
+        amount: '0.036618610706434743',
+        asset: 'ETH' as Currency,
+      },
+    ]);
+    expect(result.value.classificationUncertainty).toBeUndefined();
+
+    const operation = determineEvmOperationFromFundFlow(result.value, txGroup);
+    expect(operation.operation).toEqual({ category: 'trade', type: 'swap' });
+    expect(operation.diagnostics).toBeUndefined();
+  });
+
   it('keeps full beacon withdrawals as principal movements', () => {
     const chainConfig: EvmChainConfig = {
       chainId: 1,

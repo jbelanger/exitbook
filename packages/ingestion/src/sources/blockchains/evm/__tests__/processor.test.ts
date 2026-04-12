@@ -1354,6 +1354,79 @@ describe('EvmProcessor - Swap Detection', () => {
 });
 
 describe('EvmProcessor - Classification Uncertainty', () => {
+  test('classifies swap when router returns unused native input asset', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '36801703759966916',
+        feeAmount: '2493390000000',
+        from: USER_ADDRESS,
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        type: 'transfer',
+      }),
+      createTransaction({
+        amount: '183093053532173',
+        feeAmount: '0',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        type: 'internal',
+      }),
+      createTransaction({
+        amount: '50000000000000000000',
+        currency: 'IMX',
+        feeAmount: '0',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap-refund',
+        providerName: 'etherscan',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0x3cfd99593a7f035f717142095a3898e3fca7783e',
+        tokenDecimals: 18,
+        tokenSymbol: 'IMX',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.category).toBe('trade');
+    expect(transaction.operation.type).toBe('swap');
+    expect(transaction.diagnostics).toBeUndefined();
+
+    expect(transaction.movements.inflows).toBeDefined();
+    expect(transaction.movements.outflows).toBeDefined();
+    if (!transaction.movements.inflows || !transaction.movements.outflows) return;
+
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.assetSymbol).toBe('IMX');
+    expect(transaction.movements.inflows[0]?.grossAmount.toFixed()).toBe('50');
+
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows[0]?.assetSymbol).toBe('ETH');
+    expect(transaction.movements.outflows[0]?.grossAmount.toFixed()).toBe('0.036618610706434743');
+
+    expect(transaction.fees[0]?.amount.toFixed()).toBe('0.00000249339');
+    expect(transaction.fees[0]?.settlement).toBe('balance');
+  });
+
   test('adds note for complex multi-asset transaction', async () => {
     const processor = createEthereumProcessor();
 
