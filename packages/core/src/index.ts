@@ -67,6 +67,7 @@ export {
   UnitIntervalDecimalSchema,
   LinkTypeSchema,
   LinkStatusSchema,
+  TransactionLinkProvenanceSchema,
   MatchCriteriaSchema,
   TransactionLinkScoreBreakdownEntrySchema,
   SameHashExternalSourceAllocationSchema,
@@ -75,6 +76,8 @@ export {
   NewTransactionLinkSchema,
   isPartialMatchLinkMetadata,
   hasImpliedFeeAmount,
+  resolveTransactionLinkProvenance,
+  getExplainedTargetResidual,
   isSameHashExternalLinkMetadata,
   type PlatformKind,
   type MovementDirection,
@@ -102,12 +105,14 @@ export {
   type RawTransaction,
   type LinkType,
   type LinkStatus,
+  type TransactionLinkProvenance,
   type MatchCriteria,
   type TransactionLinkScoreBreakdownEntry,
   type SameHashExternalSourceAllocation,
   type TransactionLinkMetadata,
   type TransactionLink,
   type NewTransactionLink,
+  type ExplainedTargetResidual,
 } from './transaction/index.js';
 export { AmbiguousTransactionFingerprintRefError } from './transaction/transaction-selector-errors.js';
 

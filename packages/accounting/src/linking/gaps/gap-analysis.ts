@@ -1,5 +1,6 @@
 import {
   filterTransferEligibleMovements,
+  getExplainedTargetResidual,
   getMovementRole,
   isTransactionMarkedSpam,
   transactionHasDiagnosticCode,
@@ -824,6 +825,18 @@ function shouldSuppressGapByPolicy(tx: Transaction): boolean {
   return transactionHasDiagnosticCode(tx, 'SUSPICIOUS_AIRDROP');
 }
 
+function isFullyExplainedTargetResidualGap(
+  confirmedLinks: readonly TransactionLink[],
+  uncoveredAmount: Decimal
+): boolean {
+  if (!uncoveredAmount.gt(0) || confirmedLinks.length === 0) {
+    return false;
+  }
+
+  const explainedResidual = getExplainedTargetResidual(confirmedLinks);
+  return explainedResidual?.role === 'staking_reward' && explainedResidual.amount.eq(uncoveredAmount);
+}
+
 function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
@@ -859,6 +872,10 @@ function collectInflowGapIssues(
 
       const uncoveredAmount = totalAmount.minus(confirmedAmount);
       if (uncoveredAmount.lte(0)) {
+        continue;
+      }
+
+      if (isFullyExplainedTargetResidualGap(confirmedForAsset, uncoveredAmount)) {
         continue;
       }
 

@@ -83,6 +83,11 @@ describe('applyLinkOverrides', () => {
       expect(modifiedLinks[0]?.status).toBe('confirmed');
       expect(modifiedLinks[0]?.reviewedBy).toBe('user');
       expect(modifiedLinks[0]?.reviewedAt).toBeInstanceOf(Date);
+      expect(modifiedLinks[0]?.metadata).toMatchObject({
+        overrideId: 'override-1',
+        overrideLinkType: 'transfer',
+        linkProvenance: 'user',
+      });
       expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
     }
@@ -132,6 +137,11 @@ describe('applyLinkOverrides', () => {
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('rejected');
       expect(modifiedLinks[0]?.reviewedBy).toBe('user');
+      expect(modifiedLinks[0]?.metadata).toMatchObject({
+        overrideId: 'override-1',
+        linkProvenance: 'user',
+      });
+      expect(modifiedLinks[0]?.metadata?.overrideLinkType).toBeUndefined();
       expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
     }
@@ -373,6 +383,11 @@ describe('applyLinkOverrides', () => {
       expect(modifiedLinks).toHaveLength(1);
       expect(modifiedLinks[0]?.status).toBe('confirmed'); // Last event wins
       expect(modifiedLinks[0]?.reviewedBy).toBe('user');
+      expect(modifiedLinks[0]?.metadata).toMatchObject({
+        overrideId: 'override-3',
+        overrideLinkType: 'transfer',
+        linkProvenance: 'user',
+      });
       expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
     }
@@ -428,6 +443,11 @@ describe('applyLinkOverrides', () => {
     if (result.isOk()) {
       const { links: modifiedLinks } = result.value;
       expect(modifiedLinks[0]?.status).toBe('confirmed');
+      expect(modifiedLinks[0]?.metadata).toMatchObject({
+        overrideId: 'override-2',
+        overrideLinkType: 'transfer',
+        linkProvenance: 'user',
+      });
     }
   });
 });

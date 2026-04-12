@@ -27,7 +27,7 @@ describe('LinksViewApp - links mode', () => {
       />
     );
 
-    expect(lastFrame()).toContain('No transaction links found');
+    expect(lastFrame()).toContain('No link proposals found');
     expect(lastFrame()).toContain('exitbook links run');
   });
 
@@ -41,7 +41,7 @@ describe('LinksViewApp - links mode', () => {
       />
     );
 
-    expect(lastFrame()).toContain('No suggested links found');
+    expect(lastFrame()).toContain('No suggested proposals found');
   });
 
   it('renders header with counts for all statuses', () => {
@@ -55,11 +55,13 @@ describe('LinksViewApp - links mode', () => {
       />
     );
     const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    expect(frame).toContain('Transaction Links');
-    expect(frame).toContain('2 confirmed');
-    expect(frame).toContain('1 suggested');
-    expect(frame).toContain('1 rejected');
+    expect(normalizedFrame).toContain('4 proposals');
+    expect(normalizedFrame).toContain('4 links');
+    expect(normalizedFrame).toContain('2 confirmed');
+    expect(normalizedFrame).toContain('1 suggested');
+    expect(normalizedFrame).toContain('rejected');
   });
 
   it('renders filtered header when status filter applied', () => {
@@ -74,7 +76,8 @@ describe('LinksViewApp - links mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain('Transaction Links (suggested)');
+    expect(frame).toContain('Link Proposals (suggested)');
+    expect(frame).toContain('1 suggested proposal (1 leg; 1 system)');
   });
 
   it('renders link list with proper formatting', () => {
@@ -97,6 +100,7 @@ describe('LinksViewApp - links mode', () => {
     expect(frame).toContain('2024-03-16');
     expect(frame).toContain('ETH');
     expect(frame).toContain('BTC');
+    expect(frame).not.toContain('algorithm');
   });
 
   it('sorts links from oldest to newest in the table', () => {
@@ -263,7 +267,8 @@ describe('LinksViewApp - links mode', () => {
     );
     const frame = lastFrame();
 
-    expect(frame).toContain('0.0358 matched');
+    expect(frame).toContain('0.0358');
+    expect(frame).not.toContain('matched');
     expect(frame).toContain('2023-03-15');
     expect(frame).toContain('Change: 0.00823055 BTC');
   });
@@ -354,6 +359,103 @@ describe('LinksViewApp - links mode', () => {
     expect(normalizedFrame).toContain('same-hash mixed group');
     expect(normalizedFrame).toContain('0.01479224 BTC to exchange');
     expect(normalizedFrame).toContain('0.00625144 BTC to 1 tracked sibl');
+  });
+
+  it('renders user provenance for user-confirmed proposals', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'confirmed', 1, 'ETH', '1.5', '1.5', 1, 2),
+          metadata: {
+            linkProvenance: 'user',
+            overrideId: 'override-1',
+            overrideLinkType: 'transfer',
+          },
+        },
+        sourceTransaction: createMockTransaction(1, 'kraken', '2024-03-15T14:23:41Z'),
+        targetTransaction: createMockTransaction(2, 'ethereum', '2024-03-15T14:25:12Z'),
+      },
+    ];
+    const state = createLinksViewState(links);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('1 confirmed proposal (1 leg; 1 user)');
+    expect(normalizedFrame).toContain('Provenance:');
+    expect(normalizedFrame).toContain('user');
+    expect(normalizedFrame).toContain('Provenance detail: 1 user-reviewed leg · 1 override · transfer type');
+  });
+
+  it('renders filtered confirmed headers with proposal and leg counts plus provenance split', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'confirmed', 0.98, 'ETH', '1.5', '1.498', 1, 2),
+          metadata: { linkProvenance: 'system' },
+        },
+        sourceTransaction: createMockTransaction(1, 'kraken', '2024-03-15T14:23:41Z'),
+        targetTransaction: createMockTransaction(2, 'ethereum', '2024-03-15T14:25:12Z'),
+      },
+      {
+        link: {
+          ...createMockLink(2, 'confirmed', 0.96, 'BTC', '0.5', '0.4998', 3, 4),
+          metadata: { linkProvenance: 'user' },
+        },
+        sourceTransaction: createMockTransaction(3, 'kraken', '2024-03-16T10:15:22Z'),
+        targetTransaction: createMockTransaction(4, 'bitcoin', '2024-03-16T10:17:45Z'),
+      },
+    ];
+    const state = createLinksViewState(links, 'confirmed');
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('2 confirmed proposals (2 legs; 1 system, 1 user)');
+  });
+
+  it('renders the same proposal-first summary when only one status is visible without an explicit filter', () => {
+    const links: LinkWithTransactions[] = [
+      {
+        link: {
+          ...createMockLink(1, 'confirmed', 0.98, 'ETH', '1.5', '1.498', 1, 2),
+          metadata: { linkProvenance: 'system' },
+        },
+        sourceTransaction: createMockTransaction(1, 'kraken', '2024-03-15T14:23:41Z'),
+        targetTransaction: createMockTransaction(2, 'ethereum', '2024-03-15T14:25:12Z'),
+      },
+      {
+        link: {
+          ...createMockLink(2, 'confirmed', 0.96, 'BTC', '0.5', '0.4998', 3, 4),
+          metadata: { linkProvenance: 'user' },
+        },
+        sourceTransaction: createMockTransaction(3, 'kraken', '2024-03-16T10:15:22Z'),
+        targetTransaction: createMockTransaction(4, 'bitcoin', '2024-03-16T10:17:45Z'),
+      },
+    ];
+    const state = createLinksViewState(links);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+
+    expect(frame).toContain('2 confirmed proposals (2 legs; 1 system, 1 user)');
+    expect(frame).not.toContain('2 proposals · 2 links');
   });
 });
 
@@ -543,6 +645,30 @@ describe('LinksViewApp - gaps mode', () => {
     // Normalize to handle text wrapping across lines
     const normalizedFrame = frame!.replace(/\n/g, ' ').replace(/\s+/g, ' ');
     expect(normalizedFrame).toContain('may be treated as a gift');
+  });
+
+  it('renders resolution override empty state when all open gaps are hidden', () => {
+    const state = createGapsViewState(
+      {
+        ...createMockGapAnalysis(),
+        issues: [],
+      },
+      {
+        hiddenResolvedIssueCount: 2,
+      }
+    );
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('2 override-resolved gaps hidden');
+    expect(normalizedFrame).toContain('No open gaps. 2 gaps are hidden by resolution overrides.');
   });
 });
 

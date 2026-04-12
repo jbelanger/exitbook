@@ -125,6 +125,7 @@ describe('ManualLinkCreateHandler', () => {
     mockBuildManualLinkOverrideMetadata.mockImplementation((overrideId: string, overrideLinkType: string) => ({
       overrideId,
       overrideLinkType,
+      linkProvenance: 'manual',
     }));
     mockAppendLinkOverrideEvent.mockResolvedValue(ok({ id: 'override-1' }));
   });
@@ -167,6 +168,7 @@ describe('ManualLinkCreateHandler', () => {
         metadata: expect.objectContaining({
           overrideId: 'override-1',
           overrideLinkType: 'transfer',
+          linkProvenance: 'manual',
         }),
       })
     );
@@ -210,7 +212,21 @@ describe('ManualLinkCreateHandler', () => {
       existingStatusBefore: 'suggested',
       linkId: 55,
     });
-    expect(database.transactionLinks.updateStatuses).toHaveBeenCalledWith([55], 'confirmed', 'cli-user');
+    expect(database.transactionLinks.updateStatuses).toHaveBeenCalledWith(
+      [55],
+      'confirmed',
+      'cli-user',
+      expect.any(Map)
+    );
+    const metadataMap = database.transactionLinks.updateStatuses.mock.calls[0]?.[3] as Map<
+      number,
+      { linkProvenance?: string; overrideId?: string; overrideLinkType?: string }
+    >;
+    expect(metadataMap.get(55)).toMatchObject({
+      linkProvenance: 'user',
+      overrideId: 'override-1',
+      overrideLinkType: 'transfer',
+    });
     expect(database.transactionLinks.create).not.toHaveBeenCalled();
   });
 

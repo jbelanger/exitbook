@@ -67,7 +67,7 @@ function buildLinksGapsBrowseJsonCompletion(
           totalIssues: browsePresentation.state.linkAnalysis.summary.total_issues,
           uncoveredInflows: browsePresentation.state.linkAnalysis.summary.uncovered_inflows,
           unmatchedOutflows: browsePresentation.state.linkAnalysis.summary.unmatched_outflows,
-          hiddenResolvedIssues: browsePresentation.state.hiddenResolvedIssueCount,
+          hiddenByResolutionOverrides: browsePresentation.state.hiddenResolvedIssueCount,
         })
       ),
     },

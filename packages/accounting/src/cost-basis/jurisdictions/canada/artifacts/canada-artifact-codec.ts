@@ -57,6 +57,7 @@ const StoredCanadaTaxReportAcquisitionSchema = z.object({
   totalCostCad: DecimalStringSchema,
   remainingAllocatedAcbCad: DecimalStringSchema,
   costBasisPerUnitCad: DecimalStringSchema,
+  incomeCategory: z.literal('staking_reward').optional(),
 });
 
 const StoredCanadaTaxReportDispositionSchema = z.object({
@@ -175,6 +176,7 @@ const StoredCanadaAcquisitionEventSchema = StoredCanadaInputEventBaseSchema.exte
   kind: z.literal('acquisition'),
   quantity: DecimalStringSchema,
   costBasisAdjustmentCad: DecimalStringSchema.optional(),
+  incomeCategory: z.literal('staking_reward').optional(),
 });
 
 const StoredCanadaDispositionEventSchema = StoredCanadaInputEventBaseSchema.extend({
@@ -738,6 +740,7 @@ function toStoredCanadaInputEvent(event: CanadaTaxInputEvent): z.infer<typeof St
         ...(event.costBasisAdjustmentCad !== undefined
           ? { costBasisAdjustmentCad: event.costBasisAdjustmentCad.toFixed() }
           : {}),
+        ...(event.incomeCategory !== undefined ? { incomeCategory: event.incomeCategory } : {}),
       };
     case 'disposition':
       return {
@@ -790,6 +793,7 @@ function fromStoredCanadaInputEvent(event: z.infer<typeof StoredCanadaInputEvent
         ...(event.costBasisAdjustmentCad !== undefined
           ? { costBasisAdjustmentCad: parseDecimal(event.costBasisAdjustmentCad) }
           : {}),
+        ...(event.incomeCategory !== undefined ? { incomeCategory: event.incomeCategory } : {}),
       };
     case 'disposition':
       return {
@@ -869,6 +873,7 @@ function toStoredCanadaTaxReportAcquisition(
     totalCostCad: item.totalCostCad.toFixed(),
     remainingAllocatedAcbCad: item.remainingAllocatedAcbCad.toFixed(),
     costBasisPerUnitCad: item.costBasisPerUnitCad.toFixed(),
+    ...(item.incomeCategory !== undefined ? { incomeCategory: item.incomeCategory } : {}),
   };
 }
 
@@ -887,6 +892,7 @@ function fromStoredCanadaTaxReportAcquisition(
     totalCostCad: parseDecimal(item.totalCostCad),
     remainingAllocatedAcbCad: parseDecimal(item.remainingAllocatedAcbCad),
     costBasisPerUnitCad: parseDecimal(item.costBasisPerUnitCad),
+    ...(item.incomeCategory !== undefined ? { incomeCategory: item.incomeCategory } : {}),
   };
 }
 

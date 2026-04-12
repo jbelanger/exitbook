@@ -1,5 +1,11 @@
 import { computeResolvedLinkFingerprint } from '@exitbook/core';
-import type { LinkOverridePayload, OverrideEvent, OverrideLinkType, UnlinkOverridePayload } from '@exitbook/core';
+import type {
+  LinkOverridePayload,
+  OverrideEvent,
+  OverrideLinkType,
+  TransactionLinkMetadata,
+  UnlinkOverridePayload,
+} from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import { ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -30,6 +36,7 @@ interface LinkWithStatus {
   status: 'suggested' | 'confirmed' | 'rejected';
   reviewedBy?: string | undefined;
   reviewedAt?: Date | undefined;
+  metadata?: TransactionLinkMetadata | undefined;
   [key: string]: unknown;
 }
 
@@ -254,6 +261,7 @@ export function applyLinkOverrides(
         link.status = state.action === 'confirm' ? 'confirmed' : 'rejected';
         link.reviewedBy = state.lastEvent.actor;
         link.reviewedAt = new Date(state.lastEvent.created_at);
+        link.metadata = applyOverrideMetadata(link.metadata, state);
       } else {
         // Orphaned: algorithm didn't produce this link
         if (state.action === 'confirm') {
@@ -311,6 +319,18 @@ export function applyLinkOverrides(
   } catch (error) {
     return wrapError(error, 'Failed to apply link overrides');
   }
+}
+
+function applyOverrideMetadata(
+  metadata: TransactionLinkMetadata | undefined,
+  state: OverrideState
+): TransactionLinkMetadata {
+  return {
+    ...(metadata ?? {}),
+    overrideId: state.lastEvent.id,
+    ...(state.linkType === '' ? {} : { overrideLinkType: state.linkType }),
+    linkProvenance: metadata?.linkProvenance === 'manual' ? 'manual' : 'user',
+  };
 }
 
 function getOverrideFingerprint(payload: LinkOverridePayload): Result<string, Error> {

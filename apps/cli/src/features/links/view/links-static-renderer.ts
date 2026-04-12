@@ -13,6 +13,8 @@ import {
   formatLinkTypeDisplay,
   formatMatchCriteria,
   formatProposalConfidence,
+  formatProposalProvenance,
+  formatProposalProvenanceDetail,
   formatProposalRoute,
   getCoverageColor,
   getGapSuggestionColor,
@@ -149,16 +151,25 @@ export function buildLinkProposalStaticDetail(item: LinkProposalBrowseItem, verb
     '',
     buildDetailLine('Link ref', item.proposalRef),
     buildDetailLine('Status', colorizeStatus(statusDisplay.iconColor, proposal.status)),
+    buildDetailLine(
+      'Provenance',
+      colorizeProvenance(proposal.provenanceSummary.provenance, formatProposalProvenance(proposal.provenanceSummary))
+    ),
     buildDetailLine('Route', formatProposalRoute(proposal)),
     buildDetailLine('Type', linkType),
     buildDetailLine('Confidence', colorizeText(confidenceColor, confidence.trim())),
-    buildDetailLine('Matched', `${amountDisplay.matchedAmount} ${representativeLink.assetSymbol}`),
+    buildDetailLine('Linked amount', `${amountDisplay.linkedAmount} ${representativeLink.assetSymbol}`),
     buildDetailLine('Legs', `${proposal.legs.length}`),
     buildDetailLine('Match', formatMatchCriteria(representativeLink.matchCriteria)),
   ];
 
   if (amountDisplay.detailSummary) {
     lines.push(buildDetailLine(amountDisplay.detailLabel ?? 'Summary', amountDisplay.detailSummary));
+  }
+
+  const provenanceDetail = formatProposalProvenanceDetail(proposal.provenanceSummary);
+  if (provenanceDetail) {
+    lines.push(buildDetailLine('Provenance detail', provenanceDetail));
   }
 
   lines.push('', pc.dim(`Legs (${proposal.legs.length})`));
@@ -193,7 +204,7 @@ export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGa
   const lines: string[] = [buildGapListHeader(state, items.length), ''];
 
   if (items.length === 0) {
-    lines.push('All movements have confirmed counterparties.');
+    lines.push(...buildLinkGapsEmptyStateLines(state));
     return `${lines.join('\n')}\n`;
   }
 
@@ -320,24 +331,44 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
 }
 
 function buildLinksListHeader(state: LinksViewLinksState, visibleCount: number): string {
-  const title = state.statusFilter ? `Links (${state.statusFilter})` : 'Links';
-  const displayedCount = state.proposals.length;
+  const title = state.statusFilter ? `Link Proposals (${state.statusFilter})` : 'Link Proposals';
+  const displayedCount = visibleCount;
+  const displayedLinkCount = state.proposals.reduce((total, proposal) => total + proposal.legs.length, 0);
+  const provenanceSummaryParts = buildProposalProvenanceSummaryParts(state.proposals, state.statusFilter);
+  const effectiveStatusFilter = state.statusFilter ?? inferSingleStatusFilter(state.counts);
+  const summaryStatus = state.statusFilter ?? effectiveStatusFilter;
+  const filteredSummary =
+    summaryStatus !== undefined
+      ? buildFilteredProposalSummary(state.proposals, summaryStatus, displayedCount, displayedLinkCount)
+      : undefined;
   const isFiltered = state.totalCount !== undefined && state.totalCount > displayedCount;
-  const metadata = state.statusFilter
-    ? [`${visibleCount} ${state.statusFilter}`]
-    : [
-        `${state.counts.confirmed} confirmed`,
-        `${state.counts.suggested} suggested`,
-        `${state.counts.rejected} rejected`,
-      ].filter((value) => !value.startsWith('0 '));
+  const metadata = [
+    ...(filteredSummary
+      ? [filteredSummary]
+      : [
+          `${displayedCount} proposal${displayedCount === 1 ? '' : 's'}`,
+          `${displayedLinkCount} link${displayedLinkCount === 1 ? '' : 's'}`,
+          ...provenanceSummaryParts,
+        ]),
+    ...(summaryStatus === undefined
+      ? [
+          `${state.counts.confirmed} confirmed`,
+          `${state.counts.suggested} suggested`,
+          `${state.counts.rejected} rejected`,
+        ].filter((value) => !value.startsWith('0 '))
+      : []),
+  ];
 
   if (isFiltered) {
-    metadata.push(`showing ${displayedCount} of ${state.totalCount}`);
-  } else if (!state.statusFilter) {
-    metadata.unshift(`${displayedCount} total`);
+    metadata.push(`showing ${displayedCount} of ${state.totalCount} proposals`);
   }
 
   return `${pc.bold(title)}${metadata.length > 0 ? ` ${pc.dim(metadata.join(' · '))}` : ''}`;
+}
+
+function inferSingleStatusFilter(counts: LinksViewLinksState['counts']): LinksViewLinksState['statusFilter'] {
+  const statuses = (['confirmed', 'suggested', 'rejected'] as const).filter((status) => counts[status] > 0);
+  return statuses.length === 1 ? statuses[0] : undefined;
 }
 
 function buildLinksEmptyStateLines(state: LinksViewLinksState): string[] {
@@ -348,6 +379,18 @@ function buildLinksEmptyStateLines(state: LinksViewLinksState): string[] {
   return ['No link proposals found.', '', pc.dim('Tip: exitbook links run')];
 }
 
+function buildLinkGapsEmptyStateLines(state: LinksViewGapsState): string[] {
+  if (state.hiddenResolvedIssueCount > 0) {
+    return [
+      `No open gaps. ${state.hiddenResolvedIssueCount} gap${
+        state.hiddenResolvedIssueCount === 1 ? ' is' : 's are'
+      } hidden by resolution overrides.`,
+    ];
+  }
+
+  return ['All movements have confirmed counterparties.'];
+}
+
 function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): string {
   const { linkAnalysis } = state;
   const readyToReview = linkAnalysis.issues.filter((issue) => issue.suggestedCount > 0).length;
@@ -355,7 +398,11 @@ function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): st
   const metadata = [
     `${visibleCount} shown`,
     ...(state.hiddenResolvedIssueCount > 0
-      ? [`${state.hiddenResolvedIssueCount} resolved gap${state.hiddenResolvedIssueCount === 1 ? '' : 's'} hidden`]
+      ? [
+          `${state.hiddenResolvedIssueCount} override-resolved gap${
+            state.hiddenResolvedIssueCount === 1 ? '' : 's'
+          } hidden`,
+        ]
       : []),
     `${linkAnalysis.summary.uncovered_inflows} uncovered inflow${
       linkAnalysis.summary.uncovered_inflows === 1 ? '' : 's'
@@ -422,6 +469,97 @@ function colorizeText(color: string, value: string): string {
 
 function colorizeConfidence(item: LinkProposalBrowseItem, value: string): string {
   return colorizeText(getProposalConfidenceColor(item.proposal), value);
+}
+
+function colorizeProvenance(provenance: 'manual' | 'mixed' | 'system' | 'user', value: string): string {
+  switch (provenance) {
+    case 'system':
+      return pc.dim(value);
+    case 'user':
+      return pc.yellow(value);
+    case 'manual':
+      return pc.cyan(value);
+    case 'mixed':
+      return pc.yellow(value);
+  }
+}
+
+function buildProposalProvenanceSummaryParts(
+  proposals: LinksViewLinksState['proposals'],
+  statusFilter?: LinksViewLinksState['statusFilter']
+): string[] {
+  const counts = countProposalProvenance(proposals);
+
+  return [
+    counts.user > 0 ? formatProposalKindCount('user', counts.user, statusFilter) : undefined,
+    counts.manual > 0 ? formatProposalKindCount('manual', counts.manual, statusFilter) : undefined,
+    counts.mixed > 0 ? formatProposalKindCount('mixed', counts.mixed, statusFilter) : undefined,
+  ].filter((value): value is string => value !== undefined);
+}
+
+function buildFilteredProposalSummary(
+  proposals: LinksViewLinksState['proposals'],
+  statusFilter: NonNullable<LinksViewLinksState['statusFilter']>,
+  proposalCount: number,
+  legCount: number
+): string {
+  const provenanceCounts = countProposalProvenance(proposals);
+  const provenanceParts = [
+    provenanceCounts.system > 0 ? `${provenanceCounts.system} system` : undefined,
+    provenanceCounts.user > 0 ? `${provenanceCounts.user} user` : undefined,
+    provenanceCounts.manual > 0 ? `${provenanceCounts.manual} manual` : undefined,
+    provenanceCounts.mixed > 0 ? `${provenanceCounts.mixed} mixed` : undefined,
+  ].filter((value): value is string => value !== undefined);
+
+  return (
+    `${proposalCount} ${statusFilter} proposal${proposalCount === 1 ? '' : 's'} ` +
+    `(${legCount} leg${legCount === 1 ? '' : 's'}${provenanceParts.length > 0 ? `; ${provenanceParts.join(', ')}` : ''})`
+  );
+}
+
+function countProposalProvenance(proposals: readonly LinksViewLinksState['proposals'][number][]): {
+  manual: number;
+  mixed: number;
+  system: number;
+  user: number;
+} {
+  return proposals.reduce(
+    (acc, proposal) => {
+      if (proposal.provenanceSummary.provenance === 'system') {
+        acc.system += 1;
+      } else if (proposal.provenanceSummary.provenance === 'user') {
+        acc.user += 1;
+      } else if (proposal.provenanceSummary.provenance === 'manual') {
+        acc.manual += 1;
+      } else if (proposal.provenanceSummary.provenance === 'mixed') {
+        acc.mixed += 1;
+      }
+
+      return acc;
+    },
+    { manual: 0, mixed: 0, system: 0, user: 0 }
+  );
+}
+
+function formatProposalKindCount(
+  kind: 'manual' | 'mixed' | 'user',
+  count: number,
+  statusFilter?: LinksViewLinksState['statusFilter']
+): string {
+  switch (kind) {
+    case 'user':
+      if (statusFilter === 'confirmed') {
+        return `${count} user-confirmed proposal${count === 1 ? '' : 's'}`;
+      }
+      if (statusFilter === 'rejected') {
+        return `${count} user-rejected proposal${count === 1 ? '' : 's'}`;
+      }
+      return `${count} user-reviewed proposal${count === 1 ? '' : 's'}`;
+    case 'manual':
+      return `${count} manual proposal${count === 1 ? '' : 's'}`;
+    case 'mixed':
+      return `${count} mixed-provenance proposal${count === 1 ? '' : 's'}`;
+  }
 }
 
 function formatGapReadiness(item: LinkGapBrowseItem): string {

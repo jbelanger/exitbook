@@ -67,7 +67,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.reviewedAt).toBeInstanceOf(Date);
 
       expect(mockLinkQueries.findById).toHaveBeenCalledWith(123, PROFILE_ID);
-      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user', expect.any(Map));
     });
 
     it('should write unlink_override event after successful reject', async () => {
@@ -200,7 +200,7 @@ describe('LinksRejectHandler', () => {
       const rejectResult = assertOk(result);
       expect(rejectResult.affectedLinkIds).toEqual([124]);
       expect(rejectResult.affectedLinkCount).toBe(1);
-      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([124], 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([124], 'rejected', 'cli-user', expect.any(Map));
       expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
     });
 
@@ -230,7 +230,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
       expect(rejectResult.reviewedBy).toBe('cli-user');
-      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user', expect.any(Map));
     });
 
     it('should return error if link not found', async () => {
@@ -358,7 +358,7 @@ describe('LinksRejectHandler', () => {
       const rejectResult = assertOk(result);
       expect(rejectResult.affectedLinkIds).toEqual([123, 124]);
       expect(rejectResult.affectedLinkCount).toBe(2);
-      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123, 124], 'rejected', 'cli-user');
+      expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123, 124], 'rejected', 'cli-user', expect.any(Map));
       expect(mockOverrideStore.append).toHaveBeenCalledTimes(2);
     });
   });

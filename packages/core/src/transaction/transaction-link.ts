@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { OverrideLinkTypeSchema } from '../override/override.js';
 
+import { MovementRoleSchema, type MovementRole } from './movement.js';
+
 export const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),
   { message: 'Value must be between 0 and 1 (inclusive)' }
@@ -32,6 +34,14 @@ export const LinkTypeSchema = z.enum([
  * Status of a transaction link
  */
 export const LinkStatusSchema = z.enum(['suggested', 'confirmed', 'rejected']);
+
+/**
+ * Provenance of a transaction link
+ * - system: produced and finalized by the linker without user intervention
+ * - user: produced by the linker, then confirmed/rejected by the user
+ * - manual: created from an explicit user link override when the linker had no link
+ */
+export const TransactionLinkProvenanceSchema = z.enum(['system', 'user', 'manual']);
 
 /**
  * Criteria used for matching transactions
@@ -94,7 +104,7 @@ export const TransactionLinkMetadataSchema = z
     sameHashTrackedSiblingInflowCount: z.number().int().positive().optional(),
     sameHashResidualAllocationPolicy: z.string().optional(),
     sameHashExplainedTargetResidualAmount: z.string().optional(),
-    sameHashExplainedTargetResidualRole: z.string().optional(),
+    sameHashExplainedTargetResidualRole: MovementRoleSchema.optional(),
     feeBearingSourceTransactionId: z.number().int().positive().optional(),
     sameHashExternalSourceAllocations: z.array(SameHashExternalSourceAllocationSchema).optional(),
     sharedToAddress: z.string().optional(),
@@ -103,6 +113,7 @@ export const TransactionLinkMetadataSchema = z
     transferProposalKey: z.string().optional(),
     overrideId: z.string().optional(),
     overrideLinkType: OverrideLinkTypeSchema.optional(),
+    linkProvenance: TransactionLinkProvenanceSchema.optional(),
   })
   .strict();
 
@@ -142,6 +153,7 @@ export const NewTransactionLinkSchema = TransactionLinkSchema.omit({ id: true })
  */
 export type LinkType = z.infer<typeof LinkTypeSchema>;
 export type LinkStatus = z.infer<typeof LinkStatusSchema>;
+export type TransactionLinkProvenance = z.infer<typeof TransactionLinkProvenanceSchema>;
 export type MatchCriteria = z.infer<typeof MatchCriteriaSchema>;
 
 export type TransactionLinkScoreBreakdownEntry = z.infer<typeof TransactionLinkScoreBreakdownEntrySchema>;
@@ -149,6 +161,11 @@ export type SameHashExternalSourceAllocation = z.infer<typeof SameHashExternalSo
 export type TransactionLinkMetadata = z.infer<typeof TransactionLinkMetadataSchema>;
 export type TransactionLink = z.infer<typeof TransactionLinkSchema>;
 export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;
+
+export interface ExplainedTargetResidual {
+  amount: z.infer<typeof DecimalSchema>;
+  role: MovementRole;
+}
 
 export function isPartialMatchLinkMetadata(
   metadata: TransactionLinkMetadata | undefined
@@ -166,6 +183,21 @@ export function hasImpliedFeeAmount(
   link: Pick<TransactionLink, 'impliedFeeAmount'> | undefined
 ): link is Pick<TransactionLink, 'impliedFeeAmount'> & { impliedFeeAmount: z.infer<typeof NonNegativeDecimalSchema> } {
   return link?.impliedFeeAmount !== undefined;
+}
+
+export function resolveTransactionLinkProvenance(
+  link: Pick<TransactionLink, 'metadata' | 'reviewedBy'>
+): TransactionLinkProvenance {
+  const persistedProvenance = link.metadata?.linkProvenance;
+  if (persistedProvenance !== undefined) {
+    return persistedProvenance;
+  }
+
+  if (link.reviewedBy === undefined || link.reviewedBy === 'auto') {
+    return 'system';
+  }
+
+  return 'user';
 }
 
 export function isSameHashExternalLinkMetadata(
@@ -190,4 +222,58 @@ export function isSameHashExternalLinkMetadata(
     typeof metadata.blockchainTxHash === 'string' &&
     typeof metadata.sharedToAddress === 'string'
   );
+}
+
+export function getExplainedTargetResidual(
+  links: readonly Pick<TransactionLink, 'metadata'>[]
+): ExplainedTargetResidual | undefined {
+  let resolvedAmount: z.infer<typeof DecimalSchema> | undefined;
+  let resolvedRole: MovementRole | undefined;
+  let explainedLinkCount = 0;
+
+  for (const link of links) {
+    const amountRaw = link.metadata?.sameHashExplainedTargetResidualAmount;
+    const roleRaw = link.metadata?.sameHashExplainedTargetResidualRole;
+
+    if (amountRaw === undefined && roleRaw === undefined) {
+      continue;
+    }
+
+    if (typeof amountRaw !== 'string') {
+      return undefined;
+    }
+
+    const parsedRole = MovementRoleSchema.safeParse(roleRaw);
+    if (!parsedRole.success) {
+      return undefined;
+    }
+
+    const parsedAmount = DecimalSchema.safeParse(amountRaw);
+    if (!parsedAmount.success) {
+      return undefined;
+    }
+
+    const amount = parsedAmount.data;
+    if (resolvedAmount === undefined || resolvedRole === undefined) {
+      resolvedAmount = amount;
+      resolvedRole = parsedRole.data;
+      explainedLinkCount += 1;
+      continue;
+    }
+
+    if (!resolvedAmount.eq(amount) || resolvedRole !== parsedRole.data) {
+      return undefined;
+    }
+
+    explainedLinkCount += 1;
+  }
+
+  if (explainedLinkCount === 0 || explainedLinkCount !== links.length || !resolvedAmount || !resolvedRole) {
+    return undefined;
+  }
+
+  return {
+    amount: resolvedAmount,
+    role: resolvedRole,
+  };
 }

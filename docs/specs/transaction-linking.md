@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-10
+last_verified: 2026-04-12
 status: canonical
 ---
 
@@ -13,20 +13,21 @@ override replay, and the persisted link contract.
 
 ## Quick Reference
 
-| Concept                | Key Rule                                                                                                                                                                           |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime boundary       | Linking builds linkable movements in memory from processed transactions; it does not persist a pre-linking shadow table                                                            |
-| Linkable movement unit | One `LinkableMovement` per inflow or outflow movement                                                                                                                              |
-| Matching amount        | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                                                       |
-| Structural trades      | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                                                           |
-| Same-hash grouping     | Blockchain transactions group by normalized hash, then by `assetId`                                                                                                                |
-| Internal-link topology | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                                              |
-| Movement identity      | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
-| Asset identity         | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
-| Match thresholds       | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
-| Strategy order         | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `amount-timing` → `partial-match`                                                                         |
-| Override replay        | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
-| Persistence            | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
+| Concept                 | Key Rule                                                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime boundary        | Linking builds linkable movements in memory from processed transactions; it does not persist a pre-linking shadow table                                                            |
+| Linkable movement unit  | One `LinkableMovement` per inflow or outflow movement                                                                                                                              |
+| Matching amount         | `netAmount ?? grossAmount`, except clear same-hash internal sends can reduce the source outflow amount first                                                                       |
+| Structural trades       | Transactions with disjoint inflow/outflow asset sets are excluded from strategy matching                                                                                           |
+| Same-hash grouping      | Blockchain transactions group by normalized hash, then by `assetId`                                                                                                                |
+| Internal-link topology  | Only one pure outflow participant plus one or more pure inflow participants is linkable; ambiguous groups are skipped                                                              |
+| Movement identity       | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
+| Asset identity          | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
+| Match thresholds        | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
+| Strategy order          | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `amount-timing` → `partial-match`                                                                         |
+| Same-hash external send | Exact same-hash exchange target match is allowed either exactly or with one exact explained residual on the target                                                                 |
+| Override replay         | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
+| Persistence             | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
 
 ## Goals
 
@@ -305,23 +306,37 @@ Hash-match fast path:
 
 Same-hash external outflow fast path:
 
-- only considers pure same-hash blockchain outflow groups with:
+- only considers same-hash blockchain outflow groups with:
   - at least two source movements
   - at least two accounts
   - exactly one shared `toAddress`
-  - no tracked blockchain inflow movement for the same `(hash, assetId, platformKey)`
-- reconstructs the group send amount as:
+  - zero or more tracked blockchain sibling inflows for the same `(hash, assetId, platformKey)`
+- first resolves source capacity per source movement:
+  - `deduped_shared_fee`
+    - use source `grossAmount`
+    - subtract the single shared same-hash fee exactly once from one deterministic fee-bearing source
+  - `per_source_allocated_fee`
+    - use each source movement's already fee-adjusted transfer amount
+- then computes:
 
 ```text
 group amount =
-  sum(source gross amount)
-  - max(same-hash duplicated fee)
+  total source capacity
+  - tracked sibling inflow amount
 ```
 
 - builds one synthetic group source for scoring only
-- only proceeds when exactly one exchange inflow target matches that synthetic source with `amountSimilarity = 1.0`
-- expands the accepted group match back into pairwise partial links, assigning the single deduplicated fee to one deterministic fee-bearing source and using gross amounts for the remaining sources
+- only proceeds when exactly one exchange inflow target matches that synthetic source with:
+  - `amountSimilarity = 1.0`
+  - or exact target excess explained by one exact same-hash residual described below
+- exact explained residual is allowed only when:
+  - the group has no tracked blockchain sibling inflows
+  - the target is an exchange inflow
+  - the target and all sources share the same normalized blockchain hash
+  - the target excess equals the sum of unique `unattributed_staking_reward_component` diagnostics across the source transactions
+- expands the accepted group match back into pairwise partial links using the chosen capacity plan
 - uses the synthetic group match confidence and status for every expanded link
+- mixed same-hash groups that also have tracked blockchain sibling inflows persist `sameHashMixedExternalGroup=true` and residual-allocation metadata on the expanded links
 
 Counterparty roundtrip fast path:
 
@@ -374,14 +389,31 @@ Persisted metadata rules:
   - `fullTargetAmount`
   - `consumedAmount`
 - same-hash external outflow expansions additionally store:
+  - `sameHashMixedExternalGroup`
+  - `sameHashExternalFeeAccounting`
+  - `sameHashExternalTotalFee`
   - `dedupedSameHashFee`
   - `feeBearingSourceTransactionId`
+  - `sameHashExternalGroupAmount`
+  - `sameHashExternalGroupSize`
   - `sameHashExternalSourceAllocations`
+  - `sharedToAddress`
+  - `sameHashTrackedSiblingInflowAmount`
+  - `sameHashTrackedSiblingInflowCount`
+  - `sameHashResidualAllocationPolicy`
+  - `sameHashExplainedTargetResidualAmount`
+  - `sameHashExplainedTargetResidualRole`
 - counterparty roundtrip links additionally store:
   - `counterpartyRoundtrip=true`
   - `counterpartyRoundtripHours`
 - score breakdown is stored when available
 - hash-match target excess allowance is recorded in metadata when used
+
+Downstream contract for exact explained residual metadata:
+
+- transfer validation may accept the target-side partial group exactly when every expanded link carries the same explained residual amount and role
+- `links gaps` may omit the residual from open transfer review when that explained residual is exact and fully accounts for the uncovered target amount
+- tax projection may classify the surviving unmatched inflow quantity using `sameHashExplainedTargetResidualRole` instead of treating it as a generic unexplained acquisition
 
 Status rules:
 

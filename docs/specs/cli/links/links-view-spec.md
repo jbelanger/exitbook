@@ -125,10 +125,13 @@ Behavior:
 
 - Shows coverage-gap issues, not proposals.
 - Each row corresponds to one unresolved asset-direction coverage issue.
+- Fully explained exact residuals are omitted from the open list because they are not user-actionable transfer-review work.
 - Gap rows are ordered chronologically.
 - Resolved gap issues are hidden by default.
 - Header and JSON metadata report how many resolved gap issues are hidden.
-- Rows may include an inline cue when the analyzer recognizes a likely pattern without suppressing the issue.
+- Rows may include inline review context when the analyzer has:
+  - a likely heuristic cue (`gapCue`)
+  - or deterministic diagnostic / movement-role context (`contextHint`)
 
 List columns:
 
@@ -153,7 +156,9 @@ exitbook links gaps view <gap-ref> --json
 Behavior:
 
 - Renders one gap detail card with `GAP-REF`, transaction ref, fingerprint, platform, date, operation, asset id, gap amount, coverage, and readiness.
-- When present, detail also shows a cue line describing the likely pattern behind the issue.
+- When present, detail also shows:
+  - a cue line describing the likely pattern behind the issue
+  - a context line describing deterministic diagnostic or movement-role context on the transaction
 - When the transaction has multiple gap rows, detail also shows the count of open gap rows still present on that transaction.
 - Includes next-step guidance:
   - review suggested proposals with `links explore --status suggested` when suggestions exist
@@ -201,7 +206,7 @@ Behavior:
 - Gap lists return gap summary rows.
 - JSON list output includes standard view metadata with active filters, including:
   - `hiddenResolvedIssues`
-- Gap rows include `gapCue` when the analyzer derives one.
+- Gap rows include `gapCue` and `contextHint` when the analyzer derives them.
 
 ### Detail
 

@@ -352,14 +352,15 @@ Current live numbers after Track 0 and the explained-partial-target strategy:
 
 Live links created on `2026-04-12` after reprocess + `links run`:
 
-- link `768`: `4343 -> 4200` / `1021.329314829243639698026006 ADA`
-- link `769`: `4348 -> 4200` / `974.9646790310350899938477373 ADA`
-- link `770`: `4350 -> 4200` / `672.8999971397212703081262567 ADA`
+- link `909`: `5291 -> 5148` / `1021.329314829243639698026006 ADA`
+- link `910`: `5296 -> 5148` / `974.9646790310350899938477373 ADA`
+- link `911`: `5298 -> 5148` / `672.8999971397212703081262567 ADA`
 - link metadata:
   - `sameHashExplainedTargetResidualAmount = 10.524451`
+  - `sameHashExplainedTargetResidualRole = staking_reward`
   - `sameHashExternalFeeAccounting = per_source_allocated_fee`
 
-This means the remaining target excess is not being linked as transfer quantity. It is carried explicitly as explained residual context on the partial target links.
+This means the remaining target excess is not being linked as transfer quantity. It is carried explicitly as explained residual context on the partial target links, and downstream consumers can classify it without pretending it was transfer principal.
 
 Live re-check on `2026-04-12`:
 
@@ -414,7 +415,8 @@ Result:
 
 - the old semantic ambiguity no longer blocks linking
 - the Cardano case is now linked safely without a Cardano-specific accounting rule
-- `links gaps` still shows one exchange-side ADA residual gap for `10.524451`; that is now a review-surface question, not a transfer-linking failure
+- `links gaps` no longer shows an open gap for the exchange-side ADA residual because it is now fully explained and not user-actionable transfer review
+- Canada tax projection now keeps the residual as an acquisition event but marks it with `incomeCategory='staking_reward'`, so it is no longer a generic unexplained acquisition
 - this is still not evidence for a broad new linking strategy; it is evidence for a narrower generic rule:
   - shared hash
   - exact target excess

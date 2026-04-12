@@ -30,6 +30,8 @@ import {
   formatLinkTypeDisplay,
   formatMatchCriteria,
   formatProposalConfidence,
+  formatProposalProvenance,
+  formatProposalProvenanceDetail,
   formatProposalRoute,
   getConfidenceColor,
   getCoverageColor,
@@ -169,8 +171,17 @@ const LinksView: FC<{
  */
 const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
   const { counts, statusFilter, totalCount } = state;
+  const displayedProposalCount = state.proposals.length;
+  const displayedLinkCount = countProposalLegs(state.proposals);
+  const provenanceSummaryParts = buildProposalProvenanceSummaryParts(state.proposals, statusFilter);
+  const effectiveStatusFilter = statusFilter ?? inferSingleStatusFilter(counts);
+  const summaryStatus = statusFilter ?? effectiveStatusFilter;
+  const filteredSummary =
+    summaryStatus !== undefined
+      ? buildFilteredProposalSummary(state.proposals, summaryStatus, displayedProposalCount, displayedLinkCount)
+      : undefined;
 
-  const title = statusFilter ? `Transaction Links (${statusFilter})` : 'Transaction Links';
+  const title = statusFilter ? `Link Proposals (${statusFilter})` : 'Link Proposals';
 
   const shouldShowStatus = (status: LinkStatus): boolean => {
     return (!statusFilter || statusFilter === status) && (counts[status] > 0 || statusFilter === status);
@@ -187,31 +198,37 @@ const LinksHeader: FC<{ state: LinksViewLinksState }> = ({ state }) => {
     countParts.push(`${counts.rejected} rejected`);
   }
 
-  const displayedCount = counts.confirmed + counts.suggested + counts.rejected;
-  const isLimited = totalCount !== undefined && totalCount > displayedCount;
+  const isLimited = totalCount !== undefined && totalCount > displayedProposalCount;
 
   return (
     <Box>
       <Text bold>{title}</Text>
-      {displayedCount > 0 && (
+      {displayedProposalCount > 0 && (
         <>
           <Text> </Text>
-          {statusFilter ? (
-            <Text dimColor>{countParts[0]}</Text>
-          ) : (
-            <Text>
-              {counts.confirmed > 0 && <Text color="green">{counts.confirmed} confirmed</Text>}
-              {counts.confirmed > 0 && (counts.suggested > 0 || counts.rejected > 0) && <Text dimColor> · </Text>}
-              {counts.suggested > 0 && <Text color="yellow">{counts.suggested} suggested</Text>}
-              {counts.suggested > 0 && counts.rejected > 0 && <Text dimColor> · </Text>}
-              {counts.rejected > 0 && <Text dimColor>{counts.rejected} rejected</Text>}
-            </Text>
+          <Text dimColor>
+            {filteredSummary ??
+              `${displayedProposalCount} proposal${displayedProposalCount !== 1 ? 's' : ''} · ${displayedLinkCount} link${
+                displayedLinkCount !== 1 ? 's' : ''
+              }${provenanceSummaryParts.length > 0 ? ` · ${provenanceSummaryParts.join(' · ')}` : ''}`}
+          </Text>
+          {summaryStatus === undefined && countParts.length > 0 && (
+            <>
+              <Text dimColor> · </Text>
+              <Text>
+                {counts.confirmed > 0 && <Text color="green">{counts.confirmed} confirmed</Text>}
+                {counts.confirmed > 0 && (counts.suggested > 0 || counts.rejected > 0) && <Text dimColor> · </Text>}
+                {counts.suggested > 0 && <Text color="yellow">{counts.suggested} suggested</Text>}
+                {counts.suggested > 0 && counts.rejected > 0 && <Text dimColor> · </Text>}
+                {counts.rejected > 0 && <Text dimColor>{counts.rejected} rejected</Text>}
+              </Text>
+            </>
           )}
           {isLimited && (
             <>
               <Text dimColor> · </Text>
               <Text dimColor>
-                showing {displayedCount} of {totalCount}
+                showing {displayedProposalCount} of {totalCount} proposals
               </Text>
             </>
           )}
@@ -299,7 +316,9 @@ const LinkRow: FC<{
         isSelected={isSelected}
       >
         {icon} {date} {asset} {renderAmountSummary(amountDisplay)} {sourceTarget}
-        <Text dimColor>{legCountSuffix}</Text> {confidence} {status}
+        <Text dimColor>{legCountSuffix}</Text>
+        <Text dimColor> · </Text>
+        {confidence} {status}
       </SelectableRow>
     );
   }
@@ -308,7 +327,9 @@ const LinkRow: FC<{
     <SelectableRow isSelected={isSelected}>
       <Text color={iconColor}>{icon}</Text> {date} {asset} {renderAmountSummary(amountDisplay)}{' '}
       <Text color="cyan">{sourceTarget}</Text>
-      <Text dimColor>{legCountSuffix}</Text> {confidence} {status}
+      <Text dimColor>{legCountSuffix}</Text>
+      <Text dimColor> · </Text>
+      {confidence} {status}
     </SelectableRow>
   );
 };
@@ -401,12 +422,28 @@ function buildSingleLegDetailRows(
 
   rows.push(
     <Text key="blank-2"> </Text>,
+    <Text key="provenance">
+      {'  '}
+      <Text dimColor>Provenance: </Text>
+      {renderProposalProvenanceLabel(proposal)}
+    </Text>,
     <Text key="match">
       {'  '}
       <Text dimColor>Match: </Text>
       {formatMatchCriteria(link.matchCriteria)}
     </Text>
   );
+
+  const provenanceDetail = formatProposalProvenanceDetail(proposal.provenanceSummary);
+  if (provenanceDetail) {
+    rows.push(
+      <Text key="provenance-detail">
+        {'  '}
+        <Text dimColor>Provenance detail: </Text>
+        {provenanceDetail}
+      </Text>
+    );
+  }
 
   if (amountDisplay.detailSummary) {
     rows.push(
@@ -440,6 +477,11 @@ function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): Re
       {'  '}
       <Text dimColor>Scope: </Text>
       {proposal.legs.length} legs review together
+    </Text>,
+    <Text key="provenance">
+      {'  '}
+      <Text dimColor>Provenance: </Text>
+      {renderProposalProvenanceLabel(proposal)}
     </Text>,
     ...visibleLegs.map((leg, index) => (
       <Text key={`leg-${leg.link.id}`}>
@@ -482,15 +524,22 @@ function buildMultiLegDetailRows(proposal: TransferProposalWithTransactions): Re
     );
   }
 
+  const provenanceDetail = formatProposalProvenanceDetail(proposal.provenanceSummary);
+  if (provenanceDetail) {
+    rows.push(
+      <Text key="provenance-detail">
+        {'  '}
+        <Text dimColor>Provenance detail: </Text>
+        {provenanceDetail}
+      </Text>
+    );
+  }
+
   return rows;
 }
 
 function renderAmountSummary(display: LinkAmountDisplay) {
-  return (
-    <>
-      <Text color="green">{formatAmount(display.matchedAmount, 15)}</Text> <Text dimColor>matched</Text>
-    </>
-  );
+  return <Text color="green">{formatAmount(display.linkedAmount, 15)}</Text>;
 }
 
 /**
@@ -552,7 +601,7 @@ const LinksEmptyState: FC<{ state: LinksViewLinksState }> = ({ state }) => {
       <Text> </Text>
       {totalLinks === 0 && !statusFilter ? (
         <Box flexDirection="column">
-          <Text>No transaction links found.</Text>
+          <Text>No link proposals found.</Text>
           <Text> </Text>
           <Text>Run the linking algorithm first:</Text>
           <Text>
@@ -561,7 +610,7 @@ const LinksEmptyState: FC<{ state: LinksViewLinksState }> = ({ state }) => {
           </Text>
         </Box>
       ) : (
-        <Text>No {statusFilter || ''} links found.</Text>
+        <Text>No {statusFilter || ''} proposals found.</Text>
       )}
       <Text> </Text>
       <Text dimColor>q quit</Text>
@@ -622,7 +671,8 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
           <>
             <Text dimColor> · </Text>
             <Text dimColor>
-              {state.hiddenResolvedIssueCount} resolved gap{state.hiddenResolvedIssueCount !== 1 ? 's' : ''} hidden
+              {state.hiddenResolvedIssueCount} override-resolved gap
+              {state.hiddenResolvedIssueCount !== 1 ? 's' : ''} hidden
             </Text>
           </>
         )}
@@ -909,14 +959,122 @@ const GapsControlsBar: FC = () => {
  * Empty state component (gaps mode)
  */
 const GapsEmptyState: FC<{ state: LinksViewGapsState }> = ({ state }) => {
+  const emptyMessage =
+    state.hiddenResolvedIssueCount > 0
+      ? `No open gaps. ${state.hiddenResolvedIssueCount} gap${
+          state.hiddenResolvedIssueCount === 1 ? ' is' : 's are'
+        } hidden by resolution overrides.`
+      : 'All movements have confirmed counterparties.';
+
   return (
     <Box flexDirection="column">
       <Text> </Text>
       <GapsHeader state={state} />
       <Text> </Text>
-      <Text>{'  '}All movements have confirmed counterparties.</Text>
+      <Text>
+        {'  '}
+        {emptyMessage}
+      </Text>
       <Text> </Text>
       <Text dimColor>q quit</Text>
     </Box>
   );
 };
+
+function renderProposalProvenanceLabel(proposal: TransferProposalWithTransactions): ReactElement {
+  const label = formatProposalProvenance(proposal.provenanceSummary);
+
+  switch (proposal.provenanceSummary.provenance) {
+    case 'system':
+      return <Text dimColor>{label}</Text>;
+    case 'user':
+      return <Text color="yellow">{label}</Text>;
+    case 'manual':
+      return <Text color="cyan">{label}</Text>;
+    case 'mixed':
+      return <Text color="yellow">{label}</Text>;
+  }
+}
+
+function countProposalLegs(proposals: TransferProposalWithTransactions[]): number {
+  return proposals.reduce((total, proposal) => total + proposal.legs.length, 0);
+}
+
+function buildProposalProvenanceSummaryParts(
+  proposals: readonly TransferProposalWithTransactions[],
+  statusFilter?: LinkStatus
+): string[] {
+  const counts = countProposalProvenance(proposals);
+
+  return [
+    counts.user > 0 ? formatProposalKindCount('user', counts.user, statusFilter) : undefined,
+    counts.manual > 0 ? formatProposalKindCount('manual', counts.manual, statusFilter) : undefined,
+    counts.mixed > 0 ? formatProposalKindCount('mixed', counts.mixed, statusFilter) : undefined,
+  ].filter((value): value is string => value !== undefined);
+}
+
+function buildFilteredProposalSummary(
+  proposals: readonly TransferProposalWithTransactions[],
+  statusFilter: LinkStatus,
+  proposalCount: number,
+  legCount: number
+): string {
+  const provenanceCounts = countProposalProvenance(proposals);
+  const provenanceParts = [
+    provenanceCounts.system > 0 ? `${provenanceCounts.system} system` : undefined,
+    provenanceCounts.user > 0 ? `${provenanceCounts.user} user` : undefined,
+    provenanceCounts.manual > 0 ? `${provenanceCounts.manual} manual` : undefined,
+    provenanceCounts.mixed > 0 ? `${provenanceCounts.mixed} mixed` : undefined,
+  ].filter((value): value is string => value !== undefined);
+
+  return (
+    `${proposalCount} ${statusFilter} proposal${proposalCount === 1 ? '' : 's'} ` +
+    `(${legCount} leg${legCount === 1 ? '' : 's'}${provenanceParts.length > 0 ? `; ${provenanceParts.join(', ')}` : ''})`
+  );
+}
+
+function countProposalProvenance(proposals: readonly TransferProposalWithTransactions[]): {
+  manual: number;
+  mixed: number;
+  system: number;
+  user: number;
+} {
+  return proposals.reduce(
+    (acc, proposal) => {
+      if (proposal.provenanceSummary.provenance === 'system') {
+        acc.system += 1;
+      } else if (proposal.provenanceSummary.provenance === 'user') {
+        acc.user += 1;
+      } else if (proposal.provenanceSummary.provenance === 'manual') {
+        acc.manual += 1;
+      } else if (proposal.provenanceSummary.provenance === 'mixed') {
+        acc.mixed += 1;
+      }
+
+      return acc;
+    },
+    { manual: 0, mixed: 0, system: 0, user: 0 }
+  );
+}
+
+function inferSingleStatusFilter(counts: LinksViewLinksState['counts']): LinkStatus | undefined {
+  const statuses = (['confirmed', 'suggested', 'rejected'] as const).filter((status) => counts[status] > 0);
+  return statuses.length === 1 ? statuses[0] : undefined;
+}
+
+function formatProposalKindCount(kind: 'manual' | 'mixed' | 'user', count: number, statusFilter?: LinkStatus): string {
+  switch (kind) {
+    case 'user':
+      if (statusFilter === 'confirmed') {
+        return `${count} user-confirmed proposal${count === 1 ? '' : 's'}`;
+      }
+      if (statusFilter === 'rejected') {
+        return `${count} user-rejected proposal${count === 1 ? '' : 's'}`;
+      }
+      return `${count} user-reviewed proposal${count === 1 ? '' : 's'}`;
+    case 'manual':
+      return `${count} manual proposal${count === 1 ? '' : 's'}`;
+    case 'mixed':
+      return `${count} mixed-provenance proposal${count === 1 ? '' : 's'}`;
+  }
+}

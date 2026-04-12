@@ -9,12 +9,16 @@ import {
 } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
+import type {
+  LinkProposalProvenanceSummary,
+  LinkWithTransactions,
+  TransferProposalWithTransactions,
+} from '../links-view-model.js';
 
 export interface LinkAmountDisplay {
   detailLabel?: string | undefined;
   detailSummary?: string | undefined;
-  matchedAmount: string;
+  linkedAmount: string;
 }
 
 export function getStatusDisplay(status: LinkStatus): { icon: string; iconColor: string } {
@@ -221,12 +225,57 @@ export function getProposalConfidenceColor(proposal: TransferProposalWithTransac
   return getConfidenceColor(Math.min(...confidenceValues));
 }
 
+export function formatProposalProvenance(summary: LinkProposalProvenanceSummary): string {
+  switch (summary.provenance) {
+    case 'system':
+      return 'system';
+    case 'user':
+      return 'user';
+    case 'manual':
+      return 'manual';
+    case 'mixed':
+      return 'mixed';
+  }
+}
+
+export function formatProposalProvenanceDetail(summary: LinkProposalProvenanceSummary): string | undefined {
+  if (summary.provenance === 'system' && summary.overrideIds.length === 0) {
+    return undefined;
+  }
+
+  const provenanceParts = [
+    summary.userLegCount > 0
+      ? `${summary.userLegCount} user-reviewed ${summary.userLegCount === 1 ? 'leg' : 'legs'}`
+      : undefined,
+    summary.manualLegCount > 0
+      ? `${summary.manualLegCount} manual ${summary.manualLegCount === 1 ? 'leg' : 'legs'}`
+      : undefined,
+    summary.provenance === 'mixed' && summary.systemLegCount > 0
+      ? `${summary.systemLegCount} system ${summary.systemLegCount === 1 ? 'leg' : 'legs'}`
+      : undefined,
+  ].filter((value): value is string => value !== undefined);
+
+  const overrideLabel = summary.overrideIds.length === 1 ? 'override' : 'overrides';
+  const typeSummary =
+    summary.overrideLinkTypes.length === 0
+      ? undefined
+      : `${summary.overrideLinkTypes.join(', ')} ${summary.overrideLinkTypes.length === 1 ? 'type' : 'types'}`;
+
+  return [
+    ...provenanceParts,
+    ...(summary.overrideIds.length > 0 ? [`${summary.overrideIds.length} ${overrideLabel}`] : []),
+    typeSummary,
+  ]
+    .filter((value): value is string => value !== undefined)
+    .join(' · ');
+}
+
 export function getProposalAmountDisplay(proposal: TransferProposalWithTransactions): LinkAmountDisplay {
   const link = proposal.representativeLink;
   const metadata = link.metadata;
 
   if (proposal.legs.length > 1) {
-    const totalMatchedAmount = proposal.legs.reduce((sum, leg) => sum.plus(leg.link.sourceAmount), new Decimal(0));
+    const totalLinkedAmount = proposal.legs.reduce((sum, leg) => sum.plus(leg.link.sourceAmount), new Decimal(0));
     const sameHashSummary =
       isSameHashExternalLinkMetadata(metadata) &&
       metadata.sameHashMixedExternalGroup === true &&
@@ -239,7 +288,7 @@ export function getProposalAmountDisplay(proposal: TransferProposalWithTransacti
 
     return {
       detailLabel: 'Summary:',
-      matchedAmount: totalMatchedAmount.toFixed(),
+      linkedAmount: totalLinkedAmount.toFixed(),
       detailSummary: sameHashSummary ?? `${proposal.legs.length} linked legs between ${formatProposalRoute(proposal)}`,
     };
   }
@@ -255,7 +304,7 @@ export function getProposalAmountDisplay(proposal: TransferProposalWithTransacti
 
     return {
       detailLabel: 'Summary:',
-      matchedAmount: link.sourceAmount.toFixed(),
+      linkedAmount: link.sourceAmount.toFixed(),
       detailSummary:
         `same-hash mixed group: ${metadata.sameHashExternalGroupAmount} ${link.assetSymbol} to exchange after ` +
         `${metadata.sameHashTrackedSiblingInflowAmount} ${link.assetSymbol} to ${metadata.sameHashTrackedSiblingInflowCount} ${siblingLabel}`,
@@ -269,14 +318,14 @@ export function getProposalAmountDisplay(proposal: TransferProposalWithTransacti
 
     return {
       detailLabel: 'Summary:',
-      matchedAmount: consumedAmount,
+      linkedAmount: consumedAmount,
       detailSummary: `split match between ${fullSourceAmount} ${link.assetSymbol} sent and ${fullTargetAmount} ${link.assetSymbol} received`,
     };
   }
 
   if (link.sourceAmount.equals(link.targetAmount)) {
     return {
-      matchedAmount: link.sourceAmount.toFixed(),
+      linkedAmount: link.sourceAmount.toFixed(),
       detailSummary: undefined,
     };
   }
@@ -287,14 +336,14 @@ export function getProposalAmountDisplay(proposal: TransferProposalWithTransacti
 
     return {
       detailLabel: hasImpliedFeeAmount(link) ? 'Implied fee:' : 'Change:',
-      matchedAmount: link.targetAmount.toFixed(),
+      linkedAmount: link.targetAmount.toFixed(),
       detailSummary: `${impliedFeeAmount} ${link.assetSymbol}`,
     };
   }
 
   return {
     detailLabel: 'Difference:',
-    matchedAmount: link.sourceAmount.toFixed(),
+    linkedAmount: link.sourceAmount.toFixed(),
     detailSummary: `target exceeds source by ${link.targetAmount.minus(link.sourceAmount).toFixed()} ${link.assetSymbol}`,
   };
 }

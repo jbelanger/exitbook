@@ -70,7 +70,7 @@ describe('LinksConfirmHandler', () => {
       expect(confirmResult.reviewedAt).toBeInstanceOf(Date);
 
       expect(mockLinkRepository.findById).toHaveBeenCalledWith(123, PROFILE_ID);
-      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user');
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user', expect.any(Map));
     });
 
     it('should write link_override event after successful confirm', async () => {
@@ -267,7 +267,7 @@ describe('LinksConfirmHandler', () => {
       const confirmResult = assertOk(result);
       expect(confirmResult.affectedLinkIds).toEqual([124]);
       expect(confirmResult.affectedLinkCount).toBe(1);
-      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([124], 'confirmed', 'cli-user');
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([124], 'confirmed', 'cli-user', expect.any(Map));
       expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
     });
 
@@ -461,7 +461,12 @@ describe('LinksConfirmHandler', () => {
       const confirmResult = assertOk(result);
       expect(confirmResult.affectedLinkIds).toEqual([123, 124]);
       expect(confirmResult.affectedLinkCount).toBe(2);
-      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123, 124], 'confirmed', 'cli-user');
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith(
+        [123, 124],
+        'confirmed',
+        'cli-user',
+        expect.any(Map)
+      );
       expect(mockOverrideStore.append).toHaveBeenCalledTimes(2);
     });
   });

@@ -154,6 +154,36 @@ describe('projectCanadaMovementEvents', () => {
     expect(events[0]!.valuation.totalValueCad.toFixed()).toBe('135000');
   });
 
+  it('marks standalone staking-reward inflows with incomeCategory', async () => {
+    const tx = buildTransaction({
+      id: 5,
+      datetime: '2024-04-15T12:00:00Z',
+      inflows: [
+        {
+          assetSymbol: 'ADA',
+          amount: '10.524451',
+          price: '0.75',
+          movementRole: 'staking_reward',
+        },
+      ],
+    });
+    const scoped = buildScopedTransaction(tx);
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
+
+    const events = assertOk(
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        usdConversionRateProvider,
+        identityConfig,
+      })
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]!.kind).toBe('acquisition');
+    expect((events[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
+  });
+
   it('projects a disposition event from an outflow with no validated links', async () => {
     const tx = buildTransaction({
       id: 2,
@@ -392,6 +422,97 @@ describe('projectCanadaMovementEvents', () => {
 
     expect(events.filter((e) => e.kind === 'transfer-out')).toHaveLength(1);
     expect(events.filter((e) => e.kind === 'transfer-in')).toHaveLength(1);
+  });
+
+  it('marks exact explained inflow residuals as staking-reward acquisitions', async () => {
+    const withdrawalTx = buildTransaction({
+      id: 22,
+      datetime: '2024-07-25T20:32:02Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '2669.193991', price: '0.75' }],
+    });
+    const depositTx = buildTransaction({
+      id: 23,
+      accountId: 2,
+      datetime: '2024-07-25T20:35:47Z',
+      inflows: [
+        {
+          assetSymbol: 'ADA',
+          amount: '2679.718442',
+          assetId: 'exchange:kucoin:ada',
+          price: '0.75',
+        },
+      ],
+    });
+
+    const scopedWithdrawal = buildScopedTransaction(withdrawalTx);
+    const scopedDeposit = buildScopedTransaction(depositTx);
+    const sourceMovementFp = scopedWithdrawal.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFp = scopedDeposit.movements.inflows[0]!.movementFingerprint;
+
+    const link: ValidatedScopedTransferLink = {
+      isPartialMatch: true,
+      link: {
+        id: 61,
+        sourceTransactionId: 22,
+        targetTransactionId: 23,
+        assetSymbol: 'ADA' as Currency,
+        sourceAssetId: 'exchange:test:ada',
+        targetAssetId: 'exchange:kucoin:ada',
+        sourceAmount: parseDecimal('2669.193991'),
+        targetAmount: parseDecimal('2669.193991'),
+        sourceMovementFingerprint: sourceMovementFp,
+        targetMovementFingerprint: targetMovementFp,
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: parseDecimal('1'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0,
+        },
+        status: 'confirmed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '2669.193991',
+          fullTargetAmount: '2679.718442',
+          consumedAmount: '2669.193991',
+          targetExcessAllowed: true,
+          targetExcess: '10.524451',
+          targetExcessPct: '0.393',
+          sameHashExplainedTargetResidualAmount: '10.524451',
+          sameHashExplainedTargetResidualRole: 'staking_reward',
+        },
+      },
+      sourceAssetId: 'exchange:test:ada',
+      sourceMovementAmount: parseDecimal('2669.193991'),
+      sourceMovementFingerprint: sourceMovementFp,
+      targetAssetId: 'exchange:kucoin:ada',
+      targetMovementAmount: parseDecimal('2679.718442'),
+      targetMovementFingerprint: targetMovementFp,
+    };
+
+    const events = assertOk(
+      await projectCanadaMovementEvents({
+        scopedTransactions: [scopedWithdrawal, scopedDeposit],
+        validatedTransfers: makeTransferSet([link]),
+        usdConversionRateProvider: createFxProvider({ CAD: '1.35' }),
+        identityConfig,
+      })
+    );
+
+    const transferInEvents = events.filter((event) => event.kind === 'transfer-in' && event.transactionId === 23);
+    const acquisitionEvents = events.filter((event) => event.kind === 'acquisition' && event.transactionId === 23);
+
+    expect(transferInEvents).toHaveLength(1);
+    expect(transferInEvents[0]!.valuation.totalValueCad.toFixed()).toBe(
+      parseDecimal('2669.193991').times('0.75').times('1.35').toFixed()
+    );
+
+    expect(acquisitionEvents).toHaveLength(1);
+    expect((acquisitionEvents[0] as CanadaAcquisitionEvent).quantity.toFixed()).toBe('10.524451');
+    expect((acquisitionEvents[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
   });
 
   it('projects both acquisition and disposition for a trade with inflow and outflow', async () => {

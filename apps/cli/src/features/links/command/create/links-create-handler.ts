@@ -13,6 +13,8 @@ import {
   type NewTransactionLink,
   type Transaction,
   type TransactionLink,
+  type TransactionLinkMetadata,
+  resolveTransactionLinkProvenance,
 } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
@@ -119,8 +121,12 @@ export class ManualLinkCreateHandler {
       yield* self.validateConfirmability(transactions, allLinks, validationCandidate, existingMatch?.link.id);
 
       if (existingMatch) {
-        yield* await self.appendOverride(existingMatch.link, params.reason);
-        yield* await self.confirmExistingLink(existingMatch.link.id, reviewedBy);
+        const overrideEvent = yield* await self.appendOverride(existingMatch.link, params.reason);
+        yield* await self.confirmExistingLink(
+          existingMatch.link.id,
+          reviewedBy,
+          buildReviewedLinkMetadata(existingMatch.link, overrideEvent.id)
+        );
 
         return self.buildResult(
           preparedLink,
@@ -163,7 +169,7 @@ export class ManualLinkCreateHandler {
     transactions: Transaction[],
     allLinks: TransactionLink[],
     candidateLink: TransactionLink | NewTransactionLink,
-    excludedExistingLinkId?: number  
+    excludedExistingLinkId?: number
   ): Result<void, Error> {
     const scopedTransactions = buildCostBasisScopedTransactions(transactions, logger);
     if (scopedTransactions.isErr()) {
@@ -181,7 +187,7 @@ export class ManualLinkCreateHandler {
 
   private async appendOverride(
     link: TransactionLink | NewTransactionLink,
-    reason?: string  
+    reason?: string
   ): Promise<Result<{ id: string }, Error>> {
     const appendResult = await appendLinkOverrideEvent(
       {
@@ -199,9 +205,18 @@ export class ManualLinkCreateHandler {
     return ok({ id: appendResult.value.id });
   }
 
-  private async confirmExistingLink(linkId: number, reviewedBy: string): Promise<Result<void, Error>> {
+  private async confirmExistingLink(
+    linkId: number,
+    reviewedBy: string,
+    metadata: TransactionLinkMetadata
+  ): Promise<Result<void, Error>> {
     const updateResult = await this.db.executeInTransaction(async (tx) => {
-      const updatedRows = await tx.transactionLinks.updateStatuses([linkId], 'confirmed', reviewedBy);
+      const updatedRows = await tx.transactionLinks.updateStatuses(
+        [linkId],
+        'confirmed',
+        reviewedBy,
+        new Map([[linkId, metadata]])
+      );
       if (updatedRows.isErr()) {
         return err(updatedRows.error);
       }
@@ -241,8 +256,8 @@ export class ManualLinkCreateHandler {
     reviewedBy: string,
     action: LinksCreateResult['action'],
     changed: boolean,
-    reason?: string  ,
-    existingStatusBefore?: LinkStatus  
+    reason?: string,
+    existingStatusBefore?: LinkStatus
   ): LinksCreateResult {
     return {
       action,
@@ -264,6 +279,15 @@ export class ManualLinkCreateHandler {
       targetTransactionRef: formatTransactionFingerprintRef(preparedLink.targetTransaction.txFingerprint),
     };
   }
+}
+
+function buildReviewedLinkMetadata(link: TransactionLink, overrideId: string): TransactionLinkMetadata {
+  return {
+    ...(link.metadata ?? {}),
+    overrideId,
+    overrideLinkType: 'transfer',
+    linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',
+  };
 }
 
 function findExactLinkMatch(

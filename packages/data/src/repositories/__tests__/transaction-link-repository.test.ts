@@ -340,6 +340,32 @@ describe('TransactionLinkRepository', () => {
       expect(links.map((link) => link.id)).toEqual([firstId, secondId]);
       expect(links.every((link) => link.reviewedBy === 'cli-user')).toBe(true);
     });
+
+    it('persists metadata updates when provided', async () => {
+      const linkId = assertOk(
+        await repo.create({
+          ...makeBtcLink(1, 2),
+          status: 'suggested',
+        })
+      );
+
+      const updatedRows = assertOk(
+        await repo.updateStatuses(
+          [linkId],
+          'confirmed',
+          'cli-user',
+          new Map([[linkId, { linkProvenance: 'user', overrideId: 'override-1', overrideLinkType: 'transfer' }]])
+        )
+      );
+      expect(updatedRows).toBe(1);
+
+      const link = assertOk(await repo.findById(linkId));
+      expect(link?.metadata).toMatchObject({
+        linkProvenance: 'user',
+        overrideId: 'override-1',
+        overrideLinkType: 'transfer',
+      });
+    });
   });
 
   describe('count', () => {

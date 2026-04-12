@@ -84,6 +84,7 @@ export function buildCanadaTaxReport(params: {
         costBasisPerUnitCad: layer.quantityAcquired.isZero()
           ? parseDecimal('0')
           : layer.totalCostCad.dividedBy(layer.quantityAcquired),
+        ...(acquisitionEvent.incomeCategory !== undefined ? { incomeCategory: acquisitionEvent.incomeCategory } : {}),
       });
     }
   }

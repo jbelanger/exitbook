@@ -185,5 +185,6 @@ export function buildManualLinkOverrideMetadata(
   return {
     overrideId,
     overrideLinkType,
+    linkProvenance: 'manual',
   };
 }

@@ -2,7 +2,7 @@ import {
   buildCostBasisScopedTransactions,
   validateTransferProposalConfirmability,
 } from '@exitbook/accounting/cost-basis';
-import type { TransactionLink } from '@exitbook/core';
+import { resolveTransactionLinkProvenance, type TransactionLink, type TransactionLinkMetadata } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { Result } from '@exitbook/foundation';
@@ -120,7 +120,13 @@ export class TransferProposalReviewService {
       }
 
       const updateResult = await this.db.executeInTransaction(async (tx) => {
-        const updatedRowsResult = await tx.transactionLinks.updateStatuses(actionableIds, targetStatus, reviewedBy);
+        const metadataById = buildReviewedMetadataMap(actionableLinks);
+        const updatedRowsResult = await tx.transactionLinks.updateStatuses(
+          actionableIds,
+          targetStatus,
+          reviewedBy,
+          metadataById
+        );
         if (updatedRowsResult.isErr()) {
           return err(updatedRowsResult.error);
         }
@@ -263,4 +269,16 @@ export class TransferProposalReviewService {
       targetName: targetTxResult.value?.platformKey ?? 'unknown',
     });
   }
+}
+
+function buildReviewedMetadataMap(links: TransactionLink[]): ReadonlyMap<number, TransactionLinkMetadata> {
+  return new Map(
+    links.map((link) => [
+      link.id,
+      {
+        ...(link.metadata ?? {}),
+        linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',
+      },
+    ])
+  );
 }

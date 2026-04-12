@@ -210,4 +210,34 @@ describe('canada-tax-report-builder', () => {
     expect(taxReport.summary.totalGainLossCad.toFixed()).toBe('4000');
     expect(taxReport.summary.totalTaxableGainLossCad.toFixed()).toBe('2000');
   });
+
+  it('preserves acquisition incomeCategory in the tax report', () => {
+    const inputContext = createCanadaInputContext({
+      inputEvents: [
+        createCanadaAcquisitionEvent({
+          eventId: 'tx:reward:acquisition',
+          transactionId: 90,
+          timestamp: '2024-03-01T00:00:00Z',
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA',
+          quantity: '10.524451',
+          unitValueCad: '1',
+          incomeCategory: 'staking_reward',
+        }),
+      ],
+    });
+    const acbEngineResult = assertOk(runCanadaAcbEngine(inputContext));
+
+    const taxReport = assertOk(
+      buildCanadaTaxReport({
+        calculation: createCalculation(),
+        inputContext,
+        acbEngineResult,
+        poolStateEngineResult: acbEngineResult,
+      })
+    );
+
+    expect(taxReport.acquisitions).toHaveLength(1);
+    expect(taxReport.acquisitions[0]?.incomeCategory).toBe('staking_reward');
+  });
 });

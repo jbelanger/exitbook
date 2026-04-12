@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-08
+last_verified: 2026-04-12
 status: canonical
 ---
 
@@ -13,16 +13,17 @@ Link generation and the persisted `TransactionLink` contract are specified in [`
 
 ## Quick Reference
 
-| Concept                     | Rule                                                                                    |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| Tax input boundary          | `processed transactions → accounting scope builder → scoped validation → matcher`       |
-| Link eligibility            | Only `status='confirmed'` external links are honored by cost basis                      |
-| Confidence handling         | Cost basis does not re-threshold confirmed links by confidence score                    |
-| Internal same-hash behavior | Resolved by the accounting scope builder, not by `blockchain_internal` link consumption |
-| Link identity               | Source/target `assetId` and movement fingerprints must validate on the scoped boundary  |
-| Partial links               | Supported for genuine 1:N and N:1 transfers on one scoped movement                      |
-| Fee policy                  | `sameAssetTransferFeePolicy`: `'disposal'` or `'add-to-basis'`                          |
-| Pricing prerequisite        | Required prices are checked on scoped movements and scoped fees, not raw processed rows |
+| Concept                     | Rule                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Tax input boundary          | `processed transactions → accounting scope builder → scoped validation → matcher`                                       |
+| Link eligibility            | Only `status='confirmed'` external links are honored by cost basis                                                      |
+| Confidence handling         | Cost basis does not re-threshold confirmed links by confidence score                                                    |
+| Internal same-hash behavior | Resolved by the accounting scope builder, not by `blockchain_internal` link consumption                                 |
+| Link identity               | Source/target `assetId` and movement fingerprints must validate on the scoped boundary                                  |
+| Partial links               | Supported for genuine 1:N and N:1 transfers on one scoped movement                                                      |
+| Explained target residuals  | Exact same-hash staking residuals can validate a partial target and classify the remaining acquisition as reward income |
+| Fee policy                  | `sameAssetTransferFeePolicy`: `'disposal'` or `'add-to-basis'`                                                          |
+| Pricing prerequisite        | Required prices are checked on scoped movements and scoped fees, not raw processed rows                                 |
 
 ## Goals
 
@@ -66,6 +67,9 @@ Required checks:
 - resolved source and target symbol match persisted `assetSymbol`
 - non-partial links reconcile exactly to the scoped movement amount
 - partial links reconcile within the scoped movement bounds
+- target-side partial groups may reconcile either:
+  - exactly to the scoped target amount
+  - or to the scoped target amount minus one exact explained residual described below
 
 Rejected from cost-basis matching:
 
@@ -114,6 +118,10 @@ When a scoped inflow has validated links:
 - sibling inflows are not aggregated implicitly
 - inherited basis comes only from source-side `LotTransfer` rows bound to that validated target
 - eligible fiat fees from source and target can increase basis
+- if multiple partial confirmed links point to one exchange inflow target, target-side validation may still succeed when the remaining uncovered target amount is explained exactly by same-hash source diagnostics:
+  - every linked source transaction must be an in-scope blockchain transaction with the same normalized blockchain hash as the exchange target
+  - the residual must equal the sum of unique `unattributed_staking_reward_component` diagnostics across those source transactions
+  - this is an exact allowance, not a heuristic tolerance
 
 When a scoped inflow is targeted by a fee-only internal carryover:
 
@@ -123,6 +131,12 @@ When a scoped inflow is targeted by a fee-only internal carryover:
 When a scoped inflow has neither:
 
 - it becomes a normal acquisition lot
+
+Exact staking residual behavior:
+
+- explained target residuals still project as acquisition events for the unmatched inflow quantity
+- when the explained residual metadata says the unmatched quantity is `staking_reward`, the acquisition event carries `incomeCategory='staking_reward'`
+- unexplained residual inflow quantity still projects as a generic acquisition event
 
 ## LotTransfer Provenance
 
@@ -207,6 +221,7 @@ graph TD
 - Same-asset sibling inflows in one transaction do not aggregate unless validated partial links explicitly share one target movement fingerprint.
 - Fee-only internal same-hash carryovers depend on movement fingerprints, not just transaction IDs.
 - Missing validated links still cause ordinary disposal/acquisition behavior; the matcher does not invent transfer meaning.
+- Exact explained staking residuals now keep transfer validation strict while still classifying the unmatched inflow quantity as reward income.
 
 ## Related Specs
 

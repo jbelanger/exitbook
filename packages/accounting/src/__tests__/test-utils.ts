@@ -129,6 +129,7 @@ interface TestMovementInput {
   assetSymbol: string;
   amount: string;
   assetId?: string | undefined;
+  movementRole?: AssetMovementDraft['movementRole'] | undefined;
   netAmount?: string | undefined;
   price?: string | undefined;
   priceCurrency?: string | undefined;
@@ -149,6 +150,10 @@ function buildTestMovement(m: TestMovementInput, datetime: string): AssetMovemen
 
   if (m.netAmount !== undefined) {
     movement.netAmount = parseDecimal(m.netAmount);
+  }
+
+  if (m.movementRole !== undefined) {
+    movement.movementRole = m.movementRole;
   }
 
   if (m.price !== undefined) {

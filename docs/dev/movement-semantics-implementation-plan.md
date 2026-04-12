@@ -652,6 +652,34 @@ Note:
 - the design rule is already in the spec
 - this phase is about exhaustive implementation and validation
 
+## Cross-Cutting Finding: Exact Explained Residuals Need Downstream Completion
+
+Live Cardano verification on hash `0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf` surfaced an important boundary:
+
+- transfer linking can already be correct once same-hash partial targets accept one exact typed residual
+- that is not sufficient on its own unless downstream consumers also treat the exact residual as explained
+
+Completion slice landed on `2026-04-12`:
+
+- exact same-hash residual metadata now has a shared core helper instead of ad hoc metadata reads
+- Canada tax projection now classifies an exact explained staking residual acquisition as `incomeCategory='staking_reward'`
+- `links gaps` now suppresses fully explained exact staking residuals from the open transfer-review surface
+
+Why this matters:
+
+- we do not need fake source transactions or wallet-scope processing exceptions to finish this class of case
+- we also do not need user action for fully explained residuals that are exact and deterministic
+- future residual categories must meet the same bar:
+  - exact amount
+  - typed role
+  - no heuristic inference
+
+Open caution:
+
+- this pattern is intentionally narrow
+- unexplained residuals must still remain visible and reviewable
+- future residual-role expansion should reuse the same exactness contract rather than growing chain-specific exceptions
+
 ## Phase 6: Broader Consumer Adoption Outside Transfer Workflows
 
 Status: blocked

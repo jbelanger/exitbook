@@ -1,4 +1,5 @@
 import type { AssetMovement } from '@exitbook/core';
+import { getExplainedTargetResidual, getMovementRole } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -10,7 +11,7 @@ import type {
 } from '../../../standard/matching/validated-scoped-transfer-links.js';
 
 import { resolvePoolIdentity, type CanadaMovementEvent } from './canada-tax-event-stage-shared.js';
-import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
+import type { CanadaAcquisitionEvent, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 import { buildCanadaTaxValuation, normalizeDecimal } from './canada-tax-valuation.js';
 
 function getTransferComparableQuantity(movement: AssetMovement): Decimal {
@@ -51,6 +52,9 @@ async function buildMovementEvent(
     provenanceKind: 'scoped-movement' | 'validated-link';
     sourceMovementFingerprint?: string | undefined;
     targetMovementFingerprint?: string | undefined;
+  },
+  options?: {
+    incomeCategory?: CanadaAcquisitionEvent['incomeCategory'] | undefined;
   }
 ): Promise<Result<CanadaMovementEvent | undefined, Error>> {
   if (isFiat(movement.assetSymbol)) {
@@ -95,13 +99,39 @@ async function buildMovementEvent(
 
   switch (kind) {
     case 'acquisition':
-      return ok({ ...baseEvent, kind, quantity });
+      return ok({
+        ...baseEvent,
+        kind,
+        quantity,
+        ...(options?.incomeCategory !== undefined ? { incomeCategory: options.incomeCategory } : {}),
+      });
     case 'disposition':
       return ok({ ...baseEvent, kind, quantity });
     case 'transfer-in':
       return ok({ ...baseEvent, kind, quantity });
     case 'transfer-out':
       return ok({ ...baseEvent, kind, quantity });
+  }
+}
+
+function getMovementIncomeCategory(movement: AssetMovement): CanadaAcquisitionEvent['incomeCategory'] | undefined {
+  return getMovementRole(movement) === 'staking_reward' ? 'staking_reward' : undefined;
+}
+
+function getExplainedResidualIncomeCategory(
+  links: readonly ValidatedScopedTransferLink[],
+  residualQuantity: Decimal
+): CanadaAcquisitionEvent['incomeCategory'] | undefined {
+  const explainedResidual = getExplainedTargetResidual(links.map((validatedLink) => validatedLink.link));
+  if (!explainedResidual || !explainedResidual.amount.eq(residualQuantity)) {
+    return undefined;
+  }
+
+  switch (explainedResidual.role) {
+    case 'staking_reward':
+      return 'staking_reward';
+    default:
+      return undefined;
   }
 }
 
@@ -118,6 +148,8 @@ async function projectTransferAwareMovementEvents(
   const residualEventKind = direction === 'inflow' ? 'acquisition' : 'disposition';
 
   if (sortedLinks.length === 0) {
+    const incomeCategory =
+      direction === 'inflow' && residualEventKind === 'acquisition' ? getMovementIncomeCategory(movement) : undefined;
     const directEventResult = await buildMovementEvent(
       scopedTransaction,
       movement,
@@ -126,7 +158,8 @@ async function projectTransferAwareMovementEvents(
       `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
-      { provenanceKind: 'scoped-movement' }
+      { provenanceKind: 'scoped-movement' },
+      { incomeCategory }
     );
     if (directEventResult.isErr()) {
       return err(directEventResult.error);
@@ -179,6 +212,11 @@ async function projectTransferAwareMovementEvents(
   }
 
   if (residualQuantityResult.value.gt(0)) {
+    const incomeCategory =
+      direction === 'inflow' && residualEventKind === 'acquisition'
+        ? (getExplainedResidualIncomeCategory(sortedLinks, residualQuantityResult.value) ??
+          getMovementIncomeCategory(movement))
+        : undefined;
     const residualEventResult = await buildMovementEvent(
       scopedTransaction,
       movement,
@@ -187,7 +225,8 @@ async function projectTransferAwareMovementEvents(
       `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
-      { provenanceKind: 'scoped-movement' }
+      { provenanceKind: 'scoped-movement' },
+      { incomeCategory }
     );
     if (residualEventResult.isErr()) {
       return err(residualEventResult.error);

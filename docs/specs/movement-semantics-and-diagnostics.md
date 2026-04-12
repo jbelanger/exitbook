@@ -1,48 +1,51 @@
 ---
-last_verified: 2026-04-11
-status: draft
+last_verified: 2026-04-12
+status: canonical
 ---
 
 # Movement Semantics and Diagnostics Specification
 
-> Target model for replacing machine-authored `Transaction.notes` usage with first-class movement semantics and typed diagnostics.
+> ⚠️ **Code is law**: If this document disagrees with implementation, update the spec.
+
+Defines the canonical processed-transaction contract for movement roles, machine-authored diagnostics, and user-authored notes.
 
 ## Quick Reference
 
-| Concept                  | Key Rule                                                                 |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `movementRole`           | Every inflow/outflow must carry a generic semantic role                  |
-| Transfer eligibility     | Derived from `movementRole`, never from chain-specific downstream logic  |
-| `transactionDiagnostics` | Machine-authored typed diagnostics replace machine use of `notes`        |
-| `userNotes`              | Free-form notes are user-authored only and never drive machine workflows |
-| Movement identity        | Semantic refactors must not churn `movementFingerprint` by themselves    |
+| Concept              | Key Rule                                                                  |
+| -------------------- | ------------------------------------------------------------------------- |
+| `movementRole`       | Every inflow/outflow has an effective generic semantic role               |
+| Transfer eligibility | Derived from `movementRole`, never from chain-specific downstream logic   |
+| `diagnostics`        | Machine-authored typed diagnostics replace machine use of free-form notes |
+| `userNotes`          | Free-form notes are user-authored only and never drive machine workflows  |
+| Spam state           | Derived from diagnostics only; there is no persisted `isSpam` flag        |
+| Movement identity    | Semantic refactors must not churn `movementFingerprint` by themselves     |
 
 ## Goals
 
 - Separate **balance impact** from **transfer intent**.
 - Let chain-specific processors emit generic semantics that downstream packages can consume without chain-specific conditionals.
-- Eliminate machine dependence on free-form `Transaction.notes`.
+- Eliminate machine dependence on free-form note text.
 - Preserve a clean place for human-authored notes that does not leak into accounting, linking, or review logic.
 
 ## Non-Goals
 
-- Do not auto-resolve ambiguous cases from weak evidence.
-- Do not replace or blur the existing `fees[]` model from [fees.md](./fees.md).
-- Do not use diagnostics as a backdoor for transfer linking.
-- Do not let user-authored notes mutate machine semantics.
+- Auto-resolving ambiguous cases from weak evidence.
+- Replacing or blurring the existing `fees[]` model from [fees.md](./fees.md).
+- Using diagnostics as a backdoor for transfer linking.
+- Letting user-authored notes mutate machine semantics.
 
 ## Problem Statement
 
-Today every inflow/outflow is treated as raw movement data with no first-class statement of what the movement **is for**.
+Every inflow/outflow affects balances, but not every movement is transfer principal.
 
-That overload causes downstream confusion:
+Without a first-class semantic layer, downstream consumers confuse:
 
-- a staking withdrawal inflow is treated as a transfer candidate
-- a protocol-overhead outflow is treated as an unmatched send
-- a bridge transaction depends on note parsing instead of typed semantics
-- tax readiness and review workflows inspect note strings instead of typed machine state
+- staking withdrawals with transfer candidates
+- protocol-overhead legs with unmatched sends
+- bridge and classification signals with free-form note parsing
+- spam state with duplicated booleans and note strings
 
-The missing abstraction is a generic semantic layer between processing and downstream accounting/linking/gap consumers.
+The missing abstraction is a generic semantic layer between processing and downstream accounting, linking, gap, review, and export consumers.
 
 ## Definitions
 
@@ -55,7 +58,7 @@ It answers:
 - what economic role this movement plays
 - whether it should participate in transfer analysis
 
-Initial role set:
+Canonical role set:
 
 ```ts
 type MovementRole = 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate';
@@ -99,32 +102,36 @@ Downstream packages must use transfer eligibility instead of raw inflow/outflow 
 
 ### Transaction Diagnostic
 
-`transactionDiagnostics` are machine-authored, typed diagnostics for review surfaces and downstream policy.
+`diagnostics` are machine-authored typed diagnostics for review surfaces, conservative policy, and export.
 
-They replace system usage of `Transaction.notes`.
+They replace system use of `Transaction.notes`.
 
 ```ts
 interface TransactionDiagnostic {
-  code:
-    | 'classification_uncertain'
-    | 'classification_failed'
-    | 'bridge_transfer'
-    | 'contract_interaction'
-    | 'allocation_uncertain'
-    | 'scam_token'
-    | 'suspicious_airdrop';
-  severity: 'info' | 'warning' | 'error';
+  code: string;
+  severity?: 'info' | 'warning' | 'error' | undefined;
   message: string;
   metadata?: Record<string, unknown> | undefined;
 }
 ```
 
-Diagnostics are:
+Current canonical codes used by shared logic or persisted producers include:
 
-- machine-authored
-- persisted
-- visible in review and export surfaces
-- never used as free-form strings in shared logic
+- `bridge_transfer`
+- `classification_uncertain`
+- `classification_failed`
+- `allocation_uncertain`
+- `contract_interaction`
+- `SCAM_TOKEN`
+- `SUSPICIOUS_AIRDROP`
+- `unattributed_staking_reward_component`
+
+Rules:
+
+- diagnostics are machine-authored
+- diagnostics are persisted
+- diagnostics are visible in review and export surfaces
+- downstream shared logic must key off diagnostic codes, never diagnostic message text
 
 ### User Note
 
@@ -144,31 +151,32 @@ Rules:
 - user notes are not parsed by accounting, linking, balance, asset review, or tax readiness
 - user notes are the only remaining free-form note surface
 
-## Migration Map From Current Notes
+## Migration Map From Legacy Note Usage
 
-| Current note type / field              | Future home                     |
-| -------------------------------------- | ------------------------------- |
-| `staking_withdrawal`                   | `movementRole='staking_reward'` |
-| `bridge_transfer`                      | `transactionDiagnostics`        |
-| `classification_uncertain`             | `transactionDiagnostics`        |
-| `classification_failed`                | `transactionDiagnostics`        |
-| `contract_interaction`                 | `transactionDiagnostics`        |
-| `allocation_uncertain`                 | `transactionDiagnostics`        |
-| `SCAM_TOKEN` / `SUSPICIOUS_AIRDROP`    | `transactionDiagnostics`        |
-| free-form durable transaction override | `userNotes`                     |
+| Legacy machine concept               | Canonical home                  |
+| ------------------------------------ | ------------------------------- |
+| `staking_withdrawal` note            | `movementRole='staking_reward'` |
+| `bridge_transfer` note               | `diagnostics`                   |
+| `classification_uncertain` note      | `diagnostics`                   |
+| `classification_failed` note         | `diagnostics`                   |
+| `contract_interaction` note          | `diagnostics`                   |
+| `allocation_uncertain` note          | `diagnostics`                   |
+| `SCAM_TOKEN` / `SUSPICIOUS_AIRDROP`  | `diagnostics`                   |
+| durable human transaction annotation | `userNotes`                     |
 
 ## Behavioral Rules
 
 ### Processor Responsibilities
 
-- Every processor must assign `movementRole` to every inflow/outflow.
+- Every inflow/outflow has an effective `movementRole`.
 - `fees[]` remain separate and do not receive `movementRole`.
 - If a processor has deterministic evidence for a non-principal role, it must encode it in `movementRole`.
-- If a processor lacks deterministic evidence, it must leave the movement as `principal` and may emit a diagnostic instead.
+- If a processor lacks deterministic evidence, it may omit `movementRole`; downstream interpretation treats that as `principal`.
+- If a processor knows the movement is unusual but cannot prove a non-principal role, it may emit a diagnostic instead of fabricating a role.
 
 ### Downstream Responsibilities
 
-Downstream consumers must not infer semantic role from chain names, note types, or string messages.
+Downstream consumers must not infer semantic role from chain names, free-form note text, or string message parsing.
 
 Required behavior:
 
@@ -197,21 +205,22 @@ Reason:
 ### Diagnostics Rules
 
 - Diagnostics are machine state, not user state.
-- Diagnostics are allowed to inform review surfaces and conservative policy.
+- Diagnostics may inform review surfaces and conservative policy.
 - Diagnostics must not silently create transfer links.
-- Diagnostics must not be used as a substitute for `movementRole` where deterministic movement semantics exist.
+- Diagnostics must not substitute for `movementRole` where deterministic movement semantics exist.
+- Spam state is derived from diagnostics only.
+  - `SCAM_TOKEN` is the canonical spam marker used by shared logic.
+  - There is no persisted transaction-level `isSpam` flag.
 
 ### User Note Rules
 
 - User notes are UI-facing only.
-- User note overrides must materialize only into `userNotes`.
+- User note overrides materialize only into `userNotes`.
 - No machine workflow may branch on user note content.
 
 ## Data Model
 
 ### Core Transaction Shape
-
-Target shape:
 
 ```ts
 interface AssetMovement {
@@ -219,7 +228,7 @@ interface AssetMovement {
   assetSymbol: string;
   grossAmount: Decimal;
   netAmount?: Decimal | undefined;
-  movementRole: MovementRole;
+  movementRole?: MovementRole | undefined;
   movementFingerprint: string;
   priceAtTxTime?: PriceAtTxTime | undefined;
 }
@@ -239,15 +248,20 @@ interface Transaction {
 }
 ```
 
+Implementation note:
+
+- persisted movements may omit `movementRole`, and downstream must treat that as `principal`
+- the shared helper contract is `getMovementRole(movement) ?? 'principal'`
+
 ### Persistence
 
-Target persistence changes:
+Canonical persisted fields:
 
 ```sql
 -- transaction_movements
-movement_role TEXT,
+movement_role TEXT NULL,
 CHECK (
-  (movement_type IN ('inflow', 'outflow') AND movement_role IS NOT NULL)
+  (movement_type IN ('inflow', 'outflow'))
   OR (movement_type = 'fee' AND movement_role IS NULL)
 );
 
@@ -256,11 +270,12 @@ diagnostics_json TEXT NULL,
 user_notes_json TEXT NULL
 ```
 
-Implications:
+Rules:
 
-- `notes_json` stops being the machine state bucket
+- `notes_json` is not a machine-state bucket
 - override materialization targets `user_notes_json`
 - diagnostics persistence is owned by processors and reprocessing
+- `transactions.is_spam` does not exist in the canonical model
 
 ## Identity Rules
 
@@ -268,7 +283,7 @@ Implications:
 
 Movement identity represents the continuity of the economic balance movement itself, not the latest semantic interpretation.
 
-Target canonical material:
+Canonical material:
 
 ```ts
 `${movementType}|${assetId}|${grossAmount.toFixed()}|${effectiveNetAmount.toFixed()}`;
@@ -282,16 +297,51 @@ Excluded from identity:
 - display metadata
 - prices
 
-Transaction identity remains unchanged.
-
 Implication:
 
 - a reprocess that changes `principal -> staking_reward` keeps the same `movementFingerprint`
 - downstream replay paths must validate compatibility against current semantics instead of relying on fingerprint churn
 
-Future note:
+If a future case requires a stable distinguisher for otherwise-identical movements with different provenance, add a dedicated provenance/origin input to identity rather than using `movementRole`.
 
-- if we later need a stable distinguisher for otherwise-identical movements with different provenance, add a dedicated provenance/origin input to identity rather than using `movementRole`
+## Current Producer Adoption
+
+Shipped deterministic non-principal producers:
+
+- Cardano attributable staking withdrawals
+  - emits `movementRole='staking_reward'`
+- EVM partial beacon withdrawals
+  - emits `movementRole='staking_reward'`
+  - full `>= 32 ETH` withdrawals remain principal
+- NEAR receipt-backed `CONTRACT_REWARD`
+  - emits `movementRole='staking_reward'`
+  - synthetic fallback remains principal
+- Substrate inflow-only `staking/reward`
+  - emits `movementRole='staking_reward'`
+
+Known diagnostic-only fallback:
+
+- Cardano wallet-scoped staking withdrawals that cannot be attributed to one derived payment address in the current per-address projection
+  - remain per-address principal movements
+  - emit `unattributed_staking_reward_component`
+  - may also emit `classification_uncertain`
+
+## Export Surface
+
+Diagnostics and user notes are first-class export data.
+
+Simple CSV includes:
+
+- `diagnostic_codes`
+- `diagnostic_messages`
+- `user_note_messages`
+
+Normalized CSV emits separate companion files:
+
+- `.diagnostics.csv`
+- `.user-notes.csv`
+
+JSON export carries `diagnostics` and `userNotes` on each transaction object.
 
 ## Pipeline / Flow
 
@@ -303,19 +353,20 @@ graph TD
     D --> E["Linking + same-hash scoping"]
     D --> F["Gap analysis"]
     D --> G["Balance + portfolio"]
-    D --> H["Tax readiness + reporting"]
+    D --> H["Tax readiness + reporting + export"]
     I["User note overrides"] --> J["Persisted user notes only"]
 ```
 
 ## Invariants
 
-- **Required**: every inflow/outflow has a `movementRole`.
-- **Required**: downstream machine logic never parses free-form notes.
+- **Required**: every inflow/outflow has an effective `movementRole`.
+- **Required**: downstream machine logic never parses free-form note text.
 - **Required**: processors emit only generic roles and generic diagnostics.
 - **Required**: `fees[]` remain the only fee model.
 - **Required**: user notes never affect accounting or review logic.
 - **Required**: semantic changes alone do not change `movementFingerprint`.
 - **Required**: replay and override consumers validate current role compatibility before applying transfer-specific state.
+- **Required**: spam state is diagnostic-derived, not duplicated as persisted boolean state.
 
 ## Edge Cases & Gotchas
 
@@ -326,22 +377,15 @@ graph TD
 - `protocol_overhead` is not a fee replacement.
   - If the movement is already correctly represented in `fees[]`, do not duplicate it as a movement role.
 
-## Rollout Constraints
-
-1. Define the new core schemas and persistence fields.
-2. Populate `movementRole` in processors.
-3. Add shared helpers for transfer-eligible movement access.
-4. Migrate downstream consumers off `Transaction.notes`.
-5. Complete the transaction-user-note override path so user-authored notes remain separate from machine diagnostics.
-6. Remove system-authored note materialization.
-
 ## Related Specs
 
 - [Transaction and Movement Identity](./transaction-and-movement-identity.md)
 - [Transaction Linking](./transaction-linking.md)
+- [UTXO Address Model](./utxo-address-model.md)
 - [Fees](./fees.md)
 - [Accounting Exclusions](./accounting-exclusions.md)
+- [Transactions Export Spec](./cli/transactions/transactions-export-spec.md)
 
 ---
 
-_Last updated: 2026-04-11_
+_Last updated: 2026-04-12_

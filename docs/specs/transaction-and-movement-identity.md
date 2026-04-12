@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-26
+last_verified: 2026-04-12
 status: canonical
 ---
 
@@ -20,6 +20,7 @@ Defines the canonical identity contracts for processed transactions and processe
 | Blockchain tx fingerprint      | `sha256(accountFingerprint                                                                                                                         | blockchain                                 | source        | blockchainTransactionHash)`    |
 | Exchange tx fingerprint        | `sha256(accountFingerprint                                                                                                                         | exchange                                   | source        | sortedComponentEventIds.join(' | '))` |
 | Processed movement identity    | `movementFingerprint = movement:<sha256(txFingerprint                                                                                              | canonicalMaterial)>:<duplicateOccurrence>` |
+| Semantic stability             | `movementRole`, diagnostics, and user notes do not participate in movement identity                                                                |
 | Persistence                    | `accounts.account_fingerprint`, `transactions.tx_fingerprint`, and `transaction_movements.movement_fingerprint` are persisted canonical identities |
 
 ## Goals
@@ -70,7 +71,7 @@ Semantics:
 
 - `txFingerprint` is the only durable processed transaction identifier
 - profile isolation falls out naturally from `accountFingerprint`
-- transaction notes and link identities can remain keyed by `txFingerprint` because the fingerprint is already profile-scoped
+- user-note and link identities can remain keyed by `txFingerprint` because the fingerprint is already profile-scoped
 - exchange component event IDs are trimmed and sorted before hashing
 
 ### Movement Canonical Material
@@ -90,8 +91,10 @@ Fee movement canonical material:
 Excluded on purpose:
 
 - symbols
+- `movementRole`
+- diagnostics
+- user notes
 - price data
-- notes
 - provider/debug metadata
 
 ### Duplicate Occurrence
@@ -136,6 +139,17 @@ Fingerprint derivation is strict:
 - CSV-directory moves do not change top-level exchange identity
 - importing the same semantic account into two different profiles produces different processed identities
 - price-only enrichment must not change movement identity
+- semantic-only refactors such as `principal -> staking_reward` must not change movement identity
+
+### Compatibility Guarantees
+
+Stable movement identity does not remove the need for semantic validation.
+
+Required behavior:
+
+- replayed transfer links must validate that referenced movements are still transfer-eligible
+- manual link confirmation must validate current movement-role compatibility before persisting
+- stale references must fail explicitly or surface as incompatible; they must not silently apply against newly ineligible movements
 
 ## Persistence
 
@@ -188,3 +202,4 @@ graph TD
 - **Required**: processed transaction identity is profile-aware through `profileKey`.
 - **Required**: exchange top-level identity ignores mutable credentials and CSV paths.
 - **Required**: movement identity excludes enrichable and display-only fields.
+- **Required**: movement identity excludes `movementRole`, diagnostics, and user notes.

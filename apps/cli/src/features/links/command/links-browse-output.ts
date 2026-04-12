@@ -7,6 +7,8 @@ import { outputLinkProposalStaticDetail, outputLinksStaticList } from '../view/l
 import {
   formatMatchCriteria,
   formatProposalConfidence,
+  formatProposalProvenance,
+  formatProposalProvenanceDetail,
   formatProposalRoute,
   getProposalAmountDisplay,
 } from '../view/links-view-formatters.js';
@@ -83,6 +85,8 @@ function buildLinksBrowseJsonCompletion(
 }
 
 function serializeProposalSummary(item: LinkProposalBrowseItem): Record<string, unknown> {
+  const provenance = formatProposalProvenance(item.proposal.provenanceSummary);
+
   return {
     kind: 'proposal',
     ref: item.proposalRef,
@@ -90,6 +94,9 @@ function serializeProposalSummary(item: LinkProposalBrowseItem): Record<string, 
     route: formatProposalRoute(item.proposal),
     confidence: formatProposalConfidence(item.proposal).trim(),
     status: item.proposal.status,
+    provenance,
+    overrideIds: item.proposal.provenanceSummary.overrideIds,
+    overrideLinkTypes: item.proposal.provenanceSummary.overrideLinkTypes,
     legCount: item.proposal.legs.length,
   };
 }
@@ -99,9 +106,10 @@ function serializeProposalDetail(item: LinkProposalBrowseItem, verbose: boolean)
 
   return {
     ...serializeProposalSummary(item),
-    matchedAmount: amountDisplay.matchedAmount,
+    linkedAmount: amountDisplay.linkedAmount,
     summaryLabel: amountDisplay.detailLabel,
     summary: amountDisplay.detailSummary,
+    provenanceDetail: formatProposalProvenanceDetail(item.proposal.provenanceSummary),
     match: formatMatchCriteria(item.proposal.representativeLink.matchCriteria),
     legs: item.proposal.legs.map((leg) => ({
       linkId: leg.link.id,
@@ -111,6 +119,8 @@ function serializeProposalDetail(item: LinkProposalBrowseItem, verbose: boolean)
       sourceAmount: leg.link.sourceAmount.toFixed(),
       targetAmount: leg.link.targetAmount.toFixed(),
       assetSymbol: leg.link.assetSymbol,
+      overrideId: leg.link.metadata?.overrideId,
+      overrideLinkType: leg.link.metadata?.overrideLinkType,
       sourcePlatform: leg.sourceTransaction?.platformKey,
       targetPlatform: leg.targetTransaction?.platformKey,
       sourceTimestamp: leg.sourceTransaction?.datetime,

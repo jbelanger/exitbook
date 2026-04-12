@@ -57,6 +57,7 @@ export interface CanadaAcquisitionEvent extends CanadaBaseTaxEvent {
   kind: 'acquisition';
   quantity: Decimal;
   costBasisAdjustmentCad?: Decimal | undefined;
+  incomeCategory?: 'staking_reward' | undefined;
 }
 
 export interface CanadaDispositionEvent extends CanadaBaseTaxEvent {
@@ -197,6 +198,7 @@ export interface CanadaTaxReportAcquisition {
   totalCostCad: Decimal;
   remainingAllocatedAcbCad: Decimal;
   costBasisPerUnitCad: Decimal;
+  incomeCategory?: 'staking_reward' | undefined;
 }
 
 export interface CanadaTaxReportDisposition {

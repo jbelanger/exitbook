@@ -5,6 +5,7 @@ import {
   type LinkStatus,
   type NewTransactionLink,
   type TransactionLink,
+  type TransactionLinkMetadata,
 } from '@exitbook/core';
 import { CurrencySchema, DecimalSchema, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
@@ -357,13 +358,55 @@ export class TransactionLinkRepository extends BaseRepository {
     }
   }
 
-  async updateStatuses(ids: number[], status: LinkStatus, reviewedBy: string): Promise<Result<number, Error>> {
+  async updateStatuses(
+    ids: number[],
+    status: LinkStatus,
+    reviewedBy: string,
+    metadataById?: ReadonlyMap<number, TransactionLinkMetadata | undefined>
+  ): Promise<Result<number, Error>> {
     try {
       if (ids.length === 0) {
         return ok(0);
       }
 
       const now = new Date().toISOString();
+
+      if (metadataById !== undefined && metadataById.size > 0) {
+        let updatedRows = 0;
+
+        for (const id of ids) {
+          const metadata = metadataById.get(id);
+          if (metadata !== undefined) {
+            const metadataValidation = TransactionLinkMetadataSchema.safeParse(metadata);
+            if (!metadataValidation.success) {
+              return err(new Error(`Invalid metadata for link ${id}: ${metadataValidation.error.message}`));
+            }
+          }
+
+          const serializedMetadata = serializeToJson(metadata);
+          if (serializedMetadata.isErr()) {
+            return err(new Error(`Failed to serialize metadata for link ${id}: ${serializedMetadata.error.message}`));
+          }
+
+          const result = await this.db
+            .updateTable('transaction_links')
+            .set({
+              status,
+              reviewed_by: reviewedBy,
+              reviewed_at: now,
+              updated_at: now,
+              metadata_json: serializedMetadata.value ?? null,
+            })
+            .where('id', '=', id)
+            .executeTakeFirst();
+
+          updatedRows += Number(result.numUpdatedRows ?? 0);
+        }
+
+        this.logger.debug({ ids, status, updatedRows }, 'Updated transaction link statuses with metadata');
+        return ok(updatedRows);
+      }
+
       let updatedRows = 0;
       for (const idBatch of chunkItems(ids, SQLITE_SAFE_IN_BATCH_SIZE)) {
         const result = await this.db

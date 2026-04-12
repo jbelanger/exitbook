@@ -300,6 +300,60 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.assets).toHaveLength(0);
   });
 
+  it('should suppress fully explained staking-reward target residuals from open inflow gaps', () => {
+    const transactions: Transaction[] = [
+      createBlockchainDeposit({
+        id: 32,
+        txFingerprint: 'cardano-explained-residual-target',
+        platformKey: 'kucoin',
+        platformKind: 'exchange',
+        movements: {
+          inflows: [
+            {
+              assetId: 'exchange:kucoin:ada',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('2679.718442'),
+              netAmount: parseDecimal('2679.718442'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const links: TransactionLink[] = [
+      createMockLink({
+        id: 2,
+        sourceTransactionId: 100,
+        targetTransactionId: 32,
+        assetSymbol: 'ADA',
+        sourceAssetId: 'blockchain:cardano:native',
+        targetAssetId: 'exchange:kucoin:ada',
+        sourceAmount: '2669.193991',
+        targetAmount: '2669.193991',
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: '1',
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '2669.193991',
+          fullTargetAmount: '2679.718442',
+          consumedAmount: '2669.193991',
+          targetExcessAllowed: true,
+          targetExcess: '10.524451',
+          targetExcessPct: '0.393',
+          sameHashExplainedTargetResidualAmount: '10.524451',
+          sameHashExplainedTargetResidualRole: 'staking_reward',
+        },
+      }),
+    ];
+
+    const analysis = analyzeLinkGaps(transactions, links);
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
   it('should treat confirmed migration links as coverage based on asset ids even when symbols differ', () => {
     const renderDeposit = createBlockchainDeposit({
       id: 8813,

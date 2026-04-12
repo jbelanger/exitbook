@@ -227,6 +227,7 @@ export function createCanadaAcquisitionEvent(params: {
   assetSymbol: string;
   costBasisAdjustmentCad?: string | undefined;
   eventId: string;
+  incomeCategory?: CanadaAcquisitionEvent['incomeCategory'] | undefined;
   provenanceKind?: CanadaTaxInputEvent['provenanceKind'] | undefined;
   quantity: string;
   timestamp: Date | string;
@@ -250,6 +251,7 @@ export function createCanadaAcquisitionEvent(params: {
     quantity: parseDecimal(params.quantity),
     costBasisAdjustmentCad:
       params.costBasisAdjustmentCad !== undefined ? parseDecimal(params.costBasisAdjustmentCad) : undefined,
+    incomeCategory: params.incomeCategory,
   };
 }
 

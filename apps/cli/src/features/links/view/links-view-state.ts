@@ -5,6 +5,7 @@
 import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { LinkStatus } from '@exitbook/core';
 
+import { summarizeProposalProvenance } from '../link-proposal-provenance.js';
 import type { LinksGapBrowseHiddenCounts } from '../links-gaps-browse-model.js';
 import type { LinkStatusCounts, LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
@@ -82,6 +83,7 @@ export function createLinksViewState(
   const allProposals = buildTransferProposalItems(links)
     .map((proposal) => ({
       legs: proposal.items,
+      provenanceSummary: summarizeProposalProvenance(proposal.items.map((item) => item.link)),
       proposalKey: proposal.proposalKey,
       representativeLeg: proposal.representativeItem,
       representativeLink: proposal.representativeLink,

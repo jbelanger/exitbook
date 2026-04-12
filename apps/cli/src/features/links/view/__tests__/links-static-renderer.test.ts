@@ -32,6 +32,104 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain(`Link ref: ${items[0]!.proposalRef}`);
   });
 
+  it('shows user provenance in detail output and summarizes single-status headers with proposal and leg counts', () => {
+    const links = createMockLinksBatch(1).slice(0, 1);
+    links[0] = {
+      ...links[0]!,
+      link: {
+        ...links[0]!.link,
+        metadata: {
+          linkProvenance: 'user',
+          overrideId: 'override-1',
+          overrideLinkType: 'transfer',
+        },
+      },
+    };
+
+    const state = createLinksViewState(links);
+    const items = state.proposals.map((proposal) => ({
+      proposal,
+      proposalRef: buildLinkProposalRef(proposal.proposalKey),
+    }));
+
+    const listOutput = buildLinksStaticList(state, items);
+    const detailOutput = buildLinkProposalStaticDetail(items[0]!, false);
+
+    expect(stripAnsi(listOutput)).not.toContain('ORIGIN');
+    expect(stripAnsi(listOutput)).toContain('1 confirmed proposal (1 leg; 1 user)');
+    expect(stripAnsi(detailOutput)).toContain('Provenance: user');
+    expect(stripAnsi(detailOutput)).toContain('Provenance detail: 1 user-reviewed leg · 1 override · transfer type');
+  });
+
+  it('shows filtered headers with proposals as the primary unit and legs in parentheses', () => {
+    const links = createMockLinksBatch(2).slice(0, 2);
+    links[0] = {
+      ...links[0]!,
+      link: {
+        ...links[0]!.link,
+        metadata: {
+          ...(links[0]!.link.metadata ?? {}),
+          linkProvenance: 'system',
+        },
+      },
+    };
+    links[1] = {
+      ...links[1]!,
+      link: {
+        ...links[1]!.link,
+        metadata: {
+          ...(links[1]!.link.metadata ?? {}),
+          linkProvenance: 'user',
+        },
+      },
+    };
+
+    const state = createLinksViewState(links, 'confirmed');
+    const items = state.proposals.map((proposal) => ({
+      proposal,
+      proposalRef: buildLinkProposalRef(proposal.proposalKey),
+    }));
+
+    const listOutput = buildLinksStaticList(state, items);
+
+    expect(stripAnsi(listOutput)).toContain('2 confirmed proposals (2 legs; 1 system, 1 user)');
+  });
+
+  it('uses the same summary when the visible result set has a single status without an explicit filter', () => {
+    const links = createMockLinksBatch(2).slice(0, 2);
+    links[0] = {
+      ...links[0]!,
+      link: {
+        ...links[0]!.link,
+        metadata: {
+          ...(links[0]!.link.metadata ?? {}),
+          linkProvenance: 'system',
+        },
+      },
+    };
+    links[1] = {
+      ...links[1]!,
+      link: {
+        ...links[1]!.link,
+        metadata: {
+          ...(links[1]!.link.metadata ?? {}),
+          linkProvenance: 'user',
+        },
+      },
+    };
+
+    const state = createLinksViewState(links);
+    const items = state.proposals.map((proposal) => ({
+      proposal,
+      proposalRef: buildLinkProposalRef(proposal.proposalKey),
+    }));
+
+    const listOutput = buildLinksStaticList(state, items);
+
+    expect(stripAnsi(listOutput)).toContain('2 confirmed proposals (2 legs; 1 system, 1 user)');
+    expect(stripAnsi(listOutput)).not.toContain('2 proposals · 2 links');
+  });
+
   it('labels gap rows with GAP-REF and detail with Gap ref', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {
@@ -74,5 +172,23 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain(
       'Context: Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA'
     );
+  });
+
+  it('shows resolution overrides in the gaps empty state', () => {
+    const analysis = createMockGapAnalysis();
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [],
+      },
+      {
+        hiddenResolvedIssueCount: 2,
+      }
+    );
+
+    const output = buildLinkGapsStaticList(state, []);
+
+    expect(stripAnsi(output)).toContain('2 override-resolved gaps hidden');
+    expect(stripAnsi(output)).toContain('No open gaps. 2 gaps are hidden by resolution overrides.');
   });
 });

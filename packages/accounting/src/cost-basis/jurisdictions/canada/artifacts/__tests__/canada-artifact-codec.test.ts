@@ -268,7 +268,11 @@ function createWorkflowResult(overrides?: Partial<CanadaCostBasisWorkflowResult>
 describe('canada-artifact-codec', () => {
   describe('buildCanadaArtifactSnapshotParts + fromStoredCanadaArtifact round-trip', () => {
     it('round-trips a full workflow result with display report', () => {
-      const original = createWorkflowResult();
+      const original = createWorkflowResult({
+        taxReport: createTaxReport({
+          acquisitions: [createTaxReportAcquisition({ incomeCategory: 'staking_reward' })],
+        }),
+      });
       const partsResult = buildCanadaArtifactSnapshotParts(original);
       const parts = assertOk(partsResult);
 
@@ -304,6 +308,7 @@ describe('canada-artifact-codec', () => {
       expect(acq.totalCostCad.toFixed()).toBe('15000');
       expect(acq.costBasisPerUnitCad.toFixed()).toBe('10000');
       expect(acq.acquiredAt.toISOString()).toBe(TX_DATE_1.toISOString());
+      expect(acq.incomeCategory).toBe('staking_reward');
 
       // Tax report dispositions
       expect(decoded.taxReport.dispositions).toHaveLength(1);
@@ -357,6 +362,7 @@ describe('canada-artifact-codec', () => {
             quantity: '2',
             unitValueCad: '10000',
             costBasisAdjustmentCad: '50',
+            incomeCategory: 'staking_reward',
           }),
           createCanadaDispositionEvent({
             eventId: 'evt-disp-1',
@@ -430,6 +436,7 @@ describe('canada-artifact-codec', () => {
       if (acqEvt.kind === 'acquisition') {
         expect(acqEvt.quantity.toFixed()).toBe('2');
         expect(acqEvt.costBasisAdjustmentCad?.toFixed()).toBe('50');
+        expect(acqEvt.incomeCategory).toBe('staking_reward');
       }
 
       // Disposition with proceedsReductionCad

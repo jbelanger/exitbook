@@ -57,6 +57,7 @@ describe('manual-link-utils', () => {
     expect(prepared.link.metadata).toMatchObject({
       overrideId: 'override-1',
       overrideLinkType: 'transfer',
+      linkProvenance: 'manual',
       variance: '0',
       variancePct: '0.00',
     });

@@ -14,7 +14,7 @@ It specializes the browse rules in [CLI Surface V3 Specification](../cli-surface
 Out of scope:
 
 - `transactions edit note`
-- `transactions export`
+- `transactions export` browse-independent export contract
 
 Those commands remain part of the family, but this spec focuses on the browse surfaces they support.
 
@@ -185,7 +185,7 @@ Body order:
 16. optional `Inflows`
 17. optional `Outflows`
 18. optional transaction-fee detail block
-19. optional `Notes`
+19. optional `User notes`
 
 Rules:
 
@@ -193,7 +193,7 @@ Rules:
 - `Debit`, `Credit`, and `Fees` use the same balance-summary semantics as the browse list
 - `Primary movement` is supplementary detail only and may render `—` when no primary movement can be derived
 - blockchain metadata appears only when present on the processed transaction
-- notes render in full and are not artificially capped
+- user notes render in full and are not artificially capped
 
 ### Explorer
 
@@ -273,5 +273,5 @@ Rules:
 
 ## Notes
 
-- `transactions export` remains the script-oriented export command for full data dumps
+- `transactions export` remains the script-oriented export command for full data dumps and is specified in [Transactions Export Spec](./transactions-export-spec.md)
 - `transactions edit note` remains the mutation entrypoint for durable analyst notes
