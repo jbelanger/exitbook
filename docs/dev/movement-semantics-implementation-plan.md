@@ -446,12 +446,139 @@ These are intentionally blocked until Phase 3 is complete.
 
 ## Phase 4: Additional Deterministic Movement-Role Producers
 
-Status: blocked
+Status: active
 Goal:
 
 - add new upstream producers only where evidence is deterministic
 
-Likely candidates:
+### Why Phase 4 Starts With EVM Beacon Withdrawals
+
+Phase 4 must continue in the narrowest possible slices.
+
+Current audit finding:
+
+- `EVM` partial beacon withdrawals are the strongest next producer
+- `NEAR` contract rewards are also promising, but the movement extraction and receipt correlation surface is broader
+- `Substrate` staking rewards are straightforward, but the current processor shape is less isolated than the dedicated EVM beacon-withdrawal path
+- `refund_rebate` candidates (`NEAR` gas refunds, `Substrate` governance refunds) remain Phase 4 follow-ups, not the opening slice
+
+Reason:
+
+- EVM beacon withdrawals already arrive as a dedicated normalized transaction type (`beacon_withdrawal`)
+- the processor already emits deterministic `consensus_withdrawal` diagnostics
+- the existing 32 ETH threshold already splits partial reward-like withdrawals from full principal-return-like withdrawals
+- this lets us add one deterministic `staking_reward` producer without widening the movement-role boundary or inventing new heuristics
+
+### Findings Surfaced During Phase 4 Audit
+
+- `EVM` partial beacon withdrawals are more isolated than expected because they already have:
+  - a dedicated normalized transaction type
+  - a dedicated diagnostic (`consensus_withdrawal`)
+  - a pre-existing principal-vs-reward threshold boundary
+- `NEAR` remains a good producer candidate, but the implementation surface is broader than the initial shortlist implied because movement extraction, receipt correlation, and operation classification are split across multiple modules.
+- `Substrate` staking rewards are deterministic, but movement-role assignment is currently coupled to generic movement construction more tightly than in the EVM beacon-withdrawal path.
+- `refund_rebate` candidates still need real-case validation. The processor classification signals look promising, but they are not yet enough to justify immediate producer work.
+- the shared correlated-transaction processor needed optional `movementRole` support, and EVM consolidation needed to become role-aware so future correlated producers do not silently merge `principal` and non-principal movements of the same asset.
+- the current dev dataset has no imported beacon-withdrawal examples, so live verification for Phase 4.1 must rely on pipeline safety checks plus targeted regression coverage rather than a real local transaction replay.
+
+### Phase 4 Slice Order
+
+#### Phase 4.1: EVM Partial Beacon Withdrawals
+
+Status: complete
+
+Scope:
+
+- assign `movementRole='staking_reward'` to inflow movements for beacon-withdrawal groups where:
+  - a `beacon_withdrawal` normalized transaction is present
+  - the processed classification remains `staking/reward`
+  - the withdrawal amount is `< 32 ETH`
+- keep `>= 32 ETH` full-withdrawal cases as principal movements with diagnostics only
+
+Primary files:
+
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor-utils.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/__tests__/processor.test.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/__tests__/processor-utils.test.ts`
+
+Acceptance criteria:
+
+- partial beacon withdrawals persist `movementRole='staking_reward'` on inflows
+- full withdrawals do not get a non-principal role
+- no accounting/linking/gaps special-casing is added
+- targeted tests and package builds pass
+
+Completion notes:
+
+- implemented in the current worktree
+- the shared correlated-transaction processor now preserves optional `movementRole`
+- EVM movement consolidation is role-aware, so non-principal inflows will not be silently merged back into principal movements of the same asset
+- targeted tests passed
+- `pnpm --filter @exitbook/core build`
+- `pnpm --filter @exitbook/ingestion build`
+- `pnpm --filter @exitbook/accounting build`
+- `pnpm run dev reprocess`
+- `pnpm run dev links run --json`
+
+#### Phase 4.2: NEAR Contract Rewards
+
+Status: blocked
+
+Scope:
+
+- assign `movementRole='staking_reward'` only for native inflow movements derived from receipt balance-change cause `CONTRACT_REWARD`
+- do not widen to `GAS_REFUND` in the same slice
+
+Primary files:
+
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/near/near-fund-flow-extraction.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/near/near-operation-classification.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/near/processor.ts`
+
+Open finding from audit:
+
+- NEAR file layout is split across correlation, flow extraction, and operation classification. This is still a good candidate, but it is a broader edit surface than EVM beacon withdrawals.
+
+#### Phase 4.3: Substrate Staking Rewards
+
+Status: blocked
+
+Scope:
+
+- assign `movementRole='staking_reward'` only for inflow-only native staking reward transactions already classified as `staking/reward`
+
+Primary files:
+
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/substrate/processor-utils.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/substrate/processor.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/substrate/__tests__/processor.test.ts`
+
+Open finding from audit:
+
+- Substrate reward classification is deterministic, but the processor does not currently isolate movement-role assignment from general movement construction as cleanly as the EVM beacon-withdrawal path.
+
+#### Phase 4.4: Refund / Rebate Candidates
+
+Status: blocked
+
+Candidates:
+
+- `NEAR` `GAS_REFUND` inflows -> possible `refund_rebate`
+- `Substrate` governance refund inflows -> possible `refund_rebate`
+
+Required gate before implementation:
+
+- real-case audit showing these are balance-affecting but non-principal inflows with stable evidence
+
+### Explicit Phase 4 Non-Goals
+
+- no Solana `protocol_overhead` role in this phase
+- no cue work in `links gaps`
+- no chain-specific downstream branching in accounting, linking, or gap analysis
+- no `refund_rebate` producer without a real-case audit and isolated test coverage
+
+Likely candidates after the opening slice:
 
 - protocol overhead cases with strong evidence
 - refund/rebate cases with strong evidence

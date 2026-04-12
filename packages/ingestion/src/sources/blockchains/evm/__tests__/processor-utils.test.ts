@@ -86,6 +86,19 @@ describe('consolidateEvmMovementsByAsset', () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.amount).toBe('0.6');
   });
+
+  it('does not consolidate movements with different roles', () => {
+    const movements: EvmMovement[] = [
+      { asset: 'ETH' as Currency, amount: '1', movementRole: 'staking_reward' },
+      { asset: 'ETH' as Currency, amount: '2' },
+    ];
+
+    const result = consolidateEvmMovementsByAsset(movements);
+
+    expect(result).toHaveLength(2);
+    expect(result).toContainEqual({ asset: 'ETH' as Currency, amount: '1', movementRole: 'staking_reward' });
+    expect(result).toContainEqual({ asset: 'ETH' as Currency, amount: '2', movementRole: undefined });
+  });
 });
 
 describe('selectPrimaryEvmMovement', () => {
@@ -211,6 +224,98 @@ describe('analyzeEvmFundFlow', () => {
     }
 
     expect(result.value.feeAmount).toBe('1');
+  });
+
+  it('assigns staking_reward movementRole to partial beacon withdrawal inflows', () => {
+    const chainConfig: EvmChainConfig = {
+      chainId: 1,
+      chainName: 'ethereum',
+      nativeCurrency: 'ETH' as Currency,
+      nativeDecimals: 18,
+      transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
+    };
+    const context: AddressContext = {
+      primaryAddress: '0x123',
+      userAddresses: ['0x123'],
+    };
+
+    const txGroup: EvmTransaction[] = [
+      {
+        amount: '50000000000000000',
+        currency: 'ETH',
+        eventId: 'beacon-withdrawal-12345-evt',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x0000000000000000000000000000000000000000',
+        id: 'beacon-withdrawal-12345',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1234567890,
+        to: '0x123',
+        tokenType: 'native',
+        type: 'beacon_withdrawal',
+      },
+    ];
+
+    const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.inflows).toEqual([
+      {
+        amount: '0.05',
+        asset: 'ETH' as Currency,
+        movementRole: 'staking_reward',
+      },
+    ]);
+  });
+
+  it('keeps full beacon withdrawals as principal movements', () => {
+    const chainConfig: EvmChainConfig = {
+      chainId: 1,
+      chainName: 'ethereum',
+      nativeCurrency: 'ETH' as Currency,
+      nativeDecimals: 18,
+      transactionTypes: ['normal', 'internal', 'token', 'beacon_withdrawal'],
+    };
+    const context: AddressContext = {
+      primaryAddress: '0x123',
+      userAddresses: ['0x123'],
+    };
+
+    const txGroup: EvmTransaction[] = [
+      {
+        amount: '32500000000000000000',
+        currency: 'ETH',
+        eventId: 'beacon-withdrawal-67890-evt',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x0000000000000000000000000000000000000000',
+        id: 'beacon-withdrawal-67890',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1234567890,
+        to: '0x123',
+        tokenType: 'native',
+        type: 'beacon_withdrawal',
+      },
+    ];
+
+    const result = analyzeEvmFundFlow(txGroup, context, chainConfig);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.inflows).toEqual([
+      {
+        amount: '32.5',
+        asset: 'ETH' as Currency,
+        movementRole: undefined,
+      },
+    ]);
   });
 });
 

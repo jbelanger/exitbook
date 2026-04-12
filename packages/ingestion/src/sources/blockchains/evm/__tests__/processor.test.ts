@@ -209,6 +209,84 @@ describe('EvmProcessor - Transaction Correlation', () => {
     if (!transaction) return;
     expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0');
   });
+
+  test('marks partial beacon withdrawal inflow as staking_reward', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '50000000000000000',
+        currency: 'ETH',
+        eventId: 'beacon-withdrawal-evt',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x0000000000000000000000000000000000000000',
+        id: '0xbeaconhash1',
+        providerName: 'etherscan',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'beacon_withdrawal',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.category).toBe('staking');
+    expect(transaction.operation.type).toBe('reward');
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBe('staking_reward');
+    expect(transaction.diagnostics?.[0]?.code).toBe('consensus_withdrawal');
+  });
+
+  test('keeps full beacon withdrawal inflow as principal', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '32500000000000000000',
+        currency: 'ETH',
+        eventId: 'beacon-withdrawal-evt-2',
+        feeAmount: '0',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x0000000000000000000000000000000000000000',
+        id: '0xbeaconhash2',
+        providerName: 'etherscan',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'beacon_withdrawal',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.category).toBe('staking');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBeUndefined();
+    expect(transaction.diagnostics?.[0]?.code).toBe('consensus_withdrawal');
+  });
 });
 
 describe('EvmProcessor - Fee Accounting', () => {

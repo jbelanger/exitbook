@@ -1,5 +1,5 @@
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import type { OperationClassification } from '@exitbook/core';
+import type { MovementRole, OperationClassification } from '@exitbook/core';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -29,6 +29,19 @@ export interface AccountBasedNativeCurrencyConfig {
  */
 const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
 
+interface BeaconWithdrawalSemantics {
+  diagnostics: NonNullable<OperationClassification['diagnostics']>;
+  isPrincipalReturn: boolean;
+  movementRole?: MovementRole | undefined;
+}
+
+interface EvmMovementAccumulator {
+  amount: Decimal;
+  movementRole?: MovementRole | undefined;
+  tokenAddress?: string | undefined;
+  tokenDecimals?: number | undefined;
+}
+
 /**
  * Consolidates duplicate assets by summing amounts for the same asset.
  *
@@ -37,30 +50,37 @@ const BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD = parseDecimal('32');
  * first occurrence of each asset.
  */
 export function consolidateEvmMovementsByAsset(movements: EvmMovement[]): EvmMovement[] {
-  const assetMap = new Map<
-    string,
-    { amount: Decimal; tokenAddress?: string | undefined; tokenDecimals?: number | undefined }
-  >();
+  const assetMap = new Map<string, Map<MovementRole, EvmMovementAccumulator>>();
 
   for (const movement of movements) {
-    const existing = assetMap.get(movement.asset);
+    const movementRole = movement.movementRole ?? 'principal';
+    const roleMap = assetMap.get(movement.asset) ?? new Map<MovementRole, EvmMovementAccumulator>();
+    const existing = roleMap.get(movementRole);
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      assetMap.set(movement.asset, {
+      roleMap.set(movementRole, {
         amount: parseDecimal(movement.amount),
+        movementRole: movement.movementRole,
         tokenAddress: movement.tokenAddress,
         tokenDecimals: movement.tokenDecimals,
       });
     }
+
+    if (!assetMap.has(movement.asset)) {
+      assetMap.set(movement.asset, roleMap);
+    }
   }
 
-  return Array.from(assetMap.entries()).map(([asset, data]) => ({
-    amount: data.amount.toFixed(),
-    asset: asset as Currency,
-    tokenAddress: data.tokenAddress,
-    tokenDecimals: data.tokenDecimals,
-  }));
+  return Array.from(assetMap.entries()).flatMap(([asset, roleMap]) =>
+    Array.from(roleMap.values()).map((data) => ({
+      amount: data.amount.toFixed(),
+      asset: asset as Currency,
+      movementRole: data.movementRole,
+      tokenAddress: data.tokenAddress,
+      tokenDecimals: data.tokenDecimals,
+    }))
+  );
 }
 
 /**
@@ -118,45 +138,15 @@ export function determineEvmOperationFromFundFlow(
   fundFlow: EvmFundFlow,
   txGroup: EvmTransaction[]
 ): OperationClassification {
-  // Pattern 0: Beacon withdrawal (Ethereum post-Shanghai consensus layer withdrawals)
-  // Apply smart tax classification based on 32 ETH threshold (Product Decision #1)
   const amount = parseDecimal(fundFlow.primary.amount || '0').abs();
-  const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
-  if (beaconTx) {
-    // Check if withdrawal amount exceeds the principal threshold
-    const isPrincipalReturn = amount.gte(BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD);
-    const withdrawalMetadata: Record<string, unknown> = {
-      amount: amount.toFixed(),
-      needsReview: isPrincipalReturn,
-      taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
-    };
-
-    // Include withdrawal-specific metadata if available
-    if (beaconTx.withdrawalIndex !== undefined) {
-      withdrawalMetadata['withdrawalIndex'] = beaconTx.withdrawalIndex;
-    }
-    if (beaconTx.validatorIndex !== undefined) {
-      withdrawalMetadata['validatorIndex'] = beaconTx.validatorIndex;
-    }
-    if (beaconTx.blockHeight !== undefined) {
-      withdrawalMetadata['blockHeight'] = beaconTx.blockHeight;
-    }
-
+  const beaconSemantics = getBeaconWithdrawalSemantics(txGroup, amount);
+  if (beaconSemantics) {
     return {
       operation: {
         category: 'staking',
-        type: isPrincipalReturn ? 'deposit' : 'reward',
+        type: beaconSemantics.isPrincipalReturn ? 'deposit' : 'reward',
       },
-      diagnostics: [
-        {
-          code: 'consensus_withdrawal',
-          message: isPrincipalReturn
-            ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
-            : 'Partial withdrawal (<32 ETH) - staking reward',
-          severity: isPrincipalReturn ? 'warning' : 'info',
-          metadata: withdrawalMetadata,
-        },
-      ],
+      diagnostics: beaconSemantics.diagnostics,
     };
   }
 
@@ -455,6 +445,18 @@ export function analyzeEvmFundFlow(
   const consolidatedInflows = consolidateEvmMovementsByAsset(inflows);
   const consolidatedOutflows = consolidateEvmMovementsByAsset(outflows);
 
+  const beaconAmount =
+    consolidatedInflows.length === 1 && consolidatedOutflows.length === 0
+      ? parseDecimal(consolidatedInflows[0]!.amount).abs()
+      : undefined;
+  const beaconSemantics = beaconAmount !== undefined ? getBeaconWithdrawalSemantics(txGroup, beaconAmount) : undefined;
+
+  if (beaconSemantics?.movementRole) {
+    for (const movement of consolidatedInflows) {
+      movement.movementRole = beaconSemantics.movementRole;
+    }
+  }
+
   // Select primary asset for simplified consumption and single-asset display
   // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
   const primaryFromInflows = selectPrimaryEvmMovement(consolidatedInflows, chainConfig.nativeCurrency);
@@ -503,6 +505,48 @@ export function analyzeEvmFundFlow(
     toAddress,
     transactionCount: txGroup.length,
   });
+}
+
+function getBeaconWithdrawalSemantics(
+  txGroup: EvmTransaction[],
+  amount: Decimal
+): BeaconWithdrawalSemantics | undefined {
+  const beaconTx = txGroup.find((tx) => tx.type === 'beacon_withdrawal');
+  if (!beaconTx) {
+    return undefined;
+  }
+
+  const isPrincipalReturn = amount.gte(BEACON_WITHDRAWAL_PRINCIPAL_THRESHOLD);
+  const withdrawalMetadata: Record<string, unknown> = {
+    amount: amount.toFixed(),
+    needsReview: isPrincipalReturn,
+    taxClassification: isPrincipalReturn ? 'non-taxable (principal return)' : 'taxable (income)',
+  };
+
+  if (beaconTx.withdrawalIndex !== undefined) {
+    withdrawalMetadata['withdrawalIndex'] = beaconTx.withdrawalIndex;
+  }
+  if (beaconTx.validatorIndex !== undefined) {
+    withdrawalMetadata['validatorIndex'] = beaconTx.validatorIndex;
+  }
+  if (beaconTx.blockHeight !== undefined) {
+    withdrawalMetadata['blockHeight'] = beaconTx.blockHeight;
+  }
+
+  return {
+    diagnostics: [
+      {
+        code: 'consensus_withdrawal',
+        message: isPrincipalReturn
+          ? 'Full withdrawal (≥32 ETH) - likely principal return. Verify if rewards are included.'
+          : 'Partial withdrawal (<32 ETH) - staking reward',
+        severity: isPrincipalReturn ? 'warning' : 'info',
+        metadata: withdrawalMetadata,
+      },
+    ],
+    isPrincipalReturn,
+    movementRole: isPrincipalReturn ? undefined : 'staking_reward',
+  };
 }
 
 /**

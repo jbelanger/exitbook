@@ -1,3 +1,4 @@
+import type { MovementRole } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 
 /**
@@ -6,6 +7,7 @@ import type { Currency } from '@exitbook/foundation';
 export interface EvmMovement {
   amount: string; // Normalized amount
   asset: Currency; // Symbol (ETH, USDC, etc.)
+  movementRole?: MovementRole | undefined;
   tokenAddress?: string | undefined; // Contract address for tokens
   tokenDecimals?: number | undefined; // Decimals for tokens
 }

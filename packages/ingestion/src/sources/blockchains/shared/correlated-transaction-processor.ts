@@ -1,6 +1,6 @@
 import { ProviderError, type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import type { OperationClassification, TransactionDraft } from '@exitbook/core';
+import type { MovementRole, OperationClassification, TransactionDraft } from '@exitbook/core';
 import { buildBlockchainNativeAssetId, maskAddress, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
@@ -12,6 +12,7 @@ import type { AddressContext } from '../../../shared/types/processors.js';
 interface CorrelatedMovement {
   amount: string;
   asset: Currency;
+  movementRole?: MovementRole | undefined;
   tokenAddress?: string | undefined;
 }
 
@@ -36,6 +37,7 @@ interface BuiltMovement {
   assetId: string;
   assetSymbol: Currency;
   grossAmount: ReturnType<typeof parseDecimal>;
+  movementRole?: MovementRole | undefined;
   netAmount: ReturnType<typeof parseDecimal>;
 }
 
@@ -337,6 +339,7 @@ function buildProcessedMovements(
       assetId: assetIdResult.value,
       assetSymbol: movement.asset,
       grossAmount: amount,
+      movementRole: movement.movementRole,
       netAmount: amount,
     });
   }
