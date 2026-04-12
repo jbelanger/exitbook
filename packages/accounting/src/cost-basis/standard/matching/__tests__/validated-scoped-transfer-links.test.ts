@@ -10,6 +10,12 @@ import {
   createTransactionFromMovements,
   seedTxFingerprint,
 } from '../../../../__tests__/test-utils.js';
+import { buildMatchingConfig } from '../../../../linking/matching/matching-config.js';
+import { SameHashExternalOutflowStrategy } from '../../../../linking/strategies/same-hash-external-outflow-strategy.js';
+import {
+  createExplainedMultiSourceAdaHashPartialTransactions,
+  createLinkableMovementsFromTransactions,
+} from '../../../../linking/strategies/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
 
@@ -420,6 +426,35 @@ describe('validateScopedTransferLinks', () => {
     const validated = assertOk(result);
     expect(validated.links).toHaveLength(2);
     expect(validated.links.map((link) => link.sourceMovementAmount.toFixed())).toEqual(['0.5', '0.5']);
+  });
+
+  it('accepts confirmed same-hash external partial links when target excess is explained by an unattributed staking reward component', () => {
+    const transactions = createExplainedMultiSourceAdaHashPartialTransactions();
+    const linkableMovements = createLinkableMovementsFromTransactions(transactions);
+    const strategy = new SameHashExternalOutflowStrategy();
+    const strategyResult = strategy.execute(
+      linkableMovements.filter((movement) => movement.direction === 'out'),
+      linkableMovements.filter((movement) => movement.direction === 'in'),
+      buildMatchingConfig()
+    );
+    const links = assertOk(strategyResult).links.map((link, index) => ({
+      ...link,
+      id: 9000 + index,
+    }));
+
+    const scopedTransactions = assertOk(buildCostBasisScopedTransactions(transactions, logger)).transactions;
+
+    const result = validateScopedTransferLinks(scopedTransactions, links);
+    const validated = assertOk(result);
+
+    expect(validated.links).toHaveLength(3);
+    expect(validated.links.every((link) => link.isPartialMatch)).toBe(true);
+    expect(
+      validated.links.every((link) => link.link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
+    ).toBe(true);
+    expect(validated.links.reduce((sum, link) => sum.plus(link.link.targetAmount), parseDecimal('0')).toFixed()).toBe(
+      '2669.193991'
+    );
   });
 
   it('accepts confirmed links when source and target symbols differ but asset ids reconcile', () => {

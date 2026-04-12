@@ -1,5 +1,5 @@
 import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers/cardano';
-import type { TransactionDraft } from '@exitbook/core';
+import { UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE, type TransactionDraft } from '@exitbook/core';
 import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDecimal } from '@exitbook/foundation';
 import { type Result, err } from '@exitbook/foundation';
 
@@ -144,6 +144,21 @@ export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransactio
             },
             severity: 'info' as const,
             code: 'staking_withdrawal',
+          });
+        }
+
+        if (fundFlow.unattributedWithdrawalAmount) {
+          diagnostics.push({
+            message:
+              `Includes wallet-scoped staking reward component of ${fundFlow.unattributedWithdrawalAmount} ADA ` +
+              `that cannot be attributed to a single derived address in the current projection.`,
+            metadata: {
+              amount: fundFlow.unattributedWithdrawalAmount,
+              assetSymbol: 'ADA',
+              movementRole: 'staking_reward',
+            },
+            severity: 'info' as const,
+            code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
           });
         }
 

@@ -85,12 +85,16 @@ export const TransactionLinkMetadataSchema = z
     blockchain: z.string().optional(),
     sameHashExternalGroup: z.literal(true).optional(),
     sameHashMixedExternalGroup: z.literal(true).optional(),
+    sameHashExternalFeeAccounting: z.enum(['deduped_shared_fee', 'per_source_allocated_fee']).optional(),
+    sameHashExternalTotalFee: z.string().optional(),
     dedupedSameHashFee: z.string().optional(),
     sameHashExternalGroupAmount: z.string().optional(),
     sameHashExternalGroupSize: z.number().int().positive().optional(),
     sameHashTrackedSiblingInflowAmount: z.string().optional(),
     sameHashTrackedSiblingInflowCount: z.number().int().positive().optional(),
     sameHashResidualAllocationPolicy: z.string().optional(),
+    sameHashExplainedTargetResidualAmount: z.string().optional(),
+    sameHashExplainedTargetResidualRole: z.string().optional(),
     feeBearingSourceTransactionId: z.number().int().positive().optional(),
     sameHashExternalSourceAllocations: z.array(SameHashExternalSourceAllocationSchema).optional(),
     sharedToAddress: z.string().optional(),
@@ -171,10 +175,8 @@ export function isSameHashExternalLinkMetadata(
     Pick<
       TransactionLinkMetadata,
       | 'sameHashExternalGroup'
-      | 'dedupedSameHashFee'
       | 'sameHashExternalGroupAmount'
       | 'sameHashExternalGroupSize'
-      | 'feeBearingSourceTransactionId'
       | 'sameHashExternalSourceAllocations'
       | 'blockchainTxHash'
       | 'sharedToAddress'
@@ -182,10 +184,8 @@ export function isSameHashExternalLinkMetadata(
   > {
   return (
     metadata?.sameHashExternalGroup === true &&
-    typeof metadata.dedupedSameHashFee === 'string' &&
     typeof metadata.sameHashExternalGroupAmount === 'string' &&
     typeof metadata.sameHashExternalGroupSize === 'number' &&
-    typeof metadata.feeBearingSourceTransactionId === 'number' &&
     Array.isArray(metadata.sameHashExternalSourceAllocations) &&
     typeof metadata.blockchainTxHash === 'string' &&
     typeof metadata.sharedToAddress === 'string'

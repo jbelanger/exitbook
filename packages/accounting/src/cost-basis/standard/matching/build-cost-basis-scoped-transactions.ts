@@ -94,14 +94,24 @@ interface SameHashSourceAllocation {
   feeDeducted: Decimal;
 }
 
+type MultiSourceSameHashFeeAccounting =
+  | {
+      feeOwnerTxId: number;
+      kind: 'deduped_shared_fee';
+      otherParticipantTxIds: number[];
+      totalFee: Decimal;
+    }
+  | {
+      kind: 'per_source_allocated_fee';
+      totalFee: Decimal;
+    };
+
 interface MultiSourceScopedExternalAmount {
   type: 'multi_source_scoped_external_amount';
   assetId: string;
-  dedupedFee: Decimal;
-  feeOwnerTxId: number;
+  feeAccounting: MultiSourceSameHashFeeAccounting;
   /** Pure inflow participants to remove after external amounts are scoped. */
   internalReceiverTxIds: number[];
-  otherParticipantTxIds: number[];
   sourceAllocations: SameHashSourceAllocation[];
 }
 
@@ -109,9 +119,7 @@ interface MultiSourceInternalFeeOnly {
   type: 'multi_source_internal_fee_only';
   assetId: string;
   assetSymbol: string;
-  dedupedFee: Decimal;
-  feeOwnerTxId: number;
-  otherParticipantTxIds: number[];
+  feeAccounting: MultiSourceSameHashFeeAccounting;
   sourceCarryovers: {
     retainedQuantity: Decimal;
     sourceMovementFingerprint: string;
@@ -449,7 +457,7 @@ function reduceSameHashGroupForCostBasis(
     return err(planResult.error);
   }
 
-  const { dedupedFee, feeOwnerTxId, externalAmount, sourceAllocations, totalInflows } = planResult.value;
+  const { feeAccounting, externalAmount, sourceAllocations, totalInflows } = planResult.value;
 
   // Rule 1: pure external multi-source send. No tracked internal inflows exist,
   // but the per-account rows can still duplicate the same on-chain fee.
@@ -457,12 +465,8 @@ function reduceSameHashGroupForCostBasis(
     return ok({
       type: 'multi_source_scoped_external_amount',
       assetId: group.assetId,
-      dedupedFee,
-      feeOwnerTxId,
+      feeAccounting,
       internalReceiverTxIds: [],
-      otherParticipantTxIds: group.participants
-        .map((participant) => participant.txId)
-        .filter((txId) => txId !== feeOwnerTxId),
       sourceAllocations,
     });
   }
@@ -486,6 +490,11 @@ function reduceSameHashGroupForCostBasis(
 
   if (pureOutflows.length === 1) {
     const sender = pureOutflows[0]!;
+    const scopedFeeAmount = group.participants.reduce(
+      (currentMax, participant) =>
+        participant.onChainFeeAmount.gt(currentMax) ? participant.onChainFeeAmount : currentMax,
+      new Decimal(0)
+    );
 
     if (externalAmount.gt(0)) {
       return ok({
@@ -493,7 +502,7 @@ function reduceSameHashGroupForCostBasis(
         senderTxId: sender.txId,
         assetId: group.assetId,
         internalInflowTotal: totalInflows,
-        dedupedFee,
+        dedupedFee: scopedFeeAmount,
         internalReceiverTxIds: pureInflows.map((r) => r.txId),
       });
     }
@@ -504,7 +513,7 @@ function reduceSameHashGroupForCostBasis(
       senderMovementFingerprint: sender.outflowMovementFingerprint!,
       assetId: group.assetId,
       assetSymbol: group.assetSymbol,
-      dedupedFee,
+      dedupedFee: scopedFeeAmount,
       receivers: pureInflows.map((r) => ({
         txId: r.txId,
         movementFingerprint: r.inflowMovementFingerprint!,
@@ -517,12 +526,8 @@ function reduceSameHashGroupForCostBasis(
     return ok({
       type: 'multi_source_scoped_external_amount',
       assetId: group.assetId,
-      dedupedFee,
-      feeOwnerTxId,
+      feeAccounting,
       internalReceiverTxIds: pureInflows.map((receiver) => receiver.txId),
-      otherParticipantTxIds: group.participants
-        .map((participant) => participant.txId)
-        .filter((txId) => txId !== feeOwnerTxId),
       sourceAllocations,
     });
   }
@@ -536,11 +541,7 @@ function reduceSameHashGroupForCostBasis(
     type: 'multi_source_internal_fee_only',
     assetId: group.assetId,
     assetSymbol: group.assetSymbol,
-    dedupedFee,
-    feeOwnerTxId,
-    otherParticipantTxIds: group.participants
-      .map((participant) => participant.txId)
-      .filter((txId) => txId !== feeOwnerTxId),
+    feeAccounting,
     sourceCarryovers: carryoverAllocationsResult.value,
   });
 }
@@ -551,36 +552,16 @@ function planSameHashSourceAllocations(
   pureInflows: CostBasisSameHashParticipant[]
 ): Result<
   {
-    dedupedFee: Decimal;
     externalAmount: Decimal;
-    feeOwnerTxId: number;
+    feeAccounting: MultiSourceSameHashFeeAccounting;
     sourceAllocations: SameHashSourceAllocation[];
     totalInflows: Decimal;
   },
   Error
 > {
-  let dedupedFee = new Decimal(0);
-  for (const participant of group.participants) {
-    if (participant.onChainFeeAmount.gt(dedupedFee)) {
-      dedupedFee = participant.onChainFeeAmount;
-    }
-  }
-
-  const capacityPlanResult = planSameHashUtxoSourceCapacities(
-    pureOutflows.map((source) => ({
-      txId: source.txId,
-      grossAmount: source.outflowGrossAmount,
-      feeAmount: source.onChainFeeAmount,
-    })),
-    { dedupedFeeAmount: dedupedFee }
-  );
+  const capacityPlanResult = resolveMultiSourceCapacityPlan(group, pureOutflows);
   if (capacityPlanResult.isErr()) {
-    return err(
-      new Error(
-        `Same-hash source allocation failed for ${group.assetSymbol} in hash ${group.normalizedHash} ` +
-          `(${group.blockchain}): ${capacityPlanResult.error.message}`
-      )
-    );
+    return err(capacityPlanResult.error);
   }
   const capacityPlan = capacityPlanResult.value;
   const outflowsByTxId = new Map(pureOutflows.map((source) => [source.txId, source] as const));
@@ -597,7 +578,7 @@ function planSameHashSourceAllocations(
         `Invalid same-hash group: internal inflows plus deduped fee exceed sender outflow for ${group.assetSymbol} ` +
           `in hash ${group.normalizedHash} (${group.blockchain}), ` +
           `totalSourceCapacity=${capacityPlan.totalCapacity.toFixed()}, internalInflows=${totalInflows.toFixed()}, ` +
-          `dedupedFee=${capacityPlan.dedupedFee.toFixed()}, externalAmount=${externalAmount.toFixed()}`
+          `totalFee=${capacityPlan.feeAccounting.totalFee.toFixed()}, externalAmount=${externalAmount.toFixed()}`
       )
     );
   }
@@ -629,11 +610,122 @@ function planSameHashSourceAllocations(
   }
 
   return ok({
-    dedupedFee: capacityPlan.dedupedFee,
     externalAmount,
-    feeOwnerTxId: capacityPlan.feeOwnerTxId,
+    feeAccounting: capacityPlan.feeAccounting,
     sourceAllocations: mappedSourceAllocations,
     totalInflows,
+  });
+}
+
+function resolveMultiSourceCapacityPlan(
+  group: CostBasisSameHashAssetGroup,
+  pureOutflows: CostBasisSameHashParticipant[]
+): Result<
+  {
+    capacities: {
+      capacityAmount: Decimal;
+      feeDeducted: Decimal;
+      grossAmount: Decimal;
+      txId: number;
+    }[];
+    feeAccounting: MultiSourceSameHashFeeAccounting;
+    totalCapacity: Decimal;
+  },
+  Error
+> {
+  const positiveFees = group.participants
+    .filter((participant) => participant.onChainFeeAmount.gt(0))
+    .map((participant) => participant.onChainFeeAmount);
+  const usesDuplicatedSharedFee =
+    positiveFees.length > 0 && positiveFees.every((feeAmount) => feeAmount.eq(positiveFees[0]!));
+
+  if (usesDuplicatedSharedFee) {
+    const dedupedFee = positiveFees[0]!;
+    const dedupedPlanResult = planSameHashUtxoSourceCapacities(
+      pureOutflows.map((source) => ({
+        txId: source.txId,
+        grossAmount: source.outflowGrossAmount,
+        feeAmount: source.onChainFeeAmount,
+      })),
+      { dedupedFeeAmount: dedupedFee }
+    );
+    if (dedupedPlanResult.isErr()) {
+      return err(
+        new Error(
+          `Same-hash source allocation failed for ${group.assetSymbol} in hash ${group.normalizedHash} ` +
+            `(${group.blockchain}): ${dedupedPlanResult.error.message}`
+        )
+      );
+    }
+
+    return ok({
+      capacities: dedupedPlanResult.value.capacities,
+      feeAccounting: {
+        kind: 'deduped_shared_fee',
+        totalFee: dedupedPlanResult.value.dedupedFee,
+        feeOwnerTxId: dedupedPlanResult.value.feeOwnerTxId,
+        otherParticipantTxIds: group.participants
+          .map((participant) => participant.txId)
+          .filter((txId) => txId !== dedupedPlanResult.value.feeOwnerTxId),
+      },
+      totalCapacity: dedupedPlanResult.value.totalCapacity,
+    });
+  }
+
+  const capacities = pureOutflows
+    .slice()
+    .sort((left, right) => left.txId - right.txId)
+    .map((source) => {
+      const capacityAmount = source.outflowGrossAmount.minus(source.onChainFeeAmount);
+      if (capacityAmount.lt(0)) {
+        return err(
+          new Error(
+            `Same-hash source allocation produced negative source capacity for tx ${source.txId}: ` +
+              `gross=${source.outflowGrossAmount.toFixed()}, fee=${source.onChainFeeAmount.toFixed()}`
+          )
+        );
+      }
+
+      return ok({
+        txId: source.txId,
+        grossAmount: source.outflowGrossAmount,
+        feeDeducted: source.onChainFeeAmount,
+        capacityAmount,
+      });
+    });
+
+  const materializedCapacities: {
+    capacityAmount: Decimal;
+    feeDeducted: Decimal;
+    grossAmount: Decimal;
+    txId: number;
+  }[] = [];
+  for (const capacityResult of capacities) {
+    if (capacityResult.isErr()) {
+      return err(
+        new Error(
+          `Same-hash source allocation failed for ${group.assetSymbol} in hash ${group.normalizedHash} ` +
+            `(${group.blockchain}): ${capacityResult.error.message}`
+        )
+      );
+    }
+
+    materializedCapacities.push(capacityResult.value);
+  }
+
+  const totalCapacity = materializedCapacities.reduce(
+    (sum, capacity) => sum.plus(capacity.capacityAmount),
+    new Decimal(0)
+  );
+  const totalFee = materializedCapacities.reduce((sum, capacity) => sum.plus(capacity.feeDeducted), new Decimal(0));
+
+  return ok({
+    capacities: materializedCapacities,
+    feeAccounting: {
+      kind: 'per_source_allocated_fee',
+      totalFee,
+    },
+    totalCapacity,
   });
 }
 
@@ -779,14 +871,16 @@ function applyMultiSourceScopedExternalAmount(
     sourceOutflow.netAmount = sourceAllocation.externalAmount;
   }
 
-  const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-    scopedByTxId,
-    decision.feeOwnerTxId,
-    decision.otherParticipantTxIds,
-    decision.assetId,
-    decision.dedupedFee
-  );
-  if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
+  if (decision.feeAccounting.kind === 'deduped_shared_fee') {
+    const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
+      scopedByTxId,
+      decision.feeAccounting.feeOwnerTxId,
+      decision.feeAccounting.otherParticipantTxIds,
+      decision.assetId,
+      decision.feeAccounting.totalFee
+    );
+    if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
+  }
 
   for (const receiverTxId of decision.internalReceiverTxIds) {
     const receiverScoped = scopedByTxId.get(receiverTxId);
@@ -800,8 +894,7 @@ function applyMultiSourceScopedExternalAmount(
   logger.debug(
     {
       assetId: decision.assetId,
-      dedupedFee: decision.dedupedFee.toFixed(),
-      feeOwnerTxId: decision.feeOwnerTxId,
+      feeAccounting: summarizeMultiSourceFeeAccounting(decision.feeAccounting),
       internalReceiverCount: decision.internalReceiverTxIds.length,
       sourceAllocations: decision.sourceAllocations.map((allocation) => ({
         txId: allocation.txId,
@@ -838,28 +931,56 @@ function applyMultiSourceInternalFeeOnly(
     );
   }
 
-  const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-    scopedByTxId,
-    decision.feeOwnerTxId,
-    decision.otherParticipantTxIds,
-    decision.assetId,
-    decision.dedupedFee
-  );
-  if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
-  const feeOwnerScopedFee = feeNormalizationResult.value;
+  if (decision.feeAccounting.kind === 'deduped_shared_fee') {
+    const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
+      scopedByTxId,
+      decision.feeAccounting.feeOwnerTxId,
+      decision.feeAccounting.otherParticipantTxIds,
+      decision.assetId,
+      decision.feeAccounting.totalFee
+    );
+    if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
+    const feeOwnerScopedFee = feeNormalizationResult.value;
 
-  if (feeOwnerScopedFee) {
+    if (feeOwnerScopedFee) {
+      for (const sourceCarryover of decision.sourceCarryovers) {
+        feeOnlyInternalCarryovers.push({
+          assetId: decision.assetId,
+          assetSymbol: decision.assetSymbol as Currency,
+          fee:
+            sourceCarryover.sourceTxId === decision.feeAccounting.feeOwnerTxId
+              ? feeOwnerScopedFee
+              : {
+                  ...feeOwnerScopedFee,
+                  amount: new Decimal(0),
+                },
+          retainedQuantity: sourceCarryover.retainedQuantity,
+          sourceTransactionId: sourceCarryover.sourceTxId,
+          sourceMovementFingerprint: sourceCarryover.sourceMovementFingerprint,
+          targets: sourceCarryover.targets.map((target) => ({
+            targetTransactionId: target.txId,
+            targetMovementFingerprint: target.movementFingerprint,
+            quantity: target.quantity,
+          })),
+        });
+      }
+    }
+  } else {
     for (const sourceCarryover of decision.sourceCarryovers) {
+      const sourceScoped = scopedByTxId.get(sourceCarryover.sourceTxId);
+      if (!sourceScoped) {
+        return err(new Error(`Sender scoped transaction ${sourceCarryover.sourceTxId} not found`));
+      }
+
+      const sourceFee = detachSameAssetOnChainFee(sourceScoped, decision.assetId);
+      if (!sourceFee) {
+        continue;
+      }
+
       feeOnlyInternalCarryovers.push({
         assetId: decision.assetId,
         assetSymbol: decision.assetSymbol as Currency,
-        fee:
-          sourceCarryover.sourceTxId === decision.feeOwnerTxId
-            ? feeOwnerScopedFee
-            : {
-                ...feeOwnerScopedFee,
-                amount: new Decimal(0),
-              },
+        fee: sourceFee,
         retainedQuantity: sourceCarryover.retainedQuantity,
         sourceTransactionId: sourceCarryover.sourceTxId,
         sourceMovementFingerprint: sourceCarryover.sourceMovementFingerprint,
@@ -875,8 +996,7 @@ function applyMultiSourceInternalFeeOnly(
   logger.debug(
     {
       assetId: decision.assetId,
-      dedupedFee: decision.dedupedFee.toFixed(),
-      feeOwnerTxId: decision.feeOwnerTxId,
+      feeAccounting: summarizeMultiSourceFeeAccounting(decision.feeAccounting),
       sourceCarryoverCount: decision.sourceCarryovers.length,
     },
     'Applied same-hash internal scoping (multi-source fee-only carryover)'
@@ -1074,6 +1194,34 @@ function normalizeSameAssetOnChainFeeOwnership(
   senderScoped.fees.push(normalizedFee);
 
   return ok(normalizedFee);
+}
+
+function detachSameAssetOnChainFee(
+  scoped: AccountingScopedTransaction,
+  assetId: string
+): ScopedFeeMovement | undefined {
+  const matchingFee = scoped.fees.find((fee) => isSameAssetOnChainFee(fee, assetId));
+  if (!matchingFee) {
+    return undefined;
+  }
+
+  removeSameAssetOnChainFees(scoped, assetId);
+  return matchingFee;
+}
+
+function summarizeMultiSourceFeeAccounting(feeAccounting: MultiSourceSameHashFeeAccounting): Record<string, string> {
+  if (feeAccounting.kind === 'deduped_shared_fee') {
+    return {
+      kind: feeAccounting.kind,
+      totalFee: feeAccounting.totalFee.toFixed(),
+      feeOwnerTxId: String(feeAccounting.feeOwnerTxId),
+    };
+  }
+
+  return {
+    kind: feeAccounting.kind,
+    totalFee: feeAccounting.totalFee.toFixed(),
+  };
 }
 
 function removeSameAssetOnChainFees(scoped: AccountingScopedTransaction, assetId: string): void {

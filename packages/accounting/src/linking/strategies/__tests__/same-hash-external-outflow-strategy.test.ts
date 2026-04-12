@@ -1,4 +1,5 @@
-import { parseDecimal } from '@exitbook/foundation';
+import { UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE } from '@exitbook/core';
+import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { buildMatchingConfig } from '../../matching/matching-config.js';
@@ -97,6 +98,7 @@ describe('SameHashExternalOutflowStrategy', () => {
         platformKey: 'kraken',
         platformKind: 'exchange',
         assetId: 'exchange:kraken:btc',
+        blockchainTxHash: hash,
         amount: parseDecimal('0.01520877'),
         direction: 'in',
         timestamp: targetTimestamp,
@@ -123,6 +125,8 @@ describe('SameHashExternalOutflowStrategy', () => {
 
     const linkedSmallestLeg = result.value.links.find((link) => link.sourceTransactionId === 409);
     expect(linkedSmallestLeg?.sourceAmount.toFixed()).toBe('0.00087823');
+    expect(linkedSmallestLeg?.metadata?.['sameHashExternalFeeAccounting']).toBe('deduped_shared_fee');
+    expect(linkedSmallestLeg?.metadata?.['sameHashExternalTotalFee']).toBe('0.0000383');
     expect(linkedSmallestLeg?.metadata?.['feeBearingSourceTransactionId']).toBe(413);
     expect(linkedSmallestLeg?.metadata?.['dedupedSameHashFee']).toBe('0.0000383');
     expect(linkedSmallestLeg?.metadata?.['sameHashExternalSourceAllocations']).toEqual([
@@ -157,6 +161,122 @@ describe('SameHashExternalOutflowStrategy', () => {
         feeDeducted: '0',
       },
     ]);
+  });
+
+  it('confirms a same-hash external group when target excess is exactly explained by an unattributed staking reward component', () => {
+    const hash = '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf';
+    const timestamp = new Date('2024-07-25T20:32:02.000Z');
+    const targetTimestamp = new Date('2024-07-25T20:35:47.000Z');
+    const toAddress =
+      'addr1q95qk0u05drsy3e3qfjzspgc97a3f8ktv23se96sqfw4204c0rqf3wsyvp6zyxwgg0f7p0d8h0d8z6kpf6asuetxeussscaha9';
+    const transactionDiagnostics = [
+      {
+        code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
+        message: 'wallet-scoped staking reward component',
+        severity: 'info' as const,
+        metadata: {
+          amount: '10.524451',
+          assetSymbol: 'ADA' as Currency,
+          movementRole: 'staking_reward',
+        },
+      },
+    ];
+
+    const sources = [
+      createLinkableMovement({
+        id: 1,
+        transactionId: 2447,
+        accountId: 87,
+        platformKey: 'cardano',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('1021.329314829243639698026006'),
+        grossAmount: parseDecimal('1021.402541'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:cardano:2447:outflow:0',
+        transactionDiagnostics,
+      }),
+      createLinkableMovement({
+        id: 2,
+        transactionId: 2452,
+        accountId: 89,
+        platformKey: 'cardano',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('974.9646790310350899938477373'),
+        grossAmount: parseDecimal('975.034581'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:cardano:2452:outflow:0',
+        transactionDiagnostics,
+      }),
+      createLinkableMovement({
+        id: 3,
+        transactionId: 2454,
+        accountId: 91,
+        platformKey: 'cardano',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:cardano:native',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('672.8999971397212703081262567'),
+        grossAmount: parseDecimal('672.948242'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:cardano:2454:outflow:0',
+        transactionDiagnostics,
+      }),
+    ];
+
+    const targets = [
+      createLinkableMovement({
+        id: 100,
+        transactionId: 2304,
+        platformKey: 'kucoin',
+        platformKind: 'exchange',
+        assetId: 'exchange:kucoin:ada',
+        assetSymbol: 'ADA' as Currency,
+        amount: parseDecimal('2679.718442'),
+        direction: 'in',
+        timestamp: targetTimestamp,
+        blockchainTxHash: hash,
+        movementFingerprint: 'movement:kucoin:2304:inflow:0',
+      }),
+    ];
+
+    const strategy = new SameHashExternalOutflowStrategy();
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value.links).toHaveLength(3);
+    expect(result.value.links.every((link) => link.status === 'confirmed')).toBe(true);
+    expect(result.value.links.every((link) => link.metadata?.['partialMatch'] === true)).toBe(true);
+    expect(
+      result.value.links.every(
+        (link) => link.metadata?.['sameHashExternalFeeAccounting'] === 'per_source_allocated_fee'
+      )
+    ).toBe(true);
+    expect(result.value.links.every((link) => link.metadata?.['sameHashExternalTotalFee'] === '0.191373')).toBe(true);
+    expect(
+      result.value.links.every((link) => link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
+    ).toBe(true);
+    expect(result.value.links.every((link) => link.targetTransactionId === 2304)).toBe(true);
+    expect(result.value.links.reduce((sum, link) => sum.plus(link.targetAmount), parseDecimal('0')).toFixed()).toBe(
+      '2669.193991'
+    );
+    expect([...result.value.consumedCandidateIds].sort((left, right) => left - right)).toEqual([1, 2, 3, 100]);
   });
 
   it('suggests a mixed same-hash external group when the exact residual matches one exchange deposit', () => {

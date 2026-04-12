@@ -1,11 +1,15 @@
+import type { Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import {
+  getUnattributedStakingRewardComponents,
   hasAnyDiagnosticCode,
   hasDiagnosticCode,
   isTransactionMarkedSpam,
+  sumUniqueUnattributedStakingRewardComponents,
   transactionHasAnyDiagnosticCode,
   transactionHasDiagnosticCode,
+  UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
 } from '../transaction-diagnostic-utils.js';
 import type { Transaction, TransactionDiagnostic } from '../transaction.js';
 
@@ -56,5 +60,56 @@ describe('transaction diagnostic utils', () => {
     expect(isTransactionMarkedSpam(createTransaction({ diagnostics: createDiagnostics(['SUSPICIOUS_AIRDROP']) }))).toBe(
       false
     );
+  });
+
+  it('extracts typed unattributed staking reward components from diagnostics metadata', () => {
+    const diagnostics: TransactionDiagnostic[] = [
+      {
+        code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
+        message: 'wallet-scoped reward',
+        severity: 'info',
+        metadata: {
+          amount: '10.524451',
+          assetSymbol: 'ADA',
+          movementRole: 'staking_reward',
+        },
+      },
+      {
+        code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
+        message: 'ignored wrong role',
+        severity: 'info',
+        metadata: {
+          amount: '1',
+          assetSymbol: 'ADA',
+          movementRole: 'principal',
+        },
+      },
+    ];
+
+    const components = getUnattributedStakingRewardComponents(diagnostics, 'ADA' as Currency);
+
+    expect(components).toHaveLength(1);
+    expect(components[0]?.amount.toFixed()).toBe('10.524451');
+    expect(components[0]?.assetSymbol).toBe('ADA');
+    expect(components[0]?.movementRole).toBe('staking_reward');
+  });
+
+  it('deduplicates repeated unattributed staking reward components across sibling diagnostics', () => {
+    const diagnostics: TransactionDiagnostic[] = [
+      {
+        code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
+        message: 'wallet-scoped reward',
+        severity: 'info',
+        metadata: {
+          amount: '10.524451',
+          assetSymbol: 'ADA',
+          movementRole: 'staking_reward',
+        },
+      },
+    ];
+
+    const total = sumUniqueUnattributedStakingRewardComponents([diagnostics, diagnostics], 'ADA' as Currency);
+
+    expect(total.toFixed()).toBe('10.524451');
   });
 });

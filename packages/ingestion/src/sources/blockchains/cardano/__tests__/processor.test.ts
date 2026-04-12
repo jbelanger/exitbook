@@ -334,7 +334,13 @@ describe('CardanoProcessor', () => {
     expect(transaction?.fees[0]?.amount.toFixed()).toBe('0.102');
     expect(transaction?.movements.inflows).toHaveLength(0);
     expect(transaction?.diagnostics?.some((diagnostic) => diagnostic.code === 'classification_uncertain')).toBe(true);
-    expect(transaction?.diagnostics?.[0]?.message).toContain('wallet-scoped staking withdrawal of 1 ADA');
+    expect(
+      transaction?.diagnostics?.some(
+        (diagnostic) =>
+          diagnostic.code === 'unattributed_staking_reward_component' &&
+          diagnostic.message.includes('wallet-scoped staking reward component of 1 ADA')
+      )
+    ).toBe(true);
   });
 
   test('multi-asset transaction - handles native tokens and ADA', async () => {

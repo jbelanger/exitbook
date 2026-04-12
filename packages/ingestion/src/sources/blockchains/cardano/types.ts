@@ -32,6 +32,7 @@ export interface CardanoFundFlow {
 
   // Cardano-specific wallet-scope semantics
   attributedWithdrawalAmount?: string | undefined;
+  unattributedWithdrawalAmount?: string | undefined;
 
   // Addresses involved
   fromAddress?: string | undefined;

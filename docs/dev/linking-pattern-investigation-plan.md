@@ -274,9 +274,10 @@ Supporting issue for the remaining live-data / validation cases:
 
 #### Track 1: Shared-hash batched deposit
 
-- The original ADA case is no longer evidence for a new linking strategy.
-- Upstream processing now distinguishes staking-reward inflows from transfer-principal movements, so Track 1 can focus on genuine post-foundation N:1 deposit cases.
-- This is the clearest example of why Track 0 came first: it removed a false linking problem instead of teaching linking about Cardano.
+- The original ADA case is no longer evidence for a broad new linking strategy.
+- Track 0 made the residual value explicit as a typed machine diagnostic instead of a note-era guess.
+- That unlocked a narrow, auditable strategy enhancement: allow a same-hash partial target only when the target excess is explained exactly by typed wallet-scoped residual diagnostics.
+- This also exposed a second generic finding: same-hash linking and same-hash cost-basis scoping must distinguish `deduped_shared_fee` from `per_source_allocated_fee`. A blanket max-fee-dedup rule is wrong outside duplicated-fee projections.
 
 #### Track 2: Cross-chain migration / bridge-like move
 
@@ -303,57 +304,68 @@ Supporting issue for the remaining live-data / validation cases:
 
 ### Consequence For Track 1 (ADA)
 
-The Cardano staking-withdrawal case is no longer just a Track 1 linking investigation.
+The Cardano staking-withdrawal case is no longer just a Track 1 linking investigation, and it is no longer merely a review-surface problem.
 
 New sequencing:
 
 1. provider / processor correctness
 2. movement semantics foundation
-3. rerun the corrected ADA case
-4. only then decide whether any linking strategy is still needed
+3. same-hash partial-target linking with exact diagnostic residuals
+4. rerun the corrected ADA case
+5. only then decide whether any broader Track 1 work is still needed
 
-Track 1 should not grow a Cardano-specific linking exception. The original Cardano ambiguity is already resolved by Track 0.
+Track 1 should still not grow a Cardano-specific linking exception. The original Cardano ambiguity is now resolved by:
+
+- upstream Cardano withdrawal semantics
+- typed residual diagnostics
+- a generic same-hash explained-partial-target linking rule
 
 ## Pattern Tracks
 
 ### Track 1: Shared-Hash Batched Exchange Deposit
 
-Status: live analysis narrowed scope; no new generic strategy justified yet
+Status: narrow strategy enhancement shipped; no broader generic strategy justified now
 Expected value: medium
-Likely destination: existing linking strategy is already sufficient for generic exact-conservation cases; fallback is grouped review/cue if unresolved wallet-scoped cases remain
+Likely destination: existing same-hash linking remains the main strategy surface; future work only if a second unresolved case appears after the explained-partial-target rule
 
 #### Evidence
 
-Current unresolved live case:
+Resolved live case that drove this track:
 
 - blockchain outflows:
-  - tx `78a82e8482` / `ADA 1021.402541`
-  - tx `d0c794045d` / `ADA 975.034581`
-  - tx `712ee1e81a` / `ADA 672.948242`
+  - tx `4343` / `ADA 1021.402541`
+  - tx `4348` / `ADA 975.034581`
+  - tx `4350` / `ADA 672.948242`
 - exchange inflow:
-  - tx `38adc7a548` / `ADA 2679.718442`
+  - tx `4200` / `ADA 2679.718442`
 - shared blockchain hash for all four:
   - `0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf`
 
-Current live numbers after Track 0:
+Current live numbers after Track 0 and the explained-partial-target strategy:
 
 - blockchain source gross total: `2669.385364 ADA`
+- blockchain source net total: `2669.193991 ADA`
 - exchange deposit inflow: `2679.718442 ADA`
-- residual difference: `10.333078 ADA`
+- target excess over linked transfer quantity: `10.524451 ADA`
 - wallet-scoped staking withdrawal on the same on-chain tx: `10.524451 ADA`
-- deduped on-chain fee on the shared tx: `0.191373 ADA`
+- total already-allocated on-chain fee across the three projected source rows: `0.191373 ADA`
 
-So the residual difference is:
+Live links created on `2026-04-12` after reprocess + `links run`:
 
-- `staking withdrawal - fee = 10.333078 ADA`
+- link `768`: `4343 -> 4200` / `1021.329314829243639698026006 ADA`
+- link `769`: `4348 -> 4200` / `974.9646790310350899938477373 ADA`
+- link `770`: `4350 -> 4200` / `672.8999971397212703081262567 ADA`
+- link metadata:
+  - `sameHashExplainedTargetResidualAmount = 10.524451`
+  - `sameHashExternalFeeAccounting = per_source_allocated_fee`
 
-This means the remaining mismatch is not an unexplained amount. It is explained economically, but it is not attributable safely to one projected per-address source row.
+This means the remaining target excess is not being linked as transfer quantity. It is carried explicitly as explained residual context on the partial target links.
 
 Live re-check on `2026-04-12`:
 
 - current dataset has `12` same-hash cross-platform principal clusters
 - `11 / 12` are already resolved by existing linking behavior
-- the only unresolved cluster is the Cardano hash above
+- the former Cardano outlier is now resolved by the explained-partial-target path
 
 Previous Bitcoin hashes are no longer valid Track 1 evidence:
 
@@ -370,100 +382,86 @@ Those Bitcoin cases are already handled by the existing same-hash machinery:
 
 #### Hypothesis
 
-The generic N:1 exact-conservation problem is already solved.
+The generic N:1 exact-conservation problem was already solved.
 
-What remains is narrower:
+What remained was narrower:
 
 - the chain-side provider materializes one transfer row per funded source/account slice
 - the exchange import materializes one deposit row for the aggregate on-chain transaction
-- the Cardano wallet also contributed wallet-scoped staking value on the same hash
-- that extra value is visible semantically, but not attributable to one projected source row
+- the wallet also contributed extra same-asset value on the same hash
+- that extra value can be handled safely only when it is surfaced as a typed diagnostic and reconciles exactly
 
-So the unresolved case is not "we need a generic N:1 linker."
-It is "we have one wallet-scoped aggregation case that current per-address projection cannot safely expand into pairwise links."
+So the real missing capability was not "we need a generic N:1 linker."
+It was "the same-hash strategy and same-hash scoping need a safe way to recognize exact, non-transfer target excess and a fee model that does not assume duplicated shared fees."
 
 #### Current Finding
 
-The original Cardano case is still the only unresolved live Track 1 case, but the re-check changed what it means.
+The original Cardano case is no longer unresolved.
 
 What happened:
 
 - provider normalization now preserves Blockfrost withdrawals
 - Cardano processing now emits `movementRole='staking_reward'` for attributable staking withdrawals
+- Cardano processing also emits a typed `unattributed_staking_reward_component` diagnostic when wallet-scoped reward value cannot be assigned to one projected address row
 - transfer-oriented consumers now ignore non-principal movements
-- the projected blockchain outflows now reconcile economically with the exchange inflow once staking withdrawal + fee handling are accounted for
-- live scan now shows the generic same-hash N:1 strategy space is already covered elsewhere
-
-What did **not** happen:
-
-- no links were created for the July 25, 2024 Cardano cluster
-- the per-address Cardano rows still cannot consume the wallet-scoped staking value safely
-- the review surface still does not reconcile or group the four related rows into one operator action
+- `SameHashExternalOutflowStrategy` now allows a partial target only when target excess equals the summed typed residual exactly
+- same-hash cost-basis scoping now distinguishes:
+  - `deduped_shared_fee`
+  - `per_source_allocated_fee`
+- the projected blockchain outflows now reconcile operationally with the exchange inflow once staking withdrawal + fee handling are accounted for
 
 Result:
 
-- the old semantic ambiguity no longer blocks investigation
-- this is no longer good evidence for a new generic linking strategy
-- it is now evidence for one unresolved wallet-scoped review case after generic linking has already done its job elsewhere
+- the old semantic ambiguity no longer blocks linking
+- the Cardano case is now linked safely without a Cardano-specific accounting rule
+- `links gaps` still shows one exchange-side ADA residual gap for `10.524451`; that is now a review-surface question, not a transfer-linking failure
+- this is still not evidence for a broad new linking strategy; it is evidence for a narrower generic rule:
+  - shared hash
+  - exact target excess
+  - exact typed residual explanation
+  - fee-accounting-aware same-hash capacity planning
 
 So this track should now:
 
 - continue to reject any Cardano-specific linking exception
 - stop using the old Bitcoin hashes as open evidence
-- treat the current Cardano case as a review-surface / grouping problem unless a second unresolved exact-conservation case appears
+- keep the explained-partial-target rule narrow and audited
+- wait for a second unresolved case before broadening the track again
 
 #### Investigation Questions
 
-1. Do we have any second unresolved live case after Track 0, or is Cardano currently the only one?
-2. Can wallet-scoped extra value ever be linked pairwise safely without changing the projection model?
-3. Is this really linking, or is the right destination a grouped review object in `links gaps`?
-4. Should ingestion ever collapse these rows upstream, or does that conflict with account-scoped provenance?
-5. If a second unresolved exact-conservation case appears later, does the existing `SameHashExternalOutflowStrategy` already cover it?
-
-#### Current UX Limitation
-
-The movement-semantics work improved the underlying data, and `links gaps` now surfaces the key context:
-
-- the Cardano ADA gaps show `staking withdrawal in same tx`
-- gap detail shows the full wallet-scoped staking-withdrawal explanation
-
-What the operator still does **not** get is higher-level reconciliation:
-
-Today the user still sees:
-
-- three Cardano ADA outflow gaps
-- one exchange ADA inflow gap
-
-What the user still does **not** see as a first-class object:
-
-- that those four rows form one shared-hash aggregated-deposit candidate
-- that the blockchain-side rows reconcile cleanly to the exchange inflow once staking withdrawal + fees are accounted for
-- a single grouped review action instead of four independent gap rows
-
-This means Track 1 remains a real linking / review-surface problem even though the operator now gets materially better context.
+1. Do we have any second unresolved live case after the explained-partial-target rule, or was Cardano the only one?
+2. Are there any other typed residual explanations besides wallet-scoped staking reward that meet the same exactness bar?
+3. Should the exact residual explanation be modeled only in metadata, or should we add a first-class helper/type guard for it in link review surfaces?
+4. Should ingestion ever collapse these rows upstream, or does that still conflict with account-scoped provenance?
+5. If a second unresolved case appears later, is the missing signal:
+   - typed residual diagnostics
+   - fee-accounting mode
+   - or something else entirely?
 
 #### Candidate Outcome
 
 Current Cardano case:
 
-- resolved semantically enough to understand safely
-- not enough evidence for a new generic linking strategy
-- still unresolved as a review-surface / grouping problem
+- linked safely
+- reconciled for cost-basis scoping
+- still additive only: the residual is explained, not silently converted into transfer quantity
 
 Preferred long-term order:
 
-1. keep the current generic same-hash external linking strategy as-is
+1. keep the current generic same-hash external linking strategy plus the explained-partial-target extension
 2. wait for either:
    - a second unresolved live same-hash aggregated-deposit case, or
-   - a projection-model change that can safely carry wallet-scoped extra value
-3. if neither appears soon, treat this as a grouped review / cue problem rather than a linking-strategy problem
+   - a new typed residual explanation that meets the same exactness bar
+3. if neither appears soon, do not broaden the rule further
 
 #### Required Tests
 
 - positive: existing `SameHashExternalOutflowStrategy` exact-conservation case remains covered
-- positive: the original July 25, 2024 Cardano case remains unlinked but explicitly understood
+- positive: the original July 25, 2024 Cardano case links through explained partial target residuals
+- positive: same-hash cost-basis scoping preserves per-source allocated fees instead of deduping them again
 - negative: same hash but mismatched asset
-- negative: same hash but amount totals do not reconcile unless wallet-scoped value is explicitly modeled
+- negative: same hash but target excess is not explained exactly by typed residual diagnostics
 - negative: same asset/time without shared hash
 
 ### Track 2: Cross-Chain Migration / Bridge-Like Same-Asset Move

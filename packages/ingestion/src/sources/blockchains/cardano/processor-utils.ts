@@ -277,6 +277,7 @@ export function analyzeCardanoFundFlow(
 
   const withdrawalAmount = sumWithdrawalAmount(tx);
   let attributedWithdrawalAmount: string | undefined;
+  let unattributedWithdrawalAmount: string | undefined;
   if (!withdrawalAmount.isZero() && userOwnsInput && userOwnedInputAddressCount <= 1) {
     inflows.push({
       amount: withdrawalAmount.toFixed(),
@@ -286,6 +287,8 @@ export function analyzeCardanoFundFlow(
       unit: 'lovelace',
     });
     attributedWithdrawalAmount = withdrawalAmount.toFixed();
+  } else if (!withdrawalAmount.isZero() && userOwnsInput && userOwnedInputAddressCount > 1) {
+    unattributedWithdrawalAmount = withdrawalAmount.toFixed();
   }
 
   // Consolidate movements by asset after adding any withdrawal-derived inflows.
@@ -349,6 +352,7 @@ export function analyzeCardanoFundFlow(
 
   const fundFlow: CardanoFundFlow = {
     attributedWithdrawalAmount,
+    unattributedWithdrawalAmount,
     classificationUncertainty: classificationNotes.length > 0 ? classificationNotes.join(' ') : undefined,
     feeAmount,
     feeCurrency: 'ADA' as Currency,

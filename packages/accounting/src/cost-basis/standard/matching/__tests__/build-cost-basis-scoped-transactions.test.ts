@@ -12,6 +12,7 @@ import {
   createTransaction,
   materializeTestTransaction,
 } from '../../../../__tests__/test-utils.js';
+import { createExplainedMultiSourceAdaHashPartialTransactions } from '../../../../linking/strategies/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 
 // ---------------------------------------------------------------------------
@@ -430,6 +431,25 @@ describe('buildCostBasisScopedTransactions', () => {
         (fee) => fee.assetId === 'blockchain:bitcoin:native' && fee.settlement === 'on-chain'
       );
       expect(receiverOnChainFees).toHaveLength(0);
+    });
+
+    it('preserves already-allocated per-source fees instead of deduping them again', () => {
+      const result = buildCostBasisScopedTransactions(
+        createExplainedMultiSourceAdaHashPartialTransactions(),
+        noopLogger
+      );
+      const value = assertOk(result);
+
+      const firstScoped = value.transactions.find((tx) => tx.tx.id === 2447)!;
+      const secondScoped = value.transactions.find((tx) => tx.tx.id === 2452)!;
+      const thirdScoped = value.transactions.find((tx) => tx.tx.id === 2454)!;
+
+      expect(firstScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('1021.402541');
+      expect(firstScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('1021.329314829243639698026006');
+      expect(secondScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('975.034581');
+      expect(secondScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('974.9646790310350899938477373');
+      expect(thirdScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('672.948242');
+      expect(thirdScoped.movements.outflows[0]!.netAmount!.toFixed()).toBe('672.8999971397212703081262567');
     });
   });
 

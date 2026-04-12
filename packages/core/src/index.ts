@@ -170,10 +170,15 @@ export {
 export {
   hasAnyDiagnosticCode,
   hasDiagnosticCode,
+  getUnattributedStakingRewardComponents,
   isTransactionMarkedSpam,
+  sumUniqueUnattributedStakingRewardComponents,
   transactionHasAnyDiagnosticCode,
   transactionHasDiagnosticCode,
+  UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
 } from './transaction/transaction-diagnostic-utils.js';
+
+export type { UnattributedStakingRewardComponent } from './transaction/transaction-diagnostic-utils.js';
 
 export {
   PROJECTION_DEFINITIONS,

@@ -69,6 +69,7 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             movementFingerprint: inflow.movementFingerprint,
+            transactionDiagnostics: tx.diagnostics,
           }
         )
       );
@@ -96,6 +97,7 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             movementFingerprint: outflow.movementFingerprint,
+            transactionDiagnostics: tx.diagnostics,
           }
         )
       );
@@ -128,7 +130,12 @@ function createLinkableMovement(
   amount: Decimal,
   grossAmount: Decimal | undefined,
   normalizedHash: string | undefined,
-  flags: { excluded: boolean; isInternal: boolean; movementFingerprint: string }
+  flags: {
+    excluded: boolean;
+    isInternal: boolean;
+    movementFingerprint: string;
+    transactionDiagnostics?: Transaction['diagnostics'];
+  }
 ): LinkableMovement {
   return {
     id,
@@ -145,6 +152,7 @@ function createLinkableMovement(
     blockchainTxHash: normalizedHash,
     fromAddress: tx.from,
     toAddress: tx.to,
+    transactionDiagnostics: flags.transactionDiagnostics,
     isInternal: flags.isInternal,
     excluded: flags.excluded,
     movementFingerprint: flags.movementFingerprint,

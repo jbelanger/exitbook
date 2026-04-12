@@ -5,7 +5,10 @@ import { createTransactionLink } from '../../../../linking/matching/link-constru
 import { allocateMatches } from '../../../../linking/matching/match-allocation.js';
 import { buildMatchingConfig } from '../../../../linking/matching/matching-config.js';
 import { scoreAndFilterMatches } from '../../../../linking/strategies/amount-timing-utils.js';
+import { SameHashExternalOutflowStrategy } from '../../../../linking/strategies/same-hash-external-outflow-strategy.js';
 import {
+  createExplainedMultiSourceAdaHashPartialTransactions,
+  createLinkableMovementsFromTransactions,
   createImpossibleMultiSourceAdaHashPartialScenario,
   createImpossibleMultiSourceAdaHashPartialTransactions,
 } from '../../../../linking/strategies/test-utils.js';
@@ -45,5 +48,26 @@ describe('filterConfirmableTransferProposals', () => {
     const filteredLinks = filterConfirmableTransferProposals(scopedTransactions, [], candidateLinks);
 
     expect(filteredLinks).toHaveLength(0);
+  });
+
+  it('keeps proposals that are partially target-linked when the residual is exactly explained by current diagnostics', () => {
+    const transactions = createExplainedMultiSourceAdaHashPartialTransactions();
+    const linkableMovements = createLinkableMovementsFromTransactions(transactions);
+    const strategy = new SameHashExternalOutflowStrategy();
+    const strategyResult = strategy.execute(
+      linkableMovements.filter((movement) => movement.direction === 'out'),
+      linkableMovements.filter((movement) => movement.direction === 'in'),
+      buildMatchingConfig()
+    );
+    const candidateLinks = assertOk(strategyResult).links;
+
+    const scopedTransactions = assertOk(buildCostBasisScopedTransactions(transactions, noopLogger)).transactions;
+
+    const filteredLinks = filterConfirmableTransferProposals(scopedTransactions, [], candidateLinks);
+
+    expect(filteredLinks).toHaveLength(3);
+    expect(
+      filteredLinks.every((link) => link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
+    ).toBe(true);
   });
 });

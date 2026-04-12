@@ -1,7 +1,9 @@
 import type { AssetMovement, TransactionLink } from '@exitbook/core';
-import { isPartialMatchLinkMetadata } from '@exitbook/core';
+import { isPartialMatchLinkMetadata, sumUniqueUnattributedStakingRewardComponents } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
-import type { Decimal } from 'decimal.js';
+import { Decimal } from 'decimal.js';
+
+import { normalizeTransactionHash } from '../../../linking/strategies/exact-hash-utils.js';
 
 import type { AccountingScopedTransaction } from './scoped-transaction-types.js';
 
@@ -200,12 +202,7 @@ export function validateScopedTransferLinks(
     return err(sourceValidationResult.error);
   }
 
-  const targetValidationResult = validateGroupedMovementLinks(
-    byTargetMovementFingerprint,
-    'target',
-    (validatedLink) => validatedLink.link.targetAmount,
-    (validatedLink) => validatedLink.targetMovementAmount
-  );
+  const targetValidationResult = validateTargetMovementLinks(byTargetMovementFingerprint, scopedTransactions);
   if (targetValidationResult.isErr()) {
     return err(targetValidationResult.error);
   }
@@ -313,4 +310,139 @@ function validateGroupedMovementLinks(
   }
 
   return ok(undefined);
+}
+
+function validateTargetMovementLinks(
+  index: Map<string, ValidatedScopedTransferLink[]>,
+  scopedTransactions: AccountingScopedTransaction[]
+): Result<void, Error> {
+  const scopedTransactionsById = new Map(
+    scopedTransactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction])
+  );
+
+  for (const [fingerprint, validatedLinks] of index) {
+    if (validatedLinks.length === 0) continue;
+
+    const partialLinks = validatedLinks.filter((validatedLink) => validatedLink.isPartialMatch);
+    const isPartialGroup = partialLinks.length > 0;
+
+    if (!isPartialGroup) {
+      if (validatedLinks.length !== 1) {
+        return err(
+          new Error(
+            `Confirmed transfer validation failed for target movement ${fingerprint}: ` +
+              `expected exactly one full link, found ${validatedLinks.length}`
+          )
+        );
+      }
+      continue;
+    }
+
+    if (partialLinks.length !== validatedLinks.length) {
+      return err(
+        new Error(
+          `Confirmed transfer validation failed for target movement ${fingerprint}: ` +
+            `partial and full links are mixed for the same movement`
+        )
+      );
+    }
+
+    const fullMovementAmount = validatedLinks[0]!.targetMovementAmount;
+    const totalLinkedAmount = validatedLinks.reduce(
+      (sum, validatedLink) => sum.plus(validatedLink.link.targetAmount),
+      new Decimal(0)
+    );
+
+    if (totalLinkedAmount.eq(fullMovementAmount)) {
+      continue;
+    }
+
+    const allowedResidualResult = getAllowedExplainedTargetResidual(
+      validatedLinks,
+      scopedTransactionsById,
+      fullMovementAmount.minus(totalLinkedAmount)
+    );
+    if (allowedResidualResult.isErr()) {
+      return err(allowedResidualResult.error);
+    }
+
+    if (allowedResidualResult.value) {
+      continue;
+    }
+
+    return err(
+      new Error(
+        `Confirmed partial transfer validation failed for target movement ${fingerprint}: ` +
+          `linked total ${totalLinkedAmount.toFixed()} does not reconcile with scoped movement amount ` +
+          `${fullMovementAmount.toFixed()}`
+      )
+    );
+  }
+
+  return ok(undefined);
+}
+
+function getAllowedExplainedTargetResidual(
+  validatedLinks: readonly ValidatedScopedTransferLink[],
+  scopedTransactionsById: Map<number, AccountingScopedTransaction>,
+  residualAmount: Decimal
+): Result<boolean, Error> {
+  if (!residualAmount.gt(0)) {
+    return ok(false);
+  }
+
+  const targetTx = scopedTransactionsById.get(validatedLinks[0]!.link.targetTransactionId);
+  if (!targetTx) {
+    return err(new Error(`Missing scoped target transaction ${validatedLinks[0]!.link.targetTransactionId}`));
+  }
+
+  if (targetTx.tx.platformKind !== 'exchange') {
+    return ok(false);
+  }
+
+  const targetHash = targetTx.tx.blockchain?.transaction_hash
+    ? normalizeTransactionHash(targetTx.tx.blockchain.transaction_hash)
+    : undefined;
+  if (!targetHash) {
+    return ok(false);
+  }
+
+  const sourceTransactions: AccountingScopedTransaction[] = [];
+  const seenSourceIds = new Set<number>();
+
+  for (const validatedLink of validatedLinks) {
+    if (seenSourceIds.has(validatedLink.link.sourceTransactionId)) {
+      continue;
+    }
+
+    const sourceTx = scopedTransactionsById.get(validatedLink.link.sourceTransactionId);
+    if (!sourceTx) {
+      return err(new Error(`Missing scoped source transaction ${validatedLink.link.sourceTransactionId}`));
+    }
+
+    if (sourceTx.tx.platformKind !== 'blockchain') {
+      return ok(false);
+    }
+
+    const sourceHash = sourceTx.tx.blockchain?.transaction_hash
+      ? normalizeTransactionHash(sourceTx.tx.blockchain.transaction_hash)
+      : undefined;
+    if (!sourceHash || sourceHash !== targetHash) {
+      return ok(false);
+    }
+
+    seenSourceIds.add(validatedLink.link.sourceTransactionId);
+    sourceTransactions.push(sourceTx);
+  }
+
+  if (sourceTransactions.length === 0) {
+    return ok(false);
+  }
+
+  const explainedResidualAmount = sumUniqueUnattributedStakingRewardComponents(
+    sourceTransactions.map((scopedTransaction) => scopedTransaction.tx.diagnostics),
+    validatedLinks[0]!.link.assetSymbol
+  );
+
+  return ok(explainedResidualAmount.eq(residualAmount));
 }

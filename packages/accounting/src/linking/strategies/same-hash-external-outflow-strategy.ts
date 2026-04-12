@@ -1,4 +1,9 @@
-import type { NewTransactionLink, SameHashExternalSourceAllocation, TransactionLinkMetadata } from '@exitbook/core';
+import {
+  sumUniqueUnattributedStakingRewardComponents,
+  type NewTransactionLink,
+  type SameHashExternalSourceAllocation,
+  type TransactionLinkMetadata,
+} from '@exitbook/core';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
@@ -8,7 +13,7 @@ import type { LinkableMovement } from '../pre-linking/types.js';
 import {
   allocateSameHashUtxoAmountInTxOrder,
   planSameHashUtxoSourceCapacities,
-  type SameHashUtxoCapacityPlan,
+  type SameHashUtxoSourceCapacity,
   type SameHashUtxoSourceAllocation,
 } from '../same-hash-utxo-allocation.js';
 import type { MatchingConfig, PotentialMatch } from '../shared/types.js';
@@ -25,11 +30,27 @@ interface SameHashExternalOutflowGroup {
 }
 
 interface ResolvedGroupMatch {
+  explainedTargetResidualAmount?: Decimal | undefined;
   groupAmount: Decimal;
   groupMatch: PotentialMatch;
   siblingInflowAmount: Decimal;
   sourceAllocations: SameHashUtxoSourceAllocation[];
   status: 'confirmed' | 'suggested';
+}
+
+interface GroupSourceCapacityPlan {
+  capacities: SameHashUtxoSourceCapacity[];
+  feeAccounting:
+    | {
+        feeOwnerTxId: number;
+        kind: 'deduped_shared_fee';
+        totalFee: Decimal;
+      }
+    | {
+        kind: 'per_source_allocated_fee';
+        totalFee: Decimal;
+      };
+  totalCapacity: Decimal;
 }
 
 /**
@@ -56,13 +77,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
     const exchangeTargets = targets.filter((target) => target.platformKind === 'exchange' && target.direction === 'in');
 
     for (const group of buildGroups(sources, targets)) {
-      const capacityPlanResult = planSameHashUtxoSourceCapacities(
-        group.sources.map((source) => ({
-          txId: source.transactionId,
-          grossAmount: sourceGross(source),
-          feeAmount: sourceFee(source),
-        }))
-      );
+      const capacityPlanResult = resolveGroupSourceCapacityPlan(group.sources);
       if (capacityPlanResult.isErr()) {
         return err(capacityPlanResult.error);
       }
@@ -75,10 +90,6 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
       if (!resolvedMatch) continue;
 
       const allocations = buildSourceAllocations(resolvedMatch.sourceAllocations);
-      const feeBearingAllocation =
-        allocations.find((allocation) => allocation.feeDeducted !== '0') ??
-        [...allocations].sort((left, right) => left.sourceTransactionId - right.sourceTransactionId)[0];
-      if (!feeBearingAllocation) continue;
       const expandedMatches = buildExpandedMatches(
         resolvedMatch.groupMatch,
         group.sources,
@@ -98,20 +109,28 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
         const link = linkResult.value;
         const metadata: TransactionLinkMetadata = {
           ...link.metadata,
-          dedupedSameHashFee: capacityPlanResult.value.dedupedFee.toFixed(),
           sameHashExternalGroup: true,
           sameHashExternalGroupAmount: resolvedMatch.groupAmount.toFixed(),
           sameHashExternalGroupSize: group.sources.length,
-          feeBearingSourceTransactionId: feeBearingAllocation.sourceTransactionId,
+          sameHashExternalFeeAccounting: capacityPlanResult.value.feeAccounting.kind,
+          sameHashExternalTotalFee: capacityPlanResult.value.feeAccounting.totalFee.toFixed(),
           sameHashExternalSourceAllocations: allocations,
           blockchainTxHash: group.hash,
           sharedToAddress: group.toAddress,
         };
+        if (capacityPlanResult.value.feeAccounting.kind === 'deduped_shared_fee') {
+          metadata.dedupedSameHashFee = capacityPlanResult.value.feeAccounting.totalFee.toFixed();
+          metadata.feeBearingSourceTransactionId = capacityPlanResult.value.feeAccounting.feeOwnerTxId;
+        }
         if (group.siblingInflows.length > 0) {
           metadata.sameHashMixedExternalGroup = true;
           metadata.sameHashTrackedSiblingInflowAmount = resolvedMatch.siblingInflowAmount.toFixed();
           metadata.sameHashTrackedSiblingInflowCount = group.siblingInflows.length;
           metadata.sameHashResidualAllocationPolicy = 'transaction_id_prefix';
+        }
+        if (resolvedMatch.explainedTargetResidualAmount?.gt(0)) {
+          metadata.sameHashExplainedTargetResidualAmount = resolvedMatch.explainedTargetResidualAmount.toFixed();
+          metadata.sameHashExplainedTargetResidualRole = 'staking_reward';
         }
         link.metadata = metadata;
 
@@ -211,7 +230,7 @@ function resolveGroupMatch(
   group: SameHashExternalOutflowGroup,
   exchangeTargets: LinkableMovement[],
   config: MatchingConfig,
-  sourceCapacityPlan: SameHashUtxoCapacityPlan
+  sourceCapacityPlan: GroupSourceCapacityPlan
 ): Result<ResolvedGroupMatch | undefined, Error> {
   const siblingInflowAmount = sumMovementGrossAmounts(group.siblingInflows);
   const totalSourceCapacity = sourceCapacityPlan.totalCapacity;
@@ -236,6 +255,10 @@ function resolveGroupMatch(
       return false;
     }
 
+    if (match.matchCriteria.hashMatch !== true) {
+      return false;
+    }
+
     if (!requireAddressMatch) {
       return match.matchCriteria.amountSimilarity.eq(1);
     }
@@ -244,7 +267,47 @@ function resolveGroupMatch(
   });
 
   if (exactMatches.length !== 1) {
-    return ok(undefined);
+    const explainedTargetResidualAmount =
+      group.siblingInflows.length === 0
+        ? sumUniqueUnattributedStakingRewardComponents(
+            group.sources.map((source) => source.transactionDiagnostics),
+            group.sources[0]?.assetSymbol
+          )
+        : parseDecimal('0');
+
+    if (!explainedTargetResidualAmount.gt(0)) {
+      return ok(undefined);
+    }
+
+    const explainedMatches = scoreAndFilterMatches(syntheticSource, exchangeTargets, config).filter((match) => {
+      if (match.matchCriteria.hashMatch !== true) {
+        return false;
+      }
+
+      if (!match.targetMovement.amount.eq(groupAmount.plus(explainedTargetResidualAmount))) {
+        return false;
+      }
+
+      if (!requireAddressMatch) {
+        return true;
+      }
+
+      return targetEndpointMatchesAddress(group.toAddress, match.targetMovement);
+    });
+
+    if (explainedMatches.length !== 1) {
+      return ok(undefined);
+    }
+
+    const explainedGroupMatch = explainedMatches[0]!;
+    return ok({
+      explainedTargetResidualAmount,
+      groupAmount,
+      groupMatch: explainedGroupMatch,
+      siblingInflowAmount,
+      sourceAllocations,
+      status: shouldAutoConfirm(explainedGroupMatch, config) ? 'confirmed' : 'suggested',
+    });
   }
 
   const groupMatch = exactMatches[0]!;
@@ -381,6 +444,66 @@ function buildResidualInternalLink(
   };
 
   return ok(linkResult.value);
+}
+
+function resolveGroupSourceCapacityPlan(sources: LinkableMovement[]): Result<GroupSourceCapacityPlan, Error> {
+  const sourceInputs = sources.map((source) => ({
+    txId: source.transactionId,
+    grossAmount: sourceGross(source),
+    netAmount: source.amount,
+    feeAmount: sourceFee(source),
+  }));
+
+  const positiveFees = sourceInputs.filter((source) => source.feeAmount.gt(0)).map((source) => source.feeAmount);
+  const usesDuplicatedSharedFee =
+    positiveFees.length === sourceInputs.length &&
+    positiveFees.length > 0 &&
+    positiveFees.every((feeAmount) => feeAmount.eq(positiveFees[0]!));
+
+  if (usesDuplicatedSharedFee) {
+    const dedupedPlanResult = planSameHashUtxoSourceCapacities(
+      sourceInputs.map(({ txId, grossAmount, feeAmount }) => ({
+        txId,
+        grossAmount,
+        feeAmount,
+      }))
+    );
+    if (dedupedPlanResult.isErr()) {
+      return err(dedupedPlanResult.error);
+    }
+
+    return ok({
+      capacities: dedupedPlanResult.value.capacities,
+      feeAccounting: {
+        kind: 'deduped_shared_fee',
+        totalFee: dedupedPlanResult.value.dedupedFee,
+        feeOwnerTxId: dedupedPlanResult.value.feeOwnerTxId,
+      },
+      totalCapacity: dedupedPlanResult.value.totalCapacity,
+    });
+  }
+
+  const capacities = sourceInputs
+    .slice()
+    .sort((left, right) => left.txId - right.txId)
+    .map((source) => ({
+      txId: source.txId,
+      grossAmount: source.grossAmount,
+      feeDeducted: source.feeAmount,
+      capacityAmount: source.netAmount,
+    }));
+
+  const totalCapacity = capacities.reduce((sum, capacity) => sum.plus(capacity.capacityAmount), parseDecimal('0'));
+  const totalFee = capacities.reduce((sum, capacity) => sum.plus(capacity.feeDeducted), parseDecimal('0'));
+
+  return ok({
+    capacities,
+    feeAccounting: {
+      kind: 'per_source_allocated_fee',
+      totalFee,
+    },
+    totalCapacity,
+  });
 }
 
 function sourceGross(source: LinkableMovement): Decimal {
