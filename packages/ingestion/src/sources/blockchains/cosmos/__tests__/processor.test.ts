@@ -294,7 +294,73 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
     // Small deposits are normal deposits (affect balance), no special handling
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
-    expect(transaction.diagnostics).toBeUndefined(); // No note for normal small deposits
+    expect(transaction.diagnostics).toBeUndefined(); // No diagnostics for normal small deposits
+  });
+
+  test('adds suspicious airdrop diagnostic for inbound promo memos on native dust transfers', async () => {
+    const processor = createInjectiveProcessor();
+
+    const normalizedData: CosmosTransaction[] = [
+      createTransaction({
+        amount: '0.000000000000000001',
+        blockHeight: 106,
+        from: EXTERNAL_ADDRESS,
+        id: 'tx202b',
+        memo: '✅ Account is listed in Mantra AIRDROP 🌠 You can CHECK ELIGIBILITY on ➡️ https://mantra-dex.app ⬅️',
+        messageType: '/cosmos.bank.v1beta1.MsgMultiSend',
+        to: USER_ADDRESS,
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.diagnostics).toBeDefined();
+    expect(transaction.diagnostics?.map((diagnostic) => diagnostic.code)).toContain('SUSPICIOUS_AIRDROP');
+    expect(
+      transaction.diagnostics?.find((diagnostic) => diagnostic.code === 'SUSPICIOUS_AIRDROP')?.metadata
+    ).toMatchObject({
+      detectionSource: 'memo',
+      targetScope: 'transaction',
+    });
+  });
+
+  test('does not add suspicious airdrop diagnostic for benign inbound memos', async () => {
+    const processor = createInjectiveProcessor();
+
+    const normalizedData: CosmosTransaction[] = [
+      createTransaction({
+        amount: '1',
+        blockHeight: 106,
+        from: EXTERNAL_ADDRESS,
+        id: 'tx202c',
+        memo: 'Payment for validator hosting invoice https://example.com/invoice/123',
+        to: USER_ADDRESS,
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.diagnostics).toBeUndefined();
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {

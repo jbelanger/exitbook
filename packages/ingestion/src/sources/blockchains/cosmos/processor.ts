@@ -9,6 +9,7 @@ import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
 import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
+import { detectPromoMemoDiagnostic } from '../../../features/scam-detection/scam-detection-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
@@ -58,6 +59,11 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         // Addresses are normalized to lowercase via CosmosAddressSchema.
         const userInitiatedTransaction = transaction.from === context.primaryAddress;
         const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+        const promoMemoDiagnostic = detectPromoMemoDiagnostic({
+          memo: transaction.memo,
+          isInboundOnly: fundFlow.inflows.length > 0 && fundFlow.outflows.length === 0 && !userInitiatedTransaction,
+          amount: parseDecimal(fundFlow.primary.amount),
+        });
 
         let hasAssetIdError = false;
         const inflows = [];
@@ -153,7 +159,9 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
 
           operation: classification.operation,
 
-          diagnostics: classification.diagnostics,
+          diagnostics: promoMemoDiagnostic
+            ? [...(classification.diagnostics ?? []), promoMemoDiagnostic]
+            : classification.diagnostics,
 
           blockchain: {
             name: this.chainConfig.chainName,

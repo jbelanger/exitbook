@@ -19,6 +19,8 @@ const URL_PATTERN_REGEX = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|https?:\/
 const EXPLICIT_SCAM_PHRASES_REGEX =
   /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
 
+const PROMO_MEMO_KEYWORDS_REGEX = /\b(airdrop|retrodrop|snapshot|eligibility|eligible)\b/i;
+
 const SUSPICIOUS_URL_PATTERNS = [
   /^.*jupiter.*claim.*$/i,
   /^.*solana.*drop.*$/i,
@@ -204,6 +206,50 @@ export function detectScamToken(
   }
 
   return undefined;
+}
+
+/**
+ * Detect explicit promo/eligibility memo spam on inbound transfers.
+ *
+ * This is intentionally narrower than token scam detection:
+ * - transaction-level only
+ * - warning only
+ * - requires an inbound-only receive context
+ * - requires both promo keywords and a URL/website pattern in the memo
+ */
+export function detectPromoMemoDiagnostic(params: {
+  amount: Decimal;
+  isInboundOnly: boolean;
+  memo: string | undefined;
+}): TransactionDiagnostic | undefined {
+  if (!params.isInboundOnly || !params.memo || !params.amount.greaterThan(0)) {
+    return undefined;
+  }
+
+  const normalizedMemo = params.memo.trim();
+  if (normalizedMemo.length === 0) {
+    return undefined;
+  }
+
+  if (!PROMO_MEMO_KEYWORDS_REGEX.test(normalizedMemo)) {
+    return undefined;
+  }
+
+  if (!containsUrlPattern(normalizedMemo)) {
+    return undefined;
+  }
+
+  return {
+    code: 'SUSPICIOUS_AIRDROP',
+    severity: 'warning',
+    message: 'Suspicious promo memo on inbound transfer: airdrop/eligibility URL',
+    metadata: {
+      detectionSource: 'memo',
+      indicators: ['Promo memo references airdrop/eligibility', 'Memo includes URL or website'],
+      memoExcerpt: normalizedMemo.slice(0, 160),
+      targetScope: 'transaction',
+    },
+  };
 }
 
 /**

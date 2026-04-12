@@ -318,26 +318,44 @@ Track 1 should not grow a Cardano-specific linking exception. The original Carda
 
 ### Track 1: Shared-Hash Batched Exchange Deposit
 
-Status: investigate first
-Expected value: high
-Likely destination: linking strategy if safe, otherwise cue
+Status: live analysis narrowed scope; no new generic strategy justified yet
+Expected value: medium
+Likely destination: existing linking strategy is already sufficient for generic exact-conservation cases; fallback is grouped review/cue if unresolved wallet-scoped cases remain
 
 #### Evidence
 
-Confirmed Cardano case:
+Current unresolved live case:
 
 - blockchain outflows:
-  - `68d63d32d3` / tx `78a82e8482` / `ADA 1021.211168`
-  - `03e4501552` / tx `d0c794045d` / `ADA 974.843208`
-  - `f1c590251b` / tx `712ee1e81a` / `ADA 672.756869`
+  - tx `78a82e8482` / `ADA 1021.402541`
+  - tx `d0c794045d` / `ADA 975.034581`
+  - tx `712ee1e81a` / `ADA 672.948242`
 - exchange inflow:
-  - `c6787f8ae9` / tx `38adc7a548` / `ADA 2679.718442`
+  - tx `38adc7a548` / `ADA 2679.718442`
 - shared blockchain hash for all four:
   - `0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf`
 
-The blockchain outflow amounts sum exactly to the exchange inflow amount.
+Current live numbers after Track 0:
 
-The same database scan also found similar shared-hash multi-row shapes on Bitcoin:
+- blockchain source gross total: `2669.385364 ADA`
+- exchange deposit inflow: `2679.718442 ADA`
+- residual difference: `10.333078 ADA`
+- wallet-scoped staking withdrawal on the same on-chain tx: `10.524451 ADA`
+- deduped on-chain fee on the shared tx: `0.191373 ADA`
+
+So the residual difference is:
+
+- `staking withdrawal - fee = 10.333078 ADA`
+
+This means the remaining mismatch is not an unexplained amount. It is explained economically, but it is not attributable safely to one projected per-address source row.
+
+Live re-check on `2026-04-12`:
+
+- current dataset has `12` same-hash cross-platform principal clusters
+- `11 / 12` are already resolved by existing linking behavior
+- the only unresolved cluster is the Cardano hash above
+
+Previous Bitcoin hashes are no longer valid Track 1 evidence:
 
 - `2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96`
 - `45ec1d9a069424a0c969507f82300f9ef4102ebb0f1921d89b2d50390862c131`
@@ -345,48 +363,62 @@ The same database scan also found similar shared-hash multi-row shapes on Bitcoi
 - `0c3ab1cab70b585ee3d64cdfed8fd8b031b303a733e9b8ec441f9ae7d26e3940`
 - `c700f28764ab1e7c3c614ee4e2e9535791fcc27b38a68605fc99fa8a0db37f85`
 
+Those Bitcoin cases are already handled by the existing same-hash machinery:
+
+- ordinary `blockchain_internal` links for tracked change outputs
+- existing `SameHashExternalOutflowStrategy` for exact-conservation multi-source external sends
+
 #### Hypothesis
 
-The chain-side provider materializes one transfer row per funded source/account slice, while the exchange import materializes one deposit row for the aggregate on-chain transaction.
+The generic N:1 exact-conservation problem is already solved.
 
-This is not a cue-first problem. It looks like a possible N:1 linking strategy.
+What remains is narrower:
+
+- the chain-side provider materializes one transfer row per funded source/account slice
+- the exchange import materializes one deposit row for the aggregate on-chain transaction
+- the Cardano wallet also contributed wallet-scoped staking value on the same hash
+- that extra value is visible semantically, but not attributable to one projected source row
+
+So the unresolved case is not "we need a generic N:1 linker."
+It is "we have one wallet-scoped aggregation case that current per-address projection cannot safely expand into pairwise links."
 
 #### Current Finding
 
-The original Cardano case is still open in `links gaps`, but it is now a cleaner and more auditable Track 1 case than it was before the movement-semantics work.
+The original Cardano case is still the only unresolved live Track 1 case, but the re-check changed what it means.
 
 What happened:
 
 - provider normalization now preserves Blockfrost withdrawals
 - Cardano processing now emits `movementRole='staking_reward'` for attributable staking withdrawals
 - transfer-oriented consumers now ignore non-principal movements
-- the projected blockchain outflows now reconcile cleanly with the exchange inflow once staking withdrawal + fee handling are accounted for
+- the projected blockchain outflows now reconcile economically with the exchange inflow once staking withdrawal + fee handling are accounted for
+- live scan now shows the generic same-hash N:1 strategy space is already covered elsewhere
 
 What did **not** happen:
 
 - no links were created for the July 25, 2024 Cardano cluster
-- the case still appears as four open ADA gaps in `links gaps`
-- the gaps surface still does not reconcile or group the four related rows into one operator action
+- the per-address Cardano rows still cannot consume the wallet-scoped staking value safely
+- the review surface still does not reconcile or group the four related rows into one operator action
 
 Result:
 
 - the old semantic ambiguity no longer blocks investigation
-- this is now a stronger generic Track 1 example because the residual problem is genuinely about aggregated linking, not missing staking semantics
+- this is no longer good evidence for a new generic linking strategy
+- it is now evidence for one unresolved wallet-scoped review case after generic linking has already done its job elsewhere
 
 So this track should now:
 
 - continue to reject any Cardano-specific linking exception
-- keep the original Cardano case as a positive shared-hash aggregated-deposit example
-- pair it with the Bitcoin shared-hash cases to test whether one generic N:1 strategy can handle both
+- stop using the old Bitcoin hashes as open evidence
+- treat the current Cardano case as a review-surface / grouping problem unless a second unresolved exact-conservation case appears
 
 #### Investigation Questions
 
-1. Are all rows on the same asset id, not just the same symbol?
-2. Is the exchange deposit destination the same on-chain address used by the blockchain rows?
-3. Is the shared blockchain hash stable across providers and chains?
-4. Is the amount conservation exact, or do we need fee-aware tolerance?
-5. Is this really linking, or should ingestion collapse these rows upstream?
-6. Can one generic strategy explain both the Cardano wallet-scoped case and the Bitcoin shared-hash cases without introducing chain-specific rules in `accounting/linking`?
+1. Do we have any second unresolved live case after Track 0, or is Cardano currently the only one?
+2. Can wallet-scoped extra value ever be linked pairwise safely without changing the projection model?
+3. Is this really linking, or is the right destination a grouped review object in `links gaps`?
+4. Should ingestion ever collapse these rows upstream, or does that conflict with account-scoped provenance?
+5. If a second unresolved exact-conservation case appears later, does the existing `SameHashExternalOutflowStrategy` already cover it?
 
 #### Current UX Limitation
 
@@ -414,22 +446,24 @@ This means Track 1 remains a real linking / review-surface problem even though t
 
 Current Cardano case:
 
-- resolved semantically enough to investigate safely
-- still unresolved as a linking / review-surface problem
+- resolved semantically enough to understand safely
+- not enough evidence for a new generic linking strategy
+- still unresolved as a review-surface / grouping problem
 
 Preferred long-term order:
 
-1. validate the original Cardano case and at least one Bitcoin case after foundation work
-2. prove exact amount conservation on both, including fee-aware treatment where needed
-3. decide whether one generic shared-hash aggregated-deposit strategy can cover both shapes
-4. only if that fails, split the investigation by chain-specific ingestion shape
+1. keep the current generic same-hash external linking strategy as-is
+2. wait for either:
+   - a second unresolved live same-hash aggregated-deposit case, or
+   - a projection-model change that can safely carry wallet-scoped extra value
+3. if neither appears soon, treat this as a grouped review / cue problem rather than a linking-strategy problem
 
 #### Required Tests
 
-- positive: the original July 25, 2024 Cardano case
-- positive: at least one Bitcoin case from the shared-hash scan
+- positive: existing `SameHashExternalOutflowStrategy` exact-conservation case remains covered
+- positive: the original July 25, 2024 Cardano case remains unlinked but explicitly understood
 - negative: same hash but mismatched asset
-- negative: same hash but amount totals do not reconcile
+- negative: same hash but amount totals do not reconcile unless wallet-scoped value is explicitly modeled
 - negative: same asset/time without shared hash
 
 ### Track 2: Cross-Chain Migration / Bridge-Like Same-Asset Move
@@ -464,9 +498,9 @@ Only the first sub-case is a plausible linking strategy.
 
 #### Investigation Questions
 
-1. Can a note-backed bridge case become a safe cross-chain link strategy?
+1. Can a diagnostic-backed bridge case become a safe cross-chain link strategy?
 2. Do we need bridge-specific evidence such as:
-   - `bridge_transfer` note
+   - `bridge_transfer` diagnostic
    - known bridge contract/to-address
    - exact same-asset conservation
 3. Should plain exact-amount, cross-chain moves without explicit bridge evidence remain cue-only?
@@ -552,7 +586,7 @@ Do not:
 
 ### Track 4: Promo Memo Dust / Airdrop Spam Misses
 
-Status: upstream detection gap
+Status: upstream Cosmos-family detection implemented; live reprocess verification pending
 Expected value: high
 Likely destination: ingestion scam detection, not linking
 
@@ -564,7 +598,15 @@ Open gaps:
 - `510e8b973f` / tx `cb533f67fd` / Injective / `INJ 1e-18` in
 - `3e10a6ce7f` / tx `5b5ff59cf9` / Akash / `AKT 1e-6` in
 
-Raw normalized data for at least two of these contains explicit promo/airdrop memo text, but the stored transactions still have:
+Raw normalized data contains explicit promo/airdrop memo text, for example:
+
+- Injective:
+  - `✅ Account is listed in Mantra AIRDROP ... https://mantra-dex.app`
+  - `✅ This wallet is listed in the Osmosis Retrodrop snapshot ... https://osmosis-zone.ink`
+- Akash:
+  - `🟢 This address was included in the Astrovault AIRDROP snapshot ... https://astro-vault.io`
+
+Before the fix, the stored transactions still had:
 
 - `diagnostics: []`
 - `excludedFromAccounting: false`
@@ -574,6 +616,22 @@ Raw normalized data for at least two of these contains explicit promo/airdrop me
 These should be caught by upstream scam/airdrop detection and then disappear from `links gaps` under the existing policy.
 
 This is not a cue-first problem and not a linking problem.
+
+#### Findings
+
+- `injective-explorer`, `akash-console`, and `cosmos-rest` already preserve `memo` in normalized Cosmos-family transactions.
+- The old miss was architectural, not provider-side:
+  - current scam detection only batch-checks token movements that carry a denom/contract key
+  - native `INJ` / `AKT` promo dust never entered that path
+- The fix is transaction-level and Cosmos-generic:
+  - detect promo memo spam on inbound-only receives
+  - emit `SUSPICIOUS_AIRDROP`
+  - mark it as transaction-scoped, not asset-scoped
+- We intentionally did **not** auto-set `excludedFromAccounting` in this slice.
+  - rationale: the diagnostic is strong enough to suppress gaps
+  - but auto-excluding balance-affecting native dust should remain a separate product/accounting decision
+- Asset review needed an explicit guard:
+  - transaction-scoped suspicious-airdrop diagnostics must not smear onto native assets like `INJ` or `AKT`
 
 #### Investigation Questions
 
@@ -587,6 +645,7 @@ This is not a cue-first problem and not a linking problem.
 Preferred:
 
 - improve scam/airdrop detection on memo-bearing Cosmos-family transactions
+- keep it transaction-scoped and diagnostic-only unless we later decide to auto-exclude this class
 
 Fallback:
 

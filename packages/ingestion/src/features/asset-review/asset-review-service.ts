@@ -289,7 +289,7 @@ function collectApplicableDiagnostics(
   assetSymbol: string,
   primaryAssetIds: Set<string>
 ): TransactionDiagnostic[] {
-  const diagnostics = transaction.diagnostics ?? [];
+  const diagnostics = (transaction.diagnostics ?? []).filter((diagnostic) => !diagnosticTargetsTransaction(diagnostic));
   const exactMatches = diagnostics.filter((diagnostic) => diagnosticTargetsAsset(diagnostic, assetId));
   if (exactMatches.length > 0) {
     return exactMatches;
@@ -307,6 +307,10 @@ function collectApplicableDiagnostics(
   }
 
   return applicableDiagnostics;
+}
+
+function diagnosticTargetsTransaction(diagnostic: TransactionDiagnostic): boolean {
+  return diagnostic.metadata?.['targetScope'] === 'transaction';
 }
 
 function diagnosticTargetsAsset(diagnostic: TransactionDiagnostic, assetId: string): boolean {

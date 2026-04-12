@@ -634,6 +634,39 @@ describe('buildAssetReviewSummaries', () => {
     expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-diagnostic']);
   });
 
+  it('does not project transaction-scoped suspicious airdrop diagnostics onto the primary asset', async () => {
+    const assetId = 'blockchain:injective:native';
+
+    const result = await buildAssetReviewSummaries([
+      createTransaction({
+        id: 1,
+        txFingerprint: 'tx-1',
+        assetId,
+        assetSymbol: 'INJ',
+        platformKey: 'injective',
+        diagnostics: [
+          {
+            code: 'SUSPICIOUS_AIRDROP',
+            severity: 'warning',
+            message: 'Suspicious promo memo on inbound transfer: airdrop/eligibility URL',
+            metadata: {
+              detectionSource: 'memo',
+              targetScope: 'transaction',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const summary = assertOk(result).get(assetId);
+
+    expect(summary).toMatchObject({
+      reviewStatus: 'clear',
+      accountingBlocked: false,
+      evidence: [],
+    });
+  });
+
   it('does not turn warning-only SCAM_TOKEN diagnostics into blocking error evidence', async () => {
     const assetId = 'blockchain:ethereum:0xwarn';
 

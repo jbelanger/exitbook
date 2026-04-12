@@ -3,7 +3,7 @@ import { parseDecimal } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { detectScamFromSymbol, detectScamToken } from '../scam-detection-utils.js';
+import { detectPromoMemoDiagnostic, detectScamFromSymbol, detectScamToken } from '../scam-detection-utils.js';
 
 describe('scam-detection-utils', () => {
   describe('detectScamToken', () => {
@@ -529,6 +529,42 @@ describe('scam-detection-utils', () => {
       expect(result1.isScam).toBe(true);
       expect(result2.isScam).toBe(true);
       expect(result3.isScam).toBe(true);
+    });
+  });
+
+  describe('detectPromoMemoDiagnostic', () => {
+    it('flags inbound promo memos that advertise airdrop eligibility URLs', () => {
+      const result = detectPromoMemoDiagnostic({
+        memo: '✅ This wallet is listed in the Osmosis Retrodrop snapshot! Check eligibility at https://osmosis-zone.ink',
+        isInboundOnly: true,
+        amount: parseDecimal('0.000000000000000001'),
+      });
+
+      expect(result).toBeDefined();
+      expect(result?.code).toBe('SUSPICIOUS_AIRDROP');
+      expect(result?.severity).toBe('warning');
+      expect(result?.metadata?.['detectionSource']).toBe('memo');
+      expect(result?.metadata?.['targetScope']).toBe('transaction');
+    });
+
+    it('does not flag benign memos without promo keywords', () => {
+      const result = detectPromoMemoDiagnostic({
+        memo: 'Payment for validator hosting invoice https://example.com/invoice/123',
+        isInboundOnly: true,
+        amount: parseDecimal('1'),
+      });
+
+      expect(result).toBeUndefined();
+    });
+
+    it('does not flag outgoing transfers even if the memo contains promo language', () => {
+      const result = detectPromoMemoDiagnostic({
+        memo: 'Airdrop snapshot details: https://promo.example',
+        isInboundOnly: false,
+        amount: parseDecimal('1'),
+      });
+
+      expect(result).toBeUndefined();
     });
   });
 });
