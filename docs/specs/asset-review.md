@@ -297,29 +297,29 @@ Signals are collected per asset ID across:
 - outflows
 - fees
 
-Within one transaction, each asset contributes at most one note-derived signal
+Within one transaction, each asset contributes at most one diagnostic-derived signal
 update. Duplicate movement/fee entries for the same asset in the same
 transaction do not double-count evidence.
 
-### Note Targeting Rules
+### Diagnostic Targeting Rules
 
-Transaction notes are applied in this order:
+Transaction diagnostics are applied in this order:
 
-1. Exact asset match via `note.metadata.assetId`
-2. Contract match via `note.metadata.contractAddress`
-3. Symbol match via `note.metadata.assetSymbol` or `note.metadata.scamAsset`,
+1. Exact asset match via `diagnostic.metadata.assetId`
+2. Contract match via `diagnostic.metadata.contractAddress`
+3. Symbol match via `diagnostic.metadata.assetSymbol` or `diagnostic.metadata.scamAsset`,
    but only when that symbol resolves to exactly one asset inside the
    transaction
-4. Untargeted note fallback, but only when the transaction has exactly one
+4. Untargeted diagnostic fallback, but only when the transaction has exactly one
    primary movement asset
 
 Implications:
 
-- fee/native assets do not inherit token scam evidence unless the note actually
+- fee/native assets do not inherit token scam evidence unless the diagnostic actually
   targets them
-- symbol-targeted notes do not smear across multiple assets that share the same
+- symbol-targeted diagnostics do not smear across multiple assets that share the same
   symbol in the same transaction
-- untargeted notes are only safe when the transaction effectively names one
+- untargeted diagnostics are only safe when the transaction effectively names one
   primary asset
 
 ### Spam and Scam Evidence

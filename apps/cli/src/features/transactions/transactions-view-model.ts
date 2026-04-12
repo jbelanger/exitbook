@@ -56,7 +56,6 @@ export interface TransactionViewItem {
   diagnostics: { code: string; message: string; severity?: string | undefined }[];
   userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;
-  hasSpamDiagnostic: boolean;
 }
 
 /**

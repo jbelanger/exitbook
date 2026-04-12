@@ -163,7 +163,7 @@ function bridgeWithdrawalLabel(bridgeType: CosmosFundFlow['bridgeType']): string
  * Determines transaction operation classification based purely on fund flow structure.
  *
  * Pure function that applies conservative pattern matching rules to classify transactions.
- * Only classifies patterns we're confident about - complex cases receive informational notes.
+ * Only classifies patterns we're confident about - complex cases receive informational diagnostics.
  *
  * Pattern matching rules:
  * 1. Contract interaction with zero value (approvals, delegation, state changes)

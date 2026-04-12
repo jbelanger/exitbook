@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-11
+last_verified: 2026-04-12
 status: active
 ---
 
@@ -410,6 +410,12 @@ Acceptance criteria:
 
 - repository search confirms machine consumers no longer branch on legacy note semantics
 - any compatibility bridge introduced during Phase 3 is removed before phase completion
+
+Current status:
+
+- completed
+- final cleanup removed the last transactions-view spam shim and now routes flag rendering through shared diagnostic helpers
+- stale note-era wording was removed from the remaining processor comments, docs, and diagnostics-oriented tests touched by Phase 3
 
 ### Verification
 

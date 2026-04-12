@@ -594,7 +594,7 @@ describe('Solana Processor Utils', () => {
     });
 
     describe('Pattern 9: Complex multi-asset transactions', () => {
-      it('should handle complex transactions with uncertainty note', () => {
+      it('should handle complex transactions with uncertainty diagnostic', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,
           feeAmount: '0.000005', // 0.000005 SOL

@@ -356,7 +356,7 @@ export function classifySolanaOperationFromFundFlow(
     });
   }
 
-  // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add note)
+  // Pattern 8: Complex multi-asset transaction (UNCERTAIN - add diagnostic)
   if (fundFlow.classificationUncertainty) {
     return addInferenceFailureNote({
       diagnostics: [

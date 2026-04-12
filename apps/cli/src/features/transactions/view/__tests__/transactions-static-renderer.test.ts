@@ -35,7 +35,6 @@ function createTransactionViewItem(): TransactionViewItem {
     diagnostics: [],
     userNotes: [],
     excludedFromAccounting: false,
-    hasSpamDiagnostic: false,
   };
 }
 

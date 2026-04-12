@@ -162,7 +162,7 @@ Metadata derivation rules:
 
 - `fxFallbackCount` comes from display-report FX fallback markers on standard workflow reports
 - `incompleteTransferLinkCount` comes from non-confirmed-link standard transfers or incomplete Canada transfer linkage
-- `unknownTransactionClassificationCount` comes from retained transactions with unresolved classification notes
+- `unknownTransactionClassificationCount` comes from retained transactions with unresolved classification diagnostics
 - `unresolvedAssetReviewCount` counts in-scope assets still blocked by asset review
 
 ### Export Pipeline

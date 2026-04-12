@@ -102,7 +102,7 @@ export function selectPrimaryEvmMovement(movements: EvmMovement[], nativeCurrenc
  * Determines transaction operation classification based purely on fund flow structure.
  *
  * Pure function that applies pattern matching rules to classify transactions.
- * Only classifies patterns we're confident about - complex cases receive informational notes.
+ * Only classifies patterns we're confident about - complex cases receive informational diagnostics.
  *
  * Pattern matching rules:
  * 0. Beacon withdrawal (Ethereum consensus layer withdrawal with 32 ETH threshold)
@@ -255,7 +255,7 @@ export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow
     }
   }
 
-  // Pattern 7: Complex multi-asset transaction (UNCERTAIN - add note)
+  // Pattern 7: Complex multi-asset transaction (UNCERTAIN - add diagnostic)
   // Multiple inflows or outflows - could be LP, batch, multi-swap
   if (fundFlow.classificationUncertainty) {
     return {

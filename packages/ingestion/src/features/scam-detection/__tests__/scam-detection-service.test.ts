@@ -136,8 +136,11 @@ describe('ScamDetectionService', () => {
     const result = service.detectScams(movements, metadataMap);
 
     expect(result.size).toBe(1);
-    const notes = result.get(0);
-    expect(notes).toHaveLength(2);
-    expect(notes?.map((note) => note.metadata?.['detectionSource'])).toEqual(['professional', 'symbol']);
+    const diagnostics = result.get(0);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics?.map((diagnostic) => diagnostic.metadata?.['detectionSource'])).toEqual([
+      'professional',
+      'symbol',
+    ]);
   });
 });

@@ -1,3 +1,5 @@
+import { hasDiagnosticCode } from '@exitbook/core';
+
 import type { CategoryCounts, TransactionViewItem } from '../transactions-view-model.js';
 export { TRANSACTION_FINGERPRINT_REF_LENGTH, formatTransactionFingerprintRef } from '../transaction-selector.js';
 
@@ -46,11 +48,11 @@ export function formatTransactionDirection(direction: TransactionViewItem['prima
 }
 
 export function formatTransactionFlags(
-  transaction: Pick<TransactionViewItem, 'excludedFromAccounting' | 'hasSpamDiagnostic'>
+  transaction: Pick<TransactionViewItem, 'excludedFromAccounting' | 'diagnostics'>
 ): string {
   const flags: string[] = [];
   if (transaction.excludedFromAccounting) flags.push('excluded');
-  if (transaction.hasSpamDiagnostic) flags.push('spam');
+  if (hasDiagnosticCode(transaction.diagnostics, 'SCAM_TOKEN')) flags.push('spam');
   return flags.length > 0 ? flags.join(',') : '—';
 }
 

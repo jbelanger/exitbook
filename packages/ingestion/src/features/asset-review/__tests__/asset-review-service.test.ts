@@ -634,7 +634,7 @@ describe('buildAssetReviewSummaries', () => {
     expect(summary?.evidence.map((item) => item.kind)).toEqual(['suspicious-airdrop-diagnostic']);
   });
 
-  it('does not turn warning-only SCAM_TOKEN notes into blocking error evidence', async () => {
+  it('does not turn warning-only SCAM_TOKEN diagnostics into blocking error evidence', async () => {
     const assetId = 'blockchain:ethereum:0xwarn';
 
     const result = await buildAssetReviewSummaries([

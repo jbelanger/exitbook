@@ -146,7 +146,7 @@ Raw EVM transactions store beacon withdrawals with:
 Processed transactions include:
 
 - `operation` classification per rules above
-- `notes` containing the `consensus_withdrawal` metadata
+- `diagnostics` containing the `consensus_withdrawal` metadata
 
 ## Pipeline / Flow
 
@@ -155,7 +155,7 @@ graph TD
   A[Etherscan txsBeaconWithdrawal] --> B[Map Gwei->Wei, normalize, eventId]
   B --> C[raw_transactions (type=beacon_withdrawal)]
   C --> D[EVM processor fund flow]
-  D --> E[operation + notes]
+  D --> E[operation + diagnostics]
   E --> F[balances/reporting]
 ```
 

@@ -820,7 +820,6 @@ function createMockItems(): TransactionViewItem[] {
       diagnostics: [],
       userNotes: [],
       excludedFromAccounting: false,
-      hasSpamDiagnostic: false,
     },
     {
       id: 2412,
@@ -859,7 +858,6 @@ function createMockItems(): TransactionViewItem[] {
       diagnostics: [],
       userNotes: [],
       excludedFromAccounting: false,
-      hasSpamDiagnostic: false,
     },
     {
       id: 2389,
@@ -890,7 +888,6 @@ function createMockItems(): TransactionViewItem[] {
       diagnostics: [],
       userNotes: [],
       excludedFromAccounting: false,
-      hasSpamDiagnostic: false,
     },
     {
       id: 2312,
@@ -916,7 +913,6 @@ function createMockItems(): TransactionViewItem[] {
       diagnostics: [],
       userNotes: [],
       excludedFromAccounting: false,
-      hasSpamDiagnostic: false,
     },
   ];
 }

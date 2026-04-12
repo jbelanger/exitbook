@@ -182,14 +182,14 @@ export function analyzeSubstrateFundFlow(
  * Following EVM's 9/10 confidence approach, with Substrate-specific patterns first.
  *
  * Pure function that applies pattern matching rules to classify transactions.
- * Only classifies patterns we're confident about - complex cases receive informational notes.
+ * Only classifies patterns we're confident about - complex cases receive informational diagnostics.
  *
  * Pattern matching rules:
  * 1. Staking operations (9/10 confident)
  * 2. Governance operations (9/10 confident)
- * 3. Utility batch (complex - add uncertainty note)
- * 4. Proxy operations (add note)
- * 5. Multisig operations (add note)
+ * 3. Utility batch (complex - add uncertainty diagnostic)
+ * 4. Proxy operations (add diagnostic)
+ * 5. Multisig operations (add diagnostic)
  * 6. Fee-only transaction (no asset movements)
  * 7. Simple deposit (only inflows)
  * 8. Simple withdrawal (only outflows)
@@ -198,7 +198,7 @@ export function analyzeSubstrateFundFlow(
  *
  * @param fundFlow - The analyzed fund flow
  * @param transaction - The original normalized transaction
- * @returns Operation classification with optional uncertainty notes
+ * @returns Operation classification with optional uncertainty diagnostics
  */
 export function determineOperationFromFundFlow(
   fundFlow: SubstrateFundFlow,
@@ -318,7 +318,7 @@ export function determineOperationFromFundFlow(
     }
   }
 
-  // Pattern 3: Utility batch (complex - add uncertainty note)
+  // Pattern 3: Utility batch (complex - add uncertainty diagnostic)
   if (fundFlow.hasUtilityBatch) {
     return {
       diagnostics: [
@@ -342,7 +342,7 @@ export function determineOperationFromFundFlow(
     };
   }
 
-  // Pattern 4: Proxy operations (add note)
+  // Pattern 4: Proxy operations (add diagnostic)
   if (fundFlow.hasProxy) {
     return {
       diagnostics: [
@@ -363,7 +363,7 @@ export function determineOperationFromFundFlow(
     };
   }
 
-  // Pattern 5: Multisig operations (add note)
+  // Pattern 5: Multisig operations (add diagnostic)
   if (fundFlow.hasMultisig) {
     return {
       diagnostics: [
