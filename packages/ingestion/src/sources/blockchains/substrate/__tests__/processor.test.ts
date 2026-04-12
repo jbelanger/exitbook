@@ -195,6 +195,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.movements.outflows?.length).toBe(1);
     expect(transaction.movements.inflows?.length).toBe(0);
+    expect(transaction.movements.outflows?.[0]?.movementRole).toBeUndefined();
   });
 
   test('classifies unbond operation as staking_withdrawal', async () => {
@@ -235,6 +236,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('unstake');
     expect(transaction.movements.inflows?.length).toBe(1);
     expect(transaction.movements.outflows?.length).toBe(0);
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBeUndefined();
   });
 
   test('classifies withdraw_unbonded as staking_withdrawal', async () => {
@@ -353,6 +355,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
     expect(transaction.operation.type).toBe('reward');
     expect(transaction.movements.inflows?.length).toBe(1);
     expect(transaction.movements.outflows?.length).toBe(0);
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBe('staking_reward');
   });
 });
 

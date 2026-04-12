@@ -289,6 +289,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
       expect(transaction.fees.find((f) => f.scope === 'network')?.amount?.toFixed() ?? '0').toBe('0');
       expect(transaction.movements.inflows?.length).toBe(1);
       expect(transaction.movements.outflows?.length).toBe(0);
+      expect(transaction.movements.inflows?.[0]?.movementRole).toBe('staking_reward');
     });
 
     test('user pays fee when voting in governance', async () => {

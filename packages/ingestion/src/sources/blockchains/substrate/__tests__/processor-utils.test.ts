@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   analyzeSubstrateFundFlow,
+  deriveSubstrateMovementRole,
   determineOperationFromFundFlow,
   shouldRecordFeeEntry,
   expandSourceContext,
@@ -421,6 +422,57 @@ describe('determineOperationFromFundFlow', () => {
 
     expect(classification.operation.category).toBe('staking');
     expect(classification.operation.type).toBe('reward');
+  });
+
+  test('derives staking_reward movement role for inflow-only staking rewards', () => {
+    const fundFlow = createFundFlow({
+      call: 'reward',
+      feeAmount: '0',
+      fromAddress: EXTERNAL_ADDRESS,
+      hasStaking: true,
+      inflows: [{ amount: '0.5', asset: 'DOT' as Currency }],
+      module: 'staking',
+      outflows: [],
+      primary: { amount: '0.5', asset: 'DOT' as Currency },
+      toAddress: POLKADOT_ADDRESS,
+    });
+
+    const transaction = createTransaction({
+      amount: '5000000000',
+      blockHeight: 15000003,
+      call: 'reward',
+      feeAmount: '0',
+      from: EXTERNAL_ADDRESS,
+      id: '0xabc',
+      module: 'staking',
+      to: POLKADOT_ADDRESS,
+    });
+
+    const classification = determineOperationFromFundFlow(fundFlow, transaction);
+
+    expect(deriveSubstrateMovementRole(classification, fundFlow, 'in')).toBe('staking_reward');
+    expect(deriveSubstrateMovementRole(classification, fundFlow, 'out')).toBeUndefined();
+  });
+
+  test('does not derive staking_reward role when staking reward shape has outflows', () => {
+    const fundFlow = createFundFlow({
+      call: 'reward',
+      feeAmount: '0',
+      hasStaking: true,
+      inflows: [{ amount: '0.5', asset: 'DOT' as Currency }],
+      module: 'staking',
+      outflows: [{ amount: '0.1', asset: 'DOT' as Currency }],
+      primary: { amount: '0.1', asset: 'DOT' as Currency },
+    });
+
+    const classification = {
+      operation: {
+        category: 'staking' as const,
+        type: 'reward' as const,
+      },
+    };
+
+    expect(deriveSubstrateMovementRole(classification, fundFlow, 'in')).toBeUndefined();
   });
 
   test('classifies nominate with info note', () => {

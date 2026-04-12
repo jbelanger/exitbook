@@ -11,7 +11,12 @@ import { BaseTransactionProcessor } from '../../../features/process/base-transac
 import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
-import { analyzeSubstrateFundFlow, determineOperationFromFundFlow, shouldRecordFeeEntry } from './processor-utils.js';
+import {
+  analyzeSubstrateFundFlow,
+  deriveSubstrateMovementRole,
+  determineOperationFromFundFlow,
+  shouldRecordFeeEntry,
+} from './processor-utils.js';
 import type { SubstrateMovement } from './types.js';
 
 /**
@@ -61,7 +66,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         const shouldRecordFee = shouldRecordFeeEntry(normalizedTx, fundFlow, context.primaryAddress);
 
         // Build movements with assetId (per-movement to support future multi-asset Substrate chains)
-        const inflowsResult = this.buildMovements(fundFlow.inflows, normalizedTx.id);
+        const inflowMovementRole = deriveSubstrateMovementRole(classification, fundFlow, 'in');
+        const inflowsResult = this.buildMovements(fundFlow.inflows, normalizedTx.id, inflowMovementRole);
         if (inflowsResult.isErr()) {
           const errorMsg = `Failed to build assetId for inflow: ${inflowsResult.error.message}`;
           processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -71,7 +77,8 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
           continue;
         }
 
-        const outflowsResult = this.buildMovements(fundFlow.outflows, normalizedTx.id);
+        const outflowMovementRole = deriveSubstrateMovementRole(classification, fundFlow, 'out');
+        const outflowsResult = this.buildMovements(fundFlow.outflows, normalizedTx.id, outflowMovementRole);
         if (outflowsResult.isErr()) {
           const errorMsg = `Failed to build assetId for outflow: ${outflowsResult.error.message}`;
           processingErrors.push({ error: errorMsg, txId: normalizedTx.id });
@@ -170,7 +177,11 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
    * Build typed movement objects for a list of fund flow movements.
    * Fails fast if any movement uses an unsupported non-native asset.
    */
-  private buildMovements(movements: SubstrateMovement[], transactionId: string): Result<AssetMovementDraft[], Error> {
+  private buildMovements(
+    movements: SubstrateMovement[],
+    transactionId: string,
+    movementRole?: AssetMovementDraft['movementRole']
+  ): Result<AssetMovementDraft[], Error> {
     const result: AssetMovementDraft[] = [];
     for (const movement of movements) {
       const assetIdResult = this.buildSubstrateAssetId(movement.asset, transactionId);
@@ -182,6 +193,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransa
         assetId: assetIdResult.value,
         assetSymbol: movement.asset,
         grossAmount: amount,
+        movementRole,
         netAmount: amount,
       });
     }

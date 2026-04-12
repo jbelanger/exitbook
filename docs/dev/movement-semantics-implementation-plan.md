@@ -568,7 +568,7 @@ Findings worth revisiting:
 
 #### Phase 4.3: Substrate Staking Rewards
 
-Status: blocked
+Status: completed
 
 Scope:
 
@@ -583,6 +583,30 @@ Primary files:
 Open finding from audit:
 
 - Substrate reward classification is deterministic, but the processor does not currently isolate movement-role assignment from general movement construction as cleanly as the EVM beacon-withdrawal path.
+
+Acceptance criteria:
+
+- inflow-only native `staking/reward` transactions persist `movementRole='staking_reward'` on inflows
+- non-reward staking operations do not get a non-principal role
+- no accounting/linking/gaps special-casing is added
+- targeted tests and package builds pass
+
+Completion notes:
+
+- implemented in the current worktree
+- movement-role assignment stays at the processor seam and is derived from the already-classified `staking/reward` shape rather than widening raw fund-flow analysis
+- targeted tests passed, including processor fee-accounting coverage for reward payouts
+- `pnpm --filter @exitbook/core build`
+- `pnpm --filter @exitbook/ingestion build`
+- `pnpm --filter @exitbook/accounting build`
+- `pnpm run dev reprocess`
+- `pnpm run dev links run --json`
+
+Findings worth revisiting:
+
+- the rebuilt local workspace still has `0` processed Substrate `staking/reward` transactions and `0` raw staking reward examples, even though it now contains `polkadot` and `bittensor` transactions; this slice is validated by regression coverage and pipeline safety checks rather than live local data
+- Substrate was a better fit for processor-level role derivation than fund-flow-level role tagging because reward classification is already deterministic and centralized enough to reuse cleanly
+- the current scope should stay native-only until Substrate multi-asset support exists; `SubstrateMovement` still lacks token identity fields for parachain assets
 
 #### Phase 4.4: Refund / Rebate Candidates
 

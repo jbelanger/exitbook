@@ -1,6 +1,6 @@
 import { type SubstrateChainConfig, type SubstrateTransaction } from '@exitbook/blockchain-providers/substrate';
 import { derivePolkadotAddressVariants } from '@exitbook/blockchain-providers/substrate';
-import type { OperationClassification } from '@exitbook/core';
+import type { MovementRole, OperationClassification } from '@exitbook/core';
 import { fromBaseUnitsToDecimalString, parseDecimal, type Currency } from '@exitbook/foundation';
 import { type Result, err, ok } from '@exitbook/foundation';
 
@@ -449,6 +449,32 @@ export function determineOperationFromFundFlow(
       type: 'transfer',
     },
   };
+}
+
+/**
+ * Derive movement role from an already-classified Substrate transaction shape.
+ *
+ * This stays intentionally narrow: only native inflow-only staking rewards are
+ * promoted to a non-principal role in this slice.
+ */
+export function deriveSubstrateMovementRole(
+  classification: OperationClassification,
+  fundFlow: SubstrateFundFlow,
+  direction: 'in' | 'out'
+): MovementRole | undefined {
+  if (direction !== 'in') {
+    return undefined;
+  }
+
+  if (classification.operation.category !== 'staking' || classification.operation.type !== 'reward') {
+    return undefined;
+  }
+
+  if (fundFlow.outflows.length > 0 || fundFlow.inflows.length === 0) {
+    return undefined;
+  }
+
+  return 'staking_reward';
 }
 
 /**
