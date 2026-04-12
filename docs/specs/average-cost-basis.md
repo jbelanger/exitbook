@@ -127,6 +127,7 @@ Rules:
 - resolution uses `resolveTaxAssetIdentity(...)`
 - behavior is controlled by `taxAssetIdentityPolicy`
 - `relaxedTaxIdentitySymbols` allows explicit symbol collapse for imported-data-only assets such as `USDC`
+- confirmed exchange↔blockchain links may install per-run identity overrides so a linked blockchain token inherits the exchange symbol identity for that calculation scope
 - unresolved Canada tax identity is a hard error
 
 ### Canada Tax Property Key
@@ -297,6 +298,7 @@ Movement projection rules:
 - fiat asset movements do not create Canada pool events
 - an unlinked inflow becomes one `acquisition`
 - an unlinked outflow becomes one `disposition`
+- before projection, validated exchange↔blockchain links may bridge strict blockchain-token identity to the linked exchange symbol so later on-chain movements stay in the carried pool
 - a linked inflow emits one `transfer-in` per validated link plus an `acquisition` for any residual quantity
 - a linked outflow emits one `transfer-out` per validated link plus a `disposition` for any residual quantity
 - linked quantity is based on transfer-comparable movement quantity: `netAmount ?? grossAmount`

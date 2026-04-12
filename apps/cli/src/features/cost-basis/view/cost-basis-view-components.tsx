@@ -42,8 +42,10 @@ export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
   buffer: 1, // bottom margin
 });
 
-export function getCostBasisAssetsChromeLines(readinessWarningCount = 0): number {
-  return COST_BASIS_ASSETS_CHROME_LINES + readinessWarningCount;
+export function getCostBasisAssetsChromeLines(
+  readinessWarnings: readonly CostBasisAssetState['readinessWarnings'] = []
+): number {
+  return COST_BASIS_ASSETS_CHROME_LINES + getReadinessWarningLineCount(readinessWarnings);
 }
 
 export const COST_BASIS_TIMELINE_CHROME_LINES = calculateChromeLines({
@@ -239,24 +241,46 @@ const CostBasisReadinessWarnings: FC<{
   return (
     <Box flexDirection="column">
       {warnings.map((warning) => (
-        <Text
+        <Box
           key={warning.code}
-          color={warning.severity === 'blocked' ? 'red' : 'yellow'}
+          flexDirection="column"
         >
-          {'  '}⚠ {warning.message}
-        </Text>
+          <Text color={warning.severity === 'blocked' ? 'red' : 'yellow'}>
+            {'  '}⚠ {warning.message}
+          </Text>
+          {warning.detail && (
+            <Text dimColor>
+              {'     '}Why: {warning.detail}
+            </Text>
+          )}
+          {warning.recommendedAction && (
+            <Text dimColor>
+              {'     '}Next: {warning.recommendedAction}
+            </Text>
+          )}
+          {warning.commandHint && (
+            <Text dimColor>
+              {'     '}Command: {warning.commandHint}
+            </Text>
+          )}
+        </Box>
       ))}
     </Box>
   );
 };
 
+function getReadinessWarningLineCount(warnings: readonly CostBasisAssetState['readinessWarnings']): number {
+  return warnings.reduce(
+    (lineCount, warning) =>
+      lineCount + 1 + (warning.detail ? 1 : 0) + (warning.recommendedAction ? 1 : 0) + (warning.commandHint ? 1 : 0),
+    0
+  );
+}
+
 // ─── Asset List ──────────────────────────────────────────────────────────────
 
 const AssetList: FC<{ state: CostBasisAssetState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const visibleRows = calculateVisibleRows(
-    terminalHeight,
-    getCostBasisAssetsChromeLines(state.readinessWarnings.length)
-  );
+  const visibleRows = calculateVisibleRows(terminalHeight, getCostBasisAssetsChromeLines(state.readinessWarnings));
   const columns = createColumns(state.assets, {
     asset: { format: (item) => item.asset, minWidth: 6 },
     disposalCount: { format: (item) => `${item.disposalCount}`, align: 'right', minWidth: 5 },

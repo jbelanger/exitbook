@@ -493,6 +493,7 @@ function buildSameAssetFeeSourceRefs(
       {
         policy: identityConfig.taxAssetIdentityPolicy,
         relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
+        assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId,
       }
     );
     if (carryoverIdentityResult.isErr()) {

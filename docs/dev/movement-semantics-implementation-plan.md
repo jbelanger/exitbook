@@ -364,6 +364,7 @@ Current status:
 - completed
 - live ingestion/review code now uses diagnostic terminology internally instead of note terminology
 - scam/spam checks now resolve from diagnostics only through shared helpers for balance/gaps/views
+- downstream runtime consumers now interpret scam-like diagnostics through shared assessment helpers instead of branching on `SCAM_TOKEN` / `SUSPICIOUS_AIRDROP` ad hoc
 - persisted asset-review evidence vocabulary has been renamed away from `*-note` to `*-diagnostic`
 - the derived `spam-flag` asset-review evidence was removed because it duplicated `SCAM_TOKEN` diagnostics
 

@@ -1,9 +1,8 @@
 import {
   filterTransferEligibleMovements,
   getExplainedTargetResidual,
+  getTransactionScamAssessment,
   getMovementRole,
-  isTransactionMarkedSpam,
-  transactionHasDiagnosticCode,
   type Account,
   type MovementRole,
   type Transaction,
@@ -818,11 +817,11 @@ function applyGapCues(issues: readonly LinkGapIssue[], transactions: readonly Tr
 }
 
 function shouldSuppressGapByPolicy(tx: Transaction): boolean {
-  if (tx.excludedFromAccounting === true || isTransactionMarkedSpam(tx)) {
+  if (tx.excludedFromAccounting === true) {
     return true;
   }
 
-  return transactionHasDiagnosticCode(tx, 'SUSPICIOUS_AIRDROP');
+  return getTransactionScamAssessment(tx) !== undefined;
 }
 
 function isFullyExplainedTargetResidualGap(

@@ -66,6 +66,23 @@ describe('resolveTaxAssetIdentity', () => {
     expect(assertOk(result).identityKey).toBe('usdc');
   });
 
+  it('uses explicit asset identity overrides for linked blockchain tokens', () => {
+    const assetId = 'blockchain:ethereum:0x514910771af9ca656af840dff83e8264ecf986ca';
+    const result = resolveTaxAssetIdentity(
+      {
+        assetId,
+        assetSymbol: 'LINK' as Currency,
+      },
+      {
+        policy: 'strict-onchain-tokens',
+        relaxedSymbolIdentities: [],
+        assetIdentityOverridesByAssetId: new Map([[assetId, 'link']]),
+      }
+    );
+
+    expect(assertOk(result).identityKey).toBe('link');
+  });
+
   it('rejects fiat assets', () => {
     const result = resolveTaxAssetIdentity(
       {

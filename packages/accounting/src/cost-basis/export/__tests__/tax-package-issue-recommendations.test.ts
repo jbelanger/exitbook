@@ -24,7 +24,7 @@ describe('getDefaultRecommendedAction', () => {
   });
 
   it('should return recommendation for INCOMPLETE_TRANSFER_LINKING', () => {
-    expect(getDefaultRecommendedAction('INCOMPLETE_TRANSFER_LINKING')).toContain('transfer rows');
+    expect(getDefaultRecommendedAction('INCOMPLETE_TRANSFER_LINKING')).toContain('missing transfer links');
   });
 
   it('should return generic recommendation for unknown codes', () => {

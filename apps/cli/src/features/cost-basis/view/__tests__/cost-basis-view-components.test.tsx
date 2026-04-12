@@ -98,8 +98,11 @@ describe('CostBasisApp', () => {
         },
         {
           code: 'INCOMPLETE_TRANSFER_LINKING',
+          commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
           count: 1,
-          message: '1 transfer requires manual review because linking is incomplete.',
+          detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
+          message: '1 transfer requires manual review because a confirmed source/target link is missing.',
+          recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
           severity: 'warning',
         },
       ],
@@ -118,7 +121,10 @@ describe('CostBasisApp', () => {
     }
 
     expect(frame).toContain('2 assets still require review before filing export.');
-    expect(frame).toContain('1 transfer requires manual review because linking is incomplete.');
+    expect(frame).toContain('1 transfer requires manual review because a confirmed source/target link is missing.');
+    expect(frame).toContain('Why: Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).');
+    expect(frame).toContain('Next: Create the missing confirmed link directly, then rerun cost basis.');
+    expect(frame).toContain('Command: pnpm run dev links create e96a8b7baa');
     expect(frame.indexOf('2 assets still require review before filing export.')).toBeLessThan(frame.indexOf('BTC'));
   });
 });

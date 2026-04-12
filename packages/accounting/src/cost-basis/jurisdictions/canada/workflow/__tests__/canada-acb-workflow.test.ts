@@ -405,6 +405,114 @@ describe('runCanadaAcbWorkflow', () => {
     expect(value.acbEngineResult.pools[0]?.quantityHeld.toFixed()).toBe('0');
   });
 
+  it('preserves pooled ACB across a confirmed exchange-to-token transfer and later on-chain disposition', async () => {
+    const fxProvider = createCanadaPriceRuntime();
+
+    const acquisition = buildTransaction({
+      id: 31,
+      datetime: '2024-01-01T12:00:00Z',
+      platformKey: 'kraken',
+      inflows: [
+        {
+          assetId: 'exchange:kraken:link',
+          assetSymbol: 'LINK',
+          amount: '10',
+          price: '10',
+          priceCurrency: 'CAD',
+          priceSource: 'exchange-execution',
+        },
+      ],
+    });
+
+    const transferOut = buildTransaction({
+      id: 32,
+      datetime: '2024-01-10T12:00:00Z',
+      platformKey: 'kraken',
+      outflows: [
+        {
+          assetId: 'exchange:kraken:link',
+          assetSymbol: 'LINK',
+          amount: '10',
+          price: '11',
+          priceCurrency: 'CAD',
+          priceSource: 'exchange-execution',
+        },
+      ],
+      category: 'transfer',
+      type: 'withdrawal',
+    });
+
+    const transferIn = buildTransaction({
+      id: 33,
+      accountId: 2,
+      datetime: '2024-01-10T12:05:00Z',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      inflows: [
+        {
+          assetId: 'blockchain:ethereum:0x514910771af9ca656af840dff83e8264ecf986ca',
+          assetSymbol: 'LINK',
+          amount: '10',
+          price: '11',
+          priceCurrency: 'CAD',
+          priceSource: 'link-propagated',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
+
+    const disposition = buildTransaction({
+      id: 34,
+      accountId: 2,
+      datetime: '2024-02-01T12:00:00Z',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      outflows: [
+        {
+          assetId: 'blockchain:ethereum:0x514910771af9ca656af840dff83e8264ecf986ca',
+          assetSymbol: 'LINK',
+          amount: '3',
+          price: '12',
+          priceCurrency: 'CAD',
+        },
+      ],
+      type: 'sell',
+    });
+
+    const confirmedTransferLink = createConfirmedTransferLink({
+      id: 51,
+      sourceAmount: '10',
+      sourceAssetId: 'exchange:kraken:link',
+      sourceTransaction: transferOut,
+      targetAmount: '10',
+      targetAssetId: 'blockchain:ethereum:0x514910771af9ca656af840dff83e8264ecf986ca',
+      targetTransaction: transferIn,
+      assetSymbol: 'LINK' as Currency,
+    });
+
+    const result = await runCanadaAcbWorkflow({
+      transactions: [acquisition, transferOut, transferIn, disposition],
+      confirmedLinks: [confirmedTransferLink],
+      priceRuntime: fxProvider,
+    });
+    const value = assertOk(result);
+
+    expect(value.inputContext.inputEvents.map((event) => event.kind)).toEqual([
+      'acquisition',
+      'transfer-out',
+      'transfer-in',
+      'disposition',
+    ]);
+    expect(new Set(value.inputContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(new Set(['ca:link']));
+    expect(value.acbEngineResult.dispositions).toHaveLength(1);
+    expect(value.acbEngineResult.dispositions[0]?.transactionId).toBe(34);
+    expect(value.acbEngineResult.dispositions[0]?.costBasisCad.toFixed()).toBe('30');
+    expect(value.acbEngineResult.dispositions[0]?.proceedsCad.toFixed()).toBe('36');
+    expect(value.acbEngineResult.dispositions[0]?.gainLossCad.toFixed()).toBe('6');
+    expect(value.acbEngineResult.pools[0]?.quantityHeld.toFixed()).toBe('7');
+  });
+
   it('handles fee-bearing acquisitions end to end', async () => {
     const fxProvider = createCanadaPriceRuntime({ usdToCad: '1.4' });
 

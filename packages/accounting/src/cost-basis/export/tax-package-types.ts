@@ -59,6 +59,17 @@ export type TaxPackageUnknownTransactionClassificationDetail = TaxPackageTransac
 
 export type TaxPackageUncertainProceedsAllocationDetail = TaxPackageTransactionIssueDetailBase;
 
+export interface TaxPackageIncompleteTransferLinkDetail {
+  assetSymbol: string;
+  rowId: string;
+  sourcePlatformKey?: string | undefined;
+  sourceTransactionId?: number | undefined;
+  targetPlatformKey?: string | undefined;
+  targetTransactionId?: number | undefined;
+  transactionDatetime: string;
+  transactionId: number;
+}
+
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;
   packageVersion: TaxPackageVersion;
@@ -120,6 +131,7 @@ export interface TaxPackageReadinessMetadata {
   allocationUncertainDetails?: readonly TaxPackageUncertainProceedsAllocationDetail[] | undefined;
   fxFallbackCount?: number | undefined;
   incompleteTransferLinkCount?: number | undefined;
+  incompleteTransferLinkDetails?: readonly TaxPackageIncompleteTransferLinkDetail[] | undefined;
   unknownTransactionClassificationCount?: number | undefined;
   unknownTransactionClassificationDetails?: readonly TaxPackageUnknownTransactionClassificationDetail[] | undefined;
   unresolvedAssetReviewCount?: number | undefined;

@@ -2,9 +2,13 @@ import { parseDecimal, type Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { MovementRole } from './movement.js';
-import type { Transaction, TransactionDiagnostic } from './transaction.js';
+import type { TransactionDiagnostic } from './transaction.js';
 
 export const UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE = 'unattributed_staking_reward_component';
+export type TransactionScamAssessment = 'confirmed' | 'suspected';
+interface TransactionDiagnosticCodeCarrier {
+  diagnostics?: readonly Pick<TransactionDiagnostic, 'code'>[] | undefined;
+}
 
 export interface UnattributedStakingRewardComponent {
   amount: Decimal;
@@ -27,24 +31,56 @@ export function hasAnyDiagnosticCode(
   return diagnostics?.some((diagnostic) => codes.has(diagnostic.code)) ?? false;
 }
 
-export function transactionHasDiagnosticCode(transaction: Pick<Transaction, 'diagnostics'>, code: string): boolean {
+export function transactionHasDiagnosticCode(transaction: TransactionDiagnosticCodeCarrier, code: string): boolean {
   return hasDiagnosticCode(transaction.diagnostics, code);
 }
 
 export function transactionHasAnyDiagnosticCode(
-  transaction: Pick<Transaction, 'diagnostics'>,
+  transaction: TransactionDiagnosticCodeCarrier,
   codes: ReadonlySet<string>
 ): boolean {
   return hasAnyDiagnosticCode(transaction.diagnostics, codes);
 }
 
-export function isTransactionMarkedSpam(transaction: Pick<Transaction, 'diagnostics'>): boolean {
-  return transactionHasDiagnosticCode(transaction, 'SCAM_TOKEN');
+export function getDiagnosticScamAssessment(
+  diagnostic: Pick<TransactionDiagnostic, 'code'>
+): TransactionScamAssessment | undefined {
+  switch (diagnostic.code) {
+    case 'SCAM_TOKEN':
+      return 'confirmed';
+    case 'SUSPICIOUS_AIRDROP':
+      return 'suspected';
+    default:
+      return undefined;
+  }
+}
+
+export function getTransactionScamAssessment(
+  transaction: TransactionDiagnosticCodeCarrier
+): TransactionScamAssessment | undefined {
+  let assessment: TransactionScamAssessment | undefined;
+
+  for (const diagnostic of transaction.diagnostics ?? []) {
+    const diagnosticAssessment = getDiagnosticScamAssessment(diagnostic);
+    if (diagnosticAssessment === 'confirmed') {
+      return 'confirmed';
+    }
+
+    if (diagnosticAssessment === 'suspected') {
+      assessment = 'suspected';
+    }
+  }
+
+  return assessment;
+}
+
+export function isTransactionMarkedSpam(transaction: TransactionDiagnosticCodeCarrier): boolean {
+  return getTransactionScamAssessment(transaction) === 'confirmed';
 }
 
 export function getUnattributedStakingRewardComponents(
   diagnostics: readonly TransactionDiagnostic[] | undefined,
-  assetSymbol?: Currency  
+  assetSymbol?: Currency
 ): UnattributedStakingRewardComponent[] {
   const components: UnattributedStakingRewardComponent[] = [];
 
@@ -79,7 +115,7 @@ export function getUnattributedStakingRewardComponents(
 
 export function sumUniqueUnattributedStakingRewardComponents(
   diagnosticsCollections: readonly (readonly TransactionDiagnostic[] | undefined)[],
-  assetSymbol?: Currency  
+  assetSymbol?: Currency
 ): Decimal {
   const uniqueAmounts = new Map<string, Decimal>();
 

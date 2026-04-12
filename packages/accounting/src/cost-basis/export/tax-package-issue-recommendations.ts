@@ -13,7 +13,7 @@ export function getDefaultRecommendedAction(code: TaxPackageIssue['code']): stri
     case 'UNCERTAIN_PROCEEDS_ALLOCATION':
       return 'Inspect the source transaction if exact per-asset proceeds allocation matters for filing.';
     case 'INCOMPLETE_TRANSFER_LINKING':
-      return 'Review the affected transfer rows and confirm the internal carryover treatment.';
+      return 'Create or confirm the missing transfer links before using this package for filing.';
   }
 
   return 'Review the affected package rows before filing.';

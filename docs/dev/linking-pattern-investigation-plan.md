@@ -586,7 +586,7 @@ Do not:
 
 ### Track 4: Promo Memo Dust / Airdrop Spam Misses
 
-Status: upstream Cosmos-family detection implemented; live reprocess verification pending
+Status: upstream Cosmos-family detection implemented and live-verified
 Expected value: high
 Likely destination: ingestion scam detection, not linking
 
@@ -610,6 +610,12 @@ Before the fix, the stored transactions still had:
 
 - `diagnostics: []`
 - `excludedFromAccounting: false`
+
+Live re-check on `2026-04-12` after `reprocess`:
+
+- transaction refs `5449664035`, `cb533f67fd`, and `5b5ff59cf9` now each carry `SUSPICIOUS_AIRDROP`
+- none of those refs appear in `links gaps --json`
+- this confirms the promo-memo path is now effective in live data, not just in regression coverage
 
 #### Hypothesis
 
@@ -646,6 +652,11 @@ Preferred:
 
 - improve scam/airdrop detection on memo-bearing Cosmos-family transactions
 - keep it transaction-scoped and diagnostic-only unless we later decide to auto-exclude this class
+
+Current decision:
+
+- done for the known Injective and Akash promo-memo cases
+- no transaction-level spam flag should be reintroduced here; diagnostics are now the canonical machine signal
 
 Fallback:
 

@@ -324,4 +324,5 @@ export interface CanadaDisplayCostBasisReport {
 export interface CanadaTaxInputContextBuildOptions {
   taxAssetIdentityPolicy: TaxAssetIdentityPolicy;
   relaxedTaxIdentitySymbols: readonly string[];
+  assetIdentityOverridesByAssetId?: ReadonlyMap<string, string> | undefined;
 }

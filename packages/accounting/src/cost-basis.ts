@@ -95,6 +95,7 @@ export {
 export type {
   TaxPackageExportResult,
   TaxPackageFile,
+  TaxPackageIncompleteTransferLinkDetail,
   TaxPackageIssue,
   TaxPackageManifest,
   WrittenTaxPackageFile,

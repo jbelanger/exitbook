@@ -209,7 +209,9 @@ Reason:
 - Diagnostics must not silently create transfer links.
 - Diagnostics must not substitute for `movementRole` where deterministic movement semantics exist.
 - Spam state is derived from diagnostics only.
-  - `SCAM_TOKEN` is the canonical spam marker used by shared logic.
+  - Shared downstream logic should interpret scam-like diagnostics through a shared assessment helper, not branch on raw diagnostic codes ad hoc.
+  - `SCAM_TOKEN` maps to a `confirmed` scam assessment.
+  - `SUSPICIOUS_AIRDROP` maps to a `suspected` scam assessment.
   - There is no persisted transaction-level `isSpam` flag.
 
 ### User Note Rules

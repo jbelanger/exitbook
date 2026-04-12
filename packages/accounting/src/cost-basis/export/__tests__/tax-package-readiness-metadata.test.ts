@@ -84,6 +84,18 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       ],
       fxFallbackCount: 0,
       incompleteTransferLinkCount: 1,
+      incompleteTransferLinkDetails: [
+        {
+          assetSymbol: 'BTC',
+          rowId: 'transfer-1',
+          sourcePlatformKey: retainedTransaction.platformKey,
+          sourceTransactionId: 11,
+          targetPlatformKey: undefined,
+          targetTransactionId: undefined,
+          transactionDatetime: '2024-03-10T00:00:00.000Z',
+          transactionId: 11,
+        },
+      ],
       unknownTransactionClassificationCount: 1,
       unknownTransactionClassificationDetails: [
         {
@@ -175,13 +187,14 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       allocationUncertainDetails: [],
       fxFallbackCount: 3,
       incompleteTransferLinkCount: 0,
+      incompleteTransferLinkDetails: [],
       unknownTransactionClassificationCount: 0,
       unknownTransactionClassificationDetails: [],
       unresolvedAssetReviewCount: 0,
     });
   });
 
-  it('treats fee-only standard carryovers as incomplete transfer linking', () => {
+  it('does not surface fee-only standard carryovers as incomplete transfer linking', () => {
     const context = createStandardPackageBuildContext();
     if (context.workflowResult.kind !== 'standard-workflow') {
       throw new Error('Expected standard-workflow test fixture');
@@ -200,7 +213,35 @@ describe('deriveTaxPackageReadinessMetadata', () => {
       allocationUncertainCount: 0,
       allocationUncertainDetails: [],
       fxFallbackCount: 0,
-      incompleteTransferLinkCount: 1,
+      incompleteTransferLinkCount: 0,
+      incompleteTransferLinkDetails: [],
+      unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
+      unresolvedAssetReviewCount: 0,
+    });
+  });
+
+  it('does not surface Canada fee-only carryovers as incomplete transfer linking', () => {
+    const context = createCanadaPackageBuildContext();
+    if (context.workflowResult.kind !== 'canada-workflow') {
+      throw new Error('Expected canada-workflow test fixture');
+    }
+
+    context.workflowResult.taxReport.transfers[0] = {
+      ...context.workflowResult.taxReport.transfers[0]!,
+      linkId: undefined,
+    };
+    context.workflowResult.inputContext!.inputEvents[3] = {
+      ...context.workflowResult.inputContext!.inputEvents[3]!,
+      provenanceKind: 'fee-only-carryover',
+    };
+
+    expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({
+      allocationUncertainCount: 0,
+      allocationUncertainDetails: [],
+      fxFallbackCount: 0,
+      incompleteTransferLinkCount: 0,
+      incompleteTransferLinkDetails: [],
       unknownTransactionClassificationCount: 0,
       unknownTransactionClassificationDetails: [],
       unresolvedAssetReviewCount: 0,

@@ -1,5 +1,11 @@
 import { type TokenMetadataRecord, type TokenReferenceLookupResult } from '@exitbook/blockchain-providers';
-import type { AssetReviewEvidence, AssetReviewSummary, TransactionDiagnostic, Transaction } from '@exitbook/core';
+import {
+  getDiagnosticScamAssessment,
+  type AssetReviewEvidence,
+  type AssetReviewSummary,
+  type TransactionDiagnostic,
+  type Transaction,
+} from '@exitbook/core';
 import { buildBlockchainTokenAssetId, err, ok, parseAssetId, sha256Hex, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
@@ -194,13 +200,15 @@ function collectAssetSignals(transactions: Transaction[]): Map<string, AssetSign
         );
 
         for (const diagnostic of applicableDiagnostics) {
-          if (diagnostic.code === 'SCAM_TOKEN') {
-            signal.scamDiagnosticCount += 1;
-            signal.scamDiagnosticHasError ||= diagnostic.severity !== 'warning';
-          }
-          if (diagnostic.code === 'SUSPICIOUS_AIRDROP') {
-            signal.suspiciousAirdropDiagnosticCount += 1;
-            signal.suspiciousAirdropDiagnosticHasError ||= diagnostic.severity === 'error';
+          switch (getDiagnosticScamAssessment(diagnostic)) {
+            case 'confirmed':
+              signal.scamDiagnosticCount += 1;
+              signal.scamDiagnosticHasError ||= diagnostic.severity !== 'warning';
+              break;
+            case 'suspected':
+              signal.suspiciousAirdropDiagnosticCount += 1;
+              signal.suspiciousAirdropDiagnosticHasError ||= diagnostic.severity === 'error';
+              break;
           }
         }
       }

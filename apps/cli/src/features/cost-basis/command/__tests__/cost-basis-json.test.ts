@@ -20,8 +20,11 @@ describe('buildCostBasisJsonData', () => {
       readinessWarnings: [
         {
           code: 'INCOMPLETE_TRANSFER_LINKING',
+          commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
           count: 2,
-          message: '2 transfers require manual review because linking is incomplete.',
+          detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
+          message: '2 transfers require manual review because a confirmed source/target link is missing.',
+          recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
           severity: 'warning',
         },
       ],
@@ -40,8 +43,11 @@ describe('buildCostBasisJsonData', () => {
     expect(result.readinessWarnings).toEqual([
       {
         code: 'INCOMPLETE_TRANSFER_LINKING',
+        commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
         count: 2,
-        message: '2 transfers require manual review because linking is incomplete.',
+        detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
+        message: '2 transfers require manual review because a confirmed source/target link is missing.',
+        recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
         severity: 'warning',
       },
     ]);

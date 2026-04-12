@@ -20,6 +20,7 @@ interface ResolvedTaxAssetIdentity {
 interface TaxAssetIdentityResolutionConfig {
   policy: TaxAssetIdentityPolicy;
   relaxedSymbolIdentities: readonly string[];
+  assetIdentityOverridesByAssetId?: ReadonlyMap<string, string> | undefined;
 }
 
 function normalizeIdentitySymbol(assetSymbol: Currency): string {
@@ -51,6 +52,10 @@ export function resolveTaxAssetIdentity(
 
   const parsedAssetId = parsedAssetIdResult.value;
   const symbolIdentity = normalizeIdentitySymbol(input.assetSymbol);
+  const overrideIdentityKey = config.assetIdentityOverridesByAssetId?.get(input.assetId)?.trim();
+  if (overrideIdentityKey) {
+    return ok({ identityKey: overrideIdentityKey });
+  }
 
   switch (parsedAssetId.namespace) {
     case 'exchange':

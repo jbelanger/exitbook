@@ -21,5 +21,5 @@ export function formatIncompleteTransferLinkingIssueSummary(): string {
 }
 
 export function formatIncompleteTransferLinkingNotice(count: number): string {
-  return `${count} ${count === 1 ? 'transfer requires' : 'transfers require'} manual review because linking is incomplete.`;
+  return `${count} ${count === 1 ? 'transfer requires' : 'transfers require'} manual review because a confirmed source/target link is missing.`;
 }

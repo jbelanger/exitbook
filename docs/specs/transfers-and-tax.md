@@ -20,6 +20,7 @@ Link generation and the persisted `TransactionLink` contract are specified in [`
 | Confidence handling         | Cost basis does not re-threshold confirmed links by confidence score                                                    |
 | Internal same-hash behavior | Resolved by the accounting scope builder, not by `blockchain_internal` link consumption                                 |
 | Link identity               | Source/target `assetId` and movement fingerprints must validate on the scoped boundary                                  |
+| Tax identity bridging       | Confirmed exchange↔blockchain links can alias a strict blockchain token to the linked exchange symbol for that batch    |
 | Partial links               | Supported for genuine 1:N and N:1 transfers on one scoped movement                                                      |
 | Explained target residuals  | Exact same-hash staking residuals can validate a partial target and classify the remaining acquisition as reward income |
 | Fee policy                  | `sameAssetTransferFeePolicy`: `'disposal'` or `'add-to-basis'`                                                          |
@@ -102,6 +103,7 @@ When a scoped outflow has validated links:
 
 - the movement is treated as a transfer source, not a disposal, for the linked quantity
 - link lookup is keyed by `sourceMovementFingerprint`
+- if the link bridges an exchange asset and a strict blockchain token, the blockchain token inherits the linked exchange tax identity for the scoped batch
 - one full validated link is allowed, or many partial validated links for that one movement
 - non-partial transfers must reconcile exactly to the scoped transfer amount
 - same-asset crypto fee handling follows `sameAssetTransferFeePolicy`
@@ -116,6 +118,7 @@ When a scoped inflow has validated links:
 
 - target lookup is keyed by `targetMovementFingerprint`
 - sibling inflows are not aggregated implicitly
+- exchange↔blockchain confirmed links can bridge strict blockchain-token identity so carried basis stays in one tax pool after the transfer
 - inherited basis comes only from source-side `LotTransfer` rows bound to that validated target
 - eligible fiat fees from source and target can increase basis
 - if multiple partial confirmed links point to one exchange inflow target, target-side validation may still succeed when the remaining uncovered target amount is explained exactly by same-hash source diagnostics:

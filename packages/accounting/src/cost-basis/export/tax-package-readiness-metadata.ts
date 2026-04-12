@@ -4,6 +4,7 @@ import { collectBlockingAssetReviewSummaries } from '../standard/validation/asse
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import type {
+  TaxPackageIncompleteTransferLinkDetail,
   TaxPackageReadinessMetadata,
   TaxPackageUncertainProceedsAllocationDetail,
   TaxPackageUnknownTransactionClassificationDetail,
@@ -17,6 +18,7 @@ export function deriveTaxPackageReadinessMetadata(params: {
   context: TaxPackageBuildContext;
 }): TaxPackageReadinessMetadata {
   const retainedTransactions = getRetainedTransactions(params.context);
+  const incompleteTransferLinkDetails = collectIncompleteTransferLinkDetails(params.context);
   const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
     retainedTransactions,
     ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES
@@ -27,7 +29,8 @@ export function deriveTaxPackageReadinessMetadata(params: {
     allocationUncertainCount: allocationUncertainDetails.length,
     allocationUncertainDetails,
     fxFallbackCount: countFxFallbackRows(params.context),
-    incompleteTransferLinkCount: countIncompleteTransferLinks(params.context),
+    incompleteTransferLinkCount: incompleteTransferLinkDetails.length,
+    incompleteTransferLinkDetails,
     unknownTransactionClassificationCount: unknownTransactionClassificationDetails.length,
     unknownTransactionClassificationDetails,
     unresolvedAssetReviewCount: countScopedAssetsRequiringReview(retainedTransactions, params.assetReviewSummaries),
@@ -94,17 +97,53 @@ function countScopedAssetsRequiringReview(
   return collectBlockingAssetReviewSummaries(assetsInScope, assetReviewSummaries).length;
 }
 
-function countIncompleteTransferLinks(context: TaxPackageBuildContext): number {
+function collectIncompleteTransferLinkDetails(
+  context: TaxPackageBuildContext
+): TaxPackageIncompleteTransferLinkDetail[] {
   if (context.workflowResult.kind === 'canada-workflow') {
-    return context.workflowResult.taxReport.transfers.filter(
-      (transfer) =>
-        transfer.linkId === undefined ||
-        transfer.sourceTransactionId === undefined ||
-        transfer.targetTransactionId === undefined
-    ).length;
+    const inputEventsById = new Map(
+      (context.workflowResult.inputContext?.inputEvents ?? []).map((event) => [event.eventId, event])
+    );
+
+    return context.workflowResult.taxReport.transfers.flatMap((transfer) => {
+      const isCarryoverOnly =
+        inputEventsById.get(transfer.sourceTransferEventId ?? '')?.provenanceKind === 'fee-only-carryover' ||
+        inputEventsById.get(transfer.targetTransferEventId ?? '')?.provenanceKind === 'fee-only-carryover';
+      const hasConfirmedLink =
+        transfer.linkId !== undefined &&
+        transfer.sourceTransactionId !== undefined &&
+        transfer.targetTransactionId !== undefined;
+
+      if (hasConfirmedLink || isCarryoverOnly) {
+        return [];
+      }
+
+      const sourceTransaction =
+        transfer.sourceTransactionId !== undefined
+          ? context.sourceContext.transactionsById.get(transfer.sourceTransactionId)
+          : undefined;
+      const targetTransaction =
+        transfer.targetTransactionId !== undefined
+          ? context.sourceContext.transactionsById.get(transfer.targetTransactionId)
+          : undefined;
+
+      return [
+        {
+          assetSymbol: transfer.assetSymbol,
+          rowId: transfer.id,
+          sourcePlatformKey: sourceTransaction?.platformKey,
+          sourceTransactionId: transfer.sourceTransactionId,
+          targetPlatformKey: targetTransaction?.platformKey,
+          targetTransactionId: transfer.targetTransactionId,
+          transactionDatetime: transfer.transferredAt.toISOString(),
+          transactionId: transfer.transactionId,
+        },
+      ];
+    });
   }
 
-  return context.workflowResult.lotTransfers.filter((transfer) => transfer.provenance.kind !== 'confirmed-link').length;
+  // Standard workflow carryovers are deterministic internal fee handling and are not user-actionable linking work.
+  return [];
 }
 
 function countFxFallbackRows(context: TaxPackageBuildContext): number {

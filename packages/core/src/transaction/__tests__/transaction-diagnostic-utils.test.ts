@@ -2,6 +2,8 @@ import type { Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import {
+  getDiagnosticScamAssessment,
+  getTransactionScamAssessment,
   getUnattributedStakingRewardComponents,
   hasAnyDiagnosticCode,
   hasDiagnosticCode,
@@ -60,6 +62,38 @@ describe('transaction diagnostic utils', () => {
     expect(isTransactionMarkedSpam(createTransaction({ diagnostics: createDiagnostics(['SUSPICIOUS_AIRDROP']) }))).toBe(
       false
     );
+  });
+
+  it('maps raw scam diagnostics to a shared assessment', () => {
+    expect(getDiagnosticScamAssessment({ code: 'SCAM_TOKEN' })).toBe('confirmed');
+    expect(getDiagnosticScamAssessment({ code: 'SUSPICIOUS_AIRDROP' })).toBe('suspected');
+    expect(getDiagnosticScamAssessment({ code: 'classification_uncertain' })).toBeUndefined();
+  });
+
+  it('prioritizes confirmed scam assessments over suspected ones at transaction scope', () => {
+    expect(
+      getTransactionScamAssessment(
+        createTransaction({
+          diagnostics: createDiagnostics(['SUSPICIOUS_AIRDROP', 'SCAM_TOKEN']),
+        })
+      )
+    ).toBe('confirmed');
+
+    expect(
+      getTransactionScamAssessment(
+        createTransaction({
+          diagnostics: createDiagnostics(['SUSPICIOUS_AIRDROP']),
+        })
+      )
+    ).toBe('suspected');
+
+    expect(
+      getTransactionScamAssessment(
+        createTransaction({
+          diagnostics: createDiagnostics(['classification_uncertain']),
+        })
+      )
+    ).toBeUndefined();
   });
 
   it('extracts typed unattributed staking reward components from diagnostics metadata', () => {

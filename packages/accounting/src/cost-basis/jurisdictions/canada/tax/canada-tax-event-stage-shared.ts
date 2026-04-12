@@ -54,6 +54,7 @@ export function resolvePoolIdentity(
     {
       policy: identityConfig.taxAssetIdentityPolicy,
       relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
+      assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId,
     }
   );
   if (assetIdentityResult.isErr()) {

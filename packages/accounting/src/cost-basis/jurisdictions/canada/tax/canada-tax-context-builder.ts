@@ -16,6 +16,7 @@ import {
 } from './canada-tax-event-fee-adjustments.js';
 import { sortCanadaEvents } from './canada-tax-event-ordering.js';
 import { projectCanadaMovementEvents } from './canada-tax-event-projection.js';
+import { buildTransferAwareIdentityConfig } from './canada-tax-identity-overrides.js';
 import type { CanadaTaxInputContext, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
 export async function buildCanadaTaxInputContext(params: {
@@ -27,12 +28,17 @@ export async function buildCanadaTaxInputContext(params: {
 }): Promise<Result<CanadaTaxInputContext, Error>> {
   const { feeOnlyInternalCarryovers, identityConfig, priceRuntime, scopedTransactions, validatedTransfers } = params;
   const usdConversionRateProvider = new UsdConversionRateProvider(priceRuntime);
+  const effectiveIdentityConfigResult = buildTransferAwareIdentityConfig(identityConfig, validatedTransfers);
+  if (effectiveIdentityConfigResult.isErr()) {
+    return err(effectiveIdentityConfigResult.error);
+  }
+  const effectiveIdentityConfig = effectiveIdentityConfigResult.value;
 
   const projectedEventsResult = await projectCanadaMovementEvents({
     scopedTransactions,
     validatedTransfers,
     usdConversionRateProvider,
-    identityConfig,
+    identityConfig: effectiveIdentityConfig,
   });
   if (projectedEventsResult.isErr()) {
     return err(projectedEventsResult.error);
@@ -43,7 +49,7 @@ export async function buildCanadaTaxInputContext(params: {
     scopedTransactions,
     feeOnlyInternalCarryovers,
     usdConversionRateProvider,
-    identityConfig,
+    identityConfig: effectiveIdentityConfig,
   });
   if (carryoverEventsResult.isErr()) {
     return err(carryoverEventsResult.error);
@@ -55,7 +61,7 @@ export async function buildCanadaTaxInputContext(params: {
     scopedTransactions,
     validatedTransfers,
     usdConversionRateProvider,
-    identityConfig,
+    identityConfig: effectiveIdentityConfig,
   });
   if (validatedTargetFeeEventsResult.isErr()) {
     return err(validatedTargetFeeEventsResult.error);
@@ -66,7 +72,7 @@ export async function buildCanadaTaxInputContext(params: {
     validatedTransfers,
     feeOnlyInternalCarryovers,
     usdConversionRateProvider,
-    identityConfig,
+    identityConfig: effectiveIdentityConfig,
   });
   if (sameAssetTransferFeeEventsResult.isErr()) {
     return err(sameAssetTransferFeeEventsResult.error);
@@ -76,7 +82,7 @@ export async function buildCanadaTaxInputContext(params: {
     events: finalizedEvents,
     scopedTransactions,
     usdConversionRateProvider,
-    identityConfig,
+    identityConfig: effectiveIdentityConfig,
     sameAssetTransferFeeEvents: sameAssetTransferFeeEventsResult.value,
   });
   if (genericFeeAdjustmentsResult.isErr()) {

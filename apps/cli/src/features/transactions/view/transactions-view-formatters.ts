@@ -1,4 +1,4 @@
-import { hasDiagnosticCode } from '@exitbook/core';
+import { getTransactionScamAssessment } from '@exitbook/core';
 
 import type { CategoryCounts, TransactionViewItem } from '../transactions-view-model.js';
 export { TRANSACTION_FINGERPRINT_REF_LENGTH, formatTransactionFingerprintRef } from '../transaction-selector.js';
@@ -52,7 +52,14 @@ export function formatTransactionFlags(
 ): string {
   const flags: string[] = [];
   if (transaction.excludedFromAccounting) flags.push('excluded');
-  if (hasDiagnosticCode(transaction.diagnostics, 'SCAM_TOKEN')) flags.push('spam');
+  switch (getTransactionScamAssessment(transaction)) {
+    case 'confirmed':
+      flags.push('spam');
+      break;
+    case 'suspected':
+      flags.push('suspicious');
+      break;
+  }
   return flags.length > 0 ? flags.join(',') : '—';
 }
 

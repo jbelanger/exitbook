@@ -25,10 +25,10 @@ describe('tax package readiness messages', () => {
   it('formats incomplete transfer linking copy consistently', () => {
     expect(formatIncompleteTransferLinkingIssueSummary()).toBe('Some transfers were not fully linked.');
     expect(formatIncompleteTransferLinkingNotice(1)).toBe(
-      '1 transfer requires manual review because linking is incomplete.'
+      '1 transfer requires manual review because a confirmed source/target link is missing.'
     );
     expect(formatIncompleteTransferLinkingNotice(4)).toBe(
-      '4 transfers require manual review because linking is incomplete.'
+      '4 transfers require manual review because a confirmed source/target link is missing.'
     );
   });
 });
