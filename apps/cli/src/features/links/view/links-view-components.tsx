@@ -766,6 +766,12 @@ const GapRow: FC<{
           <Text color="cyan">{formatGapCueLabel(issue.gapCue)}</Text>
         </>
       )}
+      {issue.contextHint && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color="yellow">{issue.contextHint.label}</Text>
+        </>
+      )}
       <Text dimColor> · </Text>
       {renderGapSuggestionSummary(issue)}
     </SelectableRow>
@@ -854,6 +860,15 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
             {'  '}
             <Text dimColor>Cue: </Text>
             <Text color="cyan">{formatGapCueLabel(issue.gapCue)}</Text>
+          </Text>,
+        ]
+      : []),
+    ...(issue.contextHint
+      ? [
+          <Text key="context">
+            {'  '}
+            <Text dimColor>Context: </Text>
+            <Text color="yellow">{issue.contextHint.message}</Text>
           </Text>,
         ]
       : []),

@@ -37,6 +37,13 @@ describe('links static renderer', () => {
     const gapIssue = {
       ...analysis.issues[0]!,
       gapCue: 'likely_correlated_service_swap' as const,
+      contextHint: {
+        kind: 'diagnostic' as const,
+        code: 'classification_uncertain',
+        label: 'staking withdrawal in same tx',
+        message:
+          'Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA that cannot be attributed to a single derived address in the current per-address projection.',
+      },
     };
     const state = createGapsViewState({
       ...analysis,
@@ -60,8 +67,12 @@ describe('links static renderer', () => {
 
     expect(stripAnsi(listOutput)).toContain('GAP-REF');
     expect(stripAnsi(listOutput)).toContain('likely correlated service swap');
+    expect(stripAnsi(listOutput)).toContain('staking withdrawal in same tx');
     expect(stripAnsi(detailOutput)).toContain(`Gap ref: ${items[0]!.gapRef}`);
     expect(stripAnsi(detailOutput)).toContain(`Transaction ref: ${items[0]!.transactionRef}`);
     expect(stripAnsi(detailOutput)).toContain('Cue: likely correlated service swap');
+    expect(stripAnsi(detailOutput)).toContain(
+      'Context: Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA'
+    );
   });
 });

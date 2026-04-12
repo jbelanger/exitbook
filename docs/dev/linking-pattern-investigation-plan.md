@@ -62,7 +62,7 @@ These questions apply to every pattern:
 
 ## Track 0: Movement Semantics and Diagnostics Foundation
 
-Status: active implementation track
+Status: implementation mostly complete; remaining follow-up is data-validation and replay hardening
 Expected value: very high
 Likely destination: cross-cutting core/persistence/processing refactor
 
@@ -245,12 +245,13 @@ No pattern track below should start new implementation work that depends on unre
 - Phase 1 complete: machine-authored diagnostics and user notes are separated
 - Phase 2 complete: transfer-oriented consumers now use transfer-eligible movements
 - Phase 2.5 complete: cross-chain producer audit is written in the implementation plan
+- Phase 3 complete: diagnostics migration is done and legacy note-era machine state is removed
+- Phase 4.1 complete: `EVM` partial beacon withdrawals emit `movementRole='staking_reward'`
+- Phase 4.2 complete: `NEAR` receipt-backed `CONTRACT_REWARD` emits `movementRole='staking_reward'`
+- Phase 4.3 complete: `Substrate` inflow-only `staking/reward` emits `movementRole='staking_reward'`
 
 Current producer shortlist from that audit:
 
-- `NEAR` contract rewards -> likely `staking_reward`
-- `Substrate` staking reward inflows -> likely `staking_reward`
-- `EVM` partial beacon withdrawals -> likely `staking_reward`
 - `NEAR` gas refunds -> possible `refund_rebate`
 - `Substrate` governance refunds -> possible `refund_rebate`
 
@@ -259,6 +260,46 @@ Explicit rejections from the audit:
 - no shared Cosmos `movementRole` work yet
 - no Solana `protocol_overhead` role yet
 - no Bitcoin / XRP / Theta role work at this stage
+
+Remaining foundation follow-up from the implementation plan:
+
+- Phase 4.4: `refund_rebate` candidates need real-case validation before implementation
+- Phase 5: replay / compatibility validation hardening
+
+Supporting issue for the remaining live-data / validation cases:
+
+- [GitHub issue #308](https://github.com/jbelanger/exitbook/issues/308)
+
+### What Track 0 Already Unlocked For This Plan
+
+#### Track 1: Shared-hash batched deposit
+
+- The original ADA case is no longer evidence for a new linking strategy.
+- Upstream processing now distinguishes staking-reward inflows from transfer-principal movements, so Track 1 can focus on genuine post-foundation N:1 deposit cases.
+- This is the clearest example of why Track 0 came first: it removed a false linking problem instead of teaching linking about Cardano.
+
+#### Track 2: Cross-chain migration / bridge-like move
+
+- Existing machine-authored bridge-style semantics now live in typed diagnostics rather than overloaded notes.
+- That makes Track 2 cleaner: if we pursue a safe strategy here, it should consume explicit diagnostics or hard bridge evidence first, not stringly note parsing or timing heuristics.
+
+#### Track 3: Same-account service-swap cluster
+
+- This track is still cue-only, but it now lives on top of a cleaner base:
+  - gap analysis already consumes transfer-eligible movements
+  - diagnostics are first-class
+- Track 0 did **not** solve the service-swap cue, but it removed pressure to solve unrelated reward/overhead cases with gap heuristics.
+
+#### Track 4: Promo memo dust / airdrop spam misses
+
+- This is now explicitly an upstream diagnostics problem.
+- Once detection improves, gaps policy can consume the diagnostics directly without any special note parsing or duplicate spam flags.
+
+#### Track 5: Protocol overhead / rent / account setup
+
+- This is now a real candidate for a future generic movement-role producer, not just an intuition.
+- The foundation means we have a place to put it cleanly if and only if we can prove a deterministic upstream boundary.
+- It is still blocked on real evidence and should not be solved with downstream chain-specific logic.
 
 ### Consequence For Track 1 (ADA)
 
@@ -271,7 +312,7 @@ New sequencing:
 3. rerun the corrected ADA case
 4. only then decide whether any linking strategy is still needed
 
-Track 1 should not grow a Cardano-specific linking exception while Track 0 is unresolved.
+Track 1 should not grow a Cardano-specific linking exception. The original Cardano ambiguity is already resolved by Track 0.
 
 ## Pattern Tracks
 
@@ -312,23 +353,31 @@ This is not a cue-first problem. It looks like a possible N:1 linking strategy.
 
 #### Current Finding
 
-The original Cardano case is no longer evidence for a new linking strategy.
+The original Cardano case is still open in `links gaps`, but it is now a cleaner and more auditable Track 1 case than it was before the movement-semantics work.
 
 What happened:
 
 - provider normalization now preserves Blockfrost withdrawals
 - Cardano processing now emits `movementRole='staking_reward'` for attributable staking withdrawals
 - transfer-oriented consumers now ignore non-principal movements
+- the projected blockchain outflows now reconcile cleanly with the exchange inflow once staking withdrawal + fee handling are accounted for
+
+What did **not** happen:
+
+- no links were created for the July 25, 2024 Cardano cluster
+- the case still appears as four open ADA gaps in `links gaps`
+- the gaps surface still does not reconcile or group the four related rows into one operator action
 
 Result:
 
-- the old Cardano ambiguity no longer blocks `links run`
-- the corrected ADA case no longer appears as an open transfer-gap symptom
+- the old semantic ambiguity no longer blocks investigation
+- this is now a stronger generic Track 1 example because the residual problem is genuinely about aggregated linking, not missing staking semantics
 
-So this track is now narrower:
+So this track should now:
 
-- do **not** pursue a Cardano-specific linking strategy for the original case
-- keep the shared-hash batched-deposit investigation focused on any remaining post-foundation cases, especially Bitcoin examples from the shared-hash scan
+- continue to reject any Cardano-specific linking exception
+- keep the original Cardano case as a positive shared-hash aggregated-deposit example
+- pair it with the Bitcoin shared-hash cases to test whether one generic N:1 strategy can handle both
 
 #### Investigation Questions
 
@@ -337,22 +386,47 @@ So this track is now narrower:
 3. Is the shared blockchain hash stable across providers and chains?
 4. Is the amount conservation exact, or do we need fee-aware tolerance?
 5. Is this really linking, or should ingestion collapse these rows upstream?
+6. Can one generic strategy explain both the Cardano wallet-scoped case and the Bitcoin shared-hash cases without introducing chain-specific rules in `accounting/linking`?
+
+#### Current UX Limitation
+
+The movement-semantics work improved the underlying data, and `links gaps` now surfaces the key context:
+
+- the Cardano ADA gaps show `staking withdrawal in same tx`
+- gap detail shows the full wallet-scoped staking-withdrawal explanation
+
+What the operator still does **not** get is higher-level reconciliation:
+
+Today the user still sees:
+
+- three Cardano ADA outflow gaps
+- one exchange ADA inflow gap
+
+What the user still does **not** see as a first-class object:
+
+- that those four rows form one shared-hash aggregated-deposit candidate
+- that the blockchain-side rows reconcile cleanly to the exchange inflow once staking withdrawal + fees are accounted for
+- a single grouped review action instead of four independent gap rows
+
+This means Track 1 remains a real linking / review-surface problem even though the operator now gets materially better context.
 
 #### Candidate Outcome
 
 Current Cardano case:
 
-- resolved by upstream/provider + movement-semantics work
-- no new linking strategy needed for that specific case
+- resolved semantically enough to investigate safely
+- still unresolved as a linking / review-surface problem
 
 Preferred long-term order:
 
-1. validate remaining shared-hash examples after foundation work
-2. prove exact amount conservation on a still-open case
-3. only then decide if `accounting/linking` needs a generic shared-hash aggregated-deposit strategy
+1. validate the original Cardano case and at least one Bitcoin case after foundation work
+2. prove exact amount conservation on both, including fee-aware treatment where needed
+3. decide whether one generic shared-hash aggregated-deposit strategy can cover both shapes
+4. only if that fails, split the investigation by chain-specific ingestion shape
 
 #### Required Tests
 
+- positive: the original July 25, 2024 Cardano case
 - positive: at least one Bitcoin case from the shared-hash scan
 - negative: same hash but mismatched asset
 - negative: same hash but amount totals do not reconcile
@@ -377,7 +451,7 @@ Same amount, same symbol, different chains, about 17 minutes apart.
 
 Existing upstream bridge semantics already exist on other chains:
 
-- `9243c822aa` / tx `581a427bd6` carries note type `bridge_transfer`
+- `9243c822aa` / tx `581a427bd6` carries diagnostic code `bridge_transfer`
 
 #### Hypothesis
 
@@ -556,10 +630,18 @@ Do not:
 ## Work Order
 
 1. Track 1: shared-hash batched deposit
-2. Track 2: cross-chain migration / bridge-like move
-3. Track 3: tighten service-swap cue
-4. Track 4: promo memo spam detection
+2. Track 4: promo memo spam detection
+3. Track 2: cross-chain migration / bridge-like move
+4. Track 3: tighten service-swap cue
 5. Track 5: protocol overhead / rent
+
+Rationale for this order:
+
+- Track 1 is now narrower and more actionable because Track 0 removed the original ADA false-positive.
+- Track 4 should move earlier because the semantics/diagnostics foundation is now in place, so an upstream detection fix has immediate effect in gaps with little additional architecture work.
+- Track 2 comes next because diagnostics are now first-class and can support a safer bridge-first investigation boundary.
+- Track 3 remains valuable, but it is still heuristic cue work and should not outrun harder-signal investigations.
+- Track 5 remains last because it still depends on stronger evidence and possibly additional movement-role follow-up (`refund_rebate` / replay hardening) before we should widen the model again.
 
 ## Exit Criteria
 

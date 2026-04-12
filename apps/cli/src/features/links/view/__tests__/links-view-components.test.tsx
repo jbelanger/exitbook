@@ -400,6 +400,13 @@ describe('LinksViewApp - gaps mode', () => {
     analysis.issues[0] = {
       ...analysis.issues[0]!,
       gapCue: 'likely_correlated_service_swap',
+      contextHint: {
+        kind: 'diagnostic',
+        code: 'classification_uncertain',
+        label: 'staking withdrawal in same tx',
+        message:
+          'Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA that cannot be attributed to a single derived address in the current per-address projection.',
+      },
     };
     const state = createGapsViewState(analysis);
     const { lastFrame } = render(
@@ -409,15 +416,16 @@ describe('LinksViewApp - gaps mode', () => {
       />
     );
     const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    expect(frame).toContain('#2041');
-    expect(frame).toContain('#2198');
-    expect(frame).toContain('#2456');
-    expect(frame).toContain('⚠');
-    expect(frame).toContain('ETH');
-    expect(frame).toContain('IN');
-    expect(frame).toContain('OUT');
-    expect(frame).toContain('likely correlated service swap');
+    expect(normalizedFrame).toContain('#2041');
+    expect(normalizedFrame).toContain('#2198');
+    expect(normalizedFrame).toContain('⚠');
+    expect(normalizedFrame).toContain('ETH');
+    expect(normalizedFrame).toContain('IN');
+    expect(normalizedFrame).toContain('likely correlated service swap');
+    expect(normalizedFrame).toContain('staking withdrawal in same tx');
+    expect(normalizedFrame).toContain('▼ 1 more below');
   });
 
   it('uses scientific notation for tiny non-zero gap amounts in the row summary', () => {
@@ -447,6 +455,13 @@ describe('LinksViewApp - gaps mode', () => {
     analysis.issues[0] = {
       ...analysis.issues[0]!,
       gapCue: 'likely_correlated_service_swap',
+      contextHint: {
+        kind: 'diagnostic',
+        code: 'classification_uncertain',
+        label: 'staking withdrawal in same tx',
+        message:
+          'Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA that cannot be attributed to a single derived address in the current per-address projection.',
+      },
     };
     const state = createGapsViewState(analysis);
     const { lastFrame } = render(
@@ -456,15 +471,18 @@ describe('LinksViewApp - gaps mode', () => {
       />
     );
     const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    expect(frame).toContain('Gap:');
-    expect(frame).toContain('1.5');
-    expect(frame).toContain('inflow');
-    expect(frame).toContain('Readiness:');
-    expect(frame).toContain('Cue:');
-    expect(frame).toContain('likely correlated service swap');
-    expect(frame).toContain('Next:');
-    expect(frame).toContain('exitbook links run');
+    expect(normalizedFrame).toContain('Gap:');
+    expect(normalizedFrame).toContain('1.5');
+    expect(normalizedFrame).toContain('inflow');
+    expect(normalizedFrame).toContain('Readiness:');
+    expect(normalizedFrame).toContain('Cue:');
+    expect(normalizedFrame).toContain('likely correlated service swap');
+    expect(normalizedFrame).toContain('Context:');
+    expect(normalizedFrame).toContain('wallet-scoped staking withdrawal of 10.524451 ADA');
+    expect(normalizedFrame).toContain('Next:');
+    expect(normalizedFrame).toContain('exitbook links run');
   });
 
   it('shows "All movements have confirmed counterparties" empty state', () => {

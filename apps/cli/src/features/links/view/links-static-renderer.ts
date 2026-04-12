@@ -310,6 +310,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
     ...(gapIssue.gapCue ? [buildDetailLine('Cue', colorizeText('cyan', formatGapCueLabel(gapIssue.gapCue)))] : []),
+    ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),
     buildDetailLine('Next', nextStep),
@@ -433,5 +434,8 @@ function formatGapReadiness(item: LinkGapBrowseItem): string {
             : ''
         }`;
 
-  return item.gapIssue.gapCue ? `${readiness} · ${formatGapCueLabel(item.gapIssue.gapCue)}` : readiness;
+  const cueSuffix = item.gapIssue.gapCue ? ` · ${formatGapCueLabel(item.gapIssue.gapCue)}` : '';
+  const contextSuffix = item.gapIssue.contextHint ? ` · ${item.gapIssue.contextHint.label}` : '';
+
+  return `${readiness}${cueSuffix}${contextSuffix}`;
 }

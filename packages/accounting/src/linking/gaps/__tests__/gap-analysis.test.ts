@@ -505,6 +505,98 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.unmatched_outflows).toBe(0);
   });
 
+  it('should attach a context hint for materially explanatory diagnostics', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainWithdrawal({
+          id: 30,
+          txFingerprint: 'cardano-shared-hash-gap',
+          platformKey: 'cardano',
+          blockchain: {
+            name: 'cardano',
+            transaction_hash: 'cardano-shared-hash',
+            is_confirmed: true,
+          },
+          diagnostics: [
+            {
+              code: 'classification_uncertain',
+              message:
+                'Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA that cannot be attributed to a single derived address in the current per-address projection.',
+              severity: 'info',
+            },
+          ],
+          movements: {
+            inflows: [],
+            outflows: [
+              {
+                assetId: 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('1021.402541'),
+                netAmount: parseDecimal('1021.329314829243639698026006'),
+              },
+            ],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.contextHint).toStrictEqual({
+      kind: 'diagnostic',
+      code: 'classification_uncertain',
+      label: 'staking withdrawal in same tx',
+      message:
+        'Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA that cannot be attributed to a single derived address in the current per-address projection.',
+    });
+  });
+
+  it('should attach a movement-role context hint when the transaction includes staking rewards', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainWithdrawal({
+          id: 31,
+          txFingerprint: 'staking-reward-context-gap',
+          platformKey: 'ethereum',
+          blockchain: {
+            name: 'ethereum',
+            transaction_hash: 'staking-reward-context-gap',
+            is_confirmed: true,
+          },
+          diagnostics: [],
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:ethereum:native',
+                assetSymbol: 'ETH' as Currency,
+                grossAmount: parseDecimal('0.12'),
+                netAmount: parseDecimal('0.12'),
+                movementRole: 'staking_reward',
+              },
+            ],
+            outflows: [
+              {
+                assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+                assetSymbol: 'USDC' as Currency,
+                grossAmount: parseDecimal('100'),
+                netAmount: parseDecimal('100'),
+              },
+            ],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.contextHint).toStrictEqual({
+      kind: 'movement_role',
+      code: 'staking_reward',
+      label: 'staking reward in same tx',
+      message: 'Transaction includes a staking reward movement that is excluded from transfer matching.',
+    });
+  });
+
   it('should hide only resolved issue-level gaps and track hidden issue counts', () => {
     const txFingerprint = 'resolved-gap';
     const mixedDeposit = createBlockchainDeposit({

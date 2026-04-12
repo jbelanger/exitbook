@@ -97,6 +97,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     highestSuggestedConfidencePercent: item.gapIssue.highestSuggestedConfidencePercent,
     direction: item.gapIssue.direction,
     gapCue: item.gapIssue.gapCue,
+    contextHint: item.gapIssue.contextHint,
   };
 }
 

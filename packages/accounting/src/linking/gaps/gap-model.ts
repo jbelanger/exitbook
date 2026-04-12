@@ -4,6 +4,13 @@
 export type LinkGapDirection = 'inflow' | 'outflow';
 export type GapCueKind = 'likely_correlated_service_swap';
 
+export interface GapContextHint {
+  kind: 'diagnostic' | 'movement_role';
+  code: string;
+  label: string;
+  message: string;
+}
+
 export interface LinkGapIssueIdentity {
   assetId: string;
   direction: LinkGapDirection;
@@ -27,6 +34,7 @@ export interface LinkGapIssue {
   highestSuggestedConfidencePercent?: string | undefined;
   direction: LinkGapDirection;
   gapCue?: GapCueKind | undefined;
+  contextHint?: GapContextHint | undefined;
 }
 
 /**

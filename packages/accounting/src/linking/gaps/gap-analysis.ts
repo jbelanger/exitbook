@@ -1,8 +1,10 @@
 import {
   filterTransferEligibleMovements,
+  getMovementRole,
   isTransactionMarkedSpam,
   transactionHasDiagnosticCode,
   type Account,
+  type MovementRole,
   type Transaction,
   type TransactionLink,
 } from '@exitbook/core';
@@ -12,6 +14,7 @@ import type { Decimal } from 'decimal.js';
 import {
   buildLinkGapIssueKey,
   type GapCueKind,
+  type GapContextHint,
   type LinkGapAnalysis,
   type LinkGapAssetSummary,
   type LinkGapDirection,
@@ -21,6 +24,21 @@ import {
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
+const GAP_DIAGNOSTIC_PRIORITY = [
+  'staking_withdrawal',
+  'bridge_transfer',
+  'allocation_uncertain',
+  'classification_uncertain',
+  'classification_failed',
+  'batch_operation',
+  'proxy_operation',
+  'multisig_operation',
+] as const;
+const GAP_MOVEMENT_ROLE_CONTEXT_PRIORITY: readonly Exclude<MovementRole, 'principal'>[] = [
+  'staking_reward',
+  'protocol_overhead',
+  'refund_rebate',
+];
 
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
@@ -549,7 +567,117 @@ function createLinkGapIssue(params: {
     suggestedCount: suggestedLinks.length,
     highestSuggestedConfidencePercent: findHighestConfidence(suggestedLinks),
     direction,
+    contextHint: deriveGapContextHint(tx),
   };
+}
+
+function deriveGapContextHint(tx: Transaction): GapContextHint | undefined {
+  for (const code of GAP_DIAGNOSTIC_PRIORITY) {
+    const diagnostic = tx.diagnostics?.find((entry) => entry.code === code);
+    if (!diagnostic) {
+      continue;
+    }
+
+    return {
+      kind: 'diagnostic',
+      code: diagnostic.code,
+      label: formatGapDiagnosticContextLabel(diagnostic.code, diagnostic.message),
+      message: diagnostic.message,
+    };
+  }
+
+  return deriveGapMovementRoleContextHint(tx);
+}
+
+function deriveGapMovementRoleContextHint(tx: Transaction): GapContextHint | undefined {
+  const movementRoles = new Set<Exclude<MovementRole, 'principal'>>();
+  const movements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
+
+  for (const movement of movements) {
+    const movementRole = getMovementRole(movement);
+    if (movementRole === 'principal') {
+      continue;
+    }
+
+    movementRoles.add(movementRole);
+  }
+
+  for (const movementRole of GAP_MOVEMENT_ROLE_CONTEXT_PRIORITY) {
+    if (!movementRoles.has(movementRole)) {
+      continue;
+    }
+
+    return {
+      kind: 'movement_role',
+      code: movementRole,
+      label: formatGapMovementRoleContextLabel(movementRole),
+      message: buildGapMovementRoleContextMessage(movementRole),
+    };
+  }
+
+  return undefined;
+}
+
+function formatGapDiagnosticContextLabel(code: string, message: string): string {
+  if (code === 'staking_withdrawal') {
+    return 'staking withdrawal in same tx';
+  }
+
+  if (code === 'bridge_transfer') {
+    return 'bridge transfer';
+  }
+
+  if (code === 'allocation_uncertain') {
+    return 'allocation uncertainty';
+  }
+
+  if (code === 'classification_uncertain') {
+    if (message.toLowerCase().includes('staking withdrawal')) {
+      return 'staking withdrawal in same tx';
+    }
+
+    return 'classification uncertainty';
+  }
+
+  if (code === 'classification_failed') {
+    return 'classification failed';
+  }
+
+  if (code === 'batch_operation') {
+    return 'batch operation';
+  }
+
+  if (code === 'proxy_operation') {
+    return 'proxy operation';
+  }
+
+  if (code === 'multisig_operation') {
+    return 'multisig operation';
+  }
+
+  return code.replace(/_/g, ' ');
+}
+
+function formatGapMovementRoleContextLabel(movementRole: Exclude<MovementRole, 'principal'>): string {
+  switch (movementRole) {
+    case 'staking_reward':
+      return 'staking reward in same tx';
+    case 'protocol_overhead':
+      return 'protocol overhead in same tx';
+    case 'refund_rebate':
+      return 'refund or rebate in same tx';
+  }
+}
+
+function buildGapMovementRoleContextMessage(movementRole: Exclude<MovementRole, 'principal'>): string {
+  switch (movementRole) {
+    case 'staking_reward':
+      return 'Transaction includes a staking reward movement that is excluded from transfer matching.';
+    case 'protocol_overhead':
+      return 'Transaction includes a protocol-overhead movement that is excluded from transfer matching.';
+    case 'refund_rebate':
+      return 'Transaction includes a refund or rebate movement that is excluded from transfer matching.';
+  }
 }
 
 function buildTransactionById(transactions: readonly Transaction[]): Map<number, Transaction> {
