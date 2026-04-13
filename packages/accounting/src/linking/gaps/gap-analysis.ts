@@ -739,6 +739,16 @@ function buildServiceSwapCueCandidates(
   return candidates;
 }
 
+function isBlockchainNativeAsset(assetId: string, blockchainName: string): boolean {
+  const parsedAssetId = parseAssetId(assetId);
+  return (
+    parsedAssetId.isOk() &&
+    parsedAssetId.value.namespace === 'blockchain' &&
+    parsedAssetId.value.chain === blockchainName &&
+    parsedAssetId.value.ref === 'native'
+  );
+}
+
 function getCorrelatedServiceSwapCue(windowCandidates: readonly ServiceSwapCueCandidate[]): GapCueKind | undefined {
   if (windowCandidates.length < 2) {
     return undefined;
@@ -749,8 +759,20 @@ function getCorrelatedServiceSwapCue(windowCandidates: readonly ServiceSwapCueCa
     return undefined;
   }
 
-  const assetIds = new Set(windowCandidates.map((candidate) => candidate.assetId));
-  if (assetIds.size < 2) {
+  const nonNativeCandidates = windowCandidates.filter(
+    (candidate) => !isBlockchainNativeAsset(candidate.assetId, candidate.blockchainName)
+  );
+  if (nonNativeCandidates.length < 2) {
+    return undefined;
+  }
+
+  const nonNativeDirections = new Set(nonNativeCandidates.map((candidate) => candidate.direction));
+  if (!nonNativeDirections.has('inflow') || !nonNativeDirections.has('outflow')) {
+    return undefined;
+  }
+
+  const nonNativeAssetIds = new Set(nonNativeCandidates.map((candidate) => candidate.assetId));
+  if (nonNativeAssetIds.size < 2) {
     return undefined;
   }
 

@@ -1367,6 +1367,76 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
   });
 
+  it('should not cue native-funding plus token-outflow clusters without a non-native inflow', () => {
+    const solanaSelfAddress = '6kXAgKWAhKa7anV9b79tnsoULD1muVuRuk4qeD4T3xQn';
+    const solDeposit = createBlockchainDeposit({
+      id: 126,
+      accountId: 8,
+      txFingerprint: 'sol-deposit-setup-cluster',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2024-05-24T04:03:55.000Z',
+      timestamp: Date.parse('2024-05-24T04:03:55.000Z'),
+      from: 'HjsUD6HyUVvyLJG9n4LqX9jMZpM15Xji5iP2SbyeW1vR',
+      to: solanaSelfAddress,
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'sol-deposit-setup-cluster-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.023281532'),
+            netAmount: parseDecimal('0.023281532'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const mixedWithdrawal = createBlockchainWithdrawal({
+      id: 127,
+      accountId: 8,
+      txFingerprint: 'usdc-withdrawal-setup-cluster',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2024-05-24T04:05:03.000Z',
+      timestamp: Date.parse('2024-05-24T04:05:03.000Z'),
+      from: solanaSelfAddress,
+      to: 'FazwyNxhv2Cmz3w7XRWGWGUS2Tsz7vHnsSKNbxR3biE',
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'usdc-withdrawal-setup-cluster-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL' as Currency,
+            grossAmount: parseDecimal('0.00203928'),
+            netAmount: parseDecimal('0.00203928'),
+          },
+          {
+            assetId: 'blockchain:solana:usdc',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('150'),
+            netAmount: parseDecimal('150'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([solDeposit, mixedWithdrawal], []);
+
+    expect(analysis.summary.total_issues).toBe(3);
+    expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
+  });
+
   it('should cue exact-amount same-profile cross-chain pairs as likely cross-chain migrations', () => {
     const renderWithdrawal = createBlockchainWithdrawal({
       id: 401,

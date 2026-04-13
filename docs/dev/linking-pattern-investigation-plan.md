@@ -542,7 +542,7 @@ Do not:
 
 ### Track 3: Same-Account Service-Swap Cluster
 
-Status: existing cue needs refinement
+Status: cue tightened and live-verified
 Expected value: medium
 Likely destination: cue only
 
@@ -561,7 +561,24 @@ Current likely false-positive / over-broad cue:
 - `6085410398` / `SOL 0.00203928` out / `2024-05-24T04:05:03Z`
 - `83518ebf08` / `USDC 150` out / same transaction as above
 
-The current cue in [gap-analysis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/gaps/gap-analysis.ts) is likely too permissive.
+#### Findings
+
+- The original cue was too permissive: any same-account, same-chain window with opposite directions and two assets could qualify.
+- The real distinguishing boundary is not a generic amount threshold. It is asset role inside the cluster:
+  - the March 13 positive has a non-native outflow (`RENDER`) and a non-native inflow (`USDT`)
+  - the May 24 false-positive has only native inflow (`SOL`) plus non-native outflow (`USDC`)
+- Native legs work better as auxiliary evidence than as the primary cue trigger.
+- Live re-check after the refinement:
+  - March 13 refs `cc617ae2ae`, `f4a5cd8b50`, and `3d1c475752` still carry `likely_correlated_service_swap`
+  - May 24 refs `793a42977e`, `6085410398`, and `83518ebf08` no longer carry the cue
+
+The refined cue in [gap-analysis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/gaps/gap-analysis.ts) now requires:
+
+- one non-native inflow
+- one non-native outflow
+- at least two distinct non-native asset ids
+
+Native legs may still inherit the cue when the surrounding non-native pattern qualifies.
 
 #### Hypothesis
 
@@ -577,7 +594,7 @@ The likely correct endpoint is:
 1. Can transfer linking ever be semantically correct for cross-asset, multi-transaction service swaps?
 2. Should tiny native legs be treated only as auxiliary evidence?
 3. What constraints remove the May 24 false-positive without losing the March 13 positive?
-4. Do we require at least one material non-native inflow and one material non-native outflow?
+4. Do we require at least one non-native inflow and one non-native outflow?
 
 #### Candidate Outcome
 
