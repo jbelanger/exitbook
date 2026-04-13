@@ -1,11 +1,16 @@
-import { AmbiguousAccountFingerprintRefError, type Account } from '@exitbook/core';
+import {
+  AmbiguousAccountFingerprintRefError,
+  ACCOUNT_FINGERPRINT_REF_LENGTH,
+  formatAccountFingerprintRef,
+  type Account,
+} from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { ExitCodes, type ExitCode } from '../../cli/exit-codes.js';
 
-export const ACCOUNT_FINGERPRINT_REF_LENGTH = 10;
 export const AccountSelectorValueSchema = z.string().trim().min(1);
+export { ACCOUNT_FINGERPRINT_REF_LENGTH, formatAccountFingerprintRef };
 
 export const OptionalBareAccountSelectorSchema = z.object({
   selector: AccountSelectorValueSchema.optional(),
@@ -101,14 +106,6 @@ async function resolveAccountRefSelector(
 
 export function hasAccountSelectorArgument(selector: OptionalBareAccountSelector): boolean {
   return selector.selector !== undefined;
-}
-
-export function formatAccountFingerprintRef(accountFingerprint: string): string {
-  if (accountFingerprint.length <= ACCOUNT_FINGERPRINT_REF_LENGTH) {
-    return accountFingerprint;
-  }
-
-  return accountFingerprint.slice(0, ACCOUNT_FINGERPRINT_REF_LENGTH);
 }
 
 export function formatAccountSelectorLabel(account: Pick<Account, 'accountFingerprint' | 'name'>): string {

@@ -8,5 +8,4 @@ export type {
   JurisdictionConfig,
   LotDisposal,
   LotTransfer,
-  TaxAssetIdentityPolicy,
 } from './schemas.js';

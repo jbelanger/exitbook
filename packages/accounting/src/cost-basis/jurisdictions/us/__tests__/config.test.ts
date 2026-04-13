@@ -20,10 +20,6 @@ describe('US_JURISDICTION_CONFIG', () => {
   it('has sameAssetTransferFeePolicy set to disposal', () => {
     expect(US_JURISDICTION_CONFIG.sameAssetTransferFeePolicy).toBe('disposal');
   });
-
-  it('has taxAssetIdentityPolicy set to strict-onchain-tokens', () => {
-    expect(US_JURISDICTION_CONFIG.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-  });
 });
 
 describe('US_COST_BASIS_METHODS', () => {

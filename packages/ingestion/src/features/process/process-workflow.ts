@@ -1,6 +1,5 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import type { RawTransaction } from '@exitbook/core';
-import type { TransactionDraft } from '@exitbook/core';
+import { formatAccountFingerprintRef, type RawTransaction, type TransactionDraft } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
@@ -30,16 +29,6 @@ export interface ReprocessPlan {
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
-const ACCOUNT_FINGERPRINT_REF_LENGTH = 10;
-
-function formatAccountFingerprintRef(accountFingerprint: string): string {
-  if (accountFingerprint.length <= ACCOUNT_FINGERPRINT_REF_LENGTH) {
-    return accountFingerprint;
-  }
-
-  return accountFingerprint.slice(0, ACCOUNT_FINGERPRINT_REF_LENGTH);
-}
-
 function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'name'>): string {
   if (account.name !== undefined && account.name.trim() !== '') {
     return account.name;

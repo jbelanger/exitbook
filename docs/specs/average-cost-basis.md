@@ -125,10 +125,15 @@ type TaxIdentityInput = {
 Rules:
 
 - resolution uses `resolveTaxAssetIdentity(...)`
-- behavior is controlled by `taxAssetIdentityPolicy`
-- `relaxedTaxIdentitySymbols` allows explicit symbol collapse for imported-data-only assets such as `USDC`
+- exchange assets and blockchain natives stay symbol-based
+- on-chain tokens stay strict by default
 - confirmed exchange↔blockchain links may install per-run identity overrides so a linked blockchain token inherits the exchange symbol identity for that calculation scope
 - unresolved Canada tax identity is a hard error
+
+Historical note:
+
+- earlier revisions had a relaxed symbol-collapse fallback because exchange imports often omit network or contract details
+- the current model removes that generic fallback and relies on strict token identity plus validated transfer overrides
 
 ### Canada Tax Property Key
 
@@ -581,7 +586,7 @@ Pool snapshot strategy notes:
 
 ## Edge Cases & Gotchas
 
-- **Strict vs relaxed identity**: exchange `USDC` and on-chain `USDC` can either pool together or stay separate depending on `taxAssetIdentityPolicy` and `relaxedTaxIdentitySymbols`.
+- **Identity is strict unless proven otherwise**: exchange assets and blockchain natives pool by symbol, on-chain tokens stay contract-specific by default, and validated exchange↔blockchain links can collapse a proven-equivalent token into the exchange symbol identity.
 - **Lookahead without row leakage**: post-period reacquisitions within `endDate + 30 days` can deny an in-period loss, but the future acquisition itself is excluded from report rows because acquisitions are snapped at report end.
 - **Acquisitions are layer rows, not just open lots**: the tax report acquisition section is built from report-end pool layers and includes depleted layers with `remainingQuantity = 0`.
 - **Transfer rows can be one-sided**: when only one side of a transfer falls in the reporting window, the tax report emits an `in` or `out` row instead of `internal`.

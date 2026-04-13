@@ -70,7 +70,6 @@ export async function runCanadaCostBasisCalculation(
     priceRuntime: params.priceRuntime,
     accountingExclusionPolicy: params.accountingExclusionPolicy,
     assetReviewSummaries: params.assetReviewSummaries,
-    taxAssetIdentityPolicy: params.input.taxAssetIdentityPolicy,
   });
   if (acbWorkflowResult.isErr()) {
     return err(acbWorkflowResult.error);

@@ -12,7 +12,6 @@ import {
 } from '../../__tests__/test-utils.js';
 import { buildCostBasisScopedTransactions } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferSet } from '../../../../standard/matching/validated-scoped-transfer-links.js';
-import { getJurisdictionConfig } from '../../../jurisdiction-configs.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
@@ -322,11 +321,6 @@ describe('buildCanadaTaxInputContext', () => {
       noopLogger
     );
     const scoped = assertOk(scopedResult);
-    const canadaConfig = getJurisdictionConfig('CA');
-    if (!canadaConfig) {
-      throw new Error('Canada jurisdiction config is not registered');
-    }
-
     const sourceMovementFingerprint = confirmedLink.sourceMovementFingerprint;
     const targetMovementFingerprint = confirmedLink.targetMovementFingerprint;
     const validatedLink = {
@@ -350,10 +344,7 @@ describe('buildCanadaTaxInputContext', () => {
       validatedTransfers,
       feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
       priceRuntime: fxProvider,
-      identityConfig: {
-        taxAssetIdentityPolicy: canadaConfig.taxAssetIdentityPolicy,
-        relaxedTaxIdentitySymbols: canadaConfig.relaxedTaxIdentitySymbols,
-      },
+      identityConfig: {},
     });
     const context = assertOk(result);
     const disposition = context.inputEvents.find(
@@ -516,13 +507,13 @@ describe('buildCanadaTaxInputContext', () => {
     expect(feeAdjustments.map((event) => event.valuation.totalValueCad.toFixed())).toEqual(['0.8', '1.2']);
   });
 
-  it('supports relaxed and strict-onchain-token USDC identity policies from the same imported facts', async () => {
+  it('keeps token identity strict without a validated link and collapses it once a validated link is present', async () => {
     const fxProvider = createCanadaPriceRuntime({ usdToCad: '1' });
-    const exchangeAcquisition = buildTransaction({
+    const exchangeWithdrawal = buildTransaction({
       id: 30,
       datetime: '2024-01-25T12:00:00Z',
       platformKey: 'coinbase',
-      inflows: [
+      outflows: [
         {
           assetId: 'exchange:coinbase:usdc',
           assetSymbol: 'USDC',
@@ -531,10 +522,10 @@ describe('buildCanadaTaxInputContext', () => {
           priceSource: 'exchange-execution',
         },
       ],
-      type: 'deposit',
+      type: 'withdrawal',
     });
 
-    const chainAcquisition = buildTransaction({
+    const chainDeposit = buildTransaction({
       id: 31,
       accountId: 2,
       datetime: '2024-01-26T12:00:00Z',
@@ -551,17 +542,30 @@ describe('buildCanadaTaxInputContext', () => {
       type: 'deposit',
     });
 
-    const relaxedResult = await buildCanadaTestInputContext([exchangeAcquisition, chainAcquisition], [], fxProvider);
-    const relaxedContext = assertOk(relaxedResult);
-    expect(new Set(relaxedContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(new Set(['ca:usdc']));
-
-    const strictResult = await buildCanadaTestInputContext([exchangeAcquisition, chainAcquisition], [], fxProvider, {
-      relaxedTaxIdentitySymbols: [],
-      taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    });
+    const strictResult = await buildCanadaTestInputContext([exchangeWithdrawal, chainDeposit], [], fxProvider);
     const strictContext = assertOk(strictResult);
     expect(new Set(strictContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(
       new Set(['ca:usdc', 'ca:blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'])
     );
+
+    const linkedResult = await buildCanadaTestInputContext(
+      [exchangeWithdrawal, chainDeposit],
+      [
+        createConfirmedTransferLink({
+          id: 270,
+          assetSymbol: 'USDC' as Currency,
+          sourceTransaction: exchangeWithdrawal,
+          targetTransaction: chainDeposit,
+          sourceAssetId: 'exchange:coinbase:usdc',
+          targetAssetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          sourceAmount: '1',
+          targetAmount: '1',
+          linkType: 'exchange_to_blockchain',
+        }),
+      ],
+      fxProvider
+    );
+    const linkedContext = assertOk(linkedResult);
+    expect(new Set(linkedContext.inputEvents.map((event) => event.taxPropertyKey))).toEqual(new Set(['ca:usdc']));
   });
 });

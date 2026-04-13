@@ -12,7 +12,6 @@ const FiatCurrencySchema = z.enum(['USD', 'CAD', 'EUR', 'GBP']);
 const JurisdictionSchema = z.enum(['CA', 'US', 'UK', 'EU']);
 
 const SameAssetTransferFeePolicySchema = z.enum(['disposal', 'add-to-basis']);
-export const TaxAssetIdentityPolicySchema = z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']);
 
 export const CostBasisMethodSupportSchema = z.object({
   code: CostBasisMethodSchema,
@@ -34,8 +33,6 @@ export const JurisdictionConfigSchema = z.object({
   supportedMethods: z.array(CostBasisMethodSupportSchema).min(1),
   defaultMethod: CostBasisMethodSchema.optional(),
   sameAssetTransferFeePolicy: SameAssetTransferFeePolicySchema,
-  taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema,
-  relaxedTaxIdentitySymbols: z.array(z.string().min(1)),
   varianceTolerance: VarianceToleranceSchema.optional(),
 });
 
@@ -51,7 +48,6 @@ const CostBasisConfigSchema = z.object({
   startDate: DateSchema.optional(),
   endDate: DateSchema.optional(),
   specificLotSelectionStrategy: z.enum(['minimize-gain', 'maximize-loss']).optional(),
-  taxAssetIdentityPolicy: TaxAssetIdentityPolicySchema.optional(),
 });
 
 export const AcquisitionLotSchema = z.object({
@@ -160,4 +156,3 @@ export type LotTransfer = z.infer<typeof LotTransferSchema>;
 export type CostBasisCalculation = z.infer<typeof CostBasisCalculationSchema>;
 export type CostBasisMethodSupport = z.infer<typeof CostBasisMethodSupportSchema>;
 export type JurisdictionConfig = z.infer<typeof JurisdictionConfigSchema>;
-export type TaxAssetIdentityPolicy = z.infer<typeof TaxAssetIdentityPolicySchema>;

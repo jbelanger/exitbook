@@ -174,6 +174,8 @@ export function formatGapCueLabel(cue: GapCueKind): string {
   switch (cue) {
     case 'likely_correlated_service_swap':
       return 'likely correlated service swap';
+    case 'likely_cross_chain_migration':
+      return 'likely cross-chain migration';
   }
 }
 

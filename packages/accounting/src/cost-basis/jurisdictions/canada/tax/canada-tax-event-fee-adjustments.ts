@@ -490,11 +490,7 @@ function buildSameAssetFeeSourceRefs(
         assetId: carryover.assetId,
         assetSymbol: carryover.assetSymbol,
       },
-      {
-        policy: identityConfig.taxAssetIdentityPolicy,
-        relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
-        assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId,
-      }
+      { assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId }
     );
     if (carryoverIdentityResult.isErr()) {
       return err(

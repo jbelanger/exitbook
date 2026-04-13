@@ -29,8 +29,6 @@ describe('jurisdiction-configs', () => {
       expect(config.costBasisImplemented).toBe(true);
       expect(config.supportedMethods.map((method) => method.code)).toEqual(['fifo', 'lifo', 'specific-id']);
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
-      expect(config.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(config.relaxedTaxIdentitySymbols).toEqual([]);
     });
 
     it('should have correct fee policies for CA', () => {
@@ -44,8 +42,6 @@ describe('jurisdiction-configs', () => {
       expect(config.defaultMethod).toBe('average-cost');
       expect(config.supportedMethods.map((method) => method.code)).toEqual(['average-cost']);
       expect(config.sameAssetTransferFeePolicy).toBe('add-to-basis');
-      expect(config.taxAssetIdentityPolicy).toBe('relaxed-stablecoin-symbols');
-      expect(config.relaxedTaxIdentitySymbols).toEqual(['usdc']);
     });
 
     it('should have correct fee policies for UK', () => {
@@ -58,8 +54,6 @@ describe('jurisdiction-configs', () => {
       expect(config.costBasisImplemented).toBe(false);
       expect(config.supportedMethods.map((method) => method.code)).toEqual(['fifo', 'lifo', 'specific-id']);
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
-      expect(config.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(config.relaxedTaxIdentitySymbols).toEqual([]);
     });
 
     it('should have correct fee policies for EU', () => {
@@ -72,8 +66,6 @@ describe('jurisdiction-configs', () => {
       expect(config.costBasisImplemented).toBe(false);
       expect(config.supportedMethods.map((method) => method.code)).toEqual(['fifo', 'lifo', 'specific-id']);
       expect(config.sameAssetTransferFeePolicy).toBe('disposal');
-      expect(config.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(config.relaxedTaxIdentitySymbols).toEqual([]);
     });
   });
 
@@ -84,8 +76,6 @@ describe('jurisdiction-configs', () => {
       expect(config?.code).toBe('US');
       expect(config?.label).toBe('United States (US)');
       expect(config?.sameAssetTransferFeePolicy).toBe('disposal');
-      expect(config?.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(config?.relaxedTaxIdentitySymbols).toEqual([]);
     });
 
     it('should return undefined for invalid jurisdiction code', () => {
@@ -113,14 +103,6 @@ describe('jurisdiction-configs', () => {
       expect(us?.sameAssetTransferFeePolicy).toBe('disposal');
       expect(uk?.sameAssetTransferFeePolicy).toBe('disposal');
       expect(eu?.sameAssetTransferFeePolicy).toBe('disposal');
-      expect(ca?.taxAssetIdentityPolicy).toBe('relaxed-stablecoin-symbols');
-      expect(ca?.relaxedTaxIdentitySymbols).toEqual(['usdc']);
-      expect(us?.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(uk?.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(eu?.taxAssetIdentityPolicy).toBe('strict-onchain-tokens');
-      expect(us?.relaxedTaxIdentitySymbols).toEqual([]);
-      expect(uk?.relaxedTaxIdentitySymbols).toEqual([]);
-      expect(eu?.relaxedTaxIdentitySymbols).toEqual([]);
     });
   });
 

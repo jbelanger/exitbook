@@ -1,8 +1,6 @@
 import type { Currency } from '@exitbook/foundation';
 import { err, isFiat, ok, parseAssetId, type Result } from '@exitbook/foundation';
 
-import type { TaxAssetIdentityPolicy } from './types.js';
-
 interface TaxAssetIdentityInput {
   assetId: string;
   assetSymbol: Currency;
@@ -13,28 +11,17 @@ interface ResolvedTaxAssetIdentity {
 }
 
 /**
- * Imported exchange data usually omits the network behind symbols like USDC.
- * The relaxed policy intentionally collapses selected symbols across venues and
- * chains so tax pooling can run from imported facts alone.
+ * Imported exchange data usually omits the network behind token symbols.
+ * Base identity therefore stays strict for on-chain tokens, and higher-level
+ * workflows can install explicit overrides when validated transfer evidence
+ * proves a blockchain token and exchange symbol should share a tax pool.
  */
 interface TaxAssetIdentityResolutionConfig {
-  policy: TaxAssetIdentityPolicy;
-  relaxedSymbolIdentities: readonly string[];
   assetIdentityOverridesByAssetId?: ReadonlyMap<string, string> | undefined;
 }
 
 function normalizeIdentitySymbol(assetSymbol: Currency): string {
   return assetSymbol.trim().toLowerCase();
-}
-
-function shouldRelaxBlockchainTokenIdentity(assetSymbol: Currency, config: TaxAssetIdentityResolutionConfig): boolean {
-  if (config.policy !== 'relaxed-stablecoin-symbols') {
-    return false;
-  }
-
-  return config.relaxedSymbolIdentities
-    .map((symbol) => symbol.trim().toLowerCase())
-    .includes(normalizeIdentitySymbol(assetSymbol));
 }
 
 export function resolveTaxAssetIdentity(
@@ -64,10 +51,6 @@ export function resolveTaxAssetIdentity(
       return err(new Error(`Tax asset identity requires a non-fiat asset, received ${input.assetId}`));
     case 'blockchain':
       if (parsedAssetId.ref === 'native') {
-        return ok({ identityKey: symbolIdentity });
-      }
-
-      if (shouldRelaxBlockchainTokenIdentity(input.assetSymbol, config)) {
         return ok({ identityKey: symbolIdentity });
       }
 

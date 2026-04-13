@@ -75,8 +75,12 @@ Current Canada implementation:
 
 - keeps exchange assets and blockchain natives symbol-based
 - keeps on-chain tokens strict by default
-- allows a relaxed symbol-collapse policy for imported-data-only cases like
-  `USDC`
+- allows validated exchange↔blockchain transfers to install scoped overrides when the imported facts prove equivalence
+
+Historical note:
+
+- earlier revisions had a generic relaxed symbol-collapse fallback because exchange imports often omitted network details
+- the current model removes that fallback and relies on strict token identity plus validated transfer overrides
 
 This derived identity belongs in accounting workflow code, not on raw movement
 schemas.

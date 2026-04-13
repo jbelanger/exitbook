@@ -43,7 +43,7 @@ export const COST_BASIS_ASSETS_CHROME_LINES = calculateChromeLines({
 });
 
 export function getCostBasisAssetsChromeLines(
-  readinessWarnings: readonly CostBasisAssetState['readinessWarnings'] = []
+  readinessWarnings: CostBasisAssetState['readinessWarnings'] = []
 ): number {
   return COST_BASIS_ASSETS_CHROME_LINES + getReadinessWarningLineCount(readinessWarnings);
 }
@@ -269,7 +269,7 @@ const CostBasisReadinessWarnings: FC<{
   );
 };
 
-function getReadinessWarningLineCount(warnings: readonly CostBasisAssetState['readinessWarnings']): number {
+function getReadinessWarningLineCount(warnings: CostBasisAssetState['readinessWarnings']): number {
   return warnings.reduce(
     (lineCount, warning) =>
       lineCount + 1 + (warning.detail ? 1 : 0) + (warning.recommendedAction ? 1 : 0) + (warning.commandHint ? 1 : 0),

@@ -1,5 +1,3 @@
-import type { TaxAssetIdentityPolicy } from './types.js';
-
 /**
  * Supported fiat currencies for cost basis calculations
  * These align with major tax jurisdictions
@@ -30,12 +28,6 @@ export interface CostBasisConfig {
 
   /** Strategy for specific-id lot selection */
   specificLotSelectionStrategy?: 'minimize-gain' | 'maximize-loss' | undefined;
-
-  /**
-   * Optional override for how cost-basis workflows derive tax-pooling identity
-   * from imported asset facts.
-   */
-  taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
 }
 
 /**

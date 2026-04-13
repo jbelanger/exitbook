@@ -11,10 +11,7 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'exchange:kraken:btc',
         assetSymbol: 'BTC' as Currency,
       },
-      {
-        policy: 'strict-onchain-tokens',
-        relaxedSymbolIdentities: [],
-      }
+      {}
     );
 
     expect(assertOk(result).identityKey).toBe('btc');
@@ -26,10 +23,7 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC' as Currency,
       },
-      {
-        policy: 'strict-onchain-tokens',
-        relaxedSymbolIdentities: [],
-      }
+      {}
     );
 
     expect(assertOk(result).identityKey).toBe('btc');
@@ -42,28 +36,10 @@ describe('resolveTaxAssetIdentity', () => {
         assetId,
         assetSymbol: 'USDC' as Currency,
       },
-      {
-        policy: 'strict-onchain-tokens',
-        relaxedSymbolIdentities: [],
-      }
+      {}
     );
 
     expect(assertOk(result).identityKey).toBe(assetId);
-  });
-
-  it('collapses selected stablecoin symbols under the relaxed policy', () => {
-    const result = resolveTaxAssetIdentity(
-      {
-        assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-        assetSymbol: 'USDC' as Currency,
-      },
-      {
-        policy: 'relaxed-stablecoin-symbols',
-        relaxedSymbolIdentities: ['usdc'],
-      }
-    );
-
-    expect(assertOk(result).identityKey).toBe('usdc');
   });
 
   it('uses explicit asset identity overrides for linked blockchain tokens', () => {
@@ -74,8 +50,6 @@ describe('resolveTaxAssetIdentity', () => {
         assetSymbol: 'LINK' as Currency,
       },
       {
-        policy: 'strict-onchain-tokens',
-        relaxedSymbolIdentities: [],
         assetIdentityOverridesByAssetId: new Map([[assetId, 'link']]),
       }
     );
@@ -89,10 +63,7 @@ describe('resolveTaxAssetIdentity', () => {
         assetId: 'fiat:usd',
         assetSymbol: 'USD' as Currency,
       },
-      {
-        policy: 'strict-onchain-tokens',
-        relaxedSymbolIdentities: [],
-      }
+      {}
     );
 
     expect(assertErr(result).message).toContain('non-fiat asset');

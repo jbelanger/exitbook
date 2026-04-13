@@ -156,9 +156,6 @@ function toStoredCostBasisCalculation(
       ...(calculation.config.specificLotSelectionStrategy
         ? { specificLotSelectionStrategy: calculation.config.specificLotSelectionStrategy }
         : {}),
-      ...(calculation.config.taxAssetIdentityPolicy
-        ? { taxAssetIdentityPolicy: calculation.config.taxAssetIdentityPolicy }
-        : {}),
     },
     startDate: calculationWindow.startDate.toISOString(),
     endDate: calculationWindow.endDate.toISOString(),
@@ -190,9 +187,6 @@ function fromStoredCostBasisCalculation(calculation: StoredCostBasisCalculation)
       endDate: new Date(calculation.config.endDate),
       ...(calculation.config.specificLotSelectionStrategy
         ? { specificLotSelectionStrategy: calculation.config.specificLotSelectionStrategy }
-        : {}),
-      ...(calculation.config.taxAssetIdentityPolicy
-        ? { taxAssetIdentityPolicy: calculation.config.taxAssetIdentityPolicy }
         : {}),
     },
     startDate: new Date(calculation.startDate),

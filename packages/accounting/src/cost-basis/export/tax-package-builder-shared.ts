@@ -1,4 +1,4 @@
-import type { Account, Transaction } from '@exitbook/core';
+import { formatAccountFingerprintRef, type Account, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -52,7 +52,7 @@ function formatAccountLabel(account: Account, sourceNameCount: number): string {
     return account.platformKey;
   }
 
-  return `${account.platformKey} (${account.identifier})`;
+  return `${account.platformKey} (${formatAccountFingerprintRef(account.accountFingerprint)})`;
 }
 
 export function buildArtifactIndex(

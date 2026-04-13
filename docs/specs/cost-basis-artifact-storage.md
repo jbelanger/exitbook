@@ -56,7 +56,6 @@ Current scope identity includes:
 - `endDate`
 - `currency`
 - `specificLotSelectionStrategy`
-- `taxAssetIdentityPolicy`
 
 Current scope identity excludes:
 

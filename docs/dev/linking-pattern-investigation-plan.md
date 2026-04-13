@@ -33,7 +33,7 @@ This plan replaces the shipped cue-only tracker. The current shipped cue behavio
 5. Prefer existing hard evidence over new inference:
    - shared blockchain transaction hash
    - exact amount conservation
-   - explicit upstream note such as `bridge_transfer`
+   - explicit upstream diagnostic such as `bridge_transfer`
    - known bridge/deposit address semantics
 6. Every new strategy or cue needs both positive and negative regressions from real cases in this backlog.
 
@@ -44,7 +44,7 @@ Apply this in order for every pattern:
 1. **Safe linking**
    - Can we express it as a real `transaction_link` strategy without weakening transfer semantics?
 2. **Existing classification**
-   - Is there already a stored note or transaction flag we should consume in `links gaps`?
+   - Is there already a stored diagnostic or movement role we should consume in `links gaps`?
 3. **Narrow cue**
    - Can we add an honest cue without suppressing the row?
 4. **Manual review**
@@ -468,7 +468,7 @@ Preferred long-term order:
 
 ### Track 2: Cross-Chain Migration / Bridge-Like Same-Asset Move
 
-Status: investigate second
+Status: cue implemented, linking deferred
 Expected value: high
 Likely destination: linking strategy only if hard proof exists, otherwise cue
 
@@ -486,6 +486,19 @@ Same amount, same symbol, different chains, about 17 minutes apart.
 Existing upstream bridge semantics already exist on other chains:
 
 - `9243c822aa` / tx `581a427bd6` carries diagnostic code `bridge_transfer`
+
+#### Findings
+
+- Live `bridge_transfer` diagnostics are currently one-sided:
+  - `9243c822aa` / tx `581a427bd6` on Injective has bridge context but no imported Ethereum counterpart
+  - `7223ab2ab2` on Akash has bridge context but no imported Osmosis counterpart
+- This is enough for deterministic gap context, but not enough for a safe link strategy.
+- The RENDER Ethereum -> Solana pair remains a good cue candidate:
+  - `2e2cb3aa5e` / tx `e96a8b7baa` / Ethereum / `RENDER 80.61` out / `2024-07-30T22:36:47Z`
+  - `e1aea84485` / tx `b7c08af224` / Solana / `RENDER 80.61` in / `2024-07-30T22:53:40Z`
+  - same profile, exact amount, different chains, about 17 minutes apart
+- Track 2 now ships `likely_cross_chain_migration` as a gaps cue only.
+- No Track 2 linking strategy is justified until we have at least one deterministic two-sided bridge case in imported data.
 
 #### Hypothesis
 
@@ -508,9 +521,9 @@ Only the first sub-case is a plausible linking strategy.
 
 #### Candidate Outcome
 
-Preferred:
+Preferred if stronger evidence appears later:
 
-- link strategy for deterministic **note-backed bridge / migration transfers**
+- link strategy for deterministic diagnostic-backed bridge / migration transfers
 
 Fallback:
 
@@ -522,10 +535,10 @@ Do not:
 
 #### Required Tests
 
-- positive: existing explicit `bridge_transfer` transaction note case
-- positive: one same-asset cross-chain migration case if and only if evidence is strong enough
-- negative: same amount on different chains without bridge evidence
-- negative: same symbol but different asset identity semantics
+- positive: exact-amount same-profile cross-chain pair cues as `likely_cross_chain_migration`
+- negative: different-profile same-amount pair does not cue
+- negative: ambiguous many-to-one same-amount cluster does not cue
+- negative: same symbol but different amounts does not cue
 
 ### Track 3: Same-Account Service-Swap Cluster
 

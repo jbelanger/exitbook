@@ -7,10 +7,8 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
-import type { TaxAssetIdentityPolicy } from '../../../model/types.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
-import { getJurisdictionConfig } from '../../jurisdiction-configs.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type {
   CanadaAcquisitionEvent,
@@ -136,17 +134,8 @@ export function createConfirmedTransferLink(params: {
 export async function buildCanadaTestInputContext(
   transactions: Transaction[],
   confirmedLinks: TransactionLink[],
-  priceRuntime: IPriceProviderRuntime,
-  options?: {
-    relaxedTaxIdentitySymbols?: readonly string[] | undefined;
-    taxAssetIdentityPolicy?: TaxAssetIdentityPolicy | undefined;
-  }
+  priceRuntime: IPriceProviderRuntime
 ) {
-  const canadaConfig = getJurisdictionConfig('CA');
-  if (!canadaConfig) {
-    throw new Error('Canada jurisdiction config is not registered');
-  }
-
   const scopedResult = buildCostBasisScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
   const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, confirmedLinks);
@@ -157,10 +146,7 @@ export async function buildCanadaTestInputContext(
     validatedTransfers: validatedLinks,
     feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
     priceRuntime,
-    identityConfig: {
-      taxAssetIdentityPolicy: options?.taxAssetIdentityPolicy ?? canadaConfig.taxAssetIdentityPolicy,
-      relaxedTaxIdentitySymbols: options?.relaxedTaxIdentitySymbols ?? canadaConfig.relaxedTaxIdentitySymbols,
-    },
+    identityConfig: {},
   });
 }
 

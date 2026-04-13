@@ -26,12 +26,4 @@ describe('CANADA_JURISDICTION_CONFIG', () => {
   it('has sameAssetTransferFeePolicy set to add-to-basis', () => {
     expect(CANADA_JURISDICTION_CONFIG.sameAssetTransferFeePolicy).toBe('add-to-basis');
   });
-
-  it('has taxAssetIdentityPolicy set to relaxed-stablecoin-symbols', () => {
-    expect(CANADA_JURISDICTION_CONFIG.taxAssetIdentityPolicy).toBe('relaxed-stablecoin-symbols');
-  });
-
-  it('includes usdc in relaxedTaxIdentitySymbols', () => {
-    expect(CANADA_JURISDICTION_CONFIG.relaxedTaxIdentitySymbols).toContain('usdc');
-  });
 });

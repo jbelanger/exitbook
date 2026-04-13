@@ -51,10 +51,7 @@ export async function buildValuedFee(params: {
         assetId: fee.assetId,
         assetSymbol: fee.assetSymbol,
       },
-      {
-        policy: identityConfig.taxAssetIdentityPolicy,
-        relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
-      }
+      identityConfig
     );
     if (feeIdentityResult.isErr()) {
       return err(

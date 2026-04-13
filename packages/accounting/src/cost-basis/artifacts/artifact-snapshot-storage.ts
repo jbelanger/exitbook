@@ -52,7 +52,6 @@ export function buildCostBasisScopeKey(config: {
   method: string;
   specificLotSelectionStrategy?: string | undefined;
   startDate?: Date | undefined;
-  taxAssetIdentityPolicy?: string | undefined;
   taxYear: number;
 }): string {
   const stableConfig = {
@@ -62,7 +61,6 @@ export function buildCostBasisScopeKey(config: {
     method: config.method,
     specificLotSelectionStrategy: config.specificLotSelectionStrategy ?? undefined,
     startDate: config.startDate?.toISOString() ?? undefined,
-    taxAssetIdentityPolicy: config.taxAssetIdentityPolicy ?? undefined,
     taxYear: config.taxYear,
   };
 

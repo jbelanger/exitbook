@@ -1,7 +1,11 @@
+import type { Account } from '@exitbook/core';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
+import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
 import {
+  buildAccountLabeler,
   buildArtifactIndex,
   buildCsvFile,
   buildIssueRows,
@@ -15,6 +19,81 @@ import {
   trimTrailingZeros,
 } from '../tax-package-builder-shared.js';
 import type { TaxPackageFile, TaxPackageIssue } from '../tax-package-types.js';
+
+import { createStandardWorkflowArtifact } from './test-utils.js';
+
+function createTestAccount(
+  overrides: Partial<Account> & Pick<Account, 'accountFingerprint' | 'id' | 'identifier' | 'platformKey'>
+): Account {
+  const { accountFingerprint, id, identifier, platformKey, ...rest } = overrides;
+
+  return {
+    id,
+    profileId: 1,
+    accountType: 'blockchain',
+    platformKey,
+    identifier,
+    accountFingerprint,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    ...rest,
+  };
+}
+
+function createTestTaxPackageContext(accounts: readonly Account[]): TaxPackageBuildContext {
+  return {
+    artifactRef: {
+      calculationId: 'calc-1',
+      scopeKey: 'scope:test',
+      snapshotId: 'snapshot-1',
+    },
+    workflowResult: createStandardWorkflowArtifact(),
+    sourceContext: {
+      transactionsById: new Map(),
+      accountsById: new Map(accounts.map((account) => [account.id, account])),
+      confirmedLinksById: new Map(),
+    },
+  };
+}
+
+describe('buildAccountLabeler', () => {
+  it('uses account refs instead of raw identifiers when duplicate platform accounts need disambiguation', () => {
+    const context = createTestTaxPackageContext([
+      createTestAccount({
+        id: 1,
+        platformKey: 'solana',
+        identifier: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+        accountFingerprint: '1111111111abcdef',
+      }),
+      createTestAccount({
+        id: 2,
+        platformKey: 'solana',
+        identifier: '4Yno2U5DfFJdKmSz9XuUToEFEwnWv6SMx1pd9hJ3YzsP',
+        accountFingerprint: '2222222222abcdef',
+      }),
+    ]);
+
+    const labeler = buildAccountLabeler(context);
+
+    expect(assertOk(labeler(1))).toBe('solana (1111111111)');
+    expect(assertOk(labeler(2))).toBe('solana (2222222222)');
+    expect(assertOk(labeler(1))).not.toContain('Afn6A9Vom27wd8AU');
+  });
+
+  it('keeps the platform label for unique platform accounts', () => {
+    const context = createTestTaxPackageContext([
+      createTestAccount({
+        id: 1,
+        platformKey: 'bitcoin',
+        identifier: 'bc1qexamplewallet',
+        accountFingerprint: '3333333333abcdef',
+      }),
+    ]);
+
+    const labeler = buildAccountLabeler(context);
+
+    expect(assertOk(labeler(1))).toBe('bitcoin');
+  });
+});
 
 describe('makeRef', () => {
   it('zero-pads a single-digit index to four digits', () => {

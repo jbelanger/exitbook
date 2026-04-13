@@ -23,6 +23,7 @@ import {
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
+const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 30 * 60 * 1000;
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
@@ -78,7 +79,7 @@ interface AssetTotalsEntry {
   assetSymbol: string;
 }
 
-interface GapCueCandidate {
+interface ServiceSwapCueCandidate {
   accountId: number;
   assetId: string;
   blockchainName: string;
@@ -86,6 +87,19 @@ interface GapCueCandidate {
   issueKey: string;
   selfAddress: string;
   timestampMs: number;
+}
+
+interface CrossChainMigrationCueCandidate {
+  accountId: number;
+  assetId: string;
+  assetSymbol: string;
+  blockchainName: string;
+  direction: LinkGapDirection;
+  issueKey: string;
+  profileId: number;
+  selfAddress: string;
+  timestampMs: number;
+  totalAmount: Decimal;
 }
 
 function normalizeAddress(address: string | undefined): string | undefined {
@@ -690,11 +704,11 @@ function buildTransactionById(transactions: readonly Transaction[]): Map<number,
   return transactionById;
 }
 
-function buildGapCueCandidates(
+function buildServiceSwapCueCandidates(
   issues: readonly LinkGapIssue[],
   transactionById: ReadonlyMap<number, Transaction>
-): GapCueCandidate[] {
-  const candidates: GapCueCandidate[] = [];
+): ServiceSwapCueCandidate[] {
+  const candidates: ServiceSwapCueCandidate[] = [];
 
   for (const issue of issues) {
     const tx = transactionById.get(issue.transactionId);
@@ -725,7 +739,7 @@ function buildGapCueCandidates(
   return candidates;
 }
 
-function getCorrelatedServiceSwapCue(windowCandidates: readonly GapCueCandidate[]): GapCueKind | undefined {
+function getCorrelatedServiceSwapCue(windowCandidates: readonly ServiceSwapCueCandidate[]): GapCueKind | undefined {
   if (windowCandidates.length < 2) {
     return undefined;
   }
@@ -743,17 +757,17 @@ function getCorrelatedServiceSwapCue(windowCandidates: readonly GapCueCandidate[
   return 'likely_correlated_service_swap';
 }
 
-function detectGapCueIssueKeys(
+function detectCorrelatedServiceSwapCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[]
 ): Map<string, GapCueKind> {
   const transactionById = buildTransactionById(transactions);
-  const candidates = buildGapCueCandidates(issues, transactionById);
+  const candidates = buildServiceSwapCueCandidates(issues, transactionById);
   if (candidates.length === 0) {
     return new Map<string, GapCueKind>();
   }
 
-  const candidatesByGroup = new Map<string, GapCueCandidate[]>();
+  const candidatesByGroup = new Map<string, ServiceSwapCueCandidate[]>();
   for (const candidate of candidates) {
     const groupKey = `${candidate.accountId}|${candidate.blockchainName}|${candidate.selfAddress}`;
     const existing = candidatesByGroup.get(groupKey);
@@ -797,8 +811,162 @@ function detectGapCueIssueKeys(
   return cueByIssueKey;
 }
 
-function applyGapCues(issues: readonly LinkGapIssue[], transactions: readonly Transaction[]): LinkGapIssue[] {
-  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions);
+function buildCrossChainMigrationCueCandidates(
+  issues: readonly LinkGapIssue[],
+  transactionById: ReadonlyMap<number, Transaction>,
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): CrossChainMigrationCueCandidate[] {
+  const candidates: CrossChainMigrationCueCandidate[] = [];
+
+  for (const issue of issues) {
+    const tx = transactionById.get(issue.transactionId);
+    if (!tx?.blockchain) {
+      continue;
+    }
+
+    const accountContext = accountContextById.get(tx.accountId);
+    if (accountContext?.profileId === undefined) {
+      continue;
+    }
+
+    const selfAddress = normalizeAddress(issue.direction === 'inflow' ? tx.to : tx.from);
+    if (selfAddress === undefined || normalizeAddress(accountContext.identifier) !== selfAddress) {
+      continue;
+    }
+
+    candidates.push({
+      accountId: tx.accountId,
+      assetId: issue.assetId,
+      assetSymbol: issue.assetSymbol.toUpperCase(),
+      blockchainName: tx.blockchain.name,
+      direction: issue.direction,
+      issueKey: buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      profileId: accountContext.profileId,
+      selfAddress,
+      timestampMs: tx.timestamp,
+      totalAmount: parseDecimal(issue.totalAmount),
+    });
+  }
+
+  return candidates;
+}
+
+function isLikelyCrossChainMigrationCuePair(
+  left: CrossChainMigrationCueCandidate,
+  right: CrossChainMigrationCueCandidate
+): boolean {
+  if (left.direction === right.direction) {
+    return false;
+  }
+
+  if (left.profileId !== right.profileId || left.accountId === right.accountId) {
+    return false;
+  }
+
+  if (left.blockchainName === right.blockchainName || left.assetId === right.assetId) {
+    return false;
+  }
+
+  if (left.assetSymbol !== right.assetSymbol || !left.totalAmount.eq(right.totalAmount)) {
+    return false;
+  }
+
+  return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
+}
+
+function addCuePairMatch(
+  matchesByIssueKey: Map<string, Set<string>>,
+  leftIssueKey: string,
+  rightIssueKey: string
+): void {
+  const leftMatches = matchesByIssueKey.get(leftIssueKey) ?? new Set<string>();
+  leftMatches.add(rightIssueKey);
+  matchesByIssueKey.set(leftIssueKey, leftMatches);
+
+  const rightMatches = matchesByIssueKey.get(rightIssueKey) ?? new Set<string>();
+  rightMatches.add(leftIssueKey);
+  matchesByIssueKey.set(rightIssueKey, rightMatches);
+}
+
+function detectCrossChainMigrationCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): Map<string, GapCueKind> {
+  const transactionById = buildTransactionById(transactions);
+  const candidates = buildCrossChainMigrationCueCandidates(issues, transactionById, accountContextById);
+  if (candidates.length < 2) {
+    return new Map<string, GapCueKind>();
+  }
+
+  const outflowCandidates = candidates.filter((candidate) => candidate.direction === 'outflow');
+  const inflowCandidates = candidates.filter((candidate) => candidate.direction === 'inflow');
+  const matchesByIssueKey = new Map<string, Set<string>>();
+
+  for (const outflowCandidate of outflowCandidates) {
+    for (const inflowCandidate of inflowCandidates) {
+      if (!isLikelyCrossChainMigrationCuePair(outflowCandidate, inflowCandidate)) {
+        continue;
+      }
+
+      addCuePairMatch(matchesByIssueKey, outflowCandidate.issueKey, inflowCandidate.issueKey);
+    }
+  }
+
+  const cueByIssueKey = new Map<string, GapCueKind>();
+  for (const [issueKey, matches] of matchesByIssueKey.entries()) {
+    if (matches.size !== 1) {
+      continue;
+    }
+
+    const [counterpartIssueKey] = matches;
+    const counterpartMatches = counterpartIssueKey ? matchesByIssueKey.get(counterpartIssueKey) : undefined;
+    if (counterpartIssueKey === undefined || counterpartMatches?.size !== 1 || !counterpartMatches.has(issueKey)) {
+      continue;
+    }
+
+    cueByIssueKey.set(issueKey, 'likely_cross_chain_migration');
+    cueByIssueKey.set(counterpartIssueKey, 'likely_cross_chain_migration');
+  }
+
+  return cueByIssueKey;
+}
+
+function mergeGapCueIssueKeys(...cueMaps: readonly ReadonlyMap<string, GapCueKind>[]): Map<string, GapCueKind> {
+  const merged = new Map<string, GapCueKind>();
+
+  for (const cueMap of cueMaps) {
+    for (const [issueKey, cue] of cueMap.entries()) {
+      if (!merged.has(issueKey)) {
+        merged.set(issueKey, cue);
+      }
+    }
+  }
+
+  return merged;
+}
+
+function detectGapCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): Map<string, GapCueKind> {
+  return mergeGapCueIssueKeys(
+    detectCorrelatedServiceSwapCueIssueKeys(issues, transactions),
+    detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById)
+  );
+}
+
+function applyGapCues(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): LinkGapIssue[] {
+  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions, accountContextById);
   if (cueByIssueKey.size === 0) {
     return [...issues];
   }
@@ -1031,7 +1199,7 @@ export function analyzeLinkGaps(
   // This cue is intentionally local to the gaps lens. It complements, rather than
   // replaces, the existing suppression heuristics for explicit same-account swaps
   // and cross-account service-flow pairs.
-  const issues = applyGapCues(rawIssues, transactions);
+  const issues = applyGapCues(rawIssues, transactions, accountContextById);
   return {
     issues,
     summary: buildLinkGapSummary(issues),

@@ -27,8 +27,6 @@ export const UK_JURISDICTION_CONFIG: JurisdictionConfig = {
   costBasisImplemented: false,
   supportedMethods: US_COST_BASIS_METHODS,
   sameAssetTransferFeePolicy: 'disposal',
-  taxAssetIdentityPolicy: 'strict-onchain-tokens',
-  relaxedTaxIdentitySymbols: [],
 };
 
 export const EU_JURISDICTION_CONFIG: JurisdictionConfig = {
@@ -38,8 +36,6 @@ export const EU_JURISDICTION_CONFIG: JurisdictionConfig = {
   costBasisImplemented: false,
   supportedMethods: US_COST_BASIS_METHODS,
   sameAssetTransferFeePolicy: 'disposal',
-  taxAssetIdentityPolicy: 'strict-onchain-tokens',
-  relaxedTaxIdentitySymbols: [],
 };
 
 const JURISDICTION_CONFIGS: Record<string, JurisdictionConfig> = {

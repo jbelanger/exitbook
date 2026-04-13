@@ -2,7 +2,7 @@
  * Link gap issue details.
  */
 export type LinkGapDirection = 'inflow' | 'outflow';
-export type GapCueKind = 'likely_correlated_service_swap';
+export type GapCueKind = 'likely_correlated_service_swap' | 'likely_cross_chain_migration';
 
 export interface GapContextHint {
   kind: 'diagnostic' | 'movement_role';

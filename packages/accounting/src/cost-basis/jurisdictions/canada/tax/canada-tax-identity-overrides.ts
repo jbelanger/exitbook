@@ -52,11 +52,7 @@ function buildBlockchainTokenIdentityOverride(
         assetId: validatedLink.sourceAssetId,
         assetSymbol: validatedLink.link.assetSymbol,
       },
-      {
-        policy: identityConfig.taxAssetIdentityPolicy,
-        relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
-        assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId,
-      }
+      { assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId }
     );
     if (exchangeIdentityResult.isErr()) {
       return err(
@@ -83,11 +79,7 @@ function buildBlockchainTokenIdentityOverride(
         assetId: validatedLink.targetAssetId,
         assetSymbol: validatedLink.link.assetSymbol,
       },
-      {
-        policy: identityConfig.taxAssetIdentityPolicy,
-        relaxedSymbolIdentities: identityConfig.relaxedTaxIdentitySymbols,
-        assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId,
-      }
+      { assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId }
     );
     if (exchangeIdentityResult.isErr()) {
       return err(

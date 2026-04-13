@@ -39,10 +39,7 @@ function createFxProvider(fromUSD?: Record<string, string>): UsdConversionRatePr
   };
 }
 
-const identityConfig = {
-  taxAssetIdentityPolicy: 'strict-onchain-tokens' as const,
-  relaxedTaxIdentitySymbols: [] as string[],
-};
+const identityConfig = {};
 
 /**
  * Rewrites `test:xyz` assetIds to `exchange:test:xyz` so they pass through

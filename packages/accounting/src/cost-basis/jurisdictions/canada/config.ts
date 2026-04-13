@@ -17,6 +17,4 @@ export const CANADA_JURISDICTION_CONFIG: JurisdictionConfig = {
   supportedMethods: CANADA_COST_BASIS_METHODS,
   defaultMethod: 'average-cost',
   sameAssetTransferFeePolicy: 'add-to-basis',
-  taxAssetIdentityPolicy: 'relaxed-stablecoin-symbols',
-  relaxedTaxIdentitySymbols: ['usdc'],
 };

@@ -29,6 +29,7 @@ export {
   type ExchangeCredentials,
 } from './account/account.js';
 export { AmbiguousAccountFingerprintRefError } from './account/account-selector-errors.js';
+export { ACCOUNT_FINGERPRINT_REF_LENGTH, formatAccountFingerprintRef } from './account/account-ref.js';
 
 export {
   DEFAULT_PROFILE_KEY,

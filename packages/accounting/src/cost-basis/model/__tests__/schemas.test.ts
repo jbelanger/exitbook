@@ -24,8 +24,6 @@ describe('FiatCurrencySchema (via JurisdictionConfigSchema)', () => {
     costBasisImplemented: true,
     supportedMethods: [{ code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true }],
     sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    relaxedTaxIdentitySymbols: [],
   };
 
   it('should accept supported currencies', () => {
@@ -49,8 +47,6 @@ describe('JurisdictionSchema (via JurisdictionConfigSchema)', () => {
     costBasisImplemented: true,
     supportedMethods: [{ code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true }],
     sameAssetTransferFeePolicy: 'disposal',
-    taxAssetIdentityPolicy: 'strict-onchain-tokens',
-    relaxedTaxIdentitySymbols: [],
   };
 
   it('should accept supported jurisdictions', () => {
@@ -102,8 +98,6 @@ describe('JurisdictionConfigSchema', () => {
       costBasisImplemented: true,
       supportedMethods: [{ code: 'fifo', label: 'FIFO', description: 'First In First Out', implemented: true }],
       sameAssetTransferFeePolicy: 'disposal',
-      taxAssetIdentityPolicy: 'strict-onchain-tokens',
-      relaxedTaxIdentitySymbols: [],
     };
 
     const result = JurisdictionConfigSchema.parse(config);

@@ -28,6 +28,4 @@ export const US_JURISDICTION_CONFIG: JurisdictionConfig = {
   costBasisImplemented: true,
   supportedMethods: US_COST_BASIS_METHODS,
   sameAssetTransferFeePolicy: 'disposal',
-  taxAssetIdentityPolicy: 'strict-onchain-tokens',
-  relaxedTaxIdentitySymbols: [],
 };

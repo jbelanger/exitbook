@@ -18,10 +18,7 @@ function createFxProvider(fromUSD?: Record<string, string>): UsdConversionRatePr
   };
 }
 
-const identityConfig = {
-  taxAssetIdentityPolicy: 'strict-onchain-tokens' as const,
-  relaxedTaxIdentitySymbols: [] as string[],
-};
+const identityConfig = {};
 
 const timestamp = new Date('2024-06-15T12:00:00Z');
 

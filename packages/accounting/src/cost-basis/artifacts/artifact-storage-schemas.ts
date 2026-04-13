@@ -23,7 +23,6 @@ export const StoredCostBasisConfigSchema = z.object({
   startDate: IsoDateTimeStringSchema,
   endDate: IsoDateTimeStringSchema,
   specificLotSelectionStrategy: z.enum(['minimize-gain', 'maximize-loss']).optional(),
-  taxAssetIdentityPolicy: z.enum(['strict-onchain-tokens', 'relaxed-stablecoin-symbols']).optional(),
 });
 
 export const StoredCostBasisCalculationSchema = z.object({

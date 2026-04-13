@@ -39,9 +39,10 @@ export function summarizeProposalProvenance(links: readonly TransactionLink[]): 
     userLegCount > 0 ? 'user' : undefined,
     manualLegCount > 0 ? 'manual' : undefined,
   ].filter((value): value is 'system' | 'user' | 'manual' => value !== undefined);
+  const [singleProvenance] = provenances;
 
   return {
-    provenance: provenances.length === 1 ? provenances[0] : 'mixed',
+    provenance: provenances.length === 1 && singleProvenance ? singleProvenance : 'mixed',
     overrideIds: [...overrideIds],
     overrideLinkTypes: [...overrideLinkTypes],
     manualLegCount,
