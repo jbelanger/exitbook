@@ -413,6 +413,7 @@ Downstream contract for exact explained residual metadata:
 
 - transfer validation may accept the target-side partial group exactly when every expanded link carries the same explained residual amount and role
 - `links gaps` may omit the residual from open transfer review when that explained residual is exact and fully accounts for the uncovered target amount
+- the generic standard lot pipeline may materialize the exact residual as a separate acquisition lot on the target inflow when the role is transfer-ineligible but acquisition-relevant
 - tax projection may classify the surviving unmatched inflow quantity using `sameHashExplainedTargetResidualRole` instead of treating it as a generic unexplained acquisition
 
 Status rules:

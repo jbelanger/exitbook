@@ -39,6 +39,8 @@ This gives us the complete set of open lots at the `asOf` point. The `taxYear` i
 
 Jurisdiction **does** affect the lot pool: CA and US rules differ on transfer-fee treatment (add-to-basis vs disposal), which changes lot cost basis and remaining quantities. This is correct behavior — the portfolio reflects the jurisdiction's accounting rules.
 
+Exact explained transfer residuals that survive target-side validation are expected to become normal acquisition lots in this shared pipeline. Portfolio must not rely on a separate tax-only interpretation for those quantities.
+
 ### Method/Jurisdiction Validation
 
 Same validation as cost-basis command:

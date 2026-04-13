@@ -1,6 +1,8 @@
-import { isFiat, wrapError } from '@exitbook/foundation';
+import { getExplainedTargetResidual } from '@exitbook/core';
+import { isFiat, parseDecimal, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import {
@@ -8,7 +10,10 @@ import {
   processFeeOnlyInternalCarryoverTarget,
   type CarryoverTargetBinding,
 } from '../lots/internal-carryover-processing-utils.js';
-import { buildAcquisitionLotFromInflow } from '../lots/lot-creation-utils.js';
+import {
+  buildAcquisitionLotFromInflow,
+  buildExplainedResidualAcquisitionLotFromInflow,
+} from '../lots/lot-creation-utils.js';
 import { matchOutflowDisposal } from '../lots/lot-disposal-utils.js';
 import { processTransferSource, processTransferTarget } from '../lots/lot-transfer-processing-utils.js';
 import {
@@ -91,6 +96,39 @@ interface PreparedCarryoverTarget {
   sourceTransaction: AccountingScopedTransaction;
   bindingKey: string;
   target: FeeOnlyInternalCarryoverTarget;
+}
+
+function getExplainedResidualAcquisitionQuantity(
+  inflow: AccountingScopedTransaction['movements']['inflows'][number],
+  validatedTargetLinks: readonly ValidatedScopedTransferLink[]
+): Decimal | undefined {
+  if (validatedTargetLinks.length === 0) {
+    return undefined;
+  }
+
+  const fullMovementAmount = inflow.netAmount ?? inflow.grossAmount;
+  const linkedTargetAmount = validatedTargetLinks.reduce(
+    (sum, validatedLink) => sum.plus(validatedLink.link.targetAmount),
+    parseDecimal('0')
+  );
+
+  if (!linkedTargetAmount.lt(fullMovementAmount)) {
+    return undefined;
+  }
+
+  const residualQuantity = fullMovementAmount.minus(linkedTargetAmount);
+  const explainedResidual = getExplainedTargetResidual(validatedTargetLinks.map((validatedLink) => validatedLink.link));
+  if (!explainedResidual || !explainedResidual.amount.eq(residualQuantity)) {
+    return undefined;
+  }
+
+  switch (explainedResidual.role) {
+    case 'staking_reward':
+    case 'refund_rebate':
+      return residualQuantity;
+    default:
+      return undefined;
+  }
 }
 
 export class LotMatcher {
@@ -348,6 +386,22 @@ export class LotMatcher {
               }
 
               assetState.lots.push(transferTargetResult.value.lot);
+            }
+
+            const explainedResidualQuantity = getExplainedResidualAcquisitionQuantity(inflow, validatedTargetLinks);
+            if (explainedResidualQuantity?.gt(0)) {
+              const residualLotResult = buildExplainedResidualAcquisitionLotFromInflow(
+                scopedTransaction,
+                inflow,
+                explainedResidualQuantity,
+                config.calculationId,
+                config.strategy.getName()
+              );
+              if (residualLotResult.isErr()) {
+                return err(residualLotResult.error);
+              }
+
+              assetState.lots.push(residualLotResult.value);
             }
 
             continue;

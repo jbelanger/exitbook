@@ -666,6 +666,12 @@ Completion slice landed on `2026-04-12`:
 - Canada tax projection now classifies an exact explained staking residual acquisition as `incomeCategory='staking_reward'`
 - `links gaps` now suppresses fully explained exact staking residuals from the open transfer-review surface
 
+Follow-up completion landed on `2026-04-13` after live `portfolio` verification:
+
+- the generic standard lot matcher also creates a real acquisition lot for an exact explained residual on the transfer target
+- that residual lot uses the target inflow spot price without inheriting transfer fees from the linked principal quantity
+- this closed the live ADA holdings failure in `portfolio`, which was still short by `10.51521925 ADA` even after the Canada tax-path fix
+
 Why this matters:
 
 - we do not need fake source transactions or wallet-scope processing exceptions to finish this class of case
@@ -680,6 +686,12 @@ Open caution:
 - this pattern is intentionally narrow
 - unexplained residuals must still remain visible and reviewable
 - future residual-role expansion should reuse the same exactness contract rather than growing chain-specific exceptions
+
+Important finding to preserve:
+
+- exact explained residual work is not complete when only the tax projection understands it
+- any consumer that derives holdings from the generic lot pipeline, including `portfolio`, also needs the residual to become a first-class acquisition lot
+- otherwise transfer linking looks correct while holdings still fail later with insufficient lots
 
 Additional live finding from export readiness tightening on `2026-04-12`:
 

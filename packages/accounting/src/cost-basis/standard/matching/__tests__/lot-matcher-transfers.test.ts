@@ -10,6 +10,7 @@ import {
   createFeeMovement,
   createPriceAtTxTime,
   createTransactionFromMovements,
+  materializeTestTransaction,
 } from '../../../../__tests__/test-utils.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import type { AccountingScopedTransaction } from '../build-cost-basis-scoped-transactions.js';
@@ -40,7 +41,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     sourceAmount: string,
     targetAmount: string,
     confidenceScore = '98.5',
-    impliedFeeAmount?: string
+    impliedFeeAmount?: string,
+    metadata?: TransactionLink['metadata']
   ): TransactionLink => ({
     id,
     sourceTransactionId,
@@ -64,6 +66,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     status: 'confirmed',
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
+    ...(metadata ? { metadata } : {}),
   });
 
   const matcher = new LotMatcher();
@@ -1478,6 +1481,218 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       );
       expect(transferByBasis.get('10000')?.quantityTransferred.toFixed()).toBe('1');
       expect(transferByBasis.get('30000')?.quantityTransferred.toFixed()).toBe('0.5');
+    });
+  });
+
+  describe('Explained target residuals', () => {
+    it('creates an acquisition lot for an exact explained residual on a transfer target', async () => {
+      const sharedHash = '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf';
+
+      const chainAcquisitionTx = createTransactionFromMovements(
+        1,
+        '2024-07-20T12:00:00Z',
+        {
+          inflows: [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('2669.193991'),
+              priceAtTxTime: createPriceAtTxTime('0.75'),
+            },
+          ],
+        },
+        [],
+        { platformKey: 'cardano', platformKind: 'blockchain', category: 'transfer', type: 'deposit' }
+      );
+
+      const chainWithdrawalTx = materializeTestTransaction({
+        ...createTransactionFromMovements(
+          2,
+          '2024-07-25T20:32:02Z',
+          {
+            outflows: [
+              {
+                assetId: 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('2669.193991'),
+                netAmount: parseDecimal('2669.193991'),
+                priceAtTxTime: createPriceAtTxTime('0.75'),
+              },
+            ],
+          },
+          [],
+          { platformKey: 'cardano', platformKind: 'blockchain', category: 'transfer', type: 'withdrawal' }
+        ),
+        diagnostics: [
+          {
+            code: 'unattributed_staking_reward_component',
+            severity: 'info',
+            message: 'Includes wallet-scoped staking reward component.',
+            metadata: {
+              amount: '10.524451',
+              assetSymbol: 'ADA',
+              movementRole: 'staking_reward',
+            },
+          },
+        ],
+        blockchain: {
+          name: 'cardano',
+          transaction_hash: sharedHash,
+          is_confirmed: true,
+        },
+      });
+
+      const exchangeDepositTx = materializeTestTransaction({
+        ...createTransactionFromMovements(
+          3,
+          '2024-07-25T20:35:47Z',
+          {
+            inflows: [
+              {
+                assetId: 'exchange:kucoin:ada',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('2679.718442'),
+                priceAtTxTime: createPriceAtTxTime('0.75'),
+              },
+            ],
+          },
+          [],
+          { platformKey: 'kucoin', platformKind: 'exchange', category: 'transfer', type: 'deposit' }
+        ),
+        blockchain: {
+          name: 'cardano',
+          transaction_hash: sharedHash,
+          is_confirmed: true,
+        },
+      });
+
+      transactions = [chainAcquisitionTx, chainWithdrawalTx, exchangeDepositTx];
+
+      const link = createLink(50, 2, 3, 'ADA', '2669.193991', '2669.193991', '100', undefined, {
+        partialMatch: true,
+        fullSourceAmount: '2669.193991',
+        fullTargetAmount: '2679.718442',
+        consumedAmount: '2669.193991',
+        sameHashExplainedTargetResidualAmount: '10.524451',
+        sameHashExplainedTargetResidualRole: 'staking_reward',
+      });
+
+      const result = await matchTransactions(transactions, [link], {
+        calculationId: 'calc1',
+        strategy: new FifoStrategy(),
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      const resultValue = assertOk(result);
+      const kucoinAda = resultValue.assetResults.find((assetResult) => assetResult.assetId === 'exchange:kucoin:ada');
+      expect(kucoinAda).toBeDefined();
+      expect(kucoinAda!.lots).toHaveLength(2);
+      expect(kucoinAda!.lots.map((lot) => lot.quantity.toFixed())).toEqual(['2669.193991', '10.524451']);
+    });
+
+    it('does not create an acquisition lot when explained residual metadata does not match the uncovered quantity', async () => {
+      const sharedHash = '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf';
+
+      const chainAcquisitionTx = createTransactionFromMovements(
+        1,
+        '2024-07-20T12:00:00Z',
+        {
+          inflows: [
+            {
+              assetId: 'blockchain:cardano:native',
+              assetSymbol: 'ADA' as Currency,
+              grossAmount: parseDecimal('2669.193991'),
+              priceAtTxTime: createPriceAtTxTime('0.75'),
+            },
+          ],
+        },
+        [],
+        { platformKey: 'cardano', platformKind: 'blockchain', category: 'transfer', type: 'deposit' }
+      );
+
+      const chainWithdrawalTx = materializeTestTransaction({
+        ...createTransactionFromMovements(
+          2,
+          '2024-07-25T20:32:02Z',
+          {
+            outflows: [
+              {
+                assetId: 'blockchain:cardano:native',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('2669.193991'),
+                netAmount: parseDecimal('2669.193991'),
+                priceAtTxTime: createPriceAtTxTime('0.75'),
+              },
+            ],
+          },
+          [],
+          { platformKey: 'cardano', platformKind: 'blockchain', category: 'transfer', type: 'withdrawal' }
+        ),
+        diagnostics: [
+          {
+            code: 'unattributed_staking_reward_component',
+            severity: 'info',
+            message: 'Includes wallet-scoped staking reward component.',
+            metadata: {
+              amount: '10.524451',
+              assetSymbol: 'ADA',
+              movementRole: 'staking_reward',
+            },
+          },
+        ],
+        blockchain: {
+          name: 'cardano',
+          transaction_hash: sharedHash,
+          is_confirmed: true,
+        },
+      });
+
+      const exchangeDepositTx = materializeTestTransaction({
+        ...createTransactionFromMovements(
+          3,
+          '2024-07-25T20:35:47Z',
+          {
+            inflows: [
+              {
+                assetId: 'exchange:kucoin:ada',
+                assetSymbol: 'ADA' as Currency,
+                grossAmount: parseDecimal('2679.718442'),
+                priceAtTxTime: createPriceAtTxTime('0.75'),
+              },
+            ],
+          },
+          [],
+          { platformKey: 'kucoin', platformKind: 'exchange', category: 'transfer', type: 'deposit' }
+        ),
+        blockchain: {
+          name: 'cardano',
+          transaction_hash: sharedHash,
+          is_confirmed: true,
+        },
+      });
+
+      transactions = [chainAcquisitionTx, chainWithdrawalTx, exchangeDepositTx];
+
+      const link = createLink(50, 2, 3, 'ADA', '2669.193991', '2669.193991', '100', undefined, {
+        partialMatch: true,
+        fullSourceAmount: '2669.193991',
+        fullTargetAmount: '2679.718442',
+        consumedAmount: '2669.193991',
+        sameHashExplainedTargetResidualAmount: '10.000000',
+        sameHashExplainedTargetResidualRole: 'staking_reward',
+      });
+
+      const result = await matchTransactions(transactions, [link], {
+        calculationId: 'calc1',
+        strategy: new FifoStrategy(),
+        jurisdiction: { sameAssetTransferFeePolicy: 'disposal' },
+      });
+
+      const resultValue = assertOk(result);
+      const kucoinAda = resultValue.assetResults.find((assetResult) => assetResult.assetId === 'exchange:kucoin:ada');
+      expect(kucoinAda).toBeDefined();
+      expect(kucoinAda!.lots).toHaveLength(1);
+      expect(kucoinAda!.lots.map((lot) => lot.quantity.toFixed())).toEqual(['2669.193991']);
     });
   });
 });

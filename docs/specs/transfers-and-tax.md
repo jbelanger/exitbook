@@ -138,6 +138,8 @@ When a scoped inflow has neither:
 Exact staking residual behavior:
 
 - explained target residuals still project as acquisition events for the unmatched inflow quantity
+- the generic standard lot pipeline must also create a normal acquisition lot for that exact unmatched quantity on the target inflow
+- this is required so holdings-driven consumers like `portfolio` stay consistent with transfer validation and tax projection
 - when the explained residual metadata says the unmatched quantity is `staking_reward`, the acquisition event carries `incomeCategory='staking_reward'`
 - unexplained residual inflow quantity still projects as a generic acquisition event
 
