@@ -343,6 +343,84 @@ describe('SolanaProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows).toHaveLength(0);
     expect(transaction.operation.type).toBe('withdrawal');
   });
+
+  test('marks ATA rent leg as protocol_overhead on token send with recipient account creation', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigAtaRentSend',
+      eventId: '0xeventAtaRentSend',
+      slot: 100004,
+      feeAmount: '0.000008642',
+      feeCurrency: 'SOL',
+      feePayer: USER_ADDRESS,
+      accountChanges: [
+        {
+          account: USER_ADDRESS,
+          preBalance: '23281532',
+          postBalance: '21233610',
+        },
+        {
+          account: 'recipientAtaAccount',
+          preBalance: '0',
+          postBalance: '2039280',
+        },
+      ],
+      instructions: [
+        {
+          programId: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+        },
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+      ],
+      tokenChanges: [
+        {
+          account: TOKEN_ACCOUNT,
+          decimals: 6,
+          mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          owner: USER_ADDRESS,
+          preAmount: '200000000',
+          postAmount: '50000000',
+          symbol: 'USDC',
+        },
+        {
+          account: 'recipientAtaAccount',
+          decimals: 6,
+          mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          owner: EXTERNAL_ADDRESS,
+          preAmount: '0',
+          postAmount: '150000000',
+          symbol: 'USDC',
+        },
+      ],
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.movements.outflows).toHaveLength(2);
+    expect(transaction.movements.inflows).toHaveLength(0);
+
+    const usdcOutflow = transaction.movements.outflows?.find((movement) => movement.assetSymbol === 'USDC');
+    expect(usdcOutflow?.grossAmount.toFixed()).toBe('150');
+    expect(usdcOutflow?.movementRole).toBeUndefined();
+
+    const solOutflow = transaction.movements.outflows?.find((movement) => movement.assetSymbol === 'SOL');
+    expect(solOutflow?.grossAmount.toFixed()).toBe('0.00203928');
+    expect(solOutflow?.movementRole).toBe('protocol_overhead');
+
+    expect(transaction.operation.type).toBe('withdrawal');
+  });
 });
 
 describe('SolanaProcessor - Transaction Type Classification', () => {

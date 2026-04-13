@@ -321,6 +321,19 @@ describe('Solana Processor Utils', () => {
       expect(result[0]?.asset).toBe('SOL');
       expect(result[0]?.amount).toBe('0.6');
     });
+
+    it('should keep duplicate assets separate when movement roles differ', () => {
+      const movements: SolanaMovement[] = [
+        { amount: '0.5', asset: 'SOL' as Currency },
+        { amount: '0.00203928', asset: 'SOL' as Currency, movementRole: 'protocol_overhead' },
+      ];
+
+      const result = consolidateSolanaMovements(movements);
+
+      expect(result).toHaveLength(2);
+      expect(result.find((movement) => movement.movementRole === undefined)?.amount).toBe('0.5');
+      expect(result.find((movement) => movement.movementRole === 'protocol_overhead')?.amount).toBe('0.00203928');
+    });
   });
 
   describe('classifySolanaOperationFromFundFlow', () => {
@@ -1105,6 +1118,73 @@ describe('Solana Processor Utils', () => {
         // SOL outflow should be removed (fee-only)
         const solOutflow = result.outflows.find((o) => o.asset === 'SOL');
         expect(solOutflow).toBeUndefined();
+      });
+
+      it('marks pure associated-token-account rent as protocol_overhead after fee absorption', () => {
+        const tx = createTx({
+          feeAmount: '0.000008642',
+          feeCurrency: 'SOL' as Currency,
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '23281532',
+              postBalance: '21233610',
+            },
+            {
+              account: 'recipientAtaAccount',
+              preBalance: '0',
+              postBalance: '2039280',
+            },
+          ],
+          instructions: [
+            {
+              programId: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+            },
+          ],
+        });
+
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
+
+        expect(result.outflows).toHaveLength(1);
+        expect(result.outflows[0]?.asset).toBe('SOL');
+        expect(result.outflows[0]?.amount).toBe('0.00203928');
+        expect(result.outflows[0]?.movementRole).toBe('protocol_overhead');
+      });
+
+      it('does not mark mixed principal SOL outflow and ATA rent as protocol_overhead', () => {
+        const tx = createTx({
+          feeAmount: '0.000008642',
+          feeCurrency: 'SOL' as Currency,
+          accountChanges: [
+            {
+              account: userAddress,
+              preBalance: '5000000000',
+              postBalance: '2997952078',
+            },
+            {
+              account: otherAddress,
+              preBalance: '1000000000',
+              postBalance: '3000000000',
+            },
+            {
+              account: 'recipientAtaAccount',
+              preBalance: '0',
+              postBalance: '2039280',
+            },
+          ],
+          instructions: [
+            {
+              programId: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+            },
+          ],
+        });
+
+        const result = assertOk(analyzeSolanaBalanceChanges(tx, allWalletAddresses));
+
+        expect(result.outflows).toHaveLength(1);
+        expect(result.outflows[0]?.asset).toBe('SOL');
+        expect(result.outflows[0]?.amount).toBe('2.00203928');
+        expect(result.outflows[0]?.movementRole).toBeUndefined();
       });
 
       it('should handle multiple SOL outflows with fee deduction', () => {

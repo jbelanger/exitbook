@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-12
+last_verified: 2026-04-13
 status: active
 ---
 
@@ -195,25 +195,26 @@ Phase 2 is only fully complete when:
 
 ### Phase 2.5 Inventory
 
-| Chain / processor | Deterministic pattern                                                                   | Decision                                          | Why                                                                                                                                                                    | Next action                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Cardano           | Wallet-scoped staking withdrawal attributable to one owned input address                | `movementRole='staking_reward'`                   | Provider now exposes withdrawal amount, and the processor can attribute it safely only when ownership is unambiguous                                                   | Implemented in Phase 2                                                       |
-| Solana            | Native staking reward inflow with stake-program evidence and no competing principal leg | Candidate `movementRole='staking_reward'`         | Current processor already classifies clear reward-only staking flows at the transaction level; movement role can reuse the same deterministic boundary                 | Phase 4 candidate                                                            |
-| Solana            | ATA rent / account-creation funding / setup outflow                                     | Reject for now                                    | Real pattern exists, but the current evidence lives in transaction shape and program patterns that are still too easy to overfit in a generic role contract            | Keep as diagnostics / manual review until a second deterministic case exists |
-| Solana            | Tiny native rebate / rent reclaim                                                       | Reject for now                                    | Small native inflows are not reliably distinguishable from dust, refund, or correlated swap residue in the current processor model                                     | Keep uncategorized or cue-only                                               |
-| Cosmos-family     | Bridge deposit / bridge withdrawal                                                      | Keep as `transactionDiagnostics`                  | Shared Cosmos processor already emits deterministic `bridge_transfer`; these are transfer-adjacent semantics, not non-principal movement roles                         | Leave in diagnostics                                                         |
-| Cosmos-family     | Swap / batch / uncertain contract flows                                                 | Keep as `transactionDiagnostics` or manual review | Current evidence is structural but not movement-role-shaped                                                                                                            | Leave out of role model                                                      |
-| Cosmos-family     | Staking reward / refund                                                                 | Reject for now                                    | Shared processor does not currently expose a deterministic, generic movement-level signal equivalent to Cardano/NEAR/Substrate                                         | No Phase 4 work until provider evidence improves                             |
-| NEAR              | Receipt balance-change cause `CONTRACT_REWARD` on inflow-only native movement           | Candidate `movementRole='staking_reward'`         | The processor already classifies these transactions as staking rewards from explicit receipt causes                                                                    | Phase 4 candidate                                                            |
-| NEAR              | Receipt balance-change cause `GAS_REFUND` on inflow-only native movement                | Candidate `movementRole='refund_rebate'`          | Explicit cause exists in normalized data and is stronger than heuristic refund inference                                                                               | Phase 4 candidate after verification against real cases                      |
-| NEAR              | `create_account` / storage-deposit style outflows                                       | Reject for now                                    | The chain can prove account-creation intent at the transaction level, but the specific non-principal balance leg is not yet isolated cleanly enough for a generic role | Keep as diagnostics / manual review until evidence is cleaner                |
-| Substrate         | Inflow-only staking reward transactions                                                 | Candidate `movementRole='staking_reward'`         | Processor already classifies deterministic staking reward shapes from module/call plus flow direction                                                                  | Phase 4 candidate                                                            |
-| Substrate         | Governance refund inflows                                                               | Candidate `movementRole='refund_rebate'`          | Governance refund is already explicit at transaction classification time and maps cleanly to a non-principal inflow role                                               | Phase 4 candidate after targeted validation                                  |
-| EVM               | Beacon withdrawal `< 32 ETH`                                                            | Candidate `movementRole='staking_reward'`         | Current processor already treats these as partial withdrawals / staking rewards with explicit `consensus_withdrawal` diagnostics                                       | Phase 4 candidate                                                            |
-| EVM               | Beacon withdrawal `>= 32 ETH`                                                           | Reject as role                                    | Full withdrawal can include principal return plus rewards, so a single non-principal movement role would overstate certainty                                           | Keep as principal movement plus diagnostic                                   |
-| Theta             | Account-based contract interaction / transfer flows                                     | Reject for now                                    | Theta inherits the generic EVM account-based flow model but has no repo-local deterministic non-principal producer yet                                                 | No Phase 4 work                                                              |
-| Bitcoin           | UTXO send / receive / change model                                                      | Reject for now                                    | Current processor only exposes net principal flow and fee, with no deterministic non-principal movement beyond existing fee handling                                   | No role work                                                                 |
-| XRP               | Balance-change transfer model                                                           | Reject for now                                    | Current processor only exposes principal net movement plus fee; no deterministic non-principal movement source is modeled                                              | No role work                                                                 |
+| Chain / processor | Deterministic pattern                                                                   | Decision                                          | Why                                                                                                                                                                    | Next action                                                       |
+| ----------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Cardano           | Wallet-scoped staking withdrawal attributable to one owned input address                | `movementRole='staking_reward'`                   | Provider now exposes withdrawal amount, and the processor can attribute it safely only when ownership is unambiguous                                                   | Implemented in Phase 2                                            |
+| Solana            | Native staking reward inflow with stake-program evidence and no competing principal leg | Candidate `movementRole='staking_reward'`         | Current processor already classifies clear reward-only staking flows at the transaction level; movement role can reuse the same deterministic boundary                 | Phase 4 candidate                                                 |
+| Solana            | Associated token account creation rent funded by the user                               | `movementRole='protocol_overhead'`                | Deterministic boundary: associated-token-program instruction, one or more new `0 -> rent` accounts, and post-fee user SOL outflow exactly equals funded rent           | Implemented in Phase 4.4                                          |
+| Solana            | Broader account-creation funding / setup outflow beyond ATA create                      | Reject for now                                    | The proven ATA-create shape is safe, but wider account-setup intent still becomes ambiguous as soon as SOL principal and setup rent share the same balance delta       | Keep as manual review until a second deterministic pattern exists |
+| Solana            | Tiny native rebate / rent reclaim                                                       | Reject for now                                    | Small native inflows are not reliably distinguishable from dust, refund, or correlated swap residue in the current processor model                                     | Keep uncategorized or cue-only                                    |
+| Cosmos-family     | Bridge deposit / bridge withdrawal                                                      | Keep as `transactionDiagnostics`                  | Shared Cosmos processor already emits deterministic `bridge_transfer`; these are transfer-adjacent semantics, not non-principal movement roles                         | Leave in diagnostics                                              |
+| Cosmos-family     | Swap / batch / uncertain contract flows                                                 | Keep as `transactionDiagnostics` or manual review | Current evidence is structural but not movement-role-shaped                                                                                                            | Leave out of role model                                           |
+| Cosmos-family     | Staking reward / refund                                                                 | Reject for now                                    | Shared processor does not currently expose a deterministic, generic movement-level signal equivalent to Cardano/NEAR/Substrate                                         | No Phase 4 work until provider evidence improves                  |
+| NEAR              | Receipt balance-change cause `CONTRACT_REWARD` on inflow-only native movement           | Candidate `movementRole='staking_reward'`         | The processor already classifies these transactions as staking rewards from explicit receipt causes                                                                    | Phase 4 candidate                                                 |
+| NEAR              | Receipt balance-change cause `GAS_REFUND` on inflow-only native movement                | Candidate `movementRole='refund_rebate'`          | Explicit cause exists in normalized data and is stronger than heuristic refund inference                                                                               | Phase 4 candidate after verification against real cases           |
+| NEAR              | `create_account` / storage-deposit style outflows                                       | Reject for now                                    | The chain can prove account-creation intent at the transaction level, but the specific non-principal balance leg is not yet isolated cleanly enough for a generic role | Keep as diagnostics / manual review until evidence is cleaner     |
+| Substrate         | Inflow-only staking reward transactions                                                 | Candidate `movementRole='staking_reward'`         | Processor already classifies deterministic staking reward shapes from module/call plus flow direction                                                                  | Phase 4 candidate                                                 |
+| Substrate         | Governance refund inflows                                                               | Candidate `movementRole='refund_rebate'`          | Governance refund is already explicit at transaction classification time and maps cleanly to a non-principal inflow role                                               | Phase 4 candidate after targeted validation                       |
+| EVM               | Beacon withdrawal `< 32 ETH`                                                            | Candidate `movementRole='staking_reward'`         | Current processor already treats these as partial withdrawals / staking rewards with explicit `consensus_withdrawal` diagnostics                                       | Phase 4 candidate                                                 |
+| EVM               | Beacon withdrawal `>= 32 ETH`                                                           | Reject as role                                    | Full withdrawal can include principal return plus rewards, so a single non-principal movement role would overstate certainty                                           | Keep as principal movement plus diagnostic                        |
+| Theta             | Account-based contract interaction / transfer flows                                     | Reject for now                                    | Theta inherits the generic EVM account-based flow model but has no repo-local deterministic non-principal producer yet                                                 | No Phase 4 work                                                   |
+| Bitcoin           | UTXO send / receive / change model                                                      | Reject for now                                    | Current processor only exposes net principal flow and fee, with no deterministic non-principal movement beyond existing fee handling                                   | No role work                                                      |
+| XRP               | Balance-change transfer model                                                           | Reject for now                                    | Current processor only exposes principal net movement plus fee; no deterministic non-principal movement source is modeled                                              | No role work                                                      |
 
 ### Phase 2.5 Producer Shortlist
 
@@ -228,7 +229,7 @@ The next movement-role producers should stay narrow:
 Explicit non-goals from this analysis:
 
 - no shared Cosmos `movementRole` work yet
-- no Solana `protocol_overhead` role yet
+- no broader Solana `protocol_overhead` role beyond deterministic ATA-create rent
 - no chain-specific downstream exceptions in accounting/linking/gaps
 - no use of diagnostics as a backdoor substitute for deterministic movement roles
 
@@ -238,6 +239,7 @@ Current active phase:
 
 - `Phase 3: Diagnostics Consumer Migration` is complete in the current worktree
 - next phase remains `Phase 4: Additional Deterministic Movement-Role Producers`
+- current open producer follow-up is now the `refund_rebate` shortlist plus replay hardening, not Solana ATA rent
 
 ## Phase 3: Diagnostics Consumer Migration
 
@@ -609,7 +611,52 @@ Findings worth revisiting:
 - Substrate was a better fit for processor-level role derivation than fund-flow-level role tagging because reward classification is already deterministic and centralized enough to reuse cleanly
 - the current scope should stay native-only until Substrate multi-asset support exists; `SubstrateMovement` still lacks token identity fields for parachain assets
 
-#### Phase 4.4: Refund / Rebate Candidates
+#### Phase 4.4: Solana ATA Rent As Protocol Overhead
+
+Status: completed in the current worktree
+
+Scope:
+
+- assign `movementRole='protocol_overhead'` only for user-funded associated-token-account creation rent on Solana
+- keep broader Solana setup/account-creation patterns out of the model until we have stronger evidence
+
+Primary files:
+
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/types.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/processor-utils.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/processor.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/__tests__/processor-utils.test.ts`
+- `/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/solana/__tests__/processor.test.ts`
+
+Acceptance criteria:
+
+- ATA-create rent persists as `movementRole='protocol_overhead'`
+- Solana movement consolidation is role-aware, matching the other movement-role producers
+- mixed SOL principal plus setup-rent deltas do not get tagged as `protocol_overhead`
+- no accounting/linking/gaps special-casing is added
+- targeted tests, builds, and live reprocess verification pass
+
+Completion notes:
+
+- implemented in the current worktree
+- role assignment uses a narrow deterministic boundary:
+  - an `ATokenGP...` instruction is present
+  - one or more account changes go from `0` to a positive lamport balance
+  - the post-fee user SOL outflow exactly equals the funded rent
+- targeted Solana tests passed
+- `pnpm --filter @exitbook/ingestion build`
+- `pnpm --filter @exitbook/accounting build`
+- `pnpm --filter ./apps/cli build`
+- `pnpm run dev reprocess`
+- `pnpm run dev links gaps --json`
+
+Findings worth revisiting:
+
+- the standalone December 27, 2024 Solana ATA-create rent rows (`ec36390543`, `3a2664f861`, `920c244f01`) now persist as `protocol_overhead` and no longer resolve as open gap refs
+- the May 24, 2024 funding row `793a42977e` still resolves as an open principal gap, which is the intended outcome
+- the same May 24 cluster no longer surfaces the old SOL ATA-rent gap leg after a clean reprocess, which means the pattern now reads as wallet funding plus principal token send instead of a mixed transfer-plus-overhead false positive
+
+#### Phase 4.5: Refund / Rebate Candidates
 
 Status: blocked
 
@@ -624,14 +671,13 @@ Required gate before implementation:
 
 ### Explicit Phase 4 Non-Goals
 
-- no Solana `protocol_overhead` role in this phase
+- no broader Solana `protocol_overhead` role beyond deterministic ATA-create rent
 - no cue work in `links gaps`
 - no chain-specific downstream branching in accounting, linking, or gap analysis
 - no `refund_rebate` producer without a real-case audit and isolated test coverage
 
 Likely candidates after the opening slice:
 
-- protocol overhead cases with strong evidence
 - refund/rebate cases with strong evidence
 
 This phase must not begin until diagnostics migration is complete, otherwise we will widen the model faster than the consumers can use it cleanly.

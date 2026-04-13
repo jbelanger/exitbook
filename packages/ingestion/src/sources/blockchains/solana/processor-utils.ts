@@ -1,5 +1,5 @@
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import type { OperationClassification, TransactionDiagnostic } from '@exitbook/core';
+import type { MovementRole, OperationClassification, TransactionDiagnostic } from '@exitbook/core';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/foundation';
 import { type Result, err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -83,9 +83,17 @@ const NFT_PROGRAMS: string[] = [
 
 const SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM_ID = 'ComputeBudget111111111111111111111111111111';
+const ASSOCIATED_TOKEN_PROGRAM_ID = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
 const MAX_UNSOLICITED_SOL_DUST_AMOUNT = parseDecimal('0.00001');
 const MIN_DUST_FANOUT_SYSTEM_INSTRUCTIONS = 10;
 const MIN_DUST_FANOUT_ACCOUNT_CHANGES = 10;
+
+interface SolanaMovementAccumulator {
+  amount: Decimal;
+  decimals?: number | undefined;
+  movementRole?: MovementRole | undefined;
+  tokenAddress?: string | undefined;
+}
 
 function hasMatchingProgram(instructions: SolanaTransaction['instructions'], programIds: string[]): boolean {
   if (!instructions) return false;
@@ -168,30 +176,37 @@ export function isSolanaUnsolicitedDustFanout(tx: SolanaTransaction, fundFlow: S
  * Consolidate duplicate assets by summing amounts for the same asset
  */
 export function consolidateSolanaMovements(movements: SolanaMovement[]): SolanaMovement[] {
-  const assetMap = new Map<
-    string,
-    { amount: Decimal; decimals?: number | undefined; tokenAddress?: string | undefined }
-  >();
+  const assetMap = new Map<string, Map<MovementRole, SolanaMovementAccumulator>>();
 
   for (const movement of movements) {
-    const existing = assetMap.get(movement.asset);
+    const movementRole = movement.movementRole ?? 'principal';
+    const roleMap = assetMap.get(movement.asset) ?? new Map<MovementRole, SolanaMovementAccumulator>();
+    const existing = roleMap.get(movementRole);
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      assetMap.set(movement.asset, {
+      roleMap.set(movementRole, {
         amount: parseDecimal(movement.amount),
         decimals: movement.decimals,
+        movementRole: movement.movementRole,
         tokenAddress: movement.tokenAddress,
       });
     }
+
+    if (!assetMap.has(movement.asset)) {
+      assetMap.set(movement.asset, roleMap);
+    }
   }
 
-  return Array.from(assetMap.entries()).map(([asset, data]) => ({
-    amount: data.amount.toFixed(),
-    asset: asset as Currency,
-    decimals: data.decimals,
-    tokenAddress: data.tokenAddress,
-  }));
+  return Array.from(assetMap.entries()).flatMap(([asset, roleMap]) =>
+    Array.from(roleMap.values()).map((data) => ({
+      amount: data.amount.toFixed(),
+      asset: asset as Currency,
+      decimals: data.decimals,
+      movementRole: data.movementRole,
+      tokenAddress: data.tokenAddress,
+    }))
+  );
 }
 
 /**
@@ -540,6 +555,67 @@ function collectUserSolMovements(
   }
 
   return ok({ inflows, outflows });
+}
+
+function sumAssociatedTokenAccountCreationLamports(tx: SolanaTransaction): bigint {
+  const hasAssociatedTokenInstruction =
+    tx.instructions?.some((instruction) => instruction.programId === ASSOCIATED_TOKEN_PROGRAM_ID) ?? false;
+
+  if (!hasAssociatedTokenInstruction) {
+    return 0n;
+  }
+
+  let totalLamports = 0n;
+
+  for (const change of tx.accountChanges ?? []) {
+    const preLamports = BigInt(change.preBalance);
+    const postLamports = BigInt(change.postBalance);
+
+    if (preLamports !== 0n || postLamports <= 0n) {
+      continue;
+    }
+
+    totalLamports += postLamports;
+  }
+
+  return totalLamports;
+}
+
+function assignAssociatedTokenAccountProtocolOverhead(
+  tx: SolanaTransaction,
+  outflows: SolanaMovement[]
+): Result<void, Error> {
+  const createdLamports = sumAssociatedTokenAccountCreationLamports(tx);
+  if (createdLamports === 0n) {
+    return ok(undefined);
+  }
+
+  const associatedTokenRentAmountResult = fromBaseUnitsToDecimalString(createdLamports.toString(), 9);
+  if (associatedTokenRentAmountResult.isErr()) {
+    return err(
+      new Error(
+        `Failed to normalize associated token account creation amount for transaction ${tx.id}: ${associatedTokenRentAmountResult.error.message}`
+      )
+    );
+  }
+
+  const associatedTokenRentAmount = parseDecimal(associatedTokenRentAmountResult.value);
+  const solOutflows = outflows.filter((movement) => movement.asset === 'SOL' && movement.tokenAddress === undefined);
+  if (solOutflows.length !== 1) {
+    return ok(undefined);
+  }
+
+  const [solOutflow] = solOutflows;
+  if (!solOutflow) {
+    return ok(undefined);
+  }
+
+  if (!parseDecimal(solOutflow.amount).equals(associatedTokenRentAmount)) {
+    return ok(undefined);
+  }
+
+  solOutflow.movementRole = 'protocol_overhead';
+  return ok(undefined);
 }
 
 function collectUserSolanaMovements(
@@ -906,6 +982,10 @@ export function analyzeSolanaBalanceChanges(
   warnOnCounterpartyInferenceFailure(tx, userAssets, counterpartyInference.inferenceFailureReason);
 
   const feeAbsorbedByMovement = feePaidByUser ? absorbFeeFromSolOutflows(consolidatedOutflows, tx.feeAmount) : false;
+  const associatedTokenOverheadResult = assignAssociatedTokenAccountProtocolOverhead(tx, consolidatedOutflows);
+  if (associatedTokenOverheadResult.isErr()) {
+    return err(associatedTokenOverheadResult.error);
+  }
 
   let fromAddress = counterpartyInference.fromAddress;
   let toAddress = counterpartyInference.toAddress;

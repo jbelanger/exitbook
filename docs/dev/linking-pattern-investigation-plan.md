@@ -700,19 +700,25 @@ Fallback:
 
 ### Track 5: Protocol Overhead / Rent / Account Setup
 
-Status: defer until linking-first work is done
+Status: partially implemented for deterministic Solana ATA-create rent
 Expected value: medium
 Likely destination: movement model or processor normalization, not linking
 
 #### Evidence
 
-Current open rows:
+Resolved rows after upstream movement-role work:
 
 - `6867898c4a` / tx `ec36390543` / `SOL 0.00203928` out
 - `d54f0602f5` / tx `3a2664f861` / `SOL 0.00203928` out
 - `d2601e4fab` / tx `920c244f01` / `SOL 0.00203928` out
 
-These still look like ATA/rent/account-setup side effects rather than principal transfers.
+These are now emitted upstream as `movementRole='protocol_overhead'` and no longer surface as open gap refs after a clean reprocess.
+
+Additional live finding:
+
+- the May 24, 2024 funding/setup/send cluster (`793a42977e`, former ATA-rent leg `6085410398`, former token-send leg `83518ebf08`) no longer behaves like a mixed swap-like gap cluster
+- the funding deposit still stays visible as an open principal gap
+- the ATA rent leg is removed from transfer matching through movement semantics instead of a gaps heuristic
 
 #### Hypothesis
 
@@ -720,12 +726,17 @@ This is a movement-model problem, not a linking strategy.
 
 #### Candidate Outcome
 
-- future movement diagnostic or processor normalization
-- possibly a future cue only if we can identify it safely
+- use upstream `movementRole='protocol_overhead'` where the setup/rent evidence is deterministic
+- otherwise fall back to manual review or, at most, a cue
 
 Do not:
 
 - add a transfer link strategy
+
+Current boundary:
+
+- shipped: deterministic Solana ATA-create rent
+- still deferred: broader non-ATA setup/account-creation patterns and any rent-reclaim / rebate-like native inflows
 
 ## Work Order
 

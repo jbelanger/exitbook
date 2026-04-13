@@ -1,6 +1,6 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction, SolanaTransactionSchema } from '@exitbook/blockchain-providers/solana';
-import type { TransactionDraft } from '@exitbook/core';
+import type { AssetMovementDraft, TransactionDraft } from '@exitbook/core';
 import {
   buildBlockchainNativeAssetId,
   buildBlockchainTokenAssetId,
@@ -274,10 +274,30 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
    * Returns err if any movement's assetId cannot be resolved.
    */
   private buildMovementsWithAssetId(
-    movements: { amount: string; asset: string; tokenAddress?: string | undefined }[],
+    movements: {
+      amount: string;
+      asset: string;
+      movementRole?: AssetMovementDraft['movementRole'];
+      tokenAddress?: string | undefined;
+    }[],
     transactionSignature: string
-  ): Result<{ assetId: string; assetSymbol: Currency; grossAmount: Decimal; netAmount: Decimal }[], Error> {
-    const result: { assetId: string; assetSymbol: Currency; grossAmount: Decimal; netAmount: Decimal }[] = [];
+  ): Result<
+    {
+      assetId: string;
+      assetSymbol: Currency;
+      grossAmount: Decimal;
+      movementRole?: AssetMovementDraft['movementRole'];
+      netAmount: Decimal;
+    }[],
+    Error
+  > {
+    const result: {
+      assetId: string;
+      assetSymbol: Currency;
+      grossAmount: Decimal;
+      movementRole?: AssetMovementDraft['movementRole'];
+      netAmount: Decimal;
+    }[] = [];
     for (const movement of movements) {
       const assetIdResult = this.buildSolanaAssetId(movement, transactionSignature);
       if (assetIdResult.isErr()) {
@@ -288,6 +308,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
         assetId: assetIdResult.value,
         assetSymbol: movement.asset as Currency,
         grossAmount: amount,
+        movementRole: movement.movementRole,
         netAmount: amount,
       });
     }

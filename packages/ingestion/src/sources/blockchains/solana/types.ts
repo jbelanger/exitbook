@@ -1,3 +1,4 @@
+import type { MovementRole } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 
 /**
@@ -7,6 +8,7 @@ export interface SolanaMovement {
   amount: string;
   asset: Currency;
   decimals?: number | undefined;
+  movementRole?: MovementRole | undefined;
   tokenAddress?: string | undefined; // Mint address for SPL tokens
 }
 
