@@ -5,6 +5,7 @@ import { getLogger } from '@exitbook/logger';
 import type { KyselyDB } from './database.js';
 import { closeDatabase, initializeDatabase } from './database.js';
 import { AccountRepository } from './repositories/account-repository.js';
+import { AccountingIssueRepository } from './repositories/accounting-issue-repository.js';
 import { AssetReviewRepository } from './repositories/asset-review-repository.js';
 import { BalanceSnapshotRepository } from './repositories/balance-snapshot-repository.js';
 import { CostBasisFailureSnapshotRepository } from './repositories/cost-basis-failure-snapshot-repository.js';
@@ -29,6 +30,7 @@ export class DataSession {
   }
 
   readonly accounts: AccountRepository;
+  readonly accountingIssues: AccountingIssueRepository;
   readonly assetReview: AssetReviewRepository;
   readonly balanceSnapshots: BalanceSnapshotRepository;
   readonly costBasisFailureSnapshots: CostBasisFailureSnapshotRepository;
@@ -48,6 +50,7 @@ export class DataSession {
     this.connection = connection;
     this.isTransactionScoped = isTransactionScoped;
     this.accounts = new AccountRepository(connection);
+    this.accountingIssues = new AccountingIssueRepository(connection);
     this.assetReview = new AssetReviewRepository(connection);
     this.balanceSnapshots = new BalanceSnapshotRepository(connection);
     this.costBasisFailureSnapshots = new CostBasisFailureSnapshotRepository(connection);

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./cost-basis": "./src/cost-basis.ts",
+    "./issues": "./src/issues.ts",
     "./linking": "./src/linking.ts",
     "./portfolio": "./src/portfolio.ts",
     "./price-enrichment": "./src/price-enrichment.ts",

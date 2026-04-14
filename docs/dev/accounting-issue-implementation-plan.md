@@ -192,7 +192,28 @@ This initiative is complete only when all of the following are true:
 
 ### Phase 1A: Profile-Global Issue Projection
 
-Status: pending
+Status: in progress
+
+Completed so far:
+
+- accounting-owned Phase 1A issue model landed in `packages/accounting/src/issues/`
+- profile-global issue materialization landed for:
+  - `transfer_gap`
+  - `asset_review_blocker`
+- persisted storage landed:
+  - `accounting_issue_scopes`
+  - `accounting_issue_rows`
+- reconciliation repository landed in `packages/data/src/repositories/accounting-issue-repository.ts`
+- profile-global issue source loading landed in `packages/data/src/accounting/issues-source-data.ts`
+- targeted tests landed for:
+  - profile snapshot building
+  - repository reconciliation / read-back
+
+Remaining in this phase:
+
+- CLI browse surface under `apps/cli/src/features/issues/`
+- overview/detail JSON output
+- live CLI verification against workspace data
 
 Deliver:
 

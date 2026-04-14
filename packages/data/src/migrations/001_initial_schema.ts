@@ -663,9 +663,82 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema.createIndex('idx_asset_review_evidence_kind').on('asset_review_evidence').column('kind').execute();
+
+  await db.schema
+    .createTable('accounting_issue_scopes')
+    .addColumn('scope_key', 'text', (col) => col.primaryKey())
+    .addColumn('scope_kind', 'text', (col) => col.notNull())
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id').onDelete('cascade'))
+    .addColumn('title', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('open_issue_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('blocking_issue_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('updated_at', 'text', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .addCheckConstraint('accounting_issue_scopes_scope_kind_valid', sql`scope_kind IN ('profile', 'cost-basis')`)
+    .addCheckConstraint('accounting_issue_scopes_status_valid', sql`status IN ('ready', 'has-open-issues', 'failed')`)
+    .addCheckConstraint('accounting_issue_scopes_open_issue_count_non_negative', sql`open_issue_count >= 0`)
+    .addCheckConstraint('accounting_issue_scopes_blocking_issue_count_non_negative', sql`blocking_issue_count >= 0`)
+    .addCheckConstraint(
+      'accounting_issue_scopes_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_issue_scopes_profile_id')
+    .on('accounting_issue_scopes')
+    .column('profile_id')
+    .execute();
+
+  await db.schema
+    .createTable('accounting_issue_rows')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('scope_key', 'text', (col) =>
+      col.notNull().references('accounting_issue_scopes.scope_key').onDelete('cascade')
+    )
+    .addColumn('issue_key', 'text', (col) => col.notNull())
+    .addColumn('family', 'text', (col) => col.notNull())
+    .addColumn('code', 'text', (col) => col.notNull())
+    .addColumn('severity', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('summary', 'text', (col) => col.notNull())
+    .addColumn('first_seen_at', 'text', (col) => col.notNull())
+    .addColumn('last_seen_at', 'text', (col) => col.notNull())
+    .addColumn('closed_at', 'text')
+    .addColumn('closed_reason', 'text')
+    .addColumn('detail_json', 'text', (col) => col.notNull())
+    .addColumn('evidence_json', 'text', (col) => col.notNull())
+    .addColumn('next_actions_json', 'text', (col) => col.notNull())
+    .addCheckConstraint('accounting_issue_rows_family_valid', sql`family IN ('transfer_gap', 'asset_review_blocker')`)
+    .addCheckConstraint('accounting_issue_rows_code_valid', sql`code IN ('LINK_GAP', 'ASSET_REVIEW_BLOCKER')`)
+    .addCheckConstraint('accounting_issue_rows_severity_valid', sql`severity IN ('warning', 'blocked')`)
+    .addCheckConstraint('accounting_issue_rows_status_valid', sql`status IN ('open', 'closed')`)
+    .addCheckConstraint(
+      'accounting_issue_rows_closed_reason_valid',
+      sql`closed_reason IS NULL OR closed_reason IN ('disappeared')`
+    )
+    .addCheckConstraint('accounting_issue_rows_detail_json_valid', sql`json_valid(detail_json)`)
+    .addCheckConstraint('accounting_issue_rows_evidence_json_valid', sql`json_valid(evidence_json)`)
+    .addCheckConstraint('accounting_issue_rows_next_actions_json_valid', sql`json_valid(next_actions_json)`)
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_issue_rows_scope_status')
+    .on('accounting_issue_rows')
+    .columns(['scope_key', 'status'])
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_issue_rows_open_scope_issue_key
+    ON accounting_issue_rows (scope_key, issue_key)
+    WHERE status = 'open'
+  `.execute(db);
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('accounting_issue_rows').ifExists().execute();
+  await db.schema.dropTable('accounting_issue_scopes').ifExists().execute();
   await db.schema.dropTable('asset_review_evidence').ifExists().execute();
   await db.schema.dropTable('asset_review_state').ifExists().execute();
   await db.schema.dropTable('balance_snapshot_assets').ifExists().execute();

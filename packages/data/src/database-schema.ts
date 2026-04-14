@@ -1,4 +1,13 @@
 import type {
+  AccountingIssueClosedReason,
+  AccountingIssueCode,
+  AccountingIssueFamily,
+  AccountingIssueScopeKind,
+  AccountingIssueScopeStatus,
+  AccountingIssueSeverity,
+  StoredAccountingIssueRowStatus,
+} from '@exitbook/accounting/issues';
+import type {
   AssetReviewEvidence,
   AssetReferenceStatus,
   AssetReviewStatus,
@@ -353,6 +362,36 @@ export interface AssetReviewEvidenceTable {
   metadata_json: JSONString | null;
 }
 
+export interface AccountingIssueScopesTable {
+  scope_key: string;
+  scope_kind: AccountingIssueScopeKind;
+  profile_id: number;
+  title: string;
+  status: AccountingIssueScopeStatus;
+  open_issue_count: number;
+  blocking_issue_count: number;
+  updated_at: DateTime;
+  metadata_json: JSONString | null;
+}
+
+export interface AccountingIssueRowsTable {
+  id: string;
+  scope_key: string;
+  issue_key: string;
+  family: AccountingIssueFamily;
+  code: AccountingIssueCode;
+  severity: AccountingIssueSeverity;
+  status: StoredAccountingIssueRowStatus;
+  summary: string;
+  first_seen_at: DateTime;
+  last_seen_at: DateTime;
+  closed_at: DateTime | null;
+  closed_reason: AccountingIssueClosedReason | null;
+  detail_json: JSONString;
+  evidence_json: JSONString;
+  next_actions_json: JSONString;
+}
+
 /**
  * Main database interface combining all tables
  */
@@ -371,4 +410,6 @@ export interface DatabaseSchema {
   balance_snapshot_assets: BalanceSnapshotAssetsTable;
   asset_review_state: AssetReviewStateTable;
   asset_review_evidence: AssetReviewEvidenceTable;
+  accounting_issue_scopes: AccountingIssueScopesTable;
+  accounting_issue_rows: AccountingIssueRowsTable;
 }
