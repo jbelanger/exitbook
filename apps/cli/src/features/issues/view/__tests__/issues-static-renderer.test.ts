@@ -1,0 +1,155 @@
+import { stripVTControlCharacters } from 'node:util';
+
+import type {
+  AccountingIssueDetailItem,
+  AccountingIssueScopeSummary,
+  AccountingIssueSummaryItem,
+} from '@exitbook/accounting/issues';
+import { describe, expect, it } from 'vitest';
+
+import { buildIssuesStaticDetail, buildIssuesStaticOverview } from '../issues-static-renderer.js';
+
+function createScopeSummary(overrides: Partial<AccountingIssueScopeSummary> = {}): AccountingIssueScopeSummary {
+  return {
+    scopeKind: 'profile',
+    scopeKey: 'profile:1',
+    profileId: 1,
+    title: 'default',
+    status: 'has-open-issues',
+    openIssueCount: 2,
+    blockingIssueCount: 2,
+    updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function createSummaryItem(overrides: Partial<AccountingIssueSummaryItem> = {}): AccountingIssueSummaryItem {
+  return {
+    issueRef: '2d4c8e1af3',
+    family: 'transfer_gap',
+    code: 'LINK_GAP',
+    severity: 'blocked',
+    status: 'open',
+    summary: 'ADA transfer still needs review',
+    nextActions: [
+      {
+        kind: 'review_gap',
+        label: 'Review in links gaps',
+        mode: 'routed',
+        routeTarget: {
+          family: 'links',
+          selectorKind: 'gap-ref',
+          selectorValue: 'c6787f8ae9',
+        },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function createDetailItem(overrides: Partial<AccountingIssueDetailItem> = {}): AccountingIssueDetailItem {
+  return {
+    ...createSummaryItem(),
+    scope: {
+      kind: 'profile',
+      key: 'profile:1',
+    },
+    details: 'This outflow has no confirmed internal transfer match yet.',
+    whyThisMatters: 'Blocks trustworthy transfer accounting for this movement.',
+    evidenceRefs: [
+      {
+        kind: 'gap',
+        ref: 'c6787f8ae9',
+      },
+      {
+        kind: 'transaction',
+        ref: '9c1f37d0ab',
+      },
+    ],
+    nextActions: [
+      {
+        kind: 'review_gap',
+        label: 'Review in links gaps',
+        mode: 'routed',
+        routeTarget: {
+          family: 'links',
+          selectorKind: 'gap-ref',
+          selectorValue: 'c6787f8ae9',
+        },
+      },
+      {
+        kind: 'inspect_transaction',
+        label: 'Inspect transaction',
+        mode: 'review_only',
+        routeTarget: {
+          family: 'transactions',
+          selectorKind: 'tx-ref',
+          selectorValue: '9c1f37d0ab',
+        },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+describe('issues-static-renderer', () => {
+  it('renders the overview with current issue rows and next actions', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticOverview({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        scope: createScopeSummary(),
+        currentIssues: [createSummaryItem()],
+        scopedLenses: [],
+      })
+    );
+
+    expect(output).toContain('Issues 2 open · 2 blocking · Profile has open issues');
+    expect(output).toContain('Current Issues');
+    expect(output).toContain('ISSUE-REF');
+    expect(output).toContain('2d4c8e1af3');
+    expect(output).toContain('Transfer gap');
+    expect(output).toContain('Review in links gaps');
+  });
+
+  it('renders the empty overview state clearly', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticOverview({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        scope: createScopeSummary({
+          status: 'ready',
+          openIssueCount: 0,
+          blockingIssueCount: 0,
+        }),
+        currentIssues: [],
+        scopedLenses: [],
+      })
+    );
+
+    expect(output).toContain('Issues 0 open · 0 blocking · Profile ready');
+    expect(output).toContain('No current issues.');
+  });
+
+  it('renders detail with evidence and possible next actions', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticDetail({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        issue: createDetailItem(),
+      })
+    );
+
+    expect(output).toContain('Issue 2d4c8e1af3');
+    expect(output).toContain('Possible next actions');
+    expect(output).toContain('Review in links gaps');
+    expect(output).toContain('Routed action · links gaps view c6787f8ae9');
+    expect(output).toContain('Review only · transactions view 9c1f37d0ab');
+    expect(output).toContain('Evidence');
+    expect(output).toContain('GAP-REF c6787f8ae9');
+    expect(output).toContain('TX-REF 9c1f37d0ab');
+  });
+});

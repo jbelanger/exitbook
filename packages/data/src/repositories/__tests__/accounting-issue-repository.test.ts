@@ -119,7 +119,11 @@ describe('AccountingIssueRepository', () => {
       whyThisMatters: 'Blocks trustworthy transfer accounting for this movement.',
     });
     expect(detail?.issue.evidenceRefs[0]?.kind).toBe('gap');
-    expect(typeof detail?.issue.evidenceRefs[0]?.ref).toBe('string');
+    const firstEvidence = detail?.issue.evidenceRefs[0];
+    expect(firstEvidence?.kind).toBe('gap');
+    if (firstEvidence?.kind === 'gap') {
+      expect(typeof firstEvidence.ref).toBe('string');
+    }
     expect(detail?.issue.evidenceRefs[1]).toEqual({
       kind: 'transaction',
       ref: 'tx-fingerp',

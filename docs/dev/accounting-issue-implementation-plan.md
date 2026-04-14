@@ -208,12 +208,23 @@ Completed so far:
 - targeted tests landed for:
   - profile snapshot building
   - repository reconciliation / read-back
+  - issue selector resolution
+  - static overview/detail rendering
+- CLI browse surface landed under `apps/cli/src/features/issues/`
+- overview/detail JSON output landed for:
+  - `issues`
+  - `issues list`
+  - `issues view <ISSUE-REF>`
+- live CLI validation passed against a fresh temp data dir using `node --import tsx ./apps/cli/src/index.ts issues --json`
 
 Remaining in this phase:
 
-- CLI browse surface under `apps/cli/src/features/issues/`
-- overview/detail JSON output
-- live CLI verification against workspace data
+- real-workspace validation after local dev DB reset
+
+Notes:
+
+- the current workspace `apps/cli/data/transactions.db` predates the new schema, so `issues` currently fails there with `no such table: accounting_issue_scopes`
+- this is expected with the repo's initial-migration-only development workflow and is not a reason to add ad hoc schema patching
 
 Deliver:
 

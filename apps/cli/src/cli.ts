@@ -13,6 +13,7 @@ import { registerBlockchainsCommand } from './features/blockchains/command/block
 import { registerClearCommand } from './features/clear/command/clear.js';
 import { registerCostBasisCommand } from './features/cost-basis/command/cost-basis.js';
 import { registerImportCommand } from './features/import/command/import.js';
+import { registerIssuesCommand } from './features/issues/command/issues.js';
 import { registerLinksCommand } from './features/links/command/links.js';
 import { registerPortfolioCommand } from './features/portfolio/command/portfolio.js';
 import { registerPricesCommand } from './features/prices/command/prices.js';
@@ -91,7 +92,7 @@ Start Here:
 Command Journeys:
   Workspace setup      profiles, accounts, blockchains, providers
   Sync and rebuild     import, reprocess, links run, prices enrich, accounts refresh
-  Review and resolve   transactions explore, links explore, assets explore, accounts explore
+  Review and resolve   issues, transactions explore, links explore, assets explore, accounts explore
   Analyze and export   portfolio, cost-basis, transactions export, cost-basis export
   Cleanup and recovery clear
 
@@ -104,6 +105,7 @@ Notes:
   registerImportCommand(program, appRuntime);
   registerProfilesCommand(program);
   registerReprocessCommand(program, appRuntime);
+  registerIssuesCommand(program);
   registerLinksCommand(program, appRuntime);
   registerAccountsCommand(program, appRuntime);
   registerAssetsCommand(program);
