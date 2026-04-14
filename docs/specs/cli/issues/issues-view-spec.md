@@ -196,7 +196,8 @@ Sections:
 Rules:
 
 - Phase 1A may render only `Current Issues`
-- Phase 1B may add `Scoped Accounting Lenses` once scoped materialization exists
+- Phase 1B renders `Scoped Accounting Lenses` when scoped issue scopes have
+  already been materialized for the active profile
 - when there are no current issues, the overview still shows readiness clearly
 - overview ordering should prefer:
   1. blocking work

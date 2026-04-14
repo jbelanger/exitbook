@@ -280,34 +280,31 @@ Acceptance criteria:
 
 ### Phase 1B: Scoped Cost-Basis Issue Projection
 
-Status: in progress
+Status: complete
 
 Completed so far:
 
 - profile-qualified cost-basis issue scope identity landed in `packages/accounting/src/issues/`
 - scoped `tax_readiness` issue family mapping landed in `packages/accounting/src/issues/cost-basis-issues.ts`
+- accounting-owned cost-basis issue materialization landed in `packages/accounting/src/issues/cost-basis-issue-materializer.ts`
 - cross-scope current-issue lookup landed in `packages/data/src/repositories/accounting-issue-repository.ts`
 - scoped cost-basis CLI browse path landed under `apps/cli/src/features/issues/`
 - bare `issues` overview now discovers previously materialized scoped cost-basis lenses
 - `issues view <ISSUE-REF>` now resolves across current surfaced rows for the active profile
 - Canada workflow execution now respects caller `missingPricePolicy`, which is required for honest `MISSING_PRICE_DATA` surfacing in `issues cost-basis`
+- soft cost-basis rebuild selection now stabilizes retained raw transactions before downstream workflow execution
 - accounting/data targeted tests landed for:
   - cost-basis issue scope key + snapshot building
+  - accounting-owned cost-basis issue materialization
   - cross-scope current-issue repository reads
-  - cost-basis workflow missing-price policy behavior
+  - cost-basis workflow missing-price stabilization behavior
   - issues CLI renderer coverage for scoped lens rendering
   - issues command coverage for scoped-lens overview pass-through
-
-Remaining in this phase:
-
-- Phase 1B live CLI validation
-
-Current blocker:
-
-- real-workspace Phase 1B validation is still blocked on the current `apps/cli/data/transactions.db`
-  carrying the older Phase 1A `accounting_issue_rows` check constraint
-- this is dev schema drift under the repo's reset-and-reimport workflow, not a known Phase 1B logic failure
-- the code, tests, and builds are ready for a fresh Phase 1B-shaped DB; the current workspace DB is not
+- Phase 1B live CLI validation passed on a rebuilt workspace DB:
+  - `issues --json`
+  - `issues list --json`
+  - `issues view <ISSUE-REF> --json`
+  - `issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --json`
 
 Deliver:
 
@@ -328,6 +325,9 @@ Acceptance criteria:
   - `issues cost-basis ...` only shows the requested scope
 - scoped identity is profile-safe:
   - cost-basis issue scopes cannot collide across profiles that share the same reporting config
+- cost-basis issue production is accounting-owned:
+  - CLI chooses the scope and renders the result
+  - accounting owns the scoped materialization workflow
 - targeted tests + package builds + live CLI checks
 
 ### Phase 2: Review-State Actions

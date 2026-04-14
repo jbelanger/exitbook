@@ -403,8 +403,8 @@ Rules:
 ### Phase 1A materializer split
 
 - Phase 1A needs one materializer for profile-global issue scopes.
-- Phase 1B may add a second materializer for cost-basis-scoped issue lenses on
-  the same storage model.
+- Phase 1B adds a second materializer for cost-basis-scoped issue lenses on the
+  same storage model.
 
 ### Scope reconciliation
 

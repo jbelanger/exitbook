@@ -50,3 +50,5 @@ export {
   buildCostBasisAccountingIssueScopeSnapshot,
 } from './issues/cost-basis-issues.js';
 export type { BuildCostBasisAccountingIssueScopeSnapshotInput } from './issues/cost-basis-issues.js';
+export { materializeCostBasisAccountingIssueScopeSnapshot } from './issues/cost-basis-issue-materializer.js';
+export type { MaterializeCostBasisAccountingIssueScopeSnapshotInput } from './issues/cost-basis-issue-materializer.js';

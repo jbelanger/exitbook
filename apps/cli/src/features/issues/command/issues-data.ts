@@ -1,15 +1,7 @@
+import { type ValidatedCostBasisConfig } from '@exitbook/accounting/cost-basis';
 import {
-  CostBasisWorkflow,
-  buildTaxPackageBuildContext,
-  deriveTaxPackageReadinessMetadata,
-  evaluateTaxPackageReadiness,
-  validateTaxPackageScope,
-  type ValidatedCostBasisConfig,
-} from '@exitbook/accounting/cost-basis';
-import {
-  buildCostBasisAccountingIssueScopeKey,
-  buildCostBasisAccountingIssueScopeSnapshot,
   buildProfileAccountingIssueScopeSnapshot,
+  materializeCostBasisAccountingIssueScopeSnapshot,
   type AccountingIssueDetailItem,
   type AccountingIssueScopeSummary,
   type AccountingIssueSummaryItem,
@@ -209,12 +201,6 @@ async function materializeScopedCostBasisIssues(
   return resultDoAsync(async function* () {
     const db = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, db), ExitCodes.GENERAL_ERROR);
-    const validatedScope = yield* toCliResult(
-      validateTaxPackageScope({
-        config: params,
-      }),
-      ExitCodes.INVALID_ARGS
-    );
 
     yield* await ensureProfileIssueInputsReady(runtime, format, profile.id, profile.profileKey);
 
@@ -223,47 +209,22 @@ async function materializeScopedCostBasisIssues(
       ExitCodes.GENERAL_ERROR
     );
     const contextReader = buildCostBasisPorts(db, profile.id);
-    const sourceContext = yield* toCliResult(await contextReader.loadCostBasisContext(), ExitCodes.GENERAL_ERROR);
     const assetReviewSummaries = yield* toCliResult(
       await readAssetReviewProjectionSummaries(db, profile.id),
       ExitCodes.GENERAL_ERROR
     );
     const priceRuntime = params.currency === 'USD' ? undefined : await runtime.openPriceProviderRuntime();
-    const workflow = new CostBasisWorkflow(contextReader, priceRuntime);
-    const workflowResult = yield* toCliResult(
-      await workflow.execute(params, sourceContext.transactions, {
+    const snapshot = yield* toCliResult(
+      await materializeCostBasisAccountingIssueScopeSnapshot({
         accountingExclusionPolicy,
         assetReviewSummaries,
-        missingPricePolicy: 'exclude',
+        config: params,
+        contextReader,
+        priceRuntime,
+        profileId: profile.id,
       }),
       ExitCodes.GENERAL_ERROR
     );
-
-    const scopeKey = buildCostBasisAccountingIssueScopeKey(profile.id, params);
-    const buildContext = yield* toCliResult(
-      buildTaxPackageBuildContext({
-        artifact: workflowResult,
-        sourceContext,
-        scopeKey,
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
-    const readinessMetadata = deriveTaxPackageReadinessMetadata({
-      context: buildContext,
-      assetReviewSummaries,
-    });
-    const readiness = evaluateTaxPackageReadiness({
-      workflowResult,
-      scope: validatedScope,
-      metadata: readinessMetadata,
-    });
-    const snapshot = buildCostBasisAccountingIssueScopeSnapshot({
-      config: params,
-      profileId: profile.id,
-      readiness,
-      readinessMetadata,
-      scope: validatedScope,
-    });
 
     yield* toCliResult(await db.accountingIssues.reconcileScope(snapshot), ExitCodes.GENERAL_ERROR);
 
