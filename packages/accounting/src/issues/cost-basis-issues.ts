@@ -88,7 +88,7 @@ function buildTaxReadinessAccountingIssue(
     family: 'tax_readiness',
     code: issue.code,
     severity: issue.severity,
-    status: 'open',
+    reviewState: 'open',
     summary: issue.summary,
     details: issueDetail,
     whyThisMatters: buildTaxReadinessWhyThisMatters(issue),

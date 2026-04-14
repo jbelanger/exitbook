@@ -28,8 +28,8 @@ export const AccountingIssueCodeSchema = z.enum([
 ]);
 export type AccountingIssueCode = z.infer<typeof AccountingIssueCodeSchema>;
 
-export const AccountingIssueStatusSchema = z.literal('open');
-export type AccountingIssueStatus = z.infer<typeof AccountingIssueStatusSchema>;
+export const AccountingIssueReviewStateSchema = z.enum(['open', 'acknowledged']);
+export type AccountingIssueReviewState = z.infer<typeof AccountingIssueReviewStateSchema>;
 
 export const StoredAccountingIssueRowStatusSchema = z.enum(['open', 'closed']);
 export type StoredAccountingIssueRowStatus = z.infer<typeof StoredAccountingIssueRowStatusSchema>;
@@ -76,7 +76,7 @@ export const AccountingIssueSummaryItemSchema = z.object({
   family: AccountingIssueFamilySchema,
   code: AccountingIssueCodeSchema,
   severity: AccountingIssueSeveritySchema,
-  status: AccountingIssueStatusSchema,
+  reviewState: AccountingIssueReviewStateSchema,
   summary: z.string().trim().min(1),
   nextActions: z.array(AccountingIssueNextActionSchema),
 });

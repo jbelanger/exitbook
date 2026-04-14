@@ -383,6 +383,7 @@ export interface AccountingIssueRowsTable {
   severity: AccountingIssueSeverity;
   status: StoredAccountingIssueRowStatus;
   summary: string;
+  acknowledged_at: DateTime | null;
   first_seen_at: DateTime;
   last_seen_at: DateTime;
   closed_at: DateTime | null;

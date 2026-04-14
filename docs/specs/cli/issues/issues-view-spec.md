@@ -7,12 +7,15 @@ status: canonical
 
 ## Scope
 
-This document defines the read surfaces for the `issues` family:
+This document defines the browse and review-state surfaces for the `issues`
+family:
 
 - `exitbook issues`
 - `exitbook issues list`
 - `exitbook issues view <selector>`
 - `exitbook issues cost-basis --jurisdiction ... --tax-year ... --method ...`
+- `exitbook issues acknowledge <selector>`
+- `exitbook issues reopen <selector>`
 
 It covers:
 
@@ -22,15 +25,16 @@ It covers:
 - selector rules
 - list/detail JSON shape expectations
 - how possible next actions render in the read path
+- review-state command behavior
 
 Out of scope:
 
-- issue write actions
 - domain corrective actions
 - routed domain workflows such as `assets confirm` or future transfer corrections
 - TUI/explorer behavior
 
-This spec is the intended Phase 1A / Phase 1B read-surface target.
+This spec is the intended Phase 1A / Phase 1B browse target plus the shipped
+Phase 2 review-state command surface.
 
 The shared accounting issue object, selector contract, scope model, and
 materialization lifecycle live in
@@ -44,7 +48,8 @@ The `issues` family is the operator-facing accounting issue workflow.
 Rules:
 
 - `issues` is overview-first, not filter-first
-- the family is read-only in its first shipped phases
+- Phase 1A / 1B are browse-first; Phase 2 adds review-state actions that do not
+  change accounting truth
 - issue identity is derived; numeric row ids are storage details only
 - the family may route users into owning workflows, but does not absorb those workflows by default
 - the family must make remaining work and next actions clear without requiring the user to infer command ownership
@@ -68,6 +73,8 @@ Shared contract note:
 | `issues list`                                                      | Explicit alias of the same overview surface | Static overview    |
 | `issues view <selector>`                                           | Focused inspection of one current issue     | Static detail card |
 | `issues cost-basis --jurisdiction ... --tax-year ... --method ...` | Scoped issue list for one cost-basis lens   | Static scoped list |
+| `issues acknowledge <selector>`                                    | Acknowledge one current issue               | Text / JSON result |
+| `issues reopen <selector>`                                         | Reopen one acknowledged issue               | Text / JSON result |
 | Any of the above + `--json`                                        | Machine output for the same semantic target | JSON               |
 
 Rules:
@@ -77,6 +84,7 @@ Rules:
 - `issues view <selector>` is always detail-shaped
 - `issues` remains useful even before scoped cost-basis lenses exist
 - `issues` does not require flags for the default operator flow
+- review-state commands apply only to current surfaced issue rows
 
 ### Scoped cost-basis path
 
@@ -159,6 +167,9 @@ Rules:
   - `review_only`
 - a routed action includes a semantic route target
 - CLI may derive renderer-specific command hints from structured action data
+- current shipped direct actions are review-state actions:
+  - `acknowledge_issue`
+  - `reopen_acknowledgement`
 
 ### Action rendering rules
 
@@ -169,7 +180,7 @@ Rules:
 - issue detail must render the full action list
 - routed actions must clearly indicate the owning workflow
 - review-only actions must render as informational next steps, not as fake mutations
-- direct actions must not appear until the underlying write path is implemented
+- direct actions may appear only when the underlying write path is implemented
 - the same action slot must later support real corrective actions such as:
   - grouped transfer confirmation
   - explained residual declaration
@@ -224,6 +235,7 @@ List columns:
 
 - `ISSUE-REF`
 - `SEV`
+- `REVIEW`
 - `TYPE`
 - `SUMMARY`
 - `NEXT`
@@ -243,7 +255,7 @@ Overview JSON contract:
   - `family`
   - `code`
   - `severity`
-  - `status`
+  - `reviewState`
   - `summary`
   - `nextActions`
 - overview JSON may omit detail-only fields such as `details`,
@@ -279,8 +291,9 @@ Scoped lens JSON contract:
   - `openIssueCount`
   - `blockingIssueCount`
   - `updatedAt`
-- human rendering may derive friendlier `SCOPE` labels from scope metadata, but
-  the JSON contract keeps the canonical scope identity
+- human rendering may derive friendlier `SCOPE` labels and readiness labels from
+  scope metadata, but the JSON contract keeps the canonical scope identity and
+  readiness enum
 
 ## Issue Detail Surface
 
@@ -292,12 +305,13 @@ Scoped lens JSON contract:
 
 1. title line with issue ref, severity, and human type
 2. `Scope`
-3. `Summary`
-4. `Details`
-5. `Why this matters`
-6. `Possible next actions`
-7. `Evidence`
-8. optional routed workflow guidance
+3. `Review`
+4. `Summary`
+5. `Details`
+6. `Why this matters`
+7. `Possible next actions`
+8. `Evidence`
+9. optional routed workflow guidance
 
 Rules:
 
@@ -319,7 +333,7 @@ Detail JSON contract:
   - `family`
   - `code`
   - `severity`
-  - `status`
+  - `reviewState`
   - `summary`
   - `details`
   - `whyThisMatters`
@@ -348,13 +362,14 @@ Rules:
 Readiness line shape:
 
 ```text
-Status: {status} · {blocking} blocking · {open} open
+Status: {human_readiness} · {blocking} blocking · {open} open
 ```
 
 ### Scoped list columns
 
 - `ISSUE-REF`
 - `SEV`
+- `REVIEW`
 - `TYPE`
 - `SUMMARY`
 - `NEXT`
@@ -364,6 +379,58 @@ Rules:
 - scoped issue rows render the same next-action model as profile-global issue rows
 - if the issue routes back to another workflow, that route remains visible here
 - the scoped list must not silently mix in other scopes
+
+## Review-State Commands
+
+### Applies to
+
+- `exitbook issues acknowledge <selector>`
+- `exitbook issues reopen <selector>`
+
+Rules:
+
+- review-state commands resolve selectors only against current surfaced issue rows
+- `issues acknowledge` changes only the current row review state from `open` to
+  `acknowledged`
+- `issues reopen` changes only the current row review state from
+  `acknowledged` to `open`
+- both commands are no-ops when the row is already in the requested review
+  state
+- neither command changes:
+  - accounting truth
+  - scope readiness
+  - current issue counts
+  - canonical issue identity
+- text output should clearly report:
+  - the action performed
+  - whether the command changed anything
+  - the affected `ISSUE-REF`
+  - the resulting review state
+
+Review-state JSON contract:
+
+- success payload must include:
+  - `action`
+  - `changed`
+  - `issueRef`
+  - `scopeKey`
+  - `reviewState`
+  - `summary`
+
+Shape:
+
+```json
+{
+  "data": {
+    "action": "acknowledge",
+    "changed": true,
+    "issueRef": "79c89e99ce",
+    "scopeKey": "profile:42:cost-basis:8b5e53cd",
+    "reviewState": "acknowledged",
+    "summary": "Required transaction price data is missing."
+  }
+}
+```
 
 ## JSON Output
 
@@ -390,7 +457,7 @@ Shape:
         "family": "transfer_gap",
         "code": "LINK_GAP",
         "severity": "blocked",
-        "status": "open",
+        "reviewState": "open",
         "summary": "Unmatched ADA outflow still needs transfer review",
         "nextActions": [
           {
@@ -442,7 +509,7 @@ Shape:
     "family": "transfer_gap",
     "code": "LINK_GAP",
     "severity": "blocked",
-    "status": "open",
+    "reviewState": "open",
     "summary": "ADA transfer still needs review",
     "details": "This outflow has no confirmed internal transfer match yet.",
     "whyThisMatters": "Blocks trustworthy transfer accounting for this movement.",
@@ -498,7 +565,7 @@ Shape:
         "family": "tax_readiness",
         "code": "MISSING_PRICE_DATA",
         "severity": "blocked",
-        "status": "open",
+        "reviewState": "open",
         "summary": "Required transaction price data is missing.",
         "nextActions": [
           {
@@ -531,16 +598,16 @@ Issues 4 open · 3 blocking · Profile not ready
 
 Current Issues
 
-ISSUE-REF   SEV      TYPE              SUMMARY                                      NEXT
-2d4c8e1af3  blocked  Transfer gap      ADA transfer still needs review              Review in links gaps
-7b12aa09ce  blocked  Asset review      USDC asset review blocks accounting          Review in assets
-31a9ef2b77  warning  Transfer gap      Small SOL residual is still unexplained      Inspect gap detail
+ISSUE-REF   SEV      REVIEW  TYPE                  SUMMARY                               NEXT
+2d4c8e1af3  blocked  OPEN    Transfer gap          ADA transfer still needs review       Review in links gaps
+7b12aa09ce  blocked  OPEN    Asset review blocker  USDC asset review blocks accounting   Review in assets
+31a9ef2b77  warning  OPEN    Transfer gap          Small SOL residual is unexplained     Inspect gap detail
 
 Scoped Accounting Lenses
 
-SCOPE                         STATUS          OPEN  UPDATED            NEXT
-CA / average-cost / 2024      has-open-issues  2    2026-04-13 09:42  Open scoped issues
-US / fifo / 2025              ready            0    2026-04-12 18:10  View readiness
+SCOPE                         STATUS     OPEN  UPDATED            NEXT
+CA / average-cost / 2024      NOT READY  2     2026-04-13 09:42  Open scoped issues
+US / fifo / 2025              READY      0     2026-04-12 18:10  View readiness
 ```
 
 ### Empty Overview Mockup
@@ -558,10 +625,10 @@ You can proceed to your next scoped reporting workflow.
 ### Issue Detail Mockup
 
 ```text
-Issue 2d4c8e1af3 · blocked · Transfer gap
+Issue 2d4c8e1af3 [BLOCKED] [OPEN] Transfer gap
 
-Scope
-  profile
+Scope: profile (profile:1)
+Review: OPEN
 
 Summary
   ADA transfer still needs review
@@ -586,10 +653,10 @@ Evidence
 ### Future Direct-Action Detail Mockup
 
 ```text
-Issue 6f2e4c91ab · blocked · Transfer gap
+Issue 6f2e4c91ab [BLOCKED] [OPEN] Transfer gap
 
-Scope
-  profile
+Scope: profile (profile:1)
+Review: OPEN
 
 Summary
   Three source movements and one target movement likely form one grouped transfer
@@ -608,11 +675,21 @@ Possible next actions
 ```text
 Issues · Cost basis scope
 CA · average-cost · 2024
-Status: has open issues · 2 blocking
+Status: not ready · 2 blocking · 2 open
 
-ISSUE-REF   SEV      TYPE              SUMMARY                                      NEXT
-98d1cc7a01  blocked  Tax readiness     Transfer linking is incomplete for one row   Review in links
-27f90be4d3  blocked  Tax readiness     Transaction classification is still unknown  Inspect transaction
+ISSUE-REF   SEV      REVIEW  TYPE           SUMMARY                                      NEXT
+98d1cc7a01  blocked  OPEN    Tax readiness  Transfer linking is incomplete for one row   Review in links
+27f90be4d3  blocked  OPEN    Tax readiness  Transaction classification is still unknown  Inspect transaction
+```
+
+### Review-State Command Mockup
+
+```text
+✓ Issue acknowledged
+   Issue: 79c89e99ce
+   Review: acknowledged
+   Scope: profile:1:cost-basis:8b5e53cd
+   Summary: Required transaction price data is missing.
 ```
 
 ## Semantic Rules

@@ -10,7 +10,7 @@ import pc from 'picocolors';
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 
 const STATIC_LIST_COLUMN_GAP = '  ';
-const ISSUE_LIST_COLUMN_ORDER = ['ref', 'severity', 'type', 'summary', 'next'] as const;
+const ISSUE_LIST_COLUMN_ORDER = ['ref', 'severity', 'review', 'type', 'summary', 'next'] as const;
 const SCOPED_LENS_COLUMN_ORDER = ['scope', 'status', 'open', 'updated', 'next'] as const;
 
 export interface IssuesStaticOverviewState {
@@ -78,9 +78,10 @@ export function buildIssuesStaticDetail(state: IssuesStaticDetailState): string 
     `${pc.bold(`Issue ${state.issue.issueRef}`)} ${colorizeSeverity(
       state.issue.severity,
       `[${formatSeverityLabel(state.issue.severity)}]`
-    )} ${pc.cyan(formatFamilyLabel(state.issue.family))}`,
+    )} ${colorizeIssueReviewState(state.issue.reviewState, `[${formatIssueReviewStateLabel(state.issue.reviewState)}]`)} ${pc.cyan(formatFamilyLabel(state.issue.family))}`,
     '',
     buildDetailLine('Scope', formatIssueScope(state.issue)),
+    buildDetailLine('Review', formatIssueReviewStateLabel(state.issue.reviewState)),
     buildDetailLine('Summary', state.issue.summary),
     '',
     pc.bold('Details'),
@@ -90,7 +91,7 @@ export function buildIssuesStaticDetail(state: IssuesStaticDetailState): string 
     state.issue.whyThisMatters,
     '',
     pc.bold('Possible next actions'),
-    ...buildNextActionLines(state.issue.nextActions),
+    ...buildNextActionLines(state.issue.issueRef, state.issue.nextActions),
     '',
     pc.bold('Evidence'),
     ...buildEvidenceLines(state.issue.evidenceRefs),
@@ -175,17 +176,26 @@ function formatFamilyLabel(family: AccountingIssueSummaryItem['family']): string
   }
 }
 
+function formatIssueReviewStateLabel(reviewState: AccountingIssueSummaryItem['reviewState']): string {
+  switch (reviewState) {
+    case 'acknowledged':
+      return 'ACKNOWLEDGED';
+    case 'open':
+      return 'OPEN';
+  }
+}
+
 function formatIssueScope(issue: AccountingIssueDetailItem): string {
   return `${issue.scope.kind} (${issue.scope.key})`;
 }
 
-function buildNextActionLines(actions: readonly AccountingIssueNextAction[]): string[] {
+function buildNextActionLines(issueRef: string, actions: readonly AccountingIssueNextAction[]): string[] {
   if (actions.length === 0) {
     return ['  No actions available.'];
   }
 
   return actions.flatMap((action, index) => {
-    const commandHint = buildActionCommandHint(action);
+    const commandHint = buildActionCommandHint(issueRef, action);
     const modeLabel = formatActionModeLabel(action.mode);
     const lines = [`  ${index + 1}. ${action.label}`];
 
@@ -197,6 +207,15 @@ function buildNextActionLines(actions: readonly AccountingIssueNextAction[]): st
 
     return lines;
   });
+}
+
+function colorizeIssueReviewState(reviewState: AccountingIssueSummaryItem['reviewState'], value: string): string {
+  switch (reviewState) {
+    case 'acknowledged':
+      return pc.cyan(value);
+    case 'open':
+      return pc.dim(value);
+  }
 }
 
 function buildEvidenceLines(evidenceRefs: readonly AccountingIssueEvidenceRef[]): string[] {
@@ -227,7 +246,16 @@ function formatActionModeLabel(mode: AccountingIssueNextAction['mode']): string 
   }
 }
 
-function buildActionCommandHint(action: AccountingIssueNextAction): string | undefined {
+function buildActionCommandHint(issueRef: string, action: AccountingIssueNextAction): string | undefined {
+  if (action.mode === 'direct') {
+    switch (action.kind) {
+      case 'acknowledge_issue':
+        return `issues acknowledge ${issueRef}`;
+      case 'reopen_acknowledgement':
+        return `issues reopen ${issueRef}`;
+    }
+  }
+
   if (!action.routeTarget) {
     return undefined;
   }
@@ -258,6 +286,10 @@ function buildIssueTableLines(issues: readonly AccountingIssueSummaryItem[]): st
       format: (issue) => formatSeverityLabel(issue.severity),
       minWidth: 'SEV'.length,
     },
+    review: {
+      format: (issue) => formatIssueReviewStateLabel(issue.reviewState),
+      minWidth: 'REVIEW'.length,
+    },
     type: {
       format: (issue) => formatFamilyLabel(issue.family),
       minWidth: 'TYPE'.length,
@@ -278,6 +310,7 @@ function buildIssueTableLines(issues: readonly AccountingIssueSummaryItem[]): st
         {
           ref: 'ISSUE-REF',
           severity: 'SEV',
+          review: 'REVIEW',
           type: 'TYPE',
           summary: 'SUMMARY',
           next: 'NEXT',
@@ -296,6 +329,7 @@ function buildIssueTableLines(issues: readonly AccountingIssueSummaryItem[]): st
           ...formatted,
           ref: pc.bold(formatted.ref),
           severity: colorizeSeverity(issue.severity, formatted.severity),
+          review: colorizeIssueReviewState(issue.reviewState, formatted.review),
           type: pc.cyan(formatted.type),
           summary: formatted.summary,
           next: pc.dim(formatted.next),
@@ -369,17 +403,28 @@ function buildScopedLensTableLines(scopedLenses: readonly AccountingIssueScopeSu
 }
 
 function formatScopedStatusLine(scope: AccountingIssueScopeSummary): string {
-  return `${scope.status} · ${scope.blockingIssueCount} blocking · ${scope.openIssueCount} open`;
+  return `${formatScopedReadinessText(scope.status)} · ${scope.blockingIssueCount} blocking · ${scope.openIssueCount} open`;
 }
 
 function formatScopedScopeStatus(status: AccountingIssueScopeSummary['status']): string {
+  switch (status) {
+    case 'ready':
+      return 'READY';
+    case 'failed':
+      return 'FAILED';
+    case 'has-open-issues':
+      return 'NOT READY';
+  }
+}
+
+function formatScopedReadinessText(status: AccountingIssueScopeSummary['status']): string {
   switch (status) {
     case 'ready':
       return 'ready';
     case 'failed':
       return 'failed';
     case 'has-open-issues':
-      return 'has-open-issues';
+      return 'not ready';
   }
 }
 

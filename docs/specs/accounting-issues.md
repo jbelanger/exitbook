@@ -157,7 +157,7 @@ type AccountingIssueCode =
   | 'UNCERTAIN_PROCEEDS_ALLOCATION'
   | 'INCOMPLETE_TRANSFER_LINKING';
 
-type AccountingIssueStatus = 'open';
+type AccountingIssueReviewState = 'open' | 'acknowledged';
 
 type StoredAccountingIssueRowStatus = 'open' | 'closed';
 ```
@@ -197,7 +197,8 @@ Rules:
 - Routed actions must point to the owning workflow semantically, not as baked
   shell command strings.
 - Phase 1A is dominated by `routed` and `review_only` actions.
-- `direct` actions do not appear until the underlying write path exists.
+- Phase 2 adds cross-cutting direct review-state actions once the underlying
+  write path exists.
 
 ### Summary and detail contracts
 
@@ -207,7 +208,7 @@ interface AccountingIssueSummaryItem {
   family: AccountingIssueFamily;
   code: AccountingIssueCode;
   severity: AccountingIssueSeverity;
-  status: AccountingIssueStatus;
+  reviewState: AccountingIssueReviewState;
   summary: string;
   nextActions: readonly AccountingIssueNextAction[];
 }
@@ -378,6 +379,7 @@ interface AccountingIssueRow {
   code: string;
   severity: string;
   status: StoredAccountingIssueRowStatus;
+  acknowledgedAt?: Date | undefined;
   summary: string;
   firstSeenAt: Date;
   lastSeenAt: Date;
@@ -394,6 +396,9 @@ Rules:
 - One open row at most per `(scopeKey, issueKey)`.
 - Reappearing issues create a new row.
 - Closed rows are retained for history and progress.
+- Current public `reviewState` is derived from `acknowledgedAt` on the open row:
+  - `acknowledgedAt = null` => `reviewState = 'open'`
+  - `acknowledgedAt != null` => `reviewState = 'acknowledged'`
 - `detailJson`, `evidenceJson`, and `nextActionsJson` cache typed accounting
   payloads. They are not permission to treat those contracts as untyped blobs at
   the accounting boundary.
@@ -419,9 +424,11 @@ For one scope materialization pass:
    - refresh its cached summary, detail, evidence, and next actions
    - keep the same row `id`
    - update `lastSeenAt`
+   - preserve `acknowledgedAt`
 5. If no open row exists:
    - create a new row
    - generate a new row `id`
+   - set `acknowledgedAt = null`
    - set `firstSeenAt = lastSeenAt = now`
 6. For any previously open stored row missing from the new derived set:
    - mark it `closed`
@@ -469,9 +476,24 @@ assemble issue persistence ad hoc.
 - Add scoped lenses to the overview only after they have been materialized
   explicitly.
 
+### Phase 2
+
+- Add `issues acknowledge <ISSUE-REF>`.
+- Add `issues reopen <ISSUE-REF>`.
+- Acknowledge/reopen mutate only `acknowledgedAt` on the current open row.
+- Review-state actions do not change:
+  - canonical issue identity
+  - scope readiness
+  - open issue counts
+  - accounting truth
+- Reappearing issues always start with `acknowledgedAt = null`, so fresh review
+  attention is required.
+- Current issue rows append one cross-cutting direct review-state action:
+  - `acknowledge_issue` when `reviewState = 'open'`
+  - `reopen_acknowledgement` when `reviewState = 'acknowledged'`
+
 ### Later phases
 
-- review-state actions such as `acknowledge` / `reopen`
 - direct corrective actions such as grouped transfer confirmation
 - `execution_failure`
 - `missing_price`

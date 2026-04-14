@@ -49,6 +49,12 @@ export interface IssuesViewData {
   profileDisplayName: string;
 }
 
+export interface ResolvedCurrentIssueData extends IssuesViewData {
+  issueKey: string;
+  profileId: number;
+  scopeKey: string;
+}
+
 export interface IssuesScopedCostBasisData {
   activeProfileKey: string;
   activeProfileSource: 'default' | 'env' | 'state';
@@ -77,6 +83,23 @@ export async function loadIssueViewData(
   format: CliOutputFormat,
   selector: string
 ): Promise<Result<IssuesViewData, CliFailure>> {
+  return resultDoAsync(async function* () {
+    const resolved = yield* await resolveCurrentIssueData(runtime, format, selector);
+
+    return {
+      activeProfileKey: resolved.activeProfileKey,
+      activeProfileSource: resolved.activeProfileSource,
+      issue: resolved.issue,
+      profileDisplayName: resolved.profileDisplayName,
+    };
+  });
+}
+
+export async function resolveCurrentIssueData(
+  runtime: CommandRuntime,
+  format: CliOutputFormat,
+  selector: string
+): Promise<Result<ResolvedCurrentIssueData, CliFailure>> {
   return resultDoAsync(async function* () {
     const overview = yield* await loadIssuesOverviewData(runtime, format);
     const db = await runtime.database();
@@ -109,7 +132,10 @@ export async function loadIssueViewData(
       activeProfileKey: overview.activeProfileKey,
       activeProfileSource: overview.activeProfileSource,
       issue: detail.issue,
+      issueKey: detail.issueKey,
       profileDisplayName: overview.profileDisplayName,
+      profileId: overview.profileId,
+      scopeKey: resolution.value.item.scopeKey,
     };
   });
 }

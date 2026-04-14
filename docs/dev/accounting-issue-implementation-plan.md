@@ -92,6 +92,10 @@ Phase 1A row rules:
   - current issue detail
 - `issues cost-basis ...`
   - scoped cost-basis lens entry and browsing
+- `issues acknowledge <ISSUE-REF>`
+  - review-state acknowledgement only
+- `issues reopen <ISSUE-REF>`
+  - clear review-state acknowledgement
 
 ### Next-Action Model
 
@@ -108,6 +112,12 @@ Phase 1A row rules:
 - later phases can add direct corrective actions onto the same surface
 
 ### Phase 1A Field Lean
+
+Public issue contract:
+
+- issue summary/detail contracts expose `reviewState`, not lifecycle `status`
+- stored rows keep lifecycle `status`
+- scope rows keep readiness `status`
 
 Scope row:
 
@@ -129,7 +139,8 @@ Issue row:
 - `family`
 - `code`
 - `severity`
-- `status`
+- stored lifecycle `status`
+- optional `acknowledgedAt`
 - `summary`
 - `firstSeenAt`
 - `lastSeenAt`
@@ -162,7 +173,8 @@ Do not mine the frozen operations doc for missing rules during implementation.
 The canonical docs above now commit:
 
 - `ISSUE-REF` derivation and prefix-resolution rules
-- Phase 1A issue families, codes, severity/status enums, and evidence refs
+- Phase 1A issue families, codes, severity/review-state enums, lifecycle enums,
+  and evidence refs
 - `routeTarget` and `nextActions` shape
 - Phase 1A source-to-issue mapping
 - persisted scope/row lifecycle and reconciliation rules
@@ -332,7 +344,34 @@ Acceptance criteria:
 
 ### Phase 2: Review-State Actions
 
-Status: pending
+Status: complete
+
+Completed so far:
+
+- durable row-level review-state persistence landed on `accounting_issue_rows`
+  via nullable `acknowledged_at`
+- public issue contracts now expose `reviewState` instead of overloading
+  lifecycle `status`
+- cross-cutting direct review-state actions now render through the shared
+  `nextActions` surface:
+  - `acknowledge_issue`
+  - `reopen_acknowledgement`
+- CLI commands landed:
+  - `issues acknowledge <ISSUE-REF>`
+  - `issues reopen <ISSUE-REF>`
+- repository reconciliation preserves acknowledgement across rebuilds when the
+  canonical issue remains the same
+- reappearing issues require fresh acknowledgement because a new open row starts
+  with `acknowledged_at = null`
+- targeted tests landed for:
+  - repository acknowledgement / reopen behavior
+  - rebuild persistence / reappearance behavior
+  - review-state command JSON behavior
+  - static rendering of direct review-state actions
+- live CLI validation passed on the rebuilt workspace DB:
+  - `pnpm run dev issues acknowledge <ISSUE-REF> --json`
+  - `pnpm run dev issues view <ISSUE-REF> --json`
+  - `pnpm run dev issues reopen <ISSUE-REF> --json`
 
 Deliver:
 
@@ -351,6 +390,8 @@ Acceptance criteria:
 
 - review-state survives rebuilds as designed
 - readiness counts remain honest
+- current issue browse surfaces make review state visible without overloading
+  lifecycle state semantics
 - targeted tests + package builds + live CLI checks
 
 ### Phase 3: Domain Corrective Actions
@@ -448,11 +489,11 @@ Acceptance criteria:
 
 ## Open Questions
 
-These are real follow-ups, but they do not block Phase 1A.
+These are real follow-ups, but they do not block the completed phases above.
 
-- What is the cleanest read seam for discovering known scoped accounting lenses?
-- How much scoped-lens freshness and staleness detail should bare `issues` show in Phase 1A?
-- What durable persistence shape is right for Phase 2 review-state actions?
+- Which Phase 3 corrective action should land first?
+- Should later issue families add stronger scoped freshness/staleness signalling
+  in bare `issues`, or is the current scoped-lens summary enough?
 
 ## Canonical Spec Targets
 
