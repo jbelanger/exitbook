@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-12
+last_verified: 2026-04-13
 status: canonical
 ---
 
@@ -91,11 +91,11 @@ This preserves per-address processed provenance without forcing wallet-scope pro
 
 - **Outflow grossAmount (UTXO):** Represents inputs minus change; already includes on-chain fee when the user spends. `netAmount = grossAmount - fee` when the user paid the fee (never negative).
 - **Inflows:** Include outputs to the processed address only.
-- **Fees array:** Present only when the user paid; asset = chain native (`feeCurrency` fallback). `settlement='on-chain'` ensures balance calculator skips double subtraction.
+- **Fees array:** Present only when the user paid; asset = chain native (`feeCurrency` fallback). `settlement='on-chain'` ensures the shared balance-impact math skips double subtraction.
 
 ### Balance Calculation
 
-- Balance math uses movement `grossAmount` for both inflows and outflows. For UTXO chains, on-chain fees are already embedded in outflow gross and therefore skipped in the fee loop (`settlement='on-chain'` guard in `balance-calculator.ts`).
+- Balance math uses movement `grossAmount` for both inflows and outflows. For UTXO chains, on-chain fees are already embedded in outflow gross and therefore skipped by the shared transaction balance-impact helper and `calculateBalances()`.
 
 ### Internal Transfer Linking
 
@@ -134,7 +134,7 @@ Stores one row per address/tx. No uniqueness across accounts, allowing multiple 
 
 1. **Import:** Adapter marked `isUTXOChain` streams transactions per address; importer writes a row per `(account, tx_hash)` without deduping siblings.
 2. **Process:** Processor produces per-address processed rows; Cardano may use sibling ownership summary for deterministic fee allocation and wallet-scoped withdrawal diagnostics without changing the per-address storage granularity.
-3. **Balance:** `calculateBalances` subtracts/ adds movement gross; skips on-chain fees for UTXO chains.
+3. **Balance:** `buildTransactionBalanceImpact()` / `calculateBalances()` subtract and add movement gross; on-chain fees are already embedded and are not subtracted a second time.
 4. **Linking:** `transaction-linking-service` auto-links same `blockchain_transaction_hash` across accounts as internal transfers.
 
 ## Invariants
@@ -144,7 +144,7 @@ Stores one row per address/tx. No uniqueness across accounts, allowing multiple 
 - Bitcoin-family processors must remain `primaryAddress`-only.
 - Cardano may use sibling ownership summary only for deterministic per-address refinements that preserve one processed row per address/tx.
 - UTXO movements must set `operation.type = 'transfer'`.
-- Network fees for UTXO chains use `settlement='on-chain'`; balance calculator must not subtract them again.
+- Network fees for UTXO chains use `settlement='on-chain'`; shared balance-impact math must not subtract them again.
 
 ## Edge Cases & Gotchas
 
@@ -169,4 +169,4 @@ Stores one row per address/tx. No uniqueness across accounts, allowing multiple 
 
 ---
 
-_Last updated: 2026-04-12_
+_Last updated: 2026-04-13_

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-09
+last_verified: 2026-04-13
 status: updated
 ---
 
@@ -27,14 +27,14 @@ specific for the tax method.
 
 ## Problem Summary
 
-Today, assets are keyed by symbol only. Tokens with the same symbol (across chains or contracts) are aggregated together, which corrupts balances, price enrichment, and cost basis.
+Historically, assets were keyed by symbol only. That caused cross-chain and cross-contract collisions in balances, pricing, and cost basis.
 
-### Evidence (Current Code)
+### Evidence (Current Implementation)
 
-- Balance calculation groups by `asset` string only: `packages/ingestion/src/features/balances/balance-calculator.ts:23`.
-- EVM processor only persists `asset` symbol, discarding `tokenAddress`: `packages/ingestion/src/sources/blockchains/evm/processor.ts:110` vs `packages/ingestion/src/sources/blockchains/evm/processor-utils.ts:414`.
-- Live balances use symbol (fallback contract address), so collisions occur on the live side too: `packages/ingestion/src/features/balances/balance-utils.ts:289`.
-- Price propagation and cost basis are keyed by `asset` symbol: `packages/accounting/src/price-enrichment/price-enrichment-utils.ts:337`, `packages/accounting/src/persistence/cost-basis-repository.ts:178`.
+- Movement and fee schemas require both `assetId` and `assetSymbol`.
+- Shared balance math groups by `assetId` through `buildTransactionBalanceImpact()` and `calculateBalances()`.
+- Portfolio/account breakdown and related projections also aggregate by `assetId`.
+- Display surfaces retain `assetSymbol` for reporting while keeping `assetId` as the math/storage key.
 
 ## Goals
 
@@ -184,16 +184,16 @@ exchange:coinbase:usdc
 - Persist `assetId` in `movements_*` and `fees` JSON blobs.
 - Update initial schema migration (`001_initial_schema.ts`) accordingly.
 
-## Implementation Plan (No Code Here)
+## Implementation Status
 
-1. **Schema update**: Add `assetId` to movement/fee schemas in `packages/core/src/schemas/transaction.ts`.
-2. **Processors**: Populate `assetId` in all blockchain and exchange processors.
-3. **Storage**: Persist new fields in movement/fee JSON.
-4. **Balance & verification**: Key by `assetId` in `balance-calculator` and live balances.
-5. **Pricing**: Route price enrichment to use `assetId`; add mapping for providers.
-6. **Cost basis**: Use `assetId` for lots and lookups.
-7. **Linking**: Use exchange `network` (when present) for mapping exchange withdrawals to chain deposits.
-8. **Re-process**: Drop/recreate DB and re-run import to backfill `assetId`.
+1. **Schema update**: movement and fee schemas include `assetId` plus `assetSymbol`.
+2. **Processors**: blockchain and exchange processors populate `assetId`.
+3. **Storage**: movement and fee JSON persist `assetId`.
+4. **Balance & verification**: balances and shared transaction balance impact are keyed by `assetId`.
+5. **Pricing**: pricing and portfolio flows consume `assetId`-keyed holdings.
+6. **Cost basis**: accounting workflows key lots and matching inputs by `assetId`.
+7. **Linking**: exchange `network` remains available for transfer/linking workflows where present.
+8. **Re-process**: legacy datasets require reprocessing/backfill to guarantee `assetId` coverage everywhere.
 
 ## Edge Cases & Gotchas
 
@@ -208,4 +208,4 @@ exchange:coinbase:usdc
 
 ---
 
-_Last updated: 2026-03-09_
+_Last updated: 2026-04-13_

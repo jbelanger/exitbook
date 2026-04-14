@@ -1,0 +1,412 @@
+---
+last_verified: 2026-04-13
+status: canonical
+---
+
+# Accounting Issues Specification
+
+Define the accounting-owned issue projection that powers the operator-facing `issues`
+workflow. The issue system exists to surface remaining accounting work clearly,
+preserve stable derived issue identity across rebuilds, and advertise typed next
+actions without collapsing every correction path into one generic mutation
+surface.
+
+## Goals
+
+- Provide one accounting-owned read model for operator-facing accounting issues.
+- Persist current-state issue scopes and issue occurrences instead of rebuilding
+  every browse surface ad hoc.
+- Keep canonical issue identity derived by scope and family-owned issue keys.
+- Keep next actions typed and host-agnostic so CLI and future UIs can share the
+  same contract.
+- Keep domain-changing corrections in narrow override families or owning
+  workflows instead of inventing a generic `issues fix`.
+
+## Non-Goals
+
+- Making persisted issue rows the source of accounting truth.
+- Shipping write actions in Phase 1A.
+- Treating free-form notes as machine state.
+- Pretending bare `issues` knows unmaterialized cost-basis scopes.
+- Pulling execution failures or missing-price rows into Phase 1A before their
+  read seams exist.
+
+## Ownership And Boundaries
+
+- `@exitbook/accounting` owns the issue model, family mapping, and
+  materialization rules.
+- `@exitbook/data` owns persisted storage and per-scope reconciliation.
+- `apps/cli` owns selector parsing, human rendering, JSON output, and command
+  wiring.
+- Domain-changing corrections remain in narrow domain override families or in
+  the owning workflow namespace.
+
+## Scope Model
+
+Accounting issues are always read inside an explicit accounting scope.
+
+### `profile` scope
+
+- Purpose: current-state, profile-global accounting issues.
+- Current families:
+  - `transfer_gap`
+  - `asset_review_blocker`
+- Scope key rule: reuse the profile projection scope key builder:
+  `buildProfileProjectionScopeKey(profileId)`, which currently produces
+  `profile:<profileId>`.
+
+### `cost-basis` scope
+
+- Purpose: filing/configuration-scoped accounting issues.
+- Planned families:
+  - `tax_readiness`
+  - later `execution_failure`
+- Scope key rule: build a profile-qualified issue scope key. Reuse
+  `buildCostBasisScopeKey(config)` only as the stable config-fingerprint
+  component, not as the whole issue scope key.
+- Canonical Phase 1B shape:
+  `profile:<profileId>:${buildCostBasisScopeKey(config)}`.
+- Materialization rule in Phase 1B: scoped issue rows are created only when the
+  user explicitly enters or refreshes that cost-basis scope.
+
+### Scope-entry rules
+
+- Bare `issues` is honest only when it shows the profile-global queue in
+  Phase 1A.
+- Scoped cost-basis issue browsing stays explicit under `issues cost-basis ...`
+  in Phase 1B.
+- The overview may list previously materialized scoped lenses, but it must not
+  imply coverage for scopes the system has never materialized.
+
+## Canonical Identity
+
+The canonical logical identity for one surfaced issue is:
+
+- `scopeKey`
+- `issueKey`
+
+Rules:
+
+- `scopeKey` must be deterministic across rebuilds for the same logical
+  accounting scope.
+- `issueKey` must be deterministic across rebuilds for the same logical issue
+  when the underlying evidence has not materially changed.
+- `issueKey` must be family-qualified. It is not just a bare evidence id.
+- Stored row `id` is persistence identity only. It is never the canonical issue
+  identity and never appears in the operator surface.
+- At most one open stored occurrence may exist for one `(scopeKey, issueKey)`.
+- If the underlying evidence changes enough to produce a different canonical
+  issue, a new `issueKey` is correct.
+
+### Phase 1A `issueKey` shapes
+
+Phase 1A commits the following canonical key recipes:
+
+| Family                 | Canonical `issueKey`                                      | Notes                                                                                     |
+| ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `transfer_gap`         | `transfer_gap:${buildLinkGapIssueKey(identity)}`          | Reuses the existing gap identity inputs: `txFingerprint`, `assetId`, `direction`.         |
+| `asset_review_blocker` | `asset_review_blocker:${assetId}\|${evidenceFingerprint}` | Includes `evidenceFingerprint` so changed review evidence produces a new canonical issue. |
+
+Examples:
+
+- `transfer_gap:9c1f37d0ab|cardano:ADA|outflow`
+- `asset_review_blocker:blockchain:ethereum:0xa0b8...|asset-review:v1:usdc`
+
+### `ISSUE-REF`
+
+`ISSUE-REF` is a selector-friendly convenience layer, not canonical identity.
+
+Rules:
+
+- Build the full selector material from the canonical identity:
+  `sha256Hex(scopeKey + ':' + issueKey)`.
+- The full selector is lowercase hexadecimal and is the value used for prefix
+  resolution.
+- `ISSUE-REF` is the first 10 characters of that full selector.
+- CLI selector parsing must normalize user input with `trim().toLowerCase()`.
+- `issues view <selector>` resolves against current open issue rows only.
+- Selector resolution is prefix-based against the full selector, not against the
+  stored row id.
+- Ambiguous prefixes must fail and tell the user to provide a longer ref.
+- Not-found selectors must fail cleanly.
+- Normal operator-facing read contracts use `issueRef`, not raw `issueKey`.
+
+This intentionally aligns `ISSUE-REF` with the existing hashed selector pattern
+already used by `LINK-REF` and `GAP-REF`.
+
+## Phase 1A Read Contract
+
+### Shared enums
+
+```ts
+type AccountingIssueScopeKind = 'profile' | 'cost-basis';
+
+type AccountingIssueScopeStatus = 'ready' | 'has-open-issues' | 'failed';
+
+type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker';
+
+type AccountingIssueSeverity = 'warning' | 'blocked';
+
+type AccountingIssueCode = 'LINK_GAP' | 'ASSET_REVIEW_BLOCKER';
+
+type AccountingIssueStatus = 'open';
+
+type StoredAccountingIssueRowStatus = 'open' | 'closed';
+```
+
+### Evidence refs
+
+```ts
+type AccountingIssueEvidenceRef =
+  | { kind: 'transaction'; ref: string }
+  | { kind: 'gap'; ref: string }
+  | { kind: 'asset'; selector: string };
+```
+
+### Next actions
+
+```ts
+interface AccountingIssueRouteTarget {
+  family: 'links' | 'assets' | 'transactions' | 'prices';
+  selectorKind?: 'tx-ref' | 'gap-ref' | 'asset-selector' | undefined;
+  selectorValue?: string | undefined;
+}
+
+type AccountingIssueNextActionMode = 'direct' | 'routed' | 'review_only';
+
+interface AccountingIssueNextAction {
+  kind: string;
+  label: string;
+  mode: AccountingIssueNextActionMode;
+  routeTarget?: AccountingIssueRouteTarget | undefined;
+}
+```
+
+Rules:
+
+- `nextActions` is part of the accounting issue contract, not a CLI-only
+  convenience field.
+- Routed actions must point to the owning workflow semantically, not as baked
+  shell command strings.
+- Phase 1A is dominated by `routed` and `review_only` actions.
+- `direct` actions do not appear until the underlying write path exists.
+
+### Summary and detail contracts
+
+```ts
+interface AccountingIssueSummaryItem {
+  issueRef: string;
+  family: AccountingIssueFamily;
+  code: AccountingIssueCode;
+  severity: AccountingIssueSeverity;
+  status: AccountingIssueStatus;
+  summary: string;
+  nextActions: readonly AccountingIssueNextAction[];
+}
+
+interface AccountingIssueDetailScope {
+  kind: AccountingIssueScopeKind;
+  key: string;
+}
+
+interface AccountingIssueDetailItem extends AccountingIssueSummaryItem {
+  scope: AccountingIssueDetailScope;
+  details: string;
+  whyThisMatters: string;
+  evidenceRefs: readonly AccountingIssueEvidenceRef[];
+}
+```
+
+### Scope summary contract
+
+```ts
+interface AccountingIssueScopeSummary {
+  scopeKind: AccountingIssueScopeKind;
+  scopeKey: string;
+  profileId: number;
+  title: string;
+  status: AccountingIssueScopeStatus;
+  openIssueCount: number;
+  blockingIssueCount: number;
+  updatedAt: Date;
+  metadata?: Record<string, unknown> | undefined;
+}
+```
+
+## Phase 1A Family Mapping
+
+### `transfer_gap`
+
+- Source: current link-gap analysis / projection.
+- Scope kind: `profile`.
+- Code: `LINK_GAP`.
+- Canonical key inputs: existing `LinkGapIssueIdentity`.
+- Evidence refs:
+  - one `gap` ref using `GAP-REF`
+  - one `transaction` ref using `TX-REF`
+- Severity mapping:
+  - reuse the family-owned gap severity signal when available
+  - collapse blocking/error-style gap severity to issue severity `blocked`
+  - collapse warning/info-style gap severity to issue severity `warning`
+- Primary next action:
+  - `kind: 'review_gap'`
+  - `label: 'Review in links gaps'`
+  - `mode: 'routed'`
+  - `routeTarget.family: 'links'`
+  - `routeTarget.selectorKind: 'gap-ref'`
+  - `routeTarget.selectorValue: <GAP-REF>`
+
+### `asset_review_blocker`
+
+- Source: current asset-review projection summaries.
+- Scope kind: `profile`.
+- Code: `ASSET_REVIEW_BLOCKER`.
+- Inclusion rule: only rows with `accountingBlocked === true` become issue rows
+  in Phase 1A.
+- Canonical key inputs:
+  - `assetId`
+  - `evidenceFingerprint`
+- Evidence refs:
+  - one `asset` selector using the canonical asset selector / asset id
+- Severity mapping:
+  - always `blocked` in Phase 1A because this family exists specifically to
+    surface accounting blockers
+- Primary next action:
+  - `kind: 'review_asset'`
+  - `label: 'Review in assets'`
+  - `mode: 'routed'`
+  - `routeTarget.family: 'assets'`
+  - `routeTarget.selectorKind: 'asset-selector'`
+  - `routeTarget.selectorValue: <asset selector>`
+
+## Persistence Model
+
+Phase 1A persists:
+
+- one `accounting_issue_scopes` table
+- one `accounting_issue_rows` lifecycle table containing both open and closed
+  occurrences
+
+### Scope row
+
+```ts
+interface AccountingIssueScopeRow {
+  scopeKind: AccountingIssueScopeKind;
+  scopeKey: string;
+  profileId: number;
+  title: string;
+  status: AccountingIssueScopeStatus;
+  openIssueCount: number;
+  blockingIssueCount: number;
+  updatedAt: Date;
+  metadataJson?: string | undefined;
+}
+```
+
+### Issue row
+
+```ts
+interface AccountingIssueRow {
+  id: string;
+  scopeKey: string;
+  issueKey: string;
+  family: string;
+  code: string;
+  severity: string;
+  status: StoredAccountingIssueRowStatus;
+  summary: string;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+  closedAt?: Date | undefined;
+  closedReason?: 'disappeared' | undefined;
+  detailJson: string;
+  evidenceJson: string;
+  nextActionsJson: string;
+}
+```
+
+Rules:
+
+- One open row at most per `(scopeKey, issueKey)`.
+- Reappearing issues create a new row.
+- Closed rows are retained for history and progress.
+- `detailJson`, `evidenceJson`, and `nextActionsJson` cache typed accounting
+  payloads. They are not permission to treat those contracts as untyped blobs at
+  the accounting boundary.
+
+## Materialization Rules
+
+### Phase 1A materializer split
+
+- Phase 1A needs one materializer for profile-global issue scopes.
+- Phase 1B may add a second materializer for cost-basis-scoped issue lenses on
+  the same storage model.
+
+### Scope reconciliation
+
+For one scope materialization pass:
+
+1. Derive the full current issue set for that scope from accounting-owned
+   sources.
+2. Upsert the scope row with current title, counts, status, and `updatedAt`.
+3. Match each derived issue occurrence to any currently open stored row by
+   `(scopeKey, issueKey)`.
+4. If one open row already exists:
+   - refresh its cached summary, detail, evidence, and next actions
+   - keep the same row `id`
+   - update `lastSeenAt`
+5. If no open row exists:
+   - create a new row
+   - generate a new row `id`
+   - set `firstSeenAt = lastSeenAt = now`
+6. For any previously open stored row missing from the new derived set:
+   - mark it `closed`
+   - set `closedAt`
+   - set `closedReason = 'disappeared'`
+
+Logical replace-by-scope means:
+
+- current truth is fully rederived per scope
+- persistence preserves issue-occurrence continuity and disappearance history
+  instead of deleting rows physically
+
+## Read-Service Lean
+
+The first accounting-owned service seam should stay scope-oriented:
+
+- materialize or refresh one scope
+- list persisted scope summaries for one profile
+- list current issue rows for one scope
+- read one current issue by `(scopeKey, issueKey)`
+
+Repositories stay responsible for persistence and reconciliation. CLI must not
+assemble issue persistence ad hoc.
+
+## Phase Boundaries
+
+### Phase 1A
+
+- Profile-global scope materialization only.
+- Families:
+  - `transfer_gap`
+  - `asset_review_blocker`
+- Read surfaces:
+  - `issues`
+  - `issues list`
+  - `issues view <ISSUE-REF>`
+- JSON parity for overview and detail.
+- No write actions.
+
+### Phase 1B
+
+- Add explicit `cost-basis` scoped issue browsing on the same issue model.
+- Reuse the existing cost-basis scope key builder.
+- Add scoped lenses to the overview only after they have been materialized
+  explicitly.
+
+### Later phases
+
+- review-state actions such as `acknowledge` / `reopen`
+- direct corrective actions such as grouped transfer confirmation
+- `execution_failure`
+- `missing_price`

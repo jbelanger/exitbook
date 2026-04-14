@@ -87,9 +87,9 @@ export const AssetMovementSchema = AssetMovementFieldsSchema.extend({
  *   → Examples: Ethereum gas, Solana fees, Kraken withdrawal fees, trading fees
  *   → Balance impact: subtract both transfer amount AND fee amount
  *
- * - 'external': Paid outside tracked balances (ACH, credit card, invoice)
- *   → Reserved for future use
- *   → Not common in current exchange/blockchain scenarios
+ * - 'external': Reserved and uncommon in current exchange/blockchain scenarios
+ *   → Not embedded in movement gross/net amounts
+ *   → Current balance-impact helpers treat it like a separate fee debit
  *
  * BLOCKCHAIN TYPE PATTERNS:
  *
@@ -117,6 +117,7 @@ export const AssetMovementSchema = AssetMovementFieldsSchema.extend({
  * For Balance Calculation (balance-utils.js):
  * - UTXO chains (settlement='on-chain'): Deduct grossAmount (fee embedded), skip fee subtraction
  * - Account-based chains (settlement='balance'): Deduct grossAmount + fee amount separately
+ * - Current runtime behavior also applies that separate-debit treatment to settlement='external'
  * - This ensures accurate balance tracking across different blockchain architectures
  */
 export const FeeMovementDraftSchema = z.object({

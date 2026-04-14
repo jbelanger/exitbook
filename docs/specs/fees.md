@@ -1,5 +1,5 @@
 ---
-last_verified: 2025-12-12
+last_verified: 2026-04-13
 status: canonical
 ---
 
@@ -62,13 +62,13 @@ type Fee = {
 ```
 
 - `scope` explains _why_ the fee exists (network gas, exchange revenue, spreads, tax, other).
-- `settlement` dictates _how amounts relate_: `on-chain` (carved out of movement) vs `balance` (separate debit) vs `external` (out-of-band).
+- `settlement` dictates _how amounts relate_: `on-chain` (carved out of movement) vs `balance` (separate debit) vs `external` (rare/reserved; currently treated like a separate debit by balance-impact surfaces).
 
 ### Settlement Semantics
 
 - `settlement='balance'`: movement amounts match counterparty (`netAmount === grossAmount`); fee is an additional balance decrement.
 - `settlement='on-chain'`: fee represented by `grossAmount - netAmount` for matching; used when broadcast amount is smaller than reported gross.
-- `settlement='external'`: reserved; fee is paid outside tracked balances.
+- `settlement='external'`: reserved and uncommon; current balance-impact helpers treat it like a separate fee debit rather than an embedded/on-chain fee.
 
 Examples:
 
@@ -96,6 +96,10 @@ Examples:
 | Account-based chains (EVM, Solana, …)   | `network`, `balance`                                 | `netAmount === grossAmount`; gas is separate fee    |
 | Standard exchanges (ccxt-style ledgers) | `platform`, `balance` (fee currency may differ)      | `netAmount === grossAmount`; fees logged separately |
 | Coinbase carved-out withdrawals         | `platform`, `on-chain`                               | Outflow `net = gross - fee`                         |
+
+Additional rule:
+
+- Balance calculation and transaction browse surfaces currently treat any `fee.settlement !== 'on-chain'` as an additional fee debit.
 
 ### Transfer Linking
 
@@ -166,7 +170,7 @@ graph TD
 ## Known Limitations (Current Implementation)
 
 - No automated detection of exchange-ledger fee consolidation errors beyond `gaps` checks.
-- `settlement='external'` is reserved; processors rarely populate it and downstream consumers may treat it as balance-settled.
+- `settlement='external'` is still reserved; processors rarely populate it, and current balance-impact consumers treat it as a separate debit.
 
 ## Related Specs
 
@@ -176,4 +180,4 @@ graph TD
 
 ---
 
-_Last updated: 2025-12-12_
+_Last updated: 2026-04-13_
