@@ -7,7 +7,11 @@ import type {
 } from '@exitbook/accounting/issues';
 import { describe, expect, it } from 'vitest';
 
-import { buildIssuesStaticDetail, buildIssuesStaticOverview } from '../issues-static-renderer.js';
+import {
+  buildIssuesStaticDetail,
+  buildIssuesStaticOverview,
+  buildIssuesStaticScopedList,
+} from '../issues-static-renderer.js';
 
 function createScopeSummary(overrides: Partial<AccountingIssueScopeSummary> = {}): AccountingIssueScopeSummary {
   return {
@@ -113,6 +117,33 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('Review in links gaps');
   });
 
+  it('renders scoped accounting lenses in the overview when known scopes exist', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticOverview({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        scope: createScopeSummary(),
+        currentIssues: [createSummaryItem()],
+        scopedLenses: [
+          createScopeSummary({
+            scopeKind: 'cost-basis',
+            scopeKey: 'profile:1:cost-basis:abcd1234',
+            title: 'CA / average-cost / 2024',
+            openIssueCount: 1,
+            blockingIssueCount: 1,
+            updatedAt: new Date('2026-04-14T13:45:00.000Z'),
+          }),
+        ],
+      })
+    );
+
+    expect(output).toContain('Scoped Accounting Lenses');
+    expect(output).toContain('CA / average-cost / 2024');
+    expect(output).toContain('Open scoped issues');
+    expect(output).toContain('2026-04-14 13:45');
+  });
+
   it('renders the empty overview state clearly', () => {
     const output = stripVTControlCharacters(
       buildIssuesStaticOverview({
@@ -151,5 +182,45 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('Evidence');
     expect(output).toContain('GAP-REF c6787f8ae9');
     expect(output).toContain('TX-REF 9c1f37d0ab');
+  });
+
+  it('renders a scoped cost-basis issue list with status metadata', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticScopedList({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        scope: createScopeSummary({
+          scopeKind: 'cost-basis',
+          scopeKey: 'profile:1:cost-basis:abcd1234',
+          title: 'CA / average-cost / 2024',
+          openIssueCount: 1,
+          blockingIssueCount: 1,
+        }),
+        currentIssues: [
+          createSummaryItem({
+            family: 'tax_readiness',
+            code: 'MISSING_PRICE_DATA',
+            summary: 'Required transaction price data is missing.',
+            nextActions: [
+              {
+                kind: 'review_prices',
+                label: 'Review in prices',
+                mode: 'routed',
+                routeTarget: {
+                  family: 'prices',
+                },
+              },
+            ],
+          }),
+        ],
+      })
+    );
+
+    expect(output).toContain('Cost-basis issues');
+    expect(output).toContain('CA / average-cost / 2024');
+    expect(output).toContain('Status: has-open-issues · 1 blocking · 1 open');
+    expect(output).toContain('Tax readiness');
+    expect(output).toContain('Review in prices');
   });
 });

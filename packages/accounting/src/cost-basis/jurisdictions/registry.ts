@@ -30,7 +30,7 @@ async function runCanadaJurisdictionWorkflow(
     priceRuntime: input.priceRuntime,
     accountingExclusionPolicy: input.options.accountingExclusionPolicy,
     assetReviewSummaries: input.options.assetReviewSummaries,
-    missingPricePolicy: 'error',
+    missingPricePolicy: input.options.missingPricePolicy,
     poolSnapshotStrategy: 'report-end',
   });
 }

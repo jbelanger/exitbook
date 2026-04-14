@@ -287,6 +287,51 @@ describe('CostBasisWorkflow', () => {
     });
   });
 
+  it('respects exclude missing-price policy for Canada workflow execution', async () => {
+    const transactions = [
+      createAcquisitionTransaction({
+        id: 1,
+        assetId: 'exchange:kraken:btc',
+        assetSymbol: 'BTC' as Currency,
+        timestamp: '2024-01-01T12:00:00Z',
+        quantity: '1',
+        unitPriceCad: '10000',
+      }),
+      createUnpricedAcquisitionTransaction({
+        id: 2,
+        assetId: 'exchange:kraken:eth',
+        assetSymbol: 'ETH' as Currency,
+        timestamp: '2024-02-01T12:00:00Z',
+        quantity: '2',
+      }),
+    ];
+
+    const workflow = new CostBasisWorkflow(createStore(), createCanadaPriceRuntime({ fiatToUsd: { CAD: '0.75' } }));
+    const result = await workflow.execute(
+      {
+        method: 'average-cost',
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        currency: 'CAD',
+        startDate: new Date('2024-01-01T00:00:00Z'),
+        endDate: new Date('2024-12-31T23:59:59Z'),
+      },
+      transactions,
+      { missingPricePolicy: 'exclude' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.kind).toBe('canada-workflow');
+    expect(result.value.executionMeta).toEqual({
+      missingPricesCount: 1,
+      retainedTransactionIds: [1],
+    });
+  });
+
   it('builds a display report for non-CAD Canada output without entering the standard USD report path', async () => {
     const transactions = [
       createAcquisitionTransaction({

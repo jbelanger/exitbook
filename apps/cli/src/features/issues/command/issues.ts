@@ -8,6 +8,7 @@ import {
   parseIssuesBrowseRootInvocationResult,
   runIssuesListCommand,
 } from './issues-browse-command.js';
+import { registerIssuesCostBasisCommand } from './issues-cost-basis.js';
 import { registerIssuesListCommand } from './issues-list.js';
 import { registerIssuesViewCommand } from './issues-view.js';
 
@@ -27,6 +28,7 @@ Examples:
   $ exitbook issues
   $ exitbook issues list
   $ exitbook issues view 2d4c8e1af3
+  $ exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost
 
 Notes:
   - Bare "issues" is the operator work queue overview for the active profile.
@@ -56,4 +58,5 @@ Notes:
 
   registerIssuesListCommand(issues);
   registerIssuesViewCommand(issues);
+  registerIssuesCostBasisCommand(issues);
 }

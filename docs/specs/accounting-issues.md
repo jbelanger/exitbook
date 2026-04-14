@@ -1,6 +1,6 @@
----
-last_verified: 2026-04-13
+last_verified: 2026-04-14
 status: canonical
+
 ---
 
 # Accounting Issues Specification
@@ -143,11 +143,19 @@ type AccountingIssueScopeKind = 'profile' | 'cost-basis';
 
 type AccountingIssueScopeStatus = 'ready' | 'has-open-issues' | 'failed';
 
-type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker';
+type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker' | 'tax_readiness';
 
 type AccountingIssueSeverity = 'warning' | 'blocked';
 
-type AccountingIssueCode = 'LINK_GAP' | 'ASSET_REVIEW_BLOCKER';
+type AccountingIssueCode =
+  | 'LINK_GAP'
+  | 'ASSET_REVIEW_BLOCKER'
+  | 'MISSING_PRICE_DATA'
+  | 'FX_FALLBACK_USED'
+  | 'UNRESOLVED_ASSET_REVIEW'
+  | 'UNKNOWN_TRANSACTION_CLASSIFICATION'
+  | 'UNCERTAIN_PROCEEDS_ALLOCATION'
+  | 'INCOMPLETE_TRANSFER_LINKING';
 
 type AccountingIssueStatus = 'open';
 
@@ -279,6 +287,62 @@ interface AccountingIssueScopeSummary {
   - `routeTarget.selectorKind: 'asset-selector'`
   - `routeTarget.selectorValue: <asset selector>`
 
+## Phase 1B Family Mapping
+
+### `tax_readiness`
+
+- Source: tax-package readiness evaluation for one explicit cost-basis scope.
+- Scope kind: `cost-basis`.
+- Code set:
+  - `MISSING_PRICE_DATA`
+  - `FX_FALLBACK_USED`
+  - `UNRESOLVED_ASSET_REVIEW`
+  - `UNKNOWN_TRANSACTION_CLASSIFICATION`
+  - `UNCERTAIN_PROCEEDS_ALLOCATION`
+  - `INCOMPLETE_TRANSFER_LINKING`
+- Canonical key inputs:
+  - readiness code
+  - affected artifact when present
+  - affected row ref when present
+- Severity mapping:
+  - `MISSING_PRICE_DATA`
+  - `UNRESOLVED_ASSET_REVIEW`
+  - `UNKNOWN_TRANSACTION_CLASSIFICATION`
+  - `UNCERTAIN_PROCEEDS_ALLOCATION`
+  - `INCOMPLETE_TRANSFER_LINKING`
+    map to `blocked`
+  - `FX_FALLBACK_USED` maps to `warning`
+- Evidence refs:
+  - transaction refs when the readiness row is transaction-backed
+  - no synthetic evidence refs when the issue is scope-backed only
+- Primary next-action mapping:
+  - `MISSING_PRICE_DATA`
+    - `kind: 'review_prices'`
+    - `label: 'Review in prices'`
+    - `mode: 'routed'`
+    - `routeTarget.family: 'prices'`
+  - `UNRESOLVED_ASSET_REVIEW`
+    - `kind: 'review_asset'`
+    - `label: 'Review in assets'`
+    - `mode: 'routed'`
+    - `routeTarget.family: 'assets'`
+  - `INCOMPLETE_TRANSFER_LINKING`
+    - `kind: 'review_links'`
+    - `label: 'Review in links'`
+    - `mode: 'routed'`
+    - `routeTarget.family: 'links'`
+  - `UNKNOWN_TRANSACTION_CLASSIFICATION`
+  - `UNCERTAIN_PROCEEDS_ALLOCATION`
+    - `kind: 'inspect_transaction'`
+    - `label: 'Inspect transaction'`
+    - `mode: 'review_only'`
+    - `routeTarget.family: 'transactions'`
+    - include a transaction selector only when the readiness row is transaction-backed
+  - `FX_FALLBACK_USED`
+    - `kind: 'review_filing_output'`
+    - `label: 'Review filing output'`
+    - `mode: 'review_only'`
+
 ## Persistence Model
 
 Phase 1A persists:
@@ -400,7 +464,8 @@ assemble issue persistence ad hoc.
 ### Phase 1B
 
 - Add explicit `cost-basis` scoped issue browsing on the same issue model.
-- Reuse the existing cost-basis scope key builder.
+- Use a profile-qualified cost-basis issue scope key:
+  `profile:<profileId>:${buildCostBasisScopeKey(config)}`.
 - Add scoped lenses to the overview only after they have been materialized
   explicitly.
 

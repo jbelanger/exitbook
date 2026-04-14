@@ -11,6 +11,7 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 
 const STATIC_LIST_COLUMN_GAP = '  ';
 const ISSUE_LIST_COLUMN_ORDER = ['ref', 'severity', 'type', 'summary', 'next'] as const;
+const SCOPED_LENS_COLUMN_ORDER = ['scope', 'status', 'open', 'updated', 'next'] as const;
 
 export interface IssuesStaticOverviewState {
   activeProfileKey: string;
@@ -28,12 +29,24 @@ export interface IssuesStaticDetailState {
   profileDisplayName: string;
 }
 
+export interface IssuesStaticScopedListState {
+  activeProfileKey: string;
+  activeProfileSource: 'default' | 'env' | 'state';
+  currentIssues: AccountingIssueSummaryItem[];
+  profileDisplayName: string;
+  scope: AccountingIssueScopeSummary;
+}
+
 export function outputIssuesStaticOverview(state: IssuesStaticOverviewState): void {
   process.stdout.write(buildIssuesStaticOverview(state));
 }
 
 export function outputIssuesStaticDetail(state: IssuesStaticDetailState): void {
   process.stdout.write(buildIssuesStaticDetail(state));
+}
+
+export function outputIssuesStaticScopedList(state: IssuesStaticScopedListState): void {
+  process.stdout.write(buildIssuesStaticScopedList(state));
 }
 
 export function buildIssuesStaticOverview(state: IssuesStaticOverviewState): string {
@@ -48,65 +61,13 @@ export function buildIssuesStaticOverview(state: IssuesStaticOverviewState): str
 
   if (state.currentIssues.length === 0) {
     lines.push('No current issues.');
-    return `${lines.join('\n')}\n`;
+  } else {
+    lines.push(...buildIssueTableLines(state.currentIssues));
   }
 
-  const columns = createColumns(state.currentIssues, {
-    ref: {
-      format: (issue) => issue.issueRef,
-      minWidth: 'ISSUE-REF'.length,
-    },
-    severity: {
-      format: (issue) => formatSeverityLabel(issue.severity),
-      minWidth: 'SEV'.length,
-    },
-    type: {
-      format: (issue) => formatFamilyLabel(issue.family),
-      minWidth: 'TYPE'.length,
-    },
-    summary: {
-      format: (issue) => issue.summary,
-      minWidth: 'SUMMARY'.length,
-    },
-    next: {
-      format: (issue) => issue.nextActions[0]?.label ?? 'Review',
-      minWidth: 'NEXT'.length,
-    },
-  });
-
-  lines.push(
-    pc.dim(
-      buildTextTableHeader(
-        columns.widths,
-        {
-          ref: 'ISSUE-REF',
-          severity: 'SEV',
-          type: 'TYPE',
-          summary: 'SUMMARY',
-          next: 'NEXT',
-        },
-        ISSUE_LIST_COLUMN_ORDER,
-        { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
-      )
-    )
-  );
-
-  for (const issue of state.currentIssues) {
-    const formatted = columns.format(issue);
-    lines.push(
-      buildTextTableRow(
-        {
-          ...formatted,
-          ref: pc.bold(formatted.ref),
-          severity: colorizeSeverity(issue.severity, formatted.severity),
-          type: pc.cyan(formatted.type),
-          summary: formatted.summary,
-          next: pc.dim(formatted.next),
-        },
-        ISSUE_LIST_COLUMN_ORDER,
-        { gap: STATIC_LIST_COLUMN_GAP }
-      )
-    );
+  if (state.scopedLenses.length > 0) {
+    lines.push('', pc.bold('Scoped Accounting Lenses'), '');
+    lines.push(...buildScopedLensTableLines(state.scopedLenses));
   }
 
   return `${lines.join('\n')}\n`;
@@ -138,11 +99,34 @@ export function buildIssuesStaticDetail(state: IssuesStaticDetailState): string 
   return `${lines.join('\n')}\n`;
 }
 
+export function buildIssuesStaticScopedList(state: IssuesStaticScopedListState): string {
+  const lines: string[] = [
+    `${pc.bold('Cost-basis issues')} ${pc.cyan(state.scope.title)}`,
+    '',
+    buildCurrentProfileLine(state),
+    buildDetailLine('Scope', state.scope.scopeKey),
+    buildDetailLine('Status', formatScopedStatusLine(state.scope)),
+    '',
+    pc.bold('Current Issues'),
+    '',
+  ];
+
+  if (state.currentIssues.length === 0) {
+    lines.push('No current issues.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  lines.push(...buildIssueTableLines(state.currentIssues));
+  return `${lines.join('\n')}\n`;
+}
+
 function buildOverviewHeader(scope: AccountingIssueScopeSummary): string {
   return `${pc.bold('Issues')} ${scope.openIssueCount} open · ${scope.blockingIssueCount} blocking · ${formatReadiness(scope.status)}`;
 }
 
-function buildCurrentProfileLine(state: IssuesStaticOverviewState): string {
+function buildCurrentProfileLine(
+  state: Pick<IssuesStaticOverviewState, 'activeProfileKey' | 'activeProfileSource' | 'profileDisplayName'>
+): string {
   const sourceSuffix = state.activeProfileSource === 'default' ? '' : ` (${state.activeProfileSource})`;
   return `${pc.dim('Current profile:')} ${state.profileDisplayName} [key: ${state.activeProfileKey}]${sourceSuffix}`;
 }
@@ -184,6 +168,8 @@ function formatFamilyLabel(family: AccountingIssueSummaryItem['family']): string
   switch (family) {
     case 'asset_review_blocker':
       return 'Asset review blocker';
+    case 'tax_readiness':
+      return 'Tax readiness';
     case 'transfer_gap':
       return 'Transfer gap';
   }
@@ -252,10 +238,162 @@ function buildActionCommandHint(action: AccountingIssueNextAction): string | und
     case 'links':
       return action.routeTarget.selectorValue ? `links gaps view ${action.routeTarget.selectorValue}` : 'links gaps';
     case 'prices':
-      return action.routeTarget.selectorValue ? `prices view ${action.routeTarget.selectorValue}` : 'prices';
+      return action.routeTarget.selectorValue
+        ? `prices view ${action.routeTarget.selectorValue}`
+        : 'prices view --missing-only';
     case 'transactions':
       return action.routeTarget.selectorValue
         ? `transactions view ${action.routeTarget.selectorValue}`
         : 'transactions';
   }
+}
+
+function buildIssueTableLines(issues: readonly AccountingIssueSummaryItem[]): string[] {
+  const columns = createColumns([...issues], {
+    ref: {
+      format: (issue) => issue.issueRef,
+      minWidth: 'ISSUE-REF'.length,
+    },
+    severity: {
+      format: (issue) => formatSeverityLabel(issue.severity),
+      minWidth: 'SEV'.length,
+    },
+    type: {
+      format: (issue) => formatFamilyLabel(issue.family),
+      minWidth: 'TYPE'.length,
+    },
+    summary: {
+      format: (issue) => issue.summary,
+      minWidth: 'SUMMARY'.length,
+    },
+    next: {
+      format: (issue) => issue.nextActions[0]?.label ?? 'Review',
+      minWidth: 'NEXT'.length,
+    },
+  });
+  const lines = [
+    pc.dim(
+      buildTextTableHeader(
+        columns.widths,
+        {
+          ref: 'ISSUE-REF',
+          severity: 'SEV',
+          type: 'TYPE',
+          summary: 'SUMMARY',
+          next: 'NEXT',
+        },
+        ISSUE_LIST_COLUMN_ORDER,
+        { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
+      )
+    ),
+  ];
+
+  for (const issue of issues) {
+    const formatted = columns.format(issue);
+    lines.push(
+      buildTextTableRow(
+        {
+          ...formatted,
+          ref: pc.bold(formatted.ref),
+          severity: colorizeSeverity(issue.severity, formatted.severity),
+          type: pc.cyan(formatted.type),
+          summary: formatted.summary,
+          next: pc.dim(formatted.next),
+        },
+        ISSUE_LIST_COLUMN_ORDER,
+        { gap: STATIC_LIST_COLUMN_GAP }
+      )
+    );
+  }
+
+  return lines;
+}
+
+function buildScopedLensTableLines(scopedLenses: readonly AccountingIssueScopeSummary[]): string[] {
+  const columns = createColumns([...scopedLenses], {
+    scope: {
+      format: (scope) => scope.title,
+      minWidth: 'SCOPE'.length,
+    },
+    status: {
+      format: (scope) => formatScopedScopeStatus(scope.status),
+      minWidth: 'STATUS'.length,
+    },
+    open: {
+      format: (scope) => String(scope.openIssueCount),
+      minWidth: 'OPEN'.length,
+    },
+    updated: {
+      format: (scope) => formatUpdatedAt(scope.updatedAt),
+      minWidth: 'UPDATED'.length,
+    },
+    next: {
+      format: (scope) => (scope.openIssueCount === 0 ? 'View readiness' : 'Open scoped issues'),
+      minWidth: 'NEXT'.length,
+    },
+  });
+  const lines = [
+    pc.dim(
+      buildTextTableHeader(
+        columns.widths,
+        {
+          scope: 'SCOPE',
+          status: 'STATUS',
+          open: 'OPEN',
+          updated: 'UPDATED',
+          next: 'NEXT',
+        },
+        SCOPED_LENS_COLUMN_ORDER,
+        { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
+      )
+    ),
+  ];
+
+  for (const scope of scopedLenses) {
+    const formatted = columns.format(scope);
+    lines.push(
+      buildTextTableRow(
+        {
+          ...formatted,
+          scope: pc.bold(formatted.scope),
+          status: colorizeScopeStatus(scope.status, formatted.status),
+          next: pc.dim(formatted.next),
+        },
+        SCOPED_LENS_COLUMN_ORDER,
+        { gap: STATIC_LIST_COLUMN_GAP }
+      )
+    );
+  }
+
+  return lines;
+}
+
+function formatScopedStatusLine(scope: AccountingIssueScopeSummary): string {
+  return `${scope.status} · ${scope.blockingIssueCount} blocking · ${scope.openIssueCount} open`;
+}
+
+function formatScopedScopeStatus(status: AccountingIssueScopeSummary['status']): string {
+  switch (status) {
+    case 'ready':
+      return 'ready';
+    case 'failed':
+      return 'failed';
+    case 'has-open-issues':
+      return 'has-open-issues';
+  }
+}
+
+function colorizeScopeStatus(status: AccountingIssueScopeSummary['status'], value: string): string {
+  switch (status) {
+    case 'ready':
+      return pc.green(value);
+    case 'failed':
+      return pc.red(value);
+    case 'has-open-issues':
+      return pc.yellow(value);
+  }
+}
+
+function formatUpdatedAt(updatedAt: Date): string {
+  return updatedAt.toISOString().slice(0, 16).replace('T', ' ');
 }

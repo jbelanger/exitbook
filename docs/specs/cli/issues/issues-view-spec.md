@@ -1,6 +1,6 @@
----
-last_verified: 2026-04-13
+last_verified: 2026-04-14
 status: canonical
+
 ---
 
 # Issues CLI Spec
@@ -475,6 +475,45 @@ Rules:
 
 - returns scoped lens metadata plus scoped issue rows
 - scoped rows use the same issue row shape as detail/list outputs
+
+Shape:
+
+```json
+{
+  "data": {
+    "scope": {
+      "scopeKind": "cost-basis",
+      "scopeKey": "profile:42:cost-basis:8b5e53cd",
+      "profileId": 42,
+      "title": "CA / average-cost / 2024",
+      "status": "has-open-issues",
+      "openIssueCount": 2,
+      "blockingIssueCount": 2,
+      "updatedAt": "2026-04-14T22:30:00.000Z"
+    },
+    "currentIssues": [
+      {
+        "issueRef": "a8f24c7d19",
+        "family": "tax_readiness",
+        "code": "MISSING_PRICE_DATA",
+        "severity": "blocked",
+        "status": "open",
+        "summary": "Required transaction price data is missing.",
+        "nextActions": [
+          {
+            "kind": "review_prices",
+            "label": "Review in prices",
+            "mode": "routed",
+            "routeTarget": {
+              "family": "prices"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Mockups
 

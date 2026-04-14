@@ -287,16 +287,27 @@ Completed so far:
 - profile-qualified cost-basis issue scope identity landed in `packages/accounting/src/issues/`
 - scoped `tax_readiness` issue family mapping landed in `packages/accounting/src/issues/cost-basis-issues.ts`
 - cross-scope current-issue lookup landed in `packages/data/src/repositories/accounting-issue-repository.ts`
+- scoped cost-basis CLI browse path landed under `apps/cli/src/features/issues/`
+- bare `issues` overview now discovers previously materialized scoped cost-basis lenses
+- `issues view <ISSUE-REF>` now resolves across current surfaced rows for the active profile
+- Canada workflow execution now respects caller `missingPricePolicy`, which is required for honest `MISSING_PRICE_DATA` surfacing in `issues cost-basis`
 - accounting/data targeted tests landed for:
   - cost-basis issue scope key + snapshot building
   - cross-scope current-issue repository reads
+  - cost-basis workflow missing-price policy behavior
+  - issues CLI renderer coverage for scoped lens rendering
+  - issues command coverage for scoped-lens overview pass-through
 
 Remaining in this phase:
 
-- `issues cost-basis ...` CLI browse path
-- known scoped lens discovery from bare `issues`
-- cross-scope `issues view <ISSUE-REF>` resolution
 - Phase 1B live CLI validation
+
+Current blocker:
+
+- real-workspace Phase 1B validation is still blocked on the current `apps/cli/data/transactions.db`
+  carrying the older Phase 1A `accounting_issue_rows` check constraint
+- this is dev schema drift under the repo's reset-and-reimport workflow, not a known Phase 1B logic failure
+- the code, tests, and builds are ready for a fresh Phase 1B-shaped DB; the current workspace DB is not
 
 Deliver:
 
