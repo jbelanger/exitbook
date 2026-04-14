@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-13
+last_verified: 2026-04-14
 status: active
 ---
 
@@ -192,7 +192,7 @@ This initiative is complete only when all of the following are true:
 
 ### Phase 1A: Profile-Global Issue Projection
 
-Status: in progress
+Status: complete
 
 Completed so far:
 
@@ -216,15 +216,17 @@ Completed so far:
   - `issues list`
   - `issues view <ISSUE-REF>`
 - live CLI validation passed against a fresh temp data dir using `node --import tsx ./apps/cli/src/index.ts issues --json`
-
-Remaining in this phase:
-
-- real-workspace validation after local dev DB reset
+- real-workspace CLI validation passed after DB reset and reimport:
+  - `pnpm run dev issues`
+  - `pnpm run dev issues --json`
+  - `pnpm run dev issues list`
+  - `pnpm run dev issues view <ISSUE-REF>`
+  - `pnpm run dev issues view <ISSUE-REF> --json`
 
 Notes:
 
-- the current workspace `apps/cli/data/transactions.db` predates the new schema, so `issues` currently fails there with `no such table: accounting_issue_scopes`
-- this is expected with the repo's initial-migration-only development workflow and is not a reason to add ad hoc schema patching
+- the initial real-workspace blocker was an in-flight import session, not an issue with the `issues` surface
+- after the import completed, the reimported workspace validated cleanly with a 58-item profile-global issue queue
 
 Deliver:
 
