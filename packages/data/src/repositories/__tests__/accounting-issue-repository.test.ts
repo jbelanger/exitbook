@@ -1,4 +1,7 @@
-import { buildProfileAccountingIssueScopeSnapshot } from '@exitbook/accounting/issues';
+import {
+  buildCostBasisAccountingIssueScopeSnapshot,
+  buildProfileAccountingIssueScopeSnapshot,
+} from '@exitbook/accounting/issues';
 import type { LinkGapIssue } from '@exitbook/accounting/linking';
 import type { AssetReviewSummary } from '@exitbook/core';
 import { assertOk } from '@exitbook/foundation/test-utils';
@@ -66,6 +69,56 @@ function createSnapshot(input?: {
     assetReviewSummaries: input?.assetReviewSummaries ?? [createAssetReviewSummary()],
     linkGapIssues: input?.linkGapIssues ?? [createLinkGapIssue()],
     updatedAt: input?.updatedAt ?? UPDATED_AT,
+  });
+}
+
+function createCostBasisSnapshot() {
+  return buildCostBasisAccountingIssueScopeSnapshot({
+    profileId: PROFILE_ID,
+    config: {
+      jurisdiction: 'CA',
+      taxYear: 2024,
+      method: 'average-cost',
+      currency: 'CAD',
+      startDate: new Date('2024-01-01T00:00:00.000Z'),
+      endDate: new Date('2024-12-31T23:59:59.999Z'),
+    },
+    scope: {
+      config: {
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        method: 'average-cost',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      },
+      filingScope: 'full_tax_year',
+      requiredStartDate: new Date('2024-01-01T00:00:00.000Z'),
+      requiredEndDate: new Date('2024-12-31T23:59:59.999Z'),
+    },
+    readiness: {
+      status: 'blocked',
+      issues: [
+        {
+          code: 'MISSING_PRICE_DATA',
+          severity: 'blocked',
+          summary: 'Required transaction price data is missing.',
+          details: 'Tax package export is blocked because retained transactions are missing required price data.',
+          recommendedAction: 'Enrich or set the missing prices, then rerun the package export.',
+        },
+      ],
+      warnings: [],
+      blockingIssues: [
+        {
+          code: 'MISSING_PRICE_DATA',
+          severity: 'blocked',
+          summary: 'Required transaction price data is missing.',
+          details: 'Tax package export is blocked because retained transactions are missing required price data.',
+          recommendedAction: 'Enrich or set the missing prices, then rerun the package export.',
+        },
+      ],
+    },
+    readinessMetadata: {},
+    updatedAt: new Date('2026-04-14T12:30:00.000Z'),
   });
 }
 
@@ -178,5 +231,24 @@ describe('AccountingIssueRepository', () => {
       blockingIssueCount: 1,
       status: 'has-open-issues',
     });
+  });
+
+  it('lists current issue summaries across all scopes for one profile', async () => {
+    assertOk(await repo.reconcileScope(createSnapshot()));
+    assertOk(await repo.reconcileScope(createCostBasisSnapshot()));
+
+    const scopedSummaries = assertOk(await repo.listCurrentIssueSummariesForProfile(PROFILE_ID));
+
+    expect(scopedSummaries).toHaveLength(3);
+    expect(scopedSummaries.map((record) => record.scopeKey)).toEqual([
+      'profile:1',
+      expect.stringMatching(/^profile:1:cost-basis:/),
+      'profile:1',
+    ]);
+    expect(scopedSummaries.map((record) => record.issue.family)).toEqual([
+      'asset_review_blocker',
+      'tax_readiness',
+      'transfer_gap',
+    ]);
   });
 });

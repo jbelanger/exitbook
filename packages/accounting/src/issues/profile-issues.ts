@@ -1,4 +1,4 @@
-import type { AssetReviewSummary } from '@exitbook/core';
+import { formatTransactionFingerprintRef, type AssetReviewSummary } from '@exitbook/core';
 import { sha256Hex } from '@exitbook/foundation';
 
 import { type GapCueKind, type LinkGapIssue, buildLinkGapIssueKey } from '../linking/gaps/gap-model.js';
@@ -231,10 +231,6 @@ function formatGapCueLabel(cue: GapCueKind): string {
     case 'likely_cross_chain_migration':
       return 'likely cross-chain migration';
   }
-}
-
-function formatTransactionFingerprintRef(txFingerprint: string): string {
-  return txFingerprint.length <= 10 ? txFingerprint : txFingerprint.slice(0, 10);
 }
 
 function truncateMiddle(value: string, maxLength: number): string {

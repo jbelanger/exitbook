@@ -116,6 +116,8 @@ export {
   type TransactionLink,
   type NewTransactionLink,
   type ExplainedTargetResidual,
+  formatTransactionFingerprintRef,
+  TRANSACTION_FINGERPRINT_REF_LENGTH,
 } from './transaction/index.js';
 export { AmbiguousTransactionFingerprintRefError } from './transaction/transaction-selector-errors.js';
 

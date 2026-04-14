@@ -280,7 +280,23 @@ Acceptance criteria:
 
 ### Phase 1B: Scoped Cost-Basis Issue Projection
 
-Status: pending
+Status: in progress
+
+Completed so far:
+
+- profile-qualified cost-basis issue scope identity landed in `packages/accounting/src/issues/`
+- scoped `tax_readiness` issue family mapping landed in `packages/accounting/src/issues/cost-basis-issues.ts`
+- cross-scope current-issue lookup landed in `packages/data/src/repositories/accounting-issue-repository.ts`
+- accounting/data targeted tests landed for:
+  - cost-basis issue scope key + snapshot building
+  - cross-scope current-issue repository reads
+
+Remaining in this phase:
+
+- `issues cost-basis ...` CLI browse path
+- known scoped lens discovery from bare `issues`
+- cross-scope `issues view <ISSUE-REF>` resolution
+- Phase 1B live CLI validation
 
 Deliver:
 

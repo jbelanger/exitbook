@@ -710,8 +710,23 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('detail_json', 'text', (col) => col.notNull())
     .addColumn('evidence_json', 'text', (col) => col.notNull())
     .addColumn('next_actions_json', 'text', (col) => col.notNull())
-    .addCheckConstraint('accounting_issue_rows_family_valid', sql`family IN ('transfer_gap', 'asset_review_blocker')`)
-    .addCheckConstraint('accounting_issue_rows_code_valid', sql`code IN ('LINK_GAP', 'ASSET_REVIEW_BLOCKER')`)
+    .addCheckConstraint(
+      'accounting_issue_rows_family_valid',
+      sql`family IN ('transfer_gap', 'asset_review_blocker', 'tax_readiness')`
+    )
+    .addCheckConstraint(
+      'accounting_issue_rows_code_valid',
+      sql`code IN (
+        'LINK_GAP',
+        'ASSET_REVIEW_BLOCKER',
+        'MISSING_PRICE_DATA',
+        'FX_FALLBACK_USED',
+        'UNRESOLVED_ASSET_REVIEW',
+        'UNKNOWN_TRANSACTION_CLASSIFICATION',
+        'UNCERTAIN_PROCEEDS_ALLOCATION',
+        'INCOMPLETE_TRANSFER_LINKING'
+      )`
+    )
     .addCheckConstraint('accounting_issue_rows_severity_valid', sql`severity IN ('warning', 'blocked')`)
     .addCheckConstraint('accounting_issue_rows_status_valid', sql`status IN ('open', 'closed')`)
     .addCheckConstraint(

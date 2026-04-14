@@ -5,5 +5,6 @@ export * from './movement-utils.js';
 export * from './transaction.js';
 export * from './transaction-diagnostic-utils.js';
 export * from './transaction-selector-errors.js';
+export * from './transaction-fingerprint-ref.js';
 export * from './raw-transaction.js';
 export * from './transaction-link.js';

@@ -4,7 +4,8 @@ import { z } from 'zod';
 
 import { ExitCodes, type ExitCode } from '../../cli/exit-codes.js';
 
-export const TRANSACTION_FINGERPRINT_REF_LENGTH = 10;
+export { formatTransactionFingerprintRef, TRANSACTION_FINGERPRINT_REF_LENGTH } from '@exitbook/core';
+
 export const TransactionSelectorValueSchema = z.string().trim().min(1);
 
 interface TransactionSelectorService {
@@ -29,14 +30,6 @@ export class TransactionSelectorResolutionError extends Error {
 
 function normalizeTransactionSelectorValue(value: string): string {
   return value.trim().toLowerCase();
-}
-
-export function formatTransactionFingerprintRef(txFingerprint: string): string {
-  if (txFingerprint.length <= TRANSACTION_FINGERPRINT_REF_LENGTH) {
-    return txFingerprint;
-  }
-
-  return txFingerprint.slice(0, TRANSACTION_FINGERPRINT_REF_LENGTH);
 }
 
 export function buildTransactionSelectorFilters(selector: ResolvedTransactionSelector | undefined): {

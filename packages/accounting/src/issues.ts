@@ -45,3 +45,8 @@ export type {
 } from './issues/issue-model.js';
 export { buildProfileAccountingIssueScopeSnapshot } from './issues/profile-issues.js';
 export type { BuildProfileAccountingIssueScopeSnapshotInput } from './issues/profile-issues.js';
+export {
+  buildCostBasisAccountingIssueScopeKey,
+  buildCostBasisAccountingIssueScopeSnapshot,
+} from './issues/cost-basis-issues.js';
+export type { BuildCostBasisAccountingIssueScopeSnapshotInput } from './issues/cost-basis-issues.js';

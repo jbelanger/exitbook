@@ -35,6 +35,12 @@ export interface AccountingIssueDetailRecord {
   issue: AccountingIssueDetailItem;
 }
 
+export interface AccountingIssueScopedSummaryRecord {
+  issueKey: string;
+  issue: AccountingIssueSummaryItem;
+  scopeKey: string;
+}
+
 type AccountingIssueScopeRecord = Selectable<AccountingIssueScopesTable>;
 type AccountingIssueRowRecord = Selectable<AccountingIssueRowsTable>;
 
@@ -233,6 +239,57 @@ export class AccountingIssueRepository extends BaseRepository {
     } catch (error) {
       this.logger.error({ error, scopeKey }, 'Failed to list current accounting issues');
       return wrapError(error, `Failed to list current accounting issues for ${scopeKey}`);
+    }
+  }
+
+  async listCurrentIssueSummariesForProfile(
+    profileId: number
+  ): Promise<Result<AccountingIssueScopedSummaryRecord[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('accounting_issue_rows as issue_rows')
+        .innerJoin('accounting_issue_scopes as issue_scopes', 'issue_scopes.scope_key', 'issue_rows.scope_key')
+        .select([
+          'issue_rows.id',
+          'issue_rows.scope_key',
+          'issue_rows.issue_key',
+          'issue_rows.family',
+          'issue_rows.code',
+          'issue_rows.severity',
+          'issue_rows.status',
+          'issue_rows.summary',
+          'issue_rows.first_seen_at',
+          'issue_rows.last_seen_at',
+          'issue_rows.closed_at',
+          'issue_rows.closed_reason',
+          'issue_rows.detail_json',
+          'issue_rows.evidence_json',
+          'issue_rows.next_actions_json',
+        ])
+        .where('issue_scopes.profile_id', '=', profileId)
+        .where('issue_rows.status', '=', 'open')
+        .orderBy('issue_rows.severity', 'asc')
+        .orderBy('issue_rows.family', 'asc')
+        .orderBy('issue_rows.summary', 'asc')
+        .orderBy('issue_rows.issue_key', 'asc')
+        .execute();
+
+      const summaries: AccountingIssueScopedSummaryRecord[] = [];
+      for (const row of rows) {
+        const parsed = this.parseSummaryRow(row);
+        if (parsed.isErr()) {
+          return err(parsed.error);
+        }
+        summaries.push({
+          ...parsed.value,
+          scopeKey: row.scope_key,
+        });
+      }
+
+      return ok(summaries);
+    } catch (error) {
+      this.logger.error({ error, profileId }, 'Failed to list current accounting issues for profile');
+      return wrapError(error, `Failed to list current accounting issues for profile ${profileId}`);
     }
   }
 
