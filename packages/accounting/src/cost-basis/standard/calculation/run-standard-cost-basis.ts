@@ -5,7 +5,10 @@ import { getLogger } from '@exitbook/logger';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
-import { validateScopedTransactionPrices } from '../../workflow/price-completeness.js';
+import {
+  stabilizeExcludedRebuildTransactions,
+  validateScopedTransactionPrices,
+} from '../../workflow/price-completeness.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { AccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
@@ -35,8 +38,7 @@ interface CostBasisPipelineResult {
   summary: CostBasisSummary;
   missingPricesCount: number;
   /**
-   * Raw transactions carried forward into the final scoped rebuild. This can
-   * include same-hash internal dependencies consumed by scoped reductions.
+   * Raw transactions carried forward into the final stabilized scoped rebuild.
    */
   rebuildTransactions: Transaction[];
 }
@@ -79,7 +81,8 @@ export async function runCostBasisPipeline(
     return err(validationResult.error);
   }
 
-  const { rebuildTransactions, missingPricesCount } = validationResult.value;
+  let { rebuildTransactions } = validationResult.value;
+  const { missingPricesCount } = validationResult.value;
 
   if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
     return err(
@@ -101,10 +104,21 @@ export async function runCostBasisPipeline(
       'Excluding transactions with missing prices from the soft cost-basis pipeline'
     );
 
+    const stabilizedRebuildResult = stabilizeExcludedRebuildTransactions(
+      rebuildTransactions,
+      config.currency,
+      options.accountingExclusionPolicy
+    );
+    if (stabilizedRebuildResult.isErr()) {
+      return err(stabilizedRebuildResult.error);
+    }
+
+    rebuildTransactions = stabilizedRebuildResult.value;
+
     // Same-hash scoping mutates the scoped transaction set and may emit
-    // fee-only carryovers. After excluding raw transactions we must rebuild the
-    // scoped subset so those transfer decisions are recomputed against the
-    // surviving transactions rather than leaving dangling carryover state.
+    // fee-only carryovers. After stabilizing the retained raw transactions we
+    // must rebuild the scoped subset so those transfer decisions are recomputed
+    // against the surviving transactions rather than leaving dangling carryover state.
     const rebuildScopedResult = buildCostBasisScopedTransactions(rebuildTransactions, logger);
     if (rebuildScopedResult.isErr()) {
       return err(rebuildScopedResult.error);

@@ -123,6 +123,53 @@ export function getCostBasisRebuildTransactions(
   return validateScopedTransactionPrices(exclusionApplied.scopedBuildResult, requiredCurrency);
 }
 
+function buildTransactionIdSetKey(transactions: readonly Transaction[]): string {
+  return transactions
+    .map((transaction) => transaction.id)
+    .sort((left, right) => left - right)
+    .join(',');
+}
+
+/**
+ * Dropping missing-price scoped rows can still leave dependency transactions in the
+ * retained raw set. Re-run the scoped validation until the retained transaction ids
+ * stop changing so downstream workflows receive a stable, fully priced rebuild subset.
+ */
+export function stabilizeExcludedRebuildTransactions(
+  rebuildTransactions: Transaction[],
+  requiredCurrency: string,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
+): Result<Transaction[], Error> {
+  let currentTransactions = rebuildTransactions;
+  const seenKeys = new Set<string>();
+
+  while (true) {
+    const currentKey = buildTransactionIdSetKey(currentTransactions);
+    if (seenKeys.has(currentKey)) {
+      return err(new Error(`Price-exclusion rebuild subset failed to converge for transactions [${currentKey}]`));
+    }
+    seenKeys.add(currentKey);
+
+    const scopedResult = buildCostBasisScopedTransactions(currentTransactions, logger);
+    if (scopedResult.isErr()) {
+      return err(scopedResult.error);
+    }
+
+    const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
+    const validationResult = validateScopedTransactionPrices(exclusionApplied.scopedBuildResult, requiredCurrency);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+
+    const nextTransactions = validationResult.value.rebuildTransactions;
+    if (buildTransactionIdSetKey(nextTransactions) === currentKey) {
+      return ok(nextTransactions);
+    }
+
+    currentTransactions = nextTransactions;
+  }
+}
+
 interface PriceCoverageResult {
   complete: boolean;
   reason: string | undefined;

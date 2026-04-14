@@ -5,7 +5,10 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../../../workflow/cost-basis-input.js';
-import { getCostBasisRebuildTransactions } from '../../../workflow/price-completeness.js';
+import {
+  getCostBasisRebuildTransactions,
+  stabilizeExcludedRebuildTransactions,
+} from '../../../workflow/price-completeness.js';
 import type { CostBasisExecutionMeta, CanadaCostBasisWorkflowResult } from '../../../workflow/workflow-result-types.js';
 import { buildCanadaDisplayCostBasisReport, buildCanadaTaxReport } from '../tax/canada-tax-report-builder.js';
 import type { CanadaCostBasisCalculation, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
@@ -39,33 +42,47 @@ export async function runCanadaCostBasisCalculation(
     return err(priceCoverageResult.error);
   }
 
-  const executionMeta: CostBasisExecutionMeta = {
-    missingPricesCount: priceCoverageResult.value.missingPricesCount,
-    retainedTransactionIds: priceCoverageResult.value.rebuildTransactions.map((transaction) => transaction.id),
-  };
+  let rebuildTransactions = priceCoverageResult.value.rebuildTransactions;
+  const missingPricesCount = priceCoverageResult.value.missingPricesCount;
 
-  if (params.missingPricePolicy === 'error' && executionMeta.missingPricesCount > 0) {
+  if (params.missingPricePolicy === 'error' && missingPricesCount > 0) {
     return err(
       new Error(
-        `${executionMeta.missingPricesCount} transactions are missing required price data. ` +
+        `${missingPricesCount} transactions are missing required price data. ` +
           `Run 'exitbook prices enrich' and retry cost basis.`
       )
     );
   }
 
-  if (params.missingPricePolicy === 'exclude' && executionMeta.missingPricesCount > 0) {
+  if (params.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
     logger.warn(
       {
-        missingPricesCount: executionMeta.missingPricesCount,
+        missingPricesCount,
         originalTransactionsCount: params.transactions.length,
-        rebuildTransactionsCount: priceCoverageResult.value.rebuildTransactions.length,
+        rebuildTransactionsCount: rebuildTransactions.length,
       },
       'Excluding transactions with missing prices from the Canada cost basis calculation'
     );
+
+    const stabilizedRebuildResult = stabilizeExcludedRebuildTransactions(
+      rebuildTransactions,
+      'CAD',
+      params.accountingExclusionPolicy
+    );
+    if (stabilizedRebuildResult.isErr()) {
+      return err(stabilizedRebuildResult.error);
+    }
+
+    rebuildTransactions = stabilizedRebuildResult.value;
   }
 
+  const executionMeta: CostBasisExecutionMeta = {
+    missingPricesCount,
+    retainedTransactionIds: rebuildTransactions.map((transaction) => transaction.id),
+  };
+
   const acbWorkflowResult = await runCanadaAcbWorkflow({
-    transactions: priceCoverageResult.value.rebuildTransactions,
+    transactions: rebuildTransactions,
     confirmedLinks: params.confirmedLinks,
     priceRuntime: params.priceRuntime,
     accountingExclusionPolicy: params.accountingExclusionPolicy,
