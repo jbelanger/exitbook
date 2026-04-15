@@ -97,6 +97,8 @@ Phase 0 investigation log:
 - the canonical accounting substrate is named explicitly
 - provenance/audit vs accounting responsibility is stated explicitly
 - override attachment points are stated explicitly
+- any identity bridge from current `txFingerprint` / `movementFingerprint`
+  contracts is stated explicitly
 - any substrate migration target is stated explicitly at the accounting seam
   level, not only as a storage-table change
 - any future substrate split is generic, not Cardano-specific

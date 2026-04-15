@@ -360,6 +360,153 @@ would be localized enough to be viable, or already too diffuse to stay clean.
    processed movements without weakening `txFingerprint` /
    `movementFingerprint`-level traceability?
 
+## Pass 3
+
+### Scope
+
+Inventory the current identity contracts and durable user-correction flows that
+depend directly on the processed transaction substrate.
+
+The purpose of this pass is to answer a narrower question than Pass 2:
+
+- if a new canonical accounting substrate exists, can Exitbook preserve its
+  current replay and correction discipline
+- or would the change force fuzzy remapping and weaker override guarantees
+
+### Evidence Inspected
+
+- [transaction-and-movement-identity.md](/Users/joel/Dev/exitbook/docs/specs/transaction-and-movement-identity.md)
+- [override-event-store-and-replay.md](/Users/joel/Dev/exitbook/docs/specs/override-event-store-and-replay.md)
+- [override.ts](/Users/joel/Dev/exitbook/packages/core/src/override/override.ts)
+- [transaction-link.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction-link.ts)
+- [override-store.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/override-store.ts)
+- [override-replay.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/orchestration/override-replay.ts)
+- [transaction-movement-role-replay.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/transaction-movement-role-replay.ts)
+- [transaction-user-note-replay.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/transaction-user-note-replay.ts)
+- [link-gap-resolution-replay.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/link-gap-resolution-replay.ts)
+- [asset-review-replay.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/asset-review-replay.ts)
+- [asset-exclusion-replay.ts](/Users/joel/Dev/exitbook/packages/data/src/overrides/asset-exclusion-replay.ts)
+- [transaction-repository.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-repository.ts)
+- [transaction-materialization-support.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-materialization-support.ts)
+- [transaction-link-repository.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-link-repository.ts)
+- [accounting-issue-repository.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/accounting-issue-repository.ts)
+
+### Findings
+
+1. Exitbook’s current correction model is already identity-rigorous.
+   The canonical processed identities are:
+   - `txFingerprint` for processed transactions
+   - `movementFingerprint` for processed movements
+     They are intentionally stable across price enrichment, diagnostics, user
+     notes, and movement-role changes. That stability is doing real work today.
+
+2. The most important durable user corrections are keyed directly to processed
+   identity, not to row ids.
+   Current examples:
+   - transaction user notes:
+     - `transaction_user_note_override`
+     - keyed by `tx_fingerprint`
+   - movement-role overrides:
+     - `transaction_movement_role_override`
+     - keyed by `movement_fingerprint`
+   - link-gap resolution:
+     - keyed by `tx_fingerprint + asset_id + direction`
+   - manual link confirmation / rejection:
+     - keyed by a resolved link fingerprint built from:
+       - `sourceMovementFingerprint`
+       - `targetMovementFingerprint`
+       - `sourceAssetId`
+       - `targetAssetId`
+     - while also carrying `source_fingerprint` / `target_fingerprint` for
+       transaction resolution
+
+3. Link identity is stricter than a plain transaction-pair model.
+   The durable link override path does **not** just say “these two transactions
+   are linked.”
+   It says:
+   - these exact source and target movements
+   - for these exact asset ids
+   - with these exact amounts
+     This is a strong property. It is one of Exitbook’s current architectural
+     strengths.
+
+4. Current replay/materialization assumes processed identity survives rebuilds
+   and can be reattached exactly.
+   Replay today works because:
+   - processed transactions rebuild with stable `txFingerprint`
+   - processed movements rebuild with stable `movementFingerprint`
+   - override streams can then be replayed deterministically
+   - repository materialization writes back into processed projections such as:
+     - `transactions.user_notes_json`
+     - `transaction_movements.movement_role_override`
+       This is not incidental implementation detail. It is the current durability
+       contract.
+
+5. Not every mutable workflow is substrate-bound.
+   Some current mutable/read-write flows are already orthogonal to processed
+   movement identity:
+   - asset exclusion:
+     - keyed by `asset_id`
+   - asset review:
+     - keyed by `asset_id` plus `evidence_fingerprint`
+   - accounting issue acknowledgement:
+     - keyed by `scopeKey + issueKey`
+       This matters because a new accounting substrate would not have to “move
+       every mutable thing.” The hard dependencies are the corrections that target
+       processed transaction and movement identity directly.
+
+6. A new accounting substrate would only stay strong if it has an explicit
+   identity bridge to current processed identity.
+   Without that bridge, the current correction model would regress badly:
+   - manual links would need fuzzy rematching
+   - movement-role overrides would need ad hoc retargeting
+   - user-note replay would become ambiguous
+   - orphaned override materialization would lose its exactness
+     So the relevant design bar is not just “new substrate has ids.”
+     It is:
+   - new substrate identity must either be rooted in current processed identity
+   - or define an equally deterministic bridge from current processed identity
+
+### Implications
+
+- A future accounting-substrate split is not blocked by all existing mutable
+  state.
+  It is blocked specifically by the correction families that are anchored to
+  `txFingerprint`, `movementFingerprint`, and resolved movement-pair identity.
+- The strongest candidate direction is **not** to abandon current processed
+  identity.
+  It is to preserve current processed identity as a provenance anchor and let
+  any new accounting substrate derive or reference its own canonical rows from
+  that anchor.
+- Link overrides are the hardest identity dependency.
+  Any candidate model that cannot express “this exact economic relation maps
+  back to these exact persisted movements” should be rejected early.
+- Movement-role override now has a sharper architectural meaning:
+  it is a correction on the processed provenance movement layer.
+  If a new accounting substrate exists, we will need an explicit decision on
+  whether that remains a provenance-layer correction, gains an accounting-layer
+  counterpart, or is replaced by a different correction vocabulary.
+
+### Open Questions From Pass 3
+
+1. If a new canonical accounting substrate exists, what should its own durable
+   identity root be?
+   - derived directly from `txFingerprint` / `movementFingerprint`
+   - or independently canonical with a required bridge back to them
+
+2. Which current correction families should stay attached to the provenance
+   layer even if accounting moves?
+
+3. Which correction families would need new accounting-layer identities or
+   equivalents?
+
+4. Can link identity stay movement-anchored while accounting consumes a
+   different substrate, or would links need their own accounting-layer target?
+
+5. Can a new substrate preserve orphaned override materialization and exact
+   replay without duplicating override logic across two parallel identity
+   systems?
+
 ## Current Working Position
 
 Current recommendation:
@@ -372,5 +519,7 @@ Current recommendation:
   - materially simplifying for linking, cost basis, issues, and overrides
   - implemented by replacing the current accounting seams, not by adding a
     second optional side path
+  - explicit about how current tx/movement/link corrections survive without
+    fuzzy remapping
 
 Anything weaker should be rejected.
