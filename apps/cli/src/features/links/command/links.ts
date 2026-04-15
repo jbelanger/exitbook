@@ -7,6 +7,7 @@ import { staticListSurfaceSpec } from '../../../cli/presentation.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerLinksCreateCommand } from './create/links-create-command.js';
+import { registerLinksCreateGroupedCommand } from './create/links-create-grouped-command.js';
 import { registerLinksGapsCommand } from './gaps/links-gaps.js';
 import {
   buildLinksBrowseOptionsHelpText,
@@ -31,6 +32,7 @@ const LINKS_COMMAND_ID = 'links';
  *   links view <link-ref>     - Static detail for one proposal
  *   links explore             - Interactive review explorer
  *   links create <src> <dst>  - Create a confirmed manual link
+ *   links create-grouped      - Create confirmed grouped manual links
  *   links gaps                - Gap list and issue-level gap resolution workflow
  *   links run                 - Run the linking algorithm
  *   links confirm <link-ref>  - Confirm a suggested proposal
@@ -52,6 +54,7 @@ Examples:
   $ exitbook links view a1b2c3d4e5
   $ exitbook links explore --status suggested
   $ exitbook links create e96a8b7baa b7c08af224 --asset RENDER
+  $ exitbook links create-grouped --source 78a82e8482 --source d0c794045d --target 38adc7a548 --asset ADA
   $ exitbook links gaps
   $ exitbook links gaps view a1b2c3d4e5
   $ exitbook links gaps explore
@@ -66,6 +69,7 @@ Notes:
   - Use bare "links" or "links list" for static lists.
   - Use "links view <link-ref>" for one static proposal detail card.
   - Use "links create <source-ref> <target-ref> --asset <symbol>" when you know the exact pair and no proposal exists.
+  - Use "links create-grouped" for exact many-to-one or one-to-many grouped transfers.
   - Use "links gaps" for the dedicated gap workflow and issue-level gap exceptions.
   - Use "links explore" for the interactive explorer.
   - Use "links run" to refresh suggestions before reviewing them.
@@ -107,6 +111,7 @@ Notes:
   registerLinksViewCommand(links);
   registerLinksExploreCommand(links);
   registerLinksCreateCommand(links);
+  registerLinksCreateGroupedCommand(links);
   registerLinksGapsCommand(links);
   registerLinksRunCommand(links, appRuntime);
   registerLinksConfirmCommand(links);

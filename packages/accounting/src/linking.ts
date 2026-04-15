@@ -10,9 +10,10 @@ export {
 export {
   buildConfirmedLinkFromExactMovements,
   buildManualLinkOverrideMetadata,
+  prepareGroupedManualLinksFromTransactions,
   prepareManualLinkFromTransactions,
 } from './linking/orchestration/manual-link-utils.js';
-export type { PreparedManualLink } from './linking/orchestration/manual-link-utils.js';
+export type { PreparedGroupedManualLinks, PreparedManualLink } from './linking/orchestration/manual-link-utils.js';
 export { analyzeLinkGaps, applyResolvedLinkGapVisibility } from './linking/gaps/gap-analysis.js';
 export type { AnalyzeLinkGapsOptions, ResolvedLinkGapVisibilityResult } from './linking/gaps/gap-analysis.js';
 export { buildLinkGapIssueKey } from './linking/gaps/gap-model.js';

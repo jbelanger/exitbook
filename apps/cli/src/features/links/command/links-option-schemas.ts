@@ -50,6 +50,13 @@ export const LinksCreateCommandOptionsSchema = JsonFlagSchema.extend({
   reason: z.string().trim().min(1).optional(),
 });
 
+export const LinksCreateGroupedCommandOptionsSchema = JsonFlagSchema.extend({
+  asset: CurrencySchema,
+  reason: z.string().trim().min(1).optional(),
+  source: z.array(z.string().trim().min(1)).min(1),
+  target: z.array(z.string().trim().min(1)).min(1),
+});
+
 export const LinksGapResolutionCommandOptionsSchema = JsonFlagSchema.extend({
   reason: z.string().trim().min(1).optional(),
 });

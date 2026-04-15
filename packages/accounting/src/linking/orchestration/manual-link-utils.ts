@@ -2,6 +2,7 @@ import type { NewTransactionLink, OverrideLinkType, Transaction, TransactionLink
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, resultDo, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
+import { Decimal } from 'decimal.js';
 
 import { createTransactionLink } from '../matching/link-construction.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
@@ -10,6 +11,7 @@ import type { PotentialMatch } from '../shared/types.js';
 import { determineLinkType } from '../strategies/amount-timing-utils.js';
 
 export interface BuildConfirmedLinkFromExactMovementsParams {
+  consumedAmount?: Decimal | undefined;
   metadata?: TransactionLinkMetadata | undefined;
   reviewedAt: Date;
   reviewedBy: string;
@@ -37,6 +39,21 @@ export interface PreparedManualLink {
   targetTransaction: Transaction;
 }
 
+export interface PrepareGroupedManualLinksFromTransactionsParams {
+  assetSymbol: Currency;
+  metadata?: TransactionLinkMetadata | undefined;
+  reviewedAt: Date;
+  reviewedBy: string;
+  sourceTransactionIds: number[];
+  targetTransactionIds: number[];
+  transactions: Transaction[];
+}
+
+export interface PreparedGroupedManualLinks {
+  entries: PreparedManualLink[];
+  shape: 'many-to-one' | 'one-to-many';
+}
+
 export function buildConfirmedLinkFromExactMovements(
   params: BuildConfirmedLinkFromExactMovementsParams
 ): Result<NewTransactionLink, Error> {
@@ -44,6 +61,7 @@ export function buildConfirmedLinkFromExactMovements(
     const match: PotentialMatch = {
       sourceMovement: params.sourceMovement,
       targetMovement: params.targetMovement,
+      consumedAmount: params.consumedAmount,
       confidenceScore: parseDecimal('1'),
       matchCriteria: {
         assetMatch: true,
@@ -106,6 +124,130 @@ export function prepareManualLinkFromTransactions(
       sourceTransaction,
       targetMovement,
       targetTransaction,
+    };
+  });
+}
+
+export function prepareGroupedManualLinksFromTransactions(
+  params: PrepareGroupedManualLinksFromTransactionsParams,
+  logger: Logger
+): Result<PreparedGroupedManualLinks, Error> {
+  return resultDo(function* () {
+    const sourceTransactionIds = yield* validateTransactionIdSelection(params.sourceTransactionIds, 'source');
+    const targetTransactionIds = yield* validateTransactionIdSelection(params.targetTransactionIds, 'target');
+
+    if (sourceTransactionIds.length === 1 && targetTransactionIds.length === 1) {
+      return yield* err(new Error('Grouped manual links require one side to contain multiple transactions'));
+    }
+
+    if (sourceTransactionIds.length > 1 && targetTransactionIds.length > 1) {
+      return yield* err(new Error('Grouped manual links currently support only many-to-one or one-to-many shapes'));
+    }
+
+    const overlappingTransactionId = sourceTransactionIds.find((transactionId) =>
+      targetTransactionIds.includes(transactionId)
+    );
+    if (overlappingTransactionId !== undefined) {
+      return yield* err(
+        new Error(`Transaction ${overlappingTransactionId} cannot be both a grouped source and target`)
+      );
+    }
+
+    const resolvedSourceTransactions = yield* collectResults(
+      sourceTransactionIds.map((transactionId) => findTransactionById(params.transactions, transactionId, 'source'))
+    );
+    const resolvedTargetTransactions = yield* collectResults(
+      targetTransactionIds.map((transactionId) => findTransactionById(params.transactions, transactionId, 'target'))
+    );
+
+    const { linkableMovements } = yield* buildLinkableMovements(params.transactions, logger);
+    const sourceSelections = resolvedSourceTransactions.map((transaction) => ({
+      movement: resolveManualLinkMovement(linkableMovements, transaction, params.assetSymbol, 'out'),
+      transaction,
+    }));
+    const targetSelections = resolvedTargetTransactions.map((transaction) => ({
+      movement: resolveManualLinkMovement(linkableMovements, transaction, params.assetSymbol, 'in'),
+      transaction,
+    }));
+
+    const resolvedSourceSelections = yield* collectResults(
+      sourceSelections.map((selection) =>
+        selection.movement.isErr()
+          ? err(selection.movement.error)
+          : ok({
+              movement: selection.movement.value,
+              transaction: selection.transaction,
+            })
+      )
+    );
+    const resolvedTargetSelections = yield* collectResults(
+      targetSelections.map((selection) =>
+        selection.movement.isErr()
+          ? err(selection.movement.error)
+          : ok({
+              movement: selection.movement.value,
+              transaction: selection.transaction,
+            })
+      )
+    );
+
+    const totalSourceAmount = sumMovementAmounts(
+      resolvedSourceSelections.map((selection) => selection.movement.amount)
+    );
+    const totalTargetAmount = sumMovementAmounts(
+      resolvedTargetSelections.map((selection) => selection.movement.amount)
+    );
+
+    if (!totalSourceAmount.eq(totalTargetAmount)) {
+      return yield* err(
+        new Error(
+          `Grouped manual links require exact conservation for ${params.assetSymbol}. Sources total ${totalSourceAmount.toFixed()} and targets total ${totalTargetAmount.toFixed()}`
+        )
+      );
+    }
+
+    if (resolvedSourceSelections.length > 1) {
+      const targetSelection = resolvedTargetSelections[0]!;
+      const entries = yield* collectResults(
+        resolvedSourceSelections.map((sourceSelection) =>
+          buildPreparedManualLink({
+            sourceMovement: sourceSelection.movement,
+            sourceTransaction: sourceSelection.transaction,
+            targetMovement: targetSelection.movement,
+            targetTransaction: targetSelection.transaction,
+            consumedAmount: sourceSelection.movement.amount,
+            reviewedAt: params.reviewedAt,
+            reviewedBy: params.reviewedBy,
+            metadata: params.metadata,
+          })
+        )
+      );
+
+      return {
+        entries,
+        shape: 'many-to-one',
+      };
+    }
+
+    const sourceSelection = resolvedSourceSelections[0]!;
+    const entries = yield* collectResults(
+      resolvedTargetSelections.map((targetSelection) =>
+        buildPreparedManualLink({
+          sourceMovement: sourceSelection.movement,
+          sourceTransaction: sourceSelection.transaction,
+          targetMovement: targetSelection.movement,
+          targetTransaction: targetSelection.transaction,
+          consumedAmount: targetSelection.movement.amount,
+          reviewedAt: params.reviewedAt,
+          reviewedBy: params.reviewedBy,
+          metadata: params.metadata,
+        })
+      )
+    );
+
+    return {
+      entries,
+      shape: 'one-to-many',
     };
   });
 }
@@ -176,6 +318,59 @@ function mergeLinkMetadata(
     ...(base ?? {}),
     ...(extra ?? {}),
   };
+}
+
+interface BuildPreparedManualLinkParams extends BuildConfirmedLinkFromExactMovementsParams {
+  sourceTransaction: Transaction;
+  targetTransaction: Transaction;
+}
+
+function buildPreparedManualLink(params: BuildPreparedManualLinkParams): Result<PreparedManualLink, Error> {
+  return resultDo(function* () {
+    const link = yield* buildConfirmedLinkFromExactMovements(params);
+
+    return {
+      link,
+      sourceMovement: params.sourceMovement,
+      sourceTransaction: params.sourceTransaction,
+      targetMovement: params.targetMovement,
+      targetTransaction: params.targetTransaction,
+    };
+  });
+}
+
+function validateTransactionIdSelection(transactionIds: number[], label: 'source' | 'target'): Result<number[], Error> {
+  if (transactionIds.length === 0) {
+    return err(new Error(`Grouped manual links require at least one ${label} transaction`));
+  }
+
+  const seenIds = new Set<number>();
+  for (const transactionId of transactionIds) {
+    if (seenIds.has(transactionId)) {
+      return err(new Error(`Grouped manual links received duplicate ${label} transaction ${transactionId}`));
+    }
+    seenIds.add(transactionId);
+  }
+
+  return ok(transactionIds);
+}
+
+function sumMovementAmounts(amounts: Decimal[]): Decimal {
+  return amounts.reduce((total, amount) => total.plus(amount), parseDecimal('0'));
+}
+
+function collectResults<T>(results: Result<T, Error>[]): Result<T[], Error> {
+  const values: T[] = [];
+
+  for (const result of results) {
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    values.push(result.value);
+  }
+
+  return ok(values);
 }
 
 export function buildManualLinkOverrideMetadata(

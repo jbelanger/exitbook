@@ -120,6 +120,7 @@ This is direction-aware, movement-aware, and asset-id-aware.
 | Command                                     | Database mutation                                     | Override event                                                                                     |
 | ------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `links create <src> <dst> --asset <symbol>` | creates or confirms one exact manual link row         | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                 |
+| `links create-grouped ...`                  | creates or confirms multiple grouped manual link rows | appends one atomic batch of `scope='link'`, `type='link_override'`, `action='confirm'` events      |
 | `links confirm <ref>`                       | sets link status to `confirmed`                       | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                 |
 | `links reject <ref>`                        | sets link status to `rejected`                        | appends `scope='unlink'`, `type='unlink_override'`                                                 |
 | `links gaps resolve <ref>`                  | hides that specific gap issue from the open gaps lens | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                                      |

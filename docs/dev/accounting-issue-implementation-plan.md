@@ -408,6 +408,9 @@ Completed so far:
   `OverrideStore.appendMany()`
 - grouped corrective actions can persist multiple durable override events
   without risking half-written replay state
+- the first Phase 3 corrective action shipped:
+  - `links create-grouped` for exact many-to-one / one-to-many grouped transfer
+    confirmation
 
 Candidate families:
 

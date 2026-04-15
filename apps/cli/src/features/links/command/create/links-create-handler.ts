@@ -1,24 +1,18 @@
 import {
-  buildCostBasisScopedTransactions,
-  validateTransferProposalConfirmability,
-} from '@exitbook/accounting/cost-basis';
-import {
   buildManualLinkOverrideMetadata,
   prepareManualLinkFromTransactions,
   type PreparedManualLink,
 } from '@exitbook/accounting/linking';
 import {
-  computeResolvedLinkFingerprint,
   type LinkStatus,
   type NewTransactionLink,
   type Transaction,
   type TransactionLink,
   type TransactionLinkMetadata,
-  resolveTransactionLinkProvenance,
 } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, resultDo, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import {
@@ -29,16 +23,18 @@ import {
 import { getDefaultReviewer } from '../review/link-review-policy.js';
 import { appendLinkOverrideEvent } from '../review/links-override-append.js';
 
+import {
+  buildReviewedLinkMetadata,
+  findExistingExactLinkMatch,
+  validateConfirmedManualLinkSet,
+} from './manual-link-command-shared.js';
+
 const logger = getLogger('ManualLinkCreateHandler');
 
 type LinksCreateDatabase = Pick<DataSession, 'executeInTransaction'> & {
   transactionLinks: Pick<DataSession['transactionLinks'], 'create' | 'findAll' | 'updateStatuses'>;
   transactions: Pick<DataSession['transactions'], 'findAll' | 'findByFingerprintRef' | 'findById'>;
 };
-
-interface ExactLinkMatch {
-  link: TransactionLink;
-}
 
 export interface LinksCreateParams {
   assetSymbol: NewTransactionLink['assetSymbol'];
@@ -94,7 +90,7 @@ export class ManualLinkCreateHandler {
         logger
       );
       const allLinks = yield* await self.db.transactionLinks.findAll({ profileId: self.profileId });
-      const existingMatch = yield* findExactLinkMatch(allLinks, preparedLink.link);
+      const existingMatch = yield* findExistingExactLinkMatch(allLinks, preparedLink.link);
 
       if (existingMatch?.link.status === 'confirmed') {
         return self.buildResult(
@@ -171,18 +167,12 @@ export class ManualLinkCreateHandler {
     candidateLink: TransactionLink | NewTransactionLink,
     excludedExistingLinkId?: number
   ): Result<void, Error> {
-    const scopedTransactions = buildCostBasisScopedTransactions(transactions, logger);
-    if (scopedTransactions.isErr()) {
-      return err(scopedTransactions.error);
-    }
-
-    const existingConfirmedLinks = allLinks.filter(
-      (link) => link.status === 'confirmed' && link.id !== excludedExistingLinkId
+    return validateConfirmedManualLinkSet(
+      transactions,
+      allLinks,
+      [candidateLink],
+      excludedExistingLinkId === undefined ? [] : [excludedExistingLinkId]
     );
-
-    return validateTransferProposalConfirmability(scopedTransactions.value.transactions, existingConfirmedLinks, [
-      candidateLink,
-    ]);
   }
 
   private async appendOverride(
@@ -279,54 +269,4 @@ export class ManualLinkCreateHandler {
       targetTransactionRef: formatTransactionFingerprintRef(preparedLink.targetTransaction.txFingerprint),
     };
   }
-}
-
-function buildReviewedLinkMetadata(link: TransactionLink, overrideId: string): TransactionLinkMetadata {
-  return {
-    ...(link.metadata ?? {}),
-    overrideId,
-    overrideLinkType: 'transfer',
-    linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',
-  };
-}
-
-function findExactLinkMatch(
-  allLinks: TransactionLink[],
-  candidateLink: NewTransactionLink
-): Result<ExactLinkMatch | undefined, Error> {
-  return resultDo(function* () {
-    const candidateFingerprint = yield* computeResolvedLinkFingerprint({
-      sourceAssetId: candidateLink.sourceAssetId,
-      targetAssetId: candidateLink.targetAssetId,
-      sourceMovementFingerprint: candidateLink.sourceMovementFingerprint,
-      targetMovementFingerprint: candidateLink.targetMovementFingerprint,
-    });
-
-    const matches: ExactLinkMatch[] = [];
-    for (const link of allLinks) {
-      const fingerprintResult = computeResolvedLinkFingerprint({
-        sourceAssetId: link.sourceAssetId,
-        targetAssetId: link.targetAssetId,
-        sourceMovementFingerprint: link.sourceMovementFingerprint,
-        targetMovementFingerprint: link.targetMovementFingerprint,
-      });
-      if (fingerprintResult.isErr()) {
-        return yield* err(fingerprintResult.error);
-      }
-
-      if (fingerprintResult.value === candidateFingerprint) {
-        matches.push({ link });
-      }
-    }
-
-    if (matches.length > 1) {
-      return yield* err(
-        new Error(
-          `Multiple existing links already share the same exact movement identity (${matches.map((match) => match.link.id).join(', ')})`
-        )
-      );
-    }
-
-    return matches[0];
-  });
 }

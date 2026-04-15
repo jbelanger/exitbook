@@ -4,7 +4,11 @@ import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTransaction } from '../../shared/test-utils.js';
-import { buildManualLinkOverrideMetadata, prepareManualLinkFromTransactions } from '../manual-link-utils.js';
+import {
+  buildManualLinkOverrideMetadata,
+  prepareGroupedManualLinksFromTransactions,
+  prepareManualLinkFromTransactions,
+} from '../manual-link-utils.js';
 
 const noopLogger = {
   child: () => noopLogger,
@@ -97,5 +101,150 @@ describe('manual-link-utils', () => {
     );
 
     expect(error.message).toContain('manual links require exactly one');
+  });
+
+  it('prepares grouped many-to-one manual links with partial metadata', () => {
+    const firstSourceTransaction = createTransaction({
+      id: 1,
+      source: 'cardano',
+      platformKind: 'blockchain',
+      datetime: '2024-07-25T20:30:00.000Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '1021.4', assetId: 'blockchain:cardano:ada' }],
+    });
+    const secondSourceTransaction = createTransaction({
+      id: 2,
+      source: 'cardano',
+      platformKind: 'blockchain',
+      datetime: '2024-07-25T20:31:00.000Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '975.03', assetId: 'blockchain:cardano:ada' }],
+    });
+    const targetTransaction = createTransaction({
+      id: 3,
+      source: 'kucoin',
+      platformKind: 'exchange',
+      datetime: '2024-07-25T20:35:00.000Z',
+      inflows: [{ assetSymbol: 'ADA', amount: '1996.43', assetId: 'exchange:kucoin:ada' }],
+    });
+
+    const prepared = assertOk(
+      prepareGroupedManualLinksFromTransactions(
+        {
+          transactions: [firstSourceTransaction, secondSourceTransaction, targetTransaction],
+          sourceTransactionIds: [firstSourceTransaction.id, secondSourceTransaction.id],
+          targetTransactionIds: [targetTransaction.id],
+          assetSymbol: 'ADA' as Currency,
+          reviewedAt: new Date('2026-04-14T12:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(prepared.shape).toBe('many-to-one');
+    expect(prepared.entries).toHaveLength(2);
+    expect(prepared.entries[0]?.link.metadata).toMatchObject({
+      partialMatch: true,
+      fullSourceAmount: '1021.4',
+      fullTargetAmount: '1996.43',
+      consumedAmount: '1021.4',
+    });
+    expect(prepared.entries[1]?.link.metadata).toMatchObject({
+      partialMatch: true,
+      fullSourceAmount: '975.03',
+      fullTargetAmount: '1996.43',
+      consumedAmount: '975.03',
+    });
+  });
+
+  it('rejects grouped manual links when both sides are plural', () => {
+    const firstSourceTransaction = createTransaction({
+      id: 1,
+      source: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:36:00.000Z',
+      outflows: [{ assetSymbol: 'USDC', amount: '10', assetId: 'blockchain:ethereum:usdc' }],
+    });
+    const secondSourceTransaction = createTransaction({
+      id: 2,
+      source: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:37:00.000Z',
+      outflows: [{ assetSymbol: 'USDC', amount: '15', assetId: 'blockchain:ethereum:usdc' }],
+    });
+    const firstTargetTransaction = createTransaction({
+      id: 3,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:50:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '12', assetId: 'blockchain:base:usdc' }],
+    });
+    const secondTargetTransaction = createTransaction({
+      id: 4,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:51:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '13', assetId: 'blockchain:base:usdc' }],
+    });
+
+    const error = assertErr(
+      prepareGroupedManualLinksFromTransactions(
+        {
+          transactions: [
+            firstSourceTransaction,
+            secondSourceTransaction,
+            firstTargetTransaction,
+            secondTargetTransaction,
+          ],
+          sourceTransactionIds: [firstSourceTransaction.id, secondSourceTransaction.id],
+          targetTransactionIds: [firstTargetTransaction.id, secondTargetTransaction.id],
+          assetSymbol: 'USDC' as Currency,
+          reviewedAt: new Date('2026-04-14T12:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(error.message).toContain('many-to-one or one-to-many');
+  });
+
+  it('rejects grouped manual links when totals do not balance exactly', () => {
+    const sourceTransaction = createTransaction({
+      id: 1,
+      source: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:36:00.000Z',
+      outflows: [{ assetSymbol: 'USDC', amount: '25', assetId: 'blockchain:ethereum:usdc' }],
+    });
+    const firstTargetTransaction = createTransaction({
+      id: 2,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:50:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '12', assetId: 'blockchain:base:usdc' }],
+    });
+    const secondTargetTransaction = createTransaction({
+      id: 3,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:51:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '12.5', assetId: 'blockchain:base:usdc' }],
+    });
+
+    const error = assertErr(
+      prepareGroupedManualLinksFromTransactions(
+        {
+          transactions: [sourceTransaction, firstTargetTransaction, secondTargetTransaction],
+          sourceTransactionIds: [sourceTransaction.id],
+          targetTransactionIds: [firstTargetTransaction.id, secondTargetTransaction.id],
+          assetSymbol: 'USDC' as Currency,
+          reviewedAt: new Date('2026-04-14T12:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(error.message).toContain('require exact conservation');
   });
 });
