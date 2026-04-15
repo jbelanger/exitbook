@@ -1573,8 +1573,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         fullSourceAmount: '2669.193991',
         fullTargetAmount: '2679.718442',
         consumedAmount: '2669.193991',
-        sameHashExplainedTargetResidualAmount: '10.524451',
-        sameHashExplainedTargetResidualRole: 'staking_reward',
+        explainedTargetResidualAmount: '10.524451',
+        explainedTargetResidualRole: 'staking_reward',
       });
 
       const result = await matchTransactions(transactions, [link], {
@@ -1678,8 +1678,8 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
         fullSourceAmount: '2669.193991',
         fullTargetAmount: '2679.718442',
         consumedAmount: '2669.193991',
-        sameHashExplainedTargetResidualAmount: '10.000000',
-        sameHashExplainedTargetResidualRole: 'staking_reward',
+        explainedTargetResidualAmount: '10.000000',
+        explainedTargetResidualRole: 'staking_reward',
       });
 
       const result = await matchTransactions(transactions, [link], {

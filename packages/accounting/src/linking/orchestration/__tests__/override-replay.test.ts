@@ -20,7 +20,13 @@ const resolvedLinkFingerprint = [
   targetAssetId,
 ].join(':');
 
-function createLinkOverridePayload(targetTxFingerprint = targetFingerprint): LinkOverridePayload {
+function createLinkOverridePayload(
+  targetTxFingerprint = targetFingerprint,
+  options?: {
+    explainedTargetResidualAmount?: string | undefined;
+    explainedTargetResidualRole?: 'protocol_overhead' | 'refund_rebate' | 'staking_reward' | undefined;
+  }
+): LinkOverridePayload {
   return {
     type: 'link_override',
     action: 'confirm',
@@ -35,6 +41,12 @@ function createLinkOverridePayload(targetTxFingerprint = targetFingerprint): Lin
     target_movement_fingerprint: targetMovementFingerprint,
     source_amount: '1',
     target_amount: '0.999',
+    ...(options?.explainedTargetResidualAmount && options.explainedTargetResidualRole
+      ? {
+          explained_target_residual_amount: options.explainedTargetResidualAmount,
+          explained_target_residual_role: options.explainedTargetResidualRole,
+        }
+      : {}),
   };
 }
 
@@ -90,6 +102,53 @@ describe('applyLinkOverrides', () => {
       });
       expect(orphaned).toHaveLength(0);
       expect(unresolved).toHaveLength(0);
+    }
+  });
+
+  it('applies explained target residual metadata from a link override', () => {
+    const transactions = [
+      { id: 1, txFingerprint: sourceFingerprint },
+      { id: 2, txFingerprint: targetFingerprint },
+    ];
+
+    const links = [
+      {
+        id: 'link-1',
+        sourceTransactionId: 1,
+        targetTransactionId: 2,
+        assetSymbol: 'BTC',
+        sourceAssetId,
+        targetAssetId,
+        sourceMovementFingerprint,
+        targetMovementFingerprint,
+        status: 'suggested' as const,
+      },
+    ];
+
+    const overrides: OverrideEvent[] = [
+      {
+        id: 'override-1',
+        created_at: '2024-01-15T10:00:00Z',
+        profile_key: PROFILE_KEY,
+        actor: 'user',
+        source: 'cli',
+        scope: 'link',
+        payload: createLinkOverridePayload(targetFingerprint, {
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
+        }),
+      },
+    ];
+
+    const result = applyLinkOverrides(links, overrides, transactions);
+
+    expect(result.isOk()).toBe(true);
+
+    if (result.isOk()) {
+      expect(result.value.links[0]?.metadata).toMatchObject({
+        explainedTargetResidualAmount: '10.524451',
+        explainedTargetResidualRole: 'staking_reward',
+      });
     }
   });
 

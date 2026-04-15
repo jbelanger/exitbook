@@ -19,9 +19,14 @@ export interface ExistingExactLinkMatch {
   link: TransactionLink;
 }
 
-export function buildReviewedLinkMetadata(link: TransactionLink, overrideId: string): TransactionLinkMetadata {
+export function buildReviewedLinkMetadata(
+  link: TransactionLink,
+  overrideId: string,
+  extraMetadata?: TransactionLinkMetadata  
+): TransactionLinkMetadata {
   return {
     ...(link.metadata ?? {}),
+    ...(extraMetadata ?? {}),
     overrideId,
     overrideLinkType: 'transfer',
     linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',

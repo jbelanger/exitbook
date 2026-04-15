@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getExplainedTargetResidual, resolveTransactionLinkProvenance } from '../transaction-link.js';
+import {
+  getExplainedTargetResidual,
+  getExplainedTargetResidualFromMetadata,
+  resolveTransactionLinkProvenance,
+} from '../transaction-link.js';
 
 describe('transaction-link helpers', () => {
   it('uses persisted provenance when present', () => {
@@ -25,14 +29,14 @@ describe('transaction-link helpers', () => {
     const residual = getExplainedTargetResidual([
       {
         metadata: {
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'staking_reward',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
         },
       },
       {
         metadata: {
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'staking_reward',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
         },
       },
     ]);
@@ -46,8 +50,8 @@ describe('transaction-link helpers', () => {
     const residual = getExplainedTargetResidual([
       {
         metadata: {
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'staking_reward',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
         },
       },
       {
@@ -62,18 +66,28 @@ describe('transaction-link helpers', () => {
     const residual = getExplainedTargetResidual([
       {
         metadata: {
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'staking_reward',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
         },
       },
       {
         metadata: {
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'refund_rebate',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'refund_rebate',
         },
       },
     ]);
 
     expect(residual).toBeUndefined();
+  });
+
+  it('extracts one explained target residual from one metadata object', () => {
+    const residual = getExplainedTargetResidualFromMetadata({
+      explainedTargetResidualAmount: '10.524451',
+      explainedTargetResidualRole: 'staking_reward',
+    });
+
+    expect(residual?.amount.toFixed()).toBe('10.524451');
+    expect(residual?.role).toBe('staking_reward');
   });
 });

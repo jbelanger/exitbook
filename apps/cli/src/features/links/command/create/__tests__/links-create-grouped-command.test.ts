@@ -120,6 +120,10 @@ describe('links create-grouped command', () => {
         '38adc7a548',
         '--asset',
         'ADA',
+        '--explained-residual-amount',
+        '10.524451',
+        '--explained-residual-role',
+        'staking_reward',
         '--json',
       ],
       { from: 'user' }
@@ -129,6 +133,10 @@ describe('links create-grouped command', () => {
     expect(mockHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, 1, 'default', mockOverrideStoreInstance);
     expect(mockCreate).toHaveBeenCalledWith({
       assetSymbol: 'ADA',
+      explainedTargetResidual: {
+        amount: '10.524451',
+        role: 'staking_reward',
+      },
       reason: undefined,
       sourceSelectors: ['78a82e8482', 'd0c794045d'],
       targetSelectors: ['38adc7a548'],

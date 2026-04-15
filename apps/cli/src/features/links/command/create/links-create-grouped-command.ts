@@ -34,12 +34,14 @@ export function registerLinksCreateGroupedCommand(linksCommand: Command): void {
 Examples:
   $ exitbook links create-grouped --source 78a82e8482 --source d0c794045d --target 38adc7a548 --asset ADA
   $ exitbook links create-grouped --source 1001abcd --target 2002efgh --target 3003ijkl --asset USDC --reason "Bridge split"
+  $ exitbook links create-grouped --source 78a82e8482 --source d0c794045d --target 38adc7a548 --asset ADA --explained-residual-amount 10.524451 --explained-residual-role staking_reward
   $ exitbook links create-grouped --source 78a82e8482 --source d0c794045d --target 38adc7a548 --asset ADA --json
 
 Notes:
   - Repeat --source or --target so exactly one side contains multiple transactions.
   - This command supports only exact many-to-one or one-to-many grouped transfers.
-  - The selected movements must balance exactly for the requested asset.
+  - The selected movements must balance exactly for the requested asset unless you provide one exact target residual for a many-to-one correction.
+  - Explained target residuals are allowed only for many-to-one grouped links and must declare both amount and non-principal role.
   - This command immediately confirms the grouped links and also writes durable overrides so they survive reprocessing.
 `
     )
@@ -56,6 +58,14 @@ Notes:
       []
     )
     .requiredOption('--asset <symbol>', 'Asset symbol shared by all selected source outflows and target inflows')
+    .option(
+      '--explained-residual-amount <amount>',
+      'Exact non-transfer quantity remaining on the single target after all grouped source legs'
+    )
+    .option(
+      '--explained-residual-role <role>',
+      'Role of the explained target residual (staking_reward, protocol_overhead, refund_rebate)'
+    )
     .option('--reason <text>', 'Optional audit reason stored with the override events')
     .option('--json', 'Output JSON format')
     .action(async (rawOptions: unknown) => {
@@ -116,6 +126,13 @@ async function executeLinksCreateGroupedCommandResult(
     );
     const createResult = await handler.create({
       assetSymbol: options.asset,
+      explainedTargetResidual:
+        options.explainedResidualAmount && options.explainedResidualRole
+          ? {
+              amount: options.explainedResidualAmount,
+              role: options.explainedResidualRole,
+            }
+          : undefined,
       reason: options.reason,
       sourceSelectors,
       targetSelectors,
@@ -174,6 +191,11 @@ function printLinksCreateGroupedResult(result: LinksCreateGroupedResult): void {
   console.log(
     `   Links: ${result.links.length} total (${result.createdCount} created, ${result.confirmedExistingCount} confirmed existing, ${result.unchangedCount} unchanged)`
   );
+  if (result.explainedTargetResidualAmount && result.explainedTargetResidualRole) {
+    console.log(
+      `   Explained residual: ${result.explainedTargetResidualAmount} ${result.assetSymbol} (${result.explainedTargetResidualRole})`
+    );
+  }
   for (const entry of result.links) {
     console.log(
       `   - #${entry.linkId} ${entry.sourceTransactionRef} -> ${entry.targetTransactionRef} ${entry.sourceAmount} ${result.assetSymbol} (${entry.action})`

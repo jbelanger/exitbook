@@ -13,6 +13,7 @@ import { z } from 'zod';
 export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
 
 export const MovementRoleSchema = z.enum(['principal', 'staking_reward', 'protocol_overhead', 'refund_rebate']);
+export const NonPrincipalMovementRoleSchema = z.enum(['staking_reward', 'protocol_overhead', 'refund_rebate']);
 
 export const PriceAtTxTimeSchema = z.object({
   price: MoneySchema, // Always in USD after normalization (storage currency)
@@ -140,6 +141,7 @@ export const FeeMovementSchema = FeeMovementDraftSchema.extend({
 
 export type MovementDirection = z.infer<typeof MovementDirectionSchema>;
 export type MovementRole = z.infer<typeof MovementRoleSchema>;
+export type NonPrincipalMovementRole = z.infer<typeof NonPrincipalMovementRoleSchema>;
 export type PriceAtTxTime = z.infer<typeof PriceAtTxTimeSchema>;
 export type AssetMovementDraft = z.infer<typeof AssetMovementDraftSchema>;
 export type AssetMovement = z.infer<typeof AssetMovementSchema>;

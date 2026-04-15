@@ -411,11 +411,17 @@ Completed so far:
 - the first Phase 3 corrective action shipped:
   - `links create-grouped` for exact many-to-one / one-to-many grouped transfer
     confirmation
+  - the same command now also accepts one exact explained target residual for
+    grouped many-to-one corrections
+- implementation guardrail:
+  - transaction-link repository reads now normalize legacy
+    `sameHashExplainedTargetResidual*` metadata keys into the canonical
+    `explainedTargetResidual*` shape so real datasets remain readable while the
+    canonical metadata contract stays generic
 
 Candidate families:
 
 - grouped transfer confirmation
-- explained residual declaration
 - movement-role override
 - other family-specific typed corrections
 
@@ -427,8 +433,8 @@ Rules:
 
 Overlap risks to guard explicitly:
 
-- `confirm_grouped_transfer` vs `declare_explained_residual`
-- `declare_explained_residual` vs `override_movement_role`
+- grouped transfer confirmation with exact target residual vs
+  `override_movement_role`
 - `override_movement_role` vs any future `exclude_from_transfer_matching`
 
 Acceptance criteria:
@@ -506,14 +512,10 @@ Acceptance criteria:
 These are real follow-ups, but they do not block the completed phases above.
 
 - `confirm_grouped_transfer` is now first and shipped.
-- What is the narrow canonical attachment boundary for
-  `declare_explained_residual`?
-  - target movement only
-  - grouped transfer target plus exact residual role
-  - or some smaller same-hash-only contract
-- Can `declare_explained_residual` stay non-overlapping with
-  `override_movement_role`, or should one of those actions be narrowed further
-  before implementation?
+- grouped transfer confirmation now owns the narrow exact explained target
+  residual path; do we still need a separate residual corrective action after
+  that, or is any remaining residual work really movement-role or processor
+  correction instead?
 - Should later issue families add stronger scoped freshness/staleness signalling
   in bare `issues`, or is the current scoped-lens summary enough?
 

@@ -1,6 +1,7 @@
 import {
   computeResolvedLinkFingerprint,
   type CreateOverrideEventOptions,
+  getExplainedTargetResidualFromMetadata,
   type NewTransactionLink,
   type OverrideEvent,
   type TransactionLink,
@@ -23,6 +24,7 @@ export type LinkOverrideIdentity = Pick<
   | 'targetAssetId'
   | 'targetMovementFingerprint'
   | 'targetTransactionId'
+  | 'metadata'
 >;
 
 export async function appendLinkOverrideEvent(
@@ -117,6 +119,7 @@ async function buildLinkOverrideEventOptions(
 ): Promise<Result<CreateOverrideEventOptions, Error>> {
   return resultDoAsync(async function* () {
     const fingerprints = yield* await resolveFingerprints(txRepo, link);
+    const explainedTargetResidual = getExplainedTargetResidualFromMetadata(link.metadata);
 
     return {
       profileKey,
@@ -136,6 +139,12 @@ async function buildLinkOverrideEventOptions(
         target_movement_fingerprint: link.targetMovementFingerprint,
         source_amount: link.sourceAmount.toFixed(),
         target_amount: link.targetAmount.toFixed(),
+        ...(explainedTargetResidual
+          ? {
+              explained_target_residual_amount: explainedTargetResidual.amount.toFixed(),
+              explained_target_residual_role: explainedTargetResidual.role,
+            }
+          : {}),
       },
     } satisfies CreateOverrideEventOptions;
   });

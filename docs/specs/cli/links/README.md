@@ -38,7 +38,7 @@
 - **JSON mode always bypasses TUI** — `--json` produces structured output for scripting
 - **Static first, explorer second** — `links` and `links view <link-ref>` are durable text/JSON surfaces; `links explore` is the interactive layer
 - **Manual exact links stay scriptable** — `links create` is the no-proposal path when the user already knows the correct source/target pair
-- **Grouped manual links stay narrow** — `links create-grouped` handles exact `N:1` / `1:N` only and does not become a general allocator
+- **Grouped manual links stay narrow** — `links create-grouped` handles exact `N:1` / `1:N` only, plus one exact explained target residual on `N:1`, and does not become a general allocator
 - **Confirm/reject stay as standalone commands** — the explorer is for triage, but review mutations remain scriptable
 - **`gaps` is a first-class sub-workflow** — coverage analysis stays distinct from the link proposal lifecycle and now has its own command family
 - **Gap exceptions are issue-level** — resolving a gap hides one `txFingerprint + assetId + direction` issue from the open-gaps lens without inventing a synthetic link

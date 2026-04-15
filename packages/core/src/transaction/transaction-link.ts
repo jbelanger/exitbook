@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { OverrideLinkTypeSchema } from '../override/override.js';
 
-import { MovementRoleSchema, type MovementRole } from './movement.js';
+import { NonPrincipalMovementRoleSchema, type NonPrincipalMovementRole } from './movement.js';
 
 export const UnitIntervalDecimalSchema = DecimalSchema.refine(
   (value) => value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1),
@@ -103,8 +103,8 @@ export const TransactionLinkMetadataSchema = z
     sameHashTrackedSiblingInflowAmount: z.string().optional(),
     sameHashTrackedSiblingInflowCount: z.number().int().positive().optional(),
     sameHashResidualAllocationPolicy: z.string().optional(),
-    sameHashExplainedTargetResidualAmount: z.string().optional(),
-    sameHashExplainedTargetResidualRole: MovementRoleSchema.optional(),
+    explainedTargetResidualAmount: z.string().optional(),
+    explainedTargetResidualRole: NonPrincipalMovementRoleSchema.optional(),
     feeBearingSourceTransactionId: z.number().int().positive().optional(),
     sameHashExternalSourceAllocations: z.array(SameHashExternalSourceAllocationSchema).optional(),
     sharedToAddress: z.string().optional(),
@@ -164,7 +164,37 @@ export type NewTransactionLink = z.infer<typeof NewTransactionLinkSchema>;
 
 export interface ExplainedTargetResidual {
   amount: z.infer<typeof DecimalSchema>;
-  role: MovementRole;
+  role: NonPrincipalMovementRole;
+}
+
+export function getExplainedTargetResidualFromMetadata(
+  metadata: TransactionLinkMetadata | undefined
+): ExplainedTargetResidual | undefined {
+  const amountRaw = metadata?.explainedTargetResidualAmount;
+  const roleRaw = metadata?.explainedTargetResidualRole;
+
+  if (amountRaw === undefined && roleRaw === undefined) {
+    return undefined;
+  }
+
+  if (typeof amountRaw !== 'string') {
+    return undefined;
+  }
+
+  const parsedRole = NonPrincipalMovementRoleSchema.safeParse(roleRaw);
+  if (!parsedRole.success) {
+    return undefined;
+  }
+
+  const parsedAmount = DecimalSchema.safeParse(amountRaw);
+  if (!parsedAmount.success) {
+    return undefined;
+  }
+
+  return {
+    amount: parsedAmount.data,
+    role: parsedRole.data,
+  };
 }
 
 export function isPartialMatchLinkMetadata(
@@ -228,40 +258,31 @@ export function getExplainedTargetResidual(
   links: readonly Pick<TransactionLink, 'metadata'>[]
 ): ExplainedTargetResidual | undefined {
   let resolvedAmount: z.infer<typeof DecimalSchema> | undefined;
-  let resolvedRole: MovementRole | undefined;
+  let resolvedRole: NonPrincipalMovementRole | undefined;
   let explainedLinkCount = 0;
 
   for (const link of links) {
-    const amountRaw = link.metadata?.sameHashExplainedTargetResidualAmount;
-    const roleRaw = link.metadata?.sameHashExplainedTargetResidualRole;
+    const explainedResidual = getExplainedTargetResidualFromMetadata(link.metadata);
+    if (explainedResidual === undefined) {
+      if (
+        link.metadata?.explainedTargetResidualAmount === undefined &&
+        link.metadata?.explainedTargetResidualRole === undefined
+      ) {
+        continue;
+      }
 
-    if (amountRaw === undefined && roleRaw === undefined) {
-      continue;
-    }
-
-    if (typeof amountRaw !== 'string') {
       return undefined;
     }
 
-    const parsedRole = MovementRoleSchema.safeParse(roleRaw);
-    if (!parsedRole.success) {
-      return undefined;
-    }
-
-    const parsedAmount = DecimalSchema.safeParse(amountRaw);
-    if (!parsedAmount.success) {
-      return undefined;
-    }
-
-    const amount = parsedAmount.data;
+    const amount = explainedResidual.amount;
     if (resolvedAmount === undefined || resolvedRole === undefined) {
       resolvedAmount = amount;
-      resolvedRole = parsedRole.data;
+      resolvedRole = explainedResidual.role;
       explainedLinkCount += 1;
       continue;
     }
 
-    if (!resolvedAmount.eq(amount) || resolvedRole !== parsedRole.data) {
+    if (!resolvedAmount.eq(amount) || resolvedRole !== explainedResidual.role) {
       return undefined;
     }
 

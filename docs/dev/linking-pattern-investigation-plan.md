@@ -356,8 +356,8 @@ Live links created on `2026-04-12` after reprocess + `links run`:
 - link `910`: `5296 -> 5148` / `974.9646790310350899938477373 ADA`
 - link `911`: `5298 -> 5148` / `672.8999971397212703081262567 ADA`
 - link metadata:
-  - `sameHashExplainedTargetResidualAmount = 10.524451`
-  - `sameHashExplainedTargetResidualRole = staking_reward`
+  - `explainedTargetResidualAmount = 10.524451`
+  - `explainedTargetResidualRole = staking_reward`
   - `sameHashExternalFeeAccounting = per_source_allocated_fee`
 
 This means the remaining target excess is not being linked as transfer quantity. It is carried explicitly as explained residual context on the partial target links, and downstream consumers can classify it without pretending it was transfer principal.

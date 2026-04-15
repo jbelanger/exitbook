@@ -1,3 +1,4 @@
+import { NonPrincipalMovementRoleSchema } from '@exitbook/core';
 import { CurrencySchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
@@ -52,9 +53,22 @@ export const LinksCreateCommandOptionsSchema = JsonFlagSchema.extend({
 
 export const LinksCreateGroupedCommandOptionsSchema = JsonFlagSchema.extend({
   asset: CurrencySchema,
+  explainedResidualAmount: z.string().trim().min(1).optional(),
+  explainedResidualRole: NonPrincipalMovementRoleSchema.optional(),
   reason: z.string().trim().min(1).optional(),
   source: z.array(z.string().trim().min(1)).min(1),
   target: z.array(z.string().trim().min(1)).min(1),
+}).superRefine((data, ctx) => {
+  const hasAmount = data.explainedResidualAmount !== undefined;
+  const hasRole = data.explainedResidualRole !== undefined;
+
+  if (hasAmount !== hasRole) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'explained residual amount and role must be provided together',
+      path: hasAmount ? ['explainedResidualRole'] : ['explainedResidualAmount'],
+    });
+  }
 });
 
 export const LinksGapResolutionCommandOptionsSchema = JsonFlagSchema.extend({

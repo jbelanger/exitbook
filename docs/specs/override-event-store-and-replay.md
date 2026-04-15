@@ -318,6 +318,8 @@ type OverridePayload =
       target_movement_fingerprint: string;
       source_amount: string;
       target_amount: string;
+      explained_target_residual_amount?: string;
+      explained_target_residual_role?: 'staking_reward' | 'protocol_overhead' | 'refund_rebate';
     }
   | {
       type: 'unlink_override';

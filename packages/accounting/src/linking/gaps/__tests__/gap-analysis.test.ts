@@ -341,8 +341,8 @@ describe('analyzeLinkGaps', () => {
           targetExcessAllowed: true,
           targetExcess: '10.524451',
           targetExcessPct: '0.393',
-          sameHashExplainedTargetResidualAmount: '10.524451',
-          sameHashExplainedTargetResidualRole: 'staking_reward',
+          explainedTargetResidualAmount: '10.524451',
+          explainedTargetResidualRole: 'staking_reward',
         },
       }),
     ];

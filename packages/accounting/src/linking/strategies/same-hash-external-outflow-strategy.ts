@@ -129,8 +129,8 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
           metadata.sameHashResidualAllocationPolicy = 'transaction_id_prefix';
         }
         if (resolvedMatch.explainedTargetResidualAmount?.gt(0)) {
-          metadata.sameHashExplainedTargetResidualAmount = resolvedMatch.explainedTargetResidualAmount.toFixed();
-          metadata.sameHashExplainedTargetResidualRole = 'staking_reward';
+          metadata.explainedTargetResidualAmount = resolvedMatch.explainedTargetResidualAmount.toFixed();
+          metadata.explainedTargetResidualRole = 'staking_reward';
         }
         link.metadata = metadata;
 

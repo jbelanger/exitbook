@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- handler tests intentionally mock runtime boundaries and matcher helpers. */
 import { ok } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -172,6 +172,27 @@ function createPreparedGroupedManualLinks() {
   };
 }
 
+function withExplainedTargetResidual(
+  prepared: ReturnType<typeof createPreparedGroupedManualLinks>,
+  amount: string,
+  role: 'protocol_overhead' | 'refund_rebate' | 'staking_reward'
+) {
+  return {
+    ...prepared,
+    entries: prepared.entries.map((entry) => ({
+      ...entry,
+      link: {
+        ...entry.link,
+        metadata: {
+          ...(entry.link.metadata ?? {}),
+          explainedTargetResidualAmount: amount,
+          explainedTargetResidualRole: role,
+        },
+      },
+    })),
+  };
+}
+
 function createDatabase(
   prepared = createPreparedGroupedManualLinks(),
   existingLinks = [] as ReturnType<typeof createMockLink>[]
@@ -229,7 +250,7 @@ describe('ManualGroupedLinkCreateHandler', () => {
   });
 
   it('creates grouped manual links and persists override events atomically', async () => {
-    const prepared = createPreparedGroupedManualLinks();
+    const prepared = withExplainedTargetResidual(createPreparedGroupedManualLinks(), '10.524451', 'staking_reward');
     const database = createDatabase(prepared);
     database.transactionLinks.create.mockResolvedValueOnce(ok(91)).mockResolvedValueOnce(ok(92));
     mockPrepareGroupedManualLinksFromTransactions.mockReturnValue(ok(prepared));
@@ -239,6 +260,10 @@ describe('ManualGroupedLinkCreateHandler', () => {
 
     const result = await handler.create({
       assetSymbol: 'ADA' as never,
+      explainedTargetResidual: {
+        amount: '10.524451',
+        role: 'staking_reward',
+      },
       reason: 'Wallet consolidation',
       sourceSelectors: ['78a82e8482', 'd0c794045d'],
       targetSelectors: ['38adc7a548'],
@@ -255,6 +280,8 @@ describe('ManualGroupedLinkCreateHandler', () => {
       assetSymbol: 'ADA',
       createdCount: 2,
       confirmedExistingCount: 0,
+      explainedTargetResidualAmount: '10.524451',
+      explainedTargetResidualRole: 'staking_reward',
       unchangedCount: 0,
       groupShape: 'many-to-one',
       sourceCount: 2,
@@ -265,14 +292,36 @@ describe('ManualGroupedLinkCreateHandler', () => {
       expect.any(Object),
       { tag: 'override-store' },
       'default',
-      [prepared.entries[0]!.link, prepared.entries[1]!.link],
+      [
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            explainedTargetResidualAmount: '10.524451',
+            explainedTargetResidualRole: 'staking_reward',
+          }),
+        }),
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            explainedTargetResidualAmount: '10.524451',
+            explainedTargetResidualRole: 'staking_reward',
+          }),
+        }),
+      ],
       'Wallet consolidation'
+    );
+    expect(mockPrepareGroupedManualLinksFromTransactions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        explainedTargetResidual: expect.objectContaining({
+          amount: expect.objectContaining({ toFixed: expect.any(Function) }),
+          role: 'staking_reward',
+        }),
+      }),
+      expect.anything()
     );
     expect(database.transactionLinks.create).toHaveBeenCalledTimes(2);
   });
 
   it('confirms existing grouped rows in place and creates missing ones without mixing entry ids', async () => {
-    const prepared = createPreparedGroupedManualLinks();
+    const prepared = withExplainedTargetResidual(createPreparedGroupedManualLinks(), '10.524451', 'staking_reward');
     const existingLink = {
       ...createMockLink(55, { status: 'suggested' }),
       sourceTransactionId: prepared.entries[0]!.link.sourceTransactionId,
@@ -322,6 +371,20 @@ describe('ManualGroupedLinkCreateHandler', () => {
       linkId: 91,
     });
     expect(database.transactionLinks.updateStatuses).toHaveBeenCalledTimes(1);
+    expect(database.transactionLinks.updateStatuses).toHaveBeenCalledWith(
+      [55],
+      'confirmed',
+      'cli-user',
+      new Map([
+        [
+          55,
+          expect.objectContaining({
+            explainedTargetResidualAmount: '10.524451',
+            explainedTargetResidualRole: 'staking_reward',
+          }),
+        ],
+      ])
+    );
     expect(database.transactionLinks.create).toHaveBeenCalledTimes(1);
   });
 

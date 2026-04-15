@@ -86,7 +86,7 @@ export function buildLinkFromOrphanedOverride(
     targetMovement: exactTargetMovement,
     reviewedBy: entry.override.actor,
     reviewedAt: new Date(entry.override.created_at),
-    metadata: buildManualLinkOverrideMetadata(entry.override.id, entry.linkType),
+    metadata: buildManualLinkOverrideMetadata(entry.override.id, entry.linkType, entry.explainedTargetResidual),
   });
   if (manualLinkResult.isErr()) {
     return err(manualLinkResult.error);

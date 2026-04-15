@@ -714,8 +714,8 @@ describe('runCostBasisPipeline', () => {
         fullSourceAmount: '2669.193991',
         fullTargetAmount: '2679.718442',
         consumedAmount: '2669.193991',
-        sameHashExplainedTargetResidualAmount: '10.524451',
-        sameHashExplainedTargetResidualRole: 'staking_reward',
+        explainedTargetResidualAmount: '10.524451',
+        explainedTargetResidualRole: 'staking_reward',
       },
     };
 

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { NonPrincipalMovementRoleSchema } from '../transaction/movement.js';
+
 /**
  * Scope/domain of the override
  */
@@ -61,21 +63,39 @@ export const FxOverridePayloadSchema = z.object({
  * Link override payload
  * User confirms a suggested link
  */
-export const LinkOverridePayloadSchema = z.object({
-  type: z.literal('link_override'),
-  action: LinkActionSchema,
-  link_type: OverrideLinkTypeSchema,
-  source_fingerprint: z.string().min(1, 'Source fingerprint must not be empty'),
-  target_fingerprint: z.string().min(1, 'Target fingerprint must not be empty'),
-  asset: z.string().min(1, 'Asset must not be empty'),
-  resolved_link_fingerprint: z.string().min(1, 'Resolved link fingerprint must not be empty'),
-  source_asset_id: z.string().min(1, 'Source asset ID must not be empty'),
-  target_asset_id: z.string().min(1, 'Target asset ID must not be empty'),
-  source_movement_fingerprint: z.string().min(1, 'Source movement fingerprint must not be empty'),
-  target_movement_fingerprint: z.string().min(1, 'Target movement fingerprint must not be empty'),
-  source_amount: z.string().min(1, 'Source amount must not be empty'),
-  target_amount: z.string().min(1, 'Target amount must not be empty'),
-});
+export const LinkOverridePayloadSchema = z
+  .object({
+    type: z.literal('link_override'),
+    action: LinkActionSchema,
+    link_type: OverrideLinkTypeSchema,
+    source_fingerprint: z.string().min(1, 'Source fingerprint must not be empty'),
+    target_fingerprint: z.string().min(1, 'Target fingerprint must not be empty'),
+    asset: z.string().min(1, 'Asset must not be empty'),
+    resolved_link_fingerprint: z.string().min(1, 'Resolved link fingerprint must not be empty'),
+    source_asset_id: z.string().min(1, 'Source asset ID must not be empty'),
+    target_asset_id: z.string().min(1, 'Target asset ID must not be empty'),
+    source_movement_fingerprint: z.string().min(1, 'Source movement fingerprint must not be empty'),
+    target_movement_fingerprint: z.string().min(1, 'Target movement fingerprint must not be empty'),
+    source_amount: z.string().min(1, 'Source amount must not be empty'),
+    target_amount: z.string().min(1, 'Target amount must not be empty'),
+    explained_target_residual_amount: z
+      .string()
+      .min(1, 'Explained target residual amount must not be empty')
+      .optional(),
+    explained_target_residual_role: NonPrincipalMovementRoleSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasAmount = data.explained_target_residual_amount !== undefined;
+    const hasRole = data.explained_target_residual_role !== undefined;
+
+    if (hasAmount !== hasRole) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'explained target residual amount and role must be provided together',
+        path: hasAmount ? ['explained_target_residual_role'] : ['explained_target_residual_amount'],
+      });
+    }
+  });
 
 /**
  * Unlink override payload

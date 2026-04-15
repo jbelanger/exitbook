@@ -1,4 +1,10 @@
-import type { NewTransactionLink, OverrideLinkType, Transaction, TransactionLinkMetadata } from '@exitbook/core';
+import type {
+  ExplainedTargetResidual,
+  NewTransactionLink,
+  OverrideLinkType,
+  Transaction,
+  TransactionLinkMetadata,
+} from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, resultDo, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
@@ -41,6 +47,7 @@ export interface PreparedManualLink {
 
 export interface PrepareGroupedManualLinksFromTransactionsParams {
   assetSymbol: Currency;
+  explainedTargetResidual?: ExplainedTargetResidual | undefined;
   metadata?: TransactionLinkMetadata | undefined;
   reviewedAt: Date;
   reviewedBy: string;
@@ -198,7 +205,26 @@ export function prepareGroupedManualLinksFromTransactions(
       resolvedTargetSelections.map((selection) => selection.movement.amount)
     );
 
-    if (!totalSourceAmount.eq(totalTargetAmount)) {
+    if (params.explainedTargetResidual) {
+      if (resolvedSourceSelections.length <= 1 || resolvedTargetSelections.length !== 1) {
+        return yield* err(
+          new Error('Explained target residuals are supported only for grouped many-to-one manual links')
+        );
+      }
+
+      if (!params.explainedTargetResidual.amount.gt(0)) {
+        return yield* err(new Error('Explained target residual amount must be positive'));
+      }
+
+      const expectedTargetAmount = totalSourceAmount.plus(params.explainedTargetResidual.amount);
+      if (!totalTargetAmount.eq(expectedTargetAmount)) {
+        return yield* err(
+          new Error(
+            `Grouped manual links with an explained target residual require sources plus residual to equal the target total for ${params.assetSymbol}. Sources total ${totalSourceAmount.toFixed()}, residual is ${params.explainedTargetResidual.amount.toFixed()}, and targets total ${totalTargetAmount.toFixed()}`
+          )
+        );
+      }
+    } else if (!totalSourceAmount.eq(totalTargetAmount)) {
       return yield* err(
         new Error(
           `Grouped manual links require exact conservation for ${params.assetSymbol}. Sources total ${totalSourceAmount.toFixed()} and targets total ${totalTargetAmount.toFixed()}`
@@ -218,7 +244,7 @@ export function prepareGroupedManualLinksFromTransactions(
             consumedAmount: sourceSelection.movement.amount,
             reviewedAt: params.reviewedAt,
             reviewedBy: params.reviewedBy,
-            metadata: params.metadata,
+            metadata: mergeLinkMetadata(params.metadata, buildExplainedTargetResidualMetadata(params.explainedTargetResidual)),
           })
         )
       );
@@ -375,11 +401,26 @@ function collectResults<T>(results: Result<T, Error>[]): Result<T[], Error> {
 
 export function buildManualLinkOverrideMetadata(
   overrideId: string,
-  overrideLinkType: OverrideLinkType
+  overrideLinkType: OverrideLinkType,
+  explainedTargetResidual?: ExplainedTargetResidual  
 ): TransactionLinkMetadata {
   return {
+    ...buildExplainedTargetResidualMetadata(explainedTargetResidual),
     overrideId,
     overrideLinkType,
     linkProvenance: 'manual',
+  };
+}
+
+export function buildExplainedTargetResidualMetadata(
+  explainedTargetResidual: ExplainedTargetResidual | undefined
+): TransactionLinkMetadata | undefined {
+  if (explainedTargetResidual === undefined) {
+    return undefined;
+  }
+
+  return {
+    explainedTargetResidualAmount: explainedTargetResidual.amount.toFixed(),
+    explainedTargetResidualRole: explainedTargetResidual.role,
   };
 }

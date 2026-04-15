@@ -401,8 +401,8 @@ Persisted metadata rules:
   - `sameHashTrackedSiblingInflowAmount`
   - `sameHashTrackedSiblingInflowCount`
   - `sameHashResidualAllocationPolicy`
-  - `sameHashExplainedTargetResidualAmount`
-  - `sameHashExplainedTargetResidualRole`
+  - `explainedTargetResidualAmount`
+  - `explainedTargetResidualRole`
 - counterparty roundtrip links additionally store:
   - `counterpartyRoundtrip=true`
   - `counterpartyRoundtripHours`
@@ -414,7 +414,7 @@ Downstream contract for exact explained residual metadata:
 - transfer validation may accept the target-side partial group exactly when every expanded link carries the same explained residual amount and role
 - `links gaps` may omit the residual from open transfer review when that explained residual is exact and fully accounts for the uncovered target amount
 - the generic standard lot pipeline may materialize the exact residual as a separate acquisition lot on the target inflow when the role is transfer-ineligible but acquisition-relevant
-- tax projection may classify the surviving unmatched inflow quantity using `sameHashExplainedTargetResidualRole` instead of treating it as a generic unexplained acquisition
+- tax projection may classify the surviving unmatched inflow quantity using `explainedTargetResidualRole` instead of treating it as a generic unexplained acquisition
 
 Status rules:
 
@@ -436,6 +436,9 @@ Projection rule:
 Replay behavior:
 
 - if an override fingerprint matches an algorithmic link, update that link's `status`, `reviewedBy`, and `reviewedAt`
+- if a `link_override` payload also carries one exact explained target residual,
+  replay must rematerialize that residual metadata onto the final confirmed
+  link set
 - if a final `reject` state has no matching algorithmic link, do nothing
 - if a final `confirm` state resolves both transactions but no algorithmic link exists, return it as orphaned for linkable-movement-based materialization
 - if transaction fingerprints cannot be resolved, log and mark the event unresolved

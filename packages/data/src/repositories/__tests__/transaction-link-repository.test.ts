@@ -178,6 +178,53 @@ describe('TransactionLinkRepository', () => {
       const fetched = assertOk(await repo.findById(id));
       expect(fetched?.linkType).toBe('blockchain_to_exchange');
     });
+
+    it('normalizes legacy explained target residual metadata on read', async () => {
+      await db
+        .insertInto('transaction_links')
+        .values({
+          source_transaction_id: 1,
+          target_transaction_id: 2,
+          asset: 'ADA',
+          source_asset_id: 'blockchain:cardano:ada',
+          target_asset_id: 'exchange:kucoin:ada',
+          source_amount: '10',
+          target_amount: '10',
+          implied_fee_amount: null,
+          source_movement_fingerprint: 'movement:source:1:out',
+          target_movement_fingerprint: 'movement:target:2:in',
+          link_type: 'blockchain_to_exchange',
+          confidence_score: '1',
+          match_criteria_json: JSON.stringify({
+            assetMatch: true,
+            amountSimilarity: '1',
+            timingValid: true,
+            timingHours: 0,
+          }),
+          status: 'confirmed',
+          reviewed_by: 'user',
+          reviewed_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          metadata_json: JSON.stringify({
+            partialMatch: true,
+            fullSourceAmount: '10',
+            fullTargetAmount: '20.524451',
+            consumedAmount: '10',
+            sameHashExplainedTargetResidualAmount: '10.524451',
+            sameHashExplainedTargetResidualRole: 'staking_reward',
+          }),
+        })
+        .execute();
+
+      const all = assertOk(await repo.findAll());
+      expect(all).toHaveLength(1);
+      expect(all[0]?.metadata).toMatchObject({
+        explainedTargetResidualAmount: '10.524451',
+        explainedTargetResidualRole: 'staking_reward',
+      });
+      expect(all[0]?.metadata).not.toHaveProperty('sameHashExplainedTargetResidualAmount');
+    });
   });
 
   describe('createBatch', () => {

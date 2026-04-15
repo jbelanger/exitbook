@@ -10,10 +10,11 @@ import {
 import { CurrencySchema, DecimalSchema, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Selectable } from '@exitbook/sqlite';
+import { z } from 'zod';
 
 import type { TransactionLinksTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
-import { parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
+import { parseJson, parseWithSchema, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE, SQLITE_SAFE_INSERT_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -29,6 +30,48 @@ interface TransactionLinkCountFilters {
   profileId?: number | undefined;
 }
 
+const LegacyTransactionLinkMetadataSchema = z
+  .object({
+    sameHashExplainedTargetResidualAmount: z.string().optional(),
+    sameHashExplainedTargetResidualRole: z.string().optional(),
+  })
+  .passthrough();
+
+function normalizeTransactionLinkMetadata(metadata: unknown): Result<TransactionLinkMetadata | undefined, Error> {
+  if (metadata === undefined || metadata === null) {
+    return ok(undefined);
+  }
+
+  const legacyResult = LegacyTransactionLinkMetadataSchema.safeParse(metadata);
+  if (!legacyResult.success) {
+    return err(new Error(`Schema validation failed: ${legacyResult.error.message}`));
+  }
+
+  const normalized: Record<string, unknown> = { ...legacyResult.data };
+  if (
+    normalized['sameHashExplainedTargetResidualAmount'] !== undefined &&
+    normalized['explainedTargetResidualAmount'] === undefined
+  ) {
+    normalized['explainedTargetResidualAmount'] = normalized['sameHashExplainedTargetResidualAmount'];
+  }
+  if (
+    normalized['sameHashExplainedTargetResidualRole'] !== undefined &&
+    normalized['explainedTargetResidualRole'] === undefined
+  ) {
+    normalized['explainedTargetResidualRole'] = normalized['sameHashExplainedTargetResidualRole'];
+  }
+
+  delete normalized['sameHashExplainedTargetResidualAmount'];
+  delete normalized['sameHashExplainedTargetResidualRole'];
+
+  const metadataResult = TransactionLinkMetadataSchema.safeParse(normalized);
+  if (!metadataResult.success) {
+    return err(new Error(`Schema validation failed: ${metadataResult.error.message}`));
+  }
+
+  return ok(metadataResult.data);
+}
+
 function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Error> {
   const matchCriteriaResult = parseWithSchema(row.match_criteria_json, MatchCriteriaSchema);
   if (matchCriteriaResult.isErr()) {
@@ -38,7 +81,12 @@ function toTransactionLink(row: TransactionLinkRow): Result<TransactionLink, Err
     return err(new Error('match_criteria_json is required but was undefined'));
   }
 
-  const metadataResult = parseWithSchema(row.metadata_json, TransactionLinkMetadataSchema);
+  const rawMetadataResult = parseJson(row.metadata_json);
+  if (rawMetadataResult.isErr()) {
+    return err(rawMetadataResult.error);
+  }
+
+  const metadataResult = normalizeTransactionLinkMetadata(rawMetadataResult.value);
   if (metadataResult.isErr()) {
     return err(metadataResult.error);
   }

@@ -183,7 +183,7 @@ Rules:
 - direct actions may appear only when the underlying write path is implemented
 - the same action slot must later support real corrective actions such as:
   - grouped transfer confirmation
-  - explained residual declaration
+  - grouped transfer confirmation with one exact explained target residual
   - movement-role override
   - pricing correction flows when those are modeled as issue actions
 

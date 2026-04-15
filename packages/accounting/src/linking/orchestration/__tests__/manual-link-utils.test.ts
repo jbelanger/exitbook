@@ -1,4 +1,5 @@
 import type { Currency } from '@exitbook/foundation';
+import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
@@ -156,6 +157,56 @@ describe('manual-link-utils', () => {
     });
   });
 
+  it('prepares grouped many-to-one manual links with one exact explained target residual', () => {
+    const firstSourceTransaction = createTransaction({
+      id: 1,
+      source: 'cardano',
+      platformKind: 'blockchain',
+      datetime: '2024-07-25T20:30:00.000Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '1021.4', assetId: 'blockchain:cardano:ada' }],
+    });
+    const secondSourceTransaction = createTransaction({
+      id: 2,
+      source: 'cardano',
+      platformKind: 'blockchain',
+      datetime: '2024-07-25T20:31:00.000Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '975.03', assetId: 'blockchain:cardano:ada' }],
+    });
+    const targetTransaction = createTransaction({
+      id: 3,
+      source: 'kucoin',
+      platformKind: 'exchange',
+      datetime: '2024-07-25T20:35:00.000Z',
+      inflows: [{ assetSymbol: 'ADA', amount: '2006.954451', assetId: 'exchange:kucoin:ada' }],
+    });
+
+    const prepared = assertOk(
+      prepareGroupedManualLinksFromTransactions(
+        {
+          transactions: [firstSourceTransaction, secondSourceTransaction, targetTransaction],
+          sourceTransactionIds: [firstSourceTransaction.id, secondSourceTransaction.id],
+          targetTransactionIds: [targetTransaction.id],
+          assetSymbol: 'ADA' as Currency,
+          explainedTargetResidual: {
+            amount: parseDecimal('10.524451'),
+            role: 'staking_reward',
+          },
+          reviewedAt: new Date('2026-04-14T12:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(prepared.shape).toBe('many-to-one');
+    expect(prepared.entries.every((entry) => entry.link.metadata?.explainedTargetResidualAmount === '10.524451')).toBe(
+      true
+    );
+    expect(
+      prepared.entries.every((entry) => entry.link.metadata?.explainedTargetResidualRole === 'staking_reward')
+    ).toBe(true);
+  });
+
   it('rejects grouped manual links when both sides are plural', () => {
     const firstSourceTransaction = createTransaction({
       id: 1,
@@ -246,5 +297,49 @@ describe('manual-link-utils', () => {
     );
 
     expect(error.message).toContain('require exact conservation');
+  });
+
+  it('rejects explained target residuals for grouped one-to-many links', () => {
+    const sourceTransaction = createTransaction({
+      id: 1,
+      source: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:36:00.000Z',
+      outflows: [{ assetSymbol: 'USDC', amount: '25', assetId: 'blockchain:ethereum:usdc' }],
+    });
+    const firstTargetTransaction = createTransaction({
+      id: 2,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:50:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '10', assetId: 'blockchain:base:usdc' }],
+    });
+    const secondTargetTransaction = createTransaction({
+      id: 3,
+      source: 'base',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:51:00.000Z',
+      inflows: [{ assetSymbol: 'USDC', amount: '16', assetId: 'blockchain:base:usdc' }],
+    });
+
+    const error = assertErr(
+      prepareGroupedManualLinksFromTransactions(
+        {
+          transactions: [sourceTransaction, firstTargetTransaction, secondTargetTransaction],
+          sourceTransactionIds: [sourceTransaction.id],
+          targetTransactionIds: [firstTargetTransaction.id, secondTargetTransaction.id],
+          assetSymbol: 'USDC' as Currency,
+          explainedTargetResidual: {
+            amount: parseDecimal('1'),
+            role: 'refund_rebate',
+          },
+          reviewedAt: new Date('2026-04-14T12:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(error.message).toContain('many-to-one');
   });
 });

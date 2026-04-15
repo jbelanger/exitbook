@@ -449,9 +449,9 @@ describe('validateScopedTransferLinks', () => {
 
     expect(validated.links).toHaveLength(3);
     expect(validated.links.every((link) => link.isPartialMatch)).toBe(true);
-    expect(
-      validated.links.every((link) => link.link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
-    ).toBe(true);
+    expect(validated.links.every((link) => link.link.metadata?.['explainedTargetResidualAmount'] === '10.524451')).toBe(
+      true
+    );
     expect(validated.links.reduce((sum, link) => sum.plus(link.link.targetAmount), parseDecimal('0')).toFixed()).toBe(
       '2669.193991'
     );

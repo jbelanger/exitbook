@@ -4,10 +4,17 @@ import {
   type PreparedGroupedManualLinks,
   type PreparedManualLink,
 } from '@exitbook/accounting/linking';
-import type { LinkStatus, NewTransactionLink, OverrideEvent, TransactionLink } from '@exitbook/core';
+import {
+  getExplainedTargetResidualFromMetadata,
+  type LinkStatus,
+  type NewTransactionLink,
+  type NonPrincipalMovementRole,
+  type OverrideEvent,
+  type TransactionLink,
+} from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import {
@@ -34,6 +41,12 @@ type LinksCreateGroupedDatabase = Pick<DataSession, 'executeInTransaction'> & {
 
 export interface LinksCreateGroupedParams {
   assetSymbol: NewTransactionLink['assetSymbol'];
+  explainedTargetResidual?:
+    | {
+        amount: string;
+        role: NonPrincipalMovementRole;
+      }
+    | undefined;
   reason?: string | undefined;
   sourceSelectors: string[];
   targetSelectors: string[];
@@ -75,6 +88,8 @@ export interface LinksCreateGroupedResult {
   assetSymbol: string;
   confirmedExistingCount: number;
   createdCount: number;
+  explainedTargetResidualAmount?: string | undefined;
+  explainedTargetResidualRole?: NonPrincipalMovementRole | undefined;
   groupShape: PreparedGroupedManualLinks['shape'];
   links: LinksCreateGroupedEntryResult[];
   reason?: string | undefined;
@@ -104,6 +119,12 @@ export class ManualGroupedLinkCreateHandler {
           sourceTransactionIds: resolvedSources.map((selection) => selection.transaction.id),
           targetTransactionIds: resolvedTargets.map((selection) => selection.transaction.id),
           assetSymbol: params.assetSymbol,
+          explainedTargetResidual: params.explainedTargetResidual
+            ? {
+                amount: parseDecimal(params.explainedTargetResidual.amount),
+                role: params.explainedTargetResidual.role,
+              }
+            : undefined,
           reviewedAt,
           reviewedBy,
         },
@@ -119,6 +140,10 @@ export class ManualGroupedLinkCreateHandler {
           ? entry.preparedLink.link
           : ({
               ...entry.existingMatch.link,
+              metadata: {
+                ...(entry.existingMatch.link.metadata ?? {}),
+                ...(entry.preparedLink.link.metadata ?? {}),
+              },
               status: 'confirmed',
               reviewedAt,
               reviewedBy,
@@ -212,7 +237,17 @@ export class ManualGroupedLinkCreateHandler {
       },
       this.overrideStore,
       this.profileKey,
-      entries.map(({ entry }) => entry.existingMatch?.link ?? entry.preparedLink.link),
+      entries.map(({ entry }) =>
+        entry.existingMatch
+          ? {
+              ...entry.existingMatch.link,
+              metadata: {
+                ...(entry.existingMatch.link.metadata ?? {}),
+                ...(entry.preparedLink.link.metadata ?? {}),
+              },
+            }
+          : entry.preparedLink.link
+      ),
       reason
     );
     if (overrideResult.isErr()) {
@@ -243,7 +278,10 @@ export class ManualGroupedLinkCreateHandler {
             'confirmed',
             reviewedBy,
             new Map([
-              [entry.existingMatch.link.id, buildReviewedLinkMetadata(entry.existingMatch.link, overrideEvent.id)],
+              [
+                entry.existingMatch.link.id,
+                buildReviewedLinkMetadata(entry.existingMatch.link, overrideEvent.id, entry.preparedLink.link.metadata),
+              ],
             ])
           );
           if (updateResult.isErr()) {
@@ -263,7 +301,11 @@ export class ManualGroupedLinkCreateHandler {
           ...entry.preparedLink.link,
           metadata: {
             ...(entry.preparedLink.link.metadata ?? {}),
-            ...buildManualLinkOverrideMetadata(overrideEvent.id, 'transfer'),
+            ...buildManualLinkOverrideMetadata(
+              overrideEvent.id,
+              'transfer',
+              getExplainedTargetResidualFromMetadata(entry.preparedLink.link.metadata)
+            ),
           },
         };
         const createResult = await tx.transactionLinks.create(linkToCreate);
@@ -314,6 +356,8 @@ export class ManualGroupedLinkCreateHandler {
       assetSymbol: entries[0]?.preparedLink.link.assetSymbol ?? '',
       confirmedExistingCount,
       createdCount,
+      explainedTargetResidualAmount: preparedGroup.entries[0]?.link.metadata?.explainedTargetResidualAmount,
+      explainedTargetResidualRole: preparedGroup.entries[0]?.link.metadata?.explainedTargetResidualRole,
       groupShape: preparedGroup.shape,
       links: linkResults,
       reason,

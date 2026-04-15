@@ -1,12 +1,13 @@
 import { computeResolvedLinkFingerprint } from '@exitbook/core';
 import type {
+  ExplainedTargetResidual,
   LinkOverridePayload,
   OverrideEvent,
   OverrideLinkType,
   TransactionLinkMetadata,
   UnlinkOverridePayload,
 } from '@exitbook/core';
-import { wrapError } from '@exitbook/foundation';
+import { parseDecimal, wrapError } from '@exitbook/foundation';
 import { ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
@@ -80,6 +81,7 @@ export interface OrphanedLinkOverride {
   targetMovementFingerprint: string;
   sourceAmount: string;
   targetAmount: string;
+  explainedTargetResidual?: ExplainedTargetResidual | undefined;
 }
 
 /**
@@ -100,6 +102,7 @@ interface OverrideState {
   targetMovementFingerprint?: string | undefined;
   sourceAmount?: string | undefined;
   targetAmount?: string | undefined;
+  explainedTargetResidual?: ExplainedTargetResidual | undefined;
 }
 
 /**
@@ -174,6 +177,13 @@ function projectOverrideState(
         targetMovementFingerprint: payload.target_movement_fingerprint,
         sourceAmount: payload.source_amount,
         targetAmount: payload.target_amount,
+        explainedTargetResidual:
+          payload.explained_target_residual_amount && payload.explained_target_residual_role
+            ? {
+                amount: parseDecimal(payload.explained_target_residual_amount),
+                role: payload.explained_target_residual_role,
+              }
+            : undefined,
       });
     } else if (override.scope === 'unlink') {
       const payload = override.payload as UnlinkOverridePayload;
@@ -308,6 +318,7 @@ export function applyLinkOverrides(
             targetMovementFingerprint: state.targetMovementFingerprint,
             sourceAmount: state.sourceAmount,
             targetAmount: state.targetAmount,
+            explainedTargetResidual: state.explainedTargetResidual,
           });
         }
         // If final state is 'reject', don't create the link at all
@@ -327,6 +338,12 @@ function applyOverrideMetadata(
 ): TransactionLinkMetadata {
   return {
     ...(metadata ?? {}),
+    ...(state.explainedTargetResidual
+      ? {
+          explainedTargetResidualAmount: state.explainedTargetResidual.amount.toFixed(),
+          explainedTargetResidualRole: state.explainedTargetResidual.role,
+        }
+      : {}),
     overrideId: state.lastEvent.id,
     ...(state.linkType === '' ? {} : { overrideLinkType: state.linkType }),
     linkProvenance: metadata?.linkProvenance === 'manual' ? 'manual' : 'user',

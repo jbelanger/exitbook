@@ -269,9 +269,9 @@ describe('SameHashExternalOutflowStrategy', () => {
       )
     ).toBe(true);
     expect(result.value.links.every((link) => link.metadata?.['sameHashExternalTotalFee'] === '0.191373')).toBe(true);
-    expect(
-      result.value.links.every((link) => link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
-    ).toBe(true);
+    expect(result.value.links.every((link) => link.metadata?.['explainedTargetResidualAmount'] === '10.524451')).toBe(
+      true
+    );
     expect(result.value.links.every((link) => link.targetTransactionId === 2304)).toBe(true);
     expect(result.value.links.reduce((sum, link) => sum.plus(link.targetAmount), parseDecimal('0')).toFixed()).toBe(
       '2669.193991'

@@ -66,8 +66,6 @@ describe('filterConfirmableTransferProposals', () => {
     const filteredLinks = filterConfirmableTransferProposals(scopedTransactions, [], candidateLinks);
 
     expect(filteredLinks).toHaveLength(3);
-    expect(
-      filteredLinks.every((link) => link.metadata?.['sameHashExplainedTargetResidualAmount'] === '10.524451')
-    ).toBe(true);
+    expect(filteredLinks.every((link) => link.metadata?.['explainedTargetResidualAmount'] === '10.524451')).toBe(true);
   });
 });
