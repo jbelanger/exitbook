@@ -505,7 +505,15 @@ Acceptance criteria:
 
 These are real follow-ups, but they do not block the completed phases above.
 
-- Which Phase 3 corrective action should land first?
+- `confirm_grouped_transfer` is now first and shipped.
+- What is the narrow canonical attachment boundary for
+  `declare_explained_residual`?
+  - target movement only
+  - grouped transfer target plus exact residual role
+  - or some smaller same-hash-only contract
+- Can `declare_explained_residual` stay non-overlapping with
+  `override_movement_role`, or should one of those actions be narrowed further
+  before implementation?
 - Should later issue families add stronger scoped freshness/staleness signalling
   in bare `issues`, or is the current scoped-lens summary enough?
 
@@ -517,3 +525,4 @@ When implementation lands, update or add canonical specs for:
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
 - scoped cost-basis issue browsing
 - review-state actions
+- direct corrective actions as they land
