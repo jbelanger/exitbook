@@ -4,8 +4,7 @@ import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
-import { materializeStoredTransactionMovementRoleOverrides } from '../overrides/transaction-movement-role-replay.js';
-import { materializeStoredTransactionUserNoteOverrides } from '../overrides/transaction-user-note-replay.js';
+import { materializeStoredTransactionOverrides } from '../overrides/transaction-override-materialization.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 import { computeAccountHash } from '../utils/account-hash.js';
 
@@ -50,21 +49,13 @@ async function materializeProfileScopedTransactionOverrides(
         ...(scope.accountIds ? { accountIds } : {}),
       };
 
-      const materializeUserNotesResult = yield* await materializeStoredTransactionUserNoteOverrides(
+      const materializeOverridesResult = yield* await materializeStoredTransactionOverrides(
         db.transactions,
         overrideStore,
         profileKey,
         scopedScope
       );
-      updatedCount += materializeUserNotesResult;
-
-      const materializeMovementRoleOverridesResult = yield* await materializeStoredTransactionMovementRoleOverrides(
-        db.transactions,
-        overrideStore,
-        profileKey,
-        scopedScope
-      );
-      updatedCount += materializeMovementRoleOverridesResult;
+      updatedCount += materializeOverridesResult;
     }
 
     return updatedCount;

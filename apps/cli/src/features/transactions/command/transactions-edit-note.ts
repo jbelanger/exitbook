@@ -1,33 +1,23 @@
 import { OverrideStore } from '@exitbook/data/overrides';
-import { resultDoAsync, type Result } from '@exitbook/foundation';
+import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import { z } from 'zod';
 
 import {
-  cliErr,
   ExitCodes,
   jsonSuccess,
   runCliRuntimeCommand,
   textSuccess,
-  type CliFailure,
   toCliResult,
   type CliCommandResult,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import {
-  getTransactionSelectorErrorExitCode,
-  resolveOwnedTransactionSelector,
-  type ResolvedTransactionSelector,
-} from '../transaction-selector.js';
 
+import { resolveTransactionEditTarget } from './transaction-edit-target.js';
 import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
-import {
-  TransactionsEditHandler,
-  type TransactionEditTarget,
-  type TransactionUserNoteEditResult,
-} from './transactions-edit-handler.js';
+import { TransactionsEditNoteHandler, type TransactionUserNoteEditResult } from './transactions-edit-note-handler.js';
 import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
 
 type TransactionsEditNoteCommandOptions = z.infer<typeof TransactionsEditNoteCommandOptionsSchema>;
@@ -86,7 +76,7 @@ async function executeTransactionsEditNoteCommandResult(
     const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
     const target = yield* await resolveTransactionEditTarget(scope.database.transactions, scope.profile.id, selector);
     const overrideStore = new OverrideStore(ctx.dataDir);
-    const handler = new TransactionsEditHandler(scope.database, overrideStore);
+    const handler = new TransactionsEditNoteHandler(scope.database, overrideStore);
 
     const result = options.clear
       ? yield* toCliResult(
@@ -115,41 +105,6 @@ async function executeTransactionsEditNoteCommandResult(
       printTransactionsEditNoteResult(result);
     });
   });
-}
-
-async function resolveTransactionEditTarget(
-  transactionService: {
-    findByFingerprintRef(
-      profileId: number,
-      fingerprintRef: string
-    ): ReturnType<Parameters<typeof resolveOwnedTransactionSelector>[0]['getByFingerprintRef']>;
-  },
-  profileId: number,
-  selector: string
-): Promise<Result<TransactionEditTarget, CliFailure>> {
-  return resultDoAsync(async function* () {
-    const selectorResult = await resolveOwnedTransactionSelector(
-      {
-        getByFingerprintRef: (ownerProfileId, fingerprintRef) =>
-          transactionService.findByFingerprintRef(ownerProfileId, fingerprintRef),
-      },
-      profileId,
-      selector
-    );
-    if (selectorResult.isErr()) {
-      return yield* cliErr(selectorResult.error, getTransactionSelectorErrorExitCode(selectorResult.error));
-    }
-
-    return toTransactionEditTarget(selectorResult.value);
-  });
-}
-
-function toTransactionEditTarget(selector: ResolvedTransactionSelector): TransactionEditTarget {
-  return {
-    platformKey: selector.transaction.platformKey,
-    transactionId: selector.transaction.id,
-    txFingerprint: selector.transaction.txFingerprint,
-  };
 }
 
 function printTransactionsEditNoteResult(result: TransactionUserNoteEditResult): void {

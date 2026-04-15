@@ -16,7 +16,7 @@ const {
   mockPrepareTransactionsCommandScope,
   mockRunCommand,
   mockSetNote,
-  mockTransactionsEditHandlerConstructor,
+  mockTransactionsEditNoteHandlerConstructor,
 } = vi.hoisted(() => ({
   mockClearNote: vi.fn(),
   mockCtx: {
@@ -31,7 +31,7 @@ const {
   mockPrepareTransactionsCommandScope: vi.fn(),
   mockRunCommand: vi.fn(),
   mockSetNote: vi.fn(),
-  mockTransactionsEditHandlerConstructor: vi.fn(),
+  mockTransactionsEditNoteHandlerConstructor: vi.fn(),
 }));
 
 vi.mock('@exitbook/data/overrides', () => ({
@@ -60,9 +60,9 @@ vi.mock('../transactions-command-scope.js', () => ({
   prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
-vi.mock('../transactions-edit-handler.js', () => ({
-  TransactionsEditHandler: vi.fn().mockImplementation(function MockTransactionsEditHandler(...args: unknown[]) {
-    mockTransactionsEditHandlerConstructor(...args);
+vi.mock('../transactions-edit-note-handler.js', () => ({
+  TransactionsEditNoteHandler: vi.fn().mockImplementation(function MockTransactionsEditNoteHandler(...args: unknown[]) {
+    mockTransactionsEditNoteHandlerConstructor(...args);
     return {
       clearNote: mockClearNote,
       setNote: mockSetNote,
@@ -164,7 +164,7 @@ describe('transactions edit command', () => {
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-transactions');
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, selector);
-    expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith(
+    expect(mockTransactionsEditNoteHandlerConstructor).toHaveBeenCalledWith(
       { tag: 'db', transactions: { findByFingerprintRef: mockFindByFingerprintRef } },
       mockOverrideStoreInstance
     );
