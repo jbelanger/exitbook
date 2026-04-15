@@ -10,6 +10,7 @@ Discovery log:
 
 - [accounting-issue-operations-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-operations-plan.md)
 - [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
+- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
 - [accounting-issues.md](/Users/joel/Dev/exitbook/docs/specs/accounting-issues.md)
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
 
@@ -85,8 +86,12 @@ Phase 0 should end with one explicit architectural decision:
 2. introduce a new canonical accounting layer
 3. defer the accounting-layer change deliberately, with explicit reasons and boundaries
 
-The output should be a short decision doc in `docs/dev` plus any canonical spec
-changes needed to record the chosen boundary.
+The Phase 0 architectural decision is now recorded in:
+
+- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+
+The remaining follow-up is to land the corresponding canonical spec changes for
+the chosen boundary.
 
 Phase 0 investigation log:
 

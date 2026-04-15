@@ -9,6 +9,9 @@ Owner: Codex + Joel
 Primary tracker:
 
 - [accounting-issue-implementation-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-implementation-plan.md)
+  Accepted decision:
+
+- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
 
 Purpose:
 
@@ -1047,7 +1050,6 @@ Current Phase 0 lean after Pass 5:
 
 Current Phase 0 lean after Pass 6:
 
-- Phase 0 is now mature enough for a short decision document
 - the leading direction is:
   - generic accounting entries
   - exact provenance bindings
@@ -1061,7 +1063,9 @@ Current Phase 0 lean after Pass 7:
 - the current language is now good enough to standardize
 - the model can still evolve later toward fuller ledger/journal semantics if it
   earns that complexity
-- the next step should be a short Phase 0 decision document, not more open-
-  ended terminology analysis
+- that direction is now recorded in:
+  - [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+- the next step is the canonical spec for the canonical accounting layer, not
+  more open-ended terminology analysis
 
 Anything weaker should be rejected.
