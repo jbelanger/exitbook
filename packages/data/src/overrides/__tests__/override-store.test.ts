@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { CreateOverrideEventOptions, LinkOverridePayload, PriceOverridePayload } from '@exitbook/core';
+import * as foundationModule from '@exitbook/foundation';
 import { assertErr } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
@@ -209,6 +210,143 @@ describe('OverrideStore', () => {
       });
 
       expect(secondResult.isOk()).toBe(true);
+    });
+  });
+
+  describe('appendMany', () => {
+    it('should append multiple override events in input order', async () => {
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
+      const pricePayload: PriceOverridePayload = {
+        type: 'price_override',
+        asset: 'ETH',
+        quote_asset: 'USD',
+        price: '2500.00',
+        price_source: 'manual',
+        timestamp: '2024-01-15T14:30:00Z',
+      };
+
+      const result = await store.appendMany([
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'link',
+          payload: linkPayload,
+          reason: 'Grouped confirmation',
+        },
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'price',
+          payload: pricePayload,
+        },
+      ]);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        throw result.error;
+      }
+
+      expect(result.value).toHaveLength(2);
+      expect(result.value[0]?.scope).toBe('link');
+      expect(result.value[1]?.scope).toBe('price');
+
+      const storedEvents = await store.readAll();
+      expect(storedEvents.isOk()).toBe(true);
+      if (storedEvents.isErr()) {
+        throw storedEvents.error;
+      }
+
+      expect(storedEvents.value.map((event) => event.scope)).toEqual(['link', 'price']);
+      expect(storedEvents.value[0]?.reason).toBe('Grouped confirmation');
+    });
+
+    it('should reject the whole batch when one event is invalid', async () => {
+      const linkPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
+
+      const result = await store.appendMany([
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'link',
+          payload: linkPayload,
+        },
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'price',
+          payload: {
+            type: 'unlink_override',
+            resolved_link_fingerprint: 'resolved-link:v1:test',
+          },
+        },
+      ]);
+
+      expect(result.isErr()).toBe(true);
+      expect(assertErr(result).message).toContain("scope 'price' requires payload type 'price_override'");
+
+      const storedEvents = await store.readAll();
+      expect(storedEvents.isOk()).toBe(true);
+      if (storedEvents.isErr()) {
+        throw storedEvents.error;
+      }
+
+      expect(storedEvents.value).toEqual([]);
+    });
+
+    it('should roll back the whole batch if persistence fails after the first insert', async () => {
+      const uuidSpy = vi
+        .spyOn(foundationModule, 'randomUUID')
+        .mockReturnValueOnce('duplicate-id')
+        .mockReturnValueOnce('duplicate-id');
+
+      const firstPayload = createLinkPayload(createTxFingerprint('a1'), createTxFingerprint('b2'), 'BTC');
+      const secondPayload = createLinkPayload(createTxFingerprint('c3'), createTxFingerprint('d4'), 'ETH');
+
+      const result = await store.appendMany([
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'link',
+          payload: firstPayload,
+        },
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'link',
+          payload: secondPayload,
+        },
+      ]);
+
+      expect(result.isErr()).toBe(true);
+
+      const storedEvents = await store.readAll();
+      expect(storedEvents.isOk()).toBe(true);
+      if (storedEvents.isErr()) {
+        throw storedEvents.error;
+      }
+
+      expect(storedEvents.value).toEqual([]);
+      uuidSpy.mockRestore();
+    });
+
+    it('should recover the write queue after a batch failure', async () => {
+      const invalidBatchResult = await store.appendMany([
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'price',
+          payload: {
+            type: 'unlink_override',
+            resolved_link_fingerprint: 'resolved-link:v1:test',
+          },
+        },
+      ]);
+
+      expect(invalidBatchResult.isErr()).toBe(true);
+
+      const validPayload = createLinkPayload(createTxFingerprint('e5'), createTxFingerprint('f6'), 'BTC');
+      const validResult = await store.appendMany([
+        {
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: 'link',
+          payload: validPayload,
+        },
+      ]);
+
+      expect(validResult.isOk()).toBe(true);
     });
   });
 

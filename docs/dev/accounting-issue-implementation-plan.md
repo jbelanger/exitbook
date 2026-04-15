@@ -372,6 +372,10 @@ Completed so far:
   - `pnpm run dev issues acknowledge <ISSUE-REF> --json`
   - `pnpm run dev issues view <ISSUE-REF> --json`
   - `pnpm run dev issues reopen <ISSUE-REF> --json`
+- implementation guardrail:
+  - review-state live validation must run mutation/read checks sequentially for
+    the same issue selector; parallel validation races produce misleading
+    results
 
 Deliver:
 
@@ -396,7 +400,14 @@ Acceptance criteria:
 
 ### Phase 3: Domain Corrective Actions
 
-Status: pending
+Status: in progress
+
+Completed so far:
+
+- override persistence now supports atomic batch append via
+  `OverrideStore.appendMany()`
+- grouped corrective actions can persist multiple durable override events
+  without risking half-written replay state
 
 Candidate families:
 

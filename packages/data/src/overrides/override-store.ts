@@ -42,17 +42,19 @@ export class OverrideStore {
    * overlapping SQLite writes from the CLI process.
    */
   async append(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
-    // Queue this write to ensure serialization while returning the operation result.
-    // The queue itself is always reset to a resolved state so later appends continue.
-    const appendResult = this.writeQueue.then(() => this.appendImpl(options));
+    return this.enqueueWrite(() => this.appendImpl(options));
+  }
 
-    this.writeQueue = appendResult
-      .then(() => void 0)
-      .catch((error: unknown) => {
-        this.logger.error({ error }, 'Unexpected write queue failure, continuing with next write');
-      });
+  /**
+   * Append multiple override events atomically.
+   * Returns created events in the same logical append order as the input batch.
+   */
+  async appendMany(optionsList: CreateOverrideEventOptions[]): Promise<Result<OverrideEvent[], Error>> {
+    if (optionsList.length === 0) {
+      return ok([]);
+    }
 
-    return appendResult.catch((error: unknown) => wrapError(error, 'Write queue failure'));
+    return this.enqueueWrite(() => this.appendManyImpl(optionsList));
   }
 
   /**
@@ -217,24 +219,26 @@ export class OverrideStore {
    * Internal implementation of append operation
    */
   private async appendImpl(options: CreateOverrideEventOptions): Promise<Result<OverrideEvent, Error>> {
-    try {
-      const event: OverrideEvent = {
-        id: randomUUID(),
-        created_at: new Date().toISOString(),
-        profile_key: options.profileKey,
-        actor: 'user',
-        source: 'cli',
-        scope: options.scope,
-        payload: options.payload,
-        reason: options.reason,
-      };
+    const appendManyResult = await this.appendManyImpl([options]);
+    if (appendManyResult.isErr()) {
+      return err(appendManyResult.error);
+    }
 
-      // Validate event with schema
-      const validationResult = OverrideEventSchema.safeParse(event);
-      if (!validationResult.success) {
-        this.logger.error({ validationError: validationResult.error, event }, 'Invalid override event');
-        return err(new Error(`Invalid override event: ${validationResult.error.message}`));
+    const [event] = appendManyResult.value;
+    if (!event) {
+      return err(new Error('Override append unexpectedly returned no created event'));
+    }
+
+    return ok(event);
+  }
+
+  private async appendManyImpl(optionsList: CreateOverrideEventOptions[]): Promise<Result<OverrideEvent[], Error>> {
+    try {
+      const eventsResult = this.buildValidatedEvents(optionsList);
+      if (eventsResult.isErr()) {
+        return err(eventsResult.error);
       }
+      const events = eventsResult.value;
 
       const ensureResult = await this.ensureDatabaseReady({ createIfMissing: true });
       if (ensureResult.isErr()) {
@@ -243,37 +247,56 @@ export class OverrideStore {
 
       return withOverridesDatabase(this.dbPath, async (db) => {
         try {
-          await db
-            .insertInto('override_events')
-            .values({
-              event_id: event.id,
-              created_at: event.created_at,
-              profile_key: event.profile_key,
-              actor: event.actor,
-              source: event.source,
-              scope: event.scope,
-              reason: event.reason,
-              payload_json: JSON.stringify(event.payload),
-            })
-            .execute();
+          await db.transaction().execute(async (trx) => {
+            for (const event of events) {
+              await trx
+                .insertInto('override_events')
+                .values({
+                  event_id: event.id,
+                  created_at: event.created_at,
+                  profile_key: event.profile_key,
+                  actor: event.actor,
+                  source: event.source,
+                  scope: event.scope,
+                  reason: event.reason,
+                  payload_json: JSON.stringify(event.payload),
+                })
+                .execute();
+            }
+          });
 
           this.logger.info(
             {
-              eventId: event.id,
-              profileKey: event.profile_key,
-              scope: event.scope,
+              count: events.length,
+              eventIds: events.map((event) => event.id),
+              profileKey: events[0]?.profile_key,
+              scopes: [...new Set(events.map((event) => event.scope))],
             },
-            'Appended override event'
+            events.length === 1 ? 'Appended override event' : 'Appended override events'
           );
 
-          return ok(event);
+          return ok(events);
         } catch (error) {
-          return wrapError(error, 'Failed to persist override event');
+          return wrapError(error, 'Failed to persist override events');
         }
       });
     } catch (error) {
-      return wrapError(error, 'Failed to append override event');
+      return wrapError(error, 'Failed to append override events');
     }
+  }
+
+  private enqueueWrite<T>(operation: () => Promise<Result<T, Error>>): Promise<Result<T, Error>> {
+    // Queue this write to ensure serialization while returning the operation result.
+    // The queue itself is always reset to a resolved state so later writes continue.
+    const writeResult = this.writeQueue.then(() => operation());
+
+    this.writeQueue = writeResult
+      .then(() => void 0)
+      .catch((error: unknown) => {
+        this.logger.error({ error }, 'Unexpected write queue failure, continuing with next write');
+      });
+
+    return writeResult.catch((error: unknown) => wrapError(error, 'Write queue failure'));
   }
 
   private async ensureDatabaseReady(options?: {
@@ -320,6 +343,33 @@ export class OverrideStore {
       const validationResult = OverrideEventSchema.safeParse(eventCandidate);
       if (!validationResult.success) {
         return err(new Error(`Invalid override event stored in database: ${validationResult.error.message}`));
+      }
+
+      events.push(validationResult.data);
+    }
+
+    return ok(events);
+  }
+
+  private buildValidatedEvents(optionsList: CreateOverrideEventOptions[]): Result<OverrideEvent[], Error> {
+    const events: OverrideEvent[] = [];
+
+    for (const options of optionsList) {
+      const event: OverrideEvent = {
+        id: randomUUID(),
+        created_at: new Date().toISOString(),
+        profile_key: options.profileKey,
+        actor: 'user',
+        source: 'cli',
+        scope: options.scope,
+        payload: options.payload,
+        reason: options.reason,
+      };
+
+      const validationResult = OverrideEventSchema.safeParse(event);
+      if (!validationResult.success) {
+        this.logger.error({ validationError: validationResult.error, event }, 'Invalid override event');
+        return err(new Error(`Invalid override event: ${validationResult.error.message}`));
       }
 
       events.push(validationResult.data);

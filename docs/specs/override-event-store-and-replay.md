@@ -105,6 +105,8 @@ This is direction-aware, movement-aware, and asset-id-aware.
 
 - `OverrideStore.append()` validates via Zod and inserts one row into
   `override_events`.
+- `OverrideStore.appendMany()` validates the entire batch first, then persists
+  all rows atomically in append order or writes nothing.
 - Writes are serialized by an internal queue.
 - `OverrideStore.readAll()` returns rows ordered by the SQLite sequence column.
 - `OverrideStore.readByScope(profileKey, scope)` and
