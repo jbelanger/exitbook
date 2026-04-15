@@ -28,14 +28,39 @@ into:
 
 ## Phase 0 Question
 
-Is the current processed transaction substrate the right canonical accounting
-substrate for Exitbook long-term, or should a new canonical accounting substrate
-exist with the current processed rows demoted to provenance/audit use?
+Are the current processed transactions the right canonical accounting layer for
+Exitbook long-term, or should a new canonical accounting layer exist with the
+current processed rows demoted to provenance/audit use?
 
 This is not a Cardano-only question.
 
 Cardano exposed the pressure, but the decision must be generic across the
 system.
+
+## Working Vocabulary
+
+Use this language in the rest of Phase 0 unless a more abstract term is needed
+for precision:
+
+- `processed transactions`
+  - the current persisted per-address / per-account processed transaction and
+    movement layer
+- `canonical accounting layer`
+  - the one read path all accounting consumers should use
+- `accounting entries`
+  - the smallest planned units inside the canonical accounting layer
+- `provenance bindings`
+  - exact bindings from accounting entries back to `txFingerprint` and
+    `movementFingerprint`
+
+Reserved language:
+
+- `substrate`
+  - allowed when discussing the abstract architectural question
+  - not preferred for day-to-day model naming
+- `journal`
+  - reserved for a future stage only if the model grows into a fuller
+    ledger-style entry system with clearer journal semantics
 
 ## Current Known Pressure
 
@@ -531,28 +556,28 @@ This pass is about the leading candidate model, not final adoption.
 
 ### Findings
 
-1. The smallest reusable model is closer to “accounting components” than to a
+1. The smallest reusable model is closer to “accounting entries” than to a
    second transaction model.
    The core pressure is not that Exitbook lacks another transaction table.
    It is that one processed movement may need to:
    - pass through unchanged
    - split into multiple accounting-relevant parts
    - or be reduced/retained in a grouped accounting view
-     A component model expresses that directly. A second transaction-row model
+     An entry model expresses that directly. A second transaction-row model
      mostly re-encodes today’s problem at a different layer.
 
 2. The leading candidate is:
-   - a canonical accounting component
+   - a canonical accounting entry
    - plus exact provenance bindings back to current processed identity
 
    Minimal sketch:
 
    ```ts
-   type AccountingComponentKind = 'asset_inflow' | 'asset_outflow' | 'fee';
+   type AccountingEntryKind = 'asset_inflow' | 'asset_outflow' | 'fee';
 
-   interface AccountingComponent {
-     componentFingerprint: string;
-     kind: AccountingComponentKind;
+   interface AccountingEntry {
+     entryFingerprint: string;
+     kind: AccountingEntryKind;
      assetId: string;
      assetSymbol: Currency;
      quantity: Decimal;
@@ -570,10 +595,10 @@ This pass is about the leading candidate model, not final adoption.
    ```
 
    Semantics:
-   - `componentFingerprint` is the canonical accounting identity
+   - `entryFingerprint` is the canonical accounting identity
    - `provenanceBindings` preserve exact traceability to processed movements
-   - one processed movement may back one or more accounting components
-   - one accounting component may bind one or more processed movements
+   - one processed movement may back one or more accounting entries
+   - one accounting entry may bind one or more processed movements
 
 3. The candidate can stay generic without inventing a huge new taxonomy.
    It does **not** need event types like:
@@ -593,28 +618,28 @@ This pass is about the leading candidate model, not final adoption.
    minimal model.
    A group layer may become useful later for UX or export context, but it is
    not required to make the accounting substrate canonical.
-   The minimal valuable unit is the component, because:
+   The minimal valuable unit is the entry, because:
    - accounting math cares about quantities and roles
    - linking cares about exact transferable quantities
    - provenance comes from bindings
-     Starting with components only is materially simpler than introducing both:
-   - accounting event headers
-   - accounting event line items
+     Starting with entries only is materially simpler than introducing both:
+   - accounting document headers
+   - accounting entry groups
 
 5. The candidate model can represent the hard cases from earlier passes without
    ad hoc Cardano fields.
    Examples:
    - mixed Cardano target movement:
-     - one `asset_inflow` principal component
-     - one `asset_inflow` `staking_reward` component
+     - one `asset_inflow` principal entry
+     - one `asset_inflow` `staking_reward` entry
      - both bound to the same processed target movement with exact split
        quantities
    - same-hash grouped internal/external case:
-     - source-side `asset_outflow` components with exact retained/external
+     - source-side `asset_outflow` entries with exact retained/external
        quantities
-     - one or more `fee` components with exact provenance bindings
+     - one or more `fee` entries with exact provenance bindings
    - simple transfer or reward case:
-     - a straight 1:1 component bound to one processed movement
+     - a straight 1:1 entry bound to one processed movement
 
 6. The most important rejected alternative is “promote the existing
    cost-basis scoped transaction layer as the canonical accounting substrate,”
@@ -627,8 +652,8 @@ This pass is about the leading candidate model, not final adoption.
    - it carries cost-basis-local constructs like `rebuildDependencyTransactionIds`
      and `FeeOnlyInternalCarryover`
    - it does not define a general new accounting identity
-   - it would still need new component-like vocabulary for mixed-scope events,
-     which means the component model would end up reappearing inside a heavier
+   - it would still need new entry-like vocabulary for mixed-scope events,
+     which means the entry model would end up reappearing inside a heavier
      transaction wrapper anyway
      The scoped build remains valuable evidence, but it should inform the new
      substrate, not become it unchanged.
@@ -636,7 +661,7 @@ This pass is about the leading candidate model, not final adoption.
 ### Implications
 
 - The current leading candidate is:
-  - generic accounting components
+  - generic accounting entries
   - exact provenance bindings
   - no mandatory event-header/group table in the first iteration
 - This candidate is promising because it is small and aligned with current
@@ -645,28 +670,28 @@ This pass is about the leading candidate model, not final adoption.
   - fee scope/settlement remain useful
   - processed identity remains useful
 - A future substrate change should be rejected if it cannot explain why this
-  smaller component model is insufficient.
+  smaller entry model is insufficient.
   That is the current simplicity bar.
 
 ### Open Questions From Pass 4
 
-1. How should `componentFingerprint` be derived exactly?
+1. How should `entryFingerprint` be derived exactly?
    The leading requirement is:
-   - rooted in semantic component material
+   - rooted in semantic entry material
    - rooted in sorted provenance bindings
    - deterministic across rebuilds
 
 2. Should provenance bindings require quantities on every row, or can some
    cases use an implicit “full movement” binding?
 
-3. Do fees need their own component kind, or is a more unified “entry type +
+3. Do fees need their own entry kind, or is a more unified “entry type +
    role” model actually cleaner after deeper review?
 
-4. If linking eventually consumes accounting components, should component-level
+4. If linking eventually consumes accounting entries, should entry-level
    link identity replace movement-pair identity, or should links stay anchored
-   to provenance movements and use components only for quantity semantics?
+   to provenance movements and use entries only for quantity semantics?
 
-5. Is there any generic hard case that requires an explicit component-group
+5. Is there any generic hard case that requires an explicit entry-group
    layer in Phase 0, or can that remain deferred safely?
 
 ## Pass 5
@@ -675,7 +700,7 @@ This pass is about the leading candidate model, not final adoption.
 
 Test whether the current leading candidate:
 
-- generic accounting components
+- generic accounting entries
 - exact provenance bindings
 
 would actually simplify the accounting system enough to warrant adoption.
@@ -704,7 +729,7 @@ complexity, it should be rejected here.
    - carry cost-basis-local artifacts like `FeeOnlyInternalCarryover`
      That work exists because processed rows are not yet the right accounting
      substrate.
-     If canonical accounting components existed, the cost-basis seam could read
+     If canonical accounting entries existed, the cost-basis seam could read
      the already-reconstructed accounting quantities directly instead of owning so
      much reconstruction itself.
 
@@ -712,7 +737,7 @@ complexity, it should be rejected here.
    accounting substrate boundary.
    Today portfolio inherits the same mixed-scope problems as cost basis because
    it reads `Transaction[]` and then reuses cost-basis context/workflows.
-   A canonical component substrate would let portfolio read:
+   A canonical accounting layer would let portfolio read:
    - principal quantities
    - reward quantities
    - fees
@@ -722,7 +747,7 @@ complexity, it should be rejected here.
 3. The candidate would simplify issue generation if issue families are split
    honestly.
    The likely result would be:
-   - accounting-facing issue families read accounting components
+   - accounting-facing issue families read accounting entries
    - provenance/review-facing issue families keep reading processed rows
      That is cleaner than today’s mixed situation where profile issues and
      cost-basis issues both start from the processed transaction substrate but
@@ -734,14 +759,14 @@ complexity, it should be rejected here.
    - principal-only transfer candidates become explicit
    - non-principal residuals stop leaking into linker compensation paths
      But linking still has one important design fork:
-   - keep link identity anchored to provenance movements and use components for
+   - keep link identity anchored to provenance movements and use entries for
      quantities only
-   - or move link identity fully onto accounting components
+   - or move link identity fully onto accounting entries
      The first option is less pure, but much lower risk and likely the better
      migration path.
 
 5. Pricing is the least cleanly resolved capability.
-   The component model would help accounting-price requirements because it would
+   The entry model would help accounting-price requirements because it would
    make “which quantities still need prices for accounting?” much clearer.
    But some current pricing work still looks provenance-side:
    - reading all processed transactions
@@ -749,7 +774,7 @@ complexity, it should be rejected here.
      So the likely clean split is:
    - provenance-side price enrichment may still operate on processed rows
    - accounting-side price completeness / readiness should operate on
-     accounting components
+     accounting entries
      This is not fatal, but it means pricing should not be oversold as fully
      simplified by the substrate change.
 
@@ -757,7 +782,7 @@ complexity, it should be rejected here.
    enforced strictly.
    It would become unnecessary structure only if:
    - accounting kept reading processed rows in some places
-   - components were added as an optional side path
+   - entries were added as an optional side path
    - or linking/cost basis kept their current reconstruction logic anyway
      If those mistakes are avoided, the candidate does appear to remove real
      downstream reconstruction burden rather than merely moving it.
@@ -768,7 +793,7 @@ complexity, it should be rejected here.
    - how to migrate cost basis, portfolio, linking, and issues in a clean order
    - how to keep one canonical accounting reader during the transition
    - how to preserve current exact override behavior while introducing
-     component-level accounting reads
+     entry-level accounting reads
 
 ### Implications
 
@@ -779,7 +804,7 @@ complexity, it should be rejected here.
   migration plan.
 - The best current migration lean is:
   1. keep processed rows as provenance/audit
-  2. introduce canonical accounting components with exact provenance bindings
+  2. introduce canonical accounting entries with exact provenance bindings
   3. migrate accounting readers capability-first
   4. keep pricing split explicit instead of pretending it is all one seam
   5. keep correction/override identity exact from day one
@@ -787,7 +812,7 @@ complexity, it should be rejected here.
 ### Open Questions From Pass 5
 
 1. Should linking Phase 1 of any migration keep durable link identity anchored
-   to provenance movements while switching quantity semantics to components?
+   to provenance movements while switching quantity semantics to entries?
 
 2. Which capability should migrate first after the substrate is introduced:
    cost basis, portfolio, linking, or issues?
@@ -800,7 +825,7 @@ complexity, it should be rejected here.
 4. Is there any capability not yet reviewed that would still force a dual-truth
    accounting model even if the major seams migrate cleanly?
 
-5. Should Phase 0 now end in a provisional “go” for the component model, or is
+5. Should Phase 0 now end in a provisional “go” for the entry model, or is
    one more focused migration-sequencing pass needed before that decision is
    honest?
 
@@ -811,7 +836,7 @@ complexity, it should be rejected here.
 Define the cleanest migration order if Exitbook chooses the current leading
 direction:
 
-- generic accounting components
+- generic accounting entries
 - exact provenance bindings
 
 This pass is intentionally about sequencing and runtime discipline, not about
@@ -832,7 +857,7 @@ adding new substrate theory.
 1. A clean migration needs one new accounting-owned read seam before consumer
    migration starts.
    The likely shape is an accounting-owned reader port for canonical accounting
-   components, rather than every capability building its own component view from
+   entries, rather than every capability building its own entry view from
    raw processed transactions.
    Without that seam, migration would repeat the exact fragmentation Phase 0 is
    trying to remove.
@@ -846,7 +871,7 @@ adding new substrate theory.
      - switch one capability at a time
    - not acceptable:
      - let one shipped accounting path read processed rows while another shipped
-       path reads components for the same business question without that being a
+       path reads entries for the same business question without that being a
        deliberate migration phase boundary
        This is the practical version of the no-dual-truth rule.
 
@@ -862,13 +887,13 @@ adding new substrate theory.
 4. Linking should migrate second, but with link identity kept movement-anchored
    in the first stage.
    Reasons:
-   - linking gains real value from principal-only component quantities
+   - linking gains real value from principal-only entry quantities
    - but link identity is currently one of Exitbook’s strongest exactness
      contracts
    - changing both quantity semantics and durable link identity at the same time
      would be unnecessary risk
      So the clean first migration is:
-   - link quantities from components
+   - link quantities from entries
    - durable link identity still anchored to provenance movements
 
 5. Portfolio should migrate after cost basis and linking.
@@ -898,7 +923,7 @@ adding new substrate theory.
 ### Implications
 
 - The clean current migration order is:
-  1. introduce the accounting-component reader seam
+  1. introduce the accounting-entry reader seam
   2. migrate cost basis first
   3. migrate linking / gap analysis second, with movement-anchored link
      identity preserved initially
@@ -917,10 +942,84 @@ adding new substrate theory.
    separate step?
 
 3. Is there any compelling reason to move portfolio before linking once the
-   component substrate exists?
+   canonical accounting layer exists?
 
 4. Does any current issue family need to remain explicitly provenance-side even
    after the accounting consumers migrate?
+
+## Pass 7
+
+### Scope
+
+Decide whether the current working language and minimal model:
+
+- canonical accounting layer
+- accounting entries
+- provenance bindings
+
+leave Exitbook an easy path toward a fuller ledger/journal style later without
+doing the conceptual work twice.
+
+### Evidence Inspected
+
+- Pass 4 through Pass 6 in this document
+- [movement.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/movement.ts)
+- [transaction.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction.ts)
+- local comparison notes from the earlier rotki review
+
+### Findings
+
+1. `Accounting entry` is a better unit name than `accounting component`.
+   Reasons:
+   - it is easier for accounting-minded readers to reason about
+   - it still fits the current minimal model honestly
+   - it does not force premature full-ledger semantics
+
+2. `Journal` is still too early for the first clean version.
+   Reasons:
+   - it implies a fuller accounting model than we are introducing in Phase 0
+   - it suggests clearer debit/credit or document/journal semantics than the
+     current proposal actually needs
+   - using it too early would push design toward the word instead of letting
+     the model earn the word
+
+3. The current entry model can evolve into a fuller ledger style later without
+   major conceptual churn.
+   The clean evolution path would be:
+   - first: canonical accounting layer of entries + provenance bindings
+   - later, if earned:
+     - entry groups / accounting documents
+     - stronger journal-style semantics
+     - possibly more classical ledger vocabulary
+       That is an additive evolution, not a conceptual rewrite.
+
+4. This means we do not need to overbuild now to avoid rework later.
+   What matters is getting the first layer right:
+   - one canonical accounting read path
+   - stable entry identity
+   - exact provenance bindings
+   - clear override ownership
+     If those are right, future journal-style enrichment stays feasible.
+
+### Implications
+
+- The current working vocabulary is strong enough to proceed:
+  - `processed transactions`
+  - `canonical accounting layer`
+  - `accounting entries`
+  - `provenance bindings`
+- `Journal` should remain reserved language until the model actually gains
+  richer ledger semantics.
+- Phase 0 does not need more naming debate before the short decision doc.
+
+### Open Questions From Pass 7
+
+1. Should the future canonical spec use `accounting entry` everywhere from day
+   one, or allow a short transitional note that older Phase 0 analysis used the
+   word `component`?
+
+2. If the layer later gains entry groups, should that concept be called
+   `entry group`, `accounting document`, or `journal document`?
 
 ## Current Working Position
 
@@ -936,12 +1035,13 @@ Current recommendation:
     second optional side path
   - explicit about how current tx/movement/link corrections survive without
     fuzzy remapping
-  - able to justify a larger model only if the minimal component model fails
+  - able to justify a larger model only if the minimal accounting-entry model
+    fails
 
 Current Phase 0 lean after Pass 5:
 
-- a generic component-plus-provenance-binding substrate now looks strong enough
-  to treat as the leading architectural direction
+- a generic accounting-entry layer with exact provenance bindings now looks
+  strong enough to treat as the leading architectural direction
 - the remaining uncertainty is mainly migration order and the exact linking /
   pricing boundary, not whether the minimal model is conceptually viable
 
@@ -949,11 +1049,19 @@ Current Phase 0 lean after Pass 6:
 
 - Phase 0 is now mature enough for a short decision document
 - the leading direction is:
-  - generic accounting components
+  - generic accounting entries
   - exact provenance bindings
   - cost basis first as the proving migration
   - linking next, with movement-anchored link identity initially preserved
 - any alternative should now have to beat this on both simplicity and
   migration discipline
+
+Current Phase 0 lean after Pass 7:
+
+- the current language is now good enough to standardize
+- the model can still evolve later toward fuller ledger/journal semantics if it
+  earns that complexity
+- the next step should be a short Phase 0 decision document, not more open-
+  ended terminology analysis
 
 Anything weaker should be rejected.
