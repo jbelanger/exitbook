@@ -1,3 +1,4 @@
+import { MovementRoleSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 import { OptionalSourceSelectionSchema } from '../../shared/option-schema-primitives.js';
@@ -72,6 +73,30 @@ export const TransactionsEditNoteCommandOptionsSchema = z
       ctx.addIssue({
         code: 'custom',
         message: 'Cannot specify both --message and --clear',
+      });
+    }
+  });
+
+export const TransactionsEditMovementRoleCommandOptionsSchema = z
+  .object({
+    clear: z.boolean().optional(),
+    json: z.boolean().optional(),
+    movement: z.string().min(1),
+    reason: z.string().min(1).optional(),
+    role: MovementRoleSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.role === undefined && !data.clear) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Either --role or --clear is required',
+      });
+    }
+
+    if (data.role !== undefined && data.clear) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Cannot specify both --role and --clear',
       });
     }
   });

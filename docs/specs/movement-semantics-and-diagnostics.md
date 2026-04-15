@@ -281,6 +281,8 @@ Rules:
 - `movement_role_override` stores the currently materialized manual override, if any
 - downstream reads must use the effective role:
   `movement_role_override ?? movement_role ?? 'principal'`
+- `transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF>` is the operator mutation surface for durable manual movement-role correction
+- clearing a manual movement-role override restores the stored base role from `movement_role`; it must not derive the next role from an already-materialized effective transaction view
 - diagnostics persistence is owned by processors and reprocessing
 - `transactions.is_spam` does not exist in the canonical model
 

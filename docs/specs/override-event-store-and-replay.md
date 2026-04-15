@@ -58,6 +58,7 @@ Append-only logical event stored as one row in SQLite:
     | 'unlink'
     | 'link-gap-resolve'
     | 'link-gap-reopen'
+    | 'transaction-movement-role'
     | 'transaction-user-note'
     | 'asset-exclude'
     | 'asset-include'
@@ -117,18 +118,20 @@ This is direction-aware, movement-aware, and asset-id-aware.
 
 ### CLI Write Path Rules
 
-| Command                                         | Database mutation                                     | Override event                                                                                     |
-| ----------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `links create <src> <dst> --asset <symbol>`     | creates or confirms one exact manual link row         | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                 |
-| `links create-grouped ...`                      | creates or confirms multiple grouped manual link rows | appends one atomic batch of `scope='link'`, `type='link_override'`, `action='confirm'` events      |
-| `links confirm <ref>`                           | sets link status to `confirmed`                       | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                 |
-| `links reject <ref>`                            | sets link status to `rejected`                        | appends `scope='unlink'`, `type='unlink_override'`                                                 |
-| `links gaps resolve <ref>`                      | hides that specific gap issue from the open gaps lens | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                                      |
-| `links gaps reopen <ref>`                       | reopens a previously-resolved gap issue               | appends `scope='link-gap-reopen'`, `type='link_gap_reopen'`                                        |
-| `transactions edit note <TX-REF> --message ...` | materializes a durable user note on that transaction  | appends `scope='transaction-user-note'`, `type='transaction_user_note_override'`, `action='set'`   |
-| `transactions edit note <TX-REF> --clear`       | clears the durable user note on that transaction      | appends `scope='transaction-user-note'`, `type='transaction_user_note_override'`, `action='clear'` |
-| `prices set ...`                                | saves manual price                                    | appends `scope='price'`, `type='price_override'`                                                   |
-| `prices set-fx ...`                             | saves manual FX                                       | appends `scope='fx'`, `type='fx_override'`                                                         |
+| Command                                                                         | Database mutation                                     | Override event                                                                                             |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `links create <src> <dst> --asset <symbol>`                                     | creates or confirms one exact manual link row         | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                         |
+| `links create-grouped ...`                                                      | creates or confirms multiple grouped manual link rows | appends one atomic batch of `scope='link'`, `type='link_override'`, `action='confirm'` events              |
+| `links confirm <ref>`                                                           | sets link status to `confirmed`                       | appends `scope='link'`, `type='link_override'`, `action='confirm'`                                         |
+| `links reject <ref>`                                                            | sets link status to `rejected`                        | appends `scope='unlink'`, `type='unlink_override'`                                                         |
+| `links gaps resolve <ref>`                                                      | hides that specific gap issue from the open gaps lens | appends `scope='link-gap-resolve'`, `type='link_gap_resolve'`                                              |
+| `links gaps reopen <ref>`                                                       | reopens a previously-resolved gap issue               | appends `scope='link-gap-reopen'`, `type='link_gap_reopen'`                                                |
+| `transactions edit note <TX-REF> --message ...`                                 | materializes a durable user note on that transaction  | appends `scope='transaction-user-note'`, `type='transaction_user_note_override'`, `action='set'`           |
+| `transactions edit note <TX-REF> --clear`                                       | clears the durable user note on that transaction      | appends `scope='transaction-user-note'`, `type='transaction_user_note_override'`, `action='clear'`         |
+| `transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF> --role ...` | materializes one durable movement-role override       | appends `scope='transaction-movement-role'`, `type='transaction_movement_role_override'`, `action='set'`   |
+| `transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF> --clear`    | clears one durable movement-role override             | appends `scope='transaction-movement-role'`, `type='transaction_movement_role_override'`, `action='clear'` |
+| `prices set ...`                                                                | saves manual price                                    | appends `scope='price'`, `type='price_override'`                                                           |
+| `prices set-fx ...`                                                             | saves manual FX                                       | appends `scope='fx'`, `type='fx_override'`                                                                 |
 
 Additional rules:
 
@@ -245,6 +248,32 @@ Materialization rules:
 - if a current replayed note exists, materialization appends exactly one projected `user_note` with `metadata.source='override-store'`
 - if the projected note state is unchanged, materialization performs no write
 
+### Transaction Movement-Role Replay And Materialization
+
+Transaction movement-role overrides are replayed independently from link replay.
+
+Replay input:
+
+- `scope='transaction-movement-role'` override events
+- persisted `transaction_movements` rows identified by `movement_fingerprint`
+
+Replay semantics:
+
+1. replay `transaction_movement_role_override` events in append order
+2. key the projected state by `movement_fingerprint`
+3. `action='set'` stores the latest override role for that movement
+4. `action='clear'` removes any previously projected override role for that movement
+5. the final replay result is a `Map<movementFingerprint, movementRole>`
+
+Materialization rules:
+
+- missing `overrides.db` means "no durable transaction movement-role overrides"
+- materialization may be scoped by `accountIds` and/or `transactionIds`
+- repository materialization updates `transaction_movements.movement_role_override` only
+- clearing a movement-role override restores the processor-authored base role from `transaction_movements.movement_role`
+- effective downstream reads must use:
+  - `movement_role_override ?? movement_role ?? 'principal'`
+
 ### Reviewed Metadata Rules
 
 When replay updates or materializes a confirmed link:
@@ -338,6 +367,12 @@ type OverridePayload =
       action: 'set' | 'clear';
       tx_fingerprint: string;
       message?: string;
+    }
+  | {
+      type: 'transaction_movement_role_override';
+      action: 'set' | 'clear';
+      movement_fingerprint: string;
+      movement_role?: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate';
     };
 ```
 
@@ -349,6 +384,7 @@ Scope/payload pairing is enforced:
 - `scope='unlink' -> type='unlink_override'`
 - `scope='link-gap-resolve' -> type='link_gap_resolve'`
 - `scope='link-gap-reopen' -> type='link_gap_reopen'`
+- `scope='transaction-movement-role' -> type='transaction_movement_role_override'`
 - `scope='transaction-user-note' -> type='transaction_user_note_override'`
 
 ## Pipeline / Flow
@@ -375,6 +411,7 @@ graph TD
 - **Exact link identity**: Link/unlink events carry resolved link fingerprints
   based on movement fingerprints and asset ids.
 - **Exact gap-resolution identity**: Gap-resolution events are keyed by persisted `tx_fingerprint`.
+- **Exact movement-role identity**: Transaction movement-role events are keyed by persisted `movement_fingerprint`.
 - **Exact transaction-user-note identity**: Transaction-user-note events are keyed by persisted `tx_fingerprint`.
 - **User precedence**: Replay always runs after algorithmic link generation.
 - **No vague orphaned links**: Orphaned confirms never persist zero-amount or fingerprint-less links.
@@ -384,12 +421,14 @@ graph TD
 
 - confirm/reject command success does not guarantee override durability if the append fails afterward
 - `unlink` without a prior resolvable `link` event creates placeholder reject state; that placeholder never becomes a persisted link by itself
+- transaction movement-role and note writes persist override truth in `overrides.db` before same-process materialization; a later materialization failure can therefore leave durable override intent ahead of the current processed projection
 - transaction-user-note replay projects a single latest user note per `tx_fingerprint`; historical note versions remain only in the append log
 
 ## Known Limitations (Current Implementation)
 
 - price/fx override replay is not the focus of this spec and is not wired through every pipeline the same way as link replay
 - transaction-user-note materialization only runs where the explicit materialization path is invoked; replay alone does not mutate processed transactions
+- transaction movement-role materialization follows the same explicit invocation pattern; replay alone does not mutate processed rows
 - override ordering follows SQLite append sequence rather than a separate sort
   by `created_at`
 - transaction fingerprints are still stored as opaque strings rather than a dedicated nominal `TransactionFingerprint` type
@@ -398,6 +437,7 @@ graph TD
 
 - [Transaction and Movement Identity](./transaction-and-movement-identity.md) — canonical processed identity contracts for replay keys
 - [Transaction Linking](./transaction-linking.md) — canonical linking runtime and persisted link contract
+- [Transactions Edit CLI Spec](./cli/transactions/transactions-edit-spec.md) — user-facing transaction note and movement-role mutation flows
 - [CLI Links Run](./cli/links/links-run-spec.md) — command UX around linking runs
 - [CLI Links Confirm/Reject](./cli/links/links-confirm-reject-spec.md) — user-facing mutation flows
 - [Accounts and Imports](./accounts-and-imports.md) — processed transactions that replay resolves against

@@ -1388,6 +1388,52 @@ describe('TransactionRepository', () => {
     });
   });
 
+  describe('findStoredMovementRoleStateByFingerprint', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedProfile(db);
+      await seedAccount(db, 1, 'exchange-api', 'kraken');
+      await seedImportSession(db, 1, 1);
+    });
+
+    it('returns the processor-authored base role and the current override separately', async () => {
+      const transactionId = assertOk(await repo.create(makePersistedTransaction(), 1));
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const movementFingerprint = transaction?.movements.inflows?.[0]?.movementFingerprint;
+      expect(movementFingerprint).toBeDefined();
+
+      assertOk(
+        await repo.materializeTransactionMovementRoleOverrides({
+          transactionIds: [transactionId],
+          movementRoleOverrideByFingerprint: new Map([[movementFingerprint!, 'staking_reward']]),
+        })
+      );
+
+      const state = assertOk(await repo.findStoredMovementRoleStateByFingerprint(movementFingerprint!));
+
+      expect(state).toEqual({
+        baseRole: 'principal',
+        overrideRole: 'staking_reward',
+      });
+    });
+
+    it('defaults the base role to principal when no processor-authored role is stored', async () => {
+      const transactionId = assertOk(await repo.create(makePersistedTransaction(), 1));
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const movementFingerprint = transaction?.movements.inflows?.[0]?.movementFingerprint;
+      expect(movementFingerprint).toBeDefined();
+
+      const state = assertOk(await repo.findStoredMovementRoleStateByFingerprint(movementFingerprint!));
+
+      expect(state).toEqual({
+        baseRole: 'principal',
+        overrideRole: undefined,
+      });
+    });
+  });
+
   describe('profile scoping', () => {
     beforeEach(async () => {
       db = await createTestDatabase();

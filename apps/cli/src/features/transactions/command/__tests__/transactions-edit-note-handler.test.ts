@@ -1,4 +1,5 @@
 import type { CreateOverrideEventOptions, OverrideEvent, Transaction } from '@exitbook/core';
+import { formatTransactionFingerprintRef } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
@@ -59,9 +60,11 @@ function createTransactionNoteEvent(txFingerprint: string, message: string): Ove
 
 function toEditTarget(transaction: Transaction): TransactionEditTarget {
   return {
+    accountId: transaction.accountId,
     platformKey: transaction.platformKey,
     transactionId: transaction.id,
     txFingerprint: transaction.txFingerprint,
+    txRef: formatTransactionFingerprintRef(transaction.txFingerprint),
   };
 }
 
@@ -114,11 +117,13 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'set',
       changed: true,
-      platformKey: 'kraken',
-      transactionId: 42,
-      txFingerprint: 'tx:v2:kraken:1:trade-42',
       note: 'Moved to hardware wallet',
       reason: 'manual reminder',
+      transaction: {
+        platformKey: 'kraken',
+        txFingerprint: 'tx:v2:kraken:1:trade-42',
+        txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
+      },
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,
@@ -168,8 +173,10 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'set',
       changed: false,
-      transactionId: 42,
       note: 'Moved to hardware wallet',
+      transaction: {
+        txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
+      },
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
     expect(materializeTransactionUserNoteOverrides).not.toHaveBeenCalled();
@@ -197,8 +204,10 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'clear',
       changed: true,
-      transactionId: 42,
       reason: 'no longer needed',
+      transaction: {
+        txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
+      },
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,
@@ -235,7 +244,9 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'clear',
       changed: false,
-      transactionId: 42,
+      transaction: {
+        txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
+      },
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
     expect(materializeTransactionUserNoteOverrides).not.toHaveBeenCalled();

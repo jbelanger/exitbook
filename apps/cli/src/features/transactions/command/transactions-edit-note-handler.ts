@@ -7,7 +7,11 @@ import {
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { TransactionEditTarget } from './transaction-edit-target.js';
+import {
+  toTransactionEditTransactionSummary,
+  type TransactionEditTarget,
+  type TransactionEditTransactionSummary,
+} from './transaction-edit-target.js';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type TransactionEditMaterializationDatabase = Pick<DataSession, 'transactions'>;
@@ -29,10 +33,8 @@ export interface TransactionUserNoteEditResult {
   action: 'set' | 'clear';
   changed: boolean;
   note?: string | undefined;
-  platformKey: string;
   reason?: string | undefined;
-  transactionId: number;
-  txFingerprint: string;
+  transaction: TransactionEditTransactionSummary;
 }
 
 export class TransactionsEditNoteHandler {
@@ -53,10 +55,8 @@ export class TransactionsEditNoteHandler {
         action: 'set',
         changed: false,
         note: params.message,
-        platformKey: params.target.platformKey,
         reason: params.reason,
-        transactionId: params.target.transactionId,
-        txFingerprint: params.target.txFingerprint,
+        transaction: toTransactionEditTransactionSummary(params.target),
       });
     }
 
@@ -84,10 +84,8 @@ export class TransactionsEditNoteHandler {
       action: 'set',
       changed: true,
       note: params.message,
-      platformKey: params.target.platformKey,
       reason: params.reason,
-      transactionId: params.target.transactionId,
-      txFingerprint: params.target.txFingerprint,
+      transaction: toTransactionEditTransactionSummary(params.target),
     });
   }
 
@@ -101,10 +99,8 @@ export class TransactionsEditNoteHandler {
       return ok({
         action: 'clear',
         changed: false,
-        platformKey: params.target.platformKey,
         reason: params.reason,
-        transactionId: params.target.transactionId,
-        txFingerprint: params.target.txFingerprint,
+        transaction: toTransactionEditTransactionSummary(params.target),
       });
     }
 
@@ -130,10 +126,8 @@ export class TransactionsEditNoteHandler {
     return ok({
       action: 'clear',
       changed: true,
-      platformKey: params.target.platformKey,
       reason: params.reason,
-      transactionId: params.target.transactionId,
-      txFingerprint: params.target.txFingerprint,
+      transaction: toTransactionEditTransactionSummary(params.target),
     });
   }
 

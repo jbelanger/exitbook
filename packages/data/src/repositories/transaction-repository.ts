@@ -1,5 +1,11 @@
 /* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
-import { AmbiguousTransactionFingerprintRefError, type Transaction, type TransactionDraft } from '@exitbook/core';
+import {
+  AmbiguousTransactionFingerprintRefError,
+  MovementRoleSchema,
+  type MovementRole,
+  type Transaction,
+  type TransactionDraft,
+} from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
@@ -26,6 +32,11 @@ import {
 import { countTransactionRows, findTransactionRows, type TransactionQueryParams } from './transaction-query-support.js';
 
 const MOVEMENT_LOOKUP_BATCH_SIZE = SQLITE_SAFE_IN_BATCH_SIZE;
+
+export interface StoredTransactionMovementRoleState {
+  baseRole: MovementRole;
+  overrideRole?: MovementRole | undefined;
+}
 
 function normalizeTransactionFingerprintRef(fingerprintRef: string): Result<string, Error> {
   const normalized = fingerprintRef.trim().toLowerCase();
@@ -419,6 +430,37 @@ export class TransactionRepository extends BaseRepository {
     params: MaterializeTransactionMovementRoleOverridesParams
   ): Promise<Result<number, Error>> {
     return materializeTransactionMovementRoleOverrides(this.db, this.logger, params);
+  }
+
+  async findStoredMovementRoleStateByFingerprint(
+    movementFingerprint: string
+  ): Promise<Result<StoredTransactionMovementRoleState | undefined, Error>> {
+    try {
+      const row = await this.db
+        .selectFrom('transaction_movements')
+        .select(['movement_type', 'movement_role', 'movement_role_override'])
+        .where('movement_fingerprint', '=', movementFingerprint)
+        .executeTakeFirst();
+
+      if (!row) {
+        return ok(undefined);
+      }
+
+      if (row.movement_type === 'fee') {
+        return err(new Error(`Movement role state is not defined for fee movements: ${movementFingerprint}`));
+      }
+
+      const baseRole = MovementRoleSchema.parse(row.movement_role ?? 'principal');
+      const overrideRole =
+        row.movement_role_override === null ? undefined : MovementRoleSchema.parse(row.movement_role_override);
+
+      return ok({
+        baseRole,
+        overrideRole,
+      });
+    } catch (error) {
+      return wrapError(error, `Failed to retrieve stored movement role state for ${movementFingerprint}`);
+    }
   }
 
   async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {

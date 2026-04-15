@@ -27,6 +27,7 @@ const TRANSACTIONS_COMMAND_ID = 'transactions';
  *   transactions view <ref>     - Static transaction detail
  *   transactions explore        - Interactive transactions explorer
  *   transactions edit note      - Set or clear durable transaction notes by TX-REF
+ *   transactions edit movement-role - Set or clear durable movement roles by TX-REF + MOVEMENT-REF
  *   transactions export         - Export all transactions to CSV or JSON
  */
 export function registerTransactionsCommand(program: Command): void {
@@ -46,6 +47,7 @@ Examples:
   $ exitbook transactions explore --asset BTC
   $ exitbook transactions explore a1b2c3d4e5
   $ exitbook transactions edit note a1b2c3d4e5 --message "Moved to Ledger"
+  $ exitbook transactions edit movement-role a1b2c3d4e5 --movement 6c6545ac9a:1 --role staking_reward
   $ exitbook transactions export --format json --output tx.json
   $ exitbook transactions --json
 
@@ -57,6 +59,7 @@ Notes:
   - Use "transactions view <fingerprint_ref>" for one static transaction detail card.
   - Use "transactions explore" for the interactive explorer.
   - Use "transactions edit note <TX-REF>" for durable analyst context without changing transaction amounts.
+  - Use "transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF>" for durable movement-role corrections.
 `
     )
     .action(async (tokens: string[] | undefined) => {

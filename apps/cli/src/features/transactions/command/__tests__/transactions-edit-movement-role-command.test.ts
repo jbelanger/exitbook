@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import { formatMovementFingerprintRef, type Transaction } from '@exitbook/core';
 import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 
 const {
-  mockClearNote,
+  mockClearRole,
   mockCtx,
   mockExitCliFailure,
   mockFindByFingerprintRef,
@@ -15,10 +15,10 @@ const {
   mockOverrideStoreInstance,
   mockPrepareTransactionsCommandScope,
   mockRunCommand,
-  mockSetNote,
-  mockTransactionsEditNoteHandlerConstructor,
+  mockSetRole,
+  mockTransactionsEditMovementRoleHandlerConstructor,
 } = vi.hoisted(() => ({
-  mockClearNote: vi.fn(),
+  mockClearRole: vi.fn(),
   mockCtx: {
     dataDir: '/tmp/exitbook-transactions',
     tag: 'command-runtime',
@@ -30,8 +30,8 @@ const {
   mockOverrideStoreInstance: { tag: 'override-store' },
   mockPrepareTransactionsCommandScope: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockSetNote: vi.fn(),
-  mockTransactionsEditNoteHandlerConstructor: vi.fn(),
+  mockSetRole: vi.fn(),
+  mockTransactionsEditMovementRoleHandlerConstructor: vi.fn(),
 }));
 
 vi.mock('@exitbook/data/overrides', () => ({
@@ -39,7 +39,6 @@ vi.mock('@exitbook/data/overrides', () => ({
     mockOverrideStoreConstructor(...args);
     return mockOverrideStoreInstance;
   }),
-  readTransactionUserNoteOverrides: vi.fn(),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -60,12 +59,14 @@ vi.mock('../transactions-command-scope.js', () => ({
   prepareTransactionsCommandScope: mockPrepareTransactionsCommandScope,
 }));
 
-vi.mock('../transactions-edit-note-handler.js', () => ({
-  TransactionsEditNoteHandler: vi.fn().mockImplementation(function MockTransactionsEditNoteHandler(...args: unknown[]) {
-    mockTransactionsEditNoteHandlerConstructor(...args);
+vi.mock('../transactions-edit-movement-role-handler.js', () => ({
+  TransactionsEditMovementRoleHandler: vi.fn().mockImplementation(function MockTransactionsEditMovementRoleHandler(
+    ...args: unknown[]
+  ) {
+    mockTransactionsEditMovementRoleHandlerConstructor(...args);
     return {
-      clearNote: mockClearNote,
-      setNote: mockSetNote,
+      clearRole: mockClearRole,
+      setRole: mockSetRole,
     };
   }),
 }));
@@ -83,31 +84,32 @@ function createTransaction(): Transaction {
     id: 123,
     accountId: 1,
     txFingerprint: '1234567890abcdef1234567890abcdef',
-    platformKey: 'kraken',
-    platformKind: 'exchange',
-    datetime: '2026-03-01T12:00:00.000Z',
-    timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+    platformKey: 'cardano',
+    platformKind: 'blockchain',
+    datetime: '2026-04-10T12:00:00.000Z',
+    timestamp: Date.parse('2026-04-10T12:00:00.000Z'),
     status: 'success',
-    operation: { category: 'transfer', type: 'withdrawal' },
+    operation: { category: 'transfer', type: 'deposit' },
     movements: {
-      inflows: [],
-      outflows: [
+      inflows: [
         {
-          assetId: 'exchange:kraken:btc',
-          assetSymbol: 'BTC' as Currency,
-          grossAmount: parseDecimal('1'),
-          netAmount: parseDecimal('1'),
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA' as Currency,
+          grossAmount: parseDecimal('10.5'),
+          netAmount: parseDecimal('10.5'),
         },
       ],
+      outflows: [],
     },
     fees: [],
   });
 }
 
-describe('transactions edit command', () => {
+describe('transactions edit movement-role command', () => {
   const PROFILE_KEY = 'default';
   const transaction = createTransaction();
   const selector = transaction.txFingerprint.slice(0, 10);
+  const movementRef = formatMovementFingerprintRef(transaction.movements.inflows![0]!.movementFingerprint);
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
   beforeEach(() => {
@@ -140,16 +142,23 @@ describe('transactions edit command', () => {
     consoleLogSpy.mockClear();
   });
 
-  it('sets a transaction note in text mode using a transaction selector', async () => {
+  it('sets a movement role in text mode', async () => {
     const program = createProgram();
-    mockSetNote.mockResolvedValue(
+    mockSetRole.mockResolvedValue(
       ok({
         action: 'set',
         changed: true,
-        note: 'Moved to Ledger',
-        reason: 'wallet transfer',
+        movement: {
+          assetSymbol: 'ADA',
+          direction: 'inflow',
+          movementFingerprint: transaction.movements.inflows![0]!.movementFingerprint,
+          movementRef,
+        },
+        nextEffectiveRole: 'staking_reward',
+        previousEffectiveRole: 'principal',
+        reason: 'manual correction',
         transaction: {
-          platformKey: 'kraken',
+          platformKey: 'cardano',
           txFingerprint: transaction.txFingerprint,
           txRef: selector,
         },
@@ -157,93 +166,103 @@ describe('transactions edit command', () => {
     );
 
     await program.parseAsync(
-      ['transactions', 'edit', 'note', selector, '--message', 'Moved to Ledger', '--reason', 'wallet transfer'],
-      {
-        from: 'user',
-      }
+      [
+        'transactions',
+        'edit',
+        'movement-role',
+        selector,
+        '--movement',
+        movementRef,
+        '--role',
+        'staking_reward',
+        '--reason',
+        'manual correction',
+      ],
+      { from: 'user' }
     );
 
-    expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-transactions');
-    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, selector);
-    expect(mockTransactionsEditNoteHandlerConstructor).toHaveBeenCalledWith(
+    expect(mockTransactionsEditMovementRoleHandlerConstructor).toHaveBeenCalledWith(
       { tag: 'db', transactions: { findByFingerprintRef: mockFindByFingerprintRef } },
       mockOverrideStoreInstance
     );
-    expect(mockSetNote).toHaveBeenCalledWith({
+    expect(mockSetRole).toHaveBeenCalledWith({
+      movement: {
+        direction: 'inflow',
+        movement: transaction.movements.inflows![0],
+        movementRef,
+      },
       profileKey: PROFILE_KEY,
+      reason: 'manual correction',
+      role: 'staking_reward',
       target: {
         accountId: 1,
-        platformKey: 'kraken',
+        platformKey: 'cardano',
         transactionId: 123,
         txFingerprint: transaction.txFingerprint,
         txRef: selector,
       },
-      message: 'Moved to Ledger',
-      reason: 'wallet transfer',
     });
-    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
-    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Transaction note saved');
-    expect(consoleLogSpy).toHaveBeenCalledWith(`   Transaction: ${selector} (kraken / ${transaction.txFingerprint})`);
-    expect(consoleLogSpy).toHaveBeenCalledWith('   Note: Moved to Ledger');
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Movement role saved');
   });
 
-  it('clears a transaction note in JSON mode using a transaction selector', async () => {
+  it('clears a movement role in JSON mode', async () => {
     const program = createProgram();
     const result = {
       action: 'clear',
       changed: true,
-      reason: 'duplicate reminder',
+      movement: {
+        assetSymbol: 'ADA',
+        direction: 'inflow',
+        movementFingerprint: transaction.movements.inflows![0]!.movementFingerprint,
+        movementRef,
+      },
+      nextEffectiveRole: 'principal',
+      previousEffectiveRole: 'staking_reward',
       transaction: {
-        platformKey: 'kraken',
+        platformKey: 'cardano',
         txFingerprint: transaction.txFingerprint,
         txRef: selector,
       },
     };
-    mockClearNote.mockResolvedValue(ok(result));
+    mockClearRole.mockResolvedValue(ok(result));
 
-    await program.parseAsync(['transactions', 'edit', 'note', selector, '--clear', '--json'], {
-      from: 'user',
-    });
+    await program.parseAsync(
+      ['transactions', 'edit', 'movement-role', selector, '--movement', movementRef, '--clear', '--json'],
+      { from: 'user' }
+    );
 
-    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
-    expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, selector);
-    expect(mockClearNote).toHaveBeenCalledWith({
+    expect(mockClearRole).toHaveBeenCalledWith({
+      movement: {
+        direction: 'inflow',
+        movement: transaction.movements.inflows![0],
+        movementRef,
+      },
       profileKey: PROFILE_KEY,
+      reason: undefined,
       target: {
         accountId: 1,
-        platformKey: 'kraken',
+        platformKey: 'cardano',
         transactionId: 123,
         txFingerprint: transaction.txFingerprint,
         txRef: selector,
       },
-      reason: undefined,
     });
-    expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-note', result, undefined);
-    expect(consoleLogSpy).not.toHaveBeenCalled();
+    expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-movement-role', result, undefined);
   });
 
-  it('routes option validation failures through the shared boundary', async () => {
+  it('routes missing movement refs through the shared boundary', async () => {
     const program = createProgram();
-
-    await expect(program.parseAsync(['transactions', 'edit', 'note', selector], { from: 'user' })).rejects.toThrow(
-      'CLI:transactions-edit-note:text:Either --message or --clear is required:2'
-    );
-
-    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
-    expect(mockSetNote).not.toHaveBeenCalled();
-    expect(mockClearNote).not.toHaveBeenCalled();
-  });
-
-  it('routes missing transaction refs through the shared boundary', async () => {
-    const program = createProgram();
-    mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
 
     await expect(
-      program.parseAsync(['transactions', 'edit', 'note', 'deadbeef00', '--message', 'Memo'], { from: 'user' })
-    ).rejects.toThrow("CLI:transactions-edit-note:text:Transaction ref 'deadbeef00' not found:4");
+      program.parseAsync(
+        ['transactions', 'edit', 'movement-role', selector, '--movement', 'deadbeef00', '--role', 'staking_reward'],
+        { from: 'user' }
+      )
+    ).rejects.toThrow(
+      `CLI:transactions-edit-movement-role:text:Movement ref 'deadbeef00' not found on transaction ${transaction.txFingerprint}:4`
+    );
 
-    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
-    expect(mockSetNote).not.toHaveBeenCalled();
+    expect(mockSetRole).not.toHaveBeenCalled();
   });
 });

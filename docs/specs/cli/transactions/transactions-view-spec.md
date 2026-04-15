@@ -13,7 +13,7 @@ It specializes the browse rules in [CLI Surface V3 Specification](../cli-surface
 
 Out of scope:
 
-- `transactions edit note`
+- `transactions edit ...` mutation surfaces in [Transactions Edit CLI Spec](./transactions-edit-spec.md)
 - `transactions export` browse-independent export contract
 
 Those commands remain part of the family, but this spec focuses on the browse surfaces they support.

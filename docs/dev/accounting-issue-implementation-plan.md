@@ -426,11 +426,26 @@ Completed so far:
     confirmation
   - the same command now also accepts one exact explained target residual for
     grouped many-to-one corrections
+- the second Phase 3 corrective action shipped:
+  - `transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF>`
+  - public mutation results are now ref-first and return:
+    - transaction `{ txRef, txFingerprint, platformKey }`
+    - movement `{ movementRef, movementFingerprint, assetSymbol, direction }`
+  - clear now restores the processor-authored base role from stored movement
+    row state rather than from the already-materialized effective transaction
+    view
 - implementation guardrail:
   - transaction-link repository reads now normalize legacy
     `sameHashExplainedTargetResidual*` metadata keys into the canonical
     `explainedTargetResidual*` shape so real datasets remain readable while the
     canonical metadata contract stays generic
+- current smell to revisit:
+  - override append and same-process materialization are cross-db and not
+    atomic
+  - if append succeeds but materialization fails, durable override intent can
+    exist ahead of the current processed projection
+  - future command UX should likely surface that as explicit partial success /
+    warning semantics rather than pretending the write rolled back
 
 Candidate families:
 

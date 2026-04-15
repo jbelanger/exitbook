@@ -74,7 +74,11 @@ async function executeTransactionsEditNoteCommandResult(
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
     const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
-    const target = yield* await resolveTransactionEditTarget(scope.database.transactions, scope.profile.id, selector);
+    const selection = yield* await resolveTransactionEditTarget(
+      scope.database.transactions,
+      scope.profile.id,
+      selector
+    );
     const overrideStore = new OverrideStore(ctx.dataDir);
     const handler = new TransactionsEditNoteHandler(scope.database, overrideStore);
 
@@ -82,7 +86,7 @@ async function executeTransactionsEditNoteCommandResult(
       ? yield* toCliResult(
           await handler.clearNote({
             profileKey: scope.profile.profileKey,
-            target,
+            target: selection.target,
             reason: options.reason,
           }),
           ExitCodes.GENERAL_ERROR
@@ -90,7 +94,7 @@ async function executeTransactionsEditNoteCommandResult(
       : yield* toCliResult(
           await handler.setNote({
             profileKey: scope.profile.profileKey,
-            target,
+            target: selection.target,
             message: options.message!,
             reason: options.reason,
           }),
@@ -114,7 +118,9 @@ function printTransactionsEditNoteResult(result: TransactionUserNoteEditResult):
     console.log(formatSuccessLine(result.changed ? 'Transaction note cleared' : 'Transaction note already clear'));
   }
 
-  console.log(`   Transaction: #${result.transactionId} (${result.platformKey} / ${result.txFingerprint})`);
+  console.log(
+    `   Transaction: ${result.transaction.txRef} (${result.transaction.platformKey} / ${result.transaction.txFingerprint})`
+  );
   if (result.note) {
     console.log(`   Note: ${result.note}`);
   }
