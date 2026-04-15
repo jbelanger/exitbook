@@ -18,6 +18,7 @@ and audit model.
 | `processed transactions`     | Remain the provenance and audit layer                                                             |
 | `canonical accounting layer` | Becomes the one read path for accounting consumers                                                |
 | `accounting entry`           | Smallest canonical accounting unit                                                                |
+| `accounting-layer build`     | Narrow read model: entries plus deterministic build metadata needed by accounting consumers       |
 | `provenance binding`         | Exact binding from an accounting entry back to one processed movement                             |
 | `entryFingerprint`           | Deterministic canonical identity for one accounting entry                                         |
 | initial correction boundary  | User notes and movement-role overrides remain attached to processed transactions                  |
@@ -64,8 +65,8 @@ Reserved:
 
 ## Ownership And Boundaries
 
-- `@exitbook/accounting` owns the accounting-entry model and accounting-owned
-  reader ports
+- `@exitbook/accounting` owns the accounting-entry model, accounting-layer
+  build model, and accounting-owned reader ports
 - `@exitbook/data` owns persistence and repository implementations
 - `apps/cli` owns browse surfaces, rendering, and command wiring
 - `processed transactions` remain the canonical provenance roots for:
@@ -112,6 +113,51 @@ interface AccountingProvenanceBinding {
   quantity: Decimal;
 }
 ```
+
+## Initial Accounting-Layer Build Result
+
+The first canonical accounting reader returns a narrow build result, not only a
+flat `AccountingEntry[]`.
+
+```ts
+interface AccountingLayerBuildResult {
+  processedTransactions: readonly Transaction[];
+  entries: readonly AccountingEntry[];
+  derivationDependencies: readonly AccountingDerivationDependency[];
+  internalTransferCarryovers: readonly InternalTransferCarryover[];
+}
+
+interface AccountingDerivationDependency {
+  ownerTxFingerprint: string;
+  supportingTxFingerprint: string;
+  reason: 'same_hash_internal_scoping';
+}
+
+interface InternalTransferCarryover {
+  sourceEntryFingerprint: string;
+  targetBindings: readonly InternalTransferCarryoverTargetBinding[];
+  feeEntryFingerprint?: string;
+}
+
+interface InternalTransferCarryoverTargetBinding {
+  quantity: Decimal;
+  targetEntryFingerprint: string;
+}
+```
+
+Semantics:
+
+- `processedTransactions` preserve direct access to processed transaction
+  metadata and provenance context without duplicating that metadata on every
+  entry
+- `derivationDependencies` are deterministic build metadata that record which
+  processed transactions influenced another transaction's accounting shape
+- `internalTransferCarryovers` capture deterministic same-asset internal
+  transfer relations that are real accounting meaning, not cost-basis-only
+  warnings
+- this build result is intentionally narrow
+- do not add consumer-policy helpers such as
+  `rebuildDependencyTransactionIds` directly to `AccountingEntry`
 
 Semantics:
 
@@ -222,6 +268,10 @@ Required behavior:
 - provenance and browse consumers may continue to read processed transactions
   directly
 - processed transaction identity remains the root for replay and traceability
+- processors provide the deterministic processed facts needed to derive the
+  canonical accounting layer
+- processors do **not** own higher-order accounting relations such as
+  derivation dependencies or internal-transfer carryovers
 
 ### Initial Correction Boundary
 
@@ -258,6 +308,22 @@ Pricing remains explicitly split during the first migration stages:
 - accounting-side completeness and readiness move onto accounting entries
 
 This is an explicit migration boundary, not permission for permanent dual truth.
+
+## First Reader Boundary
+
+The first accounting-owned reader seam should return the accounting-layer build
+result, not only `AccountingEntry[]`.
+
+Why:
+
+- cost basis still needs direct access to processed transaction metadata
+- same-hash accounting reconstruction introduces deterministic derivation
+  dependencies between processed transactions
+- pure internal same-hash transfers introduce deterministic internal-transfer
+  carryovers that are accounting meaning, not just cost-basis-local warnings
+
+This is the accepted narrow expansion beyond the smaller
+`accounting-entry-plus-provenance-binding` baseline.
 
 ## Future Evolution
 

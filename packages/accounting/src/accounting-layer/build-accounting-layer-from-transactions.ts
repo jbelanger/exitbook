@@ -1,0 +1,412 @@
+import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
+import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { Logger } from '@exitbook/logger';
+
+import {
+  buildCostBasisScopedTransactions,
+  type AccountingScopedBuildResult,
+  type FeeOnlyInternalCarryover,
+} from '../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
+
+import { computeAccountingEntryFingerprint } from './accounting-entry-fingerprint.js';
+import type { AccountingEntry, AccountingEntryDraft } from './accounting-entry-types.js';
+import type {
+  AccountingLayerBuildResult,
+  AccountingDerivationDependency,
+  InternalTransferCarryover,
+  InternalTransferCarryoverTargetBinding,
+} from './accounting-layer-types.js';
+
+/**
+ * Build the canonical accounting-layer read model from processed transactions.
+ *
+ * The first implementation intentionally reuses the existing cost-basis
+ * same-hash reductions because they are the current trusted deterministic
+ * accounting reconstruction for mixed UTXO transfer quantities.
+ */
+export function buildAccountingLayerFromTransactions(
+  transactions: Transaction[],
+  logger: Logger
+): Result<AccountingLayerBuildResult, Error> {
+  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
+  if (scopedResult.isErr()) {
+    return err(scopedResult.error);
+  }
+
+  return buildAccountingLayerFromScopedBuild(scopedResult.value);
+}
+
+function buildAccountingLayerFromScopedBuild(
+  scopedBuildResult: AccountingScopedBuildResult
+): Result<AccountingLayerBuildResult, Error> {
+  const transactionById = new Map<number, Transaction>(
+    scopedBuildResult.inputTransactions.map((transaction) => [transaction.id, transaction])
+  );
+  const entries: AccountingEntry[] = [];
+  const inflowEntryByMovementFingerprint = new Map<string, AccountingEntry>();
+  const feeEntryByMovementFingerprint = new Map<string, AccountingEntry>();
+
+  for (const scopedTransaction of scopedBuildResult.transactions) {
+    for (const inflow of scopedTransaction.movements.inflows) {
+      const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_inflow', inflow);
+      if (entryResult.isErr()) {
+        return err(entryResult.error);
+      }
+
+      entries.push(entryResult.value);
+      inflowEntryByMovementFingerprint.set(inflow.movementFingerprint, entryResult.value);
+    }
+
+    for (const outflow of scopedTransaction.movements.outflows) {
+      const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_outflow', outflow);
+      if (entryResult.isErr()) {
+        return err(entryResult.error);
+      }
+
+      entries.push(entryResult.value);
+    }
+
+    for (const fee of scopedTransaction.fees) {
+      const entryResult = buildFeeAccountingEntry(scopedTransaction.tx, fee);
+      if (entryResult.isErr()) {
+        return err(entryResult.error);
+      }
+
+      entries.push(entryResult.value);
+      feeEntryByMovementFingerprint.set(fee.movementFingerprint, entryResult.value);
+    }
+  }
+
+  const sortedCarryovers = [...scopedBuildResult.feeOnlyInternalCarryovers].sort(compareCarryoverIdentity);
+  const sourceEntryByMovementFingerprint = new Map<string, AccountingEntry>();
+
+  for (const carryover of sortedCarryovers) {
+    const sourceTransaction = transactionById.get(carryover.sourceTransactionId);
+    if (!sourceTransaction) {
+      return err(
+        new Error(`Accounting carryover source transaction ${carryover.sourceTransactionId} not found in input set`)
+      );
+    }
+
+    const sourceEntryResult = buildCarryoverSourceAccountingEntry(sourceTransaction, carryover);
+    if (sourceEntryResult.isErr()) {
+      return err(sourceEntryResult.error);
+    }
+
+    entries.push(sourceEntryResult.value);
+    sourceEntryByMovementFingerprint.set(carryover.sourceMovementFingerprint, sourceEntryResult.value);
+  }
+
+  const internalTransferCarryovers: InternalTransferCarryover[] = [];
+  for (const carryover of sortedCarryovers) {
+    const sourceEntry = sourceEntryByMovementFingerprint.get(carryover.sourceMovementFingerprint);
+    if (!sourceEntry) {
+      return err(
+        new Error(
+          `Accounting carryover source entry ${carryover.sourceMovementFingerprint} was not materialized successfully`
+        )
+      );
+    }
+
+    const targetBindingsResult = buildInternalTransferCarryoverTargetBindings(
+      carryover,
+      sourceEntry,
+      inflowEntryByMovementFingerprint
+    );
+    if (targetBindingsResult.isErr()) {
+      return err(targetBindingsResult.error);
+    }
+
+    const feeEntryFingerprintResult = resolveCarryoverFeeEntryFingerprint(carryover, feeEntryByMovementFingerprint);
+    if (feeEntryFingerprintResult.isErr()) {
+      return err(feeEntryFingerprintResult.error);
+    }
+
+    internalTransferCarryovers.push({
+      sourceEntryFingerprint: sourceEntry.entryFingerprint,
+      targetBindings: targetBindingsResult.value,
+      feeEntryFingerprint: feeEntryFingerprintResult.value,
+    });
+  }
+
+  const derivationDependenciesResult = buildDerivationDependencies(scopedBuildResult, transactionById);
+  if (derivationDependenciesResult.isErr()) {
+    return err(derivationDependenciesResult.error);
+  }
+
+  return ok({
+    processedTransactions: scopedBuildResult.inputTransactions,
+    entries,
+    derivationDependencies: derivationDependenciesResult.value,
+    internalTransferCarryovers,
+  });
+}
+
+function buildAssetAccountingEntry(
+  transaction: Transaction,
+  kind: 'asset_inflow' | 'asset_outflow',
+  movement: AssetMovement
+): Result<AccountingEntry, Error> {
+  const quantity = movement.netAmount ?? movement.grossAmount;
+
+  if (!quantity.gt(0)) {
+    return err(
+      new Error(
+        `Accounting asset entry quantity must be positive: transaction ${transaction.id}, movement ${movement.movementFingerprint}`
+      )
+    );
+  }
+
+  const draft: AccountingEntryDraft = {
+    kind,
+    assetId: movement.assetId,
+    assetSymbol: movement.assetSymbol,
+    quantity,
+    role: movement.movementRole ?? 'principal',
+    provenanceBindings: [
+      {
+        txFingerprint: transaction.txFingerprint,
+        movementFingerprint: movement.movementFingerprint,
+        quantity,
+      },
+    ],
+  };
+
+  const fingerprintResult = computeAccountingEntryFingerprint(draft);
+  if (fingerprintResult.isErr()) {
+    return err(fingerprintResult.error);
+  }
+
+  return ok({
+    ...draft,
+    entryFingerprint: fingerprintResult.value,
+  });
+}
+
+function buildFeeAccountingEntry(transaction: Transaction, fee: FeeMovement): Result<AccountingEntry, Error> {
+  if (!fee.amount.gt(0)) {
+    return err(
+      new Error(`Accounting fee entry quantity must be positive: transaction ${transaction.id}, fee ${fee.assetId}`)
+    );
+  }
+
+  const draft: AccountingEntryDraft = {
+    kind: 'fee',
+    assetId: fee.assetId,
+    assetSymbol: fee.assetSymbol,
+    quantity: fee.amount,
+    feeScope: fee.scope,
+    feeSettlement: fee.settlement,
+    provenanceBindings: [
+      {
+        txFingerprint: transaction.txFingerprint,
+        movementFingerprint: fee.movementFingerprint,
+        quantity: fee.amount,
+      },
+    ],
+  };
+
+  const fingerprintResult = computeAccountingEntryFingerprint(draft);
+  if (fingerprintResult.isErr()) {
+    return err(fingerprintResult.error);
+  }
+
+  return ok({
+    ...draft,
+    entryFingerprint: fingerprintResult.value,
+  });
+}
+
+function buildCarryoverSourceAccountingEntry(
+  transaction: Transaction,
+  carryover: FeeOnlyInternalCarryover
+): Result<AccountingEntry, Error> {
+  if (!carryover.retainedQuantity.gt(0)) {
+    return err(
+      new Error(
+        `Internal transfer carryover retained quantity must be positive: transaction ${transaction.id}, movement ${carryover.sourceMovementFingerprint}`
+      )
+    );
+  }
+
+  const draft: AccountingEntryDraft = {
+    kind: 'asset_outflow',
+    assetId: carryover.assetId,
+    assetSymbol: carryover.assetSymbol,
+    quantity: carryover.retainedQuantity,
+    role: 'principal',
+    provenanceBindings: [
+      {
+        txFingerprint: transaction.txFingerprint,
+        movementFingerprint: carryover.sourceMovementFingerprint,
+        quantity: carryover.retainedQuantity,
+      },
+    ],
+  };
+
+  const fingerprintResult = computeAccountingEntryFingerprint(draft);
+  if (fingerprintResult.isErr()) {
+    return err(fingerprintResult.error);
+  }
+
+  return ok({
+    ...draft,
+    entryFingerprint: fingerprintResult.value,
+  });
+}
+
+function buildInternalTransferCarryoverTargetBindings(
+  carryover: FeeOnlyInternalCarryover,
+  sourceEntry: AccountingEntry,
+  inflowEntryByMovementFingerprint: Map<string, AccountingEntry>
+): Result<InternalTransferCarryoverTargetBinding[], Error> {
+  const targetBindings: InternalTransferCarryoverTargetBinding[] = [];
+  let totalTargetQuantity = parseDecimal('0');
+
+  for (const target of [...carryover.targets].sort(compareCarryoverTargetIdentity)) {
+    const targetEntry = inflowEntryByMovementFingerprint.get(target.targetMovementFingerprint);
+    if (!targetEntry) {
+      return err(
+        new Error(
+          `Internal transfer carryover target entry ${target.targetMovementFingerprint} was not materialized successfully`
+        )
+      );
+    }
+
+    if (targetEntry.assetId !== sourceEntry.assetId) {
+      return err(
+        new Error(
+          `Internal transfer carryover target asset mismatch: source ${sourceEntry.assetId}, target ${targetEntry.assetId}`
+        )
+      );
+    }
+
+    if (!targetEntry.quantity.eq(target.quantity)) {
+      return err(
+        new Error(
+          `Internal transfer carryover target quantity mismatch: target entry ${targetEntry.quantity.toFixed()} != carryover ${target.quantity.toFixed()}`
+        )
+      );
+    }
+
+    targetBindings.push({
+      quantity: target.quantity,
+      targetEntryFingerprint: targetEntry.entryFingerprint,
+    });
+    totalTargetQuantity = totalTargetQuantity.plus(target.quantity);
+  }
+
+  if (!totalTargetQuantity.eq(sourceEntry.quantity)) {
+    return err(
+      new Error(
+        `Internal transfer carryover target quantity ${totalTargetQuantity.toFixed()} does not match source quantity ${sourceEntry.quantity.toFixed()}`
+      )
+    );
+  }
+
+  return ok(targetBindings);
+}
+
+function resolveCarryoverFeeEntryFingerprint(
+  carryover: FeeOnlyInternalCarryover,
+  feeEntryByMovementFingerprint: Map<string, AccountingEntry>
+): Result<string | undefined, Error> {
+  if (!carryover.fee.amount.gt(0)) {
+    return ok(undefined);
+  }
+
+  const feeEntry = feeEntryByMovementFingerprint.get(carryover.fee.movementFingerprint);
+  if (!feeEntry) {
+    return err(
+      new Error(
+        `Internal transfer carryover fee entry ${carryover.fee.movementFingerprint} was not materialized successfully`
+      )
+    );
+  }
+
+  if (feeEntry.assetId !== carryover.assetId) {
+    return err(
+      new Error(
+        `Internal transfer carryover fee asset mismatch: carryover ${carryover.assetId}, fee entry ${feeEntry.assetId}`
+      )
+    );
+  }
+
+  if (!feeEntry.quantity.eq(carryover.fee.amount)) {
+    return err(
+      new Error(
+        `Internal transfer carryover fee quantity mismatch: fee entry ${feeEntry.quantity.toFixed()} != carryover ${carryover.fee.amount.toFixed()}`
+      )
+    );
+  }
+
+  return ok(feeEntry.entryFingerprint);
+}
+
+function buildDerivationDependencies(
+  scopedBuildResult: AccountingScopedBuildResult,
+  transactionById: Map<number, Transaction>
+): Result<AccountingDerivationDependency[], Error> {
+  const dependencies: AccountingDerivationDependency[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const scopedTransaction of scopedBuildResult.transactions) {
+    for (const dependencyTransactionId of scopedTransaction.rebuildDependencyTransactionIds) {
+      const supportingTransaction = transactionById.get(dependencyTransactionId);
+      if (!supportingTransaction) {
+        return err(
+          new Error(`Accounting derivation dependency transaction ${dependencyTransactionId} not found in input set`)
+        );
+      }
+
+      const key = `${scopedTransaction.tx.txFingerprint}|${supportingTransaction.txFingerprint}`;
+      if (seenKeys.has(key)) {
+        continue;
+      }
+
+      seenKeys.add(key);
+      dependencies.push({
+        ownerTxFingerprint: scopedTransaction.tx.txFingerprint,
+        supportingTxFingerprint: supportingTransaction.txFingerprint,
+        reason: 'same_hash_internal_scoping',
+      });
+    }
+  }
+
+  dependencies.sort((left, right) => {
+    const ownerComparison = left.ownerTxFingerprint.localeCompare(right.ownerTxFingerprint);
+    if (ownerComparison !== 0) {
+      return ownerComparison;
+    }
+
+    return left.supportingTxFingerprint.localeCompare(right.supportingTxFingerprint);
+  });
+
+  return ok(dependencies);
+}
+
+function compareCarryoverIdentity(left: FeeOnlyInternalCarryover, right: FeeOnlyInternalCarryover): number {
+  const sourceTransactionComparison = left.sourceTransactionId - right.sourceTransactionId;
+  if (sourceTransactionComparison !== 0) {
+    return sourceTransactionComparison;
+  }
+
+  return left.sourceMovementFingerprint.localeCompare(right.sourceMovementFingerprint);
+}
+
+function compareCarryoverTargetIdentity(
+  left: FeeOnlyInternalCarryover['targets'][number],
+  right: FeeOnlyInternalCarryover['targets'][number]
+): number {
+  const transactionComparison = left.targetTransactionId - right.targetTransactionId;
+  if (transactionComparison !== 0) {
+    return transactionComparison;
+  }
+
+  const movementComparison = left.targetMovementFingerprint.localeCompare(right.targetMovementFingerprint);
+  if (movementComparison !== 0) {
+    return movementComparison;
+  }
+
+  return left.quantity.toFixed().localeCompare(right.quantity.toFixed());
+}

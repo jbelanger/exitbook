@@ -123,19 +123,19 @@ Phase 0 investigation log:
 - canonical boundary spec recorded in:
   - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - first accounting-owned reader seam landed:
-  - accounting now owns `AccountingEntry` types, fingerprint rules, and
-    `IAccountingEntryReader`
+  - accounting now owns `AccountingEntry` types, fingerprint rules, and the
+    first accounting-layer reader seam
 - first proving migration surfaced one real model gap:
-  - plain `AccountingEntry[]` is not yet enough to replace the full current
+  - plain `AccountingEntry[]` was not enough to replace the full current
     cost-basis input shape cleanly
-  - cost basis still needs deterministic build-level relations such as:
-    - transaction metadata lookup
-    - rebuild dependencies for soft missing-price stabilization
-    - `feeOnlyInternalCarryovers`
-- next Phase 0 step should decide whether the canonical accounting read model
-  grows from:
-  - `AccountingEntry[]`
-  - to a small accounting build result with deterministic sidecars
+  - the canonical reader now grows to a narrow accounting-layer build result:
+    - `processedTransactions`
+    - `entries`
+    - `derivationDependencies`
+    - `internalTransferCarryovers`
+- Phase 0 follow-up now shifts from “should the read model grow?” to “how the
+  first consumer migration should use the narrowed build result without
+  reintroducing cost-basis-local shape”
 
 ## Chosen Model
 

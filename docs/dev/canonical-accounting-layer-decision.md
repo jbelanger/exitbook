@@ -206,7 +206,10 @@ That should be additive evolution, not a conceptual rewrite.
 
 ## Immediate Follow-Up
 
-The next steps after this decision are:
+Immediate follow-up status:
 
-1. Define the first accounting-owned reader port for accounting entries.
-2. Plan the first proving migration slice for cost basis.
+1. The first accounting-owned reader seam is now defined.
+   It returns a narrow accounting-layer build result instead of only
+   `AccountingEntry[]`.
+2. The next step is the first proving migration slice for cost basis against
+   that build result.
