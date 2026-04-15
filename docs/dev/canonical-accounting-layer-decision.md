@@ -10,6 +10,9 @@ Evidence:
 
 - [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
 - [accounting-issue-implementation-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-implementation-plan.md)
+  Canonical spec:
+
+- [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
 ## Decision
 
@@ -205,6 +208,5 @@ That should be additive evolution, not a conceptual rewrite.
 
 The next steps after this decision are:
 
-1. Write the canonical spec for the canonical accounting layer.
-2. Define the first accounting-owned reader port for accounting entries.
-3. Plan the first proving migration slice for cost basis.
+1. Define the first accounting-owned reader port for accounting entries.
+2. Plan the first proving migration slice for cost basis.
