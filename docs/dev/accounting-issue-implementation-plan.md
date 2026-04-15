@@ -101,6 +101,8 @@ Phase 0 investigation log:
   contracts is stated explicitly
 - any substrate migration target is stated explicitly at the accounting seam
   level, not only as a storage-table change
+- any chosen substrate model justifies itself against the smaller generic
+  component-plus-provenance-binding baseline
 - any future substrate split is generic, not Cardano-specific
 - no further corrective-action expansion starts until this gate is resolved
 

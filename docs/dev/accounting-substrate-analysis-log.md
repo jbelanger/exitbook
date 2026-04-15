@@ -507,6 +507,164 @@ The purpose of this pass is to answer a narrower question than Pass 2:
    replay without duplicating override logic across two parallel identity
    systems?
 
+## Pass 4
+
+### Scope
+
+Define the smallest generic accounting-substrate model that could solve the
+mixed-event pressure without becoming:
+
+- a Cardano-specific patch table
+- a second copy of current processed transactions under a different name
+- a vague event log with weaker identity than the current system
+
+This pass is about the leading candidate model, not final adoption.
+
+### Evidence Inspected
+
+- [transaction.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction.ts)
+- [movement.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/movement.ts)
+- [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
+- [build-cost-basis-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/build-cost-basis-scoped-transactions.ts)
+- [scoped-transaction-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/scoped-transaction-types.ts)
+- Pass 1, Pass 2, and Pass 3 findings in this document
+
+### Findings
+
+1. The smallest reusable model is closer to “accounting components” than to a
+   second transaction model.
+   The core pressure is not that Exitbook lacks another transaction table.
+   It is that one processed movement may need to:
+   - pass through unchanged
+   - split into multiple accounting-relevant parts
+   - or be reduced/retained in a grouped accounting view
+     A component model expresses that directly. A second transaction-row model
+     mostly re-encodes today’s problem at a different layer.
+
+2. The leading candidate is:
+   - a canonical accounting component
+   - plus exact provenance bindings back to current processed identity
+
+   Minimal sketch:
+
+   ```ts
+   type AccountingComponentKind = 'asset_inflow' | 'asset_outflow' | 'fee';
+
+   interface AccountingComponent {
+     componentFingerprint: string;
+     kind: AccountingComponentKind;
+     assetId: string;
+     assetSymbol: Currency;
+     quantity: Decimal;
+     role?: MovementRole | undefined; // asset kinds only
+     feeScope?: FeeMovement['scope'] | undefined; // fee only
+     feeSettlement?: FeeMovement['settlement'] | undefined; // fee only
+     provenanceBindings: AccountingProvenanceBinding[];
+   }
+
+   interface AccountingProvenanceBinding {
+     txFingerprint: string;
+     movementFingerprint: string;
+     quantity: Decimal;
+   }
+   ```
+
+   Semantics:
+   - `componentFingerprint` is the canonical accounting identity
+   - `provenanceBindings` preserve exact traceability to processed movements
+   - one processed movement may back one or more accounting components
+   - one accounting component may bind one or more processed movements
+
+3. The candidate can stay generic without inventing a huge new taxonomy.
+   It does **not** need event types like:
+   - `exchange_deposit`
+   - `cardano_staking_withdrawal`
+   - `bridge_receipt`
+     Those are either link-level relationships or chain-specific descriptions.
+     The current generic semantic vocabulary already gives most of what we need:
+   - asset inflow/outflow
+   - fee
+   - movement role
+   - fee scope / settlement
+     That is a good sign. It means the candidate model can reuse existing shared
+     semantics instead of replacing them.
+
+4. A separate “accounting event group” row does not look necessary in the
+   minimal model.
+   A group layer may become useful later for UX or export context, but it is
+   not required to make the accounting substrate canonical.
+   The minimal valuable unit is the component, because:
+   - accounting math cares about quantities and roles
+   - linking cares about exact transferable quantities
+   - provenance comes from bindings
+     Starting with components only is materially simpler than introducing both:
+   - accounting event headers
+   - accounting event line items
+
+5. The candidate model can represent the hard cases from earlier passes without
+   ad hoc Cardano fields.
+   Examples:
+   - mixed Cardano target movement:
+     - one `asset_inflow` principal component
+     - one `asset_inflow` `staking_reward` component
+     - both bound to the same processed target movement with exact split
+       quantities
+   - same-hash grouped internal/external case:
+     - source-side `asset_outflow` components with exact retained/external
+       quantities
+     - one or more `fee` components with exact provenance bindings
+   - simple transfer or reward case:
+     - a straight 1:1 component bound to one processed movement
+
+6. The most important rejected shape is “persist cost-basis scoped
+   transactions as the new substrate.”
+   That looks tempting because the scoped build already solves some hard same-
+   hash cases.
+   It is still the wrong minimal model because:
+   - it is too cost-basis-shaped
+   - it is still transaction-shaped
+   - it carries cost-basis-local constructs like `rebuildDependencyTransactionIds`
+     and `FeeOnlyInternalCarryover`
+   - it does not define a general new accounting identity
+     The scoped build remains valuable evidence, but it should inform the new
+     substrate, not become it unchanged.
+
+### Implications
+
+- The current leading candidate is:
+  - generic accounting components
+  - exact provenance bindings
+  - no mandatory event-header/group table in the first iteration
+- This candidate is promising because it is small and aligned with current
+  semantics:
+  - movement roles remain useful
+  - fee scope/settlement remain useful
+  - processed identity remains useful
+- A future substrate change should be rejected if it cannot explain why this
+  smaller component model is insufficient.
+  That is the current simplicity bar.
+
+### Open Questions From Pass 4
+
+1. How should `componentFingerprint` be derived exactly?
+   The leading requirement is:
+   - rooted in semantic component material
+   - rooted in sorted provenance bindings
+   - deterministic across rebuilds
+
+2. Should provenance bindings require quantities on every row, or can some
+   cases use an implicit “full movement” binding?
+
+3. Do fees need their own component kind, or is a more unified “entry type +
+   role” model actually cleaner after deeper review?
+
+4. If linking eventually consumes accounting components, should component-level
+   link identity replace movement-pair identity, or should links stay anchored
+   to provenance movements and use components only for quantity semantics?
+
+5. Is there any generic hard case that requires an explicit component-group
+   layer in Phase 0, or can that remain deferred safely?
+
 ## Current Working Position
 
 Current recommendation:
@@ -521,5 +679,6 @@ Current recommendation:
     second optional side path
   - explicit about how current tx/movement/link corrections survive without
     fuzzy remapping
+  - able to justify a larger model only if the minimal component model fails
 
 Anything weaker should be rejected.
