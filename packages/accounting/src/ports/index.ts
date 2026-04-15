@@ -1,4 +1,9 @@
 export type {
+  AccountingEntrySource,
+  IAccountingEntryReader,
+  IAccountingEntrySourceReader,
+} from './accounting-entry-reader.js';
+export type {
   CostBasisArtifactKind,
   CostBasisContext,
   CostBasisDependencyWatermark,

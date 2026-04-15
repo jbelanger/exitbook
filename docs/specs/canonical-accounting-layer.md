@@ -92,10 +92,18 @@ interface AccountingEntry {
   assetId: string;
   assetSymbol: Currency;
   quantity: Decimal;
-  role?: MovementRole | undefined;
-  feeScope?: FeeMovement['scope'] | undefined;
-  feeSettlement?: FeeMovement['settlement'] | undefined;
   provenanceBindings: readonly AccountingProvenanceBinding[];
+}
+
+interface AssetAccountingEntry extends AccountingEntry {
+  kind: 'asset_inflow' | 'asset_outflow';
+  role: MovementRole;
+}
+
+interface FeeAccountingEntry extends AccountingEntry {
+  kind: 'fee';
+  feeScope: FeeMovement['scope'];
+  feeSettlement: FeeMovement['settlement'];
 }
 
 interface AccountingProvenanceBinding {
@@ -107,8 +115,8 @@ interface AccountingProvenanceBinding {
 
 Semantics:
 
-- `asset_inflow` and `asset_outflow` entries may carry a `role` using the
-  existing `MovementRole` vocabulary
+- `asset_inflow` and `asset_outflow` entries carry a `role` using the existing
+  `MovementRole` vocabulary
 - `fee` entries do not carry `role`; they use `feeScope` and
   `feeSettlement`
 - one processed movement may back one or more accounting entries

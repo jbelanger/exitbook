@@ -1,5 +1,20 @@
 export type { FiatCurrency } from './cost-basis/model/cost-basis-config.js';
 export { getDefaultDateRange } from './cost-basis/model/cost-basis-config.js';
+export { buildAccountingEntryReader } from './accounting-layer/accounting-entry-reader.js';
+export {
+  buildAccountingEntryFingerprintMaterial,
+  computeAccountingEntryFingerprint,
+} from './accounting-layer/accounting-entry-fingerprint.js';
+export { buildAccountingEntriesFromTransactions } from './accounting-layer/build-accounting-entries-from-transactions.js';
+export type {
+  AccountingEntry,
+  AccountingEntryDraft,
+  AccountingEntryKind,
+  AccountingProvenanceBinding,
+  AssetAccountingEntry,
+  FeeAccountingEntry,
+} from './accounting-layer/accounting-entry-types.js';
+export type { AccountingEntrySource, IAccountingEntryReader, IAccountingEntrySourceReader } from './ports/index.js';
 export type { CostBasisJurisdiction, CostBasisMethod } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 export {
   getDefaultCostBasisCurrencyForJurisdiction,

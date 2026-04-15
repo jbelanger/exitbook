@@ -1,3 +1,4 @@
+export { buildAccountingEntrySourcePorts } from './accounting/accounting-entry-ports.js';
 export { buildCostBasisArtifactFreshnessPorts } from './accounting/cost-basis-artifact-freshness.js';
 export { buildCostBasisArtifactStore } from './accounting/cost-basis-artifact-store.js';
 export { buildCostBasisFailureSnapshotStore } from './accounting/cost-basis-failure-snapshot-store.js';

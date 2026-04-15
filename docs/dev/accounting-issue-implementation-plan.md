@@ -116,6 +116,18 @@ Phase 0 investigation log:
 - any future accounting-layer split is generic, not Cardano-specific
 - no further corrective-action expansion starts until this gate is resolved
 
+### Phase 0 Current Status
+
+- accepted architectural decision recorded in:
+  - [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+- canonical boundary spec recorded in:
+  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
+- first accounting-owned reader seam landed:
+  - accounting now owns `AccountingEntry` types, fingerprint rules, and
+    `IAccountingEntryReader`
+- first proving migration is still pending:
+  - cost basis has not switched to the canonical accounting layer yet
+
 ## Chosen Model
 
 ### Domain Boundary
