@@ -193,6 +193,9 @@ Rules:
 - `Debit`, `Credit`, and `Fees` use the same balance-summary semantics as the browse list
 - `Primary movement` is supplementary detail only and may render `—` when no primary movement can be derived
 - blockchain metadata appears only when present on the processed transaction
+- asset movement detail lines must include:
+  - transaction-scoped `MOVEMENT-REF`
+  - the effective `movementRole` when it is non-principal
 - user notes render in full and are not artificially capped
 
 ### Explorer
@@ -270,8 +273,11 @@ Rules:
 
 - detail JSON contains one selected transaction plus detail meta
 - selector detail JSON remains stable across static-detail and off-TTY explore paths
+- each inflow/outflow item in detail JSON must include:
+  - `movementFingerprint`
+  - `movementRole`
 
 ## Notes
 
 - `transactions export` remains the script-oriented export command for full data dumps and is specified in [Transactions Export Spec](./transactions-export-spec.md)
-- `transactions edit note` remains the mutation entrypoint for durable analyst notes
+- `transactions edit note <TX-REF>` remains the mutation entrypoint for durable analyst notes

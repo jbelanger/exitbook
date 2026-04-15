@@ -119,6 +119,8 @@ export {
   type TransactionLink,
   type NewTransactionLink,
   type ExplainedTargetResidual,
+  formatMovementFingerprintRef,
+  MOVEMENT_FINGERPRINT_REF_LENGTH,
   formatTransactionFingerprintRef,
   TRANSACTION_FINGERPRINT_REF_LENGTH,
 } from './transaction/index.js';

@@ -2,6 +2,7 @@
  * Transactions view TUI components
  */
 
+import { formatMovementFingerprintRef } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
 import { Box, Text, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
@@ -472,12 +473,20 @@ const MovementLine: FC<{ amountColor: string; movement: MovementDisplayItem; sig
   const amount = `${sign}${movement.amount}`;
   const hasPrice = movement.priceAtTxTime !== undefined;
   const isFiatValue = isFiat(movement.assetSymbol as Currency);
+  const roleLabel = movement.movementRole === 'principal' ? undefined : movement.movementRole;
+  const movementRef = formatMovementFingerprintRef(movement.movementFingerprint);
 
   return (
     <Text>
       {'    '}
       {movement.assetSymbol.padEnd(8)}
       <Text color={amountColor}>{amount.padStart(12)}</Text>
+      {roleLabel && (
+        <>
+          {'  '}
+          <Text dimColor>[{roleLabel}]</Text>
+        </>
+      )}
       {hasPrice ? (
         <>
           {'    '}
@@ -496,6 +505,8 @@ const MovementLine: FC<{ amountColor: string; movement: MovementDisplayItem; sig
           <Text color="yellow">⚠ no price</Text>
         </>
       )}
+      {'  '}
+      <Text dimColor>{movementRef}</Text>
     </Text>
   );
 };

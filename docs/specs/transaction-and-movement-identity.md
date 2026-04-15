@@ -20,6 +20,7 @@ Defines the canonical identity contracts for processed transactions and processe
 | Blockchain tx fingerprint      | `sha256(accountFingerprint                                                                                                                         | blockchain                                 | source        | blockchainTransactionHash)`    |
 | Exchange tx fingerprint        | `sha256(accountFingerprint                                                                                                                         | exchange                                   | source        | sortedComponentEventIds.join(' | '))` |
 | Processed movement identity    | `movementFingerprint = movement:<sha256(txFingerprint                                                                                              | canonicalMaterial)>:<duplicateOccurrence>` |
+| Movement selector ref          | `MOVEMENT-REF` is a transaction-scoped convenience ref derived from `movementFingerprint`, not canonical identity                                  |
 | Semantic stability             | `movementRole`, diagnostics, and user notes do not participate in movement identity                                                                |
 | Persistence                    | `accounts.account_fingerprint`, `transactions.tx_fingerprint`, and `transaction_movements.movement_fingerprint` are persisted canonical identities |
 
@@ -114,6 +115,27 @@ Semantics:
 
 - movement identity is rooted in transaction identity plus canonical movement content
 - exact duplicates are intentionally interchangeable apart from their bucket-local occurrence suffix
+
+### Movement Ref
+
+`MOVEMENT-REF` is a transaction-scoped selector-friendly convenience ref for one
+persisted processed movement.
+
+Canonical formatting:
+
+```ts
+formatMovementFingerprintRef(`movement:${movementHash}:${duplicateOccurrence}`);
+// => `${movementHash.slice(0, 10)}:${duplicateOccurrence}`
+```
+
+Semantics:
+
+- `MOVEMENT-REF` is for operator surfaces and transaction-scoped command input
+- `MOVEMENT-REF` is not canonical identity
+- `MOVEMENT-REF` must be derived from persisted `movementFingerprint`
+- ambiguous refs must fail cleanly at the command boundary
+- movement corrections must still key machine replay by full
+  `movementFingerprint`, not by `MOVEMENT-REF`
 
 ## Behavioral Rules
 

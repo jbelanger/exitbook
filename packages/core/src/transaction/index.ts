@@ -2,6 +2,7 @@ export * from './platform-kind.js';
 export * from './movement.js';
 export * from './balance-impact.js';
 export * from './movement-utils.js';
+export * from './movement-fingerprint-ref.js';
 export * from './transaction.js';
 export * from './transaction-diagnostic-utils.js';
 export * from './transaction-selector-errors.js';

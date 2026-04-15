@@ -101,7 +101,23 @@ describe('transactions static renderer', () => {
   });
 
   it('labels the shortened selector in detail as Transaction ref', () => {
-    const output = buildTransactionStaticDetail(createTransactionViewItem());
+    const output = buildTransactionStaticDetail({
+      ...createTransactionViewItem(),
+      inflows: [
+        {
+          movementFingerprint: 'movement:1234567890abcdef1234567890abcdef:1',
+          movementRole: 'principal',
+          assetSymbol: 'BTC',
+          amount: '1.25',
+        },
+        {
+          movementFingerprint: 'movement:fedcba0987654321fedcba0987654321:2',
+          movementRole: 'staking_reward',
+          assetSymbol: 'ADA',
+          amount: '10.5',
+        },
+      ],
+    });
 
     expect(stripAnsi(output)).toContain('Transaction ref: 1234567890');
     expect(stripAnsi(output)).toContain('Fingerprint: 1234567890abcdef-transaction');
@@ -109,5 +125,7 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('Credit: 1.25 BTC');
     expect(stripAnsi(output)).toContain('Fees: 12.5 USD');
     expect(stripAnsi(output)).toContain('Primary movement: 1.25000000 BTC IN');
+    expect(stripAnsi(output)).toContain('+ 1.25 BTC · 1234567890:1');
+    expect(stripAnsi(output)).toContain('+ 10.5 ADA [staking_reward] · fedcba0987:2');
   });
 });

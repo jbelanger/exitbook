@@ -408,6 +408,11 @@ Completed so far:
   `OverrideStore.appendMany()`
 - grouped corrective actions can persist multiple durable override events
   without risking half-written replay state
+- transaction browse/edit surfaces now expose the movement identity foundation
+  the next corrective action needs:
+  - transaction detail shows transaction-scoped `MOVEMENT-REF` values on inflow
+    and outflow rows
+  - `transactions edit note` now accepts `TX-REF` instead of numeric row id
 - the first Phase 3 corrective action shipped:
   - `links create-grouped` for exact many-to-one / one-to-many grouped transfer
     confirmation

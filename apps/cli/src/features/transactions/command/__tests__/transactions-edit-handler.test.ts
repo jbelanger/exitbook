@@ -2,12 +2,12 @@ import type { CreateOverrideEventOptions, OverrideEvent, Transaction } from '@ex
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
-import { ok, parseDecimal } from '@exitbook/foundation';
+import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { TransactionsEditHandler } from '../transactions-edit-handler.js';
+import { TransactionsEditHandler, type TransactionEditTarget } from '../transactions-edit-handler.js';
 
 const PROFILE_KEY = 'default';
 
@@ -56,6 +56,14 @@ function createTransactionNoteEvent(txFingerprint: string, message: string): Ove
   };
 }
 
+function toEditTarget(transaction: Transaction): TransactionEditTarget {
+  return {
+    platformKey: transaction.platformKey,
+    transactionId: transaction.id,
+    txFingerprint: transaction.txFingerprint,
+  };
+}
+
 function createMockOverrideStore(
   initialEvents: OverrideEvent[] = []
 ): Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'> {
@@ -89,7 +97,6 @@ describe('TransactionsEditHandler', () => {
     const materializeTransactionUserNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
-        findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionUserNoteOverrides,
       },
     } as unknown as Pick<DataSession, 'transactions'>;
@@ -97,9 +104,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 42,
+      target: toEditTarget(transaction),
       message: 'Moved to hardware wallet',
       reason: 'manual reminder',
     });
@@ -144,7 +150,6 @@ describe('TransactionsEditHandler', () => {
     const materializeTransactionUserNoteOverrides = vi.fn().mockResolvedValue(ok(0));
     const mockDb = {
       transactions: {
-        findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionUserNoteOverrides,
       },
     } as unknown as Pick<DataSession, 'transactions'>;
@@ -154,9 +159,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 42,
+      target: toEditTarget(transaction),
       message: 'Moved to hardware wallet',
     });
 
@@ -175,7 +179,6 @@ describe('TransactionsEditHandler', () => {
     const materializeTransactionUserNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
-        findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionUserNoteOverrides,
       },
     } as unknown as Pick<DataSession, 'transactions'>;
@@ -185,9 +188,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 42,
+      target: toEditTarget(transaction),
       reason: 'no longer needed',
     });
 
@@ -218,7 +220,6 @@ describe('TransactionsEditHandler', () => {
     const materializeTransactionUserNoteOverrides = vi.fn().mockResolvedValue(ok(1));
     const mockDb = {
       transactions: {
-        findById: vi.fn().mockResolvedValue(ok(transaction)),
         materializeTransactionUserNoteOverrides,
       },
     } as unknown as Pick<DataSession, 'transactions'>;
@@ -226,9 +227,8 @@ describe('TransactionsEditHandler', () => {
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.clearNote({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 42,
+      target: toEditTarget(transaction),
     });
 
     expect(assertOk(result)).toMatchObject({
@@ -240,45 +240,22 @@ describe('TransactionsEditHandler', () => {
     expect(materializeTransactionUserNoteOverrides).not.toHaveBeenCalled();
   });
 
-  it('returns an error when the transaction does not exist', async () => {
+  it('returns an error when note materialization fails', async () => {
+    const transaction = createTransaction(42, 'trade-42');
     const mockDb = {
       transactions: {
-        findById: vi.fn().mockResolvedValue(ok(undefined)),
-        materializeTransactionUserNoteOverrides: vi.fn(),
+        materializeTransactionUserNoteOverrides: vi.fn().mockResolvedValue(err(new Error('materialize failed'))),
       },
     } as unknown as Pick<DataSession, 'transactions'>;
     const mockOverrideStore = createMockOverrideStore();
 
     const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
     const result = await handler.setNote({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 999,
+      target: toEditTarget(transaction),
       message: 'Missing',
     });
 
-    expect(assertErr(result).message).toContain('Transaction not found: 999');
-  });
-
-  it('scopes transaction lookup by profileId', async () => {
-    const findById = vi.fn().mockResolvedValue(ok(undefined));
-    const mockDb = {
-      transactions: {
-        findById,
-        materializeTransactionUserNoteOverrides: vi.fn(),
-      },
-    } as unknown as Pick<DataSession, 'transactions'>;
-    const mockOverrideStore = createMockOverrideStore();
-
-    const handler = new TransactionsEditHandler(mockDb, mockOverrideStore);
-    const result = await handler.setNote({
-      profileId: 7,
-      profileKey: PROFILE_KEY,
-      transactionId: 42,
-      message: 'Scoped lookup',
-    });
-
-    expect(assertErr(result).message).toContain('Transaction not found: 42');
-    expect(findById).toHaveBeenCalledWith(42, 7);
+    expect(assertErr(result).message).toContain('Failed to materialize transaction user note override');
   });
 });

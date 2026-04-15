@@ -1,3 +1,4 @@
+import type { MovementRole } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 import type { CsvFormat, ExportFormat } from './transactions-export-model.js';
@@ -6,6 +7,8 @@ import type { CsvFormat, ExportFormat } from './transactions-export-model.js';
  * Per-movement display item (inflow or outflow)
  */
 export interface MovementDisplayItem {
+  movementFingerprint: string;
+  movementRole: MovementRole;
   assetSymbol: string;
   amount: string;
   priceAtTxTime?: { price: string; source: string } | undefined;

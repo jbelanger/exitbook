@@ -810,8 +810,23 @@ function createMockItems(): TransactionViewItem[] {
       primaryMovementAsset: 'BTC',
       primaryMovementAmount: '0.5000',
       primaryMovementDirection: 'in',
-      inflows: [{ assetSymbol: 'BTC', amount: '0.5000', priceAtTxTime: { price: '$48,250.00', source: 'kraken' } }],
-      outflows: [{ assetSymbol: 'USD', amount: '48250.00' }],
+      inflows: [
+        {
+          movementFingerprint: 'movement:test:tx-001:inflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'BTC',
+          amount: '0.5000',
+          priceAtTxTime: { price: '$48,250.00', source: 'kraken' },
+        },
+      ],
+      outflows: [
+        {
+          movementFingerprint: 'movement:test:tx-001:outflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'USD',
+          amount: '48250.00',
+        },
+      ],
       fees: [{ assetSymbol: 'USD', amount: '12.50', scope: 'platform', settlement: 'balance' }],
       priceStatus: 'all',
       blockchain: undefined,
@@ -835,7 +850,15 @@ function createMockItems(): TransactionViewItem[] {
       primaryMovementAsset: 'ETH',
       primaryMovementAmount: '2.0000',
       primaryMovementDirection: 'in',
-      inflows: [{ assetSymbol: 'ETH', amount: '2.0000', priceAtTxTime: { price: '$7,841.20', source: 'coingecko' } }],
+      inflows: [
+        {
+          movementFingerprint: 'movement:test:tx-002:inflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'ETH',
+          amount: '2.0000',
+          priceAtTxTime: { price: '$7,841.20', source: 'coingecko' },
+        },
+      ],
       outflows: [],
       fees: [
         {
@@ -873,7 +896,14 @@ function createMockItems(): TransactionViewItem[] {
       primaryMovementAsset: 'SOL',
       primaryMovementAmount: '1.2500',
       primaryMovementDirection: 'in',
-      inflows: [{ assetSymbol: 'SOL', amount: '1.2500' }],
+      inflows: [
+        {
+          movementFingerprint: 'movement:test:tx-003:inflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'SOL',
+          amount: '1.2500',
+        },
+      ],
       outflows: [],
       fees: [],
       priceStatus: 'none',
@@ -903,8 +933,23 @@ function createMockItems(): TransactionViewItem[] {
       primaryMovementAsset: 'BTC',
       primaryMovementAmount: '0.2500',
       primaryMovementDirection: 'out',
-      inflows: [{ assetSymbol: 'USD', amount: '24500.00' }],
-      outflows: [{ assetSymbol: 'BTC', amount: '0.2500', priceAtTxTime: { price: '$98,000.00', source: 'kraken' } }],
+      inflows: [
+        {
+          movementFingerprint: 'movement:test:tx-004:inflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'USD',
+          amount: '24500.00',
+        },
+      ],
+      outflows: [
+        {
+          movementFingerprint: 'movement:test:tx-004:outflow:1',
+          movementRole: 'principal',
+          assetSymbol: 'BTC',
+          amount: '0.2500',
+          priceAtTxTime: { price: '$98,000.00', source: 'kraken' },
+        },
+      ],
       fees: [{ assetSymbol: 'USD', amount: '6.25', scope: 'platform', settlement: 'balance' }],
       priceStatus: 'all',
       blockchain: undefined,

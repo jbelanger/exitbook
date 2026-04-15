@@ -26,7 +26,7 @@ const TRANSACTIONS_COMMAND_ID = 'transactions';
  *   transactions list           - Explicit static transaction list alias
  *   transactions view <ref>     - Static transaction detail
  *   transactions explore        - Interactive transactions explorer
- *   transactions edit note      - Set or clear durable transaction notes
+ *   transactions edit note      - Set or clear durable transaction notes by TX-REF
  *   transactions export         - Export all transactions to CSV or JSON
  */
 export function registerTransactionsCommand(program: Command): void {
@@ -45,7 +45,7 @@ Examples:
   $ exitbook transactions view a1b2c3d4e5
   $ exitbook transactions explore --asset BTC
   $ exitbook transactions explore a1b2c3d4e5
-  $ exitbook transactions edit note 123 --message "Moved to Ledger"
+  $ exitbook transactions edit note a1b2c3d4e5 --message "Moved to Ledger"
   $ exitbook transactions export --format json --output tx.json
   $ exitbook transactions --json
 
@@ -56,7 +56,7 @@ Notes:
   - Use bare "transactions" or "transactions list" for static transaction lists.
   - Use "transactions view <fingerprint_ref>" for one static transaction detail card.
   - Use "transactions explore" for the interactive explorer.
-  - Use "transactions edit note" for durable analyst context without changing transaction amounts.
+  - Use "transactions edit note <TX-REF>" for durable analyst context without changing transaction amounts.
 `
     )
     .action(async (tokens: string[] | undefined) => {

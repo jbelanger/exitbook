@@ -8,26 +8,25 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type TransactionEditQueryDatabase = Pick<DataSession, 'transactions'>;
+type TransactionEditMaterializationDatabase = Pick<DataSession, 'transactions'>;
 
-interface TransactionIdentity {
+export interface TransactionEditTarget {
   platformKey: string;
+  transactionId: number;
   txFingerprint: string;
 }
 
 interface TransactionUserNoteSetParams {
   message: string;
-  profileId: number;
   profileKey: string;
   reason?: string | undefined;
-  transactionId: number;
+  target: TransactionEditTarget;
 }
 
 interface TransactionUserNoteClearParams {
-  profileId: number;
   profileKey: string;
   reason?: string | undefined;
-  transactionId: number;
+  target: TransactionEditTarget;
 }
 
 export interface TransactionUserNoteEditResult {
@@ -42,31 +41,26 @@ export interface TransactionUserNoteEditResult {
 
 export class TransactionsEditHandler {
   constructor(
-    private readonly db: TransactionEditQueryDatabase,
+    private readonly db: TransactionEditMaterializationDatabase,
     private readonly overrideStore: TransactionEditOverrideStore
   ) {}
 
   async setNote(params: TransactionUserNoteSetParams): Promise<Result<TransactionUserNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
-    if (identityResult.isErr()) {
-      return err(identityResult.error);
-    }
-
     const userNoteOverridesResult = await readTransactionUserNoteOverrides(this.overrideStore, params.profileKey);
     if (userNoteOverridesResult.isErr()) {
       return err(userNoteOverridesResult.error);
     }
 
-    const existingUserNote = userNoteOverridesResult.value.get(identityResult.value.txFingerprint);
+    const existingUserNote = userNoteOverridesResult.value.get(params.target.txFingerprint);
     if (existingUserNote?.message === params.message) {
       return ok({
         action: 'set',
         changed: false,
         note: params.message,
-        platformKey: identityResult.value.platformKey,
+        platformKey: params.target.platformKey,
         reason: params.reason,
-        transactionId: params.transactionId,
-        txFingerprint: identityResult.value.txFingerprint,
+        transactionId: params.target.transactionId,
+        txFingerprint: params.target.txFingerprint,
       });
     }
 
@@ -76,7 +70,7 @@ export class TransactionsEditHandler {
       payload: {
         type: 'transaction_user_note_override',
         action: 'set',
-        tx_fingerprint: identityResult.value.txFingerprint,
+        tx_fingerprint: params.target.txFingerprint,
         message: params.message,
       },
       reason: params.reason,
@@ -85,7 +79,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.transactionId);
+    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.target.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -94,32 +88,27 @@ export class TransactionsEditHandler {
       action: 'set',
       changed: true,
       note: params.message,
-      platformKey: identityResult.value.platformKey,
+      platformKey: params.target.platformKey,
       reason: params.reason,
-      transactionId: params.transactionId,
-      txFingerprint: identityResult.value.txFingerprint,
+      transactionId: params.target.transactionId,
+      txFingerprint: params.target.txFingerprint,
     });
   }
 
   async clearNote(params: TransactionUserNoteClearParams): Promise<Result<TransactionUserNoteEditResult, Error>> {
-    const identityResult = await this.resolveTransactionIdentity(params.transactionId, params.profileId);
-    if (identityResult.isErr()) {
-      return err(identityResult.error);
-    }
-
     const userNoteOverridesResult = await readTransactionUserNoteOverrides(this.overrideStore, params.profileKey);
     if (userNoteOverridesResult.isErr()) {
       return err(userNoteOverridesResult.error);
     }
 
-    if (!userNoteOverridesResult.value.has(identityResult.value.txFingerprint)) {
+    if (!userNoteOverridesResult.value.has(params.target.txFingerprint)) {
       return ok({
         action: 'clear',
         changed: false,
-        platformKey: identityResult.value.platformKey,
+        platformKey: params.target.platformKey,
         reason: params.reason,
-        transactionId: params.transactionId,
-        txFingerprint: identityResult.value.txFingerprint,
+        transactionId: params.target.transactionId,
+        txFingerprint: params.target.txFingerprint,
       });
     }
 
@@ -129,7 +118,7 @@ export class TransactionsEditHandler {
       payload: {
         type: 'transaction_user_note_override',
         action: 'clear',
-        tx_fingerprint: identityResult.value.txFingerprint,
+        tx_fingerprint: params.target.txFingerprint,
       },
       reason: params.reason,
     });
@@ -137,7 +126,7 @@ export class TransactionsEditHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.transactionId);
+    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.target.transactionId);
     if (materializeResult.isErr()) {
       return err(materializeResult.error);
     }
@@ -145,10 +134,10 @@ export class TransactionsEditHandler {
     return ok({
       action: 'clear',
       changed: true,
-      platformKey: identityResult.value.platformKey,
+      platformKey: params.target.platformKey,
       reason: params.reason,
-      transactionId: params.transactionId,
-      txFingerprint: identityResult.value.txFingerprint,
+      transactionId: params.target.transactionId,
+      txFingerprint: params.target.txFingerprint,
     });
   }
 
@@ -178,25 +167,5 @@ export class TransactionsEditHandler {
     }
 
     return ok(undefined);
-  }
-
-  private async resolveTransactionIdentity(
-    transactionId: number,
-    profileId: number
-  ): Promise<Result<TransactionIdentity, Error>> {
-    const transactionResult = await this.db.transactions.findById(transactionId, profileId);
-    if (transactionResult.isErr()) {
-      return err(new Error(`Failed to load transaction ${transactionId}: ${transactionResult.error.message}`));
-    }
-
-    const transaction = transactionResult.value;
-    if (!transaction) {
-      return err(new Error(`Transaction not found: ${transactionId}`));
-    }
-
-    return ok({
-      platformKey: transaction.platformKey,
-      txFingerprint: transaction.txFingerprint,
-    });
   }
 }

@@ -51,6 +51,14 @@ describe('toTransactionViewItem', () => {
     expect(item.feeSummary).toBeUndefined();
     expect(item.primaryMovementAsset).toBe('CAD');
     expect(item.primaryMovementDirection).toBe('out');
+    expect(item.inflows[0]).toMatchObject({
+      movementFingerprint: 'inflow:btc:1',
+      movementRole: 'principal',
+    });
+    expect(item.outflows[0]).toMatchObject({
+      movementFingerprint: 'outflow:cad:1',
+      movementRole: 'principal',
+    });
   });
 
   it('aggregates repeated assets into balance summaries', () => {
@@ -150,5 +158,30 @@ describe('toTransactionViewItem', () => {
     expect(item.debitSummary).toBe('1 BTC');
     expect(item.creditSummary).toBeUndefined();
     expect(item.feeSummary).toBeUndefined();
+  });
+
+  it('preserves non-principal movement roles in display items', () => {
+    const item = toTransactionViewItem(
+      createTransaction({
+        movements: {
+          inflows: [
+            {
+              assetId: 'asset:ada',
+              assetSymbol: 'ADA' as Currency,
+              movementFingerprint: 'movement:1234567890abcdef1234567890abcdef:2',
+              movementRole: 'staking_reward',
+              grossAmount: parseDecimal('10.5'),
+              netAmount: parseDecimal('10.5'),
+            },
+          ],
+          outflows: [],
+        },
+      })
+    );
+
+    expect(item.inflows[0]).toMatchObject({
+      movementFingerprint: 'movement:1234567890abcdef1234567890abcdef:2',
+      movementRole: 'staking_reward',
+    });
   });
 });

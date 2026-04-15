@@ -1,3 +1,4 @@
+import { formatMovementFingerprintRef } from '@exitbook/core';
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
@@ -227,10 +228,12 @@ function buildMovementLines(label: string, prefix: '+' | '-', movements: Transac
   const lines = [pc.dim(`${label} (${movements.length})`)];
   lines.push(
     ...movements.map((movement) => {
+      const roleSuffix = movement.movementRole === 'principal' ? '' : ` ${pc.dim(`[${movement.movementRole}]`)}`;
+      const movementRef = formatMovementFingerprintRef(movement.movementFingerprint);
       const priceSuffix = movement.priceAtTxTime
         ? ` @ ${movement.priceAtTxTime.price} (${movement.priceAtTxTime.source})`
         : '';
-      return `  ${prefix} ${movement.amount} ${movement.assetSymbol}${pc.dim(priceSuffix)}`;
+      return `  ${prefix} ${movement.amount} ${movement.assetSymbol}${roleSuffix}${pc.dim(priceSuffix)} ${pc.dim(`· ${movementRef}`)}`;
     })
   );
   return lines;

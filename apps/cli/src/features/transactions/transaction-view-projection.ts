@@ -1,9 +1,4 @@
-import type {
-  AssetMovementDraft,
-  FeeMovementDraft,
-  Transaction,
-  TransactionBalanceImpactAssetEntry,
-} from '@exitbook/core';
+import type { AssetMovement, FeeMovement, Transaction, TransactionBalanceImpactAssetEntry } from '@exitbook/core';
 import { buildTransactionBalanceImpact, computePrimaryMovement } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
 
@@ -13,8 +8,10 @@ function isFiatAsset(assetSymbol: string): boolean {
   return isFiat(assetSymbol as Currency);
 }
 
-function toMovementDisplayItem(movement: AssetMovementDraft): MovementDisplayItem {
+function toMovementDisplayItem(movement: AssetMovement): MovementDisplayItem {
   return {
+    movementFingerprint: movement.movementFingerprint,
+    movementRole: movement.movementRole ?? 'principal',
     assetSymbol: movement.assetSymbol,
     amount: movement.grossAmount.toFixed(),
     priceAtTxTime: movement.priceAtTxTime
@@ -23,7 +20,7 @@ function toMovementDisplayItem(movement: AssetMovementDraft): MovementDisplayIte
   };
 }
 
-function toFeeDisplayItem(fee: FeeMovementDraft): FeeDisplayItem {
+function toFeeDisplayItem(fee: FeeMovement): FeeDisplayItem {
   return {
     assetSymbol: fee.assetSymbol,
     amount: fee.amount.toFixed(),
@@ -35,7 +32,7 @@ function toFeeDisplayItem(fee: FeeMovementDraft): FeeDisplayItem {
   };
 }
 
-function formatBalanceImpactAmount(amount: AssetMovementDraft['grossAmount']): string {
+function formatBalanceImpactAmount(amount: AssetMovement['grossAmount']): string {
   const numericAmount = Number.parseFloat(amount.toFixed());
 
   if (Number.isNaN(numericAmount)) {
@@ -48,7 +45,7 @@ function formatBalanceImpactAmount(amount: AssetMovementDraft['grossAmount']): s
 function orderBalanceImpactAssetsForDisplay(
   assetImpactsById: ReadonlyMap<string, TransactionBalanceImpactAssetEntry>,
   orderedAssetIds: readonly string[],
-  getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovementDraft['grossAmount']
+  getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovement['grossAmount']
 ): TransactionBalanceImpactAssetEntry[] {
   const seenAssetIds = new Set<string>();
   const orderedEntries: TransactionBalanceImpactAssetEntry[] = [];
@@ -80,7 +77,7 @@ function orderBalanceImpactAssetsForDisplay(
 
 function formatBalanceImpactSummary(
   orderedEntries: readonly TransactionBalanceImpactAssetEntry[],
-  getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovementDraft['grossAmount']
+  getAmount: (entry: TransactionBalanceImpactAssetEntry) => AssetMovement['grossAmount']
 ): string | undefined {
   if (orderedEntries.length === 0) {
     return undefined;

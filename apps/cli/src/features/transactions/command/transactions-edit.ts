@@ -13,11 +13,12 @@ export function registerTransactionsEditCommand(transactionsCommand: Command): v
       'after',
       `
 Examples:
-  $ exitbook transactions edit note 123 --message "Internal transfer"
-  $ exitbook transactions edit note 123 --clear
-  $ exitbook transactions edit note 123 --message "Cold storage withdrawal" --json
+  $ exitbook transactions edit note a1b2c3d4e5 --message "Internal transfer"
+  $ exitbook transactions edit note a1b2c3d4e5 --clear
+  $ exitbook transactions edit note a1b2c3d4e5 --message "Cold storage withdrawal" --json
 
 Notes:
+  - Transaction edit commands use the TX-REF shown in transactions browse output.
   - "note" is currently the supported durable override under "transactions edit".
 `
     );

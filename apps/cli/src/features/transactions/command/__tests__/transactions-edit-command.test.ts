@@ -1,11 +1,15 @@
-import { ok } from '@exitbook/foundation';
+import type { Transaction } from '@exitbook/core';
+import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 
 const {
   mockClearNote,
   mockCtx,
   mockExitCliFailure,
+  mockFindByFingerprintRef,
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
@@ -20,6 +24,7 @@ const {
     tag: 'command-runtime',
   },
   mockExitCliFailure: vi.fn(),
+  mockFindByFingerprintRef: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
@@ -73,8 +78,36 @@ function createProgram(): Command {
   return program;
 }
 
+function createTransaction(): Transaction {
+  return createPersistedTransaction({
+    id: 123,
+    accountId: 1,
+    txFingerprint: '1234567890abcdef1234567890abcdef',
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    datetime: '2026-03-01T12:00:00.000Z',
+    timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+    status: 'success',
+    operation: { category: 'transfer', type: 'withdrawal' },
+    movements: {
+      inflows: [],
+      outflows: [
+        {
+          assetId: 'exchange:kraken:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossAmount: parseDecimal('1'),
+          netAmount: parseDecimal('1'),
+        },
+      ],
+    },
+    fees: [],
+  });
+}
+
 describe('transactions edit command', () => {
   const PROFILE_KEY = 'default';
+  const transaction = createTransaction();
+  const selector = transaction.txFingerprint.slice(0, 10);
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
   beforeEach(() => {
@@ -89,25 +122,31 @@ describe('transactions edit command', () => {
     );
     mockPrepareTransactionsCommandScope.mockResolvedValue(
       ok({
-        database: { tag: 'db' },
+        database: {
+          tag: 'db',
+          transactions: {
+            findByFingerprintRef: mockFindByFingerprintRef,
+          },
+        },
         profile: {
           id: 1,
-          profileKey: 'default',
-          displayName: 'default',
+          profileKey: PROFILE_KEY,
+          displayName: PROFILE_KEY,
           createdAt: new Date('2026-03-01T00:00:00.000Z'),
         },
       })
     );
+    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
     consoleLogSpy.mockClear();
   });
 
-  it('sets a transaction note in text mode', async () => {
+  it('sets a transaction note in text mode using a transaction selector', async () => {
     const program = createProgram();
     mockSetNote.mockResolvedValue(
       ok({
         action: 'set',
         changed: true,
-        txFingerprint: 'trade-123',
+        txFingerprint: transaction.txFingerprint,
         note: 'Moved to Ledger',
         reason: 'wallet transfer',
         platformKey: 'kraken',
@@ -116,7 +155,7 @@ describe('transactions edit command', () => {
     );
 
     await program.parseAsync(
-      ['transactions', 'edit', 'note', '123', '--message', 'Moved to Ledger', '--reason', 'wallet transfer'],
+      ['transactions', 'edit', 'note', selector, '--message', 'Moved to Ledger', '--reason', 'wallet transfer'],
       {
         from: 'user',
       }
@@ -124,41 +163,52 @@ describe('transactions edit command', () => {
 
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-transactions');
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
-    expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, mockOverrideStoreInstance);
+    expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, selector);
+    expect(mockTransactionsEditHandlerConstructor).toHaveBeenCalledWith(
+      { tag: 'db', transactions: { findByFingerprintRef: mockFindByFingerprintRef } },
+      mockOverrideStoreInstance
+    );
     expect(mockSetNote).toHaveBeenCalledWith({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 123,
+      target: {
+        platformKey: 'kraken',
+        transactionId: 123,
+        txFingerprint: transaction.txFingerprint,
+      },
       message: 'Moved to Ledger',
       reason: 'wallet transfer',
     });
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Transaction note saved');
-    expect(consoleLogSpy).toHaveBeenCalledWith('   Transaction: #123 (kraken / trade-123)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(`   Transaction: #123 (kraken / ${transaction.txFingerprint})`);
     expect(consoleLogSpy).toHaveBeenCalledWith('   Note: Moved to Ledger');
   });
 
-  it('clears a transaction note in JSON mode', async () => {
+  it('clears a transaction note in JSON mode using a transaction selector', async () => {
     const program = createProgram();
     const result = {
       action: 'clear',
       changed: true,
-      txFingerprint: 'trade-123',
+      txFingerprint: transaction.txFingerprint,
       reason: 'duplicate reminder',
       platformKey: 'kraken',
       transactionId: 123,
     };
     mockClearNote.mockResolvedValue(ok(result));
 
-    await program.parseAsync(['transactions', 'edit', 'note', '123', '--clear', '--json'], {
+    await program.parseAsync(['transactions', 'edit', 'note', selector, '--clear', '--json'], {
       from: 'user',
     });
 
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
+    expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, selector);
     expect(mockClearNote).toHaveBeenCalledWith({
-      profileId: 1,
       profileKey: PROFILE_KEY,
-      transactionId: 123,
+      target: {
+        platformKey: 'kraken',
+        transactionId: 123,
+        txFingerprint: transaction.txFingerprint,
+      },
       reason: undefined,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-note', result, undefined);
@@ -168,7 +218,7 @@ describe('transactions edit command', () => {
   it('routes option validation failures through the shared boundary', async () => {
     const program = createProgram();
 
-    await expect(program.parseAsync(['transactions', 'edit', 'note', '123'], { from: 'user' })).rejects.toThrow(
+    await expect(program.parseAsync(['transactions', 'edit', 'note', selector], { from: 'user' })).rejects.toThrow(
       'CLI:transactions-edit-note:text:Either --message or --clear is required:2'
     );
 
@@ -177,14 +227,15 @@ describe('transactions edit command', () => {
     expect(mockClearNote).not.toHaveBeenCalled();
   });
 
-  it('routes invalid transaction ids through the shared boundary', async () => {
+  it('routes missing transaction refs through the shared boundary', async () => {
     const program = createProgram();
+    mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
 
     await expect(
-      program.parseAsync(['transactions', 'edit', 'note', 'not-a-number', '--message', 'Memo'], { from: 'user' })
-    ).rejects.toThrow('CLI:transactions-edit-note:text:Invalid input: expected number, received NaN:2');
+      program.parseAsync(['transactions', 'edit', 'note', 'deadbeef00', '--message', 'Memo'], { from: 'user' })
+    ).rejects.toThrow("CLI:transactions-edit-note:text:Transaction ref 'deadbeef00' not found:4");
 
-    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
+    expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockSetNote).not.toHaveBeenCalled();
   });
 });
