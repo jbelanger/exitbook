@@ -214,6 +214,152 @@ Rotki:
 4. What is the smallest generic accounting component model that is not just
    “the Cardano fix table”?
 
+## Pass 2
+
+### Scope
+
+Inventory the current consumers of `transactions` / `transaction_movements`
+and classify them as:
+
+- provenance / browse consumers
+- accounting consumers
+- mixed consumers
+
+The purpose of this pass is to test whether a future accounting-substrate split
+would be localized enough to be viable, or already too diffuse to stay clean.
+
+### Evidence Inspected
+
+- [cost-basis-persistence.ts](/Users/joel/Dev/exitbook/packages/accounting/src/ports/cost-basis-persistence.ts)
+- [cost-basis-ports.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/cost-basis-ports.ts)
+- [portfolio-handler.ts](/Users/joel/Dev/exitbook/packages/accounting/src/portfolio/portfolio-handler.ts)
+- [linking-orchestrator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/orchestration/linking-orchestrator.ts)
+- [build-linkable-movements.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/pre-linking/build-linkable-movements.ts)
+- [pricing-ports.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/pricing-ports.ts)
+- [price-inference-service.ts](/Users/joel/Dev/exitbook/packages/accounting/src/price-enrichment/orchestration/price-inference-service.ts)
+- [price-normalization-service.ts](/Users/joel/Dev/exitbook/packages/accounting/src/price-enrichment/orchestration/price-normalization-service.ts)
+- [issues-source-data.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/issues-source-data.ts)
+- [cost-basis-issue-materializer.ts](/Users/joel/Dev/exitbook/packages/accounting/src/issues/cost-basis-issue-materializer.ts)
+- [asset-review-projection-data-ports.ts](/Users/joel/Dev/exitbook/packages/data/src/projections/asset-review-projection-data-ports.ts)
+- [transactions-read-support.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/command/transactions-read-support.ts)
+- [transaction-view-projection.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/transactions/transaction-view-projection.ts)
+- [prices-view-handler.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/prices/command/prices-view-handler.ts)
+- [cost-basis-accounting-scope.md](/Users/joel/Dev/exitbook/docs/specs/cost-basis-accounting-scope.md)
+- repo-wide usage scan for:
+  - `db.transactions.findAll(...)`
+  - `loadCostBasisContext()`
+  - `loadPricingContext()`
+  - `buildCostBasisScopedTransactions(...)`
+
+### Findings
+
+1. Exitbook already has a de facto shared accounting seam built on processed
+   transactions.
+   The strongest evidence is the current data/accounting ports:
+   - `CostBasisContext = { transactions, confirmedLinks, accounts }`
+   - `PricingContext = { transactions, confirmedLinks }`
+     These are not incidental storage reads. They are capability-facing domain
+     seams that multiple accounting workflows already depend on.
+
+2. Strong accounting consumers already read the current processed substrate
+   directly or through narrow accounting ports.
+   Current examples:
+   - cost basis:
+     - `buildCostBasisPorts(...).loadCostBasisContext()`
+     - `run-standard-cost-basis.ts`
+     - `canada-acb-workflow.ts`
+   - linking:
+     - `LinkingOrchestrator.loadTransactions()`
+     - `buildLinkableMovements(...)`
+     - `buildCostBasisScopedTransactions(...)` inside linking
+   - portfolio:
+     - `PortfolioHandler.loadPortfolioExecutionInputs()`
+     - `calculateHoldings(...)`
+     - cost-basis workflow reuse
+   - pricing:
+     - `buildPricingPorts(...).loadPricingContext()`
+     - `PriceInferenceService`
+     - `PriceNormalizationService`
+   - cost-basis issue materialization:
+     - `materializeCostBasisAccountingIssueScopeSnapshot(...)`
+
+3. Cost basis already documents the current processed movements as the
+   authoritative accounting input after in-memory reshaping.
+   The canonical statement today is in
+   [cost-basis-accounting-scope.md](/Users/joel/Dev/exitbook/docs/specs/cost-basis-accounting-scope.md):
+   - scoped `movements` and `fees` are the authoritative accounting input for
+     cost basis
+   - the scoped build is derived in memory from processed transactions
+     So the current accounting substrate is not merely “whatever happens to be in
+     the DB.” It is an explicit model choice already embedded in the specs.
+
+4. Provenance / browse consumers are real and still valuable, but they are a
+   different family.
+   Current examples:
+   - `transaction-view-projection.ts`
+   - `transactions-read-support.ts`
+   - account/detail browse helpers
+   - price browse surfaces
+     These consumers want per-transaction and per-movement visibility, balance
+     impact, diagnostics, and auditability. They do not need a canonical
+     accounting substrate as their primary object.
+
+5. Several consumers are mixed and would need an explicit decision if a new
+   accounting substrate were introduced.
+   Current examples:
+   - profile issue sourcing:
+     - link gaps are produced from processed transactions plus links
+   - asset review projection:
+     - reads processed transactions, but supports accounting readiness
+   - balance / review diagnostics:
+     - balance impact is a browse concern, but often informs accounting repair
+       These consumers are the most likely source of dual-truth drift if the
+       boundary is not explicit.
+
+6. The current blast radius is wide, but not shapeless.
+   The repo-wide scan shows many direct `db.transactions.findAll(...)` callers,
+   but the core accounting pressure is clustered around a small number of
+   capability seams:
+   - cost-basis context
+   - pricing context
+   - linking transaction load
+   - profile issue source loading
+     That means a substrate change would still be large, but it is not “touch
+     every command equally.” The accounting-heavy paths are already somewhat
+     centralized.
+
+### Implications
+
+- A future accounting-substrate change would be a real architecture change, not
+  just an extra table.
+- The highest-value migration point is not the raw repository layer by itself.
+  It is the existing accounting context ports and accounting-owned loaders that
+  currently expose `Transaction[] + confirmedLinks[]`.
+- Provenance/browse consumers can likely stay on the current processed rows
+  with much less disruption than accounting consumers.
+- Mixed consumers must be resolved deliberately:
+  - either they become accounting-substrate consumers
+  - or they stay provenance-side by design
+    Leaving them half on each side would violate the Phase 0 rules.
+
+### Open Questions From Pass 2
+
+1. Which mixed consumers should be treated as accounting consumers in the long
+   term?
+
+2. If a new accounting substrate exists, should profile issue families such as
+   link gaps move onto it, or remain explicitly provenance/review-side?
+
+3. Should a future accounting substrate replace the current shared contexts with
+   one new shared accounting context, or with narrower per-capability ports?
+
+4. Is price enrichment fundamentally an accounting consumer, or should part of
+   it remain provenance-side even if cost basis, linking, and portfolio move?
+
+5. What identity bridge would let accounting consumers stop reading raw
+   processed movements without weakening `txFingerprint` /
+   `movementFingerprint`-level traceability?
+
 ## Current Working Position
 
 Current recommendation:
@@ -224,5 +370,7 @@ Current recommendation:
   - generic
   - identity-rigorous
   - materially simplifying for linking, cost basis, issues, and overrides
+  - implemented by replacing the current accounting seams, not by adding a
+    second optional side path
 
 Anything weaker should be rejected.
