@@ -125,8 +125,17 @@ Phase 0 investigation log:
 - first accounting-owned reader seam landed:
   - accounting now owns `AccountingEntry` types, fingerprint rules, and
     `IAccountingEntryReader`
-- first proving migration is still pending:
-  - cost basis has not switched to the canonical accounting layer yet
+- first proving migration surfaced one real model gap:
+  - plain `AccountingEntry[]` is not yet enough to replace the full current
+    cost-basis input shape cleanly
+  - cost basis still needs deterministic build-level relations such as:
+    - transaction metadata lookup
+    - rebuild dependencies for soft missing-price stabilization
+    - `feeOnlyInternalCarryovers`
+- next Phase 0 step should decide whether the canonical accounting read model
+  grows from:
+  - `AccountingEntry[]`
+  - to a small accounting build result with deterministic sidecars
 
 ## Chosen Model
 
