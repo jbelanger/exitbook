@@ -616,8 +616,9 @@ This pass is about the leading candidate model, not final adoption.
    - simple transfer or reward case:
      - a straight 1:1 component bound to one processed movement
 
-6. The most important rejected shape is “persist cost-basis scoped
-   transactions as the new substrate.”
+6. The most important rejected alternative is “promote the existing
+   cost-basis scoped transaction layer as the canonical accounting substrate,”
+   whether persisted or not.
    That looks tempting because the scoped build already solves some hard same-
    hash cases.
    It is still the wrong minimal model because:
@@ -626,6 +627,9 @@ This pass is about the leading candidate model, not final adoption.
    - it carries cost-basis-local constructs like `rebuildDependencyTransactionIds`
      and `FeeOnlyInternalCarryover`
    - it does not define a general new accounting identity
+   - it would still need new component-like vocabulary for mixed-scope events,
+     which means the component model would end up reappearing inside a heavier
+     transaction wrapper anyway
      The scoped build remains valuable evidence, but it should inform the new
      substrate, not become it unchanged.
 
@@ -665,6 +669,141 @@ This pass is about the leading candidate model, not final adoption.
 5. Is there any generic hard case that requires an explicit component-group
    layer in Phase 0, or can that remain deferred safely?
 
+## Pass 5
+
+### Scope
+
+Test whether the current leading candidate:
+
+- generic accounting components
+- exact provenance bindings
+
+would actually simplify the accounting system enough to warrant adoption.
+
+This is the blast-radius and payoff check. If the candidate only relocates
+complexity, it should be rejected here.
+
+### Evidence Inspected
+
+- Pass 1 through Pass 4 in this document
+- [cost-basis-accounting-scope.md](/Users/joel/Dev/exitbook/docs/specs/cost-basis-accounting-scope.md)
+- [linking-orchestrator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/orchestration/linking-orchestrator.ts)
+- [build-linkable-movements.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/pre-linking/build-linkable-movements.ts)
+- [portfolio-handler.ts](/Users/joel/Dev/exitbook/packages/accounting/src/portfolio/portfolio-handler.ts)
+- [price-inference-service.ts](/Users/joel/Dev/exitbook/packages/accounting/src/price-enrichment/orchestration/price-inference-service.ts)
+- [issues-source-data.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/issues-source-data.ts)
+- [cost-basis-issue-materializer.ts](/Users/joel/Dev/exitbook/packages/accounting/src/issues/cost-basis-issue-materializer.ts)
+- [override-event-store-and-replay.md](/Users/joel/Dev/exitbook/docs/specs/override-event-store-and-replay.md)
+
+### Findings
+
+1. The candidate would simplify cost basis materially.
+   Today cost basis must:
+   - build a special scoped accounting view in memory
+   - perform same-hash reductions there
+   - carry cost-basis-local artifacts like `FeeOnlyInternalCarryover`
+     That work exists because processed rows are not yet the right accounting
+     substrate.
+     If canonical accounting components existed, the cost-basis seam could read
+     the already-reconstructed accounting quantities directly instead of owning so
+     much reconstruction itself.
+
+2. The candidate would simplify portfolio materially if portfolio joins the
+   accounting substrate boundary.
+   Today portfolio inherits the same mixed-scope problems as cost basis because
+   it reads `Transaction[]` and then reuses cost-basis context/workflows.
+   A canonical component substrate would let portfolio read:
+   - principal quantities
+   - reward quantities
+   - fees
+     directly, instead of depending on processed-row compensation paths like the
+     Cardano residual work.
+
+3. The candidate would simplify issue generation if issue families are split
+   honestly.
+   The likely result would be:
+   - accounting-facing issue families read accounting components
+   - provenance/review-facing issue families keep reading processed rows
+     That is cleaner than today’s mixed situation where profile issues and
+     cost-basis issues both start from the processed transaction substrate but
+     reshape it differently.
+
+4. The candidate would simplify linking only partially unless the boundary is
+   chosen carefully.
+   It would clearly help with transfer quantity semantics:
+   - principal-only transfer candidates become explicit
+   - non-principal residuals stop leaking into linker compensation paths
+     But linking still has one important design fork:
+   - keep link identity anchored to provenance movements and use components for
+     quantities only
+   - or move link identity fully onto accounting components
+     The first option is less pure, but much lower risk and likely the better
+     migration path.
+
+5. Pricing is the least cleanly resolved capability.
+   The component model would help accounting-price requirements because it would
+   make “which quantities still need prices for accounting?” much clearer.
+   But some current pricing work still looks provenance-side:
+   - reading all processed transactions
+   - deriving or normalizing movement prices before accounting
+     So the likely clean split is:
+   - provenance-side price enrichment may still operate on processed rows
+   - accounting-side price completeness / readiness should operate on
+     accounting components
+     This is not fatal, but it means pricing should not be oversold as fully
+     simplified by the substrate change.
+
+6. The candidate does not look like “just another layer” if the boundary is
+   enforced strictly.
+   It would become unnecessary structure only if:
+   - accounting kept reading processed rows in some places
+   - components were added as an optional side path
+   - or linking/cost basis kept their current reconstruction logic anyway
+     If those mistakes are avoided, the candidate does appear to remove real
+     downstream reconstruction burden rather than merely moving it.
+
+7. The main remaining risk is not the model itself. It is migration discipline.
+   The model now looks strong enough.
+   The harder practical questions are:
+   - how to migrate cost basis, portfolio, linking, and issues in a clean order
+   - how to keep one canonical accounting reader during the transition
+   - how to preserve current exact override behavior while introducing
+     component-level accounting reads
+
+### Implications
+
+- The current leading candidate passes the “extra layer without simplification”
+  check conditionally.
+- That means Phase 0 should not stop at “interesting idea.”
+  It is now reasonable to advance toward a short decision document and a staged
+  migration plan.
+- The best current migration lean is:
+  1. keep processed rows as provenance/audit
+  2. introduce canonical accounting components with exact provenance bindings
+  3. migrate accounting readers capability-first
+  4. keep pricing split explicit instead of pretending it is all one seam
+  5. keep correction/override identity exact from day one
+
+### Open Questions From Pass 5
+
+1. Should linking Phase 1 of any migration keep durable link identity anchored
+   to provenance movements while switching quantity semantics to components?
+
+2. Which capability should migrate first after the substrate is introduced:
+   cost basis, portfolio, linking, or issues?
+
+3. Can pricing be split cleanly into:
+   - provenance-side enrichment
+   - accounting-side completeness / readiness
+     without creating a confusing hybrid boundary?
+
+4. Is there any capability not yet reviewed that would still force a dual-truth
+   accounting model even if the major seams migrate cleanly?
+
+5. Should Phase 0 now end in a provisional “go” for the component model, or is
+   one more focused migration-sequencing pass needed before that decision is
+   honest?
+
 ## Current Working Position
 
 Current recommendation:
@@ -680,5 +819,12 @@ Current recommendation:
   - explicit about how current tx/movement/link corrections survive without
     fuzzy remapping
   - able to justify a larger model only if the minimal component model fails
+
+Current Phase 0 lean after Pass 5:
+
+- a generic component-plus-provenance-binding substrate now looks strong enough
+  to treat as the leading architectural direction
+- the remaining uncertainty is mainly migration order and the exact linking /
+  pricing boundary, not whether the minimal model is conceptually viable
 
 Anything weaker should be rejected.

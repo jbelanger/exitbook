@@ -103,6 +103,8 @@ Phase 0 investigation log:
   level, not only as a storage-table change
 - any chosen substrate model justifies itself against the smaller generic
   component-plus-provenance-binding baseline
+- the chosen linking and pricing boundaries are stated explicitly if the
+  substrate changes
 - any future substrate split is generic, not Cardano-specific
 - no further corrective-action expansion starts until this gate is resolved
 
