@@ -9,6 +9,7 @@ Owner: Codex + Joel
 Discovery log:
 
 - [accounting-issue-operations-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-operations-plan.md)
+- [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
 - [accounting-issues.md](/Users/joel/Dev/exitbook/docs/specs/accounting-issues.md)
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
 
@@ -86,6 +87,10 @@ Phase 0 should end with one explicit architectural decision:
 
 The output should be a short decision doc in `docs/dev` plus any canonical spec
 changes needed to record the chosen boundary.
+
+Phase 0 investigation log:
+
+- [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
 
 ### Phase 0 Acceptance Criteria
 
