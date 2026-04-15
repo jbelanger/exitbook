@@ -2,12 +2,13 @@ import { type AssetReviewSummary, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import { buildAccountingLayerFromScopedBuild } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
 import {
   stabilizeExcludedRebuildTransactions,
-  validateScopedTransactionPrices,
+  validateAccountingLayerPrices,
 } from '../../workflow/price-completeness.js';
 import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
@@ -76,7 +77,12 @@ export async function runCostBasisPipeline(
     return err(assetReviewResult.error);
   }
 
-  const validationResult = validateScopedTransactionPrices(priceValidatedScopedBuild, config.currency);
+  const accountingLayerBuildResult = buildAccountingLayerFromScopedBuild(priceValidatedScopedBuild);
+  if (accountingLayerBuildResult.isErr()) {
+    return err(accountingLayerBuildResult.error);
+  }
+
+  const validationResult = validateAccountingLayerPrices(accountingLayerBuildResult.value, config.currency);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }

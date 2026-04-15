@@ -309,6 +309,13 @@ Pricing remains explicitly split during the first migration stages:
 
 This is an explicit migration boundary, not permission for permanent dual truth.
 
+Current migration status:
+
+- accounting-side price completeness / rebuild subset selection now reads the
+  accounting-layer build result
+- cost-basis lot matching and scoped calculation still read the scoped
+  transaction build
+
 ## First Reader Boundary
 
 The first accounting-owned reader seam should return the accounting-layer build

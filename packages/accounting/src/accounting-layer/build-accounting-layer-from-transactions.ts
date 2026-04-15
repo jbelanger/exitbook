@@ -36,7 +36,7 @@ export function buildAccountingLayerFromTransactions(
   return buildAccountingLayerFromScopedBuild(scopedResult.value);
 }
 
-function buildAccountingLayerFromScopedBuild(
+export function buildAccountingLayerFromScopedBuild(
   scopedBuildResult: AccountingScopedBuildResult
 ): Result<AccountingLayerBuildResult, Error> {
   const transactionById = new Map<number, Transaction>(

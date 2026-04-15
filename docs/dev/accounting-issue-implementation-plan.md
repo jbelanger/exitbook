@@ -136,6 +136,12 @@ Phase 0 investigation log:
 - Phase 0 follow-up now shifts from “should the read model grow?” to “how the
   first consumer migration should use the narrowed build result without
   reintroducing cost-basis-local shape”
+- first proving migration slice now landed at the pricing boundary:
+  - accounting-side price completeness / rebuild subset selection now reads the
+    canonical accounting layer
+  - lot matching and scoped cost-basis calculation still read the scoped
+    transaction build
+  - this is an intentional intermediate boundary, not the final end state
 
 ## Chosen Model
 

@@ -1,13 +1,12 @@
-import type { AssetMovementDraft, FeeMovementDraft, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft, FeeMovement, Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency } from '@exitbook/foundation';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import type { AccountingEntry } from '../../accounting-layer/accounting-entry-types.js';
+import type { AccountingLayerBuildResult } from '../../accounting-layer/accounting-layer-types.js';
+import { buildAccountingLayerFromScopedBuild } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
-import type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
-} from '../standard/matching/build-cost-basis-scoped-transactions.js';
 import { buildCostBasisScopedTransactions } from '../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
@@ -44,21 +43,66 @@ function filterTransactionsByDateRange(transactions: Transaction[], startDate: D
   });
 }
 
-function scopedTransactionHasAllPrices(scopedTransaction: AccountingScopedTransaction): Result<boolean, Error> {
-  for (const inflow of scopedTransaction.movements.inflows) {
-    const hasPriceResult = movementHasPrice(inflow);
-    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
-    if (!hasPriceResult.value) return ok(false);
+interface PriceValidationResult {
+  evaluatedTransactionCount: number;
+  missingPricesCount: number;
+  rebuildTransactions: Transaction[];
+}
+
+interface PriceCoverageSummary {
+  evaluatedTransactionCount: number;
+  missingPricesCount: number;
+  ownerHasCompletePrices: Map<string, boolean>;
+}
+
+type PricedMovement = AssetMovementDraft | FeeMovementDraft | FeeMovement;
+
+function buildMovementByFingerprint(transactions: readonly Transaction[]): Result<Map<string, PricedMovement>, Error> {
+  const movementByFingerprint = new Map<string, PricedMovement>();
+
+  for (const transaction of transactions) {
+    for (const movement of transaction.movements.inflows ?? []) {
+      movementByFingerprint.set(movement.movementFingerprint, movement);
+    }
+    for (const movement of transaction.movements.outflows ?? []) {
+      movementByFingerprint.set(movement.movementFingerprint, movement);
+    }
+    for (const fee of transaction.fees ?? []) {
+      movementByFingerprint.set(fee.movementFingerprint, fee);
+    }
   }
 
-  for (const outflow of scopedTransaction.movements.outflows) {
-    const hasPriceResult = movementHasPrice(outflow);
-    if (hasPriceResult.isErr()) return err(hasPriceResult.error);
-    if (!hasPriceResult.value) return ok(false);
+  return ok(movementByFingerprint);
+}
+
+function resolveEntryOwnerTxFingerprint(entry: AccountingEntry): Result<string, Error> {
+  const ownerTxFingerprints = new Set(entry.provenanceBindings.map((binding) => binding.txFingerprint));
+  if (ownerTxFingerprints.size !== 1) {
+    return err(
+      new Error(
+        `Accounting price validation currently requires single-transaction entry ownership; entry ${entry.entryFingerprint} spans ${ownerTxFingerprints.size} transactions`
+      )
+    );
   }
 
-  for (const fee of scopedTransaction.fees) {
-    const hasPriceResult = movementHasPrice(fee);
+  return ok([...ownerTxFingerprints][0]!);
+}
+
+function accountingEntryHasAllPrices(
+  entry: AccountingEntry,
+  movementByFingerprint: Map<string, PricedMovement>
+): Result<boolean, Error> {
+  for (const binding of entry.provenanceBindings) {
+    const movement = movementByFingerprint.get(binding.movementFingerprint);
+    if (!movement) {
+      return err(
+        new Error(
+          `Accounting price validation could not resolve movement ${binding.movementFingerprint} for entry ${entry.entryFingerprint}`
+        )
+      );
+    }
+
+    const hasPriceResult = movementHasPrice(movement);
     if (hasPriceResult.isErr()) return err(hasPriceResult.error);
     if (!hasPriceResult.value) return ok(false);
   }
@@ -66,30 +110,41 @@ function scopedTransactionHasAllPrices(scopedTransaction: AccountingScopedTransa
   return ok(true);
 }
 
-export function validateScopedTransactionPrices(
-  scopedBuildResult: AccountingScopedBuildResult,
+export function validateAccountingLayerPrices(
+  accountingLayerBuild: AccountingLayerBuildResult,
   requiredCurrency: string
-): Result<{ missingPricesCount: number; rebuildTransactions: Transaction[] }, Error> {
-  const rebuildTransactionIds = new Set<number>();
-  let missingPricesCount = 0;
+): Result<PriceValidationResult, Error> {
+  const priceCoverageSummaryResult = summarizeAccountingLayerPriceCoverage(accountingLayerBuild);
+  if (priceCoverageSummaryResult.isErr()) {
+    return err(priceCoverageSummaryResult.error);
+  }
 
-  for (const scopedTransaction of scopedBuildResult.transactions) {
-    const hasAllPricesResult = scopedTransactionHasAllPrices(scopedTransaction);
-    if (hasAllPricesResult.isErr()) {
-      return err(hasAllPricesResult.error);
+  const { evaluatedTransactionCount, missingPricesCount, ownerHasCompletePrices } = priceCoverageSummaryResult.value;
+
+  const rebuildTransactionFingerprints = new Set<string>();
+
+  for (const [ownerTxFingerprint, hasCompletePrices] of ownerHasCompletePrices) {
+    if (!hasCompletePrices) {
+      continue;
     }
 
-    if (hasAllPricesResult.value) {
-      rebuildTransactionIds.add(scopedTransaction.tx.id);
-      for (const dependencyTransactionId of scopedTransaction.rebuildDependencyTransactionIds) {
-        rebuildTransactionIds.add(dependencyTransactionId);
+    rebuildTransactionFingerprints.add(ownerTxFingerprint);
+    for (const dependency of accountingLayerBuild.derivationDependencies) {
+      if (dependency.ownerTxFingerprint === ownerTxFingerprint) {
+        rebuildTransactionFingerprints.add(dependency.supportingTxFingerprint);
       }
-    } else {
-      missingPricesCount++;
     }
   }
 
-  if (rebuildTransactionIds.size === 0) {
+  if (evaluatedTransactionCount === 0) {
+    return ok({
+      evaluatedTransactionCount: 0,
+      rebuildTransactions: [],
+      missingPricesCount: 0,
+    });
+  }
+
+  if (rebuildTransactionFingerprints.size === 0) {
     return err(
       new Error(
         `All transactions are missing price data in ${requiredCurrency}. Please run 'exitbook prices fetch' before calculating cost basis.`
@@ -97,30 +152,94 @@ export function validateScopedTransactionPrices(
     );
   }
 
-  const rebuildTransactions = scopedBuildResult.inputTransactions.filter((tx) => rebuildTransactionIds.has(tx.id));
-  if (rebuildTransactions.length !== rebuildTransactionIds.size) {
-    const foundIds = new Set(rebuildTransactions.map((tx) => tx.id));
-    const missingTransactionIds = [...rebuildTransactionIds].filter((txId) => !foundIds.has(txId));
+  const rebuildTransactions = accountingLayerBuild.processedTransactions.filter((transaction) =>
+    rebuildTransactionFingerprints.has(transaction.txFingerprint)
+  );
+  if (rebuildTransactions.length !== rebuildTransactionFingerprints.size) {
+    const foundFingerprints = new Set(rebuildTransactions.map((transaction) => transaction.txFingerprint));
+    const missingTransactionFingerprints = [...rebuildTransactionFingerprints].filter(
+      (txFingerprint) => !foundFingerprints.has(txFingerprint)
+    );
     return err(
-      new Error(`Scoped rebuild transactions missing from the input set: [${missingTransactionIds.join(', ')}]`)
+      new Error(
+        `Accounting rebuild transactions missing from the input set: [${missingTransactionFingerprints.join(', ')}]`
+      )
     );
   }
 
-  return ok({ rebuildTransactions, missingPricesCount });
+  return ok({
+    evaluatedTransactionCount,
+    rebuildTransactions,
+    missingPricesCount,
+  });
 }
 
-export function getCostBasisRebuildTransactions(
+function summarizeAccountingLayerPriceCoverage(
+  accountingLayerBuild: AccountingLayerBuildResult
+): Result<PriceCoverageSummary, Error> {
+  const movementByFingerprintResult = buildMovementByFingerprint(accountingLayerBuild.processedTransactions);
+  if (movementByFingerprintResult.isErr()) {
+    return err(movementByFingerprintResult.error);
+  }
+  const movementByFingerprint = movementByFingerprintResult.value;
+
+  const ownerHasCompletePrices = new Map<string, boolean>();
+  for (const entry of accountingLayerBuild.entries) {
+    const ownerTxFingerprintResult = resolveEntryOwnerTxFingerprint(entry);
+    if (ownerTxFingerprintResult.isErr()) {
+      return err(ownerTxFingerprintResult.error);
+    }
+
+    const hasAllPricesResult = accountingEntryHasAllPrices(entry, movementByFingerprint);
+    if (hasAllPricesResult.isErr()) {
+      return err(hasAllPricesResult.error);
+    }
+
+    const ownerTxFingerprint = ownerTxFingerprintResult.value;
+    ownerHasCompletePrices.set(
+      ownerTxFingerprint,
+      (ownerHasCompletePrices.get(ownerTxFingerprint) ?? true) && hasAllPricesResult.value
+    );
+  }
+
+  let missingPricesCount = 0;
+  for (const hasCompletePrices of ownerHasCompletePrices.values()) {
+    if (!hasCompletePrices) {
+      missingPricesCount++;
+    }
+  }
+
+  return ok({
+    evaluatedTransactionCount: ownerHasCompletePrices.size,
+    missingPricesCount,
+    ownerHasCompletePrices,
+  });
+}
+
+function buildAccountingLayerForPriceValidation(
   transactions: Transaction[],
-  requiredCurrency: string,
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<{ missingPricesCount: number; rebuildTransactions: Transaction[] }, Error> {
+): Result<AccountingLayerBuildResult, Error> {
   const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
 
   const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
-  return validateScopedTransactionPrices(exclusionApplied.scopedBuildResult, requiredCurrency);
+  return buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+}
+
+export function getCostBasisRebuildTransactions(
+  transactions: Transaction[],
+  requiredCurrency: string,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
+): Result<PriceValidationResult, Error> {
+  const accountingLayerResult = buildAccountingLayerForPriceValidation(transactions, accountingExclusionPolicy);
+  if (accountingLayerResult.isErr()) {
+    return err(accountingLayerResult.error);
+  }
+
+  return validateAccountingLayerPrices(accountingLayerResult.value, requiredCurrency);
 }
 
 function buildTransactionIdSetKey(transactions: readonly Transaction[]): string {
@@ -131,8 +250,8 @@ function buildTransactionIdSetKey(transactions: readonly Transaction[]): string 
 }
 
 /**
- * Dropping missing-price scoped rows can still leave dependency transactions in the
- * retained raw set. Re-run the scoped validation until the retained transaction ids
+ * Dropping missing-price accounting rows can still leave dependency transactions in the
+ * retained raw set. Re-run the accounting validation until the retained transaction ids
  * stop changing so downstream workflows receive a stable, fully priced rebuild subset.
  */
 export function stabilizeExcludedRebuildTransactions(
@@ -150,13 +269,15 @@ export function stabilizeExcludedRebuildTransactions(
     }
     seenKeys.add(currentKey);
 
-    const scopedResult = buildCostBasisScopedTransactions(currentTransactions, logger);
-    if (scopedResult.isErr()) {
-      return err(scopedResult.error);
+    const accountingLayerResult = buildAccountingLayerForPriceValidation(
+      currentTransactions,
+      accountingExclusionPolicy
+    );
+    if (accountingLayerResult.isErr()) {
+      return err(accountingLayerResult.error);
     }
 
-    const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
-    const validationResult = validateScopedTransactionPrices(exclusionApplied.scopedBuildResult, requiredCurrency);
+    const validationResult = validateAccountingLayerPrices(accountingLayerResult.value, requiredCurrency);
     if (validationResult.isErr()) {
       return err(validationResult.error);
     }
@@ -193,20 +314,17 @@ export function checkTransactionPriceCoverage(
       return { complete: true, reason: undefined };
     }
 
-    const scopedResult = buildCostBasisScopedTransactions(filtered, logger);
-    if (scopedResult.isErr()) {
-      return yield* scopedResult;
+    const accountingLayerResult = buildAccountingLayerForPriceValidation(filtered, accountingExclusionPolicy);
+    if (accountingLayerResult.isErr()) {
+      return yield* accountingLayerResult;
     }
 
-    const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
-
-    let missingCount = 0;
-    for (const scopedTransaction of exclusionApplied.scopedBuildResult.transactions) {
-      const hasPrices = yield* scopedTransactionHasAllPrices(scopedTransaction);
-      if (!hasPrices) {
-        missingCount++;
-      }
+    const priceCoverageSummaryResult = summarizeAccountingLayerPriceCoverage(accountingLayerResult.value);
+    if (priceCoverageSummaryResult.isErr()) {
+      return yield* priceCoverageSummaryResult;
     }
+
+    const missingCount = priceCoverageSummaryResult.value.missingPricesCount;
 
     if (missingCount === 0) {
       return { complete: true, reason: undefined };
@@ -214,7 +332,7 @@ export function checkTransactionPriceCoverage(
 
     return {
       complete: false,
-      reason: `${missingCount} of ${exclusionApplied.scopedBuildResult.transactions.length} transactions missing prices`,
+      reason: `${missingCount} of ${priceCoverageSummaryResult.value.evaluatedTransactionCount} transactions missing prices`,
     };
   });
 }
