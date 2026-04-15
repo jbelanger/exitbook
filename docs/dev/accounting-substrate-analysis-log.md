@@ -804,6 +804,124 @@ complexity, it should be rejected here.
    one more focused migration-sequencing pass needed before that decision is
    honest?
 
+## Pass 6
+
+### Scope
+
+Define the cleanest migration order if Exitbook chooses the current leading
+direction:
+
+- generic accounting components
+- exact provenance bindings
+
+This pass is intentionally about sequencing and runtime discipline, not about
+adding new substrate theory.
+
+### Evidence Inspected
+
+- Pass 1 through Pass 5 in this document
+- [cost-basis-persistence.ts](/Users/joel/Dev/exitbook/packages/accounting/src/ports/cost-basis-persistence.ts)
+- [pricing-persistence.ts](/Users/joel/Dev/exitbook/packages/accounting/src/ports/pricing-persistence.ts)
+- [linking-ports.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/linking-ports.ts)
+- [issues-source-data.ts](/Users/joel/Dev/exitbook/packages/data/src/accounting/issues-source-data.ts)
+- [cost-basis-issue-materializer.ts](/Users/joel/Dev/exitbook/packages/accounting/src/issues/cost-basis-issue-materializer.ts)
+- [portfolio-handler.ts](/Users/joel/Dev/exitbook/packages/accounting/src/portfolio/portfolio-handler.ts)
+
+### Findings
+
+1. A clean migration needs one new accounting-owned read seam before consumer
+   migration starts.
+   The likely shape is an accounting-owned reader port for canonical accounting
+   components, rather than every capability building its own component view from
+   raw processed transactions.
+   Without that seam, migration would repeat the exact fragmentation Phase 0 is
+   trying to remove.
+
+2. Shadow parity is acceptable during migration; mixed shipped runtime truth is
+   not.
+   There is an important distinction:
+   - acceptable:
+     - build new substrate in parallel
+     - compare outputs in tests or diagnostics
+     - switch one capability at a time
+   - not acceptable:
+     - let one shipped accounting path read processed rows while another shipped
+       path reads components for the same business question without that being a
+       deliberate migration phase boundary
+       This is the practical version of the no-dual-truth rule.
+
+3. Cost basis is the best first consumer.
+   Reasons:
+   - it already owns the heaviest reconstruction burden
+   - it already has the strongest accounting-owned seam
+   - it already proves the mixed-event pressure most clearly
+   - it can reuse the current scoped-build test corpus as migration evidence
+     This makes cost basis the best place to prove the substrate without first
+     tangling with link-identity migration.
+
+4. Linking should migrate second, but with link identity kept movement-anchored
+   in the first stage.
+   Reasons:
+   - linking gains real value from principal-only component quantities
+   - but link identity is currently one of Exitbook’s strongest exactness
+     contracts
+   - changing both quantity semantics and durable link identity at the same time
+     would be unnecessary risk
+     So the clean first migration is:
+   - link quantities from components
+   - durable link identity still anchored to provenance movements
+
+5. Portfolio should migrate after cost basis and linking.
+   Reasons:
+   - it depends on both cost-basis context and transfer interpretation
+   - it is currently downstream of exactly the ambiguity the new substrate is
+     meant to remove
+   - moving it before cost basis/linking would force temporary compensating
+     logic anyway
+
+6. Issues should migrate after the underlying accounting readers stabilize.
+   Reasons:
+   - profile issue families are mixed
+   - scoped cost-basis issue families are downstream of cost basis
+   - issue UX should reflect the stable owning accounting model, not participate
+     in substrate experimentation
+     So issues are better as a later consumer of the new substrate, not the
+     proving ground for it.
+
+7. Pricing should be split explicitly across the migration.
+   Current best lean:
+   - provenance-side price enrichment remains on processed rows
+   - accounting-side price completeness and readiness move with cost basis and
+     later accounting consumers
+     That avoids pretending pricing is one uniform concern when it is not.
+
+### Implications
+
+- The clean current migration order is:
+  1. introduce the accounting-component reader seam
+  2. migrate cost basis first
+  3. migrate linking / gap analysis second, with movement-anchored link
+     identity preserved initially
+  4. migrate portfolio third
+  5. migrate issue producers after their owning accounting readers stabilize
+- This is now specific enough to support a short decision doc.
+- Phase 0 no longer looks blocked on more open-ended discovery. The remaining
+  work is decision articulation, not more substrate hunting.
+
+### Open Questions From Pass 6
+
+1. What should the new accounting-owned reader port be called, if Phase 0 ends
+   in a “go” decision?
+
+2. Should gap analysis migrate with linking, or immediately after it as a
+   separate step?
+
+3. Is there any compelling reason to move portfolio before linking once the
+   component substrate exists?
+
+4. Does any current issue family need to remain explicitly provenance-side even
+   after the accounting consumers migrate?
+
 ## Current Working Position
 
 Current recommendation:
@@ -826,5 +944,16 @@ Current Phase 0 lean after Pass 5:
   to treat as the leading architectural direction
 - the remaining uncertainty is mainly migration order and the exact linking /
   pricing boundary, not whether the minimal model is conceptually viable
+
+Current Phase 0 lean after Pass 6:
+
+- Phase 0 is now mature enough for a short decision document
+- the leading direction is:
+  - generic accounting components
+  - exact provenance bindings
+  - cost basis first as the proving migration
+  - linking next, with movement-anchored link identity initially preserved
+- any alternative should now have to beat this on both simplicity and
+  migration discipline
 
 Anything weaker should be rejected.

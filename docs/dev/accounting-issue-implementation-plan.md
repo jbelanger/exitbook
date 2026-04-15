@@ -105,6 +105,7 @@ Phase 0 investigation log:
   component-plus-provenance-binding baseline
 - the chosen linking and pricing boundaries are stated explicitly if the
   substrate changes
+- the initial migration order is stated explicitly if the substrate changes
 - any future substrate split is generic, not Cardano-specific
 - no further corrective-action expansion starts until this gate is resolved
 
