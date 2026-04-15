@@ -34,6 +34,67 @@ It is done only when:
 - the remaining issue families are explicitly review-only by design, not by missing functionality
 - the user can go from open issues to a real ready-to-report state without code changes
 
+## Phase 0 Architecture Gate
+
+Before expanding corrective actions further, we should raise the modeling bar and
+decide whether the current processed-transaction substrate is the right long-term
+accounting substrate.
+
+This gate exists because the Cardano mixed-scope staking case exposed a more
+general design pressure:
+
+- the current processed row is doing both provenance work and accounting work
+- mixed-scope economic events become awkward when downstream accounting reads the
+  same per-address rows that audit/provenance needs
+- adding more corrective actions on top of that pressure can harden the wrong
+  substrate
+
+Phase 0 does **not** assume a rewrite. Its purpose is to answer one structural
+question before more corrective-action breadth lands:
+
+- should accounting continue to use `transactions` / `transaction_movements` as
+  its canonical substrate
+- or should a new canonical accounting substrate exist, with current processed
+  rows demoted to provenance/audit use
+
+### Why Do This Now
+
+The reason to do this now is not just quantity of work.
+
+The real risks are:
+
+- **dual truth risk**
+  - if we add a second accounting-like substrate but let different consumers
+    read different tables, correctness gets worse, not better
+- **scope mismatch hardening**
+  - more corrective actions built on the current substrate may encode
+    per-address assumptions more deeply
+- **override-boundary drift**
+  - movement-role overrides, grouped transfer confirmation, and any future
+    residual correction need one clean accounting target
+- **migration cost growth**
+  - if a substrate split is needed, doing it after more read/write surfaces land
+    will be harder
+
+### Phase 0 Deliverable
+
+Phase 0 should end with one explicit architectural decision:
+
+1. keep the current processed substrate as canonical for accounting
+2. introduce a new canonical accounting substrate
+3. defer substrate change deliberately, with explicit reasons and boundaries
+
+The output should be a short decision doc in `docs/dev` plus any canonical spec
+changes needed to record the chosen boundary.
+
+### Phase 0 Acceptance Criteria
+
+- the canonical accounting substrate is named explicitly
+- provenance/audit vs accounting responsibility is stated explicitly
+- override attachment points are stated explicitly
+- any future substrate split is generic, not Cardano-specific
+- no further corrective-action expansion starts until this gate is resolved
+
 ## Chosen Model
 
 ### Domain Boundary
@@ -201,6 +262,31 @@ This initiative is complete only when all of the following are true:
 6. Canonical specs describe the shipped behavior fully.
 
 ## Phase Plan
+
+### Phase 0: Accounting Substrate Decision
+
+Status: now required before further corrective-action expansion
+
+Deliver:
+
+- a short architectural decision doc in `docs/dev`
+- explicit choice of canonical accounting substrate
+- explicit statement of what remains provenance-only
+- explicit override attachment boundary for future corrective actions
+- any canonical spec updates needed to reflect the chosen boundary
+
+Guardrail:
+
+- do not expand corrective-action breadth beyond the currently shipped commands
+  until this phase is resolved
+
+Acceptance criteria:
+
+- the accounting substrate decision is explicit, written down, and reviewable
+- the system has no ambiguous “sometimes provenance rows, sometimes accounting
+  rows” rule
+- any proposed new substrate is generic and reusable, not Cardano-specific
+- future corrective actions have one clear accounting target
 
 ### Phase 1A: Profile-Global Issue Projection
 
@@ -400,7 +486,7 @@ Acceptance criteria:
 
 ### Phase 3: Domain Corrective Actions
 
-Status: in progress
+Status: partially complete, paused behind Phase 0 for further expansion
 
 Completed so far:
 
