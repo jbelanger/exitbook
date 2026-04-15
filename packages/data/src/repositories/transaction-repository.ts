@@ -10,7 +10,9 @@ import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.
 import { loadValidatedAccountFingerprint } from './account-identity-support.js';
 import { BaseRepository } from './base-repository.js';
 import {
+  materializeTransactionMovementRoleOverrides,
   materializeTransactionUserNoteOverrides,
+  type MaterializeTransactionMovementRoleOverridesParams,
   type MaterializeTransactionUserNoteOverridesParams,
   rowToTransaction,
   type MovementRow,
@@ -411,6 +413,12 @@ export class TransactionRepository extends BaseRepository {
     params: MaterializeTransactionUserNoteOverridesParams
   ): Promise<Result<number, Error>> {
     return materializeTransactionUserNoteOverrides(this.db, this.logger, params);
+  }
+
+  async materializeTransactionMovementRoleOverrides(
+    params: MaterializeTransactionMovementRoleOverridesParams
+  ): Promise<Result<number, Error>> {
+    return materializeTransactionMovementRoleOverrides(this.db, this.logger, params);
   }
 
   async count(filters?: TransactionQueryParams): Promise<Result<number, Error>> {

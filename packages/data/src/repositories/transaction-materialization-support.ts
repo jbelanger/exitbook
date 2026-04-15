@@ -8,6 +8,7 @@ import {
   buildFeeMovementCanonicalMaterial,
   type AssetMovement,
   type FeeMovement,
+  type MovementRole,
   type Transaction,
   type TransactionMaterializationScope,
   type TransactionDiagnostic,
@@ -34,6 +35,10 @@ interface WarningLogger {
 
 export interface MaterializeTransactionUserNoteOverridesParams extends TransactionMaterializationScope {
   userNoteByFingerprint: ReadonlyMap<string, UserNote>;
+}
+
+export interface MaterializeTransactionMovementRoleOverridesParams extends TransactionMaterializationScope {
+  movementRoleOverrideByFingerprint: ReadonlyMap<string, MovementRole>;
 }
 
 function normalizeSqliteBoolean(value: boolean | number | null | undefined): boolean {
@@ -72,7 +77,7 @@ function rowToAssetMovement(row: MovementRow): Result<AssetMovement, Error> {
   const movement: AssetMovement = {
     assetId: row.asset_id,
     assetSymbol: CurrencySchema.parse(row.asset_symbol),
-    movementRole: MovementRoleSchema.parse(row.movement_role ?? 'principal'),
+    movementRole: MovementRoleSchema.parse(row.movement_role_override ?? row.movement_role ?? 'principal'),
     movementFingerprint: row.movement_fingerprint,
     grossAmount: parseDecimal(row.gross_amount),
     netAmount: row.net_amount ? parseDecimal(row.net_amount) : parseDecimal(row.gross_amount),
@@ -379,6 +384,12 @@ function serializeMaterializedUserNotes(userNotes: UserNote[] | undefined): Resu
   return userNotes ? serializeToJson(userNotes) : ok(undefined);
 }
 
+function normalizeMovementRoleOverride(
+  value: TransactionMovementsTable['movement_role_override']
+): MovementRole | undefined {
+  return value ?? undefined;
+}
+
 export async function materializeTransactionUserNoteOverrides(
   db: KyselyDB,
   logger: Logger,
@@ -467,5 +478,99 @@ export async function materializeTransactionUserNoteOverrides(
       return ok(updatedCount);
     },
     'Failed to materialize transaction user note overrides'
+  );
+}
+
+export async function materializeTransactionMovementRoleOverrides(
+  db: KyselyDB,
+  logger: Logger,
+  params: MaterializeTransactionMovementRoleOverridesParams
+): Promise<Result<number, Error>> {
+  if (params.accountIds !== undefined && params.accountIds.length === 0) {
+    return ok(0);
+  }
+
+  if (params.transactionIds !== undefined && params.transactionIds.length === 0) {
+    return ok(0);
+  }
+
+  return withControlledTransaction(
+    db,
+    logger,
+    async (trx) => {
+      const rowsById = new Map<
+        number,
+        {
+          id: number;
+          movement_fingerprint: string;
+          movement_role_override: TransactionMovementsTable['movement_role_override'];
+          movement_type: TransactionMovementsTable['movement_type'];
+        }
+      >();
+      const batchedTransactionIds =
+        params.transactionIds && params.transactionIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+          ? chunkItems(params.transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)
+          : [params.transactionIds];
+      const batchedAccountIds =
+        !params.transactionIds && params.accountIds && params.accountIds.length > SQLITE_SAFE_IN_BATCH_SIZE
+          ? chunkItems(params.accountIds, SQLITE_SAFE_IN_BATCH_SIZE)
+          : [params.accountIds];
+
+      for (const transactionIdBatch of batchedTransactionIds) {
+        for (const accountIdBatch of batchedAccountIds) {
+          let batchedQuery = trx
+            .selectFrom('transaction_movements')
+            .innerJoin('transactions', 'transactions.id', 'transaction_movements.transaction_id')
+            .select([
+              'transaction_movements.id as id',
+              'transaction_movements.movement_fingerprint as movement_fingerprint',
+              'transaction_movements.movement_role_override as movement_role_override',
+              'transaction_movements.movement_type as movement_type',
+            ]);
+
+          if (accountIdBatch) {
+            batchedQuery = batchedQuery.where('transactions.account_id', 'in', accountIdBatch);
+          }
+
+          if (transactionIdBatch) {
+            batchedQuery = batchedQuery.where('transaction_movements.transaction_id', 'in', transactionIdBatch);
+          }
+
+          const rows = await batchedQuery.execute();
+          for (const row of rows) {
+            rowsById.set(row.id, row);
+          }
+        }
+      }
+
+      const rows = [...rowsById.values()].sort((left, right) => left.id - right.id);
+      let updatedCount = 0;
+
+      for (const row of rows) {
+        const nextRoleOverride = params.movementRoleOverrideByFingerprint.get(row.movement_fingerprint);
+
+        if (row.movement_type === 'fee' && nextRoleOverride !== undefined) {
+          return err(new Error(`Movement role overrides cannot target fee movements: ${row.movement_fingerprint}`));
+        }
+
+        if (normalizeMovementRoleOverride(row.movement_role_override) === nextRoleOverride) {
+          continue;
+        }
+
+        await trx
+          .updateTable('transaction_movements')
+          .set({
+            // eslint-disable-next-line unicorn/no-null -- clearing persisted override column requires null
+            movement_role_override: nextRoleOverride ?? null,
+          })
+          .where('id', '=', row.id)
+          .execute();
+
+        updatedCount++;
+      }
+
+      return ok(updatedCount);
+    },
+    'Failed to materialize transaction movement role overrides'
   );
 }

@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- raw SQLite insert tests use explicit nulls for nullable columns */
 import { ok } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,7 +30,7 @@ describe('buildProcessingPorts', () => {
     await db.destroy();
   });
 
-  it('exposes transaction user note materialization through processing ports', async () => {
+  it('exposes transaction override materialization through processing ports', async () => {
     await db
       .insertInto('transactions')
       .values({
@@ -45,28 +46,70 @@ describe('buildProcessingPorts', () => {
         updated_at: new Date().toISOString(),
       })
       .execute();
+    await db
+      .insertInto('transaction_movements')
+      .values({
+        transaction_id: 1,
+        movement_type: 'inflow',
+        movement_fingerprint: 'movement:test-processing-port:1',
+        asset_id: 'exchange:kraken:btc',
+        asset_symbol: 'BTC',
+        movement_role: 'principal',
+        movement_role_override: null,
+        gross_amount: '1',
+        net_amount: '1',
+        fee_amount: null,
+        fee_scope: null,
+        fee_settlement: null,
+        price_amount: null,
+        price_currency: null,
+        price_source: null,
+        price_fetched_at: null,
+        price_granularity: null,
+        fx_rate_to_usd: null,
+        fx_source: null,
+        fx_timestamp: null,
+      })
+      .execute();
 
     const txFingerprint = seedTxFingerprint('kraken', 1, 'tx-1');
+    const movementFingerprint = 'movement:test-processing-port:1';
+    const overrideEvents = [
+      {
+        id: 'override-1',
+        created_at: '2026-03-15T12:00:00.000Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'transaction-user-note' as const,
+        payload: {
+          type: 'transaction_user_note_override' as const,
+          action: 'set' as const,
+          tx_fingerprint: txFingerprint,
+          message: 'Remember this withdrawal',
+        },
+      },
+      {
+        id: 'override-2',
+        created_at: '2026-03-15T12:01:00.000Z',
+        actor: 'user',
+        source: 'cli',
+        scope: 'transaction-movement-role' as const,
+        payload: {
+          type: 'transaction_movement_role_override' as const,
+          action: 'set' as const,
+          movement_fingerprint: movementFingerprint,
+          movement_role: 'staking_reward' as const,
+        },
+      },
+    ];
 
     const overrideStore = {
       exists: vi.fn().mockReturnValue(true),
-      readByScopes: vi.fn().mockResolvedValue(
-        ok([
-          {
-            id: 'override-1',
-            created_at: '2026-03-15T12:00:00.000Z',
-            actor: 'user',
-            source: 'cli',
-            scope: 'transaction-user-note',
-            payload: {
-              type: 'transaction_user_note_override',
-              action: 'set',
-              tx_fingerprint: txFingerprint,
-              message: 'Remember this withdrawal',
-            },
-          },
-        ])
-      ),
+      readByScopes: vi
+        .fn()
+        .mockImplementation(async (_profileKey: string, scopes: string[]) =>
+          ok(overrideEvents.filter((event) => scopes.includes(event.scope)))
+        ),
     };
 
     const ports = buildProcessingPorts(ctx, {
@@ -74,21 +117,31 @@ describe('buildProcessingPorts', () => {
       overrideStore,
     });
 
-    const updatedCount = assertOk(await ports.transactionUserNotes.materializeStoredUserNotes({ transactionIds: [1] }));
-    expect(updatedCount).toBe(1);
+    const updatedCount = assertOk(await ports.transactionOverrides.materializeStoredOverrides({ transactionIds: [1] }));
+    expect(updatedCount).toBe(2);
 
-    const row = await db
+    const transactionRow = await db
       .selectFrom('transactions')
       .select(['user_notes_json'])
       .where('id', '=', 1)
       .executeTakeFirstOrThrow();
-    expect(JSON.parse((row.user_notes_json as string | null) ?? '[]')).toEqual([
+    expect(JSON.parse((transactionRow.user_notes_json as string | null) ?? '[]')).toEqual([
       {
         message: 'Remember this withdrawal',
         createdAt: '2026-03-15T12:00:00.000Z',
         author: 'user',
       },
     ]);
+
+    const movementRow = await db
+      .selectFrom('transaction_movements')
+      .select(['movement_role', 'movement_role_override'])
+      .where('movement_fingerprint', '=', movementFingerprint)
+      .executeTakeFirstOrThrow();
+    expect(movementRow).toMatchObject({
+      movement_role: 'principal',
+      movement_role_override: 'staking_reward',
+    });
   });
 
   it('threads processed account scope through the asset-review rebuild port', async () => {

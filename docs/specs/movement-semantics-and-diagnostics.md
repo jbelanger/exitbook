@@ -262,6 +262,7 @@ Canonical persisted fields:
 ```sql
 -- transaction_movements
 movement_role TEXT NULL,
+movement_role_override TEXT NULL,
 CHECK (
   (movement_type IN ('inflow', 'outflow'))
   OR (movement_type = 'fee' AND movement_role IS NULL)
@@ -276,6 +277,10 @@ Rules:
 
 - `notes_json` is not a machine-state bucket
 - override materialization targets `user_notes_json`
+- `movement_role` stores the processor-authored base role
+- `movement_role_override` stores the currently materialized manual override, if any
+- downstream reads must use the effective role:
+  `movement_role_override ?? movement_role ?? 'principal'`
 - diagnostics persistence is owned by processors and reprocessing
 - `transactions.is_spam` does not exist in the canonical model
 

@@ -254,6 +254,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('asset_symbol', 'text', (col) => col.notNull())
     .addColumn('movement_role', 'text') // NULL for fee rows
+    .addColumn('movement_role_override', 'text') // NULL unless a durable manual override is materialized
     // Amount fields
     .addColumn('gross_amount', 'text') // NULL for fee rows
     .addColumn('net_amount', 'text') // NULL for fee rows
@@ -274,6 +275,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint(
       'transaction_movements_role_valid',
       sql`movement_role IS NULL OR movement_role IN ('principal', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+    )
+    .addCheckConstraint(
+      'transaction_movements_role_override_valid',
+      sql`movement_role_override IS NULL OR movement_role_override IN ('principal', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+    )
+    .addCheckConstraint(
+      'transaction_movements_fee_role_fields',
+      sql`(movement_type = 'fee' AND movement_role IS NULL AND movement_role_override IS NULL) OR movement_type IN ('inflow', 'outflow')`
     )
     .addCheckConstraint(
       'transaction_movements_fee_scope_valid',

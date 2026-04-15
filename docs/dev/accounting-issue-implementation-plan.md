@@ -413,6 +413,14 @@ Completed so far:
   - transaction detail shows transaction-scoped `MOVEMENT-REF` values on inflow
     and outflow rows
   - `transactions edit note` now accepts `TX-REF` instead of numeric row id
+- transaction-scoped override materialization now has the right storage seam for
+  movement corrections:
+  - processor-authored movement roles stay in `movement_role`
+  - manual role state materializes separately in `movement_role_override`
+  - processed reads now consume the effective role
+    `movement_role_override ?? movement_role ?? 'principal'`
+  - ingestion replay now materializes transaction-scoped overrides, not just
+    user notes
 - the first Phase 3 corrective action shipped:
   - `links create-grouped` for exact many-to-one / one-to-many grouped transfer
     confirmation

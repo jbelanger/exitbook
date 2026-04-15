@@ -1301,6 +1301,93 @@ describe('TransactionRepository', () => {
     });
   });
 
+  describe('materializeTransactionMovementRoleOverrides', () => {
+    beforeEach(async () => {
+      db = await createTestDatabase();
+      repo = new TransactionRepository(db);
+
+      await seedProfile(db);
+      await seedAccount(db, 1, 'exchange-api', 'kraken');
+      await seedImportSession(db, 1, 1);
+    });
+
+    it('materializes an override separately from the processor-authored base role', async () => {
+      const transactionId = assertOk(await repo.create(makePersistedTransaction(), 1));
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const movementFingerprint = transaction?.movements.inflows?.[0]?.movementFingerprint;
+      expect(movementFingerprint).toBeDefined();
+
+      const updated = assertOk(
+        await repo.materializeTransactionMovementRoleOverrides({
+          transactionIds: [transactionId],
+          movementRoleOverrideByFingerprint: new Map([[movementFingerprint!, 'staking_reward']]),
+        })
+      );
+
+      expect(updated).toBe(1);
+
+      const row = await db
+        .selectFrom('transaction_movements')
+        .select(['movement_role', 'movement_role_override'])
+        .where('movement_fingerprint', '=', movementFingerprint!)
+        .executeTakeFirstOrThrow();
+      expect(row).toMatchObject({
+        movement_role: 'principal',
+        movement_role_override: 'staking_reward',
+      });
+
+      const refreshed = assertOk(await repo.findById(transactionId, 1));
+      expect(refreshed?.movements.inflows?.[0]?.movementRole).toBe('staking_reward');
+    });
+
+    it('clears the materialized override and restores the base role without reprocessing', async () => {
+      const transactionId = assertOk(await repo.create(makePersistedTransaction(), 1));
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const movementFingerprint = transaction?.movements.inflows?.[0]?.movementFingerprint;
+      expect(movementFingerprint).toBeDefined();
+
+      assertOk(
+        await repo.materializeTransactionMovementRoleOverrides({
+          transactionIds: [transactionId],
+          movementRoleOverrideByFingerprint: new Map([[movementFingerprint!, 'staking_reward']]),
+        })
+      );
+
+      const updated = assertOk(
+        await repo.materializeTransactionMovementRoleOverrides({
+          transactionIds: [transactionId],
+          movementRoleOverrideByFingerprint: new Map(),
+        })
+      );
+
+      expect(updated).toBe(1);
+
+      const row = await db
+        .selectFrom('transaction_movements')
+        .select(['movement_role', 'movement_role_override'])
+        .where('movement_fingerprint', '=', movementFingerprint!)
+        .executeTakeFirstOrThrow();
+      expect(row).toMatchObject({
+        movement_role: 'principal',
+        movement_role_override: null,
+      });
+
+      const refreshed = assertOk(await repo.findById(transactionId, 1));
+      expect(refreshed?.movements.inflows?.[0]?.movementRole).toBe('principal');
+    });
+
+    it('returns zero when scoping is explicitly empty', async () => {
+      const updated = assertOk(
+        await repo.materializeTransactionMovementRoleOverrides({
+          accountIds: [],
+          movementRoleOverrideByFingerprint: new Map(),
+        })
+      );
+
+      expect(updated).toBe(0);
+    });
+  });
+
   describe('profile scoping', () => {
     beforeEach(async () => {
       db = await createTestDatabase();

@@ -193,6 +193,7 @@ export interface TransactionMovementsTable {
   asset_id: string;
   asset_symbol: string;
   movement_role: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate' | null;
+  movement_role_override: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate' | null;
   // Amount fields (inflow/outflow only)
   gross_amount: DecimalString | null;
   net_amount: DecimalString | null;

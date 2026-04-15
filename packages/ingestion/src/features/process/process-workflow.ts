@@ -114,10 +114,10 @@ export class ProcessingWorkflow {
 
       // Mark projection fresh + cascade-invalidate downstream, or failed
       if (totalFailed === 0) {
-        const materializeUserNotesResult = await this.ports.transactionUserNotes.materializeStoredUserNotes({
+        const materializeOverridesResult = await this.ports.transactionOverrides.materializeStoredOverrides({
           accountIds,
         });
-        if (materializeUserNotesResult.isErr()) return err(materializeUserNotesResult.error);
+        if (materializeOverridesResult.isErr()) return err(materializeOverridesResult.error);
 
         const freshResult = await this.ports.markProcessedTransactionsFresh(accountIds);
         if (freshResult.isErr()) return err(freshResult.error);

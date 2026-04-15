@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { NonPrincipalMovementRoleSchema } from '../transaction/movement.js';
+import { MovementRoleSchema, NonPrincipalMovementRoleSchema } from '../transaction/movement.js';
 
 /**
  * Scope/domain of the override
@@ -12,6 +12,7 @@ export const ScopeSchema = z.enum([
   'unlink',
   'link-gap-resolve',
   'link-gap-reopen',
+  'transaction-movement-role',
   'transaction-user-note',
   'asset-exclude',
   'asset-include',
@@ -129,6 +130,35 @@ export const LinkGapReopenPayloadSchema = z.object({
 });
 
 /**
+ * Transaction movement-role override payload
+ * User sets or clears a durable manual movement role on a specific processed movement fingerprint.
+ */
+export const TransactionMovementRoleOverridePayloadSchema = z
+  .object({
+    type: z.literal('transaction_movement_role_override'),
+    movement_fingerprint: z.string().min(1, 'Movement fingerprint must not be empty'),
+    action: z.enum(['set', 'clear']),
+    movement_role: MovementRoleSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.action === 'set' && data.movement_role === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "action 'set' requires movement_role",
+        path: ['movement_role'],
+      });
+    }
+
+    if (data.action === 'clear' && data.movement_role !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "action 'clear' must not include movement_role",
+        path: ['movement_role'],
+      });
+    }
+  });
+
+/**
  * Transaction user-note override payload
  * User attaches or clears a durable note on a specific transaction fingerprint.
  */
@@ -204,6 +234,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   UnlinkOverridePayloadSchema,
   LinkGapResolvePayloadSchema,
   LinkGapReopenPayloadSchema,
+  TransactionMovementRoleOverridePayloadSchema,
   TransactionUserNoteOverridePayloadSchema,
   AssetExcludePayloadSchema,
   AssetIncludePayloadSchema,
@@ -222,6 +253,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   unlink: 'unlink_override',
   'link-gap-resolve': 'link_gap_resolve',
   'link-gap-reopen': 'link_gap_reopen',
+  'transaction-movement-role': 'transaction_movement_role_override',
   'transaction-user-note': 'transaction_user_note_override',
   'asset-exclude': 'asset_exclude',
   'asset-include': 'asset_include',
@@ -269,6 +301,7 @@ export type LinkOverridePayload = z.infer<typeof LinkOverridePayloadSchema>;
 export type UnlinkOverridePayload = z.infer<typeof UnlinkOverridePayloadSchema>;
 export type LinkGapResolvePayload = z.infer<typeof LinkGapResolvePayloadSchema>;
 export type LinkGapReopenPayload = z.infer<typeof LinkGapReopenPayloadSchema>;
+export type TransactionMovementRoleOverridePayload = z.infer<typeof TransactionMovementRoleOverridePayloadSchema>;
 export type TransactionUserNoteOverridePayload = z.infer<typeof TransactionUserNoteOverridePayloadSchema>;
 export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
 export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;

@@ -4,11 +4,12 @@ import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
+import { materializeStoredTransactionMovementRoleOverrides } from '../overrides/transaction-movement-role-replay.js';
 import { materializeStoredTransactionUserNoteOverrides } from '../overrides/transaction-user-note-replay.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 import { computeAccountHash } from '../utils/account-hash.js';
 
-async function materializeProfileScopedTransactionUserNotes(
+async function materializeProfileScopedTransactionOverrides(
   db: DataSession,
   overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
   scope: TransactionMaterializationScope
@@ -44,16 +45,26 @@ async function materializeProfileScopedTransactionUserNotes(
 
     let updatedCount = 0;
     for (const [profileKey, accountIds] of scopedAccountIdsByProfileKey) {
-      const materializeResult = yield* await materializeStoredTransactionUserNoteOverrides(
+      const scopedScope = {
+        ...scope,
+        ...(scope.accountIds ? { accountIds } : {}),
+      };
+
+      const materializeUserNotesResult = yield* await materializeStoredTransactionUserNoteOverrides(
         db.transactions,
         overrideStore,
         profileKey,
-        {
-          ...scope,
-          ...(scope.accountIds ? { accountIds } : {}),
-        }
+        scopedScope
       );
-      updatedCount += materializeResult;
+      updatedCount += materializeUserNotesResult;
+
+      const materializeMovementRoleOverridesResult = yield* await materializeStoredTransactionMovementRoleOverrides(
+        db.transactions,
+        overrideStore,
+        profileKey,
+        scopedScope
+      );
+      updatedCount += materializeMovementRoleOverridesResult;
     }
 
     return updatedCount;
@@ -114,9 +125,9 @@ export function buildProcessingPorts(
         }),
     },
 
-    transactionUserNotes: {
-      materializeStoredUserNotes: (scope) =>
-        materializeProfileScopedTransactionUserNotes(db, options.overrideStore, scope ?? {}),
+    transactionOverrides: {
+      materializeStoredOverrides: (scope) =>
+        materializeProfileScopedTransactionOverrides(db, options.overrideStore, scope ?? {}),
     },
 
     importSessionLookup: {
