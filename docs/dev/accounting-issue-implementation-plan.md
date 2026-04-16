@@ -10,7 +10,6 @@ Discovery log:
 
 - [accounting-issue-operations-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-operations-plan.md)
 - [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
-- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
 - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - [accounting-issues.md](/Users/joel/Dev/exitbook/docs/specs/accounting-issues.md)
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
@@ -98,7 +97,6 @@ Phase 0 should end with one explicit architectural decision:
 
 The Phase 0 architectural decision is now recorded in:
 
-- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
 - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
 The remaining follow-up is to implement the first accounting-owned reader port
@@ -128,7 +126,7 @@ Phase 0 investigation log:
 ### Phase 0 Current Status
 
 - accepted architectural decision recorded in:
-  - [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - canonical boundary spec recorded in:
   - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - first accounting-owned reader seam landed:

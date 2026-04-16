@@ -9,9 +9,8 @@ Owner: Codex + Joel
 Primary tracker:
 
 - [accounting-issue-implementation-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-implementation-plan.md)
-  Accepted decision:
-
-- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+- accepted architectural direction now lives in:
+  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
 Purpose:
 
@@ -1065,7 +1064,7 @@ Current Phase 0 lean after Pass 7:
 - the model can still evolve later toward fuller ledger/journal semantics if it
   earns that complexity
 - that direction is now recorded in:
-  - [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - the next step is the canonical spec for the canonical accounting layer, not
   more open-ended terminology analysis
 
@@ -1249,7 +1248,7 @@ capability extraction into separate packages as the rewrite proceeds.
 
 - [architecture-package-contract.md](/Users/joel/Dev/exitbook/docs/architecture/architecture-package-contract.md)
 - current `packages/accounting/src` capability layout
-- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+- [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
 ### Findings
 
