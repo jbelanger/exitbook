@@ -156,7 +156,7 @@ type LotTransferProvenance =
       targetMovementFingerprint: string;
     }
   | {
-      kind: 'fee-only-carryover';
+      kind: 'internal-transfer-carryover';
       sourceMovementFingerprint: string;
       targetMovementFingerprint: string;
     };

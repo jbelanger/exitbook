@@ -97,7 +97,7 @@ export const StoredLotTransferProvenanceSchema = z.discriminatedUnion('kind', [
     targetMovementFingerprint: z.string().min(1),
   }),
   z.object({
-    kind: z.literal('fee-only-carryover'),
+    kind: z.literal('internal-transfer-carryover'),
     sourceMovementFingerprint: z.string().min(1),
     targetMovementFingerprint: z.string().min(1),
   }),
@@ -188,7 +188,7 @@ export const StoredStandardCostBasisArtifactSchema = z.object({
 
 export const StoredStandardDebugSchema = z.object({
   kind: z.literal('standard-workflow'),
-  scopedTransactionIds: z.array(z.number().int().positive()),
+  inputTransactionIds: z.array(z.number().int().positive()),
   appliedConfirmedLinkIds: z.array(z.number().int().positive()),
 });
 

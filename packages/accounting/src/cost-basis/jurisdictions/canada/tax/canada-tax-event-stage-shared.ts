@@ -177,7 +177,7 @@ export function buildAddToPoolCostAdjustmentEvents(
   identityConfig: CanadaTaxInputContextBuildOptions,
   provenance: {
     linkId?: number | undefined;
-    provenanceKind: 'validated-link' | 'fee-only-carryover';
+    provenanceKind: 'validated-link' | 'internal-transfer-carryover';
     sourceMovementFingerprint?: string | undefined;
     sourceTransactionId?: number | undefined;
     targetMovementFingerprint?: string | undefined;

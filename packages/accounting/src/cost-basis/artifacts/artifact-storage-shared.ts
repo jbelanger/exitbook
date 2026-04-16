@@ -10,7 +10,7 @@ export const StoredCostBasisExecutionMetaSchema = z.object({
 
 export interface CostBasisArtifactDebugPayload {
   kind: 'standard-workflow' | 'canada-workflow';
-  scopedTransactionIds: number[];
+  inputTransactionIds: number[];
   appliedConfirmedLinkIds: number[];
   acquisitionEventIds?: string[] | undefined;
   dispositionEventIds?: string[] | undefined;

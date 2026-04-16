@@ -55,10 +55,10 @@ export function collectCanadaTaxPackageSourceCoverage(
     }
   }
 
-  for (const transactionId of artifact.inputContext.scopedTransactionIds) {
+  for (const transactionId of artifact.inputContext.inputTransactionIds) {
     transactionRefs.push({
       transactionId,
-      reference: `Canada inputContext scoped transaction ${transactionId}`,
+      reference: `Canada inputContext transaction ${transactionId}`,
     });
   }
 
@@ -69,10 +69,10 @@ export function collectCanadaTaxPackageSourceCoverage(
     });
   }
 
-  for (const transactionId of artifact.inputContext.feeOnlyInternalCarryoverSourceTransactionIds) {
+  for (const transactionId of artifact.inputContext.internalTransferCarryoverSourceTransactionIds) {
     transactionRefs.push({
       transactionId,
-      reference: `Canada inputContext fee-only carryover source transaction ${transactionId}`,
+      reference: `Canada inputContext internal transfer carryover source transaction ${transactionId}`,
     });
   }
 

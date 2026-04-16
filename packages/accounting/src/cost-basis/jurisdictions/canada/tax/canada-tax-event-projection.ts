@@ -49,7 +49,7 @@ async function buildMovementEvent(
   identityConfig: CanadaTaxInputContextBuildOptions,
   provenance: {
     linkId?: number | undefined;
-    provenanceKind: 'scoped-movement' | 'validated-link';
+    provenanceKind: 'movement' | 'validated-link';
     sourceMovementFingerprint?: string | undefined;
     targetMovementFingerprint?: string | undefined;
   },
@@ -94,7 +94,7 @@ async function buildMovementEvent(
     assetSymbol: movement.assetSymbol,
     valuation: valuationResult.value,
     priceAtTxTime: movement.priceAtTxTime,
-    movementFingerprint: provenance.provenanceKind === 'scoped-movement' ? movement.movementFingerprint : undefined,
+    movementFingerprint: provenance.provenanceKind === 'movement' ? movement.movementFingerprint : undefined,
     provenanceKind: provenance.provenanceKind,
     linkId: provenance.linkId,
     sourceMovementFingerprint: provenance.sourceMovementFingerprint,
@@ -164,7 +164,7 @@ async function projectTransferAwareMovementEvents(
       `tx:${transactionView.processedTransaction.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
-      { provenanceKind: 'scoped-movement' },
+      { provenanceKind: 'movement' },
       { incomeCategory }
     );
     if (directEventResult.isErr()) {
@@ -231,7 +231,7 @@ async function projectTransferAwareMovementEvents(
       `tx:${transactionView.processedTransaction.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
-      { provenanceKind: 'scoped-movement' },
+      { provenanceKind: 'movement' },
       { incomeCategory }
     );
     if (residualEventResult.isErr()) {

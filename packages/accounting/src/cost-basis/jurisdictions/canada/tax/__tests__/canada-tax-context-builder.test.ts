@@ -40,9 +40,9 @@ describe('buildCanadaTaxInputContext', () => {
     const result = await buildCanadaTestInputContext([transaction], [], fxProvider);
     const context = assertOk(result);
 
-    expect(context.scopedTransactionIds).toEqual([1]);
+    expect(context.inputTransactionIds).toEqual([1]);
     expect(context.validatedTransferLinkIds).toEqual([]);
-    expect(context.feeOnlyInternalCarryoverSourceTransactionIds).toEqual([]);
+    expect(context.internalTransferCarryoverSourceTransactionIds).toEqual([]);
     expect(context.inputEvents).toHaveLength(1);
     expect(context.inputEvents[0]?.kind).toBe('acquisition');
     expect(context.inputEvents[0]?.taxPropertyKey).toBe('ca:btc');

@@ -90,11 +90,11 @@ export async function buildCanadaTaxInputContext(params: {
 
   return ok({
     taxCurrency: 'CAD',
-    scopedTransactionIds: accountingLayer.accountingTransactionViews.map(
+    inputTransactionIds: accountingLayer.accountingTransactionViews.map(
       (transactionView) => transactionView.processedTransaction.id
     ),
     validatedTransferLinkIds: validatedTransfers.links.map((validatedLink) => validatedLink.link.id),
-    feeOnlyInternalCarryoverSourceTransactionIds: canadaAccountingContext.resolvedInternalTransferCarryovers.map(
+    internalTransferCarryoverSourceTransactionIds: canadaAccountingContext.resolvedInternalTransferCarryovers.map(
       (carryover) => carryover.source.processedTransaction.id
     ),
     inputEvents: sortCanadaEvents([

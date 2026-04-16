@@ -224,9 +224,9 @@ function createDisplayReport(overrides?: Partial<CanadaDisplayCostBasisReport>):
 
 function createInputContext(): CanadaTaxInputContext {
   return createCanadaInputContext({
-    scopedTransactionIds: [1, 2],
+    inputTransactionIds: [1, 2],
     validatedTransferLinkIds: [10],
-    feeOnlyInternalCarryoverSourceTransactionIds: [],
+    internalTransferCarryoverSourceTransactionIds: [],
     inputEvents: [
       createCanadaAcquisitionEvent({
         eventId: 'evt-acq-1',
@@ -349,9 +349,9 @@ describe('canada-artifact-codec', () => {
 
     it('round-trips input context with all event kinds', () => {
       const inputContext = createCanadaInputContext({
-        scopedTransactionIds: [1, 2, 3, 4, 5],
+        inputTransactionIds: [1, 2, 3, 4, 5],
         validatedTransferLinkIds: [10],
-        feeOnlyInternalCarryoverSourceTransactionIds: [5],
+        internalTransferCarryoverSourceTransactionIds: [5],
         inputEvents: [
           createCanadaAcquisitionEvent({
             eventId: 'evt-acq-1',
@@ -413,7 +413,7 @@ describe('canada-artifact-codec', () => {
             totalValueCad: '10',
             quantityReduced: '0.001',
             relatedEventId: 'evt-acq-1',
-            provenanceKind: 'fee-only-carryover',
+            provenanceKind: 'internal-transfer-carryover',
           }),
         ],
       });
@@ -425,9 +425,9 @@ describe('canada-artifact-codec', () => {
       expect(decoded.inputContext).toBeDefined();
       const ctx = decoded.inputContext!;
       expect(ctx.taxCurrency).toBe('CAD');
-      expect(ctx.scopedTransactionIds).toEqual([1, 2, 3, 4, 5]);
+      expect(ctx.inputTransactionIds).toEqual([1, 2, 3, 4, 5]);
       expect(ctx.validatedTransferLinkIds).toEqual([10]);
-      expect(ctx.feeOnlyInternalCarryoverSourceTransactionIds).toEqual([5]);
+      expect(ctx.internalTransferCarryoverSourceTransactionIds).toEqual([5]);
       expect(ctx.inputEvents).toHaveLength(5);
 
       // Acquisition with costBasisAdjustmentCad
@@ -672,7 +672,7 @@ describe('canada-artifact-codec', () => {
       const original = createWorkflowResult({ taxReport, displayReport: undefined });
       const parts = assertOk(buildCanadaArtifactSnapshotParts(original));
 
-      expect(parts.debugPayload.scopedTransactionIds).toEqual([1, 3, 5]);
+      expect(parts.debugPayload.inputTransactionIds).toEqual([1, 3, 5]);
     });
 
     it('extracts applied confirmed link IDs from transfers (deduplicated and sorted)', () => {
@@ -761,7 +761,7 @@ describe('canada-artifact-codec', () => {
     it('rejects debug JSON with missing required arrays', () => {
       const parseResult = StoredCanadaDebugSchema.safeParse({
         kind: 'canada-workflow',
-        scopedTransactionIds: [1],
+        inputTransactionIds: [1],
         // missing other required arrays
       });
       expect(parseResult.success).toBe(false);
@@ -936,7 +936,7 @@ describe('canada-artifact-codec', () => {
         displayContext: { transferMarketValueCadByTransferId: new Map() },
       });
 
-      const inputContext = createCanadaInputContext({ inputEvents: [], scopedTransactionIds: [] });
+      const inputContext = createCanadaInputContext({ inputEvents: [], inputTransactionIds: [] });
       const original = createWorkflowResult({ taxReport, inputContext, displayReport: undefined });
       const parts = assertOk(buildCanadaArtifactSnapshotParts(original));
       const decoded = fromStoredCanadaArtifact(parts.artifact);

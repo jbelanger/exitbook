@@ -144,7 +144,7 @@ export function processFeeOnlyInternalCarryoverSource(
         calculationId,
         sourceLotId: lotDisposal.lotId,
         provenance: {
-          kind: 'fee-only-carryover',
+          kind: 'internal-transfer-carryover',
           sourceMovementFingerprint: carryover.sourceMovementFingerprint,
           targetMovementFingerprint: binding.target.targetMovementFingerprint,
         },

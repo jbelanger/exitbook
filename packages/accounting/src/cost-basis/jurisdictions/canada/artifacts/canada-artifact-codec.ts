@@ -163,7 +163,7 @@ const StoredCanadaInputEventBaseSchema = z.object({
   taxPropertyKey: z.string().min(1),
   assetSymbol: z.string().min(1),
   valuation: StoredCanadaTaxValuationSchema,
-  provenanceKind: z.enum(['scoped-movement', 'validated-link', 'fee-only-carryover', 'superficial-loss-engine']),
+  provenanceKind: z.enum(['movement', 'validated-link', 'internal-transfer-carryover', 'superficial-loss-engine']),
   linkId: z.number().int().positive().optional(),
   movementFingerprint: z.string().min(1).optional(),
   sourceMovementFingerprint: z.string().min(1).optional(),
@@ -224,9 +224,9 @@ const StoredCanadaInputEventSchema = z.discriminatedUnion('kind', [
 
 const StoredCanadaTaxInputContextSchema = z.object({
   taxCurrency: z.literal('CAD'),
-  scopedTransactionIds: z.array(z.number().int().positive()),
+  inputTransactionIds: z.array(z.number().int().positive()),
   validatedTransferLinkIds: z.array(z.number().int().positive()),
-  feeOnlyInternalCarryoverSourceTransactionIds: z.array(z.number().int().positive()),
+  internalTransferCarryoverSourceTransactionIds: z.array(z.number().int().positive()),
   inputEvents: z.array(StoredCanadaInputEventSchema),
 });
 
@@ -283,7 +283,7 @@ export const StoredCanadaCostBasisArtifactSchema = z.object({
 
 export const StoredCanadaDebugSchema = z.object({
   kind: z.literal('canada-workflow'),
-  scopedTransactionIds: z.array(z.number().int().positive()),
+  inputTransactionIds: z.array(z.number().int().positive()),
   appliedConfirmedLinkIds: z.array(z.number().int().positive()),
   acquisitionEventIds: z.array(z.string().min(1)),
   dispositionEventIds: z.array(z.string().min(1)),
@@ -316,7 +316,7 @@ function buildCanadaArtifactDebugPayload(artifact: CanadaCostBasisWorkflowResult
 
   return {
     kind: 'canada-workflow',
-    scopedTransactionIds: uniqueSortedNumbers([
+    inputTransactionIds: uniqueSortedNumbers([
       ...artifact.taxReport.acquisitions.map((item) => item.transactionId),
       ...artifact.taxReport.dispositions.map((item) => item.transactionId),
       ...artifact.taxReport.transfers.map((item) => item.transactionId),
@@ -384,7 +384,7 @@ export function fromStoredCanadaArtifact(artifact: StoredCanadaArtifact): Canada
 export function fromStoredCanadaDebug(debug: StoredCanadaDebug): CostBasisArtifactDebugPayload {
   return {
     kind: debug.kind,
-    scopedTransactionIds: debug.scopedTransactionIds,
+    inputTransactionIds: debug.inputTransactionIds,
     appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
     acquisitionEventIds: debug.acquisitionEventIds,
     dispositionEventIds: debug.dispositionEventIds,
@@ -439,7 +439,7 @@ function toStoredCanadaArtifact(
 function toStoredCanadaDebug(debug: CostBasisArtifactDebugPayload): StoredCanadaDebug {
   return {
     kind: 'canada-workflow',
-    scopedTransactionIds: debug.scopedTransactionIds,
+    inputTransactionIds: debug.inputTransactionIds,
     appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
     acquisitionEventIds: debug.acquisitionEventIds ?? [],
     dispositionEventIds: debug.dispositionEventIds ?? [],
@@ -839,9 +839,9 @@ function toStoredCanadaInputContext(
 ): z.infer<typeof StoredCanadaTaxInputContextSchema> {
   return {
     taxCurrency: inputContext.taxCurrency,
-    scopedTransactionIds: inputContext.scopedTransactionIds,
+    inputTransactionIds: inputContext.inputTransactionIds,
     validatedTransferLinkIds: inputContext.validatedTransferLinkIds,
-    feeOnlyInternalCarryoverSourceTransactionIds: inputContext.feeOnlyInternalCarryoverSourceTransactionIds,
+    internalTransferCarryoverSourceTransactionIds: inputContext.internalTransferCarryoverSourceTransactionIds,
     inputEvents: inputContext.inputEvents.map(toStoredCanadaInputEvent),
   };
 }
@@ -851,9 +851,9 @@ function fromStoredCanadaInputContext(
 ): CanadaTaxInputContext {
   return {
     taxCurrency: inputContext.taxCurrency,
-    scopedTransactionIds: inputContext.scopedTransactionIds,
+    inputTransactionIds: inputContext.inputTransactionIds,
     validatedTransferLinkIds: inputContext.validatedTransferLinkIds,
-    feeOnlyInternalCarryoverSourceTransactionIds: inputContext.feeOnlyInternalCarryoverSourceTransactionIds,
+    internalTransferCarryoverSourceTransactionIds: inputContext.internalTransferCarryoverSourceTransactionIds,
     inputEvents: inputContext.inputEvents.map(fromStoredCanadaInputEvent),
   };
 }

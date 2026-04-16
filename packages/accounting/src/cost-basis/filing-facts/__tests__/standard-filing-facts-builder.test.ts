@@ -105,7 +105,7 @@ describe('buildStandardCostBasisFilingFacts', () => {
       expect(transfer.sameAssetFeeAmount!.toFixed(2)).toBe('12.50');
     });
 
-    it('omits linkedConfirmedLinkId for fee-only-carryover transfers', () => {
+    it('omits linkedConfirmedLinkId for internal-transfer-carryover transfers', () => {
       const artifact = createStandardWorkflowArtifact({
         lotTransfers: [
           {
@@ -113,7 +113,7 @@ describe('buildStandardCostBasisFilingFacts', () => {
             calculationId: 'df94bdd2-b8ee-4486-9c83-b0f91ca62514',
             sourceLotId: 'lot-2',
             provenance: {
-              kind: 'fee-only-carryover',
+              kind: 'internal-transfer-carryover',
               sourceMovementFingerprint: 'movement:exchange:source:4:btc:outflow:0',
               targetMovementFingerprint: 'movement:blockchain:target:5:btc:inflow:0',
             },
@@ -129,7 +129,7 @@ describe('buildStandardCostBasisFilingFacts', () => {
 
       const result = assertOk(buildStandardCostBasisFilingFacts({ artifact }));
       const transfer = result.transfers[0]!;
-      expect(transfer.provenanceKind).toBe('fee-only-carryover');
+      expect(transfer.provenanceKind).toBe('internal-transfer-carryover');
       expect(transfer.linkedConfirmedLinkId).toBeUndefined();
     });
 

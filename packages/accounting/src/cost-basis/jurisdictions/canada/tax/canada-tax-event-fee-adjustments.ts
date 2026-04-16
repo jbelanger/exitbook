@@ -14,7 +14,7 @@ import {
   buildMovementIndexes,
   resolvePoolIdentity,
 } from './canada-tax-event-stage-shared.js';
-import { buildValuedFee, valueCollectedFiatFees, valueScopedFees } from './canada-tax-fee-utils.js';
+import { buildValuedFee, valueCanadaFees, valueCollectedFiatFees } from './canada-tax-fee-utils.js';
 import { buildCanadaTaxPropertyKey } from './canada-tax-identity-utils.js';
 import type {
   CanadaAcquisitionEvent,
@@ -40,7 +40,7 @@ interface SameAssetFeeSourceRef {
   linkBindings?: readonly SameAssetFeeLinkBinding[] | undefined;
   movementFingerprint?: string | undefined;
   processedTransaction: Transaction;
-  provenanceKind: 'validated-link' | 'fee-only-carryover';
+  provenanceKind: 'validated-link' | 'internal-transfer-carryover';
   quantityBase: Decimal;
   sourceQuantityBase: Decimal;
   sourceMovementFingerprint?: string | undefined;
@@ -98,7 +98,7 @@ export async function applyGenericFeeAdjustments(params: {
 
   for (const transactionView of canadaAccountingContext.accountingLayer.accountingTransactionViews) {
     const timestamp = new Date(transactionView.processedTransaction.datetime);
-    const valuedFeesResult = await valueScopedFees(
+    const valuedFeesResult = await valueCanadaFees(
       transactionView.fees,
       timestamp,
       usdConversionRateProvider,
@@ -503,7 +503,7 @@ function buildSameAssetFeeSourceRefs(
       feePriceAtTxTime: resolvedCarryover.fee?.fee.priceAtTxTime,
       movementFingerprint: resolvedCarryover.source.movement.movementFingerprint,
       processedTransaction: resolvedCarryover.source.processedTransaction,
-      provenanceKind: 'fee-only-carryover',
+      provenanceKind: 'internal-transfer-carryover',
       quantityBase: resolvedCarryover.source.entry.quantity,
       sourceQuantityBase: resolvedCarryover.source.entry.quantity,
       sourceTransactionId: resolvedCarryover.source.processedTransaction.id,

@@ -111,9 +111,9 @@ function makeEmptyTaxReport(overrides?: Partial<CanadaTaxReport>): CanadaTaxRepo
 function makeInputContext(overrides?: Partial<CanadaTaxInputContext>): CanadaTaxInputContext {
   return {
     taxCurrency: 'CAD',
-    scopedTransactionIds: [],
+    inputTransactionIds: [],
     validatedTransferLinkIds: [],
-    feeOnlyInternalCarryoverSourceTransactionIds: [],
+    internalTransferCarryoverSourceTransactionIds: [],
     inputEvents: [],
     ...overrides,
   };
@@ -160,7 +160,7 @@ function makeInputEvent(
     taxPropertyKey: 'btc',
     assetSymbol: 'BTC' as Currency,
     valuation: dummyValuation,
-    provenanceKind: options?.provenanceKind ?? ('scoped-movement' as const),
+    provenanceKind: options?.provenanceKind ?? ('movement' as const),
     linkId: options?.linkId,
     sourceTransactionId: options?.sourceTransactionId,
   };
@@ -240,15 +240,15 @@ describe('collectCanadaTaxPackageSourceCoverage', () => {
     expect(result.confirmedLinkRefs).toHaveLength(0);
   });
 
-  it('collects refs from inputContext scoped transaction ids', () => {
-    const artifact = makeArtifact(makeEmptyTaxReport(), makeInputContext({ scopedTransactionIds: [500, 501] }));
+  it('collects refs from inputContext transaction ids', () => {
+    const artifact = makeArtifact(makeEmptyTaxReport(), makeInputContext({ inputTransactionIds: [500, 501] }));
 
     const result = assertOk(collectCanadaTaxPackageSourceCoverage(artifact));
 
     expect(result.transactionRefs).toEqual(
       expect.arrayContaining([
-        { transactionId: 500, reference: 'Canada inputContext scoped transaction 500' },
-        { transactionId: 501, reference: 'Canada inputContext scoped transaction 501' },
+        { transactionId: 500, reference: 'Canada inputContext transaction 500' },
+        { transactionId: 501, reference: 'Canada inputContext transaction 501' },
       ])
     );
   });
@@ -266,17 +266,20 @@ describe('collectCanadaTaxPackageSourceCoverage', () => {
     );
   });
 
-  it('collects transaction refs from inputContext fee-only carryover source transaction ids', () => {
+  it('collects transaction refs from inputContext internal transfer carryover source transaction ids', () => {
     const artifact = makeArtifact(
       makeEmptyTaxReport(),
-      makeInputContext({ feeOnlyInternalCarryoverSourceTransactionIds: [600] })
+      makeInputContext({ internalTransferCarryoverSourceTransactionIds: [600] })
     );
 
     const result = assertOk(collectCanadaTaxPackageSourceCoverage(artifact));
 
     expect(result.transactionRefs).toEqual(
       expect.arrayContaining([
-        { transactionId: 600, reference: 'Canada inputContext fee-only carryover source transaction 600' },
+        {
+          transactionId: 600,
+          reference: 'Canada inputContext internal transfer carryover source transaction 600',
+        },
       ])
     );
   });
@@ -317,7 +320,7 @@ describe('collectCanadaTaxPackageSourceCoverage', () => {
 
   it('does not add source transaction ref for input event without sourceTransactionId', () => {
     const event = makeInputEvent('evt-2', 'disposition', 900, {
-      provenanceKind: 'scoped-movement',
+      provenanceKind: 'movement',
     });
     const artifact = makeArtifact(makeEmptyTaxReport(), makeInputContext({ inputEvents: [event] }));
 

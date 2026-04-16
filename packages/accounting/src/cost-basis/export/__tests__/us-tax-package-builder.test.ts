@@ -196,7 +196,7 @@ describe('buildUsTaxPackage', () => {
     context.workflowResult.lotTransfers[0] = {
       ...context.workflowResult.lotTransfers[0]!,
       provenance: {
-        kind: 'fee-only-carryover',
+        kind: 'internal-transfer-carryover',
         sourceMovementFingerprint: 'movement:exchange:source:4:btc:outflow:0',
         targetMovementFingerprint: 'movement:blockchain:target:5:btc:inflow:0',
       },

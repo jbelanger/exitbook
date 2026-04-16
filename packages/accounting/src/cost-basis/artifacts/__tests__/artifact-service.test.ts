@@ -127,7 +127,7 @@ function createStoredSnapshot(artifactJson = '{"bad"'): CostBasisSnapshotRecord 
     startDate: '2024-01-01T00:00:00.000Z',
     endDate: '2024-12-31T23:59:59.999Z',
     artifactJson,
-    debugJson: '{"kind":"standard-workflow","scopedTransactionIds":[1,2],"appliedConfirmedLinkIds":[]}',
+    debugJson: '{"kind":"standard-workflow","inputTransactionIds":[1,2],"appliedConfirmedLinkIds":[]}',
     createdAt: new Date('2026-03-14T12:00:02.000Z'),
     updatedAt: new Date('2026-03-14T12:00:02.000Z'),
   };

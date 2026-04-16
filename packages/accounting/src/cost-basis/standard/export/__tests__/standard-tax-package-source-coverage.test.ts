@@ -177,10 +177,10 @@ describe('collectStandardTaxPackageSourceCoverage', () => {
     expect(result.confirmedLinkRefs).toEqual([{ linkId: 42, reference: 'standard transfer xfer-1' }]);
   });
 
-  it('does not add confirmed link ref for fee-only-carryover transfer provenance', () => {
+  it('does not add confirmed link ref for internal-transfer-carryover transfer provenance', () => {
     const lot = createLot('lot-1', 100);
     const transfer = createLotTransfer('xfer-1', 'lot-1', 100, 300, {
-      kind: 'fee-only-carryover',
+      kind: 'internal-transfer-carryover',
       sourceMovementFingerprint: 'src-fp',
       targetMovementFingerprint: 'tgt-fp',
     });
@@ -201,7 +201,7 @@ describe('collectStandardTaxPackageSourceCoverage', () => {
   it('returns error when transfer references a missing source lot', () => {
     const lot = createLot('lot-1', 100);
     const transfer = createLotTransfer('xfer-1', 'lot-missing', 100, 300, {
-      kind: 'fee-only-carryover',
+      kind: 'internal-transfer-carryover',
       sourceMovementFingerprint: 'src-fp',
       targetMovementFingerprint: 'tgt-fp',
     });

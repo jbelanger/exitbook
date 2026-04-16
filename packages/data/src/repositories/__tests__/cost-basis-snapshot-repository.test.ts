@@ -26,7 +26,7 @@ function createSnapshot(scopeKey: string, snapshotId: string): CostBasisSnapshot
     endDate: '2024-12-31T23:59:59.999Z',
     artifactJson:
       '{"kind":"standard-workflow","lots":[],"disposals":[],"lotTransfers":[],"assetsProcessed":[],"lotsCreated":0,"disposalsProcessed":0,"totalCapitalGainLoss":"0","totalTaxableGainLoss":"0","calculation":{"id":"00000000-0000-0000-0000-000000000000","calculationDate":"2026-03-14T12:00:00.000Z","config":{"method":"fifo","currency":"USD","jurisdiction":"US","taxYear":2024,"startDate":"2024-01-01T00:00:00.000Z","endDate":"2024-12-31T23:59:59.999Z"},"startDate":"2024-01-01T00:00:00.000Z","endDate":"2024-12-31T23:59:59.999Z","totalProceeds":"0","totalCostBasis":"0","totalGainLoss":"0","totalTaxableGainLoss":"0","assetsProcessed":[],"transactionsProcessed":0,"lotsCreated":0,"disposalsProcessed":0,"status":"completed","createdAt":"2026-03-14T12:00:00.000Z"}}',
-    debugJson: '{"kind":"standard-workflow","scopedTransactionIds":[],"appliedConfirmedLinkIds":[]}',
+    debugJson: '{"kind":"standard-workflow","inputTransactionIds":[],"appliedConfirmedLinkIds":[]}',
     createdAt: new Date('2026-03-14T12:00:02.000Z'),
     updatedAt: new Date('2026-03-14T12:00:02.000Z'),
   };

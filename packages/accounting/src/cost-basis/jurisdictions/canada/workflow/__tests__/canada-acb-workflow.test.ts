@@ -671,7 +671,7 @@ describe('runCanadaAcbWorkflow', () => {
     const value = assertOk(result);
     const kinds = value.inputContext.inputEvents.map((event) => event.kind);
 
-    expect(value.inputContext.feeOnlyInternalCarryoverSourceTransactionIds).toEqual([22]);
+    expect(value.inputContext.internalTransferCarryoverSourceTransactionIds).toEqual([22]);
     expect(kinds).toHaveLength(4);
     expect(kinds.filter((kind) => kind === 'acquisition')).toHaveLength(1);
     expect(kinds.filter((kind) => kind === 'transfer-in')).toHaveLength(1);
@@ -715,7 +715,7 @@ describe('runCanadaAcbWorkflow', () => {
     const value = assertOk(result);
 
     expect(value.inputContext.inputEvents).toEqual([]);
-    expect(value.inputContext.scopedTransactionIds).toEqual([]);
+    expect(value.inputContext.inputTransactionIds).toEqual([]);
     expect(value.acbEngineResult.dispositions).toHaveLength(0);
   });
 });

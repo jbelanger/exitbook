@@ -361,13 +361,13 @@ describe('portfolio position building', () => {
   it('builds pooled Canada portfolio positions from tax-property data', () => {
     const inputContext: CanadaTaxInputContext = {
       taxCurrency: 'CAD',
-      scopedTransactionIds: [1, 2],
+      inputTransactionIds: [1, 2],
       validatedTransferLinkIds: [],
-      feeOnlyInternalCarryoverSourceTransactionIds: [],
+      internalTransferCarryoverSourceTransactionIds: [],
       inputEvents: [
         {
           kind: 'acquisition',
-          provenanceKind: 'scoped-movement',
+          provenanceKind: 'movement',
           eventId: 'evt-1',
           transactionId: 1,
           timestamp: new Date('2024-01-01T00:00:00.000Z'),
@@ -392,7 +392,7 @@ describe('portfolio position building', () => {
         },
         {
           kind: 'acquisition',
-          provenanceKind: 'scoped-movement',
+          provenanceKind: 'movement',
           eventId: 'evt-2',
           transactionId: 2,
           timestamp: new Date('2024-02-01T00:00:00.000Z'),

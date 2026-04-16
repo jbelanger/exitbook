@@ -82,18 +82,18 @@ export function fromStoredStandardArtifact(
 export function buildStandardDebugPayload(
   artifact: Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>
 ): CostBasisArtifactDebugPayload {
-  const scopedTransactionIds = new Set<number>();
+  const inputTransactionIds = new Set<number>();
   const appliedConfirmedLinkIds = new Set<number>();
 
   for (const lot of artifact.lots) {
-    scopedTransactionIds.add(lot.acquisitionTransactionId);
+    inputTransactionIds.add(lot.acquisitionTransactionId);
   }
   for (const disposal of artifact.disposals) {
-    scopedTransactionIds.add(disposal.disposalTransactionId);
+    inputTransactionIds.add(disposal.disposalTransactionId);
   }
   for (const transfer of artifact.lotTransfers) {
-    scopedTransactionIds.add(transfer.sourceTransactionId);
-    scopedTransactionIds.add(transfer.targetTransactionId);
+    inputTransactionIds.add(transfer.sourceTransactionId);
+    inputTransactionIds.add(transfer.targetTransactionId);
     if (transfer.provenance.kind === 'confirmed-link') {
       appliedConfirmedLinkIds.add(transfer.provenance.linkId);
     }
@@ -101,7 +101,7 @@ export function buildStandardDebugPayload(
 
   return {
     kind: 'standard-workflow',
-    scopedTransactionIds: [...scopedTransactionIds].sort((a, b) => a - b),
+    inputTransactionIds: [...inputTransactionIds].sort((a, b) => a - b),
     appliedConfirmedLinkIds: [...appliedConfirmedLinkIds].sort((a, b) => a - b),
   };
 }
@@ -109,7 +109,7 @@ export function buildStandardDebugPayload(
 export function toStoredStandardDebug(debug: CostBasisArtifactDebugPayload): StoredStandardDebug {
   return {
     kind: 'standard-workflow',
-    scopedTransactionIds: debug.scopedTransactionIds,
+    inputTransactionIds: debug.inputTransactionIds,
     appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
   };
 }
@@ -118,7 +118,7 @@ export function fromStoredDebug(debug: StoredCostBasisDebug): CostBasisArtifactD
   return debug.kind === 'standard-workflow'
     ? {
         kind: debug.kind,
-        scopedTransactionIds: debug.scopedTransactionIds,
+        inputTransactionIds: debug.inputTransactionIds,
         appliedConfirmedLinkIds: debug.appliedConfirmedLinkIds,
       }
     : fromStoredCanadaDebug(debug);

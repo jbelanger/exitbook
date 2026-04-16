@@ -101,15 +101,15 @@ const ConfirmedLinkTransferProvenanceSchema = z.object({
   targetMovementFingerprint: z.string().min(1),
 });
 
-const FeeOnlyCarryoverTransferProvenanceSchema = z.object({
-  kind: z.literal('fee-only-carryover'),
+const InternalTransferCarryoverTransferProvenanceSchema = z.object({
+  kind: z.literal('internal-transfer-carryover'),
   sourceMovementFingerprint: z.string().min(1),
   targetMovementFingerprint: z.string().min(1),
 });
 
 const LotTransferProvenanceSchema = z.discriminatedUnion('kind', [
   ConfirmedLinkTransferProvenanceSchema,
-  FeeOnlyCarryoverTransferProvenanceSchema,
+  InternalTransferCarryoverTransferProvenanceSchema,
 ]);
 
 export const LotTransferSchema = z.object({

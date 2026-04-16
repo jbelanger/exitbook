@@ -181,8 +181,8 @@ function collectIncompleteTransferLinkDetails(
 
     return context.workflowResult.taxReport.transfers.flatMap((transfer) => {
       const isCarryoverOnly =
-        inputEventsById.get(transfer.sourceTransferEventId ?? '')?.provenanceKind === 'fee-only-carryover' ||
-        inputEventsById.get(transfer.targetTransferEventId ?? '')?.provenanceKind === 'fee-only-carryover';
+        inputEventsById.get(transfer.sourceTransferEventId ?? '')?.provenanceKind === 'internal-transfer-carryover' ||
+        inputEventsById.get(transfer.targetTransferEventId ?? '')?.provenanceKind === 'internal-transfer-carryover';
       const hasConfirmedLink =
         transfer.linkId !== undefined &&
         transfer.sourceTransactionId !== undefined &&

@@ -114,9 +114,9 @@ export function createCanadaWorkflowArtifact(
     },
     inputContext: {
       taxCurrency: 'CAD',
-      scopedTransactionIds: [10, 11],
+      inputTransactionIds: [10, 11],
       validatedTransferLinkIds: [],
-      feeOnlyInternalCarryoverSourceTransactionIds: [],
+      internalTransferCarryoverSourceTransactionIds: [],
       inputEvents: [],
     },
     executionMeta: {
@@ -208,9 +208,9 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
     },
     inputContext: {
       taxCurrency: 'CAD',
-      scopedTransactionIds: [10, 11, 12],
+      inputTransactionIds: [10, 11, 12],
       validatedTransferLinkIds: [9],
-      feeOnlyInternalCarryoverSourceTransactionIds: [11],
+      internalTransferCarryoverSourceTransactionIds: [11],
       inputEvents: [
         {
           kind: 'acquisition',
@@ -223,7 +223,7 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
           assetSymbol: 'BTC' as Currency,
           valuation: createCanadaValuation('50000', '50000'),
           quantity: parseDecimal('1'),
-          provenanceKind: 'scoped-movement',
+          provenanceKind: 'movement',
         },
         {
           kind: 'disposition',
@@ -237,7 +237,7 @@ export function createCanadaPackageBuildContext(): TaxPackageBuildContext {
           valuation: createCanadaValuation('60000', '36050'),
           quantity: parseDecimal('0.6'),
           proceedsReductionCad: parseDecimal('50'),
-          provenanceKind: 'scoped-movement',
+          provenanceKind: 'movement',
         },
         {
           kind: 'transfer-out',

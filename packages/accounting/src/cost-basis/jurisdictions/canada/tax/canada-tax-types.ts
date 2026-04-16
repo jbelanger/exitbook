@@ -24,9 +24,9 @@ export type CanadaTaxInputEventKind =
   | 'fee-adjustment'
   | 'superficial-loss-adjustment';
 type CanadaTaxEventProvenanceKind =
-  | 'scoped-movement'
+  | 'movement'
   | 'validated-link'
-  | 'fee-only-carryover'
+  | 'internal-transfer-carryover'
   | 'superficial-loss-engine';
 export type CanadaFeeAdjustmentType = 'add-to-pool-cost' | 'same-asset-transfer-fee-add-to-basis';
 
@@ -102,9 +102,9 @@ export type CanadaTaxInputEvent =
 
 export interface CanadaTaxInputContext {
   taxCurrency: 'CAD';
-  scopedTransactionIds: number[];
+  inputTransactionIds: number[];
   validatedTransferLinkIds: number[];
-  feeOnlyInternalCarryoverSourceTransactionIds: number[];
+  internalTransferCarryoverSourceTransactionIds: number[];
   inputEvents: CanadaTaxInputEvent[];
 }
 

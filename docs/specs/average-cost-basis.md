@@ -499,9 +499,9 @@ Display conversion may change presentation. It must never change CAD tax amounts
 ```ts
 interface CanadaTaxInputContext {
   taxCurrency: 'CAD';
-  scopedTransactionIds: number[];
+  inputTransactionIds: number[];
   validatedTransferLinkIds: number[];
-  feeOnlyInternalCarryoverSourceTransactionIds: number[];
+  internalTransferCarryoverSourceTransactionIds: number[];
   inputEvents: CanadaTaxInputEvent[];
 }
 ```

@@ -151,7 +151,7 @@ export async function runCanadaCostBasisCalculation(
 
 function buildCanadaCalculation(
   input: ValidatedCostBasisConfig,
-  inputContext: { inputEvents: { assetSymbol: Currency }[]; scopedTransactionIds: number[] }
+  inputContext: { inputEvents: { assetSymbol: Currency }[]; inputTransactionIds: number[] }
 ): CanadaCostBasisCalculation {
   const calculationDate = new Date();
   const assetsProcessed = [...new Set(inputContext.inputEvents.map((event) => event.assetSymbol))];
@@ -166,7 +166,7 @@ function buildCanadaCalculation(
     taxCurrency: 'CAD',
     startDate: input.startDate,
     endDate: input.endDate,
-    transactionsProcessed: inputContext.scopedTransactionIds.length,
+    transactionsProcessed: inputContext.inputTransactionIds.length,
     assetsProcessed,
   };
 }

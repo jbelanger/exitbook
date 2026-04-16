@@ -170,6 +170,12 @@ Phase 0 investigation log:
     carryover handling now read the canonical accounting layer end-to-end
   - the canonical accounting layer now collapses zero-quantity fee artifacts
     instead of treating them as material accounting entries
+  - post-migration cleanup aligned the remaining Canada/cost-basis vocabulary:
+    - `inputTransactionIds` replaced historical `scopedTransactionIds`
+    - `internal-transfer-carryover` replaced historical
+      `fee-only-carryover`
+    - the oversized Canada stage-test compatibility bridge now lives in a
+      dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now:
     - lot matching and standard lot transfer processing
     - any remaining transaction-shaped consumers outside the Canada path

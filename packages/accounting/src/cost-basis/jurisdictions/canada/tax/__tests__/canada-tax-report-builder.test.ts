@@ -143,7 +143,7 @@ describe('canada-tax-report-builder', () => {
           assetSymbol: 'BTC',
           quantity: '1',
           unitValueCad: '11000',
-          provenanceKind: 'fee-only-carryover',
+          provenanceKind: 'internal-transfer-carryover',
           sourceTransactionId: 2,
         }),
       ],

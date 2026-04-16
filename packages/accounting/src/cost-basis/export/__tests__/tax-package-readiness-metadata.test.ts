@@ -305,7 +305,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
     context.workflowResult.lotTransfers[0] = {
       ...context.workflowResult.lotTransfers[0]!,
       provenance: {
-        kind: 'fee-only-carryover',
+        kind: 'internal-transfer-carryover',
         sourceMovementFingerprint: 'movement:exchange:source:4:btc:outflow:0',
         targetMovementFingerprint: 'movement:blockchain:target:5:btc:inflow:0',
       },
@@ -335,7 +335,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
     };
     context.workflowResult.inputContext!.inputEvents[3] = {
       ...context.workflowResult.inputContext!.inputEvents[3]!,
-      provenanceKind: 'fee-only-carryover',
+      provenanceKind: 'internal-transfer-carryover',
     };
 
     expect(deriveTaxPackageReadinessMetadata({ context })).toMatchObject({

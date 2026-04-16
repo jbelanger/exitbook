@@ -32,7 +32,7 @@ function convertCarryoverTargetToTransferIn(
     quantity: acquisitionEvent.quantity,
     valuation: acquisitionEvent.valuation,
     priceAtTxTime: acquisitionEvent.priceAtTxTime,
-    provenanceKind: 'fee-only-carryover',
+    provenanceKind: 'internal-transfer-carryover',
     sourceTransactionId,
     sourceMovementFingerprint,
     targetMovementFingerprint,
@@ -126,7 +126,7 @@ export async function applyCarryoverSemantics(params: {
         `carryover:${sourceTransaction.id}:${target.target.movement.movementFingerprint}:transfer-in`,
         identityConfig,
         {
-          provenanceKind: 'fee-only-carryover',
+          provenanceKind: 'internal-transfer-carryover',
           sourceTransactionId: sourceTransaction.id,
           sourceMovementFingerprint: resolvedCarryover.source.movement.movementFingerprint,
           targetMovementFingerprint: target.target.movement.movementFingerprint,

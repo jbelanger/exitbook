@@ -247,9 +247,9 @@ export function createCanadaWorkflowArtifact(
     },
     inputContext: {
       taxCurrency: 'CAD',
-      scopedTransactionIds: [10, 11, 12],
+      inputTransactionIds: [10, 11, 12],
       validatedTransferLinkIds: [9],
-      feeOnlyInternalCarryoverSourceTransactionIds: [],
+      internalTransferCarryoverSourceTransactionIds: [],
       inputEvents: [],
     },
     executionMeta: {

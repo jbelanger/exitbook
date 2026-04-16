@@ -211,13 +211,13 @@ describe('PortfolioHandler', () => {
         },
         inputContext: {
           taxCurrency: 'CAD',
-          scopedTransactionIds: [1],
+          inputTransactionIds: [1],
           validatedTransferLinkIds: [],
-          feeOnlyInternalCarryoverSourceTransactionIds: [],
+          internalTransferCarryoverSourceTransactionIds: [],
           inputEvents: [
             {
               kind: 'acquisition',
-              provenanceKind: 'scoped-movement',
+              provenanceKind: 'movement',
               eventId: 'evt-1',
               transactionId: 1,
               timestamp: new Date('2024-01-01T00:00:00.000Z'),

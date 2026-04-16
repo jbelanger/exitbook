@@ -425,7 +425,7 @@ describe('transfer source accounting regressions', () => {
     expect(value.updatedLots.map((lot) => lot.remainingQuantity.toFixed())).toEqual(['0', '0']);
     expect(value.updatedLots.map((lot) => lot.status)).toEqual(['fully_disposed', 'fully_disposed']);
     expect(value.transfers).toHaveLength(2);
-    expect(value.transfers.every((transfer) => transfer.provenance.kind === 'fee-only-carryover')).toBe(true);
+    expect(value.transfers.every((transfer) => transfer.provenance.kind === 'internal-transfer-carryover')).toBe(true);
     expect(value.transfers[0]?.provenance.targetMovementFingerprint).toBe('target:movement:0');
     expect(
       value.transfers.reduce((sum, transfer) => sum.plus(transfer.quantityTransferred), parseDecimal('0')).toFixed()

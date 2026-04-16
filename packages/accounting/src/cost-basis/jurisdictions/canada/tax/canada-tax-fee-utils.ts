@@ -127,8 +127,6 @@ export async function valueCanadaFees(
   return ok(valuedFees);
 }
 
-export const valueScopedFees = valueCanadaFees;
-
 export async function valueCollectedFiatFees(
   fees: CollectedFiatFee[],
   timestamp: Date,

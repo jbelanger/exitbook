@@ -198,12 +198,12 @@ Current artifact families:
 
 Current generic debug payload:
 
-- `scopedTransactionIds`
+- `inputTransactionIds`
 - `appliedConfirmedLinkIds`
 
 Current Canada debug payload:
 
-- `scopedTransactionIds`
+- `inputTransactionIds`
 - `appliedConfirmedLinkIds`
 - `acquisitionEventIds`
 - `dispositionEventIds`

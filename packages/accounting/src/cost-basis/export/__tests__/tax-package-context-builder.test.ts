@@ -205,9 +205,9 @@ function createCanadaArtifact(): Extract<CostBasisWorkflowResult, { kind: 'canad
     },
     inputContext: {
       taxCurrency: 'CAD',
-      scopedTransactionIds: [10, 11, 12],
+      inputTransactionIds: [10, 11, 12],
       validatedTransferLinkIds: [9],
-      feeOnlyInternalCarryoverSourceTransactionIds: [11],
+      internalTransferCarryoverSourceTransactionIds: [11],
       inputEvents: [
         {
           kind: 'acquisition',
@@ -231,7 +231,7 @@ function createCanadaArtifact(): Extract<CostBasisWorkflowResult, { kind: 'canad
             fxSource: 'test',
             fxTimestamp: new Date('2024-01-10T00:00:00.000Z'),
           },
-          provenanceKind: 'scoped-movement',
+          provenanceKind: 'movement',
           quantity: parseDecimal('1'),
         },
         {

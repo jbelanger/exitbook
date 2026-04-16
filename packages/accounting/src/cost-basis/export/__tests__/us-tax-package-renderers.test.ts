@@ -438,12 +438,12 @@ describe('buildUsTransferRows', () => {
     expect(rows[0]!.transfer_status).toBe('verified');
   });
 
-  it('sets transfer_status to review_needed_inbound for fee-only-carryover provenance', () => {
+  it('sets transfer_status to review_needed_inbound for internal-transfer-carryover provenance', () => {
     const { context, filingFacts, accountLabeler, assetLabeler, rowRefMaps } = getFullRenderParams();
 
-    // Change provenance to fee-only-carryover
+    // Change provenance to internal-transfer-carryover
     const transfer = filingFacts.transfers[0]!;
-    (transfer as { provenanceKind: string }).provenanceKind = 'fee-only-carryover';
+    (transfer as { provenanceKind: string }).provenanceKind = 'internal-transfer-carryover';
 
     const rows = assertOk(buildUsTransferRows({ context, filingFacts, accountLabeler, assetLabeler, rowRefMaps }));
 

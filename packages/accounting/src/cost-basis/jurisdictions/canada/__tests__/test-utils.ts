@@ -198,7 +198,7 @@ function buildEventBase(params: {
     taxPropertyKey: `ca:${assetIdentityKey}`,
     assetSymbol: params.assetSymbol as Currency,
     valuation: params.valuation,
-    provenanceKind: params.provenanceKind ?? 'scoped-movement',
+    provenanceKind: params.provenanceKind ?? 'movement',
     linkId: params.linkId,
     movementFingerprint: params.movementFingerprint,
     priceAtTxTime: params.priceAtTxTime,
@@ -397,18 +397,18 @@ export function createCanadaFeeAdjustmentEvent(params: {
 }
 
 export function createCanadaInputContext(params: {
-  feeOnlyInternalCarryoverSourceTransactionIds?: number[] | undefined;
   inputEvents: CanadaTaxInputEvent[];
-  scopedTransactionIds?: number[] | undefined;
+  inputTransactionIds?: number[] | undefined;
+  internalTransferCarryoverSourceTransactionIds?: number[] | undefined;
   validatedTransferLinkIds?: number[] | undefined;
 }): CanadaTaxInputContext {
   return {
     taxCurrency: 'CAD',
-    scopedTransactionIds: params.scopedTransactionIds ?? [
+    inputTransactionIds: params.inputTransactionIds ?? [
       ...new Set(params.inputEvents.map((event) => event.transactionId)),
     ],
     validatedTransferLinkIds: params.validatedTransferLinkIds ?? [],
-    feeOnlyInternalCarryoverSourceTransactionIds: params.feeOnlyInternalCarryoverSourceTransactionIds ?? [],
+    internalTransferCarryoverSourceTransactionIds: params.internalTransferCarryoverSourceTransactionIds ?? [],
     inputEvents: params.inputEvents,
   };
 }
