@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
-  mockBuildCostBasisReadinessWarnings,
+  mockBuildCostBasisIssueNotices,
   mockBuildCostBasisInputFromFlags,
   mockBuildCostBasisJsonData,
   mockBuildPresentationModel,
@@ -21,7 +21,7 @@ const {
   mockStopSpinner,
   mockWithCostBasisCommandScope,
 } = vi.hoisted(() => ({
-  mockBuildCostBasisReadinessWarnings: vi.fn(),
+  mockBuildCostBasisIssueNotices: vi.fn(),
   mockBuildCostBasisInputFromFlags: vi.fn(),
   mockBuildCostBasisJsonData: vi.fn(),
   mockBuildPresentationModel: vi.fn(),
@@ -42,8 +42,8 @@ vi.mock('../../../../runtime/command-runtime.js', () => ({
   runCommand: mockRunCommand,
 }));
 
-vi.mock('../../cost-basis-readiness.js', () => ({
-  buildCostBasisReadinessWarnings: mockBuildCostBasisReadinessWarnings,
+vi.mock('../../cost-basis-issue-notices.js', () => ({
+  buildCostBasisIssueNotices: mockBuildCostBasisIssueNotices,
 }));
 
 vi.mock('../../../../cli/error.js', () => ({
@@ -140,7 +140,7 @@ describe('cost-basis command', () => {
       method: 'fifo',
       taxYear: 2024,
     },
-    readinessWarnings: [],
+    issueNotices: [],
     summary: {
       disposalsProcessed: 1,
       lotsCreated: 2,
@@ -166,7 +166,7 @@ describe('cost-basis command', () => {
         assetReviewSummaries: new Map(),
       })
     );
-    mockBuildCostBasisReadinessWarnings.mockReturnValue(ok([]));
+    mockBuildCostBasisIssueNotices.mockReturnValue(ok([]));
     mockBuildPresentationModel.mockReturnValue(presentation);
     mockBuildCostBasisJsonData.mockReturnValue({
       calculationId: 'calc-1',
@@ -174,7 +174,7 @@ describe('cost-basis command', () => {
       dateRange: { end: '2024-12-31', start: '2024-01-01' },
       jurisdiction: 'US',
       method: 'fifo',
-      readinessWarnings: [],
+      issueNotices: [],
       summary: presentation.summary,
       taxYear: 2024,
       assets: [],
@@ -205,7 +205,7 @@ describe('cost-basis command', () => {
         dateRange: { end: '2024-12-31', start: '2024-01-01' },
         jurisdiction: 'US',
         method: 'fifo',
-        readinessWarnings: [],
+        issueNotices: [],
         summary: presentation.summary,
         taxYear: 2024,
         assets: [],

@@ -10,7 +10,7 @@ import type {
 } from '@exitbook/accounting/cost-basis';
 
 import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
-import type { CostBasisReadinessWarning } from '../cost-basis-readiness.js';
+import type { CostBasisIssueNotice } from '../cost-basis-issue-notices.js';
 
 type AcquisitionLotStatus = StandardCostBasisFilingFacts['acquisitions'][number]['status'];
 
@@ -172,7 +172,7 @@ export interface CostBasisAssetState {
 
   // Per-asset aggregates
   assets: AssetCostBasisItem[];
-  readinessWarnings: readonly CostBasisReadinessWarning[];
+  issueNotices: readonly CostBasisIssueNotice[];
   totalDisposals: number;
   totalLots: number;
 
@@ -240,7 +240,7 @@ export function createCostBasisAssetState(
   assets: AssetCostBasisItem[],
   summary: CostBasisAssetState['summary'],
   options?: {
-    readinessWarnings?: readonly CostBasisReadinessWarning[] | undefined;
+    issueNotices?: readonly CostBasisIssueNotice[] | undefined;
     totalDisposals?: number | undefined;
     totalLots?: number | undefined;
   }
@@ -255,7 +255,7 @@ export function createCostBasisAssetState(
     dateRange: context.dateRange,
     summary,
     assets,
-    readinessWarnings: options?.readinessWarnings ?? [],
+    issueNotices: options?.issueNotices ?? [],
     totalDisposals: options?.totalDisposals ?? assets.reduce((sum, a) => sum + a.disposalCount, 0),
     totalLots: options?.totalLots ?? 0,
     selectedIndex: 0,

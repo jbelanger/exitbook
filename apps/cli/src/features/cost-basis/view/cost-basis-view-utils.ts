@@ -13,7 +13,7 @@ import {
 import { Decimal } from 'decimal.js';
 
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
-import type { CostBasisReadinessWarning } from '../cost-basis-readiness.js';
+import type { CostBasisIssueNotice } from '../cost-basis-issue-notices.js';
 
 import type {
   AcquisitionViewItem,
@@ -693,7 +693,7 @@ function deriveCanadaAcquisitionStatus(
 export interface CostBasisPresentationModel {
   assetItems: AssetCostBasisItem[];
   context: CalculationContext;
-  readinessWarnings: readonly CostBasisReadinessWarning[];
+  issueNotices: readonly CostBasisIssueNotice[];
   summary: {
     assetsProcessed: string[];
     disposalsProcessed: number;
@@ -710,7 +710,7 @@ export interface CostBasisPresentationModel {
 
 export function buildPresentationModel(
   costBasisResult: CostBasisWorkflowResult,
-  options?: { readinessWarnings?: readonly CostBasisReadinessWarning[] | undefined }
+  options?: { issueNotices?: readonly CostBasisIssueNotice[] | undefined }
 ): CostBasisPresentationModel {
   const filingFactsResult = buildCostBasisFilingFacts({ artifact: costBasisResult });
   if (filingFactsResult.isErr()) {
@@ -746,7 +746,7 @@ export function buildPresentationModel(
           endDate: summary.calculation.endDate?.toISOString().split('T')[0] ?? '',
         },
       },
-      readinessWarnings: options?.readinessWarnings ?? [],
+      issueNotices: options?.issueNotices ?? [],
       summary: {
         lotsCreated: filingFacts.summary.acquisitionCount,
         disposalsProcessed: filingFacts.summary.dispositionCount,
@@ -787,7 +787,7 @@ export function buildPresentationModel(
         endDate: costBasisResult.calculation.endDate.toISOString().split('T')[0] ?? '',
       },
     },
-    readinessWarnings: options?.readinessWarnings ?? [],
+    issueNotices: options?.issueNotices ?? [],
     summary: {
       lotsCreated: filingFacts.summary.acquisitionCount,
       disposalsProcessed: filingFacts.summary.dispositionCount,

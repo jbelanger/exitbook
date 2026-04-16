@@ -21,7 +21,7 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
-import { buildCostBasisReadinessWarnings } from '../cost-basis-readiness.js';
+import { buildCostBasisIssueNotices } from '../cost-basis-issue-notices.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
 import { createCostBasisAssetState, createCostBasisTimelineState } from '../view/cost-basis-view-state.js';
 import { buildPresentationModel, type CostBasisPresentationModel } from '../view/cost-basis-view-utils.js';
@@ -132,7 +132,7 @@ async function executeCostBasisJsonCommand(
       ExitCodes.GENERAL_ERROR
     );
 
-    const presentation = yield* toCliResult(buildCostBasisPresentation(result), ExitCodes.GENERAL_ERROR);
+    const presentation = yield* toCliResult(buildCostBasisPresentation(result, params), ExitCodes.GENERAL_ERROR);
 
     return jsonSuccess(buildCostBasisJsonData(presentation));
   });
@@ -149,7 +149,7 @@ async function executeCostBasisTextCommand(
       ExitCodes.GENERAL_ERROR
     );
 
-    return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, result), ExitCodes.GENERAL_ERROR);
+    return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, params, result), ExitCodes.GENERAL_ERROR);
   });
 }
 
@@ -171,16 +171,17 @@ async function loadCostBasisTextResult(
 async function buildCostBasisTuiCompletion(
   ctx: CommandRuntime,
   options: CommandOptions,
+  params: ValidatedCostBasisConfig,
   result: CostBasisArtifactExecutionResult
 ): Promise<Result<ReturnType<typeof silentSuccess>, Error>> {
   return resultTryAsync(async function* () {
-    const presentation = yield* buildCostBasisPresentation(result);
+    const presentation = yield* buildCostBasisPresentation(result, params);
     const initialState = createCostBasisAssetState(
       presentation.context,
       presentation.assetItems,
       presentation.summary,
       {
-        readinessWarnings: presentation.readinessWarnings,
+        issueNotices: presentation.issueNotices,
         totalDisposals: presentation.summary.disposalsProcessed,
         totalLots: presentation.summary.lotsCreated,
       }
@@ -239,10 +240,18 @@ function resolveAssetFilter(
 }
 
 function buildCostBasisPresentation(
-  result: CostBasisArtifactExecutionResult
+  result: CostBasisArtifactExecutionResult,
+  params: ValidatedCostBasisConfig
 ): Result<CostBasisPresentationModel, Error> {
   return resultTry(function* () {
-    const readinessWarnings = yield* buildCostBasisReadinessWarnings(result);
-    return buildPresentationModel(result.artifact, { readinessWarnings });
+    const issueNotices = yield* buildCostBasisIssueNotices({
+      artifact: result.artifact,
+      assetReviewSummaries: result.assetReviewSummaries,
+      scopeConfig: params,
+      scopeKey: result.scopeKey,
+      snapshotId: result.snapshotId,
+      sourceContext: result.sourceContext,
+    });
+    return buildPresentationModel(result.artifact, { issueNotices });
   }, 'Failed to build cost basis presentation');
 }

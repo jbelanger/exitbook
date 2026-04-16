@@ -182,21 +182,23 @@ Cost Basis (FIFO · US · 2024 · USD)  12 disposals · 4 assets
 - Short-term amount: green (positive), red (negative)
 - Long-term amount: green (positive), red (negative)
 
-### Warning Bar
+### Issue Notice Bar
 
-When cost-basis readiness issues remain, warning lines appear between the header and the list:
+When scoped accounting issues remain, issue notices appear between the header and the list:
 
 ```
-  ⚠ 2 assets still require review before filing export.
-  ⚠ 3 transfers require manual review because linking is incomplete.
+  ⚠ 2 blocking issues in this scope. Review them in issues.
+     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo
+  ⚠ 1 warning issue in this scope. Review it in issues.
+     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo
 ```
 
-- One line per readiness warning
-- Asset-review blockers render in red
-- Incomplete-link warnings render in yellow
-- Current warning sources:
-  - unresolved asset review blockers in the scoped accounting set
-  - incomplete transfer linking in the scoped accounting set
+- One two-line notice per severity bucket
+- Blocking-issue notices render in red
+- Warning-issue notices render in yellow
+- The notice bar is intentionally narrow:
+  - `cost-basis` does not render per-issue explanations, examples, or command-specific repair guidance
+  - detailed review happens in `issues cost-basis ...`
 
 ### Calculation Errors
 
@@ -757,18 +759,20 @@ Bypasses the TUI. Outputs calculation results in JSON format.
     "startDate": "2024-01-01",
     "endDate": "2024-12-31"
   },
-  "readinessWarnings": [
+  "issueNotices": [
     {
-      "code": "UNRESOLVED_ASSET_REVIEW",
+      "kind": "blocking_issues",
       "severity": "blocked",
       "count": 2,
-      "message": "2 assets still require review before filing export."
+      "message": "2 blocking issues in this scope. Review them in issues.",
+      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo"
     },
     {
-      "code": "INCOMPLETE_TRANSFER_LINKING",
+      "kind": "warning_issues",
       "severity": "warning",
       "count": 3,
-      "message": "3 transfers require manual review because linking is incomplete."
+      "message": "3 warning issues in this scope. Review them in issues.",
+      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo"
     }
   ],
   "summary": {
@@ -817,37 +821,37 @@ Same conventions as all other TUI views.
 
 **Signal tier (icons + cursor):**
 
-| Icon | Color      | Meaning                   |
-| ---- | ---------- | ------------------------- |
-| `⚠`  | yellow/red | Readiness warning/blocker |
-| `✗`  | red        | Per-asset calc error      |
-| `▸`  | —          | Cursor (bold)             |
-| `+`  | green      | Acquisition event marker  |
-| `−`  | red        | Disposal event marker     |
-| `→`  | cyan       | Transfer event marker     |
+| Icon | Color      | Meaning                  |
+| ---- | ---------- | ------------------------ |
+| `⚠`  | yellow/red | Scoped issue notice      |
+| `✗`  | red        | Per-asset calc error     |
+| `▸`  | —          | Cursor (bold)            |
+| `+`  | green      | Acquisition event marker |
+| `−`  | red        | Disposal event marker    |
+| `→`  | cyan       | Transfer event marker    |
 
 **Content tier (what you read):**
 
-| Element                    | Color  |
-| -------------------------- | ------ |
-| Asset symbols              | white  |
-| Quantities (acquired)      | green  |
-| Quantities (disposed)      | white  |
-| Quantities (transferred)   | cyan   |
-| Gain (positive)            | green  |
-| Loss (negative)            | red    |
-| Proceeds amounts           | white  |
-| Cost basis amounts         | white  |
-| Disposal/lot/transfer cnts | white  |
-| Holding period values      | white  |
-| Transaction IDs            | white  |
-| `long-term`                | green  |
-| `short-term`               | yellow |
-| `open` lot status          | green  |
-| `partially disposed`       | yellow |
-| `fully disposed`           | dim    |
-| Missing price warning      | yellow |
-| `(FX unavailable)` marker  | dim    |
+| Element                    | Color      |
+| -------------------------- | ---------- |
+| Asset symbols              | white      |
+| Quantities (acquired)      | green      |
+| Quantities (disposed)      | white      |
+| Quantities (transferred)   | cyan       |
+| Gain (positive)            | green      |
+| Loss (negative)            | red        |
+| Proceeds amounts           | white      |
+| Cost basis amounts         | white      |
+| Disposal/lot/transfer cnts | white      |
+| Holding period values      | white      |
+| Transaction IDs            | white      |
+| `long-term`                | green      |
+| `short-term`               | yellow     |
+| `open` lot status          | green      |
+| `partially disposed`       | yellow     |
+| `fully disposed`           | dim        |
+| Scoped issue notice        | yellow/red |
+| `(FX unavailable)` marker  | dim        |
 
 **Context tier (recedes):**
 
@@ -1236,7 +1240,7 @@ Implement a `formatCryptoQuantity(value: string): string` utility:
 
 ### Terminal Size
 
-- Asset list: fills available height minus fixed chrome (header ~4, warning ~0-2, divider 1, detail ~10, controls ~2, scroll indicators ~2 = ~19-21 lines)
+- Asset list: fills available height minus fixed chrome (header ~4, issue notice ~0-4, divider 1, detail ~10, controls ~2, scroll indicators ~2 = ~17-21 lines)
 - Timeline: same layout, detail panel ~8-10 lines depending on event type
 - Minimum terminal width: 80 columns
 

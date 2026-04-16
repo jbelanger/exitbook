@@ -79,6 +79,7 @@ export {
 export type {
   TaxPackageExportResult,
   TaxPackageFile,
+  TaxPackageConfigScope,
   TaxPackageIncompleteTransferLinkDetail,
   TaxPackageIssue,
   TaxPackageManifest,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCostBasisJsonData } from '../cost-basis-json.js';
 
 describe('buildCostBasisJsonData', () => {
-  it('includes readiness warnings in the JSON payload', () => {
+  it('includes scoped issue notices in the JSON payload', () => {
     const result = buildCostBasisJsonData({
       assetItems: [],
       context: {
@@ -17,14 +17,12 @@ describe('buildCostBasisJsonData', () => {
           endDate: '2024-12-31',
         },
       },
-      readinessWarnings: [
+      issueNotices: [
         {
-          code: 'INCOMPLETE_TRANSFER_LINKING',
-          commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
           count: 2,
-          detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
-          message: '2 transfers require manual review because a confirmed source/target link is missing.',
-          recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
+          kind: 'warning_issues',
+          message: '2 warning issues in this scope. Review them in issues.',
+          reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
           severity: 'warning',
         },
       ],
@@ -40,14 +38,12 @@ describe('buildCostBasisJsonData', () => {
       },
     });
 
-    expect(result.readinessWarnings).toEqual([
+    expect(result.issueNotices).toEqual([
       {
-        code: 'INCOMPLETE_TRANSFER_LINKING',
-        commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
         count: 2,
-        detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
-        message: '2 transfers require manual review because a confirmed source/target link is missing.',
-        recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
+        kind: 'warning_issues',
+        message: '2 warning issues in this scope. Review them in issues.',
+        reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
         severity: 'warning',
       },
     ]);

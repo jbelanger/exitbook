@@ -729,7 +729,7 @@ Acceptance criteria:
 
 ### Phase 5: Completion And Convergence
 
-Status: pending
+Status: in progress
 
 Deliver:
 
@@ -741,6 +741,12 @@ Deliver:
   - scoped issue browsing
   - corrective actions
   - readiness-to-report flow
+
+Completed so far:
+
+- interactive `cost-basis` no longer renders its own per-issue detail/repair UI
+- `cost-basis` now shows narrow scoped issue notices and routes detailed review
+  back to `issues cost-basis ...`
 
 Acceptance criteria:
 

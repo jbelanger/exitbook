@@ -5,8 +5,8 @@ import {
   formatUnresolvedAssetReviewIssueDetails,
   formatUnresolvedAssetReviewIssueSummary,
 } from './tax-package-readiness-messages.js';
-import type { TaxPackageValidatedScope } from './tax-package-scope-validator.js';
 import type {
+  TaxPackageConfigScope,
   TaxPackageIssue,
   TaxPackageMissingPriceDetail,
   TaxPackageReadinessResult,
@@ -16,7 +16,7 @@ import type {
 } from './tax-package-types.js';
 
 export function evaluateTaxPackageReadiness(
-  input: TaxPackageReviewGateInput<TaxPackageValidatedScope>
+  input: TaxPackageReviewGateInput<{ config: TaxPackageConfigScope }>
 ): TaxPackageReadinessResult {
   const issues: TaxPackageIssue[] = [];
   const missingPricesCount = input.workflowResult.executionMeta.missingPricesCount;
@@ -146,7 +146,7 @@ export function evaluateTaxPackageReadiness(
 }
 
 function requireMissingPriceDetails(
-  input: TaxPackageReviewGateInput<TaxPackageValidatedScope>,
+  input: TaxPackageReviewGateInput<{ config: TaxPackageConfigScope }>,
   missingPricesCount: number
 ): readonly TaxPackageMissingPriceDetail[] {
   const missingPriceDetails = input.metadata?.missingPriceDetails ?? [];

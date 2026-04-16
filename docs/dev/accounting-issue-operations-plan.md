@@ -435,7 +435,7 @@ Limitations:
 Current state:
 
 - interactive and JSON `cost-basis` do not expose full tax-package issue rows
-- they down-project into `CostBasisReadinessWarning` in [cost-basis-readiness.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/cost-basis/cost-basis-readiness.ts)
+- they now narrow into `CostBasisIssueNotice` in [cost-basis-issue-notices.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/cost-basis/cost-basis-issue-notices.ts)
 - current warning shape is much smaller:
   - `code`
   - `severity`
@@ -552,7 +552,7 @@ The new accounting-issue surface should start by reusing those ideas, not replac
 
 The interactive `cost-basis` surface throws away detail that the tax-package path already knows.
 
-That means a future `issues list` should not be based on current `CostBasisReadinessWarning` as the canonical model.
+That means a future `issues list` should not be based on current `CostBasisIssueNotice` as the canonical model.
 
 It is useful as a presentation shape, but too lossy as a domain issue contract.
 
@@ -869,7 +869,7 @@ The current repo already shows one recurring problem:
 
 Examples:
 
-- interactive `cost-basis` collapses readiness into `CostBasisReadinessWarning`
+- interactive `cost-basis` now narrows scoped issue review into `CostBasisIssueNotice`
 - tax-package export emits a single `UNRESOLVED_ASSET_REVIEW` issue row even though the actual actionable units are assets
 
 If we build an issue list, it should not inherit that coarseness by default.

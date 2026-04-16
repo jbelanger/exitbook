@@ -1,7 +1,7 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { CostBasisReadinessWarning } from '../../cost-basis-readiness.js';
+import type { CostBasisIssueNotice } from '../../cost-basis-issue-notices.js';
 import { CostBasisApp } from '../cost-basis-view-components.jsx';
 import { createCostBasisAssetState, type AssetCostBasisItem } from '../cost-basis-view-state.js';
 
@@ -9,7 +9,7 @@ const mockOnQuit = () => {
   /* empty */
 };
 
-function createAssetState(options?: { readinessWarnings?: readonly CostBasisReadinessWarning[] | undefined }) {
+function createAssetState(options?: { issueNotices?: readonly CostBasisIssueNotice[] | undefined }) {
   const asset: AssetCostBasisItem = {
     asset: 'BTC',
     disposalCount: 1,
@@ -79,7 +79,7 @@ function createAssetState(options?: { readinessWarnings?: readonly CostBasisRead
       longTermGainLoss: '0.00',
     },
     {
-      readinessWarnings: options?.readinessWarnings ?? [],
+      issueNotices: options?.issueNotices ?? [],
       totalDisposals: 1,
       totalLots: 1,
     }
@@ -87,22 +87,21 @@ function createAssetState(options?: { readinessWarnings?: readonly CostBasisRead
 }
 
 describe('CostBasisApp', () => {
-  it('renders readiness warnings above the asset list', () => {
+  it('renders scoped issue notices above the asset list', () => {
     const state = createAssetState({
-      readinessWarnings: [
+      issueNotices: [
         {
-          code: 'UNRESOLVED_ASSET_REVIEW',
           count: 2,
-          message: '2 assets still require review before filing export.',
+          kind: 'blocking_issues',
+          message: '2 blocking issues in this scope. Review them in issues.',
+          reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
           severity: 'blocked',
         },
         {
-          code: 'INCOMPLETE_TRANSFER_LINKING',
-          commandHint: 'pnpm run dev links create e96a8b7baa b7c08af224 --asset LINK',
           count: 1,
-          detail: 'Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).',
-          message: '1 transfer requires manual review because a confirmed source/target link is missing.',
-          recommendedAction: 'Create the missing confirmed link directly, then rerun cost basis.',
+          kind: 'warning_issues',
+          message: '1 warning issue in this scope. Review it in issues.',
+          reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
           severity: 'warning',
         },
       ],
@@ -120,11 +119,9 @@ describe('CostBasisApp', () => {
       return;
     }
 
-    expect(frame).toContain('2 assets still require review before filing export.');
-    expect(frame).toContain('1 transfer requires manual review because a confirmed source/target link is missing.');
-    expect(frame).toContain('Why: Example: LINK on 2024-06-08 (kraken -> ethereum, tx 41 -> 42).');
-    expect(frame).toContain('Next: Create the missing confirmed link directly, then rerun cost basis.');
-    expect(frame).toContain('Command: pnpm run dev links create e96a8b7baa');
-    expect(frame.indexOf('2 assets still require review before filing export.')).toBeLessThan(frame.indexOf('BTC'));
+    expect(frame).toContain('2 blocking issues in this scope. Review them in issues.');
+    expect(frame).toContain('1 warning issue in this scope. Review it in issues.');
+    expect(frame).toContain('Review: exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo');
+    expect(frame.indexOf('2 blocking issues in this scope. Review them in issues.')).toBeLessThan(frame.indexOf('BTC'));
   });
 });
