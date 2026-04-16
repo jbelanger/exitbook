@@ -20,5 +20,9 @@ export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';
 export type { ReadPortfolioAssetReviewSummaries, ReadPortfolioDependencyWatermark } from './portfolio.js';
+export type {
+  IProfileAccountingIssueSourceReader,
+  ProfileAccountingIssueSourceData,
+} from './profile-issue-source-reader.js';
 export type { IPricingPersistence, PricingContext } from './pricing-persistence.js';
 export type { IPriceCoverageData } from './transaction-price-coverage.js';

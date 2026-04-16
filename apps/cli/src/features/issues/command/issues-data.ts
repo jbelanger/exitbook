@@ -1,12 +1,12 @@
 import { type ValidatedCostBasisConfig } from '@exitbook/accounting/cost-basis';
 import {
-  buildProfileAccountingIssueScopeSnapshot,
+  materializeProfileAccountingIssueScopeSnapshot,
   materializeCostBasisAccountingIssueScopeSnapshot,
   type AccountingIssueDetailItem,
   type AccountingIssueScopeSummary,
   type AccountingIssueSummaryItem,
 } from '@exitbook/accounting/issues';
-import { buildCostBasisPorts, loadProfileAccountingIssueSourceData } from '@exitbook/data/accounting';
+import { buildCostBasisPorts, buildProfileAccountingIssueSourceReader } from '@exitbook/data/accounting';
 import { buildProfileProjectionScopeKey } from '@exitbook/data/projections';
 import { err, resultDoAsync, type Result } from '@exitbook/foundation';
 
@@ -167,21 +167,19 @@ async function materializeCurrentProfileIssues(
     yield* await ensureProfileIssueInputsReady(runtime, format, profile.id, profile.profileKey);
 
     const scopeKey = buildProfileProjectionScopeKey(profile.id);
-    const sourceData = yield* toCliResult(
-      await loadProfileAccountingIssueSourceData(db, runtime.dataDir, {
+    const sourceReader = buildProfileAccountingIssueSourceReader(db, runtime.dataDir, {
+      profileId: profile.id,
+      profileKey: profile.profileKey,
+    });
+    const snapshot = yield* toCliResult(
+      await materializeProfileAccountingIssueScopeSnapshot({
         profileId: profile.id,
-        profileKey: profile.profileKey,
+        scopeKey,
+        sourceReader,
+        title: profile.displayName,
       }),
       ExitCodes.GENERAL_ERROR
     );
-
-    const snapshot = buildProfileAccountingIssueScopeSnapshot({
-      profileId: profile.id,
-      scopeKey,
-      title: profile.displayName,
-      assetReviewSummaries: sourceData.assetReviewSummaries,
-      linkGapIssues: sourceData.linkGapIssues,
-    });
 
     yield* toCliResult(await db.accountingIssues.reconcileScope(snapshot), ExitCodes.GENERAL_ERROR);
 

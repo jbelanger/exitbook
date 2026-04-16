@@ -45,6 +45,8 @@ export type {
 } from './issues/issue-model.js';
 export { buildProfileAccountingIssueScopeSnapshot } from './issues/profile-issues.js';
 export type { BuildProfileAccountingIssueScopeSnapshotInput } from './issues/profile-issues.js';
+export { materializeProfileAccountingIssueScopeSnapshot } from './issues/profile-issue-materializer.js';
+export type { MaterializeProfileAccountingIssueScopeSnapshotInput } from './issues/profile-issue-materializer.js';
 export {
   buildCostBasisAccountingIssueScopeKey,
   buildCostBasisAccountingIssueScopeSnapshot,
