@@ -1457,7 +1457,6 @@ reintroducing scoped transaction math inside the consumer.
 
 4. The remaining Phase 0 pressure is now narrower.
    The main remaining old-shape seams are:
-   - scoped compatibility helpers like `validateScopedTransferLinks(...)`
    - proposal/confirmability paths that still read scoped transactions
    - the public/spec naming debt around `FeeOnlyInternalCarryover`
 
@@ -1474,7 +1473,8 @@ reintroducing scoped transaction math inside the consumer.
 
 ### Open Questions From Pass 14
 
-1. Which remaining scoped compatibility seam should migrate next:
+1. Which remaining scoped compatibility seam should migrate next after the
+   standard runtime path:
    - transfer proposal confirmability
    - accounting exclusions
    - another smaller transaction-shaped helper
@@ -1538,7 +1538,6 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 
 ### Open Questions From Pass 15
 
-1. When should `validateScopedTransferLinks(...)` be deleted entirely?
-2. When should `buildCostBasisScopedTransactions(...)` stop being the internal
+1. When should `buildCostBasisScopedTransactions(...)` stop being the internal
    implementation substrate beneath `buildAccountingLayerFromTransactions(...)`?
-3. What is the cleanest remaining rename path for `FeeOnlyInternalCarryover`?
+2. What is the cleanest remaining rename path for `FeeOnlyInternalCarryover`?

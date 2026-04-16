@@ -10,8 +10,8 @@ import {
   createFeeMovement,
 } from '../../../../__tests__/test-utils.js';
 import type { ResolvedInternalTransferCarryover } from '../../../../accounting-layer/accounting-layer-resolution.js';
+import type { ValidatedTransferLink } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferLink } from '../../matching/validated-scoped-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import {
   type InternalTransferCarryoverTargetBinding,
@@ -55,7 +55,7 @@ describe('transfer source accounting regressions', () => {
     expect(scopedTransaction).toBeDefined();
     expect(outflow).toBeDefined();
 
-    const validatedLink: ValidatedScopedTransferLink = {
+    const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
       link: {
         id: 501,
@@ -137,7 +137,7 @@ describe('transfer source accounting regressions', () => {
     expect(scopedTransaction).toBeDefined();
     expect(outflow).toBeDefined();
 
-    const validatedLink: ValidatedScopedTransferLink = {
+    const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
       link: {
         id: 502,
@@ -219,7 +219,7 @@ describe('transfer source accounting regressions', () => {
     expect(scopedTransaction).toBeDefined();
     expect(outflow).toBeDefined();
 
-    const validatedLink: ValidatedScopedTransferLink = {
+    const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
       link: {
         id: 503,
@@ -299,7 +299,7 @@ describe('transfer source accounting regressions', () => {
     expect(scopedTransaction).toBeDefined();
     expect(outflow).toBeDefined();
 
-    const validatedLink: ValidatedScopedTransferLink = {
+    const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
       link: {
         id: 504,

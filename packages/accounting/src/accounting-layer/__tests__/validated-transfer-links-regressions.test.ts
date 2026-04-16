@@ -9,15 +9,16 @@ import {
   createPriceAtTxTime,
   createTransactionFromMovements,
   seedTxFingerprint,
-} from '../../../../__tests__/test-utils.js';
-import { buildMatchingConfig } from '../../../../linking/matching/matching-config.js';
-import { SameHashExternalOutflowStrategy } from '../../../../linking/strategies/same-hash-external-outflow-strategy.js';
+} from '../../__tests__/test-utils.js';
+import { buildMatchingConfig } from '../../linking/matching/matching-config.js';
+import { SameHashExternalOutflowStrategy } from '../../linking/strategies/same-hash-external-outflow-strategy.js';
 import {
   createExplainedMultiSourceAdaHashPartialTransactions,
   createLinkableMovementsFromTransactions,
-} from '../../../../linking/strategies/test-utils.js';
-import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
+} from '../../linking/strategies/test-utils.js';
+import type { AccountingTransactionView } from '../accounting-layer-types.js';
+import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
+import { validateTransferLinks } from '../validated-transfer-links.js';
 
 function reseedTxFingerprint(transaction: Transaction, identityReference: string): void {
   transaction.txFingerprint = seedTxFingerprint(
@@ -28,10 +29,21 @@ function reseedTxFingerprint(transaction: Transaction, identityReference: string
   );
 }
 
-describe('validateScopedTransferLinks', () => {
-  const logger = getLogger('validated-scoped-transfer-links.test');
+function requireTransactionView(
+  accountingTransactionViews: readonly AccountingTransactionView[],
+  transactionId: number
+): AccountingTransactionView {
+  const transactionView = accountingTransactionViews.find(
+    (candidate) => candidate.processedTransaction.id === transactionId
+  );
+  expect(transactionView).toBeDefined();
+  return transactionView!;
+}
 
-  it('fails closed when a confirmed link crosses the scoped transaction boundary', () => {
+describe('validateTransferLinks regressions', () => {
+  const logger = getLogger('validated-transfer-links-regressions.test');
+
+  it('fails closed when a confirmed link crosses the accounting transaction boundary', () => {
     const sourceTx = createTransactionFromMovements(
       1,
       '2024-02-01T12:00:00Z',
@@ -67,22 +79,17 @@ describe('validateScopedTransferLinks', () => {
       { category: 'transfer', platformKey: 'wallet', platformKind: 'blockchain', type: 'deposit' }
     );
 
-    const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
-    const scopedTransactions = assertOk(scopedResult).transactions;
-    const scopedSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 1);
-    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 2);
+    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([sourceTx, targetTx], logger));
+    const sourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 1);
+    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 2);
 
-    expect(scopedSourceTx).toBeDefined();
-    expect(scopedTargetTx).toBeDefined();
-
-    const sourceMovement = scopedSourceTx!.movements.outflows[0];
-    const targetMovement = scopedTargetTx!.movements.inflows[0];
-
+    const sourceMovement = sourceTransactionView.outflows[0];
+    const targetMovement = targetTransactionView.inflows[0];
     expect(sourceMovement).toBeDefined();
     expect(targetMovement).toBeDefined();
 
-    const result = validateScopedTransferLinks(
-      [scopedSourceTx!],
+    const result = validateTransferLinks(
+      [sourceTransactionView],
       [
         {
           id: 101,
@@ -183,25 +190,20 @@ describe('validateScopedTransferLinks', () => {
     targetTx.accountId = 20;
     reseedTxFingerprint(targetTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
 
-    const scopedResult = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, targetTx], logger);
-    const scopedTransactions = assertOk(scopedResult).transactions;
-    const scopedSecondSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 11);
-    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 12);
+    const accountingLayer = assertOk(
+      buildAccountingLayerFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
+    );
+    const firstSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 10);
+    const secondSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 11);
+    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 12);
 
-    expect(scopedSecondSourceTx).toBeDefined();
-    expect(scopedTargetTx).toBeDefined();
-
-    const sourceMovement = scopedSecondSourceTx!.movements.outflows[0];
-    const targetMovement = scopedTargetTx!.movements.inflows[0];
-
+    const sourceMovement = secondSourceTransactionView.outflows[0];
+    const targetMovement = targetTransactionView.inflows[0];
     expect(sourceMovement).toBeDefined();
     expect(targetMovement).toBeDefined();
-    expect(sourceMovement!.movementFingerprint).not.toBe(
-      scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 10)!.movements.outflows[0]!
-        .movementFingerprint
-    );
+    expect(sourceMovement!.movementFingerprint).not.toBe(firstSourceTransactionView.outflows[0]!.movementFingerprint);
 
-    const result = validateScopedTransferLinks(scopedTransactions, [
+    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
       {
         id: 201,
         sourceTransactionId: 11,
@@ -232,7 +234,7 @@ describe('validateScopedTransferLinks', () => {
     expect(validated.links[0]?.link.sourceTransactionId).toBe(11);
   });
 
-  it('accepts confirmed same-hash external partial links after scoped fee deduplication', () => {
+  it('accepts confirmed same-hash external partial links after same-hash fee deduplication', () => {
     const hash = '0xsamehash-external';
 
     const firstSourceTx = createTransactionFromMovements(
@@ -304,23 +306,21 @@ describe('validateScopedTransferLinks', () => {
     targetTx.accountId = 103;
     reseedTxFingerprint(targetTx, `deposit-${hash}`);
 
-    const scopedResult = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, targetTx], logger);
-    const scopedTransactions = assertOk(scopedResult).transactions;
-    const scopedFirstSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 20);
-    const scopedSecondSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 21);
-    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 22);
+    const accountingLayer = assertOk(
+      buildAccountingLayerFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
+    );
+    const firstSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 20);
+    const secondSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 21);
+    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 22);
 
-    expect(scopedFirstSourceTx).toBeDefined();
-    expect(scopedSecondSourceTx).toBeDefined();
-    expect(scopedTargetTx).toBeDefined();
-    expect(scopedFirstSourceTx!.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.5');
-    expect(scopedSecondSourceTx!.movements.outflows[0]!.netAmount!.toFixed()).toBe('0.5');
+    expect(firstSourceTransactionView.outflows[0]!.netQuantity!.toFixed()).toBe('0.5');
+    expect(secondSourceTransactionView.outflows[0]!.netQuantity!.toFixed()).toBe('0.5');
 
-    const firstSourceMovement = scopedFirstSourceTx!.movements.outflows[0]!;
-    const secondSourceMovement = scopedSecondSourceTx!.movements.outflows[0]!;
-    const targetMovement = scopedTargetTx!.movements.inflows[0]!;
+    const firstSourceMovement = firstSourceTransactionView.outflows[0]!;
+    const secondSourceMovement = secondSourceTransactionView.outflows[0]!;
+    const targetMovement = targetTransactionView.inflows[0]!;
 
-    const result = validateScopedTransferLinks(scopedTransactions, [
+    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
       {
         id: 301,
         sourceTransactionId: 20,
@@ -442,9 +442,9 @@ describe('validateScopedTransferLinks', () => {
       id: 9000 + index,
     }));
 
-    const scopedTransactions = assertOk(buildCostBasisScopedTransactions(transactions, logger)).transactions;
+    const accountingLayer = assertOk(buildAccountingLayerFromTransactions(transactions, logger));
 
-    const result = validateScopedTransferLinks(scopedTransactions, links);
+    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, links);
     const validated = assertOk(result);
 
     expect(validated.links).toHaveLength(3);
@@ -500,18 +500,14 @@ describe('validateScopedTransferLinks', () => {
     };
     reseedTxFingerprint(targetTx, '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b');
 
-    const scopedResult = buildCostBasisScopedTransactions([sourceTx, targetTx], logger);
-    const scopedTransactions = assertOk(scopedResult).transactions;
-    const scopedSourceTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 50);
-    const scopedTargetTx = scopedTransactions.find((scopedTransaction) => scopedTransaction.tx.id === 51);
+    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([sourceTx, targetTx], logger));
+    const sourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 50);
+    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 51);
 
-    expect(scopedSourceTx).toBeDefined();
-    expect(scopedTargetTx).toBeDefined();
+    const sourceMovement = sourceTransactionView.outflows[0]!;
+    const targetMovement = targetTransactionView.inflows[0]!;
 
-    const sourceMovement = scopedSourceTx!.movements.outflows[0]!;
-    const targetMovement = scopedTargetTx!.movements.inflows[0]!;
-
-    const result = validateScopedTransferLinks(scopedTransactions, [
+    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
       {
         id: 401,
         sourceTransactionId: 50,

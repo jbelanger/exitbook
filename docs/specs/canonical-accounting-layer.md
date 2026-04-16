@@ -341,8 +341,6 @@ That means:
 Current migration status:
 
 - canonical transfer-link validation now reads `accountingTransactionViews`
-- `validateScopedTransferLinks(...)` remains as a compatibility adapter for
-  older scoped consumers and tests
 - transfer-proposal confirmability now also reads `accountingTransactionViews`
 - linking strategy execution now builds the canonical accounting layer directly
   before confirmability filtering

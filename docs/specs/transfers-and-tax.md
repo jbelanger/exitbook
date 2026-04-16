@@ -46,7 +46,7 @@ Cost basis does not consume raw processed transactions plus arbitrary links anym
 1. `Transaction[]`
 2. `AccountingScopedBuildResult`
 3. confirmed persisted external links
-4. `ValidatedScopedTransferSet`
+4. `ValidatedTransferSet`
 
 The scoped build result carries the authoritative accounting view:
 
@@ -204,7 +204,7 @@ That means:
 graph TD
     A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
-    C --> D["validateScopedTransferLinks"]
+    C --> D["validateTransferLinks"]
     C --> E["Scoped price validation"]
     D --> F["LotMatcher"]
     E --> F

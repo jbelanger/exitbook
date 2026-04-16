@@ -106,12 +106,12 @@ interface AccountingScopedBuildResult {
 
 This is the handoff contract for scoped price checks, confirmed-link validation, and lot matching.
 
-### ValidatedScopedTransferSet
+### ValidatedTransferSet
 
 Confirmed external links after scoped validation:
 
 ```ts
-interface ValidatedScopedTransferLink {
+interface ValidatedTransferLink {
   isPartialMatch: boolean;
   link: TransactionLink;
   sourceAssetId: string;
@@ -122,10 +122,10 @@ interface ValidatedScopedTransferLink {
   targetMovementFingerprint: string;
 }
 
-interface ValidatedScopedTransferSet {
-  bySourceMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
-  byTargetMovementFingerprint: Map<string, ValidatedScopedTransferLink[]>;
-  links: ValidatedScopedTransferLink[];
+interface ValidatedTransferSet {
+  bySourceMovementFingerprint: Map<string, ValidatedTransferLink[]>;
+  byTargetMovementFingerprint: Map<string, ValidatedTransferLink[]>;
+  links: ValidatedTransferLink[];
 }
 ```
 
@@ -229,9 +229,10 @@ Consequences:
 
 `validateScopedTransactionPrices(...)` returns the raw transactions whose scoped forms are still price-complete. In soft-exclusion flows, the pipeline must rebuild the scoped result from that filtered raw subset so same-hash reductions and carryovers are recomputed against the surviving transactions.
 
-### Confirmed Scoped Link Validation
+### Confirmed Link Validation
 
-`validateScopedTransferLinks(...)` validates confirmed external links against `AccountingScopedTransaction[]`.
+`validateTransferLinks(...)` validates confirmed external links against the
+canonical `AccountingTransactionView[]`.
 
 Accepted links:
 
@@ -257,7 +258,7 @@ The output is indexed by source and target movement fingerprint so the matcher d
 The lot matcher consumes:
 
 1. `AccountingScopedBuildResult`
-2. `ValidatedScopedTransferSet`
+2. `ValidatedTransferSet`
 3. jurisdiction rules
 
 At this boundary:
@@ -292,7 +293,7 @@ graph TD
     A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateScopedTransactionPrices / checkTransactionPriceCoverage"]
-    C --> E["validateScopedTransferLinks"]
+    C --> E["validateTransferLinks"]
     D --> F["LotMatcher"]
     E --> F
     F --> G["Lots / disposals / transfers"]

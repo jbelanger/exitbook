@@ -295,7 +295,7 @@ Additional rules:
 Canada consumes:
 
 1. `AccountingScopedTransaction[]`
-2. `ValidatedScopedTransferSet`
+2. `ValidatedTransferSet`
 3. `FeeOnlyInternalCarryover[]`
 
 Movement projection rules:

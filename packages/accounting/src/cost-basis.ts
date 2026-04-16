@@ -49,7 +49,6 @@ export {
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
 export { buildCostBasisScopedTransactions } from './cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
-export { validateScopedTransferLinks } from './cost-basis/standard/matching/validated-scoped-transfer-links.js';
 export {
   buildAccountingExclusionFingerprint,
   buildCostBasisScopeKey,

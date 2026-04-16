@@ -77,7 +77,7 @@ Targets never scan all transfers. They resolve directly through the binding key 
 graph TD
     A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
-    C --> D["validateScopedTransferLinks"]
+    C --> D["validateTransferLinks"]
     C --> E["Prepare fee-only carryovers"]
     D --> F["Build dependency edges"]
     E --> F

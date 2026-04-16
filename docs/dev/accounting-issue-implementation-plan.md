@@ -156,8 +156,6 @@ Phase 0 investigation log:
     transaction-shaped consumers
   - canonical transfer-link validation now runs on
     `accountingTransactionViews`
-  - `validateScopedTransferLinks(...)` now exists only as a compatibility
-    adapter for older scoped consumers and tests
   - canonical internal-transfer carryover resolution now exists:
     - synthetic carryover source entries resolve back to processed-transaction
       movement refs
@@ -184,8 +182,7 @@ Phase 0 investigation log:
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:
     - remaining scoped compatibility seams such as
-      `validateScopedTransferLinks(...)`
-      and `buildCostBasisScopedTransactions(...)`
+      `buildCostBasisScopedTransactions(...)`
     - any remaining public/spec naming debt around
       `FeeOnlyInternalCarryover`
 

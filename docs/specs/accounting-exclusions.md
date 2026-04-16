@@ -180,7 +180,7 @@ graph TD
     A["Loaded transactions"] --> B["buildCostBasisScopedTransactions"]
     B --> C["applyAccountingExclusionPolicy"]
     C --> D["validateScopedTransactionPrices"]
-    D --> E["validateScopedTransferLinks / lot matching"]
+    D --> E["validateTransferLinks / lot matching"]
 ```
 
 Rules:
@@ -197,7 +197,7 @@ Canada ACB does not bypass exclusions. It follows:
 ```text
 buildCostBasisScopedTransactions()
   -> applyAccountingExclusionPolicy()
-  -> validateScopedTransferLinks()
+  -> validateTransferLinks()
   -> buildCanadaTaxInputContext()
   -> ACB engine
 ```
