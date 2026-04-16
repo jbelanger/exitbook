@@ -1,6 +1,6 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 
-import type { AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
+import type { AccountingExclusionPolicy } from '../../accounting-model/accounting-exclusion-policy.js';
 import type {
   CanadaCostBasisCalculation,
   CanadaDisplayCostBasisReport,

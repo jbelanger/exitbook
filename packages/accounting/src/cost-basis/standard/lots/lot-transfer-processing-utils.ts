@@ -1,7 +1,7 @@
 import { err, ok, parseDecimal, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { ValidatedTransferLink } from '../../../accounting-layer/validated-transfer-links.js';
+import type { ValidatedTransferLink } from '../../../accounting-model/validated-transfer-links.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 

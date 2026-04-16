@@ -4,25 +4,25 @@ import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 
 import type {
-  AccountingLayerBuildResult,
+  AccountingModelBuildResult,
   AccountingTransactionView,
   ResolvedInternalTransferCarryover,
-} from '../../../../../accounting-layer.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+} from '../../../../../accounting-model.js';
+import { buildAccountingModelFromScopedBuild } from '../../../../../accounting-model/build-accounting-model-from-transactions.js';
 import type {
   AccountingScopedTransaction,
   InternalTransferCarryoverDraft,
   ScopedFeeMovement,
-} from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
+} from '../../../../../accounting-model/build-accounting-scoped-transactions.js';
 import type {
   ValidatedTransferLink,
   ValidatedTransferSet,
-} from '../../../../../accounting-layer/validated-transfer-links.js';
+} from '../../../../../accounting-model/validated-transfer-links.js';
 import type { UsdConversionRateProviderLike } from '../../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import {
-  buildCanadaAccountingLayerContext,
-  type CanadaAccountingLayerContext,
-} from '../canada-accounting-layer-context.js';
+  buildCanadaAccountingModelContext,
+  type CanadaAccountingModelContext,
+} from '../canada-accounting-model-context.js';
 import { applyCarryoverSemantics as applyCarryoverSemanticsImpl } from '../canada-tax-event-carryover.js';
 import {
   applyGenericFeeAdjustments as applyGenericFeeAdjustmentsImpl,
@@ -111,11 +111,11 @@ export function makeTransferSet(links: ValidatedTransferLink[]): ValidatedTransf
   return { links, bySourceMovementFingerprint: bySource, byTargetMovementFingerprint: byTarget };
 }
 
-function buildStageAccountingLayer(params: {
+function buildStageAccountingModel(params: {
   scopedTransactions: AccountingScopedTransaction[];
-}): AccountingLayerBuildResult {
+}): AccountingModelBuildResult {
   return assertOk(
-    buildAccountingLayerFromScopedBuild({
+    buildAccountingModelFromScopedBuild({
       inputTransactions: params.scopedTransactions.map((scopedTransaction) => scopedTransaction.tx),
       transactions: params.scopedTransactions,
       internalTransferCarryoverDrafts: [],
@@ -126,15 +126,15 @@ function buildStageAccountingLayer(params: {
 function buildStageCanadaAccountingContext(params: {
   internalTransferCarryoverDrafts?: InternalTransferCarryoverDraft[] | undefined;
   scopedTransactions: AccountingScopedTransaction[];
-}): Result<CanadaAccountingLayerContext, Error> {
-  const accountingLayer = buildStageAccountingLayer({ scopedTransactions: params.scopedTransactions });
-  const baseContextResult = buildCanadaAccountingLayerContext(accountingLayer);
+}): Result<CanadaAccountingModelContext, Error> {
+  const accountingModel = buildStageAccountingModel({ scopedTransactions: params.scopedTransactions });
+  const baseContextResult = buildCanadaAccountingModelContext(accountingModel);
   if (baseContextResult.isErr()) {
     return err(baseContextResult.error);
   }
 
   const resolvedCarryoversResult = buildStageResolvedCarryovers(
-    accountingLayer,
+    accountingModel,
     params.scopedTransactions,
     params.internalTransferCarryoverDrafts ?? []
   );
@@ -154,9 +154,9 @@ export async function projectCanadaMovementEvents(params: {
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
-  const accountingLayer = buildStageAccountingLayer({ scopedTransactions: params.scopedTransactions });
+  const accountingModel = buildStageAccountingModel({ scopedTransactions: params.scopedTransactions });
   return projectCanadaMovementEventsImpl({
-    accountingTransactionViews: accountingLayer.accountingTransactionViews,
+    accountingTransactionViews: accountingModel.accountingTransactionViews,
     identityConfig: params.identityConfig,
     usdConversionRateProvider: params.usdConversionRateProvider,
     validatedTransfers: params.validatedTransfers,
@@ -256,7 +256,7 @@ export async function applyGenericFeeAdjustments(params: {
 }
 
 function buildStageResolvedCarryovers(
-  accountingLayer: AccountingLayerBuildResult,
+  accountingModel: AccountingModelBuildResult,
   scopedTransactions: AccountingScopedTransaction[],
   internalTransferCarryoverDrafts: readonly InternalTransferCarryoverDraft[]
 ): Result<ResolvedInternalTransferCarryover[], Error> {
@@ -264,7 +264,7 @@ function buildStageResolvedCarryovers(
     scopedTransactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction] as const)
   );
   const transactionViewsById = new Map(
-    accountingLayer.accountingTransactionViews.map((transactionView) => [
+    accountingModel.accountingTransactionViews.map((transactionView) => [
       transactionView.processedTransaction.id,
       transactionView,
     ])

@@ -2,7 +2,7 @@ import type { NewTransactionLink } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
-import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
+import type { TransferValidationTransactionView } from '../../accounting-model/validated-transfer-links.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
 import { filterConfirmableTransferProposals } from '../shared/transfer-proposal-confirmability.js';
 import type { MatchingConfig } from '../shared/types.js';

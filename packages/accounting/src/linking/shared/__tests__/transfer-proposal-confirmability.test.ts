@@ -1,7 +1,7 @@
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingModelFromTransactions } from '../../../accounting-model/build-accounting-model-from-transactions.js';
 import { createTransactionLink } from '../../matching/link-construction.js';
 import { allocateMatches } from '../../matching/match-allocation.js';
 import { buildMatchingConfig } from '../../matching/matching-config.js';
@@ -25,7 +25,7 @@ const noopLogger = {
 };
 
 describe('filterConfirmableTransferProposals', () => {
-  it('drops proposals that would fail accounting-layer transfer confirmation', () => {
+  it('drops proposals that would fail accounting-model transfer confirmation', () => {
     const { sources, targets } = createImpossibleMultiSourceAdaHashPartialScenario();
     const allMatches = sources.flatMap((source) => scoreAndFilterMatches(source, targets, buildMatchingConfig()));
     const { suggested, confirmed } = allocateMatches(allMatches, buildMatchingConfig());
@@ -41,12 +41,12 @@ describe('filterConfirmableTransferProposals', () => {
       )
     );
 
-    const accountingLayer = assertOk(
-      buildAccountingLayerFromTransactions(createImpossibleMultiSourceAdaHashPartialTransactions(), noopLogger)
+    const accountingModel = assertOk(
+      buildAccountingModelFromTransactions(createImpossibleMultiSourceAdaHashPartialTransactions(), noopLogger)
     );
 
     const filteredLinks = filterConfirmableTransferProposals(
-      accountingLayer.accountingTransactionViews,
+      accountingModel.accountingTransactionViews,
       [],
       candidateLinks
     );
@@ -65,10 +65,10 @@ describe('filterConfirmableTransferProposals', () => {
     );
     const candidateLinks = assertOk(strategyResult).links;
 
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions(transactions, noopLogger));
+    const accountingModel = assertOk(buildAccountingModelFromTransactions(transactions, noopLogger));
 
     const filteredLinks = filterConfirmableTransferProposals(
-      accountingLayer.accountingTransactionViews,
+      accountingModel.accountingTransactionViews,
       [],
       candidateLinks
     );

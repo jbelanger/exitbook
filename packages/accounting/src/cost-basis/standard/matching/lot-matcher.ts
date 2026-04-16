@@ -8,12 +8,15 @@ import {
   resolveInternalTransferCarryovers,
   type ResolvedInternalTransferCarryover,
   type ResolvedInternalTransferCarryoverTarget,
-} from '../../../accounting-layer/accounting-layer-resolution.js';
+} from '../../../accounting-model/accounting-model-resolution.js';
 import type {
-  AccountingLayerBuildResult,
+  AccountingModelBuildResult,
   AccountingTransactionView,
-} from '../../../accounting-layer/accounting-layer-types.js';
-import type { ValidatedTransferLink, ValidatedTransferSet } from '../../../accounting-layer/validated-transfer-links.js';
+} from '../../../accounting-model/accounting-model-types.js';
+import type {
+  ValidatedTransferLink,
+  ValidatedTransferSet,
+} from '../../../accounting-model/validated-transfer-links.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import {
   processInternalTransferCarryoverSource,
@@ -120,18 +123,18 @@ export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
   async match(
-    accountingLayer: AccountingLayerBuildResult,
+    accountingModel: AccountingModelBuildResult,
     validatedExternalLinks: ValidatedTransferSet,
     config: LotMatcherConfig
   ): Promise<Result<LotMatchResult, Error>> {
     return resultDoAsync(async function* (self: LotMatcher) {
-      const resolvedCarryovers = yield* resolveInternalTransferCarryovers(accountingLayer);
+      const resolvedCarryovers = yield* resolveInternalTransferCarryovers(accountingModel);
       if ((validatedExternalLinks.links.length > 0 || resolvedCarryovers.length > 0) && !config.jurisdiction) {
         return yield* err(new Error('Jurisdiction configuration is required for transfer and carryover handling'));
       }
 
       const transactionViewsById = new Map(
-        accountingLayer.accountingTransactionViews.map((transactionView) => [
+        accountingModel.accountingTransactionViews.map((transactionView) => [
           transactionView.processedTransaction.id,
           transactionView,
         ])
@@ -153,7 +156,7 @@ export class LotMatcher {
       ];
 
       const sortedTransactions = yield* sortTransactionsByDependency(
-        accountingLayer.accountingTransactionViews.map((transactionView) => transactionView.processedTransaction),
+        accountingModel.accountingTransactionViews.map((transactionView) => transactionView.processedTransaction),
         dependencyEdges
       );
 
@@ -478,9 +481,7 @@ export class LotMatcher {
     }, this);
   }
 
-  private prepareCarryovers(
-    resolvedCarryovers: readonly ResolvedInternalTransferCarryover[]
-  ): Result<
+  private prepareCarryovers(resolvedCarryovers: readonly ResolvedInternalTransferCarryover[]): Result<
     {
       carryoversBySourceTransactionId: Map<number, PreparedInternalTransferCarryover[]>;
       carryoversByTargetMovementFingerprint: Map<string, PreparedInternalTransferCarryoverTarget[]>;
@@ -499,7 +500,8 @@ export class LotMatcher {
         );
         targetBindings.push({ bindingKey, target });
 
-        const existingTargets = carryoversByTargetMovementFingerprint.get(target.target.movement.movementFingerprint) ?? [];
+        const existingTargets =
+          carryoversByTargetMovementFingerprint.get(target.target.movement.movementFingerprint) ?? [];
         existingTargets.push({
           bindingKey,
           carryover,

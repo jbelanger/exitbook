@@ -8,12 +8,12 @@ import { applyAccountingExclusionPolicy, type AccountingExclusionPolicy } from '
 import type {
   AccountingAssetEntryView,
   AccountingFeeEntryView,
-  AccountingLayerBuildResult,
+  AccountingModelBuildResult,
   AccountingDerivationDependency,
   AccountingTransactionView,
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
-} from './accounting-layer-types.js';
+} from './accounting-model-types.js';
 import {
   buildAccountingScopedTransactions,
   type AccountingScopedBuildResult,
@@ -21,27 +21,27 @@ import {
 } from './build-accounting-scoped-transactions.js';
 
 /**
- * Build the canonical accounting-layer read model from processed transactions.
+ * Build the canonical accounting model from processed transactions.
  *
  * The first implementation intentionally reuses the existing cost-basis
  * same-hash reductions because they are the current trusted deterministic
  * accounting reconstruction for mixed UTXO transfer quantities.
  */
-export function buildAccountingLayerFromTransactions(
+export function buildAccountingModelFromTransactions(
   transactions: Transaction[],
   logger: Logger,
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<AccountingLayerBuildResult, Error> {
+): Result<AccountingModelBuildResult, Error> {
   return resultDo(function* () {
     const scopedBuildResult = yield* buildAccountingScopedTransactions(transactions, logger);
     const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, accountingExclusionPolicy);
-    return yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+    return yield* buildAccountingModelFromScopedBuild(exclusionApplied.scopedBuildResult);
   });
 }
 
-export function buildAccountingLayerFromScopedBuild(
+export function buildAccountingModelFromScopedBuild(
   scopedBuildResult: AccountingScopedBuildResult
-): Result<AccountingLayerBuildResult, Error> {
+): Result<AccountingModelBuildResult, Error> {
   const accountingTransactionViews: AccountingTransactionView[] = [];
   const transactionById = new Map<number, Transaction>(
     scopedBuildResult.inputTransactions.map((transaction) => [transaction.id, transaction])

@@ -4,11 +4,11 @@ import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import {
-  assertNoAccountingLayerAssetsRequireReview,
+  assertNoAccountingModelAssetsRequireReview,
   type AccountingExclusionPolicy,
-} from '../../../../accounting-layer.js';
-import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
+} from '../../../../accounting-model.js';
+import { buildAccountingModelFromTransactions } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-model/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type { CanadaAcbEngineResult, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
 
@@ -33,19 +33,19 @@ export async function runCanadaAcbWorkflow(
   params: RunCanadaAcbWorkflowParams
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   return resultDoAsync(async function* () {
-    const accountingLayer = yield* buildAccountingLayerFromTransactions(
+    const accountingModel = yield* buildAccountingModelFromTransactions(
       params.transactions,
       logger,
       params.accountingExclusionPolicy
     );
-    yield* assertNoAccountingLayerAssetsRequireReview(accountingLayer, params.assetReviewSummaries);
+    yield* assertNoAccountingModelAssetsRequireReview(accountingModel, params.assetReviewSummaries);
 
     const validatedTransfers = yield* validateTransferLinks(
-      accountingLayer.accountingTransactionViews,
+      accountingModel.accountingTransactionViews,
       params.confirmedLinks
     );
     const inputContext = yield* await buildCanadaTaxInputContext({
-      accountingLayer,
+      accountingModel,
       validatedTransfers,
       priceRuntime: params.priceRuntime,
       identityConfig: {},

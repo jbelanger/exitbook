@@ -143,7 +143,7 @@ type SameHashDecision =
 // ---------------------------------------------------------------------------
 
 /**
- * Build the accounting-layer-owned scoped transaction draft from processed
+ * Build the accounting-model-owned scoped transaction draft from processed
  * transactions.
  *
  * This scoped result is the seam for later accounting exclusions: callers can

@@ -553,8 +553,8 @@ This pass is about the leading candidate model, not final adoption.
 - [transaction.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction.ts)
 - [movement.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/movement.ts)
 - [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
-- [build-accounting-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/build-accounting-scoped-transactions.ts)
-- [accounting-scoped-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/accounting-scoped-types.ts)
+- [build-accounting-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/build-accounting-scoped-transactions.ts)
+- [accounting-scoped-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/accounting-scoped-types.ts)
 - Pass 1, Pass 2, and Pass 3 findings in this document
 
 ### Findings
@@ -1079,7 +1079,7 @@ consumers can migrate cleanly.
 
 ### Evidence Inspected
 
-- [build-accounting-layer-from-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/build-accounting-layer-from-transactions.ts)
+- [build-accounting-model-from-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/build-accounting-model-from-transactions.ts)
 - [lot-fee-utils.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/lots/lot-fee-utils.ts)
 - [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
 - [canada-tax-event-projection.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-projection.ts)
@@ -1139,9 +1139,9 @@ identity and without forcing a premature lot-matching migration.
 
 ### Evidence Inspected
 
-- [validated-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/validated-transfer-links.ts)
+- [validated-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/validated-transfer-links.ts)
 - [validated-scoped-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/validated-scoped-transfer-links.ts)
-- [validated-transfer-links.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/__tests__/validated-transfer-links.test.ts)
+- [validated-transfer-links.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/__tests__/validated-transfer-links.test.ts)
 - [validated-scoped-transfer-links.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/__tests__/validated-scoped-transfer-links.test.ts)
 
 ### Findings
@@ -1306,8 +1306,8 @@ consumer contract.
 
 ### Evidence Inspected
 
-- [accounting-layer-resolution.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/accounting-layer-resolution.ts)
-- [accounting-layer-reader.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/__tests__/accounting-layer-reader.test.ts)
+- [accounting-model-resolution.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/accounting-model-resolution.ts)
+- [accounting-model-reader.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/__tests__/accounting-model-reader.test.ts)
 - [canada-tax-event-carryover.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-carryover.ts)
 - [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
 
@@ -1434,7 +1434,7 @@ reintroducing scoped transaction math inside the consumer.
 - [internal-carryover-processing-utils.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/lots/internal-carryover-processing-utils.ts)
 - [standard-calculator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/standard-calculator.ts)
 - [run-standard-cost-basis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/run-standard-cost-basis.ts)
-- [price-validation.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/price-validation.ts)
+- [price-validation.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/price-validation.ts)
 
 ### Findings
 
@@ -1515,7 +1515,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
    confirmability question.
 
 5. This migration also justified a real public capability boundary:
-   `@exitbook/accounting/accounting-layer`.
+   `@exitbook/accounting/accounting-model`.
    Keeping canonical accounting-layer builders and validators under the
    `cost-basis` barrel would have preserved the wrong ownership model.
 
@@ -1537,14 +1537,14 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   `accounting-layer/`, so cost basis no longer owns the canonical layer's
   immediate implementation substrate
 - the exclusion-policy seam plus
-  `assertNoAccountingLayerAssetsRequireReview(...)` now also live under
+  `assertNoAccountingModelAssetsRequireReview(...)` now also live under
   `accounting-layer/`, so price-enrichment, CLI runtimes, and cost-basis
   consumers no longer need `cost-basis` as a type barrel for draft-layer
   helpers
 - `price-validation.ts` now also lives under `accounting-layer/`, so the old
   `cost-basis/standard/validation/` pocket is gone and the remaining explicit
   `AccountingScoped...` helpers are concentrated under one capability
-- `buildAccountingLayerFromTransactions(...)` now owns the repeated
+- `buildAccountingModelFromTransactions(...)` now owns the repeated
   `build draft -> apply exclusions -> build canonical layer` sequence when an
   exclusion policy is present, so the remaining draft-layer exposure at
   consumer call sites is smaller and more uniform
@@ -1559,7 +1559,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 ### Open Questions From Pass 15
 
 1. When should `buildAccountingScopedTransactions(...)` stop being the internal
-   implementation substrate beneath `buildAccountingLayerFromTransactions(...)`?
+   implementation substrate beneath `buildAccountingModelFromTransactions(...)`?
 2. Should `AccountingScopedBuildResult` and `AccountingScopedTransaction`
    remain explicit intermediate draft types, or collapse behind a narrower
    internal seam once more consumers migrate?

@@ -3,9 +3,9 @@ import { err, randomUUID, resultDoAsync, type Result } from '@exitbook/foundatio
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingLayerBuildResult } from '../../../accounting-layer/accounting-layer-types.js';
-import { assertAccountingLayerPriceDataQuality } from '../../../accounting-layer/price-validation.js';
-import { validateTransferLinks } from '../../../accounting-layer/validated-transfer-links.js';
+import type { AccountingModelBuildResult } from '../../../accounting-model/accounting-model-types.js';
+import { assertAccountingModelPriceDataQuality } from '../../../accounting-model/price-validation.js';
+import { validateTransferLinks } from '../../../accounting-model/validated-transfer-links.js';
 import type { IJurisdictionRules } from '../../jurisdictions/jurisdiction-rules.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
 import type { CostBasisCalculation } from '../../model/schemas.js';
@@ -41,8 +41,8 @@ export interface CostBasisSummary {
 
 const logger = getLogger('calculateStandardCostBasis');
 
-export async function calculateCostBasisFromAccountingLayer(
-  accountingLayer: AccountingLayerBuildResult,
+export async function calculateCostBasisFromAccountingModel(
+  accountingModel: AccountingModelBuildResult,
   config: CostBasisConfig,
   rules: IJurisdictionRules,
   lotMatcher: LotMatcher,
@@ -57,14 +57,14 @@ export async function calculateCostBasisFromAccountingLayer(
       return yield* err(new Error('average-cost is handled by the Canada workflow, not the standard calculator'));
     }
 
-    yield* assertAccountingLayerPriceDataQuality(accountingLayer);
-    const validatedLinks = yield* validateTransferLinks(accountingLayer.accountingTransactionViews, confirmedLinks);
+    yield* assertAccountingModelPriceDataQuality(accountingModel);
+    const validatedLinks = yield* validateTransferLinks(accountingModel.accountingTransactionViews, confirmedLinks);
 
     const calculationId = randomUUID();
     const calculationDate = new Date();
     const strategy = yield* getStrategyForMethod(config.method);
     const jurisdictionConfig = rules.getConfig();
-    const lotMatchResult = yield* await lotMatcher.match(accountingLayer, validatedLinks, {
+    const lotMatchResult = yield* await lotMatcher.match(accountingModel, validatedLinks, {
       calculationId,
       strategy,
       jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
@@ -97,7 +97,7 @@ export async function calculateCostBasisFromAccountingLayer(
       totalGainLoss: gainLoss.totalCapitalGainLoss,
       totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
       assetsProcessed,
-      transactionsProcessed: accountingLayer.accountingTransactionViews.length,
+      transactionsProcessed: accountingModel.accountingTransactionViews.length,
       lotsCreated: lotMatchResult.totalLotsCreated,
       disposalsProcessed: disposals.length,
       status: 'completed',

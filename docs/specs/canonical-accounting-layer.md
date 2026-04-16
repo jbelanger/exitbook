@@ -67,7 +67,7 @@ Reserved:
 
 - `@exitbook/accounting` owns the accounting-entry model, accounting-layer
   build model, and accounting-owned reader ports
-- `@exitbook/accounting/accounting-layer` is the public capability boundary
+- `@exitbook/accounting/accounting-model` is the public capability boundary
   for canonical accounting-layer builders, readers, validators, and types
 - `@exitbook/data` owns persistence and repository implementations
 - `apps/cli` owns browse surfaces, rendering, and command wiring
@@ -122,7 +122,7 @@ The first canonical accounting reader returns a narrow build result, not only a
 flat `AccountingEntry[]`.
 
 ```ts
-interface AccountingLayerBuildResult {
+interface AccountingModelBuildResult {
   accountingTransactionViews: readonly AccountingTransactionView[];
   processedTransactions: readonly Transaction[];
   entries: readonly AccountingEntry[];

@@ -8,7 +8,7 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
+import type { AccountingExclusionPolicy } from '../../accounting-model/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../ports/pricing-persistence.js';
 import {
   enrichFeesWithPricesByAssetId,

@@ -4,7 +4,7 @@ import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TransferValidationTransactionView } from '../../../accounting-layer/validated-transfer-links.js';
+import type { TransferValidationTransactionView } from '../../../accounting-model/validated-transfer-links.js';
 import { createLinkableMovement } from '../../shared/test-utils.js';
 import type { ILinkingStrategy, StrategyResult } from '../../strategies/types.js';
 import { buildMatchingConfig } from '../matching-config.js';

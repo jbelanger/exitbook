@@ -3,10 +3,10 @@ import { isFiat, parseCurrency } from '@exitbook/foundation';
 import { err, ok, resultDo, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { AccountingEntry } from '../../accounting-layer/accounting-entry-types.js';
-import { type AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
-import type { AccountingLayerBuildResult } from '../../accounting-layer/accounting-layer-types.js';
-import { buildAccountingLayerFromTransactions } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
+import type { AccountingEntry } from '../../accounting-model/accounting-entry-types.js';
+import { type AccountingExclusionPolicy } from '../../accounting-model/accounting-exclusion-policy.js';
+import type { AccountingModelBuildResult } from '../../accounting-model/accounting-model-types.js';
+import { buildAccountingModelFromTransactions } from '../../accounting-model/build-accounting-model-from-transactions.js';
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
 
 const logger = getLogger('cost-basis.workflow.price-completeness');
@@ -108,11 +108,11 @@ function accountingEntryHasAllPrices(
   return ok(true);
 }
 
-export function validateAccountingLayerPrices(
-  accountingLayerBuild: AccountingLayerBuildResult,
+export function validateAccountingModelPrices(
+  accountingModelBuild: AccountingModelBuildResult,
   requiredCurrency: string
 ): Result<PriceValidationResult, Error> {
-  const priceCoverageSummaryResult = summarizeAccountingLayerPriceCoverage(accountingLayerBuild);
+  const priceCoverageSummaryResult = summarizeAccountingModelPriceCoverage(accountingModelBuild);
   if (priceCoverageSummaryResult.isErr()) {
     return err(priceCoverageSummaryResult.error);
   }
@@ -127,7 +127,7 @@ export function validateAccountingLayerPrices(
     }
 
     rebuildTransactionFingerprints.add(ownerTxFingerprint);
-    for (const dependency of accountingLayerBuild.derivationDependencies) {
+    for (const dependency of accountingModelBuild.derivationDependencies) {
       if (dependency.ownerTxFingerprint === ownerTxFingerprint) {
         rebuildTransactionFingerprints.add(dependency.supportingTxFingerprint);
       }
@@ -150,7 +150,7 @@ export function validateAccountingLayerPrices(
     );
   }
 
-  const rebuildTransactions = accountingLayerBuild.processedTransactions.filter((transaction) =>
+  const rebuildTransactions = accountingModelBuild.processedTransactions.filter((transaction) =>
     rebuildTransactionFingerprints.has(transaction.txFingerprint)
   );
   if (rebuildTransactions.length !== rebuildTransactionFingerprints.size) {
@@ -172,17 +172,17 @@ export function validateAccountingLayerPrices(
   });
 }
 
-function summarizeAccountingLayerPriceCoverage(
-  accountingLayerBuild: AccountingLayerBuildResult
+function summarizeAccountingModelPriceCoverage(
+  accountingModelBuild: AccountingModelBuildResult
 ): Result<PriceCoverageSummary, Error> {
-  const movementByFingerprintResult = buildMovementByFingerprint(accountingLayerBuild.processedTransactions);
+  const movementByFingerprintResult = buildMovementByFingerprint(accountingModelBuild.processedTransactions);
   if (movementByFingerprintResult.isErr()) {
     return err(movementByFingerprintResult.error);
   }
   const movementByFingerprint = movementByFingerprintResult.value;
 
   const ownerHasCompletePrices = new Map<string, boolean>();
-  for (const entry of accountingLayerBuild.entries) {
+  for (const entry of accountingModelBuild.entries) {
     const ownerTxFingerprintResult = resolveEntryOwnerTxFingerprint(entry);
     if (ownerTxFingerprintResult.isErr()) {
       return err(ownerTxFingerprintResult.error);
@@ -214,11 +214,11 @@ function summarizeAccountingLayerPriceCoverage(
   });
 }
 
-function buildAccountingLayerForPriceValidation(
+function buildAccountingModelForPriceValidation(
   transactions: Transaction[],
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<AccountingLayerBuildResult, Error> {
-  return buildAccountingLayerFromTransactions(transactions, logger, accountingExclusionPolicy);
+): Result<AccountingModelBuildResult, Error> {
+  return buildAccountingModelFromTransactions(transactions, logger, accountingExclusionPolicy);
 }
 
 export function getCostBasisRebuildTransactions(
@@ -227,8 +227,8 @@ export function getCostBasisRebuildTransactions(
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<PriceValidationResult, Error> {
   return resultDo(function* () {
-    const accountingLayerBuild = yield* buildAccountingLayerForPriceValidation(transactions, accountingExclusionPolicy);
-    return yield* validateAccountingLayerPrices(accountingLayerBuild, requiredCurrency);
+    const accountingModelBuild = yield* buildAccountingModelForPriceValidation(transactions, accountingExclusionPolicy);
+    return yield* validateAccountingModelPrices(accountingModelBuild, requiredCurrency);
   });
 }
 
@@ -259,15 +259,15 @@ export function stabilizeExcludedRebuildTransactions(
     }
     seenKeys.add(currentKey);
 
-    const accountingLayerResult = buildAccountingLayerForPriceValidation(
+    const accountingModelResult = buildAccountingModelForPriceValidation(
       currentTransactions,
       accountingExclusionPolicy
     );
-    if (accountingLayerResult.isErr()) {
-      return err(accountingLayerResult.error);
+    if (accountingModelResult.isErr()) {
+      return err(accountingModelResult.error);
     }
 
-    const validationResult = validateAccountingLayerPrices(accountingLayerResult.value, requiredCurrency);
+    const validationResult = validateAccountingModelPrices(accountingModelResult.value, requiredCurrency);
     if (validationResult.isErr()) {
       return err(validationResult.error);
     }
@@ -304,12 +304,12 @@ export function checkTransactionPriceCoverage(
       return { complete: true, reason: undefined };
     }
 
-    const accountingLayerResult = buildAccountingLayerForPriceValidation(filtered, accountingExclusionPolicy);
-    if (accountingLayerResult.isErr()) {
-      return yield* accountingLayerResult;
+    const accountingModelResult = buildAccountingModelForPriceValidation(filtered, accountingExclusionPolicy);
+    if (accountingModelResult.isErr()) {
+      return yield* accountingModelResult;
     }
 
-    const priceCoverageSummaryResult = summarizeAccountingLayerPriceCoverage(accountingLayerResult.value);
+    const priceCoverageSummaryResult = summarizeAccountingModelPriceCoverage(accountingModelResult.value);
     if (priceCoverageSummaryResult.isErr()) {
       return yield* priceCoverageSummaryResult;
     }

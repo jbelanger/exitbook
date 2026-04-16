@@ -1,4 +1,4 @@
-import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from './command-runtime.js';

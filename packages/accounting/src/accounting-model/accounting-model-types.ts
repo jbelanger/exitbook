@@ -48,7 +48,7 @@ export interface AccountingTransactionView {
   processedTransaction: Transaction;
 }
 
-export interface AccountingLayerBuildResult {
+export interface AccountingModelBuildResult {
   accountingTransactionViews: readonly AccountingTransactionView[];
   derivationDependencies: readonly AccountingDerivationDependency[];
   entries: readonly AccountingEntry[];

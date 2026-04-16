@@ -4,7 +4,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createCanadaPriceRuntime, createConfirmedTransferLink } from '../../__tests__/test-utils.js';
-import { createAccountingExclusionPolicy } from '../../../../../accounting-layer/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../../../../accounting-model/accounting-exclusion-policy.js';
 import { runCanadaAcbWorkflow } from '../canada-acb-workflow.js';
 
 function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {

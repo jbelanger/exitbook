@@ -1,4 +1,4 @@
-import { buildAccountingLayerFromTransactions } from '@exitbook/accounting/accounting-layer';
+import { buildAccountingModelFromTransactions } from '@exitbook/accounting/accounting-model';
 import { validateTransferProposalConfirmability } from '@exitbook/accounting/linking';
 import {
   computeResolvedLinkFingerprint,
@@ -20,7 +20,7 @@ export interface ExistingExactLinkMatch {
 export function buildReviewedLinkMetadata(
   link: TransactionLink,
   overrideId: string,
-  extraMetadata?: TransactionLinkMetadata  
+  extraMetadata?: TransactionLinkMetadata
 ): TransactionLinkMetadata {
   return {
     ...(link.metadata ?? {}),
@@ -79,12 +79,12 @@ export function validateConfirmedManualLinkSet(
   excludedExistingLinkIds: readonly number[] = []
 ): Result<void, Error> {
   return resultDo(function* () {
-    const accountingLayer = yield* buildAccountingLayerFromTransactions(transactions, logger);
+    const accountingModel = yield* buildAccountingModelFromTransactions(transactions, logger);
     const excludedIds = new Set(excludedExistingLinkIds);
     const existingConfirmedLinks = allLinks.filter((link) => link.status === 'confirmed' && !excludedIds.has(link.id));
 
     return yield* validateTransferProposalConfirmability(
-      accountingLayer.accountingTransactionViews,
+      accountingModel.accountingTransactionViews,
       existingConfirmedLinks,
       candidateLinks
     );

@@ -10,9 +10,9 @@ import {
   materializeTestTransaction,
   noopLogger,
 } from '../../__tests__/test-utils.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import { buildAccountingScopedTransactions } from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
-import type { ValidatedTransferSet } from '../../../../../accounting-layer/validated-transfer-links.js';
+import { buildAccountingModelFromScopedBuild } from '../../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../../../accounting-model/build-accounting-scoped-transactions.js';
+import type { ValidatedTransferSet } from '../../../../../accounting-model/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
@@ -339,10 +339,10 @@ describe('buildCanadaTaxInputContext', () => {
       bySourceMovementFingerprint: new Map([[sourceMovementFingerprint, [validatedLink]]]),
       byTargetMovementFingerprint: new Map([[targetMovementFingerprint, [validatedLink]]]),
     };
-    const accountingLayer = assertOk(buildAccountingLayerFromScopedBuild(scoped));
+    const accountingModel = assertOk(buildAccountingModelFromScopedBuild(scoped));
 
     const result = await buildCanadaTaxInputContext({
-      accountingLayer,
+      accountingModel,
       validatedTransfers,
       priceRuntime: fxProvider,
       identityConfig: {},

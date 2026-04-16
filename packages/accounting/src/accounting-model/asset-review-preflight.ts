@@ -1,7 +1,7 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { AccountingLayerBuildResult } from './accounting-layer-types.js';
+import type { AccountingModelBuildResult } from './accounting-model-types.js';
 
 function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
   const lines = ['Assets flagged for review require confirmation or exclusion before accounting can proceed:'];
@@ -21,12 +21,12 @@ function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
   return lines.join('\n');
 }
 
-export function assertNoAccountingLayerAssetsRequireReview(
-  accountingLayer: AccountingLayerBuildResult,
+export function assertNoAccountingModelAssetsRequireReview(
+  accountingModel: AccountingModelBuildResult,
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): Result<void, Error> {
   const assetsInScope = new Set<string>();
-  for (const transactionView of accountingLayer.accountingTransactionViews) {
+  for (const transactionView of accountingModel.accountingTransactionViews) {
     for (const inflow of transactionView.inflows) {
       assetsInScope.add(inflow.assetId);
     }

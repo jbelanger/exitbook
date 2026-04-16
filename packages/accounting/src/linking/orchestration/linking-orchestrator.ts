@@ -4,8 +4,8 @@ import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import { buildAccountingLayerFromTransactions } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
-import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
+import { buildAccountingModelFromTransactions } from '../../accounting-model/build-accounting-model-from-transactions.js';
+import type { TransferValidationTransactionView } from '../../accounting-model/validated-transfer-links.js';
 import type { ILinkingPersistence } from '../../ports/linking-persistence.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildMatchingConfig } from '../matching/matching-config.js';
@@ -102,7 +102,7 @@ export class LinkingOrchestrator {
         });
 
         // 3–5. Match + overrides (pure computation, no I/O)
-        const accountingLayer = yield* buildAccountingLayerFromTransactions(transactions, logger);
+        const accountingModel = yield* buildAccountingModelFromTransactions(transactions, logger);
 
         const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = yield* self.runMatching(
           linkableMovements,
@@ -111,7 +111,7 @@ export class LinkingOrchestrator {
           overrides,
           transactions,
           txById,
-          accountingLayer.accountingTransactionViews
+          accountingModel.accountingTransactionViews
         );
 
         // 7. Persist links

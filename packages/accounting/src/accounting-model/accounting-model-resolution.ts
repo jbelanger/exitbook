@@ -5,11 +5,11 @@ import type { AccountingEntry, AssetAccountingEntry, FeeAccountingEntry } from '
 import type {
   AccountingAssetEntryView,
   AccountingFeeEntryView,
-  AccountingLayerBuildResult,
+  AccountingModelBuildResult,
   AccountingTransactionView,
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
-} from './accounting-layer-types.js';
+} from './accounting-model-types.js';
 
 export interface AccountingAssetEntryResolution {
   entry: AssetAccountingEntry;
@@ -49,7 +49,7 @@ interface AccountingFeeRef {
   transactionView: AccountingTransactionView;
 }
 
-export interface AccountingLayerIndexes {
+export interface AccountingModelIndexes {
   entriesByEntryFingerprint: Map<string, AccountingEntry>;
   feeRefsByMovementFingerprint: Map<string, AccountingFeeRef>;
   inflowRefsByMovementFingerprint: Map<string, AccountingAssetMovementRef>;
@@ -70,11 +70,11 @@ export interface ResolvedAccountingAssetMovementView {
   sourceKind: 'accounting_transaction_view' | 'processed_transaction';
 }
 
-export function buildAccountingLayerIndexes(
-  accountingLayer: AccountingLayerBuildResult
-): Result<AccountingLayerIndexes, Error> {
+export function buildAccountingModelIndexes(
+  accountingModel: AccountingModelBuildResult
+): Result<AccountingModelIndexes, Error> {
   const entriesByEntryFingerprint = new Map<string, AccountingEntry>();
-  for (const entry of accountingLayer.entries) {
+  for (const entry of accountingModel.entries) {
     const existing = entriesByEntryFingerprint.get(entry.entryFingerprint);
     if (existing) {
       return err(new Error(`Duplicate accounting entry fingerprint ${entry.entryFingerprint}`));
@@ -90,7 +90,7 @@ export function buildAccountingLayerIndexes(
   const processedOutflowRefsByMovementFingerprint = new Map<string, AccountingAssetMovementRef>();
   const transactionViewsByTransactionId = new Map<number, AccountingTransactionView>();
 
-  for (const transactionView of accountingLayer.accountingTransactionViews) {
+  for (const transactionView of accountingModel.accountingTransactionViews) {
     const transactionId = transactionView.processedTransaction.id;
     if (transactionViewsByTransactionId.has(transactionId)) {
       return err(new Error(`Duplicate accounting transaction view for transaction ${transactionId}`));
@@ -136,7 +136,7 @@ export function buildAccountingLayerIndexes(
   const processedMovementIndexResult = indexProcessedTransactions(
     processedInflowRefsByMovementFingerprint,
     processedOutflowRefsByMovementFingerprint,
-    accountingLayer.processedTransactions
+    accountingModel.processedTransactions
   );
   if (processedMovementIndexResult.isErr()) {
     return err(processedMovementIndexResult.error);
@@ -154,7 +154,7 @@ export function buildAccountingLayerIndexes(
 }
 
 export function resolveAssetAccountingEntry(
-  indexes: AccountingLayerIndexes,
+  indexes: AccountingModelIndexes,
   entryOrFingerprint: AssetAccountingEntry | string
 ): Result<AccountingAssetEntryResolution, Error> {
   const entryResult = resolveEntry(indexes, entryOrFingerprint);
@@ -228,7 +228,7 @@ export function resolveAssetAccountingEntry(
 }
 
 export function resolveFeeAccountingEntry(
-  indexes: AccountingLayerIndexes,
+  indexes: AccountingModelIndexes,
   entryOrFingerprint: FeeAccountingEntry | string
 ): Result<AccountingFeeEntryResolution, Error> {
   const entryResult = resolveEntry(indexes, entryOrFingerprint);
@@ -295,9 +295,9 @@ export function resolveFeeAccountingEntry(
 }
 
 export function resolveInternalTransferCarryovers(
-  accountingLayer: AccountingLayerBuildResult
+  accountingModel: AccountingModelBuildResult
 ): Result<ResolvedInternalTransferCarryover[], Error> {
-  const indexesResult = buildAccountingLayerIndexes(accountingLayer);
+  const indexesResult = buildAccountingModelIndexes(accountingModel);
   if (indexesResult.isErr()) {
     return err(indexesResult.error);
   }
@@ -305,7 +305,7 @@ export function resolveInternalTransferCarryovers(
   const indexes = indexesResult.value;
   const resolvedCarryovers: ResolvedInternalTransferCarryover[] = [];
 
-  for (const carryover of accountingLayer.internalTransferCarryovers) {
+  for (const carryover of accountingModel.internalTransferCarryovers) {
     const sourceResult = resolveAssetAccountingEntry(indexes, carryover.sourceEntryFingerprint);
     if (sourceResult.isErr()) {
       return err(sourceResult.error);
@@ -469,7 +469,7 @@ function indexProcessedTransactions(
 }
 
 function resolveEntry(
-  indexes: AccountingLayerIndexes,
+  indexes: AccountingModelIndexes,
   entryOrFingerprint: AccountingEntry | string
 ): Result<AccountingEntry, Error> {
   if (typeof entryOrFingerprint !== 'string') {

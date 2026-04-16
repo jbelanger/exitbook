@@ -1,4 +1,4 @@
-import { createAccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
+import { createAccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
 import {
   createPriceQuery,
   determineEnrichmentStages,

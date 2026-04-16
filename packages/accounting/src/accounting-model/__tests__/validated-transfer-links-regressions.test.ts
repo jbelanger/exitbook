@@ -16,8 +16,8 @@ import {
   createExplainedMultiSourceAdaHashPartialTransactions,
   createLinkableMovementsFromTransactions,
 } from '../../linking/strategies/test-utils.js';
-import type { AccountingTransactionView } from '../accounting-layer-types.js';
-import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
+import type { AccountingTransactionView } from '../accounting-model-types.js';
+import { buildAccountingModelFromTransactions } from '../build-accounting-model-from-transactions.js';
 import { validateTransferLinks } from '../validated-transfer-links.js';
 
 function reseedTxFingerprint(transaction: Transaction, identityReference: string): void {
@@ -79,9 +79,9 @@ describe('validateTransferLinks regressions', () => {
       { category: 'transfer', platformKey: 'wallet', platformKind: 'blockchain', type: 'deposit' }
     );
 
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([sourceTx, targetTx], logger));
-    const sourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 1);
-    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 2);
+    const accountingModel = assertOk(buildAccountingModelFromTransactions([sourceTx, targetTx], logger));
+    const sourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 1);
+    const targetTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 2);
 
     const sourceMovement = sourceTransactionView.outflows[0];
     const targetMovement = targetTransactionView.inflows[0];
@@ -190,12 +190,12 @@ describe('validateTransferLinks regressions', () => {
     targetTx.accountId = 20;
     reseedTxFingerprint(targetTx, '2ea11d4d2e7c897660ec747a891e9ec57ca0a1d594336a936b2ea7aa152bda96');
 
-    const accountingLayer = assertOk(
-      buildAccountingLayerFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
+    const accountingModel = assertOk(
+      buildAccountingModelFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
     );
-    const firstSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 10);
-    const secondSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 11);
-    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 12);
+    const firstSourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 10);
+    const secondSourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 11);
+    const targetTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 12);
 
     const sourceMovement = secondSourceTransactionView.outflows[0];
     const targetMovement = targetTransactionView.inflows[0];
@@ -203,7 +203,7 @@ describe('validateTransferLinks regressions', () => {
     expect(targetMovement).toBeDefined();
     expect(sourceMovement!.movementFingerprint).not.toBe(firstSourceTransactionView.outflows[0]!.movementFingerprint);
 
-    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
+    const result = validateTransferLinks(accountingModel.accountingTransactionViews, [
       {
         id: 201,
         sourceTransactionId: 11,
@@ -306,12 +306,12 @@ describe('validateTransferLinks regressions', () => {
     targetTx.accountId = 103;
     reseedTxFingerprint(targetTx, `deposit-${hash}`);
 
-    const accountingLayer = assertOk(
-      buildAccountingLayerFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
+    const accountingModel = assertOk(
+      buildAccountingModelFromTransactions([firstSourceTx, secondSourceTx, targetTx], logger)
     );
-    const firstSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 20);
-    const secondSourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 21);
-    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 22);
+    const firstSourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 20);
+    const secondSourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 21);
+    const targetTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 22);
 
     expect(firstSourceTransactionView.outflows[0]!.netQuantity!.toFixed()).toBe('0.5');
     expect(secondSourceTransactionView.outflows[0]!.netQuantity!.toFixed()).toBe('0.5');
@@ -320,7 +320,7 @@ describe('validateTransferLinks regressions', () => {
     const secondSourceMovement = secondSourceTransactionView.outflows[0]!;
     const targetMovement = targetTransactionView.inflows[0]!;
 
-    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
+    const result = validateTransferLinks(accountingModel.accountingTransactionViews, [
       {
         id: 301,
         sourceTransactionId: 20,
@@ -442,9 +442,9 @@ describe('validateTransferLinks regressions', () => {
       id: 9000 + index,
     }));
 
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions(transactions, logger));
+    const accountingModel = assertOk(buildAccountingModelFromTransactions(transactions, logger));
 
-    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, links);
+    const result = validateTransferLinks(accountingModel.accountingTransactionViews, links);
     const validated = assertOk(result);
 
     expect(validated.links).toHaveLength(3);
@@ -500,14 +500,14 @@ describe('validateTransferLinks regressions', () => {
     };
     reseedTxFingerprint(targetTx, '0x170983ad6190f057007993c13ca9813d126198aea821b537227649f19e466d7b');
 
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([sourceTx, targetTx], logger));
-    const sourceTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 50);
-    const targetTransactionView = requireTransactionView(accountingLayer.accountingTransactionViews, 51);
+    const accountingModel = assertOk(buildAccountingModelFromTransactions([sourceTx, targetTx], logger));
+    const sourceTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 50);
+    const targetTransactionView = requireTransactionView(accountingModel.accountingTransactionViews, 51);
 
     const sourceMovement = sourceTransactionView.outflows[0]!;
     const targetMovement = targetTransactionView.inflows[0]!;
 
-    const result = validateTransferLinks(accountingLayer.accountingTransactionViews, [
+    const result = validateTransferLinks(accountingModel.accountingTransactionViews, [
       {
         id: 401,
         sourceTransactionId: 50,

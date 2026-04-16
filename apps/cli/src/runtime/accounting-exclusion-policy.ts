@@ -1,4 +1,4 @@
-import { createAccountingExclusionPolicy, type AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
+import { createAccountingExclusionPolicy, type AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
 import { OverrideStore, readExcludedAssetIds } from '@exitbook/data/overrides';
 import { err, ok, type Result } from '@exitbook/foundation';
 

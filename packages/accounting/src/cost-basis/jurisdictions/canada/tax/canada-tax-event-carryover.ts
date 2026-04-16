@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { collectFiatFees } from '../../../standard/lots/lot-fee-utils.js';
 
-import type { CanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
+import type { CanadaAccountingModelContext } from './canada-accounting-model-context.js';
 import { buildAddToPoolCostAdjustmentEvents, buildEventIndex } from './canada-tax-event-stage-shared.js';
 import { valueCollectedFiatFees } from './canada-tax-fee-utils.js';
 import type {
@@ -40,7 +40,7 @@ function convertCarryoverTargetToTransferIn(
 }
 
 export async function applyCarryoverSemantics(params: {
-  canadaAccountingContext: CanadaAccountingLayerContext;
+  canadaAccountingContext: CanadaAccountingModelContext;
   events: CanadaTaxInputEvent[];
   identityConfig: CanadaTaxInputContextBuildOptions;
   usdConversionRateProvider: UsdConversionRateProviderLike;

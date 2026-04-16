@@ -13,7 +13,7 @@ import {
   createTransaction,
   createTransactionFromMovements,
 } from '../../../../__tests__/test-utils.js';
-import { createAccountingExclusionPolicy } from '../../../../accounting-layer/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../../../accounting-model/accounting-exclusion-policy.js';
 import type { ICostBasisContextReader } from '../../../../ports/cost-basis-persistence.js';
 import type { CostBasisConfig } from '../../../model/cost-basis-config.js';
 import { runCostBasisPipeline } from '../run-standard-cost-basis.js';

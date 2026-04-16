@@ -10,13 +10,13 @@ import {
   createPriceAtTxTime,
   createFeeMovement,
 } from '../../../../__tests__/test-utils.js';
-import type { ResolvedInternalTransferCarryover } from '../../../../accounting-layer/accounting-layer-resolution.js';
+import type { ResolvedInternalTransferCarryover } from '../../../../accounting-model/accounting-model-resolution.js';
 import type {
   AccountingAssetEntryView,
   AccountingTransactionView,
-} from '../../../../accounting-layer/accounting-layer-types.js';
-import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import type { ValidatedTransferLink } from '../../../../accounting-layer/validated-transfer-links.js';
+} from '../../../../accounting-model/accounting-model-types.js';
+import { buildAccountingModelFromTransactions } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
+import type { ValidatedTransferLink } from '../../../../accounting-model/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import {
   type InternalTransferCarryoverTargetBinding,
@@ -35,8 +35,8 @@ describe('transfer source accounting regressions', () => {
   }
 
   function prepareTransferSource(rawTransaction: Transaction) {
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([rawTransaction], logger));
-    const transactionView = accountingLayer.accountingTransactionViews[0];
+    const accountingModel = assertOk(buildAccountingModelFromTransactions([rawTransaction], logger));
+    const transactionView = accountingModel.accountingTransactionViews[0];
     const outflow = transactionView?.outflows[0];
 
     expect(transactionView).toBeDefined();

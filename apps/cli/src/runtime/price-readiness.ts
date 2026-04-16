@@ -1,4 +1,4 @@
-import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
 import { checkTransactionPriceCoverage } from '@exitbook/accounting/cost-basis';
 import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';

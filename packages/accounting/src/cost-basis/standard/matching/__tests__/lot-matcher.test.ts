@@ -5,9 +5,9 @@ import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFeeMovement, createTransaction } from '../../../../__tests__/test-utils.js';
-import type { AccountingTransactionView } from '../../../../accounting-layer/accounting-layer-types.js';
-import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
+import type { AccountingTransactionView } from '../../../../accounting-model/accounting-model-types.js';
+import { buildAccountingModelFromTransactions } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-model/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import { LotMatcher } from '../lot-matcher.js';
 
@@ -21,20 +21,20 @@ describe('LotMatcher - Fee Handling', () => {
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const accountingLayerResult = buildAccountingLayerFromTransactions(transactions, logger);
-    if (accountingLayerResult.isErr()) {
-      return err(accountingLayerResult.error);
+    const accountingModelResult = buildAccountingModelFromTransactions(transactions, logger);
+    if (accountingModelResult.isErr()) {
+      return err(accountingModelResult.error);
     }
-    const hydratedLinks = hydrateTestLinks(accountingLayerResult.value.accountingTransactionViews, confirmedLinks);
+    const hydratedLinks = hydrateTestLinks(accountingModelResult.value.accountingTransactionViews, confirmedLinks);
     const validatedLinksResult = validateTransferLinks(
-      accountingLayerResult.value.accountingTransactionViews,
+      accountingModelResult.value.accountingTransactionViews,
       hydratedLinks
     );
     if (validatedLinksResult.isErr()) {
       return err(validatedLinksResult.error);
     }
 
-    return matcher.match(accountingLayerResult.value, validatedLinksResult.value, config);
+    return matcher.match(accountingModelResult.value, validatedLinksResult.value, config);
   }
 
   function hydrateTestLinks(

@@ -8,7 +8,7 @@ import { Decimal } from 'decimal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
-import { createAccountingExclusionPolicy } from '../../../accounting-layer/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../../accounting-model/accounting-exclusion-policy.js';
 import type { IPricingPersistence } from '../../../ports/pricing-persistence.js';
 import { PriceFetchService } from '../price-fetch-service.js';
 

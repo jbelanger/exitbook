@@ -3,20 +3,20 @@ import { err, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import {
-  assertNoAccountingLayerAssetsRequireReview,
+  assertNoAccountingModelAssetsRequireReview,
   type AccountingExclusionPolicy,
-} from '../../../accounting-layer.js';
-import { buildAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
+} from '../../../accounting-model.js';
+import { buildAccountingModelFromTransactions } from '../../../accounting-model/build-accounting-model-from-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
 import {
   stabilizeExcludedRebuildTransactions,
-  validateAccountingLayerPrices,
+  validateAccountingModelPrices,
 } from '../../workflow/price-completeness.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 
-import { calculateCostBasisFromAccountingLayer, type CostBasisSummary } from './standard-calculator.js';
+import { calculateCostBasisFromAccountingModel, type CostBasisSummary } from './standard-calculator.js';
 
 type MissingPricePolicy = 'error' | 'exclude';
 
@@ -60,15 +60,15 @@ export async function runCostBasisPipeline(
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   return resultDoAsync(async function* () {
-    const preparedAccountingLayer = yield* buildAccountingLayerFromTransactions(
+    const preparedAccountingModel = yield* buildAccountingModelFromTransactions(
       transactions,
       logger,
       options.accountingExclusionPolicy
     );
 
-    yield* assertNoAccountingLayerAssetsRequireReview(preparedAccountingLayer, options.assetReviewSummaries);
+    yield* assertNoAccountingModelAssetsRequireReview(preparedAccountingModel, options.assetReviewSummaries);
 
-    const validationResult = yield* validateAccountingLayerPrices(preparedAccountingLayer, config.currency);
+    const validationResult = yield* validateAccountingModelPrices(preparedAccountingModel, config.currency);
 
     let rebuildTransactions = validationResult.rebuildTransactions;
     const { missingPricesCount } = validationResult;
@@ -82,7 +82,7 @@ export async function runCostBasisPipeline(
       );
     }
 
-    let rebuildAccountingLayer = preparedAccountingLayer;
+    let rebuildAccountingModel = preparedAccountingModel;
     if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
       logger.warn(
         {
@@ -103,23 +103,23 @@ export async function runCostBasisPipeline(
       // fee-only carryovers. After stabilizing the retained raw transactions we
       // must rebuild the scoped subset so those transfer decisions are recomputed
       // against the surviving transactions rather than leaving dangling carryover state.
-      const rebuiltAccountingLayer = yield* buildAccountingLayerFromTransactions(
+      const rebuiltAccountingModel = yield* buildAccountingModelFromTransactions(
         rebuildTransactions,
         logger,
         options.accountingExclusionPolicy
       );
 
-      rebuildAccountingLayer = rebuiltAccountingLayer;
+      rebuildAccountingModel = rebuiltAccountingModel;
 
-      yield* assertNoAccountingLayerAssetsRequireReview(rebuiltAccountingLayer, options.assetReviewSummaries);
+      yield* assertNoAccountingModelAssetsRequireReview(rebuiltAccountingModel, options.assetReviewSummaries);
     }
 
     const rules = yield* resolveCostBasisJurisdictionRules(config.jurisdiction);
     const context = yield* await store.loadCostBasisContext();
 
     const lotMatcher = new LotMatcher();
-    const summary = yield* await calculateCostBasisFromAccountingLayer(
-      rebuildAccountingLayer,
+    const summary = yield* await calculateCostBasisFromAccountingModel(
+      rebuildAccountingModel,
       config,
       rules,
       lotMatcher,

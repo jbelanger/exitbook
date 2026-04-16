@@ -12,12 +12,12 @@ import {
   createTransactionFromMovements,
   materializeTestTransaction,
 } from '../../../../__tests__/test-utils.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingModelFromScopedBuild } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
 import {
   buildAccountingScopedTransactions,
   type AccountingScopedTransaction,
-} from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
-import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
+} from '../../../../accounting-model/build-accounting-scoped-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-model/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import { LotMatcher } from '../lot-matcher.js';
 
@@ -87,20 +87,20 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       return err(scopedResult.error);
     }
     const scoped = scopedResult.value;
-    const accountingLayerResult = buildAccountingLayerFromScopedBuild(scoped);
-    if (accountingLayerResult.isErr()) {
-      return err(accountingLayerResult.error);
+    const accountingModelResult = buildAccountingModelFromScopedBuild(scoped);
+    if (accountingModelResult.isErr()) {
+      return err(accountingModelResult.error);
     }
     const hydratedLinks = hydrateTestLinks(scoped.transactions, confirmedLinks);
     const validatedLinksResult = validateTransferLinks(
-      accountingLayerResult.value.accountingTransactionViews,
+      accountingModelResult.value.accountingTransactionViews,
       hydratedLinks
     );
     if (validatedLinksResult.isErr()) {
       return err(validatedLinksResult.error);
     }
 
-    return matcher.match(accountingLayerResult.value, validatedLinksResult.value, config);
+    return matcher.match(accountingModelResult.value, validatedLinksResult.value, config);
   }
 
   function hydrateTestLinks(

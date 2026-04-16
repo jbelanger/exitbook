@@ -1,10 +1,10 @@
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { AccountingLayerBuildResult, ValidatedTransferSet } from '../../../../accounting-layer.js';
+import type { AccountingModelBuildResult, ValidatedTransferSet } from '../../../../accounting-model.js';
 import { UsdConversionRateProvider } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 
-import { buildCanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
+import { buildCanadaAccountingModelContext } from './canada-accounting-model-context.js';
 import { applyCarryoverSemantics } from './canada-tax-event-carryover.js';
 import {
   applyGenericFeeAdjustments,
@@ -17,19 +17,19 @@ import { buildTransferAwareIdentityConfig } from './canada-tax-identity-override
 import type { CanadaTaxInputContext, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
 export async function buildCanadaTaxInputContext(params: {
-  accountingLayer: AccountingLayerBuildResult;
+  accountingModel: AccountingModelBuildResult;
   identityConfig: CanadaTaxInputContextBuildOptions;
   priceRuntime: IPriceProviderRuntime;
   validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaTaxInputContext, Error>> {
   return resultDoAsync(async function* () {
-    const { accountingLayer, identityConfig, priceRuntime, validatedTransfers } = params;
+    const { accountingModel, identityConfig, priceRuntime, validatedTransfers } = params;
     const usdConversionRateProvider = new UsdConversionRateProvider(priceRuntime);
-    const canadaAccountingContext = yield* buildCanadaAccountingLayerContext(accountingLayer);
+    const canadaAccountingContext = yield* buildCanadaAccountingModelContext(accountingModel);
     const effectiveIdentityConfig = yield* buildTransferAwareIdentityConfig(identityConfig, validatedTransfers);
 
     const projectedEvents = yield* await projectCanadaMovementEvents({
-      accountingTransactionViews: accountingLayer.accountingTransactionViews,
+      accountingTransactionViews: accountingModel.accountingTransactionViews,
       validatedTransfers,
       usdConversionRateProvider,
       identityConfig: effectiveIdentityConfig,
@@ -66,7 +66,7 @@ export async function buildCanadaTaxInputContext(params: {
 
     return {
       taxCurrency: 'CAD',
-      inputTransactionIds: accountingLayer.accountingTransactionViews.map(
+      inputTransactionIds: accountingModel.accountingTransactionViews.map(
         (transactionView) => transactionView.processedTransaction.id
       ),
       validatedTransferLinkIds: validatedTransfers.links.map((validatedLink) => validatedLink.link.id),

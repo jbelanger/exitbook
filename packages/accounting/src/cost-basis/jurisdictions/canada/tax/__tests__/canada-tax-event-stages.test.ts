@@ -4,8 +4,8 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createPriceAtTxTime } from '../../../../../__tests__/test-utils.js';
-import type { InternalTransferCarryoverDraft } from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
-import type { ValidatedTransferLink } from '../../../../../accounting-layer/validated-transfer-links.js';
+import type { InternalTransferCarryoverDraft } from '../../../../../accounting-model/build-accounting-scoped-transactions.js';
+import type { ValidatedTransferLink } from '../../../../../accounting-model/validated-transfer-links.js';
 import type { CanadaAcquisitionEvent, CanadaFeeAdjustmentEvent } from '../canada-tax-types.js';
 
 import {

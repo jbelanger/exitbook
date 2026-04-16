@@ -2,8 +2,8 @@ import type { TransactionLink } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
-import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
-import { validateTransferLinks } from '../../accounting-layer/validated-transfer-links.js';
+import type { TransferValidationTransactionView } from '../../accounting-model/validated-transfer-links.js';
+import { validateTransferLinks } from '../../accounting-model/validated-transfer-links.js';
 
 import {
   getTransferProposalGroupKey,

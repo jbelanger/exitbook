@@ -13,7 +13,7 @@ import {
   createTransaction,
   createTransactionFromMovements,
 } from '../../../__tests__/test-utils.js';
-import { createAccountingExclusionPolicy } from '../../../accounting-layer/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../../accounting-model/accounting-exclusion-policy.js';
 import type { IPriceCoverageData } from '../../../ports/transaction-price-coverage.js';
 import { checkTransactionPriceCoverage, getCostBasisRebuildTransactions } from '../price-completeness.js';
 

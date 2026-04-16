@@ -2,7 +2,7 @@
  * Large feature packages use curated capability subpaths rather than a broad root barrel.
  *
  * Use one of:
- * - `@exitbook/accounting/accounting-layer`
+ * - `@exitbook/accounting/accounting-model`
  * - `@exitbook/accounting/cost-basis`
  * - `@exitbook/accounting/issues`
  * - `@exitbook/accounting/linking`

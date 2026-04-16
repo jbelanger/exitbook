@@ -1,4 +1,4 @@
-export { buildAccountingLayerSourcePorts } from './accounting/accounting-layer-ports.js';
+export { buildAccountingModelSourceReader } from './accounting/accounting-model-ports.js';
 export { buildCostBasisArtifactFreshnessPorts } from './accounting/cost-basis-artifact-freshness.js';
 export { buildCostBasisArtifactStore } from './accounting/cost-basis-artifact-store.js';
 export { buildCostBasisFailureSnapshotStore } from './accounting/cost-basis-failure-snapshot-store.js';

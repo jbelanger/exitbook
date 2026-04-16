@@ -4,7 +4,7 @@ import type { Decimal } from 'decimal.js';
 import type {
   ResolvedInternalTransferCarryover,
   ResolvedInternalTransferCarryoverTarget,
-} from '../../../accounting-layer/accounting-layer-resolution.js';
+} from '../../../accounting-model/accounting-model-resolution.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 

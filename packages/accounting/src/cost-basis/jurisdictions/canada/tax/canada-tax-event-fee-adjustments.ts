@@ -3,12 +3,12 @@ import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingTransactionView, ValidatedTransferSet } from '../../../../accounting-layer.js';
+import type { AccountingTransactionView, ValidatedTransferSet } from '../../../../accounting-model.js';
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fee-utils.js';
 
-import type { CanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
+import type { CanadaAccountingModelContext } from './canada-accounting-model-context.js';
 import {
   buildAddToPoolCostAdjustmentEvents,
   buildMovementIndexes,
@@ -87,7 +87,7 @@ function allocateCadAcrossEvents(
 }
 
 export async function applyGenericFeeAdjustments(params: {
-  canadaAccountingContext: CanadaAccountingLayerContext;
+  canadaAccountingContext: CanadaAccountingModelContext;
   events: CanadaTaxInputEvent[];
   identityConfig: CanadaTaxInputContextBuildOptions;
   sameAssetTransferFeeEvents: CanadaFeeAdjustmentEvent[];
@@ -96,7 +96,7 @@ export async function applyGenericFeeAdjustments(params: {
   const { canadaAccountingContext, events, identityConfig, sameAssetTransferFeeEvents, usdConversionRateProvider } =
     params;
 
-  for (const transactionView of canadaAccountingContext.accountingLayer.accountingTransactionViews) {
+  for (const transactionView of canadaAccountingContext.accountingModel.accountingTransactionViews) {
     const timestamp = new Date(transactionView.processedTransaction.datetime);
     const valuedFeesResult = await valueCanadaFees(
       transactionView.fees,
@@ -191,7 +191,7 @@ export async function applyGenericFeeAdjustments(params: {
 }
 
 export async function buildValidatedTransferTargetFeeAdjustments(params: {
-  canadaAccountingContext: CanadaAccountingLayerContext;
+  canadaAccountingContext: CanadaAccountingModelContext;
   identityConfig: CanadaTaxInputContextBuildOptions;
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
@@ -415,7 +415,7 @@ async function buildSameAssetTransferFeeAdjustmentEventsForRef(
 }
 
 function buildSameAssetFeeSourceRefs(
-  canadaAccountingContext: CanadaAccountingLayerContext,
+  canadaAccountingContext: CanadaAccountingModelContext,
   validatedTransfers: ValidatedTransferSet,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Result<SameAssetFeeSourceRef[], Error> {
@@ -516,7 +516,7 @@ function buildSameAssetFeeSourceRefs(
 }
 
 export async function buildSameAssetTransferFeeAdjustments(params: {
-  canadaAccountingContext: CanadaAccountingLayerContext;
+  canadaAccountingContext: CanadaAccountingModelContext;
   identityConfig: CanadaTaxInputContextBuildOptions;
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;

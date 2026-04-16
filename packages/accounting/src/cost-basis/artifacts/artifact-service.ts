@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
+import type { AccountingExclusionPolicy } from '../../accounting-model/accounting-exclusion-policy.js';
 import type {
   CostBasisDependencyWatermark,
   ICostBasisArtifactStore,

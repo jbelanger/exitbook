@@ -1,8 +1,8 @@
 export type {
-  AccountingLayerSource,
-  IAccountingLayerReader,
-  IAccountingLayerSourceReader,
-} from './accounting-layer-reader.js';
+  AccountingModelSource,
+  IAccountingModelReader,
+  IAccountingModelSourceReader,
+} from './accounting-model-reader.js';
 export type {
   CostBasisArtifactKind,
   CostBasisContext,

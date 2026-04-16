@@ -5,17 +5,17 @@ import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildTransaction } from '../../__tests__/test-utils.js';
-import type { IAccountingLayerSourceReader } from '../../ports/accounting-layer-reader.js';
+import type { IAccountingModelSourceReader } from '../../ports/accounting-model-reader.js';
 import { computeAccountingEntryFingerprint } from '../accounting-entry-fingerprint.js';
 import type { AccountingEntryDraft } from '../accounting-entry-types.js';
-import { buildAccountingLayerReader } from '../accounting-layer-reader.js';
+import { buildAccountingModelReader } from '../accounting-model-reader.js';
 import {
-  buildAccountingLayerIndexes,
+  buildAccountingModelIndexes,
   resolveAssetAccountingEntry,
   resolveFeeAccountingEntry,
   resolveInternalTransferCarryovers,
-} from '../accounting-layer-resolution.js';
-import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
+} from '../accounting-model-resolution.js';
+import { buildAccountingModelFromTransactions } from '../build-accounting-model-from-transactions.js';
 
 const noopLogger: Logger = {
   debug: vi.fn(),
@@ -58,7 +58,7 @@ describe('computeAccountingEntryFingerprint', () => {
   });
 });
 
-describe('buildAccountingLayerFromTransactions', () => {
+describe('buildAccountingModelFromTransactions', () => {
   it('uses effective net quantity for asset entries and keeps fee entries separate', () => {
     const transaction = buildTransaction({
       id: 1,
@@ -86,7 +86,7 @@ describe('buildAccountingLayerFromTransactions', () => {
       ],
     });
 
-    const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
+    const buildResult = assertOk(buildAccountingModelFromTransactions([transaction], noopLogger));
 
     expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.entries).toHaveLength(2);
@@ -172,7 +172,7 @@ describe('buildAccountingLayerFromTransactions', () => {
       ],
     });
 
-    const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
+    const buildResult = assertOk(buildAccountingModelFromTransactions([transaction], noopLogger));
 
     expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.accountingTransactionViews[0]!.fees).toEqual([]);
@@ -210,7 +210,7 @@ describe('buildAccountingLayerFromTransactions', () => {
       ],
     });
 
-    const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
+    const buildResult = assertOk(buildAccountingModelFromTransactions([transaction], noopLogger));
 
     expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.accountingTransactionViews[0]!.inflows).toHaveLength(1);
@@ -278,7 +278,7 @@ describe('buildAccountingLayerFromTransactions', () => {
     });
 
     const buildResult = assertOk(
-      buildAccountingLayerFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
+      buildAccountingModelFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
     );
 
     expect(buildResult.accountingTransactionViews).toHaveLength(2);
@@ -399,9 +399,9 @@ describe('buildAccountingLayerFromTransactions', () => {
     });
 
     const buildResult = assertOk(
-      buildAccountingLayerFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
+      buildAccountingModelFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
     );
-    const indexes = assertOk(buildAccountingLayerIndexes(buildResult));
+    const indexes = assertOk(buildAccountingModelIndexes(buildResult));
 
     const carryover = buildResult.internalTransferCarryovers[0]!;
     const resolvedCarryovers = assertOk(resolveInternalTransferCarryovers(buildResult));
@@ -434,7 +434,7 @@ describe('buildAccountingLayerFromTransactions', () => {
   });
 });
 
-describe('buildAccountingLayerReader', () => {
+describe('buildAccountingModelReader', () => {
   it('loads processed transactions from the source reader and materializes the accounting layer', async () => {
     const transaction = buildTransaction({
       id: 5,
@@ -442,15 +442,15 @@ describe('buildAccountingLayerReader', () => {
       inflows: [{ assetSymbol: 'ETH', assetId: 'blockchain:ethereum:native', amount: '2' }],
     });
 
-    const loadAccountingLayerSource = vi.fn().mockResolvedValue(ok({ transactions: [transaction] }));
-    const sourceReader: IAccountingLayerSourceReader = {
-      loadAccountingLayerSource,
+    const loadAccountingModelSource = vi.fn().mockResolvedValue(ok({ transactions: [transaction] }));
+    const sourceReader: IAccountingModelSourceReader = {
+      loadAccountingModelSource,
     };
 
-    const reader = buildAccountingLayerReader({ sourceReader, logger: noopLogger });
-    const buildResult = assertOk(await reader.loadAccountingLayer());
+    const reader = buildAccountingModelReader({ sourceReader, logger: noopLogger });
+    const buildResult = assertOk(await reader.loadAccountingModel());
 
-    expect(loadAccountingLayerSource).toHaveBeenCalledOnce();
+    expect(loadAccountingModelSource).toHaveBeenCalledOnce();
     expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.processedTransactions).toEqual([transaction]);
     expect(buildResult.entries).toHaveLength(1);

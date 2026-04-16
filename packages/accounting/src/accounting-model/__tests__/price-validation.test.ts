@@ -6,8 +6,8 @@ import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildTransaction } from '../../__tests__/test-utils.js';
-import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
-import { assertAccountingLayerPriceDataQuality } from '../price-validation.js';
+import { buildAccountingModelFromTransactions } from '../build-accounting-model-from-transactions.js';
+import { assertAccountingModelPriceDataQuality } from '../price-validation.js';
 
 const noopLogger: Logger = {
   debug: vi.fn(),
@@ -17,12 +17,12 @@ const noopLogger: Logger = {
   warn: vi.fn(),
 } as Logger;
 
-function buildAccountingLayer(transactions: Transaction[]) {
-  return assertOk(buildAccountingLayerFromTransactions(transactions, noopLogger));
+function buildAccountingModel(transactions: Transaction[]) {
+  return assertOk(buildAccountingModelFromTransactions(transactions, noopLogger));
 }
 
 describe('price-validation', () => {
-  describe('assertAccountingLayerPriceDataQuality', () => {
+  describe('assertAccountingModelPriceDataQuality', () => {
     it('should return ok for valid transactions with USD prices', () => {
       const transactions = [
         buildTransaction({
@@ -34,7 +34,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       assertOk(result);
     });
@@ -49,7 +49,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -74,7 +74,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -101,7 +101,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -144,7 +144,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('1 price(s) missing');
@@ -172,7 +172,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
+      const result = assertAccountingModelPriceDataQuality(buildAccountingModel(transactions));
 
       assertOk(result);
     });

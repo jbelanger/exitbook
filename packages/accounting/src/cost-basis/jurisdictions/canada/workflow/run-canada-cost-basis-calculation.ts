@@ -3,7 +3,7 @@ import { err, ok, randomUUID, type Currency, type Result } from '@exitbook/found
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { AccountingExclusionPolicy } from '../../../../accounting-layer/accounting-exclusion-policy.js';
+import type { AccountingExclusionPolicy } from '../../../../accounting-model/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../../../workflow/cost-basis-input.js';
 import {
   getCostBasisRebuildTransactions,

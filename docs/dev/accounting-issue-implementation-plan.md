@@ -169,7 +169,7 @@ Phase 0 investigation log:
   - linking strategy execution and CLI manual link confirmation/review now
     build and consume the canonical accounting layer directly for transfer
     confirmability
-  - `@exitbook/accounting/accounting-layer` now exists as the explicit public
+  - `@exitbook/accounting/accounting-model` now exists as the explicit public
     capability boundary for canonical accounting-layer builders, readers,
     validators, and types
   - the canonical accounting layer now collapses zero-quantity asset and fee
@@ -182,13 +182,13 @@ Phase 0 investigation log:
       `accounting-scoped-types.ts` now live under `accounting-layer/`
       instead of `cost-basis/standard/matching/`
     - the exclusion-policy seam plus
-      `assertNoAccountingLayerAssetsRequireReview(...)` now live under
+      `assertNoAccountingModelAssetsRequireReview(...)` now live under
       `accounting-layer/`
       instead of `cost-basis/standard/validation/`
     - `price-validation.ts` now also lives under `accounting-layer/`, so the
       old `cost-basis/standard/validation/` pocket no longer owns draft-layer
       helpers
-    - `buildAccountingLayerFromTransactions(...)` now owns the repeated
+    - `buildAccountingModelFromTransactions(...)` now owns the repeated
       `build draft -> apply exclusions -> build canonical layer` sequence when
       an exclusion policy is present, so Canada, standard cost basis, and
       price completeness no longer orchestrate that chain separately at each

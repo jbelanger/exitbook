@@ -8,7 +8,7 @@ import {
   createExplainedMultiSourceAdaHashPartialTransactions,
   createLinkableMovementsFromTransactions,
 } from '../../linking/strategies/test-utils.js';
-import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
+import { buildAccountingModelFromTransactions } from '../build-accounting-model-from-transactions.js';
 import { validateTransferLinks } from '../validated-transfer-links.js';
 
 const logger = getLogger('validated-transfer-links.test');
@@ -33,9 +33,9 @@ function createExplainedResidualLinks() {
 describe('validateTransferLinks', () => {
   it('accepts explained target residual links directly from accounting transaction views', () => {
     const { links, transactions } = createExplainedResidualLinks();
-    const accountingLayer = assertOk(buildAccountingLayerFromTransactions(transactions, logger));
+    const accountingModel = assertOk(buildAccountingModelFromTransactions(transactions, logger));
 
-    const validated = assertOk(validateTransferLinks(accountingLayer.accountingTransactionViews, links));
+    const validated = assertOk(validateTransferLinks(accountingModel.accountingTransactionViews, links));
 
     expect(validated.links).toHaveLength(3);
     expect(validated.links.every((link) => link.isPartialMatch)).toBe(true);

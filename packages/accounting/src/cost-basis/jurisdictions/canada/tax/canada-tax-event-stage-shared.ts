@@ -3,9 +3,9 @@ import { err, isFiat, ok, type Result } from '@exitbook/foundation';
 
 import type {
   AccountingFeeEntryView,
-  AccountingLayerIndexes,
+  AccountingModelIndexes,
   AccountingTransactionView,
-} from '../../../../accounting-layer.js';
+} from '../../../../accounting-model.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 
 import type { CanadaValuedFee } from './canada-tax-fee-utils.js';
@@ -112,7 +112,7 @@ export function buildEventIndex(events: CanadaTaxInputEvent[]): CanadaEventIndex
   return { byMovementFingerprint, byTransactionId };
 }
 
-export function buildMovementIndexes(indexes: AccountingLayerIndexes): CanadaMovementIndexes {
+export function buildMovementIndexes(indexes: AccountingModelIndexes): CanadaMovementIndexes {
   const inflowsByFingerprint = new Map<
     string,
     { movement: CanadaIndexedMovementRef; transactionView: AccountingTransactionView }

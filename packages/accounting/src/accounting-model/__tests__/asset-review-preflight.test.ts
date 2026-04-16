@@ -3,7 +3,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
-  assertNoAccountingLayerAssetsRequireReview,
+  assertNoAccountingModelAssetsRequireReview,
   collectBlockingAssetReviewSummaries,
 } from '../asset-review-preflight.js';
 
@@ -14,14 +14,14 @@ function createAccountingTransactionView(assetIds: { fees?: string[]; inflows?: 
     outflows: (assetIds.outflows ?? []).map((assetId) => ({ assetId })),
     fees: (assetIds.fees ?? []).map((assetId) => ({ assetId })),
   } as unknown as Parameters<
-    typeof assertNoAccountingLayerAssetsRequireReview
+    typeof assertNoAccountingModelAssetsRequireReview
   >[0]['accountingTransactionViews'][number];
 }
 
-function createAccountingLayer(assetIds: { fees?: string[]; inflows?: string[]; outflows?: string[] }[]) {
+function createAccountingModel(assetIds: { fees?: string[]; inflows?: string[]; outflows?: string[] }[]) {
   return {
     accountingTransactionViews: assetIds.map(createAccountingTransactionView),
-  } as unknown as Parameters<typeof assertNoAccountingLayerAssetsRequireReview>[0];
+  } as unknown as Parameters<typeof assertNoAccountingModelAssetsRequireReview>[0];
 }
 
 function createReviewSummary(
@@ -94,33 +94,33 @@ describe('collectBlockingAssetReviewSummaries', () => {
   });
 });
 
-describe('assertNoAccountingLayerAssetsRequireReview', () => {
+describe('assertNoAccountingModelAssetsRequireReview', () => {
   it('should return ok when no assets are blocked', () => {
-    const accountingLayer = createAccountingLayer([{ inflows: ['asset-a'] }]);
-    const result = assertNoAccountingLayerAssetsRequireReview(accountingLayer);
+    const accountingModel = createAccountingModel([{ inflows: ['asset-a'] }]);
+    const result = assertNoAccountingModelAssetsRequireReview(accountingModel);
 
     assertOk(result);
   });
 
   it('should return ok when blocking assets are not in scope', () => {
-    const accountingLayer = createAccountingLayer([{ inflows: ['asset-a'] }]);
+    const accountingModel = createAccountingModel([{ inflows: ['asset-a'] }]);
     const summaries = new Map([['asset-b', createReviewSummary('asset-b')]]);
-    const result = assertNoAccountingLayerAssetsRequireReview(accountingLayer, summaries);
+    const result = assertNoAccountingModelAssetsRequireReview(accountingModel, summaries);
 
     assertOk(result);
   });
 
   it('should return error when scoped asset is blocked', () => {
-    const accountingLayer = createAccountingLayer([{ inflows: ['asset-a'] }]);
+    const accountingModel = createAccountingModel([{ inflows: ['asset-a'] }]);
     const summaries = new Map([['asset-a', createReviewSummary('asset-a')]]);
-    const result = assertErr(assertNoAccountingLayerAssetsRequireReview(accountingLayer, summaries));
+    const result = assertErr(assertNoAccountingModelAssetsRequireReview(accountingModel, summaries));
 
     expect(result.message).toContain('asset-a');
     expect(result.message).toContain('review');
   });
 
   it('should collect asset ids from inflows, outflows, and fees', () => {
-    const accountingLayer = createAccountingLayer([
+    const accountingModel = createAccountingModel([
       {
         inflows: ['asset-a'],
         outflows: ['asset-b'],
@@ -128,7 +128,7 @@ describe('assertNoAccountingLayerAssetsRequireReview', () => {
       },
     ]);
     const summaries = new Map([['asset-c', createReviewSummary('asset-c')]]);
-    const result = assertErr(assertNoAccountingLayerAssetsRequireReview(accountingLayer, summaries));
+    const result = assertErr(assertNoAccountingModelAssetsRequireReview(accountingModel, summaries));
 
     expect(result.message).toContain('asset-c');
   });

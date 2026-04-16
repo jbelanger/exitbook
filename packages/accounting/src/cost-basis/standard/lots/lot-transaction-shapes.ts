@@ -5,7 +5,7 @@ import type { Decimal } from 'decimal.js';
 import type {
   AccountingAssetEntryView,
   AccountingTransactionView,
-} from '../../../accounting-layer/accounting-layer-types.js';
+} from '../../../accounting-model/accounting-model-types.js';
 
 export type CostBasisTransactionLike = AccountingTransactionView | Transaction;
 export type CostBasisMovementLike = AssetMovement | AccountingAssetEntryView;

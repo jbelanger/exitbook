@@ -7,7 +7,7 @@ const { mockBuildAccountingScopedTransactions } = vi.hoisted(() => ({
   mockBuildAccountingScopedTransactions: vi.fn(),
 }));
 
-vi.mock('../../../accounting-layer/build-accounting-scoped-transactions.js', () => ({
+vi.mock('../../../accounting-model/build-accounting-scoped-transactions.js', () => ({
   buildAccountingScopedTransactions: mockBuildAccountingScopedTransactions,
 }));
 

@@ -2,9 +2,9 @@ import { isFiat, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { AccountingLayerBuildResult } from './accounting-layer-types.js';
+import type { AccountingModelBuildResult } from './accounting-model-types.js';
 
-const logger = getLogger('accounting-layer.price-validation');
+const logger = getLogger('accounting-model.price-validation');
 
 /**
  * Represents a movement or fee that requires a price for cost basis calculation
@@ -70,10 +70,10 @@ interface PriceValidationResult {
   };
 }
 
-function collectAccountingLayerPricedEntities(accountingLayer: AccountingLayerBuildResult): PricedEntity[] {
+function collectAccountingModelPricedEntities(accountingModel: AccountingModelBuildResult): PricedEntity[] {
   const entities: PricedEntity[] = [];
 
-  for (const transactionView of accountingLayer.accountingTransactionViews) {
+  for (const transactionView of accountingModel.accountingTransactionViews) {
     const datetime = transactionView.processedTransaction.datetime ?? '(unknown)';
     appendPricedEntities(
       entities,
@@ -301,10 +301,10 @@ function formatValidationError(result: PriceValidationResult): string {
   );
 }
 
-export function assertAccountingLayerPriceDataQuality(
-  accountingLayer: AccountingLayerBuildResult
+export function assertAccountingModelPriceDataQuality(
+  accountingModel: AccountingModelBuildResult
 ): Result<void, Error> {
-  return assertEntityPriceDataQuality(collectAccountingLayerPricedEntities(accountingLayer));
+  return assertEntityPriceDataQuality(collectAccountingModelPricedEntities(accountingModel));
 }
 
 function assertEntityPriceDataQuality(entities: PricedEntity[]): Result<void, Error> {
