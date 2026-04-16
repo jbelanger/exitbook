@@ -4,6 +4,7 @@ import {
   type LinkGapAnalysis,
 } from '@exitbook/accounting/linking';
 import type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from '@exitbook/accounting/ports';
+import type { Transaction } from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
@@ -13,7 +14,11 @@ import {
   buildLinkProposalRef,
   resolveLinkGapSelector,
 } from '../../link-selector.js';
-import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
+import type {
+  LinkGapBrowseItem,
+  LinkGapBrowseTransactionContext,
+  LinkGapEndpointOwnership,
+} from '../../links-gaps-browse-model.js';
 import { buildTransferProposalItems } from '../../transfer-proposals.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
@@ -42,6 +47,7 @@ export async function buildLinksGapsBrowsePresentation(
     });
     const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
     const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
+    const transactionContextByFingerprint = yield* buildGapTransactionContextByFingerprint(source, sortedAnalysis);
     const gaps = sortedAnalysis.issues.map((gapIssue) => ({
       gapRef: buildLinkGapRef({
         txFingerprint: gapIssue.txFingerprint,
@@ -56,6 +62,7 @@ export async function buildLinksGapsBrowsePresentation(
           direction: gapIssue.direction,
         })
       ),
+      transactionContext: transactionContextByFingerprint.get(gapIssue.txFingerprint),
       transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
       transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
     }));
@@ -152,6 +159,121 @@ function compareLinkGapIssuesByTimestamp(
   }
 
   return left.txFingerprint.localeCompare(right.txFingerprint);
+}
+
+function buildGapTransactionContextByFingerprint(
+  source: ProfileLinkGapSourceData,
+  analysis: LinkGapAnalysis
+): Result<Map<string, LinkGapBrowseTransactionContext>, Error> {
+  const transactionByFingerprint = new Map(
+    source.transactions.map((transaction) => [transaction.txFingerprint, transaction])
+  );
+  const trackedIdentifiers = new Set(source.accounts.map((account) => account.identifier));
+  const sameHashGroupByNormalizedHash = buildOpenSameHashGroupByNormalizedHash(source.transactions, analysis);
+  const contexts = new Map<string, LinkGapBrowseTransactionContext>();
+
+  for (const issue of analysis.issues) {
+    const transaction = transactionByFingerprint.get(issue.txFingerprint);
+    if (transaction === undefined) {
+      return err(new Error(`Gap transaction ${issue.txFingerprint} missing from profile gap source data`));
+    }
+
+    const sameHashGroup =
+      transaction.blockchain !== undefined
+        ? sameHashGroupByNormalizedHash.get(normalizeGapTransactionHash(transaction.blockchain.transaction_hash))
+        : undefined;
+
+    contexts.set(issue.txFingerprint, buildGapTransactionContext(transaction, trackedIdentifiers, sameHashGroup));
+  }
+
+  return ok(contexts);
+}
+
+function buildGapTransactionContext(
+  transaction: Transaction,
+  trackedIdentifiers: ReadonlySet<string>,
+  sameHashGroup?:
+    | {
+        openSameHashGapRowCount: number;
+        openSameHashTransactionRefs: string[];
+      }
+     
+): LinkGapBrowseTransactionContext {
+  return {
+    blockchainTransactionHash: transaction.blockchain?.transaction_hash,
+    from: transaction.from,
+    fromOwnership: resolveEndpointOwnership(transaction.from, trackedIdentifiers),
+    ...(sameHashGroup !== undefined && sameHashGroup.openSameHashTransactionRefs.length > 1
+      ? {
+          openSameHashGapRowCount: sameHashGroup.openSameHashGapRowCount,
+          openSameHashTransactionRefs: sameHashGroup.openSameHashTransactionRefs,
+        }
+      : {}),
+    to: transaction.to,
+    toOwnership: resolveEndpointOwnership(transaction.to, trackedIdentifiers),
+  };
+}
+
+function resolveEndpointOwnership(
+  endpoint: string | undefined,
+  trackedIdentifiers: ReadonlySet<string>
+): LinkGapEndpointOwnership | undefined {
+  if (endpoint === undefined) {
+    return undefined;
+  }
+
+  return trackedIdentifiers.has(endpoint) ? 'tracked' : 'untracked';
+}
+
+function buildOpenSameHashGroupByNormalizedHash(
+  transactions: readonly Transaction[],
+  analysis: LinkGapAnalysis
+): Map<
+  string,
+  {
+    openSameHashGapRowCount: number;
+    openSameHashTransactionRefs: string[];
+  }
+> {
+  const transactionByFingerprint = new Map(transactions.map((transaction) => [transaction.txFingerprint, transaction]));
+  const groupByNormalizedHash = new Map<
+    string,
+    {
+      gapRowCount: number;
+      transactionRefs: Set<string>;
+    }
+  >();
+
+  for (const issue of analysis.issues) {
+    const transaction = transactionByFingerprint.get(issue.txFingerprint);
+    const blockchainHash = transaction?.blockchain?.transaction_hash;
+    if (blockchainHash === undefined) {
+      continue;
+    }
+
+    const normalizedHash = normalizeGapTransactionHash(blockchainHash);
+    const group = groupByNormalizedHash.get(normalizedHash) ?? {
+      gapRowCount: 0,
+      transactionRefs: new Set<string>(),
+    };
+    group.gapRowCount += 1;
+    group.transactionRefs.add(formatTransactionFingerprintRef(issue.txFingerprint));
+    groupByNormalizedHash.set(normalizedHash, group);
+  }
+
+  return new Map(
+    [...groupByNormalizedHash.entries()].map(([normalizedHash, group]) => [
+      normalizedHash,
+      {
+        openSameHashGapRowCount: group.gapRowCount,
+        openSameHashTransactionRefs: [...group.transactionRefs].sort(),
+      },
+    ])
+  );
+}
+
+function normalizeGapTransactionHash(hash: string): string {
+  return hash.replace(/-\d+$/, '');
 }
 
 function buildSuggestedProposalRefsByIssueKey(source: ProfileLinkGapSourceData): Result<Map<string, string[]>, Error> {

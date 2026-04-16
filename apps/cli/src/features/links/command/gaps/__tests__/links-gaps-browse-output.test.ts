@@ -22,6 +22,15 @@ describe('links-gaps-browse-output', () => {
       }),
       gapIssue: firstIssue,
       suggestedProposalRefs: ['abc123def0'],
+      transactionContext: {
+        blockchainTransactionHash: 'shared-hash',
+        from: 'bc1qtracked',
+        fromOwnership: 'tracked' as const,
+        openSameHashGapRowCount: 2,
+        openSameHashTransactionRefs: ['abc123def0', 'def456abc1'],
+        to: '3J11external',
+        toOwnership: 'untracked' as const,
+      },
       transactionGapCount: 1,
       transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),
     };
@@ -43,7 +52,7 @@ describe('links-gaps-browse-output', () => {
 
     const output = result.value.output as CliJsonOutput;
     const payload = output.data as {
-      data: [{ suggestedProposalRefs?: string[] }];
+      data: [{ suggestedProposalRefs?: string[]; transactionContext?: { openSameHashGapRowCount?: number } }];
       meta: {
         filters: {
           hiddenByResolutionOverrides: number;
@@ -53,5 +62,6 @@ describe('links-gaps-browse-output', () => {
 
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
+    expect(payload.data[0]?.transactionContext?.openSameHashGapRowCount).toBe(2);
   });
 });

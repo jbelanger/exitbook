@@ -156,6 +156,15 @@ describe('links static renderer', () => {
         }),
         gapIssue,
         suggestedProposalRefs: ['abc123def0'],
+        transactionContext: {
+          blockchainTransactionHash: 'shared-hash',
+          from: 'bc1qtrackedsource',
+          fromOwnership: 'tracked' as const,
+          openSameHashGapRowCount: 4,
+          openSameHashTransactionRefs: ['0436b78ccb', '029c7fa342', 'd7cf981709', 'efe42f1f51'],
+          to: '3J11externaldest',
+          toOwnership: 'untracked' as const,
+        },
         transactionGapCount: 1,
         transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
       },
@@ -169,6 +178,12 @@ describe('links static renderer', () => {
     expect(stripAnsi(listOutput)).toContain('staking withdrawal in same tx');
     expect(stripAnsi(detailOutput)).toContain(`Gap ref: ${items[0]!.gapRef}`);
     expect(stripAnsi(detailOutput)).toContain(`Transaction ref: ${items[0]!.transactionRef}`);
+    expect(stripAnsi(detailOutput)).toContain('Blockchain hash: shared-hash');
+    expect(stripAnsi(detailOutput)).toContain('From: bc1qtrackedsource');
+    expect(stripAnsi(detailOutput)).toContain('To: 3J11externaldest');
+    expect(stripAnsi(detailOutput)).toContain('Ownership: tracked source -> untracked destination');
+    expect(stripAnsi(detailOutput)).toContain('Open same-hash gap rows: 4');
+    expect(stripAnsi(detailOutput)).toContain('Open same-hash tx refs: 0436b78ccb, 029c7fa342, d7cf981709, efe42f1f51');
     expect(stripAnsi(detailOutput)).toContain('Cue: likely correlated service swap');
     expect(stripAnsi(detailOutput)).toContain(
       'Context: Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA'

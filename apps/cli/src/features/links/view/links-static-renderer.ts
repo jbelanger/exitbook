@@ -2,7 +2,7 @@ import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
-import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
+import type { LinkGapBrowseItem, LinkGapEndpointOwnership } from '../links-gaps-browse-model.js';
 
 import {
   countGapSuggestionBuckets,
@@ -320,8 +320,31 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     ...(gapIssue.blockchainName && gapIssue.blockchainName !== gapIssue.platformKey
       ? [buildDetailLine('Blockchain', gapIssue.blockchainName)]
       : []),
+    ...(item.transactionContext?.blockchainTransactionHash
+      ? [buildDetailLine('Blockchain hash', item.transactionContext.blockchainTransactionHash)]
+      : []),
     buildDetailLine('Date', gapIssue.timestamp),
     buildDetailLine('Operation', `${gapIssue.operationCategory}/${gapIssue.operationType}`),
+    ...(item.transactionContext?.from ? [buildDetailLine('From', item.transactionContext.from)] : []),
+    ...(item.transactionContext?.to ? [buildDetailLine('To', item.transactionContext.to)] : []),
+    ...(buildGapOwnershipRouteLabel(item.transactionContext?.fromOwnership, item.transactionContext?.toOwnership)
+      ? [
+          buildDetailLine(
+            'Ownership',
+            colorizeGapOwnershipRoute(
+              buildGapOwnershipRouteLabel(item.transactionContext?.fromOwnership, item.transactionContext?.toOwnership)!
+            )
+          ),
+        ]
+      : []),
+    ...(item.transactionContext?.openSameHashGapRowCount !== undefined &&
+    item.transactionContext.openSameHashGapRowCount > 1
+      ? [buildDetailLine('Open same-hash gap rows', String(item.transactionContext.openSameHashGapRowCount))]
+      : []),
+    ...(item.transactionContext?.openSameHashTransactionRefs !== undefined &&
+    item.transactionContext.openSameHashTransactionRefs.length > 1
+      ? [buildDetailLine('Open same-hash tx refs', item.transactionContext.openSameHashTransactionRefs.join(', '))]
+      : []),
     buildDetailLine('Asset ID', gapIssue.assetId),
     buildDetailLine('Missing', `${gapIssue.missingAmount} ${gapIssue.assetSymbol}`),
     buildDetailLine('Total', `${gapIssue.totalAmount} ${gapIssue.assetSymbol}`),
@@ -441,6 +464,25 @@ function buildGapSuggestionDetailLines(suggestedProposalRefs: string[]): string[
   );
 }
 
+function buildGapOwnershipRouteLabel(
+  fromOwnership: LinkGapEndpointOwnership | undefined,
+  toOwnership: LinkGapEndpointOwnership | undefined
+): string | undefined {
+  if (fromOwnership === undefined && toOwnership === undefined) {
+    return undefined;
+  }
+
+  if (fromOwnership !== undefined && toOwnership !== undefined) {
+    return `${fromOwnership} source -> ${toOwnership} destination`;
+  }
+
+  if (fromOwnership !== undefined) {
+    return `${fromOwnership} source`;
+  }
+
+  return `${toOwnership!} destination`;
+}
+
 function colorizeStatus(color: string, value: string): string {
   switch (color) {
     case 'green':
@@ -454,6 +496,18 @@ function colorizeStatus(color: string, value: string): string {
     default:
       return value;
   }
+}
+
+function colorizeGapOwnershipRoute(value: string): string {
+  if (value === 'tracked source -> untracked destination') {
+    return pc.yellow(value);
+  }
+
+  if (value === 'untracked source -> tracked destination') {
+    return pc.green(value);
+  }
+
+  return pc.dim(value);
 }
 
 function colorizeText(color: string, value: string): string {

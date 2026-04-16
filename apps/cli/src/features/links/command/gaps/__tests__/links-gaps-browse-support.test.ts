@@ -1,5 +1,8 @@
+import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { ProfileLinkGapSourceData } from '@exitbook/accounting/ports';
+import type { Transaction } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
+import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 const { mockBuildVisibleProfileLinkGapAnalysis } = vi.hoisted(() => ({
@@ -16,31 +19,72 @@ vi.mock('@exitbook/accounting/linking', async (importOriginal) => {
 });
 
 import { createConfirmableTransferFixture, createMockGapAnalysis } from '../../../__tests__/test-utils.js';
+import { createPersistedTransaction } from '../../../../shared/__tests__/transaction-test-utils.js';
 import { buildLinkGapRef, buildLinkProposalRef } from '../../../link-selector.js';
 import { buildTransferProposalItems } from '../../../transfer-proposals.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
 
 type LinksGapSourceReader = Parameters<typeof buildLinksGapsBrowsePresentation>[0];
 
-function createLinksGapSourceReader(): {
+function createLinksGapSourceReader(
+  sourceData: ProfileLinkGapSourceData = createProfileLinkGapSourceData(createMockGapAnalysis())
+): {
   loadProfileLinkGapSourceData: ReturnType<typeof vi.fn>;
   sourceReader: LinksGapSourceReader;
 } {
-  const loadProfileLinkGapSourceData = vi.fn().mockResolvedValue(
-    ok({
-      accounts: [],
-      excludedAssetIds: new Set<string>(),
-      links: [],
-      resolvedIssueKeys: new Set<string>(),
-      transactions: [],
-    })
-  );
+  const loadProfileLinkGapSourceData = vi.fn().mockResolvedValue(ok(sourceData));
 
   return {
     loadProfileLinkGapSourceData,
     sourceReader: {
       loadProfileLinkGapSourceData,
     },
+  };
+}
+
+function createProfileLinkGapSourceData(analysis: LinkGapAnalysis): ProfileLinkGapSourceData {
+  return {
+    accounts: [],
+    excludedAssetIds: new Set<string>(),
+    links: [],
+    resolvedIssueKeys: new Set<string>(),
+    transactions: analysis.issues.map((issue) =>
+      createPersistedTransaction({
+        id: issue.transactionId,
+        accountId: issue.transactionId,
+        txFingerprint: issue.txFingerprint,
+        platformKey: issue.platformKey,
+        platformKind: issue.blockchainName !== undefined ? 'blockchain' : 'exchange',
+        datetime: issue.timestamp,
+        timestamp: Date.parse(issue.timestamp),
+        status: 'success',
+        movements: {
+          inflows: [],
+          outflows: [
+            {
+              assetId: 'test:gap',
+              assetSymbol: 'ETH' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('1'),
+            },
+          ],
+        },
+        fees: [],
+        operation: {
+          category: issue.operationCategory as Transaction['operation']['category'],
+          type: issue.operationType as Transaction['operation']['type'],
+        },
+        ...(issue.blockchainName !== undefined
+          ? {
+              blockchain: {
+                name: issue.blockchainName,
+                transaction_hash: `${issue.txFingerprint}-hash`,
+                is_confirmed: true,
+              },
+            }
+          : {}),
+      })
+    ),
   };
 }
 
@@ -67,7 +111,10 @@ describe('links-gaps-browse-support', () => {
       hiddenResolvedIssueCount: 0,
     });
 
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader().sourceReader, {});
+    const result = await buildLinksGapsBrowsePresentation(
+      createLinksGapSourceReader(createProfileLinkGapSourceData(analysis)).sourceReader,
+      {}
+    );
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -87,23 +134,19 @@ describe('links-gaps-browse-support', () => {
   });
 
   it('loads gap analysis from the shared profile gap source reader seam', async () => {
+    const analysis = createMockGapAnalysis();
+    const sourceData = createProfileLinkGapSourceData(analysis);
     mockBuildVisibleProfileLinkGapAnalysis.mockReturnValue({
-      analysis: createMockGapAnalysis(),
+      analysis,
       hiddenResolvedIssueCount: 1,
     });
-    const sourceReader = createLinksGapSourceReader();
+    const sourceReader = createLinksGapSourceReader(sourceData);
 
     const result = await buildLinksGapsBrowsePresentation(sourceReader.sourceReader, {});
 
     expect(result.isOk()).toBe(true);
     expect(sourceReader.loadProfileLinkGapSourceData).toHaveBeenCalledTimes(1);
-    expect(mockBuildVisibleProfileLinkGapAnalysis).toHaveBeenCalledWith({
-      accounts: [],
-      excludedAssetIds: new Set<string>(),
-      links: [],
-      resolvedIssueKeys: new Set<string>(),
-      transactions: [],
-    });
+    expect(mockBuildVisibleProfileLinkGapAnalysis).toHaveBeenCalledWith(sourceData);
   });
 
   it('treats same-transaction gap rows as distinct selector targets', async () => {
@@ -126,10 +169,13 @@ describe('links-gaps-browse-support', () => {
       assetId: secondGap.assetId,
       direction: secondGap.direction,
     });
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader().sourceReader, {
-      preselectInExplorer: true,
-      selector: secondGapRef,
-    });
+    const result = await buildLinksGapsBrowsePresentation(
+      createLinksGapSourceReader(createProfileLinkGapSourceData(analysis)).sourceReader,
+      {
+        preselectInExplorer: true,
+        selector: secondGapRef,
+      }
+    );
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -155,7 +201,10 @@ describe('links-gaps-browse-support', () => {
       hiddenResolvedIssueCount: 0,
     });
 
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader().sourceReader, {});
+    const result = await buildLinksGapsBrowsePresentation(
+      createLinksGapSourceReader(createProfileLinkGapSourceData(analysis)).sourceReader,
+      {}
+    );
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -239,5 +288,172 @@ describe('links-gaps-browse-support', () => {
     }
 
     expect(result.value.gaps.map((gap) => gap.suggestedProposalRefs)).toEqual([[proposalRef], [proposalRef]]);
+  });
+
+  it('derives tracked endpoint ownership and same-hash sibling refs from the profile gap source data', async () => {
+    const txOne = createPersistedTransaction({
+      id: 10,
+      accountId: 1,
+      txFingerprint: 'btc-gap-1',
+      platformKey: 'bitcoin',
+      platformKind: 'blockchain',
+      datetime: '2024-07-05T11:37:19.000Z',
+      timestamp: Date.parse('2024-07-05T11:37:19.000Z'),
+      status: 'success',
+      from: 'bc1qtrackedsource',
+      to: '3J11externaldest',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+      blockchain: {
+        name: 'bitcoin',
+        transaction_hash: 'shared-hash',
+        is_confirmed: true,
+      },
+    });
+    const txTwo = createPersistedTransaction({
+      id: 11,
+      accountId: 2,
+      txFingerprint: 'btc-gap-2',
+      platformKey: 'bitcoin',
+      platformKind: 'blockchain',
+      datetime: '2024-07-05T11:37:19.000Z',
+      timestamp: Date.parse('2024-07-05T11:37:19.000Z'),
+      status: 'success',
+      from: 'bc1qtrackedsecond',
+      to: '3J11externaldest',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+      blockchain: {
+        name: 'bitcoin',
+        transaction_hash: 'shared-hash',
+        is_confirmed: true,
+      },
+    });
+    const analysis = {
+      issues: [
+        {
+          transactionId: txOne.id,
+          txFingerprint: txOne.txFingerprint,
+          platformKey: txOne.platformKey,
+          blockchainName: 'bitcoin',
+          timestamp: txOne.datetime,
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          missingAmount: '0.5',
+          totalAmount: '0.5',
+          confirmedCoveragePercent: '0',
+          operationCategory: txOne.operation.category,
+          operationType: txOne.operation.type,
+          suggestedCount: 0,
+          direction: 'outflow' as const,
+        },
+        {
+          transactionId: txTwo.id,
+          txFingerprint: txTwo.txFingerprint,
+          platformKey: txTwo.platformKey,
+          blockchainName: 'bitcoin',
+          timestamp: txTwo.datetime,
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          missingAmount: '0.4',
+          totalAmount: '0.4',
+          confirmedCoveragePercent: '0',
+          operationCategory: txTwo.operation.category,
+          operationType: txTwo.operation.type,
+          suggestedCount: 0,
+          direction: 'outflow' as const,
+        },
+      ],
+      summary: {
+        total_issues: 2,
+        uncovered_inflows: 0,
+        unmatched_outflows: 2,
+        affected_assets: 1,
+        assets: [
+          {
+            assetSymbol: 'BTC',
+            inflowOccurrences: 0,
+            inflowMissingAmount: '0',
+            outflowOccurrences: 2,
+            outflowMissingAmount: '0.9',
+          },
+        ],
+      },
+    };
+    mockBuildVisibleProfileLinkGapAnalysis.mockReturnValue({
+      analysis,
+      hiddenResolvedIssueCount: 0,
+    });
+    const sourceReader = createCustomLinksGapSourceReader({
+      accounts: [
+        {
+          id: 1,
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1qtrackedsource',
+          accountFingerprint: 'acct-fp-1',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+        {
+          id: 2,
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1qtrackedsecond',
+          accountFingerprint: 'acct-fp-2',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+      ],
+      excludedAssetIds: new Set<string>(),
+      links: [],
+      resolvedIssueKeys: new Set<string>(),
+      transactions: [txOne, txTwo],
+    });
+
+    const result = await buildLinksGapsBrowsePresentation(sourceReader.sourceReader, {});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.gaps[0]?.transactionContext).toEqual({
+      blockchainTransactionHash: 'shared-hash',
+      from: 'bc1qtrackedsource',
+      fromOwnership: 'tracked',
+      openSameHashGapRowCount: 2,
+      openSameHashTransactionRefs: ['btc-gap-1', 'btc-gap-2'],
+      to: '3J11externaldest',
+      toOwnership: 'untracked',
+    });
   });
 });

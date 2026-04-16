@@ -641,3 +641,65 @@ Command-surface assessment:
 - current limitation:
   - the CLI does not yet summarize this pattern directly, so the operator still
     has to infer it manually from the transaction and account surfaces
+
+## Pass 12: Same-Hash BTC Outflow Clusters Still Need Better Group UX
+
+Date: 2026-04-16
+
+Goal:
+
+- investigate whether the remaining BTC transfer gaps were still individual
+  decisions or were really repeated rows for one underlying blockchain send
+- improve the shipped CLI enough to surface that pattern directly
+
+Commands used:
+
+```bash
+pnpm run dev issues view 54a85e55f5 --json
+pnpm run dev issues view 6a6bcebcf7 --json
+pnpm run dev links gaps view 7c626aaafa --json
+pnpm run dev transactions view 0436b78ccb --json
+pnpm run dev transactions view d7cf981709 --json
+pnpm run dev transactions view 029c7fa342 --json
+pnpm run dev transactions view efe42f1f51 --json
+pnpm run dev accounts list --platform bitcoin --json
+pnpm run dev links gaps view 7c626aaafa
+```
+
+Findings:
+
+- the next repeated live pattern is not another simple inbound exception
+- it is a same-hash BTC outflow cluster:
+  - multiple open gap rows
+  - each on a different tracked processed transaction row
+  - all sharing one Bitcoin transaction hash
+  - all sending to the same untracked external destination
+- before the fix, `links gaps view <gap-ref>` hid the key facts that make this
+  obvious:
+  - whether `from` / `to` are tracked
+  - whether sibling open gaps exist on the same blockchain hash
+- shipped fix:
+  - `links gaps view` and `links gaps view --json` now include
+    `transactionContext`
+  - that context carries:
+    - blockchain hash
+    - raw `from` / `to`
+    - `fromOwnership` / `toOwnership`
+    - `openSameHashGapRowCount`
+    - `openSameHashTransactionRefs`
+- this makes the repeated BTC pattern visible from one gap detail instead of
+  requiring several manual transaction/account comparisons
+
+Command-surface assessment:
+
+- improved:
+  - the CLI now exposes enough evidence for a future skill or operator to
+    recognize `tracked source -> untracked destination` directly from the gap
+    detail
+  - the JSON contract is now strong enough for a future automation/skill to use
+    without scraping prose
+- still open:
+  - the command surface is still row-at-a-time for same-hash outflow clusters
+  - if four open rows are really one external send decision, the user still has
+    to resolve four separate gaps
+  - that is a real product smell, not just missing wording

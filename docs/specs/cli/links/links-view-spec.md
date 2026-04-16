@@ -161,11 +161,18 @@ Behavior:
 
 - Renders one gap detail card with `GAP-REF`, transaction ref, fingerprint, platform, date, operation, asset id, gap amount, coverage, and readiness.
 - When present, detail also shows:
+  - blockchain transaction hash
+  - raw `from` / `to` endpoint values from the processed transaction
+  - endpoint ownership context such as `tracked source -> untracked destination`
   - a cue line describing the likely pattern behind the issue
   - a context line describing deterministic diagnostic or movement-role context on the transaction
   - exact `links confirm <LINK-REF>` commands when the gap can be mapped to one
     or more specific suggested proposals
 - When the transaction has multiple gap rows, detail also shows the count of open gap rows still present on that transaction.
+- When multiple open gap rows share the same blockchain transaction hash across
+  different processed transactions, detail also shows:
+  - the open same-hash gap-row count
+  - the sibling transaction refs still open on that hash
 - Includes next-step guidance:
   - confirm the first exact `LINK-REF` directly when specific proposal refs are
     known
@@ -216,6 +223,12 @@ Behavior:
 - JSON list output includes standard view metadata with active filters, including:
   - `hiddenResolvedIssues`
 - Gap rows include `gapCue` and `contextHint` when the analyzer derives them.
+- Gap rows may include `transactionContext` with:
+  - `blockchainTransactionHash`
+  - `from`, `fromOwnership`
+  - `to`, `toOwnership`
+  - `openSameHashGapRowCount`
+  - `openSameHashTransactionRefs`
 
 ### Detail
 
@@ -223,6 +236,7 @@ Behavior:
 - Gap detail returns one gap object plus `transactionGapCount` metadata for the containing transaction.
 - Gap detail and summary rows may include `suggestedProposalRefs` when the CLI
   can map visible suggested proposals back onto that gap identity.
+- Gap detail uses the same `transactionContext` shape as gap summary rows.
 - Detail metadata includes the selected ref.
 
 ## Review Commands
