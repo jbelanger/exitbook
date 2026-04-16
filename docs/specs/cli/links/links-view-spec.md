@@ -128,7 +128,11 @@ Behavior:
 - Fully explained exact residuals are omitted from the open list because they are not user-actionable transfer-review work.
 - Gap rows are ordered chronologically.
 - Resolved gap issues are hidden by default.
-- Header and JSON metadata report how many resolved gap issues are hidden.
+- Header and empty-state messaging report how many resolved gap exceptions are hidden.
+- Header summary distinguishes:
+  - gaps that already have transfer suggestions
+  - gaps that still have no suggestions
+- JSON metadata reports how many resolved gap issues are hidden.
 - Rows may include inline review context when the analyzer has:
   - a likely heuristic cue (`gapCue`)
   - or deterministic diagnostic / movement-role context (`contextHint`)

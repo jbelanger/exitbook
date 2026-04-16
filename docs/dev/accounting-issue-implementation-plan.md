@@ -586,6 +586,11 @@ Completed so far:
   instead of failing with a dead-end message
 - `portfolio` now routes scoped accounting-review burden through exact
   `issues cost-basis ...` notices instead of warning-string duplication
+- `links gaps` no longer presents itself like a second generic issue queue:
+  - resolved gap overrides now render as resolved gap exceptions
+  - gap header state now distinguishes suggestion availability
+    (`with suggestions` / `without suggestions`)
+  - the gap lens remains specialized to transfer-gap review and gap exceptions
 
 Acceptance criteria:
 

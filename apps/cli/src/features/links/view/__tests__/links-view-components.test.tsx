@@ -478,8 +478,8 @@ describe('LinksViewApp - gaps mode', () => {
     expect(frame).toContain('3 gaps');
     expect(frame).toContain('2 uncovered inflows');
     expect(frame).toContain('1 unmatched outflow');
-    expect(frame).toContain('2 ready to review');
-    expect(frame).toContain('1 manual review');
+    expect(frame).toContain('2 with suggestions');
+    expect(frame).toContain('1 without suggestions');
   });
 
   it('renders top assets summary', () => {
@@ -667,8 +667,8 @@ describe('LinksViewApp - gaps mode', () => {
     const frame = lastFrame();
     const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    expect(normalizedFrame).toContain('2 override-resolved gaps hidden');
-    expect(normalizedFrame).toContain('No open gaps. 2 gaps are hidden by resolution overrides.');
+    expect(normalizedFrame).toContain('2 resolved gap exceptions hidden');
+    expect(normalizedFrame).toContain('No open gaps. 2 resolved gap exceptions are hidden.');
   });
 });
 

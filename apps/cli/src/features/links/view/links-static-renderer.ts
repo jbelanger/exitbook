@@ -5,17 +5,21 @@ import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 
 import {
+  countGapSuggestionBuckets,
   formatCompactAmount,
   formatCoverage,
   formatGapCueLabel,
   formatGapRowTimestamp,
+  formatGapSuggestionAvailability,
   formatLinkDate,
   formatLinkTypeDisplay,
   formatMatchCriteria,
+  formatNoOpenGapsMessage,
   formatProposalConfidence,
   formatProposalProvenance,
   formatProposalProvenanceDetail,
   formatProposalRoute,
+  formatResolvedGapExceptionCount,
   getCoverageColor,
   getGapSuggestionColor,
   getProposalAmountDisplay,
@@ -380,38 +384,23 @@ function buildLinksEmptyStateLines(state: LinksViewLinksState): string[] {
 }
 
 function buildLinkGapsEmptyStateLines(state: LinksViewGapsState): string[] {
-  if (state.hiddenResolvedIssueCount > 0) {
-    return [
-      `No open gaps. ${state.hiddenResolvedIssueCount} gap${
-        state.hiddenResolvedIssueCount === 1 ? ' is' : 's are'
-      } hidden by resolution overrides.`,
-    ];
-  }
-
-  return ['All movements have confirmed counterparties.'];
+  return [formatNoOpenGapsMessage(state.hiddenResolvedIssueCount)];
 }
 
 function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): string {
   const { linkAnalysis } = state;
-  const readyToReview = linkAnalysis.issues.filter((issue) => issue.suggestedCount > 0).length;
-  const needsInvestigation = linkAnalysis.summary.total_issues - readyToReview;
+  const { withSuggestions, withoutSuggestions } = countGapSuggestionBuckets(linkAnalysis.issues);
   const metadata = [
     `${visibleCount} shown`,
-    ...(state.hiddenResolvedIssueCount > 0
-      ? [
-          `${state.hiddenResolvedIssueCount} override-resolved gap${
-            state.hiddenResolvedIssueCount === 1 ? '' : 's'
-          } hidden`,
-        ]
-      : []),
+    ...(state.hiddenResolvedIssueCount > 0 ? [formatResolvedGapExceptionCount(state.hiddenResolvedIssueCount)] : []),
     `${linkAnalysis.summary.uncovered_inflows} uncovered inflow${
       linkAnalysis.summary.uncovered_inflows === 1 ? '' : 's'
     }`,
     `${linkAnalysis.summary.unmatched_outflows} unmatched outflow${
       linkAnalysis.summary.unmatched_outflows === 1 ? '' : 's'
     }`,
-    `${readyToReview} ready to review`,
-    `${needsInvestigation} manual review`,
+    `${withSuggestions} with suggestions`,
+    `${withoutSuggestions} without suggestions`,
   ];
 
   return `${pc.bold('Link Gaps')} ${pc.dim(metadata.join(' · '))}`;
@@ -563,15 +552,7 @@ function formatProposalKindCount(
 }
 
 function formatGapReadiness(item: LinkGapBrowseItem): string {
-  const readiness =
-    item.gapIssue.suggestedCount === 0
-      ? 'manual review'
-      : `${item.gapIssue.suggestedCount} suggested${
-          item.gapIssue.highestSuggestedConfidencePercent
-            ? ` (${item.gapIssue.highestSuggestedConfidencePercent}%)`
-            : ''
-        }`;
-
+  const readiness = formatGapSuggestionAvailability(item.gapIssue);
   const cueSuffix = item.gapIssue.gapCue ? ` · ${formatGapCueLabel(item.gapIssue.gapCue)}` : '';
   const contextSuffix = item.gapIssue.contextHint ? ` · ${item.gapIssue.contextHint.label}` : '';
 

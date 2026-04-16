@@ -148,6 +148,31 @@ export function formatCoverage(coveragePercent: string): string {
   return `${Math.round(num)}% covered`;
 }
 
+export function countGapSuggestionBuckets(issues: readonly LinkGapIssue[]): {
+  withoutSuggestions: number;
+  withSuggestions: number;
+} {
+  const withSuggestions = issues.filter((issue) => issue.suggestedCount > 0).length;
+  return {
+    withSuggestions,
+    withoutSuggestions: issues.length - withSuggestions,
+  };
+}
+
+export function formatResolvedGapExceptionCount(count: number): string {
+  return `${count} resolved gap exception${count === 1 ? '' : 's'} hidden`;
+}
+
+export function formatNoOpenGapsMessage(hiddenResolvedIssueCount: number): string {
+  if (hiddenResolvedIssueCount > 0) {
+    return `No open gaps. ${hiddenResolvedIssueCount} resolved gap exception${
+      hiddenResolvedIssueCount === 1 ? ' is' : 's are'
+    } hidden.`;
+  }
+
+  return 'All movements have confirmed counterparties.';
+}
+
 export function getCoverageColor(percent: number): string {
   if (percent >= 50) {
     return 'green';
@@ -177,6 +202,16 @@ export function formatGapCueLabel(cue: GapCueKind): string {
     case 'likely_cross_chain_migration':
       return 'likely cross-chain migration';
   }
+}
+
+export function formatGapSuggestionAvailability(issue: LinkGapIssue): string {
+  if (issue.suggestedCount === 0) {
+    return 'no suggestions yet';
+  }
+
+  return `${issue.suggestedCount} suggested${
+    issue.highestSuggestedConfidencePercent ? ` (${issue.highestSuggestedConfidencePercent}%)` : ''
+  }`;
 }
 
 export function formatLinkTypeDisplay(

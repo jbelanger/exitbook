@@ -188,7 +188,7 @@ describe('links static renderer', () => {
 
     const output = buildLinkGapsStaticList(state, []);
 
-    expect(stripAnsi(output)).toContain('2 override-resolved gaps hidden');
-    expect(stripAnsi(output)).toContain('No open gaps. 2 gaps are hidden by resolution overrides.');
+    expect(stripAnsi(output)).toContain('2 resolved gap exceptions hidden');
+    expect(stripAnsi(output)).toContain('No open gaps. 2 resolved gap exceptions are hidden.');
   });
 });

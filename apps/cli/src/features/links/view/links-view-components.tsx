@@ -21,19 +21,23 @@ import type { LinkWithTransactions, TransferProposalWithTransactions } from '../
 
 import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
+  countGapSuggestionBuckets,
   formatAmount,
   formatCompactAmount,
   formatConfidenceScore,
   formatCoverage,
   formatGapCueLabel,
   formatGapRowTimestamp,
+  formatGapSuggestionAvailability,
   formatLinkDate,
   formatLinkTypeDisplay,
   formatMatchCriteria,
+  formatNoOpenGapsMessage,
   formatProposalConfidence,
   formatProposalProvenance,
   formatProposalProvenanceDetail,
   formatProposalRoute,
+  formatResolvedGapExceptionCount,
   getConfidenceColor,
   getCoverageColor,
   getGapSuggestionColor,
@@ -666,8 +670,7 @@ const GapsView: FC<{
  */
 const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
   const { summary } = state.linkAnalysis;
-  const readyToReview = state.linkAnalysis.issues.filter((issue) => issue.suggestedCount > 0).length;
-  const needsInvestigation = summary.total_issues - readyToReview;
+  const { withSuggestions, withoutSuggestions } = countGapSuggestionBuckets(state.linkAnalysis.issues);
 
   return (
     <Box flexDirection="column">
@@ -677,10 +680,7 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
         {state.hiddenResolvedIssueCount > 0 && (
           <>
             <Text dimColor> · </Text>
-            <Text dimColor>
-              {state.hiddenResolvedIssueCount} override-resolved gap
-              {state.hiddenResolvedIssueCount !== 1 ? 's' : ''} hidden
-            </Text>
+            <Text dimColor>{formatResolvedGapExceptionCount(state.hiddenResolvedIssueCount)}</Text>
           </>
         )}
         <Text dimColor> · </Text>
@@ -692,9 +692,9 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
           {summary.unmatched_outflows} unmatched outflow{summary.unmatched_outflows !== 1 ? 's' : ''}
         </Text>
         <Text dimColor> · </Text>
-        <Text color={readyToReview > 0 ? 'green' : 'dim'}>{readyToReview} ready to review</Text>
+        <Text color={withSuggestions > 0 ? 'green' : 'dim'}>{withSuggestions} with suggestions</Text>
         <Text dimColor> · </Text>
-        <Text color={needsInvestigation > 0 ? 'yellow' : 'dim'}>{needsInvestigation} manual review</Text>
+        <Text color={withoutSuggestions > 0 ? 'yellow' : 'dim'}>{withoutSuggestions} without suggestions</Text>
         <Text dimColor> · </Text>
         <Text dimColor>
           {summary.affected_assets} asset{summary.affected_assets !== 1 ? 's' : ''}
@@ -738,15 +738,10 @@ const GapTopAssets: FC<{ assets: LinkGapAssetSummary[] }> = ({ assets }) => {
 
 function renderGapSuggestionSummary(issue: LinkGapIssue): ReactElement {
   if (issue.suggestedCount === 0) {
-    return <Text color="yellow">manual review</Text>;
+    return <Text color="yellow">{formatGapSuggestionAvailability(issue)}</Text>;
   }
 
-  return (
-    <Text color={getGapSuggestionColor(issue)}>
-      {issue.suggestedCount} suggestion{issue.suggestedCount !== 1 ? 's' : ''}
-      {issue.highestSuggestedConfidencePercent ? ` (${issue.highestSuggestedConfidencePercent}%)` : ''}
-    </Text>
-  );
+  return <Text color={getGapSuggestionColor(issue)}>{formatGapSuggestionAvailability(issue)}</Text>;
 }
 
 /**
@@ -966,12 +961,7 @@ const GapsControlsBar: FC = () => {
  * Empty state component (gaps mode)
  */
 const GapsEmptyState: FC<{ state: LinksViewGapsState }> = ({ state }) => {
-  const emptyMessage =
-    state.hiddenResolvedIssueCount > 0
-      ? `No open gaps. ${state.hiddenResolvedIssueCount} gap${
-          state.hiddenResolvedIssueCount === 1 ? ' is' : 's are'
-        } hidden by resolution overrides.`
-      : 'All movements have confirmed counterparties.';
+  const emptyMessage = formatNoOpenGapsMessage(state.hiddenResolvedIssueCount);
 
   return (
     <Box flexDirection="column">
