@@ -25,7 +25,7 @@ type IssuesCostBasisCommandOptions = z.infer<typeof IssuesCostBasisCommandOption
 export function registerIssuesCostBasisCommand(issuesCommand: Command): void {
   issuesCommand
     .command('cost-basis')
-    .description('Show tax-readiness issues for one filing scope')
+    .description('Show cost-basis issues for one filing scope')
     .option('--method <method>', 'Calculation method: fifo, lifo, specific-id, average-cost')
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA or US')
     .option('--tax-year <year>', 'Tax year for calculation (for example, 2024)')

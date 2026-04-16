@@ -58,9 +58,9 @@ Accounting issues are always read inside an explicit accounting scope.
 ### `cost-basis` scope
 
 - Purpose: filing/configuration-scoped accounting issues.
-- Planned families:
+- Current families:
   - `tax_readiness`
-  - later `execution_failure`
+  - `execution_failure`
 - Scope key rule: build the full profile-qualified cost-basis scope key with
   `buildCostBasisScopeKey(profileId, config)`.
 - Config-only fingerprint rule: reuse `buildCostBasisConfigScopeKey(config)` as
@@ -142,7 +142,7 @@ type AccountingIssueScopeKind = 'profile' | 'cost-basis';
 
 type AccountingIssueScopeStatus = 'ready' | 'has-open-issues' | 'failed';
 
-type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker' | 'tax_readiness';
+type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker' | 'tax_readiness' | 'execution_failure';
 
 type AccountingIssueSeverity = 'warning' | 'blocked';
 
@@ -154,7 +154,8 @@ type AccountingIssueCode =
   | 'UNRESOLVED_ASSET_REVIEW'
   | 'UNKNOWN_TRANSACTION_CLASSIFICATION'
   | 'UNCERTAIN_PROCEEDS_ALLOCATION'
-  | 'INCOMPLETE_TRANSFER_LINKING';
+  | 'INCOMPLETE_TRANSFER_LINKING'
+  | 'WORKFLOW_EXECUTION_FAILED';
 
 type AccountingIssueReviewState = 'open' | 'acknowledged';
 
@@ -344,6 +345,25 @@ interface AccountingIssueScopeSummary {
     - `label: 'Review filing output'`
     - `mode: 'review_only'`
 
+### `execution_failure`
+
+- Source: current workflow/build failure while materializing one explicit
+  cost-basis scope.
+- Scope kind: `cost-basis`.
+- Code set:
+  - `WORKFLOW_EXECUTION_FAILED`
+- Canonical key inputs:
+  - failure stage
+- Severity mapping:
+  - always `blocked`
+- Evidence refs:
+  - none in the first slice
+  - latest failure snapshots remain debug state, not the canonical issue source
+- Primary next-action mapping:
+  - `kind: 'review_execution_failure'`
+  - `label: 'Review failure detail'`
+  - `mode: 'review_only'`
+
 ## Persistence Model
 
 Phase 1A persists:
@@ -495,5 +515,4 @@ assemble issue persistence ad hoc.
 ### Later phases
 
 - direct corrective actions such as grouped transfer confirmation
-- `execution_failure`
 - `missing_price`

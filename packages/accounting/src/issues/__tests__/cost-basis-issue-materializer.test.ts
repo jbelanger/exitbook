@@ -1,5 +1,4 @@
- 
-import { ok } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -155,6 +154,49 @@ describe('materializeCostBasisAccountingIssueScopeSnapshot', () => {
         code: 'MISSING_PRICE_DATA',
         summary: 'Required transaction price data is missing.',
       });
+    }
+  });
+
+  it('returns an execution-failure issue snapshot when the workflow fails', async () => {
+    mockCostBasisWorkflowExecute.mockResolvedValue(err(new Error('calculation exploded')));
+
+    const contextReader: ICostBasisContextReader = {
+      loadCostBasisContext: async () =>
+        ok({
+          transactions: [],
+          confirmedLinks: [],
+          accounts: [],
+        }),
+    };
+
+    const result = await materializeCostBasisAccountingIssueScopeSnapshot({
+      config: CONFIG,
+      contextReader,
+      profileId: 7,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.scope).toMatchObject({
+        scopeKind: 'cost-basis',
+        scopeKey: 'profile:7:cost-basis:8b5e53cd',
+        status: 'failed',
+        openIssueCount: 1,
+        blockingIssueCount: 1,
+      });
+      expect(result.value.issues[0]?.issue).toMatchObject({
+        family: 'execution_failure',
+        code: 'WORKFLOW_EXECUTION_FAILED',
+        summary: 'Cost basis execution failed during cost basis calculation.',
+        nextActions: [
+          {
+            kind: 'review_execution_failure',
+            label: 'Review failure detail',
+            mode: 'review_only',
+          },
+        ],
+      });
+      expect(result.value.issues[0]?.issue.details).toContain('Error: calculation exploded');
     }
   });
 });

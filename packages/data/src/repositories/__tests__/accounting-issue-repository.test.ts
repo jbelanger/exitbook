@@ -1,5 +1,6 @@
 import {
   buildCostBasisAccountingIssueScopeSnapshot,
+  buildCostBasisExecutionFailureScopeSnapshot,
   buildProfileAccountingIssueScopeSnapshot,
 } from '@exitbook/accounting/issues';
 import type { LinkGapIssue } from '@exitbook/accounting/linking';
@@ -119,6 +120,35 @@ function createCostBasisSnapshot() {
     },
     readinessMetadata: {},
     updatedAt: new Date('2026-04-14T12:30:00.000Z'),
+  });
+}
+
+function createCostBasisExecutionFailureSnapshot() {
+  return buildCostBasisExecutionFailureScopeSnapshot({
+    config: {
+      jurisdiction: 'CA',
+      taxYear: 2024,
+      method: 'average-cost',
+      currency: 'CAD',
+      startDate: new Date('2024-01-01T00:00:00.000Z'),
+      endDate: new Date('2024-12-31T23:59:59.999Z'),
+    },
+    error: new Error('workflow exploded'),
+    profileId: PROFILE_ID,
+    scope: {
+      config: {
+        jurisdiction: 'CA',
+        taxYear: 2024,
+        method: 'average-cost',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      },
+      filingScope: 'full_tax_year',
+      requiredStartDate: new Date('2024-01-01T00:00:00.000Z'),
+      requiredEndDate: new Date('2024-12-31T23:59:59.999Z'),
+    },
+    stage: 'cost-basis-workflow.execute',
+    updatedAt: new Date('2026-04-16T12:30:00.000Z'),
   });
 }
 
@@ -367,5 +397,28 @@ describe('AccountingIssueRepository', () => {
       'tax_readiness',
       'transfer_gap',
     ]);
+  });
+
+  it('reconciles execution-failure rows for a cost-basis scope', async () => {
+    const snapshot = createCostBasisExecutionFailureSnapshot();
+
+    assertOk(await repo.reconcileScope(snapshot));
+
+    const scope = assertOk(await repo.findScope(snapshot.scope.scopeKey));
+    expect(scope).toMatchObject({
+      scopeKind: 'cost-basis',
+      scopeKey: snapshot.scope.scopeKey,
+      status: 'failed',
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+    });
+
+    const summaries = assertOk(await repo.listCurrentIssueSummaries(snapshot.scope.scopeKey));
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.issue).toMatchObject({
+      family: 'execution_failure',
+      code: 'WORKFLOW_EXECUTION_FAILED',
+      summary: 'Cost basis execution failed during cost basis calculation.',
+    });
   });
 });

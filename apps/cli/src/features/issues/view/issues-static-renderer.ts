@@ -169,6 +169,8 @@ function formatFamilyLabel(family: AccountingIssueSummaryItem['family']): string
   switch (family) {
     case 'asset_review_blocker':
       return 'Asset review blocker';
+    case 'execution_failure':
+      return 'Execution failure';
     case 'tax_readiness':
       return 'Tax readiness';
     case 'transfer_gap':

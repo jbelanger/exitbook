@@ -148,8 +148,8 @@ The issue family may surface rows from these families:
 
 - `transfer_gap`
 - `asset_review_blocker`
-- later `tax_readiness`
-- later `execution_failure`
+- `tax_readiness`
+- `execution_failure`
 - later `missing_price`
 
 ### Next actions

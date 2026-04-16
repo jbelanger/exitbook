@@ -12,7 +12,10 @@ import type { ValidatedCostBasisConfig } from '../cost-basis/workflow/cost-basis
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type { ICostBasisContextReader } from '../ports/cost-basis-persistence.js';
 
-import { buildCostBasisAccountingIssueScopeSnapshot } from './cost-basis-issues.js';
+import {
+  buildCostBasisAccountingIssueScopeSnapshot,
+  buildCostBasisExecutionFailureScopeSnapshot,
+} from './cost-basis-issues.js';
 import type { AccountingIssueScopeSnapshot } from './issue-model.js';
 
 export interface MaterializeCostBasisAccountingIssueScopeSnapshotInput {
@@ -52,7 +55,16 @@ export async function materializeCostBasisAccountingIssueScopeSnapshot(
     missingPricePolicy: 'exclude',
   });
   if (workflowResult.isErr()) {
-    return err(workflowResult.error);
+    return ok(
+      buildCostBasisExecutionFailureScopeSnapshot({
+        config: input.config,
+        error: workflowResult.error,
+        profileId: input.profileId,
+        scope: validatedScope.value,
+        stage: 'cost-basis-workflow.execute',
+        updatedAt: input.updatedAt,
+      })
+    );
   }
 
   const scopeKey = buildCostBasisScopeKey(input.profileId, input.config);
@@ -62,7 +74,16 @@ export async function materializeCostBasisAccountingIssueScopeSnapshot(
     scopeKey,
   });
   if (buildContext.isErr()) {
-    return err(buildContext.error);
+    return ok(
+      buildCostBasisExecutionFailureScopeSnapshot({
+        config: input.config,
+        error: buildContext.error,
+        profileId: input.profileId,
+        scope: validatedScope.value,
+        stage: 'tax-package-context-builder',
+        updatedAt: input.updatedAt,
+      })
+    );
   }
 
   const readinessMetadata = deriveTaxPackageReadinessMetadata({

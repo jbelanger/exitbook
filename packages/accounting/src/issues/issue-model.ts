@@ -10,7 +10,12 @@ export type AccountingIssueScopeKind = z.infer<typeof AccountingIssueScopeKindSc
 export const AccountingIssueScopeStatusSchema = z.enum(['ready', 'has-open-issues', 'failed']);
 export type AccountingIssueScopeStatus = z.infer<typeof AccountingIssueScopeStatusSchema>;
 
-export const AccountingIssueFamilySchema = z.enum(['transfer_gap', 'asset_review_blocker', 'tax_readiness']);
+export const AccountingIssueFamilySchema = z.enum([
+  'transfer_gap',
+  'asset_review_blocker',
+  'tax_readiness',
+  'execution_failure',
+]);
 export type AccountingIssueFamily = z.infer<typeof AccountingIssueFamilySchema>;
 
 export const AccountingIssueSeveritySchema = z.enum(['warning', 'blocked']);
@@ -25,6 +30,7 @@ export const AccountingIssueCodeSchema = z.enum([
   'UNKNOWN_TRANSACTION_CLASSIFICATION',
   'UNCERTAIN_PROCEEDS_ALLOCATION',
   'INCOMPLETE_TRANSFER_LINKING',
+  'WORKFLOW_EXECUTION_FAILED',
 ]);
 export type AccountingIssueCode = z.infer<typeof AccountingIssueCodeSchema>;
 

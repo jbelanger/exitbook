@@ -28,6 +28,15 @@ export interface BuildCostBasisAccountingIssueScopeSnapshotInput {
   updatedAt?: Date | undefined;
 }
 
+export interface BuildCostBasisExecutionFailureScopeSnapshotInput {
+  config: ValidatedCostBasisConfig;
+  error: Error;
+  profileId: number;
+  scope: TaxPackageValidatedScope;
+  stage: string;
+  updatedAt?: Date | undefined;
+}
+
 export function buildCostBasisAccountingIssueScopeSnapshot(
   input: BuildCostBasisAccountingIssueScopeSnapshotInput
 ): AccountingIssueScopeSnapshot {
@@ -57,6 +66,34 @@ export function buildCostBasisAccountingIssueScopeSnapshot(
   return {
     scope,
     issues,
+  };
+}
+
+export function buildCostBasisExecutionFailureScopeSnapshot(
+  input: BuildCostBasisExecutionFailureScopeSnapshotInput
+): AccountingIssueScopeSnapshot {
+  const updatedAt = input.updatedAt ?? new Date();
+  const scopeKey = buildCostBasisScopeKey(input.profileId, input.config);
+  const issue = buildCostBasisExecutionFailureIssue(scopeKey, input.stage, input.error);
+
+  return {
+    scope: {
+      scopeKind: 'cost-basis',
+      scopeKey,
+      profileId: input.profileId,
+      title: buildCostBasisScopeTitle(input.scope),
+      status: 'failed',
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+      updatedAt,
+      metadata: {
+        currency: input.config.currency,
+        jurisdiction: input.scope.config.jurisdiction,
+        method: input.scope.config.method,
+        taxYear: input.scope.config.taxYear,
+      },
+    },
+    issues: [issue],
   };
 }
 
@@ -98,8 +135,53 @@ function buildTaxReadinessAccountingIssue(
   };
 }
 
+function buildCostBasisExecutionFailureIssue(
+  scopeKey: string,
+  stage: string,
+  error: Error
+): AccountingIssueScopeSnapshot['issues'][number] {
+  const issueKey = `execution_failure:${stage}`;
+
+  return {
+    issueKey,
+    issue: {
+      issueRef: buildAccountingIssueRef(scopeKey, issueKey),
+      scope: {
+        kind: 'cost-basis',
+        key: scopeKey,
+      },
+      family: 'execution_failure',
+      code: 'WORKFLOW_EXECUTION_FAILED',
+      severity: 'blocked',
+      reviewState: 'open',
+      summary: `Cost basis execution failed during ${formatExecutionFailureStage(stage)}.`,
+      details: `Stage: ${stage}\nError: ${error.message}`,
+      whyThisMatters: 'Blocks this filing scope until the owning workflow can run successfully.',
+      evidenceRefs: [],
+      nextActions: [
+        {
+          kind: 'review_execution_failure',
+          label: 'Review failure detail',
+          mode: 'review_only',
+        },
+      ],
+    },
+  };
+}
+
 function buildTaxReadinessIssueKey(issue: TaxPackageIssue): string {
   return `tax_readiness:${issue.code}|${issue.affectedArtifact ?? 'scope'}|${issue.affectedRowRef ?? 'scope'}`;
+}
+
+function formatExecutionFailureStage(stage: string): string {
+  switch (stage) {
+    case 'cost-basis-workflow.execute':
+      return 'cost basis calculation';
+    case 'tax-package-context-builder':
+      return 'tax package context build';
+    default:
+      return stage;
+  }
 }
 
 function buildTaxReadinessDetails(issue: TaxPackageIssue, readinessMetadata: TaxPackageReadinessMetadata): string {

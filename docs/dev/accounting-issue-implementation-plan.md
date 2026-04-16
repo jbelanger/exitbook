@@ -272,7 +272,7 @@ Phase 1A row rules:
 - `cost-basis`
   - filing/configuration-scoped issues
   - tax readiness
-  - later execution failures
+  - execution failures
 
 ### CLI Lean
 
@@ -695,11 +695,18 @@ Acceptance criteria:
 
 ### Phase 4: Remaining Issue Families
 
-Status: pending
+Status: in progress
+
+Completed so far:
+
+- `execution_failure` cost-basis issue family now lands when scoped issue
+  materialization hits a workflow/build failure
+- scoped issue materialization now returns a failed issue scope instead of
+  hard-failing the `issues cost-basis` read path for those execution-stage
+  failures
 
 Deliver:
 
-- execution-failure issue family
 - missing-price issue family once item-backed accounting detail exists
 - any other deferred issue families needed for the accounting work queue to be complete
 

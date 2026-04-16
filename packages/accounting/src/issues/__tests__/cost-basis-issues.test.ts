@@ -7,7 +7,10 @@ import type {
   TaxPackageReadinessResult,
 } from '../../cost-basis/export/tax-package-types.js';
 import type { ValidatedCostBasisConfig } from '../../cost-basis/workflow/cost-basis-input.js';
-import { buildCostBasisAccountingIssueScopeSnapshot } from '../cost-basis-issues.js';
+import {
+  buildCostBasisAccountingIssueScopeSnapshot,
+  buildCostBasisExecutionFailureScopeSnapshot,
+} from '../cost-basis-issues.js';
 
 const CONFIG: ValidatedCostBasisConfig = {
   jurisdiction: 'CA',
@@ -164,5 +167,38 @@ describe('cost-basis-issues', () => {
     expect(snapshot.scope.status).toBe('ready');
     expect(snapshot.scope.openIssueCount).toBe(0);
     expect(snapshot.issues).toHaveLength(0);
+  });
+
+  it('builds an execution-failure scoped snapshot with failed status', () => {
+    const snapshot = buildCostBasisExecutionFailureScopeSnapshot({
+      config: CONFIG,
+      error: new Error('runtime exploded'),
+      profileId: 3,
+      scope: VALIDATED_SCOPE,
+      stage: 'cost-basis-workflow.execute',
+      updatedAt: new Date('2026-04-16T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      scopeKind: 'cost-basis',
+      profileId: 3,
+      scopeKey: 'profile:3:cost-basis:8b5e53cd',
+      status: 'failed',
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+    });
+    expect(snapshot.issues[0]?.issue).toMatchObject({
+      family: 'execution_failure',
+      code: 'WORKFLOW_EXECUTION_FAILED',
+      summary: 'Cost basis execution failed during cost basis calculation.',
+      nextActions: [
+        {
+          kind: 'review_execution_failure',
+          label: 'Review failure detail',
+          mode: 'review_only',
+        },
+      ],
+    });
+    expect(snapshot.issues[0]?.issue.details).toContain('runtime exploded');
   });
 });
