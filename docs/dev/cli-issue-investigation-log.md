@@ -703,3 +703,42 @@ Command-surface assessment:
   - if four open rows are really one external send decision, the user still has
     to resolve four separate gaps
   - that is a real product smell, not just missing wording
+
+## Automatic-Linking Notes
+
+These are not canonical rules yet. They are implementation candidates revealed
+by live CLI investigation and should be revisited as linking improves.
+
+Patterns that currently look like good candidates for more automatic handling:
+
+- same-hash blockchain clusters with one clear external route
+  - example seen live: the 2024-07-05 BTC outflow cluster
+  - multiple tracked processed rows shared one blockchain hash and one
+    untracked destination
+  - this currently behaves like several separate gap decisions, but it appears
+    much closer to one underlying external send
+  - likely product direction:
+    - collapse the review burden to one grouped gap workflow
+    - or auto-resolve sibling rows once one grouped external-send decision is
+      confirmed
+- same-hash blockchain clusters with one clear tracked-to-tracked route
+  - if future live investigation shows one normalized hash with one tracked
+    sender side and one tracked receiver side and no competing quantities, that
+    should likely become pre-linking / confirmed-link automation rather than
+    manual review
+- externally sourced blockchain inflows with strong negative evidence for an
+  internal counterpart
+  - example seen live: repeated BTC inflows from untracked source addresses
+    into tracked wallets, with no nearby exchange/blockchain counterpart
+  - these are currently handled honestly as manual gap exceptions
+  - they may be good candidates for stronger automatic guidance, but not yet
+    for silent auto-resolution
+
+Patterns that still look manual by design:
+
+- cases where the CLI can show `tracked` vs `untracked`, but quantity matching,
+  counterparty meaning, or grouped intent is still ambiguous
+- mixed-scope blockchain events that depend on processor truth rather than
+  linking heuristics
+- cross-platform transfers that still need timing/amount/counterparty judgment
+  beyond what one route can prove
