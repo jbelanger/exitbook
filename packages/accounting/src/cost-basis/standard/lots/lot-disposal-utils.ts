@@ -1,19 +1,13 @@
-import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot, LotDisposal } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
-
-type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
-
-function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
-  return 'tx' in transaction ? transaction.tx : transaction;
-}
+import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
 
 /**
  * Calculate disposal proceeds facts from an outflow after fees.

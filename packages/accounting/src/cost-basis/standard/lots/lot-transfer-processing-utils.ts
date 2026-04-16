@@ -1,13 +1,13 @@
-import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft } from '@exitbook/core';
 import { err, ok, parseDecimal, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
+import type { ValidatedTransferLink } from '../../../accounting-layer/validated-transfer-links.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
-import type { ValidatedScopedTransferLink } from '../matching/validated-scoped-transfer-links.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { collectFiatFees, extractAllocatedCryptoFee, validateOutflowFees } from './lot-fee-utils.js';
+import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
@@ -19,13 +19,7 @@ import {
 import { applyLotQuantityUpdates, buildLotQuantityUpdateMap } from './lot-update-utils.js';
 import { createAcquisitionLot } from './lot.js';
 
-type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
-
-function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
-  return 'tx' in transaction ? transaction.tx : transaction;
-}
-
-function resolveLinkTransferredAmount(validatedLink: ValidatedScopedTransferLink): Result<Decimal, Error> {
+function resolveLinkTransferredAmount(validatedLink: ValidatedTransferLink): Result<Decimal, Error> {
   const impliedFeeAmount = validatedLink.link.impliedFeeAmount ?? parseDecimal('0');
   if (impliedFeeAmount.isZero()) {
     return ok(validatedLink.link.sourceAmount);
@@ -81,7 +75,7 @@ interface TargetWarning {
 export function processTransferSource(
   transaction: CostBasisTransactionLike,
   outflow: AssetMovementDraft,
-  links: ValidatedScopedTransferLink[],
+  links: ValidatedTransferLink[],
   lots: AcquisitionLot[],
   strategy: ICostBasisStrategy,
   calculationId: string,
@@ -354,7 +348,7 @@ export function processTransferSource(
 export function processTransferTarget(
   transaction: CostBasisTransactionLike,
   inflow: AssetMovementDraft,
-  validatedLink: ValidatedScopedTransferLink,
+  validatedLink: ValidatedTransferLink,
   sourceTx: CostBasisTransactionLike,
   transfersForLink: LotTransfer[],
   calculationId: string,

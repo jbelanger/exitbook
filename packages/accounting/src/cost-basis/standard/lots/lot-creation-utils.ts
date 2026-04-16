@@ -1,18 +1,12 @@
-import type { AssetMovementDraft, Transaction } from '@exitbook/core';
+import type { AssetMovementDraft } from '@exitbook/core';
 import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
-import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
+import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
 import { createAcquisitionLot } from './lot.js';
-
-type CostBasisTransactionLike = AccountingScopedTransaction | Transaction;
-
-function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
-  return 'tx' in transaction ? transaction.tx : transaction;
-}
 
 /**
  * Create an acquisition lot from an inflow movement
