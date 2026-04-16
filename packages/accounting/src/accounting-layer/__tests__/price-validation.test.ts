@@ -2,38 +2,27 @@ import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
-import { describe, expect, it } from 'vitest';
+import type { Logger } from '@exitbook/logger';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildTransaction } from '../../__tests__/test-utils.js';
-import type { AccountingScopedBuildResult } from '../accounting-scoped-types.js';
-import { assertScopedPriceDataQuality } from '../price-validation.js';
+import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
+import { assertAccountingLayerPriceDataQuality } from '../price-validation.js';
 
-/**
- * Wrap transactions into a minimal AccountingScopedBuildResult so we can
- * exercise assertScopedPriceDataQuality (the only public API).
- */
-function wrapAsScopedBuildResult(transactions: Transaction[]): AccountingScopedBuildResult {
-  return {
-    inputTransactions: transactions,
-    transactions: transactions.map((tx) => ({
-      tx,
-      rebuildDependencyTransactionIds: [],
-      movements: {
-        inflows: tx.movements?.inflows ?? [],
-        outflows: tx.movements?.outflows ?? [],
-      },
-      fees: (tx.fees ?? []).map((fee) => ({
-        ...fee,
-        originalTransactionId: tx.id,
-        movementFingerprint: `fee-${tx.id}-${fee.assetSymbol}`,
-      })),
-    })),
-    internalTransferCarryoverDrafts: [],
-  };
+const noopLogger: Logger = {
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  trace: vi.fn(),
+  warn: vi.fn(),
+} as Logger;
+
+function buildAccountingLayer(transactions: Transaction[]) {
+  return assertOk(buildAccountingLayerFromTransactions(transactions, noopLogger));
 }
 
 describe('price-validation', () => {
-  describe('assertScopedPriceDataQuality', () => {
+  describe('assertAccountingLayerPriceDataQuality', () => {
     it('should return ok for valid transactions with USD prices', () => {
       const transactions = [
         buildTransaction({
@@ -45,7 +34,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       assertOk(result);
     });
@@ -60,7 +49,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -85,7 +74,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -112,7 +101,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('Price preflight validation failed');
@@ -155,7 +144,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       const resultError = assertErr(result);
       expect(resultError.message).toContain('1 price(s) missing');
@@ -183,7 +172,7 @@ describe('price-validation', () => {
         }),
       ];
 
-      const result = assertScopedPriceDataQuality(wrapAsScopedBuildResult(transactions));
+      const result = assertAccountingLayerPriceDataQuality(buildAccountingLayer(transactions));
 
       assertOk(result);
     });

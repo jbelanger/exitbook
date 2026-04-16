@@ -6,7 +6,7 @@ export {
   isExcludedAsset,
 } from './accounting-layer/accounting-exclusion-policy.js';
 export {
-  assertNoScopedAssetsRequireReview,
+  assertNoAccountingLayerAssetsRequireReview,
   collectBlockingAssetReviewSummaries,
 } from './accounting-layer/asset-review-preflight.js';
 export {
@@ -23,10 +23,7 @@ export {
   buildAccountingLayerFromTransactions,
   buildScopedAccountingLayerFromTransactions,
 } from './accounting-layer/build-accounting-layer-from-transactions.js';
-export {
-  assertAccountingLayerPriceDataQuality,
-  assertScopedPriceDataQuality,
-} from './accounting-layer/price-validation.js';
+export { assertAccountingLayerPriceDataQuality } from './accounting-layer/price-validation.js';
 export { validateTransferLinks } from './accounting-layer/validated-transfer-links.js';
 export type {
   AccountingEntry,

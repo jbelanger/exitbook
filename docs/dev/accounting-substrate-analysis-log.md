@@ -1537,7 +1537,8 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   `accounting-layer/`, so cost basis no longer owns the canonical layer's
   immediate implementation substrate
 - `applyAccountingExclusionPolicy(...)`,
-  `assertNoScopedAssetsRequireReview(...)`, and `AccountingExclusionPolicy`
+  `assertNoAccountingLayerAssetsRequireReview(...)`, and
+  `AccountingExclusionPolicy`
   ownership now also live under `accounting-layer/`, so price-enrichment, CLI
   runtimes, and cost-basis consumers no longer need `cost-basis` as a type
   barrel for draft-layer helpers
@@ -1548,6 +1549,8 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   `build draft -> apply exclusions -> build canonical layer` sequence, so the
   remaining draft-layer exposure at consumer call sites is smaller and more
   uniform
+- asset-review preflight now consumes `accountingTransactionViews` directly,
+  and the scoped-only public price-validation helper is gone
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 

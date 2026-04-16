@@ -2,7 +2,10 @@ import { type AssetReviewSummary, type Transaction } from '@exitbook/core';
 import { err, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import { assertNoScopedAssetsRequireReview, type AccountingExclusionPolicy } from '../../../accounting-layer.js';
+import {
+  assertNoAccountingLayerAssetsRequireReview,
+  type AccountingExclusionPolicy,
+} from '../../../accounting-layer.js';
 import { buildScopedAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
@@ -63,8 +66,8 @@ export async function runCostBasisPipeline(
       options.accountingExclusionPolicy
     );
 
-    yield* assertNoScopedAssetsRequireReview(
-      preparedAccountingLayer.scopedBuildResult.transactions,
+    yield* assertNoAccountingLayerAssetsRequireReview(
+      preparedAccountingLayer.accountingLayer,
       options.assetReviewSummaries
     );
 
@@ -114,8 +117,8 @@ export async function runCostBasisPipeline(
 
       rebuildAccountingLayer = rebuiltAccountingLayer.accountingLayer;
 
-      yield* assertNoScopedAssetsRequireReview(
-        rebuiltAccountingLayer.scopedBuildResult.transactions,
+      yield* assertNoAccountingLayerAssetsRequireReview(
+        rebuiltAccountingLayer.accountingLayer,
         options.assetReviewSummaries
       );
     }

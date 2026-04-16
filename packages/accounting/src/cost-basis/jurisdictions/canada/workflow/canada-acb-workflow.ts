@@ -3,7 +3,10 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import { assertNoScopedAssetsRequireReview, type AccountingExclusionPolicy } from '../../../../accounting-layer.js';
+import {
+  assertNoAccountingLayerAssetsRequireReview,
+  type AccountingExclusionPolicy,
+} from '../../../../accounting-layer.js';
 import { buildScopedAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
@@ -35,8 +38,8 @@ export async function runCanadaAcbWorkflow(
       logger,
       params.accountingExclusionPolicy
     );
-    yield* assertNoScopedAssetsRequireReview(
-      preparedAccountingLayer.scopedBuildResult.transactions,
+    yield* assertNoAccountingLayerAssetsRequireReview(
+      preparedAccountingLayer.accountingLayer,
       params.assetReviewSummaries
     );
 

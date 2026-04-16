@@ -1,7 +1,7 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { AccountingScopedTransaction } from './accounting-scoped-types.js';
+import type { AccountingLayerBuildResult } from './accounting-layer-types.js';
 
 function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
   const lines = ['Assets flagged for review require confirmation or exclusion before accounting can proceed:'];
@@ -21,19 +21,19 @@ function formatNeedsReviewMessage(assets: AssetReviewSummary[]): string {
   return lines.join('\n');
 }
 
-export function assertNoScopedAssetsRequireReview(
-  scopedTransactions: AccountingScopedTransaction[],
+export function assertNoAccountingLayerAssetsRequireReview(
+  accountingLayer: AccountingLayerBuildResult,
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary>
 ): Result<void, Error> {
   const assetsInScope = new Set<string>();
-  for (const scopedTransaction of scopedTransactions) {
-    for (const inflow of scopedTransaction.movements.inflows) {
+  for (const transactionView of accountingLayer.accountingTransactionViews) {
+    for (const inflow of transactionView.inflows) {
       assetsInScope.add(inflow.assetId);
     }
-    for (const outflow of scopedTransaction.movements.outflows) {
+    for (const outflow of transactionView.outflows) {
       assetsInScope.add(outflow.assetId);
     }
-    for (const fee of scopedTransaction.fees) {
+    for (const fee of transactionView.fees) {
       assetsInScope.add(fee.assetId);
     }
   }

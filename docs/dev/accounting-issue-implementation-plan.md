@@ -182,7 +182,7 @@ Phase 0 investigation log:
       `accounting-scoped-types.ts` now live under `accounting-layer/`
       instead of `cost-basis/standard/matching/`
     - `applyAccountingExclusionPolicy(...)`,
-      `assertNoScopedAssetsRequireReview(...)`, and the public
+      `assertNoAccountingLayerAssetsRequireReview(...)`, and the public
       `AccountingExclusionPolicy` type now live under `accounting-layer/`
       instead of `cost-basis/standard/validation/`
     - `price-validation.ts` now also lives under `accounting-layer/`, so the
@@ -192,6 +192,9 @@ Phase 0 investigation log:
       `build draft -> apply exclusions -> build canonical layer` sequence, so
       Canada, standard cost basis, and price completeness no longer orchestrate
       that chain separately at each call site
+    - asset-review preflight now reads the canonical accounting layer instead
+      of the draft-scoped transaction array, and the dead scoped price-quality
+      export has been removed
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:

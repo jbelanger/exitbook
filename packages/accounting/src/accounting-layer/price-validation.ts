@@ -3,7 +3,6 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountingLayerBuildResult } from './accounting-layer-types.js';
-import type { AccountingScopedBuildResult, AccountingScopedTransaction } from './accounting-scoped-types.js';
 
 const logger = getLogger('accounting-layer.price-validation');
 
@@ -69,34 +68,6 @@ interface PriceValidationResult {
     nonUsdPrices: number;
     totalEntities: number;
   };
-}
-
-/**
- * Extract all scoped movements and fees that still require pricing.
- */
-function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransaction[]): PricedEntity[] {
-  const entities: PricedEntity[] = [];
-
-  for (const scopedTransaction of scopedTransactions) {
-    const datetime = scopedTransaction.tx.datetime ?? '(unknown)';
-    appendPricedEntities(
-      entities,
-      scopedTransaction.tx.txFingerprint,
-      datetime,
-      'inflow',
-      scopedTransaction.movements.inflows
-    );
-    appendPricedEntities(
-      entities,
-      scopedTransaction.tx.txFingerprint,
-      datetime,
-      'outflow',
-      scopedTransaction.movements.outflows
-    );
-    appendPricedEntities(entities, scopedTransaction.tx.txFingerprint, datetime, 'fee', scopedTransaction.fees);
-  }
-
-  return entities;
 }
 
 function collectAccountingLayerPricedEntities(accountingLayer: AccountingLayerBuildResult): PricedEntity[] {
@@ -328,13 +299,6 @@ function formatValidationError(result: PriceValidationResult): string {
     `  3. Add FX audit trail metadata for converted prices\n\n` +
     `Examples of issues found:\n${examples}`
   );
-}
-
-/**
- * Assert that the scoped accounting boundary has complete, USD-denominated price data.
- */
-export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScopedBuildResult): Result<void, Error> {
-  return assertEntityPriceDataQuality(collectScopedPricedEntities(scopedBuildResult.transactions));
 }
 
 export function assertAccountingLayerPriceDataQuality(
