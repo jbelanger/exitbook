@@ -11,19 +11,19 @@ import {
 import { normalizeTransactionHash } from '../linking/strategies/exact-hash-utils.js';
 
 export type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
+  PreparedAccountingBuildResult,
+  PreparedAccountingTransaction,
   InternalTransferCarryoverDraft,
   InternalTransferCarryoverDraftTarget,
-  ScopedFeeMovement,
-} from './accounting-scoped-types.js';
+  PreparedFeeMovement,
+} from './prepared-accounting-types.js';
 
 import type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
+  PreparedAccountingBuildResult,
+  PreparedAccountingTransaction,
   InternalTransferCarryoverDraft,
-  ScopedFeeMovement,
-} from './accounting-scoped-types.js';
+  PreparedFeeMovement,
+} from './prepared-accounting-types.js';
 
 // ---------------------------------------------------------------------------
 // Internal grouping types
@@ -143,27 +143,26 @@ type SameHashDecision =
 // ---------------------------------------------------------------------------
 
 /**
- * Build the accounting-model-owned scoped transaction draft from processed
- * transactions.
+ * Build the prepared accounting result from processed transactions.
  *
- * This scoped result is the seam for later accounting exclusions: callers can
- * remove scoped movements, assets, or fees after this build step and before
+ * This prepared result is the seam for later accounting exclusions: callers can
+ * remove prepared movements, assets, or fees after this build step and before
  * price validation or lot matching, without reopening matcher-local UTXO logic.
  */
-export function buildAccountingScopedTransactions(
+export function prepareAccountingTransactions(
   transactions: Transaction[],
   logger: Logger
-): Result<AccountingScopedBuildResult, Error> {
-  // Step 1: Clone all transactions into scoped form
-  const scopedByTxId = new Map<number, AccountingScopedTransaction>();
+): Result<PreparedAccountingBuildResult, Error> {
+  // Step 1: Clone all transactions into prepared form
+  const preparedByTxId = new Map<number, PreparedAccountingTransaction>();
   for (const tx of transactions) {
-    const cloneResult = cloneScopedTransaction(tx);
+    const cloneResult = clonePreparedTransaction(tx);
     if (cloneResult.isErr()) return err(cloneResult.error);
-    scopedByTxId.set(tx.id, cloneResult.value);
+    preparedByTxId.set(tx.id, cloneResult.value);
   }
 
   // Step 2: Group same-hash blockchain transactions
-  const groupsResult = groupSameHashTransactionsForCostBasis(transactions, scopedByTxId);
+  const groupsResult = groupSameHashTransactionsForCostBasis(transactions, preparedByTxId);
   if (groupsResult.isErr()) return err(groupsResult.error);
 
   // Step 3: Reduce each group and apply scoping decisions
@@ -176,8 +175,8 @@ export function buildAccountingScopedTransactions(
     const decision = decisionResult.value;
     if (decision === undefined) continue;
 
-    const applyResult = applyDecisionToScopedTransactions(
-      scopedByTxId,
+    const applyResult = applyDecisionToPreparedTransactions(
+      preparedByTxId,
       internalTransferCarryoverDrafts,
       decision,
       logger
@@ -187,16 +186,16 @@ export function buildAccountingScopedTransactions(
 
   return ok({
     inputTransactions: transactions,
-    transactions: [...scopedByTxId.values()],
+    transactions: [...preparedByTxId.values()],
     internalTransferCarryoverDrafts,
   });
 }
 
 // ---------------------------------------------------------------------------
-// Clone a raw transaction into scoped form
+// Clone a raw transaction into prepared form
 // ---------------------------------------------------------------------------
 
-function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransaction, Error> {
+function clonePreparedTransaction(tx: Transaction): Result<PreparedAccountingTransaction, Error> {
   const inflows: AssetMovement[] = [];
   for (const raw of tx.movements.inflows ?? []) {
     inflows.push({
@@ -223,7 +222,7 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
     });
   }
 
-  const fees: ScopedFeeMovement[] = [];
+  const fees: PreparedFeeMovement[] = [];
   for (const raw of tx.fees ?? []) {
     fees.push({
       assetId: raw.assetId,
@@ -246,7 +245,7 @@ function cloneScopedTransaction(tx: Transaction): Result<AccountingScopedTransac
 
 function groupSameHashTransactionsForCostBasis(
   transactions: Transaction[],
-  scopedByTxId: Map<number, AccountingScopedTransaction>
+  preparedByTxId: Map<number, PreparedAccountingTransaction>
 ): Result<CostBasisSameHashAssetGroup[], Error> {
   // Group by (blockchain, normalizedHash)
   const txsByBlockchainAndHash = new Map<string, { blockchain: string; normalizedHash: string; txs: Transaction[] }>();
@@ -331,7 +330,7 @@ function groupSameHashTransactionsForCostBasis(
       const participants: CostBasisSameHashParticipant[] = [];
 
       for (const tx of txs) {
-        const scoped = scopedByTxId.get(tx.id)!;
+        const scoped = preparedByTxId.get(tx.id)!;
 
         let inflowGrossAmount = new Decimal(0);
         let outflowGrossAmount = new Decimal(0);
@@ -811,34 +810,34 @@ function allocateSameHashReceiversAcrossSources(
   );
 }
 
-function applyDecisionToScopedTransactions(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+function applyDecisionToPreparedTransactions(
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: SameHashDecision,
   logger: Logger
 ): Result<void, Error> {
   if (decision.type === 'internal_with_external') {
-    return applyInternalWithExternalAmount(scopedByTxId, decision, logger);
+    return applyInternalWithExternalAmount(preparedByTxId, decision, logger);
   }
 
   if (decision.type === 'internal_fee_only') {
-    return applyInternalFeeOnly(scopedByTxId, internalTransferCarryoverDrafts, decision, logger);
+    return applyInternalFeeOnly(preparedByTxId, internalTransferCarryoverDrafts, decision, logger);
   }
 
   if (decision.type === 'multi_source_scoped_external_amount') {
-    return applyMultiSourceScopedExternalAmount(scopedByTxId, decision, logger);
+    return applyMultiSourceScopedExternalAmount(preparedByTxId, decision, logger);
   }
 
-  return applyMultiSourceInternalFeeOnly(scopedByTxId, internalTransferCarryoverDrafts, decision, logger);
+  return applyMultiSourceInternalFeeOnly(preparedByTxId, internalTransferCarryoverDrafts, decision, logger);
 }
 
 function addScopedRebuildDependencies(
-  scopedTransaction: AccountingScopedTransaction,
+  preparedTransaction: PreparedAccountingTransaction,
   dependencyTransactionIds: number[]
 ): void {
-  const existing = new Set(scopedTransaction.rebuildDependencyTransactionIds);
+  const existing = new Set(preparedTransaction.rebuildDependencyTransactionIds);
   for (const dependencyTransactionId of dependencyTransactionIds) {
-    if (dependencyTransactionId === scopedTransaction.tx.id) {
+    if (dependencyTransactionId === preparedTransaction.tx.id) {
       continue;
     }
 
@@ -847,19 +846,19 @@ function addScopedRebuildDependencies(
     }
 
     existing.add(dependencyTransactionId);
-    scopedTransaction.rebuildDependencyTransactionIds.push(dependencyTransactionId);
+    preparedTransaction.rebuildDependencyTransactionIds.push(dependencyTransactionId);
   }
 }
 
 function applyMultiSourceScopedExternalAmount(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   decision: MultiSourceScopedExternalAmount,
   logger: Logger
 ): Result<void, Error> {
   for (const sourceAllocation of decision.sourceAllocations) {
-    const sourceScoped = scopedByTxId.get(sourceAllocation.txId);
+    const sourceScoped = preparedByTxId.get(sourceAllocation.txId);
     if (!sourceScoped) {
-      return err(new Error(`Sender scoped transaction ${sourceAllocation.txId} not found`));
+      return err(new Error(`Sender prepared transaction ${sourceAllocation.txId} not found`));
     }
 
     addScopedRebuildDependencies(sourceScoped, decision.internalReceiverTxIds);
@@ -881,7 +880,7 @@ function applyMultiSourceScopedExternalAmount(
 
   if (decision.feeAccounting.kind === 'deduped_shared_fee') {
     const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-      scopedByTxId,
+      preparedByTxId,
       decision.feeAccounting.feeOwnerTxId,
       decision.feeAccounting.otherParticipantTxIds,
       decision.assetId,
@@ -891,7 +890,7 @@ function applyMultiSourceScopedExternalAmount(
   }
 
   for (const receiverTxId of decision.internalReceiverTxIds) {
-    const receiverScoped = scopedByTxId.get(receiverTxId);
+    const receiverScoped = preparedByTxId.get(receiverTxId);
     if (!receiverScoped) continue;
 
     receiverScoped.movements.inflows = receiverScoped.movements.inflows.filter(
@@ -918,15 +917,15 @@ function applyMultiSourceScopedExternalAmount(
 }
 
 function applyMultiSourceInternalFeeOnly(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: MultiSourceInternalFeeOnly,
   logger: Logger
 ): Result<void, Error> {
   for (const sourceCarryover of decision.sourceCarryovers) {
-    const sourceScoped = scopedByTxId.get(sourceCarryover.sourceTxId);
+    const sourceScoped = preparedByTxId.get(sourceCarryover.sourceTxId);
     if (!sourceScoped) {
-      return err(new Error(`Sender scoped transaction ${sourceCarryover.sourceTxId} not found`));
+      return err(new Error(`Sender prepared transaction ${sourceCarryover.sourceTxId} not found`));
     }
 
     addScopedRebuildDependencies(
@@ -941,7 +940,7 @@ function applyMultiSourceInternalFeeOnly(
 
   if (decision.feeAccounting.kind === 'deduped_shared_fee') {
     const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-      scopedByTxId,
+      preparedByTxId,
       decision.feeAccounting.feeOwnerTxId,
       decision.feeAccounting.otherParticipantTxIds,
       decision.assetId,
@@ -975,9 +974,9 @@ function applyMultiSourceInternalFeeOnly(
     }
   } else {
     for (const sourceCarryover of decision.sourceCarryovers) {
-      const sourceScoped = scopedByTxId.get(sourceCarryover.sourceTxId);
+      const sourceScoped = preparedByTxId.get(sourceCarryover.sourceTxId);
       if (!sourceScoped) {
-        return err(new Error(`Sender scoped transaction ${sourceCarryover.sourceTxId} not found`));
+        return err(new Error(`Sender prepared transaction ${sourceCarryover.sourceTxId} not found`));
       }
 
       const sourceFee = detachSameAssetOnChainFee(sourceScoped, decision.assetId);
@@ -1014,13 +1013,13 @@ function applyMultiSourceInternalFeeOnly(
 }
 
 function applyInternalWithExternalAmount(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   decision: InternalWithExternalAmount,
   logger: Logger
 ): Result<void, Error> {
-  const senderScoped = scopedByTxId.get(decision.senderTxId);
+  const senderScoped = preparedByTxId.get(decision.senderTxId);
   if (!senderScoped) {
-    return err(new Error(`Sender scoped transaction ${decision.senderTxId} not found`));
+    return err(new Error(`Sender prepared transaction ${decision.senderTxId} not found`));
   }
 
   addScopedRebuildDependencies(senderScoped, decision.internalReceiverTxIds);
@@ -1035,7 +1034,7 @@ function applyInternalWithExternalAmount(
   senderOutflow.netAmount = newGross.minus(decision.dedupedFee);
 
   const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-    scopedByTxId,
+    preparedByTxId,
     decision.senderTxId,
     decision.internalReceiverTxIds,
     decision.assetId,
@@ -1044,7 +1043,7 @@ function applyInternalWithExternalAmount(
   if (feeNormalizationResult.isErr()) return err(feeNormalizationResult.error);
 
   for (const receiverTxId of decision.internalReceiverTxIds) {
-    const receiverScoped = scopedByTxId.get(receiverTxId);
+    const receiverScoped = preparedByTxId.get(receiverTxId);
     if (!receiverScoped) continue;
 
     // Remove same-asset inflow movements from receiver
@@ -1065,14 +1064,14 @@ function applyInternalWithExternalAmount(
 }
 
 function applyInternalFeeOnly(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: InternalFeeOnly,
   logger: Logger
 ): Result<void, Error> {
-  const senderScoped = scopedByTxId.get(decision.senderTxId);
+  const senderScoped = preparedByTxId.get(decision.senderTxId);
   if (!senderScoped) {
-    return err(new Error(`Sender scoped transaction ${decision.senderTxId} not found`));
+    return err(new Error(`Sender prepared transaction ${decision.senderTxId} not found`));
   }
 
   addScopedRebuildDependencies(
@@ -1084,7 +1083,7 @@ function applyInternalFeeOnly(
   senderScoped.movements.outflows = senderScoped.movements.outflows.filter((m) => m.assetId !== decision.assetId);
 
   const feeNormalizationResult = normalizeSameAssetOnChainFeeOwnership(
-    scopedByTxId,
+    preparedByTxId,
     decision.senderTxId,
     decision.receivers.map((receiver) => receiver.txId),
     decision.assetId,
@@ -1130,7 +1129,7 @@ function buildSameHashBucketKey(blockchain: string, normalizedHash: string): str
 }
 
 function getSingleScopedOutflow(
-  scoped: AccountingScopedTransaction,
+  scoped: PreparedAccountingTransaction,
   assetId: string,
   txId: number
 ): Result<AssetMovement, Error> {
@@ -1147,26 +1146,26 @@ function getSingleScopedOutflow(
 }
 
 function normalizeSameAssetOnChainFeeOwnership(
-  scopedByTxId: Map<number, AccountingScopedTransaction>,
+  preparedByTxId: Map<number, PreparedAccountingTransaction>,
   senderTxId: number,
   receiverTxIds: number[],
   assetId: string,
   dedupedFeeAmount: Decimal
-): Result<ScopedFeeMovement | undefined, Error> {
-  const senderScoped = scopedByTxId.get(senderTxId);
+): Result<PreparedFeeMovement | undefined, Error> {
+  const senderScoped = preparedByTxId.get(senderTxId);
   if (!senderScoped) {
-    return err(new Error(`Sender scoped transaction ${senderTxId} not found`));
+    return err(new Error(`Sender prepared transaction ${senderTxId} not found`));
   }
 
   const relatedTransactions = [senderScoped];
   for (const receiverTxId of receiverTxIds) {
-    const receiverScoped = scopedByTxId.get(receiverTxId);
+    const receiverScoped = preparedByTxId.get(receiverTxId);
     if (receiverScoped) {
       relatedTransactions.push(receiverScoped);
     }
   }
 
-  let feeTemplate: ScopedFeeMovement | undefined;
+  let feeTemplate: PreparedFeeMovement | undefined;
   for (const scoped of relatedTransactions) {
     const matchingFee = scoped.fees.find((fee) => isSameAssetOnChainFee(fee, assetId));
     if (matchingFee) {
@@ -1177,7 +1176,7 @@ function normalizeSameAssetOnChainFeeOwnership(
 
   removeSameAssetOnChainFees(senderScoped, assetId);
   for (const receiverTxId of receiverTxIds) {
-    const receiverScoped = scopedByTxId.get(receiverTxId);
+    const receiverScoped = preparedByTxId.get(receiverTxId);
     if (receiverScoped) {
       removeSameAssetOnChainFees(receiverScoped, assetId);
     }
@@ -1195,7 +1194,7 @@ function normalizeSameAssetOnChainFeeOwnership(
     );
   }
 
-  const normalizedFee: ScopedFeeMovement = {
+  const normalizedFee: PreparedFeeMovement = {
     ...feeTemplate,
     amount: new Decimal(dedupedFeeAmount.toString()),
   };
@@ -1205,9 +1204,9 @@ function normalizeSameAssetOnChainFeeOwnership(
 }
 
 function detachSameAssetOnChainFee(
-  scoped: AccountingScopedTransaction,
+  scoped: PreparedAccountingTransaction,
   assetId: string
-): ScopedFeeMovement | undefined {
+): PreparedFeeMovement | undefined {
   const matchingFee = scoped.fees.find((fee) => isSameAssetOnChainFee(fee, assetId));
   if (!matchingFee) {
     return undefined;
@@ -1232,10 +1231,10 @@ function summarizeMultiSourceFeeAccounting(feeAccounting: MultiSourceSameHashFee
   };
 }
 
-function removeSameAssetOnChainFees(scoped: AccountingScopedTransaction, assetId: string): void {
+function removeSameAssetOnChainFees(scoped: PreparedAccountingTransaction, assetId: string): void {
   scoped.fees = scoped.fees.filter((fee) => !isSameAssetOnChainFee(fee, assetId));
 }
 
-function isSameAssetOnChainFee(fee: ScopedFeeMovement, assetId: string): boolean {
+function isSameAssetOnChainFee(fee: PreparedFeeMovement, assetId: string): boolean {
   return fee.assetId === assetId && fee.settlement === 'on-chain';
 }

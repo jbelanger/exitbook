@@ -277,7 +277,7 @@ would be localized enough to be viable, or already too diffuse to stay clean.
   - `db.transactions.findAll(...)`
   - `loadCostBasisContext()`
   - `loadPricingContext()`
-  - `buildAccountingScopedTransactions(...)`
+  - `prepareAccountingTransactions(...)`
 
 ### Findings
 
@@ -299,7 +299,7 @@ would be localized enough to be viable, or already too diffuse to stay clean.
    - linking:
      - `LinkingOrchestrator.loadTransactions()`
      - `buildLinkableMovements(...)`
-     - `buildAccountingScopedTransactions(...)` inside linking
+     - `prepareAccountingTransactions(...)` inside linking
    - portfolio:
      - `PortfolioHandler.loadPortfolioExecutionInputs()`
      - `calculateHoldings(...)`
@@ -553,8 +553,8 @@ This pass is about the leading candidate model, not final adoption.
 - [transaction.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction.ts)
 - [movement.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/movement.ts)
 - [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
-- [build-accounting-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/build-accounting-scoped-transactions.ts)
-- [accounting-scoped-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/accounting-scoped-types.ts)
+- [prepare-accounting-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/prepare-accounting-transactions.ts)
+- [prepared-accounting-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/prepared-accounting-types.ts)
 - Pass 1, Pass 2, and Pass 3 findings in this document
 
 ### Findings
@@ -645,7 +645,7 @@ This pass is about the leading candidate model, not final adoption.
      - a straight 1:1 entry bound to one processed movement
 
 6. The most important rejected alternative is “promote the existing
-   cost-basis scoped transaction layer as the canonical accounting substrate,”
+   cost-basis prepared transaction layer as the canonical accounting substrate,”
    whether persisted or not.
    That looks tempting because the scoped build already solves some hard same-
    hash cases.
@@ -1105,7 +1105,7 @@ consumers can migrate cleanly.
    The canonical layer now carries:
    - `accountingTransactionViews`
      This is narrower than a journal/document model and cleaner than keeping
-     cost-basis-local scoped transactions as the long-term grouped view.
+     cost-basis-local prepared transactions as the long-term grouped view.
 
 ### Implications
 
@@ -1379,7 +1379,7 @@ whether the next migration slice still needs one more explicit model concept.
 
 2. Lot matching is still heavily transaction-shaped.
    Current consumers depend on:
-   - grouped inflow / outflow / fee collections per scoped transaction
+   - grouped inflow / outflow / fee collections per prepared transaction
    - movement-anchored confirmed-link validation
    - transaction dependency sorting
    - same-hash carryover target resolution by target movement fingerprint
@@ -1426,7 +1426,7 @@ whether the next migration slice still needs one more explicit model concept.
 
 Verify whether the canonical accounting layer is now strong enough to replace
 the standard lot-matching and standard cost-basis runtime path without
-reintroducing scoped transaction math inside the consumer.
+reintroducing prepared transaction math inside the consumer.
 
 ### Evidence Inspected
 
@@ -1457,7 +1457,7 @@ reintroducing scoped transaction math inside the consumer.
 
 4. The remaining Phase 0 pressure is now narrower.
    The main remaining old-shape seams are:
-   - proposal/confirmability paths that still read scoped transactions
+   - proposal/confirmability paths that still read prepared transactions
    - the public/spec naming debt around `InternalTransferCarryoverDraft`
 
 ### Implications
@@ -1488,7 +1488,7 @@ reintroducing scoped transaction math inside the consumer.
 
 Test whether the remaining transfer-proposal confirmability and manual-link
 validation seam can move cleanly onto the canonical accounting layer without
-keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
+keeping `PreparedAccountingTransaction[]` alive as a runtime truth for linking.
 
 ### Evidence Inspected
 
@@ -1500,7 +1500,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 
 ### Findings
 
-1. Transfer-proposal confirmability did not need scoped transactions.
+1. Transfer-proposal confirmability did not need prepared transactions.
    It only needed canonical transfer-validation transaction views.
 
 2. Its old location under `cost-basis/standard/matching` was ownership drift.
@@ -1511,7 +1511,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
    and carry those transaction views through confirmability filtering directly.
 
 4. CLI manual link confirmation and proposal review can do the same.
-   They no longer need to rebuild cost-basis scoped transactions only to ask a
+   They no longer need to rebuild cost-basis prepared transactions only to ask a
    confirmability question.
 
 5. This migration also justified a real public capability boundary:
@@ -1533,7 +1533,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   - transfer-proposal confirmability
   - linking strategy execution
   - CLI manual link confirmation/review
-- `buildAccountingScopedTransactions(...)` and its draft types now live under
+- `prepareAccountingTransactions(...)` and its draft types now live under
   `accounting-layer/`, so cost basis no longer owns the canonical layer's
   immediate implementation substrate
 - the exclusion-policy seam plus
@@ -1550,7 +1550,7 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   consumer call sites is smaller and more uniform
 - asset-review preflight now consumes `accountingTransactionViews` directly,
   and the scoped-only public price-validation helper is gone
-- cost-basis lot helpers no longer depend on `AccountingScopedTransaction`;
+- cost-basis lot helpers no longer depend on `PreparedAccountingTransaction`;
   the remaining mixed transaction shape there is now
   `AccountingTransactionView | Transaction`
 - The remaining scoped runtime seams are now narrower and more obviously
@@ -1558,8 +1558,8 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 
 ### Open Questions From Pass 15
 
-1. When should `buildAccountingScopedTransactions(...)` stop being the internal
+1. When should `prepareAccountingTransactions(...)` stop being the internal
    implementation substrate beneath `buildAccountingModelFromTransactions(...)`?
-2. Should `AccountingScopedBuildResult` and `AccountingScopedTransaction`
+2. Should `PreparedAccountingBuildResult` and `PreparedAccountingTransaction`
    remain explicit intermediate draft types, or collapse behind a narrower
    internal seam once more consumers migrate?

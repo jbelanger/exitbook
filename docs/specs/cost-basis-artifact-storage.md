@@ -372,7 +372,7 @@ graph TD
 
 - [Cost Basis Orchestration](./cost-basis-orchestration.md) — execution ownership and consumer boundaries
 - [Canada Average Cost Basis](./average-cost-basis.md) — Canada artifact payload semantics
-- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — scoped transaction/debug identity inputs
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — prepared transaction/debug identity inputs
 - [Projection System](./projection-system.md) — upstream freshness model consumed by the watermark
 
 ---

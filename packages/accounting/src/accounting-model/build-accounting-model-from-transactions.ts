@@ -15,10 +15,10 @@ import type {
   InternalTransferCarryoverTargetBinding,
 } from './accounting-model-types.js';
 import {
-  buildAccountingScopedTransactions,
-  type AccountingScopedBuildResult,
+  prepareAccountingTransactions,
+  type PreparedAccountingBuildResult,
   type InternalTransferCarryoverDraft,
-} from './build-accounting-scoped-transactions.js';
+} from './prepare-accounting-transactions.js';
 
 /**
  * Build the canonical accounting model from processed transactions.
@@ -33,27 +33,27 @@ export function buildAccountingModelFromTransactions(
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<AccountingModelBuildResult, Error> {
   return resultDo(function* () {
-    const scopedBuildResult = yield* buildAccountingScopedTransactions(transactions, logger);
-    const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, accountingExclusionPolicy);
-    return yield* buildAccountingModelFromScopedBuild(exclusionApplied.scopedBuildResult);
+    const preparedBuildResult = yield* prepareAccountingTransactions(transactions, logger);
+    const exclusionApplied = applyAccountingExclusionPolicy(preparedBuildResult, accountingExclusionPolicy);
+    return yield* buildAccountingModelFromPreparedBuild(exclusionApplied.preparedBuildResult);
   });
 }
 
-export function buildAccountingModelFromScopedBuild(
-  scopedBuildResult: AccountingScopedBuildResult
+export function buildAccountingModelFromPreparedBuild(
+  preparedBuildResult: PreparedAccountingBuildResult
 ): Result<AccountingModelBuildResult, Error> {
   const accountingTransactionViews: AccountingTransactionView[] = [];
   const transactionById = new Map<number, Transaction>(
-    scopedBuildResult.inputTransactions.map((transaction) => [transaction.id, transaction])
+    preparedBuildResult.inputTransactions.map((transaction) => [transaction.id, transaction])
   );
   const entries: AccountingEntry[] = [];
   const inflowEntryByMovementFingerprint = new Map<string, AccountingEntry>();
   const feeEntryByMovementFingerprint = new Map<string, AccountingEntry>();
 
-  for (const scopedTransaction of scopedBuildResult.transactions) {
+  for (const preparedTransaction of preparedBuildResult.transactions) {
     const inflows: AccountingAssetEntryView[] = [];
-    for (const inflow of scopedTransaction.movements.inflows) {
-      const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_inflow', inflow);
+    for (const inflow of preparedTransaction.movements.inflows) {
+      const entryResult = buildAssetAccountingEntry(preparedTransaction.tx, 'asset_inflow', inflow);
       if (entryResult.isErr()) {
         return err(entryResult.error);
       }
@@ -77,8 +77,8 @@ export function buildAccountingModelFromScopedBuild(
     }
 
     const outflows: AccountingAssetEntryView[] = [];
-    for (const outflow of scopedTransaction.movements.outflows) {
-      const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_outflow', outflow);
+    for (const outflow of preparedTransaction.movements.outflows) {
+      const entryResult = buildAssetAccountingEntry(preparedTransaction.tx, 'asset_outflow', outflow);
       if (entryResult.isErr()) {
         return err(entryResult.error);
       }
@@ -101,8 +101,8 @@ export function buildAccountingModelFromScopedBuild(
     }
 
     const fees: AccountingFeeEntryView[] = [];
-    for (const fee of scopedTransaction.fees) {
-      const entryResult = buildFeeAccountingEntry(scopedTransaction.tx, fee);
+    for (const fee of preparedTransaction.fees) {
+      const entryResult = buildFeeAccountingEntry(preparedTransaction.tx, fee);
       if (entryResult.isErr()) {
         return err(entryResult.error);
       }
@@ -129,11 +129,11 @@ export function buildAccountingModelFromScopedBuild(
       fees,
       inflows,
       outflows,
-      processedTransaction: scopedTransaction.tx,
+      processedTransaction: preparedTransaction.tx,
     });
   }
 
-  const sortedCarryovers = [...scopedBuildResult.internalTransferCarryoverDrafts].sort(compareCarryoverIdentity);
+  const sortedCarryovers = [...preparedBuildResult.internalTransferCarryoverDrafts].sort(compareCarryoverIdentity);
   const sourceEntryByMovementFingerprint = new Map<string, AccountingEntry>();
 
   for (const carryover of sortedCarryovers) {
@@ -185,14 +185,14 @@ export function buildAccountingModelFromScopedBuild(
     });
   }
 
-  const derivationDependenciesResult = buildDerivationDependencies(scopedBuildResult, transactionById);
+  const derivationDependenciesResult = buildDerivationDependencies(preparedBuildResult, transactionById);
   if (derivationDependenciesResult.isErr()) {
     return err(derivationDependenciesResult.error);
   }
 
   return ok({
     accountingTransactionViews,
-    processedTransactions: scopedBuildResult.inputTransactions,
+    processedTransactions: preparedBuildResult.inputTransactions,
     entries,
     derivationDependencies: derivationDependenciesResult.value,
     internalTransferCarryovers,
@@ -412,14 +412,14 @@ function resolveCarryoverFeeEntryFingerprint(
 }
 
 function buildDerivationDependencies(
-  scopedBuildResult: AccountingScopedBuildResult,
+  preparedBuildResult: PreparedAccountingBuildResult,
   transactionById: Map<number, Transaction>
 ): Result<AccountingDerivationDependency[], Error> {
   const dependencies: AccountingDerivationDependency[] = [];
   const seenKeys = new Set<string>();
 
-  for (const scopedTransaction of scopedBuildResult.transactions) {
-    for (const dependencyTransactionId of scopedTransaction.rebuildDependencyTransactionIds) {
+  for (const preparedTransaction of preparedBuildResult.transactions) {
+    for (const dependencyTransactionId of preparedTransaction.rebuildDependencyTransactionIds) {
       const supportingTransaction = transactionById.get(dependencyTransactionId);
       if (!supportingTransaction) {
         return err(
@@ -427,14 +427,14 @@ function buildDerivationDependencies(
         );
       }
 
-      const key = `${scopedTransaction.tx.txFingerprint}|${supportingTransaction.txFingerprint}`;
+      const key = `${preparedTransaction.tx.txFingerprint}|${supportingTransaction.txFingerprint}`;
       if (seenKeys.has(key)) {
         continue;
       }
 
       seenKeys.add(key);
       dependencies.push({
-        ownerTxFingerprint: scopedTransaction.tx.txFingerprint,
+        ownerTxFingerprint: preparedTransaction.tx.txFingerprint,
         supportingTxFingerprint: supportingTransaction.txFingerprint,
         reason: 'same_hash_internal_scoping',
       });

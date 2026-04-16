@@ -15,7 +15,7 @@ status: implemented
 | Dependency edge | `sourceTransactionId → targetTransactionId`                                                       |
 | Edge sources    | Validated confirmed external links and fee-only internal carryovers                               |
 | Ordering        | Topological order, then `datetime ASC`, then `tx.id ASC`                                          |
-| Processing unit | Single global pass over `AccountingScopedTransaction[]`                                           |
+| Processing unit | Single global pass over `PreparedAccountingTransaction[]`                                         |
 | Within-tx order | Carryover sources and outflows first, then inflows and carryover targets                          |
 | Transfer lookup | `Map<string, LotTransfer[]>` keyed by binding key                                                 |
 | Binding keys    | `link:${linkId}` for confirmed links; `carryover:${sourceFp}:${targetFp}` for fee-only carryovers |
@@ -52,7 +52,7 @@ status: implemented
 
 ### Scoped Transaction Input
 
-The matcher runs only on `AccountingScopedBuildResult`, not raw processed transactions.
+The matcher runs only on `PreparedAccountingBuildResult`, not raw processed transactions.
 
 That means same-hash internal reductions, scoped movement identity, and fee-only carryover sidecars are already resolved before dependency ordering begins.
 
@@ -75,8 +75,8 @@ Targets never scan all transfers. They resolve directly through the binding key 
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
-    B --> C["AccountingScopedBuildResult"]
+    A["Processed transactions"] --> B["prepareAccountingTransactions"]
+    B --> C["PreparedAccountingBuildResult"]
     C --> D["validateTransferLinks"]
     C --> E["Prepare fee-only carryovers"]
     D --> F["Build dependency edges"]
@@ -103,7 +103,7 @@ Canonical time source is `tx.datetime`, not `tx.timestamp`.
 
 ### 2. Source-Side Phase
 
-For each sorted scoped transaction:
+For each sorted prepared transaction:
 
 1. Process any fee-only internal carryovers sourced by this transaction.
 2. Process each non-fiat scoped outflow.

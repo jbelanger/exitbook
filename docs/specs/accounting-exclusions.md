@@ -7,7 +7,7 @@ status: canonical
 
 > ⚠️ **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
 
-Defines how Exitbook excludes transactions or assets from accounting-facing workflows today. This covers the persistence-owned whole-transaction exclusion layer, the override-driven asset exclusion policy, and the accounting-scoped seam where mixed transactions are pruned without hiding included activity.
+Defines how Exitbook excludes transactions or assets from accounting-facing workflows today. This covers the persistence-owned whole-transaction exclusion layer, the override-driven asset exclusion policy, and the accounting preparation seam where mixed transactions are pruned without hiding included activity.
 
 ## Quick Reference
 
@@ -17,7 +17,7 @@ Defines how Exitbook excludes transactions or assets from accounting-facing work
 | Spam/scam signal     | diagnostics may inform review surfaces, but they do not auto-set baseline exclusion               |
 | User policy source   | Asset exclusions come from override events, not a balances projection or cached transaction field |
 | Policy identity      | User exclusions are keyed by `profileKey + assetId`, never by display symbol alone                |
-| Scoped seam          | Asset exclusion is applied after `buildAccountingScopedTransactions()`                            |
+| Preparation seam     | Asset exclusion is applied after `prepareAccountingTransactions()`                                |
 | Mixed transactions   | Excluded movements and fees are pruned; surviving included activity stays in scope                |
 | Price gating         | Price coverage and cost basis validate the post-exclusion scoped result                           |
 | Soft price exclusion | `missingPricePolicy: 'exclude'` is a missing-price fallback, not user exclusion policy            |
@@ -98,7 +98,7 @@ Asset exclusions are applied to the accounting-scoped build result, not to raw r
 interface AccountingExclusionApplyResult {
   fullyExcludedTransactionIds: Set<number>;
   partiallyExcludedTransactionIds: Set<number>;
-  scopedBuildResult: AccountingScopedBuildResult;
+  preparedBuildResult: PreparedAccountingBuildResult;
 }
 ```
 
@@ -128,16 +128,16 @@ CLI accounting surfaces load asset exclusions from the durable override store by
 
 This keeps user policy independent from projection rebuilds and database resets of derived data.
 
-### Asset Exclusion Runs After Scoped Build
+### Asset Exclusion Runs After Preparation
 
-`applyAccountingExclusionPolicy(...)` runs after `buildAccountingScopedTransactions(...)`.
+`applyAccountingExclusionPolicy(...)` runs after `prepareAccountingTransactions(...)`.
 
-For each scoped transaction it:
+For each prepared transaction it:
 
 - removes inflows whose `assetId` is excluded
 - removes outflows whose `assetId` is excluded
 - removes fees whose `assetId` is excluded
-- drops the entire scoped transaction if nothing remains
+- drops the entire prepared transaction if nothing remains
 - marks the transaction as partially excluded if some activity survives
 
 It also removes `internalTransferCarryoverDrafts` whose carryover `assetId` is excluded.
@@ -154,21 +154,21 @@ SCAMTOKEN -> ETH
 
 With `SCAMTOKEN` excluded:
 
-- scoped `SCAMTOKEN` movements and fees are removed
-- scoped `ETH` activity remains in accounting
-- the transaction remains in the scoped batch if at least one included movement or fee survives
+- prepared `SCAMTOKEN` movements and fees are removed
+- prepared `ETH` activity remains in accounting
+- the transaction remains in the prepared batch if at least one included movement or fee survives
 - price validation no longer requires prices for the pruned `SCAMTOKEN` legs
 
-This is the core reason exclusions belong after scoped build instead of at repository read time.
+This is the core reason exclusions belong after preparation instead of at repository read time.
 
-### Price Coverage And Cost Basis Consume The Post-Exclusion Scoped Boundary
+### Price Coverage And Cost Basis Consume The Post-Exclusion Prepared Boundary
 
 Price coverage flow:
 
 ```mermaid
 graph TD
     A["Loaded transactions"] --> B["Date-range filter"]
-    B --> C["buildAccountingScopedTransactions"]
+    B --> C["prepareAccountingTransactions"]
     C --> D["applyAccountingExclusionPolicy"]
     D --> E["scopedTransactionHasAllPrices"]
 ```
@@ -177,7 +177,7 @@ Generic cost-basis flow:
 
 ```mermaid
 graph TD
-    A["Loaded transactions"] --> B["buildAccountingScopedTransactions"]
+    A["Loaded transactions"] --> B["prepareAccountingTransactions"]
     B --> C["applyAccountingExclusionPolicy"]
     C --> D["validateScopedTransactionPrices"]
     D --> E["validateTransferLinks / lot matching"]
@@ -185,17 +185,17 @@ graph TD
 
 Rules:
 
-- price completeness is evaluated on the scoped result after exclusions
-- excluded scoped movements and excluded scoped fees do not block price coverage
-- surviving scoped movements and fees still require complete pricing
-- soft portfolio-style missing-price handling rebuilds the scoped subset from surviving raw transactions, then reapplies exclusions
+- price completeness is evaluated on the prepared result after exclusions
+- excluded prepared movements and excluded prepared fees do not block price coverage
+- surviving prepared movements and fees still require complete pricing
+- soft portfolio-style missing-price handling rebuilds the prepared subset from surviving raw transactions, then reapplies exclusions
 
 ### Canada Uses The Same Exclusion Seam
 
 Canada ACB does not bypass exclusions. It follows:
 
 ```text
-buildAccountingScopedTransactions()
+prepareAccountingTransactions()
   -> applyAccountingExclusionPolicy()
   -> validateTransferLinks()
   -> buildCanadaTaxInputContext()

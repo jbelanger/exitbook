@@ -7,8 +7,8 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
-import { buildAccountingModelFromScopedBuild } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
-import { buildAccountingScopedTransactions } from '../../../../accounting-model/build-accounting-scoped-transactions.js';
+import { buildAccountingModelFromPreparedBuild } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { prepareAccountingTransactions } from '../../../../accounting-model/prepare-accounting-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-model/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type {
@@ -137,9 +137,9 @@ export async function buildCanadaTestInputContext(
   confirmedLinks: TransactionLink[],
   priceRuntime: IPriceProviderRuntime
 ) {
-  const scopedResult = buildAccountingScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
+  const scopedResult = prepareAccountingTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
-  const accountingModel = assertOk(buildAccountingModelFromScopedBuild(scoped));
+  const accountingModel = assertOk(buildAccountingModelFromPreparedBuild(scoped));
   const validatedLinksResult = validateTransferLinks(accountingModel.accountingTransactionViews, confirmedLinks);
   const validatedLinks = assertOk(validatedLinksResult);
 

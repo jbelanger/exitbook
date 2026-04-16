@@ -244,7 +244,10 @@ export function prepareGroupedManualLinksFromTransactions(
             consumedAmount: sourceSelection.movement.amount,
             reviewedAt: params.reviewedAt,
             reviewedBy: params.reviewedBy,
-            metadata: mergeLinkMetadata(params.metadata, buildExplainedTargetResidualMetadata(params.explainedTargetResidual)),
+            metadata: mergeLinkMetadata(
+              params.metadata,
+              buildExplainedTargetResidualMetadata(params.explainedTargetResidual)
+            ),
           })
         )
       );
@@ -285,7 +288,7 @@ function findTransactionById(
 ): Result<Transaction, Error> {
   const transaction = transactions.find((candidate) => candidate.id === transactionId);
   if (!transaction) {
-    return err(new Error(`Manual link ${label} transaction ${transactionId} not found in scoped transactions`));
+    return err(new Error(`Manual link ${label} transaction ${transactionId} not found in prepared transactions`));
   }
 
   return ok(transaction);
@@ -402,7 +405,7 @@ function collectResults<T>(results: Result<T, Error>[]): Result<T[], Error> {
 export function buildManualLinkOverrideMetadata(
   overrideId: string,
   overrideLinkType: OverrideLinkType,
-  explainedTargetResidual?: ExplainedTargetResidual  
+  explainedTargetResidual?: ExplainedTargetResidual
 ): TransactionLinkMetadata {
   return {
     ...buildExplainedTargetResidualMetadata(explainedTargetResidual),

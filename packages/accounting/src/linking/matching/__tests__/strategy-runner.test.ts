@@ -142,7 +142,7 @@ describe('StrategyRunner', () => {
     });
     const secondStrategy = createMockStrategy('second', { links: [], consumedCandidateIds: new Set() });
 
-    // Build minimal scoped transactions so the link can pass confirmability
+    // Build minimal prepared transactions so the link can pass confirmability
     const accountingTransactionViews: TransferValidationTransactionView[] = [];
 
     const runner = new StrategyRunner(
@@ -171,7 +171,7 @@ describe('StrategyRunner', () => {
 
     // The second strategy should not have been called at all since
     // both movements get claimed after first strategy (if the link passes confirmability).
-    // However, confirmability filtering may drop the link if no scoped transactions.
+    // However, confirmability filtering may drop the link if no prepared transactions.
     // In that case both strategies run but produce no links.
     // The important thing is we don't crash.
     expect(result.stats.length).toBeGreaterThanOrEqual(1);

@@ -47,7 +47,7 @@ interface CostBasisPipelineResult {
 const logger = getLogger('cost-basis.standard.calculation');
 
 /**
- * Shared cost-basis pipeline: scoped build → price validation policy →
+ * Shared cost-basis pipeline: prepared build → price validation policy →
  * jurisdiction rules → lot matching → gain/loss.
  *
  * Used by CostBasisWorkflow and PortfolioHandler to avoid duplicating the
@@ -99,7 +99,7 @@ export async function runCostBasisPipeline(
         options.accountingExclusionPolicy
       );
 
-      // Same-hash scoping mutates the scoped transaction set and may emit
+      // Same-hash scoping mutates the prepared transaction set and may emit
       // fee-only carryovers. After stabilizing the retained raw transactions we
       // must rebuild the scoped subset so those transfer decisions are recomputed
       // against the surviving transactions rather than leaving dangling carryover state.

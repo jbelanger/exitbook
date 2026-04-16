@@ -107,7 +107,7 @@ Current consumers:
 
 - `packages/accounting/src/linking/pre-linking/build-linkable-movements.ts`
 - `packages/accounting/src/linking/pre-linking/group-same-hash-transactions.ts`
-- `packages/accounting/src/accounting-model/build-accounting-scoped-transactions.ts`
+- `packages/accounting/src/accounting-model/prepare-accounting-transactions.ts`
 
 Benefit:
 
@@ -131,7 +131,7 @@ Benefit:
 
 Current consumers:
 
-- `packages/accounting/src/accounting-model/build-accounting-scoped-transactions.ts`
+- `packages/accounting/src/accounting-model/prepare-accounting-transactions.ts`
 - `packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts`
 
 Benefit:

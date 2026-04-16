@@ -52,7 +52,7 @@ interface CostBasisWorkflowExecutionOptions {
 
 Semantics:
 
-- `missingPricePolicy` controls whether incomplete price coverage hard-fails or excludes affected scoped transactions.
+- `missingPricePolicy` controls whether incomplete price coverage hard-fails or excludes affected prepared transactions.
 - `accountingExclusionPolicy` and `assetReviewSummaries` are accounting-policy inputs, not CLI rendering concerns.
 
 ### Execution Metadata
@@ -282,7 +282,7 @@ graph TD
 
 - [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — latest success snapshots, failure snapshots, and freshness rules
 - [Canada Average Cost Basis](./average-cost-basis.md) — Canada-specific execution semantics behind the shared runner
-- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — scoped transaction boundary consumed by both generic and Canada execution
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — prepared transaction boundary consumed by both generic and Canada execution
 - [Projection System](./projection-system.md) — upstream freshness model that cost-basis consumes but does not extend
 
 ---

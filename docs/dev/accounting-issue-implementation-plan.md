@@ -165,7 +165,7 @@ Phase 0 investigation log:
   - Canada tax input building, transfer validation, fee adjustments, and
     carryover handling now also read the canonical accounting layer end-to-end
   - transfer-proposal confirmability now reads canonical
-    `accountingTransactionViews`, not scoped transactions
+    `accountingTransactionViews`, not prepared transactions
   - linking strategy execution and CLI manual link confirmation/review now
     build and consume the canonical accounting layer directly for transfer
     confirmability
@@ -178,8 +178,8 @@ Phase 0 investigation log:
     - `inputTransactionIds` replaced historical `scopedTransactionIds`
     - `internal-transfer-carryover` replaced historical
       `fee-only-carryover`
-    - `buildAccountingScopedTransactions(...)` and
-      `accounting-scoped-types.ts` now live under `accounting-layer/`
+    - `prepareAccountingTransactions(...)` and
+      `prepared-accounting-types.ts` now live under `accounting-layer/`
       instead of `cost-basis/standard/matching/`
     - the exclusion-policy seam plus
       `assertNoAccountingModelAssetsRequireReview(...)` now live under
@@ -194,17 +194,17 @@ Phase 0 investigation log:
       price completeness no longer orchestrate that chain separately at each
       call site
     - asset-review preflight now reads the canonical accounting layer instead
-      of the draft-scoped transaction array, and the dead scoped price-quality
+      of the draft-prepared transaction array, and the dead scoped price-quality
       export has been removed
-    - cost-basis lot helpers no longer accept `AccountingScopedTransaction`;
+    - cost-basis lot helpers no longer accept `PreparedAccountingTransaction`;
       their remaining mixed transaction union is now the two real production
       shapes: `AccountingTransactionView | Transaction`
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:
     - remaining scoped compatibility seams such as
-      `AccountingScopedBuildResult`
-    - whether `AccountingScopedTransaction` should remain an explicit
+      `PreparedAccountingBuildResult`
+    - whether `PreparedAccountingTransaction` should remain an explicit
       intermediate draft model or collapse behind a narrower internal seam
 
 ## Chosen Model

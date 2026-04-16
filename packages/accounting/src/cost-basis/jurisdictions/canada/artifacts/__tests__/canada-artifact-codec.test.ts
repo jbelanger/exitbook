@@ -660,7 +660,7 @@ describe('canada-artifact-codec', () => {
       expect(decoded.superficialLossAdjustmentIds).toEqual(['sla-1']);
     });
 
-    it('populates scoped transaction IDs from report items (deduplicated and sorted)', () => {
+    it('populates prepared transaction IDs from report items (deduplicated and sorted)', () => {
       const taxReport = createTaxReport({
         acquisitions: [
           createTaxReportAcquisition({ transactionId: 3 }),

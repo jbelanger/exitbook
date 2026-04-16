@@ -16,7 +16,7 @@ Defines the current Canada (`jurisdiction === 'CA'`) cost-basis workflow. Despit
 | `Tax currency`         | All Canada tax math is performed in `CAD` at transaction time                                                                                                                     |
 | `Pooling key`          | Pooling uses `taxPropertyKey = ca:${assetIdentityKey}`, not storage `assetId`                                                                                                     |
 | `Workflow split`       | `CA` branches before `runCostBasisPipeline()` and uses the Canada workflow                                                                                                        |
-| `Input contract`       | Canada builds `CanadaTaxInputContext` from accounting-scoped transactions, validated links, and fee-only carryovers                                                               |
+| `Input contract`       | Canada builds `CanadaTaxInputContext` from accounting-prepared transactions, validated links, and fee-only carryovers                                                             |
 | `Transfers`            | Owned-account transfers preserve pooled economics and emit transfer rows, not gains/losses                                                                                        |
 | `Fees`                 | Acquisition and transfer-target fiat fees increase pool cost; eligible on-chain disposition fees reduce proceeds; same-asset transfer fees become explicit pool-adjustment events |
 | `Superficial loss`     | Loss denials are computed over a `±30` calendar-day window and carried forward into surviving reacquisition layers                                                                |
@@ -69,7 +69,7 @@ Current behavior:
 - The workflow expands the transaction window to `endDate + 30 days` so post-period reacquisitions can deny in-period losses.
 - Report rows are still filtered to the requested calculation window.
 - `displayReport` is typed as optional, but the current workflow always builds one, including an identity-CAD projection when `displayCurrency === 'CAD'`.
-- `executionMeta` reports how many scoped transactions were excluded for missing
+- `executionMeta` reports how many prepared transactions were excluded for missing
   prices and which raw transaction IDs were retained for the surviving
   calculation input.
 
@@ -294,7 +294,7 @@ Additional rules:
 
 Canada consumes:
 
-1. `AccountingScopedTransaction[]`
+1. `PreparedAccountingTransaction[]`
 2. `ValidatedTransferSet`
 3. `InternalTransferCarryoverDraft[]`
 
@@ -328,7 +328,7 @@ For same-hash internal transfers whose external quantity is zero and only fee tr
 
 ### Generic Fee Adjustments
 
-All scoped transaction fees are valued in CAD before adjustment logic runs.
+All prepared transaction fees are valued in CAD before adjustment logic runs.
 
 Acquisition-side rules:
 
@@ -604,7 +604,7 @@ Pool snapshot strategy notes:
 
 - [Cost Basis Orchestration](./cost-basis-orchestration.md) — consumer boundaries and shared Canada runner ownership
 - [Cost Basis Artifact Storage](./cost-basis-artifact-storage.md) — artifact persistence, `executionMeta`, and failure snapshot storage
-- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — scoped transaction boundary consumed by the Canada context builder
+- [Cost Basis Accounting Scope](./cost-basis-accounting-scope.md) — prepared transaction boundary consumed by the Canada context builder
 - [Transfers & Tax](./transfers-and-tax.md) — validated-link semantics, fee-only carryovers, and transfer fee treatment
 - [Fees](./fees.md) — raw fee semantics that feed Canada fee-adjustment rules
 - [Asset Identity](./asset-identity.md) — storage identity vs economic identity context for pooling

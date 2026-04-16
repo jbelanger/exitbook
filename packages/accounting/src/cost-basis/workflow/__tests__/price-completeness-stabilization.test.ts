@@ -3,12 +3,12 @@ import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBuildAccountingScopedTransactions } = vi.hoisted(() => ({
-  mockBuildAccountingScopedTransactions: vi.fn(),
+const { mockBuildPreparedAccountingTransactions } = vi.hoisted(() => ({
+  mockBuildPreparedAccountingTransactions: vi.fn(),
 }));
 
-vi.mock('../../../accounting-model/build-accounting-scoped-transactions.js', () => ({
-  buildAccountingScopedTransactions: mockBuildAccountingScopedTransactions,
+vi.mock('../../../accounting-model/prepare-accounting-transactions.js', () => ({
+  prepareAccountingTransactions: mockBuildPreparedAccountingTransactions,
 }));
 
 import { createPriceAtTxTime, createTransactionFromMovements } from '../../../__tests__/test-utils.js';
@@ -36,7 +36,7 @@ describe('stabilizeExcludedRebuildTransactions', () => {
     const priced = createTransaction(1, true);
     const dependency = createTransaction(2, false);
 
-    mockBuildAccountingScopedTransactions
+    mockBuildPreparedAccountingTransactions
       .mockReturnValueOnce(
         ok({
           inputTransactions: [priced, dependency],
@@ -85,6 +85,6 @@ describe('stabilizeExcludedRebuildTransactions', () => {
     const result = assertOk(stabilizeExcludedRebuildTransactions([priced, dependency], 'USD'));
 
     expect(result.map((transaction) => transaction.id)).toEqual([1]);
-    expect(mockBuildAccountingScopedTransactions).toHaveBeenCalledTimes(2);
+    expect(mockBuildPreparedAccountingTransactions).toHaveBeenCalledTimes(2);
   });
 });

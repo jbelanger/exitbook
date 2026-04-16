@@ -1,4 +1,4 @@
-import type { AccountingScopedBuildResult, AccountingScopedTransaction } from './accounting-scoped-types.js';
+import type { PreparedAccountingBuildResult, PreparedAccountingTransaction } from './prepared-accounting-types.js';
 
 export interface AccountingExclusionPolicy {
   excludedAssetIds: ReadonlySet<string>;
@@ -7,7 +7,7 @@ export interface AccountingExclusionPolicy {
 export interface AccountingExclusionApplyResult {
   fullyExcludedTransactionIds: Set<number>;
   partiallyExcludedTransactionIds: Set<number>;
-  scopedBuildResult: AccountingScopedBuildResult;
+  preparedBuildResult: PreparedAccountingBuildResult;
 }
 
 export function createAccountingExclusionPolicy(excludedAssetIds: Iterable<string> = []): AccountingExclusionPolicy {
@@ -25,54 +25,54 @@ export function isExcludedAsset(policy: AccountingExclusionPolicy | undefined, a
 }
 
 /**
- * Prune excluded assets from the accounting-scoped build result.
+ * Prune excluded assets from the prepared accounting result.
  *
- * This is intentionally accounting-local and runs after scoped build, so mixed
+ * This is intentionally accounting-local and runs after prepared build, so mixed
  * transactions can remain in scope when included activity survives.
  */
 export function applyAccountingExclusionPolicy(
-  scopedBuildResult: AccountingScopedBuildResult,
+  preparedBuildResult: PreparedAccountingBuildResult,
   policy: AccountingExclusionPolicy | undefined
 ): AccountingExclusionApplyResult {
   if (!hasAccountingExclusions(policy)) {
     return {
-      scopedBuildResult,
+      preparedBuildResult,
       fullyExcludedTransactionIds: new Set<number>(),
       partiallyExcludedTransactionIds: new Set<number>(),
     };
   }
 
-  const transactions: AccountingScopedTransaction[] = [];
+  const transactions: PreparedAccountingTransaction[] = [];
   const fullyExcludedTransactionIds = new Set<number>();
   const partiallyExcludedTransactionIds = new Set<number>();
 
-  for (const scopedTransaction of scopedBuildResult.transactions) {
+  for (const preparedTransaction of preparedBuildResult.transactions) {
     const originalMovementCount =
-      scopedTransaction.movements.inflows.length +
-      scopedTransaction.movements.outflows.length +
-      scopedTransaction.fees.length;
+      preparedTransaction.movements.inflows.length +
+      preparedTransaction.movements.outflows.length +
+      preparedTransaction.fees.length;
 
-    const inflows = scopedTransaction.movements.inflows.filter(
+    const inflows = preparedTransaction.movements.inflows.filter(
       (movement) => !isExcludedAsset(policy, movement.assetId)
     );
-    const outflows = scopedTransaction.movements.outflows.filter(
+    const outflows = preparedTransaction.movements.outflows.filter(
       (movement) => !isExcludedAsset(policy, movement.assetId)
     );
-    const fees = scopedTransaction.fees.filter((fee) => !isExcludedAsset(policy, fee.assetId));
+    const fees = preparedTransaction.fees.filter((fee) => !isExcludedAsset(policy, fee.assetId));
 
     const remainingMovementCount = inflows.length + outflows.length + fees.length;
     if (remainingMovementCount === 0) {
-      fullyExcludedTransactionIds.add(scopedTransaction.tx.id);
+      fullyExcludedTransactionIds.add(preparedTransaction.tx.id);
       continue;
     }
 
     if (remainingMovementCount < originalMovementCount) {
-      partiallyExcludedTransactionIds.add(scopedTransaction.tx.id);
+      partiallyExcludedTransactionIds.add(preparedTransaction.tx.id);
     }
 
     transactions.push({
-      tx: scopedTransaction.tx,
-      rebuildDependencyTransactionIds: [...scopedTransaction.rebuildDependencyTransactionIds],
+      tx: preparedTransaction.tx,
+      rebuildDependencyTransactionIds: [...preparedTransaction.rebuildDependencyTransactionIds],
       movements: {
         inflows,
         outflows,
@@ -81,13 +81,13 @@ export function applyAccountingExclusionPolicy(
     });
   }
 
-  const internalTransferCarryoverDrafts = scopedBuildResult.internalTransferCarryoverDrafts.filter(
+  const internalTransferCarryoverDrafts = preparedBuildResult.internalTransferCarryoverDrafts.filter(
     (carryover) => !isExcludedAsset(policy, carryover.assetId)
   );
 
   return {
-    scopedBuildResult: {
-      inputTransactions: scopedBuildResult.inputTransactions,
+    preparedBuildResult: {
+      inputTransactions: preparedBuildResult.inputTransactions,
       transactions,
       internalTransferCarryoverDrafts,
     },

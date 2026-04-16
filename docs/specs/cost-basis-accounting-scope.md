@@ -11,24 +11,24 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 
 ## Quick Reference
 
-| Concept                | Key Rule                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Scoped boundary        | Cost basis builds `AccountingScopedBuildResult` in memory from processed transactions                                |
-| Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                                             |
-| Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`                                 |
-| Movement identity      | Scoped inflows/outflows keep persisted `movementFingerprint`; scoped rewrites preserve fingerprint-targeted identity |
-| Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`                            |
-| Fee-only internal case | Purely internal same-hash groups emit `InternalTransferCarryoverDraft` sidecars                                      |
-| Price gating           | Price coverage and hard price validation run on scoped movements and scoped fees                                     |
-| Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links                                       |
-| Exclusions seam        | Accounting exclusions belong after scoped build and before downstream validation/matching                            |
+| Concept                | Key Rule                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Preparation boundary   | Cost basis builds `PreparedAccountingBuildResult` in memory from processed transactions                                  |
+| Same-hash grouping     | Blockchain transactions group by `(blockchain, normalizedHash, assetId)`                                                 |
+| Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`                                     |
+| Movement identity      | Prepared inflows/outflows keep persisted `movementFingerprint`; prepared rewrites preserve fingerprint-targeted identity |
+| Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned prepared fee using `max(...)`                              |
+| Fee-only internal case | Purely internal same-hash groups emit `InternalTransferCarryoverDraft` sidecars                                          |
+| Price gating           | Price coverage and hard price validation run on prepared movements and prepared fees                                     |
+| Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links                                           |
+| Exclusions seam        | Accounting exclusions belong after preparation and before downstream validation/matching                                 |
 
 ## Goals
 
 - **Accounting-owned meaning**: Cost basis must derive its own accounting view instead of inferring behavior from linker-era internal-link heuristics.
-- **Deterministic identity**: Scoped movement rewriting must preserve raw movement identity so persisted links can validate without symbol or amount guessing.
-- **Fail-closed safety**: Ambiguous same-hash groups, invalid scoped links, and missing required scoped prices must stop the run rather than degrade silently.
-- **Clean downstream boundary**: Price validation, transfer validation, and lot matching should all consume the same scoped contract.
+- **Deterministic identity**: Prepared movement rewriting must preserve raw movement identity so persisted links can validate without symbol or amount guessing.
+- **Fail-closed safety**: Ambiguous same-hash groups, invalid prepared links, and missing required prepared prices must stop the run rather than degrade silently.
+- **Clean downstream boundary**: Price validation, transfer validation, and lot matching should all consume the same prepared contract.
 
 ## Non-Goals
 
@@ -40,35 +40,33 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 
 ## Definitions
 
-### AccountingScopedTransaction
+### PreparedAccountingTransaction
 
 Cost-basis-local transaction shape derived from one `Transaction`:
 
 ```ts
-interface ScopedAssetMovement extends AssetMovement {}
-
-interface ScopedFeeMovement extends FeeMovement {
+interface PreparedFeeMovement extends FeeMovement {
   originalTransactionId: number;
 }
 
-interface AccountingScopedTransaction {
+interface PreparedAccountingTransaction {
   tx: Transaction;
   rebuildDependencyTransactionIds: number[];
   movements: {
-    inflows: ScopedAssetMovement[];
-    outflows: ScopedAssetMovement[];
+    inflows: AssetMovement[];
+    outflows: AssetMovement[];
   };
-  fees: ScopedFeeMovement[];
+  fees: PreparedFeeMovement[];
 }
 ```
 
 Semantics:
 
 - `tx` remains the immutable raw source fact.
-- `rebuildDependencyTransactionIds` records sibling raw transactions that must accompany this scoped row if the pipeline rebuilds after price filtering.
+- `rebuildDependencyTransactionIds` records sibling raw transactions that must accompany this prepared row if the pipeline rebuilds after price filtering.
 - `movements` and `fees` are the authoritative accounting input for cost basis.
-- `movementFingerprint` always points back to the persisted processed movement identity, even after scoped rewriting.
-- scoped fees are cloned and normalized separately from raw `tx.fees`.
+- `movementFingerprint` always points back to the persisted processed movement identity, even after prepared rewriting.
+- prepared fees are cloned and normalized separately from raw `tx.fees`.
 
 ### InternalTransferCarryoverDraft
 
@@ -84,7 +82,7 @@ interface InternalTransferCarryoverDraftTarget {
 interface InternalTransferCarryoverDraft {
   assetId: string;
   assetSymbol: Currency;
-  fee: ScopedFeeMovement;
+  fee: PreparedFeeMovement;
   retainedQuantity: Decimal;
   sourceTransactionId: number;
   sourceMovementFingerprint: string;
@@ -94,17 +92,17 @@ interface InternalTransferCarryoverDraft {
 
 This is not a persisted `TransactionLink`. It exists only inside the cost-basis pipeline.
 
-### AccountingScopedBuildResult
+### PreparedAccountingBuildResult
 
 ```ts
-interface AccountingScopedBuildResult {
+interface PreparedAccountingBuildResult {
   inputTransactions: Transaction[];
-  transactions: AccountingScopedTransaction[];
+  transactions: PreparedAccountingTransaction[];
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
 }
 ```
 
-This is the handoff contract for scoped price checks, confirmed-link validation, and lot matching.
+This is the handoff contract for prepared price checks, confirmed-link validation, and lot matching.
 
 ### ValidatedTransferSet
 
@@ -135,7 +133,7 @@ These indexes are matcher-facing lookup structures, not persistence.
 
 ### Scoped Build
 
-`buildAccountingScopedTransactions(...)` is the first accounting step after processed transactions are loaded.
+`prepareAccountingTransactions(...)` is the first accounting step after processed transactions are loaded.
 
 For every raw transaction it:
 
@@ -212,7 +210,7 @@ When the same-hash group has zero external quantity after internal inflows and d
 
 - remove the sender scoped outflow for that asset
 - keep receiver scoped inflows in place
-- normalize same-asset on-chain fee ownership onto the sender scoped transaction
+- normalize same-asset on-chain fee ownership onto the sender prepared transaction
 - emit one `InternalTransferCarryoverDraft` with movement-fingerprint-targeted receiver bindings
 
 If internal inflows plus deduplicated fee exceed the sender outflow, return `Err`.
@@ -257,7 +255,7 @@ The output is indexed by source and target movement fingerprint so the matcher d
 
 The lot matcher consumes:
 
-1. `AccountingScopedBuildResult`
+1. `PreparedAccountingBuildResult`
 2. `ValidatedTransferSet`
 3. jurisdiction rules
 
@@ -277,7 +275,7 @@ Accounting exclusions belong after the scoped build and before scoped validation
 ```text
 processed transactions
         ↓
-buildAccountingScopedTransactions()
+prepareAccountingTransactions()
         ↓
 accounting exclusion policy
         ↓
@@ -290,8 +288,8 @@ The matcher must not become the place where excluded movements are re-decided.
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
-    B --> C["AccountingScopedBuildResult"]
+    A["Processed transactions"] --> B["prepareAccountingTransactions"]
+    B --> C["PreparedAccountingBuildResult"]
     C --> D["validateScopedTransactionPrices / checkTransactionPriceCoverage"]
     C --> E["validateTransferLinks"]
     D --> F["LotMatcher"]

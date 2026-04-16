@@ -193,7 +193,7 @@ Semantics:
 - do not add consumer-policy helpers such as
   `rebuildDependencyTransactionIds` directly to `AccountingEntry`
 - zero-quantity fee artifacts are non-material
-  - they may still exist in intermediate processed/scoped transaction shapes
+  - they may still exist in intermediate processed/prepared transaction shapes
   - they must not materialize as canonical accounting fee entries or canonical
     accounting fee views
 

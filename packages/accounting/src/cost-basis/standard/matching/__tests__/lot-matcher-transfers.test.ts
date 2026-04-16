@@ -12,11 +12,11 @@ import {
   createTransactionFromMovements,
   materializeTestTransaction,
 } from '../../../../__tests__/test-utils.js';
-import { buildAccountingModelFromScopedBuild } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { buildAccountingModelFromPreparedBuild } from '../../../../accounting-model/build-accounting-model-from-transactions.js';
 import {
-  buildAccountingScopedTransactions,
-  type AccountingScopedTransaction,
-} from '../../../../accounting-model/build-accounting-scoped-transactions.js';
+  prepareAccountingTransactions,
+  type PreparedAccountingTransaction,
+} from '../../../../accounting-model/prepare-accounting-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-model/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import { LotMatcher } from '../lot-matcher.js';
@@ -82,12 +82,12 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const scopedResult = buildAccountingScopedTransactions(rawTransactions, logger);
+    const scopedResult = prepareAccountingTransactions(rawTransactions, logger);
     if (scopedResult.isErr()) {
       return err(scopedResult.error);
     }
     const scoped = scopedResult.value;
-    const accountingModelResult = buildAccountingModelFromScopedBuild(scoped);
+    const accountingModelResult = buildAccountingModelFromPreparedBuild(scoped);
     if (accountingModelResult.isErr()) {
       return err(accountingModelResult.error);
     }
@@ -104,17 +104,17 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   }
 
   function hydrateTestLinks(
-    scopedTransactions: AccountingScopedTransaction[],
+    preparedTransactions: PreparedAccountingTransaction[],
     confirmedLinks: TransactionLink[]
   ): TransactionLink[] {
     const usageByHint = new Map<string, number>();
 
     return confirmedLinks.map((link) => {
-      const sourceTransaction = scopedTransactions.find(
-        (scopedTransaction) => scopedTransaction.tx.id === link.sourceTransactionId
+      const sourceTransaction = preparedTransactions.find(
+        (preparedTransaction) => preparedTransaction.tx.id === link.sourceTransactionId
       );
-      const targetTransaction = scopedTransactions.find(
-        (scopedTransaction) => scopedTransaction.tx.id === link.targetTransactionId
+      const targetTransaction = preparedTransactions.find(
+        (preparedTransaction) => preparedTransaction.tx.id === link.targetTransactionId
       );
       if (!sourceTransaction || !targetTransaction) {
         throw new Error(`Failed to hydrate test link ${link.id}: source or target transaction not found`);
@@ -144,22 +144,22 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   }
 
   function resolveScopedMovement(
-    scopedTransaction: AccountingScopedTransaction,
+    preparedTransaction: PreparedAccountingTransaction,
     movementType: 'inflow' | 'outflow',
     fingerprintHint: string,
     usageByHint: Map<string, number>
   ) {
     const positionMatch = fingerprintHint.match(/:(inflow|outflow):(\d+)$/);
     const hintedPosition = positionMatch ? Number.parseInt(positionMatch[2]!, 10) : 0;
-    const usageKey = `${scopedTransaction.tx.id}:${movementType}:${fingerprintHint}`;
+    const usageKey = `${preparedTransaction.tx.id}:${movementType}:${fingerprintHint}`;
     const usageOffset = usageByHint.get(usageKey) ?? 0;
     const position = hintedPosition + usageOffset;
     const movements =
-      movementType === 'inflow' ? scopedTransaction.movements.inflows : scopedTransaction.movements.outflows;
+      movementType === 'inflow' ? preparedTransaction.movements.inflows : preparedTransaction.movements.outflows;
     const movement = movements[position];
     if (!movement) {
       throw new Error(
-        `Failed to resolve scoped ${movementType} movement at position ${position} for transaction ${scopedTransaction.tx.id}`
+        `Failed to resolve scoped ${movementType} movement at position ${position} for transaction ${preparedTransaction.tx.id}`
       );
     }
     usageByHint.set(usageKey, usageOffset + 1);

@@ -44,7 +44,7 @@ Link generation and the persisted `TransactionLink` contract are specified in [`
 Cost basis does not consume raw processed transactions plus arbitrary links anymore. It consumes:
 
 1. `Transaction[]`
-2. `AccountingScopedBuildResult`
+2. `PreparedAccountingBuildResult`
 3. confirmed persisted external links
 4. `ValidatedTransferSet`
 
@@ -89,7 +89,7 @@ The accounting scope builder owns same-hash reduction.
 For each `(blockchain, normalizedHash, assetId)` group it:
 
 - fails closed on ambiguous topology
-- removes purely internal inflows from the scoped transaction set
+- removes purely internal inflows from the prepared transaction set
 - reduces the sender outflow to the external quantity when internal change exists
 - emits `InternalTransferCarryoverDraft` sidecars when the entire transfer quantity is internal and only fee treatment remains
 
@@ -202,8 +202,8 @@ That means:
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
-    B --> C["AccountingScopedBuildResult"]
+    A["Processed transactions"] --> B["prepareAccountingTransactions"]
+    B --> C["PreparedAccountingBuildResult"]
     C --> D["validateTransferLinks"]
     C --> E["Scoped price validation"]
     D --> F["LotMatcher"]

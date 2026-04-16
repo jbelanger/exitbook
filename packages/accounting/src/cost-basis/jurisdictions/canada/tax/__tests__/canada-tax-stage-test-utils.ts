@@ -8,12 +8,12 @@ import type {
   AccountingTransactionView,
   ResolvedInternalTransferCarryover,
 } from '../../../../../accounting-model.js';
-import { buildAccountingModelFromScopedBuild } from '../../../../../accounting-model/build-accounting-model-from-transactions.js';
+import { buildAccountingModelFromPreparedBuild } from '../../../../../accounting-model/build-accounting-model-from-transactions.js';
 import type {
-  AccountingScopedTransaction,
+  PreparedAccountingTransaction,
   InternalTransferCarryoverDraft,
-  ScopedFeeMovement,
-} from '../../../../../accounting-model/build-accounting-scoped-transactions.js';
+  PreparedFeeMovement,
+} from '../../../../../accounting-model/prepare-accounting-transactions.js';
 import type {
   ValidatedTransferLink,
   ValidatedTransferSet,
@@ -55,9 +55,9 @@ function patchAssetId(assetId: string): string {
 export function buildScopedTransaction(
   tx: Transaction,
   options?: {
-    fees?: ScopedFeeMovement[] | undefined;
+    fees?: PreparedFeeMovement[] | undefined;
   }
-): AccountingScopedTransaction {
+): PreparedAccountingTransaction {
   const inflows: AssetMovement[] = (tx.movements.inflows ?? []).map((movement) => ({
     ...movement,
     assetId: patchAssetId(movement.assetId),
@@ -70,7 +70,7 @@ export function buildScopedTransaction(
     movementFingerprint: movement.movementFingerprint,
   }));
 
-  const fees: ScopedFeeMovement[] =
+  const fees: PreparedFeeMovement[] =
     options?.fees ??
     tx.fees.map((fee) => ({
       ...fee,
@@ -112,12 +112,12 @@ export function makeTransferSet(links: ValidatedTransferLink[]): ValidatedTransf
 }
 
 function buildStageAccountingModel(params: {
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
 }): AccountingModelBuildResult {
   return assertOk(
-    buildAccountingModelFromScopedBuild({
-      inputTransactions: params.scopedTransactions.map((scopedTransaction) => scopedTransaction.tx),
-      transactions: params.scopedTransactions,
+    buildAccountingModelFromPreparedBuild({
+      inputTransactions: params.preparedTransactions.map((preparedTransaction) => preparedTransaction.tx),
+      transactions: params.preparedTransactions,
       internalTransferCarryoverDrafts: [],
     })
   );
@@ -125,9 +125,9 @@ function buildStageAccountingModel(params: {
 
 function buildStageCanadaAccountingContext(params: {
   internalTransferCarryoverDrafts?: InternalTransferCarryoverDraft[] | undefined;
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
 }): Result<CanadaAccountingModelContext, Error> {
-  const accountingModel = buildStageAccountingModel({ scopedTransactions: params.scopedTransactions });
+  const accountingModel = buildStageAccountingModel({ preparedTransactions: params.preparedTransactions });
   const baseContextResult = buildCanadaAccountingModelContext(accountingModel);
   if (baseContextResult.isErr()) {
     return err(baseContextResult.error);
@@ -135,7 +135,7 @@ function buildStageCanadaAccountingContext(params: {
 
   const resolvedCarryoversResult = buildStageResolvedCarryovers(
     accountingModel,
-    params.scopedTransactions,
+    params.preparedTransactions,
     params.internalTransferCarryoverDrafts ?? []
   );
   if (resolvedCarryoversResult.isErr()) {
@@ -150,11 +150,11 @@ function buildStageCanadaAccountingContext(params: {
 
 export async function projectCanadaMovementEvents(params: {
   identityConfig: typeof identityConfig;
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
-  const accountingModel = buildStageAccountingModel({ scopedTransactions: params.scopedTransactions });
+  const accountingModel = buildStageAccountingModel({ preparedTransactions: params.preparedTransactions });
   return projectCanadaMovementEventsImpl({
     accountingTransactionViews: accountingModel.accountingTransactionViews,
     identityConfig: params.identityConfig,
@@ -167,11 +167,11 @@ export async function applyCarryoverSemantics(params: {
   events: Parameters<typeof applyCarryoverSemanticsImpl>[0]['events'];
   identityConfig: typeof identityConfig;
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
-    scopedTransactions: params.scopedTransactions,
+    preparedTransactions: params.preparedTransactions,
     internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
@@ -188,12 +188,12 @@ export async function applyCarryoverSemantics(params: {
 
 export async function buildValidatedTransferTargetFeeAdjustments(params: {
   identityConfig: typeof identityConfig;
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
-    scopedTransactions: params.scopedTransactions,
+    preparedTransactions: params.preparedTransactions,
   });
   if (canadaAccountingContextResult.isErr()) {
     return err(canadaAccountingContextResult.error);
@@ -210,12 +210,12 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
 export async function buildSameAssetTransferFeeAdjustments(params: {
   identityConfig: typeof identityConfig;
   internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
-  scopedTransactions: AccountingScopedTransaction[];
+  preparedTransactions: PreparedAccountingTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
-    scopedTransactions: params.scopedTransactions,
+    preparedTransactions: params.preparedTransactions,
     internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
@@ -234,12 +234,12 @@ export async function applyGenericFeeAdjustments(params: {
   events: Parameters<typeof applyGenericFeeAdjustmentsImpl>[0]['events'];
   identityConfig: typeof identityConfig;
   internalTransferCarryoverDrafts?: InternalTransferCarryoverDraft[] | undefined;
+  preparedTransactions: PreparedAccountingTransaction[];
   sameAssetTransferFeeEvents: Parameters<typeof applyGenericFeeAdjustmentsImpl>[0]['sameAssetTransferFeeEvents'];
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
-    scopedTransactions: params.scopedTransactions,
+    preparedTransactions: params.preparedTransactions,
     internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
@@ -257,11 +257,11 @@ export async function applyGenericFeeAdjustments(params: {
 
 function buildStageResolvedCarryovers(
   accountingModel: AccountingModelBuildResult,
-  scopedTransactions: AccountingScopedTransaction[],
+  preparedTransactions: PreparedAccountingTransaction[],
   internalTransferCarryoverDrafts: readonly InternalTransferCarryoverDraft[]
 ): Result<ResolvedInternalTransferCarryover[], Error> {
-  const scopedTransactionsById = new Map(
-    scopedTransactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction] as const)
+  const preparedTransactionsById = new Map(
+    preparedTransactions.map((preparedTransaction) => [preparedTransaction.tx.id, preparedTransaction] as const)
   );
   const transactionViewsById = new Map(
     accountingModel.accountingTransactionViews.map((transactionView) => [
@@ -272,7 +272,7 @@ function buildStageResolvedCarryovers(
   const resolvedCarryovers: ResolvedInternalTransferCarryover[] = [];
 
   for (const carryover of internalTransferCarryoverDrafts) {
-    const sourceScopedTransaction = scopedTransactionsById.get(carryover.sourceTransactionId);
+    const sourceScopedTransaction = preparedTransactionsById.get(carryover.sourceTransactionId);
     if (!sourceScopedTransaction) {
       return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));
     }
@@ -292,7 +292,7 @@ function buildStageResolvedCarryovers(
       };
 
     const targets = carryover.targets.map((target, index) => {
-      const targetScopedTransaction = scopedTransactionsById.get(target.targetTransactionId);
+      const targetScopedTransaction = preparedTransactionsById.get(target.targetTransactionId);
       const targetTransactionView = transactionViewsById.get(target.targetTransactionId);
       const targetMovement = targetScopedTransaction?.movements.inflows.find(
         (movement) => movement.movementFingerprint === target.targetMovementFingerprint

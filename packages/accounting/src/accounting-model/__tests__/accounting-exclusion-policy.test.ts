@@ -10,7 +10,7 @@ import {
   hasAccountingExclusions,
   isExcludedAsset,
 } from '../accounting-exclusion-policy.js';
-import { buildAccountingScopedTransactions } from '../build-accounting-scoped-transactions.js';
+import { prepareAccountingTransactions } from '../prepare-accounting-transactions.js';
 
 const noopLogger = {
   trace: () => {
@@ -42,16 +42,16 @@ describe('accounting-exclusion-policy', () => {
     const transaction = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
       inflows: [createMovement('ETH', '1', '3000'), createMovement('SCAM', '1000')],
     });
-    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
-    scopedBuildResult.transactions[0]!.rebuildDependencyTransactionIds.push(99);
+    const preparedBuildResult = assertOk(prepareAccountingTransactions([transaction], noopLogger));
+    preparedBuildResult.transactions[0]!.rebuildDependencyTransactionIds.push(99);
 
-    const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
+    const result = applyAccountingExclusionPolicy(preparedBuildResult, createAccountingExclusionPolicy(['test:scam']));
 
     expect(result.fullyExcludedTransactionIds.size).toBe(0);
     expect(result.partiallyExcludedTransactionIds.has(1)).toBe(true);
-    expect(result.scopedBuildResult.transactions).toHaveLength(1);
-    expect(result.scopedBuildResult.transactions[0]?.rebuildDependencyTransactionIds).toEqual([99]);
-    expect(result.scopedBuildResult.transactions[0]?.movements.inflows.map((movement) => movement.assetId)).toEqual([
+    expect(result.preparedBuildResult.transactions).toHaveLength(1);
+    expect(result.preparedBuildResult.transactions[0]?.rebuildDependencyTransactionIds).toEqual([99]);
+    expect(result.preparedBuildResult.transactions[0]?.movements.inflows.map((movement) => movement.assetId)).toEqual([
       'test:eth',
     ]);
   });
@@ -60,13 +60,13 @@ describe('accounting-exclusion-policy', () => {
     const transaction = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
       inflows: [createMovement('SCAM', '1000')],
     });
-    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
+    const preparedBuildResult = assertOk(prepareAccountingTransactions([transaction], noopLogger));
 
-    const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
+    const result = applyAccountingExclusionPolicy(preparedBuildResult, createAccountingExclusionPolicy(['test:scam']));
 
     expect(result.fullyExcludedTransactionIds.has(1)).toBe(true);
     expect(result.partiallyExcludedTransactionIds.size).toBe(0);
-    expect(result.scopedBuildResult.transactions).toHaveLength(0);
+    expect(result.preparedBuildResult.transactions).toHaveLength(0);
   });
 
   it('prunes excluded fees and fee-only carryovers', () => {
@@ -78,8 +78,8 @@ describe('accounting-exclusion-policy', () => {
       },
       [createFee('SCAM', '5')]
     );
-    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
-    scopedBuildResult.internalTransferCarryoverDrafts.push({
+    const preparedBuildResult = assertOk(prepareAccountingTransactions([transaction], noopLogger));
+    preparedBuildResult.internalTransferCarryoverDrafts.push({
       assetId: 'test:scam',
       assetSymbol: 'SCAM' as Currency,
       fee: {
@@ -103,11 +103,11 @@ describe('accounting-exclusion-policy', () => {
       ],
     });
 
-    const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
+    const result = applyAccountingExclusionPolicy(preparedBuildResult, createAccountingExclusionPolicy(['test:scam']));
 
-    expect(result.scopedBuildResult.transactions).toHaveLength(1);
-    expect(result.scopedBuildResult.transactions[0]?.fees).toEqual([]);
-    expect(result.scopedBuildResult.internalTransferCarryoverDrafts).toEqual([]);
+    expect(result.preparedBuildResult.transactions).toHaveLength(1);
+    expect(result.preparedBuildResult.transactions[0]?.fees).toEqual([]);
+    expect(result.preparedBuildResult.internalTransferCarryoverDrafts).toEqual([]);
   });
 
   it('recognizes excluded assets through the shared predicate', () => {

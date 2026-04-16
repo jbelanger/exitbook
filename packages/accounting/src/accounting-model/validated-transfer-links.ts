@@ -44,7 +44,7 @@ export function validateTransferLinks(
   accountingTransactionViews: readonly TransferValidationTransactionView[],
   confirmedLinks: readonly TransactionLink[]
 ): Result<ValidatedTransferSet, Error> {
-  const scopedTransactionIds = new Set(
+  const preparedTransactionIds = new Set(
     accountingTransactionViews.map((transactionView) => transactionView.processedTransaction.id)
   );
   const sourceMovementsResult = buildMovementIndex(accountingTransactionViews, 'outflow');
@@ -68,8 +68,8 @@ export function validateTransferLinks(
     if (link.status !== 'confirmed') continue;
     if (link.linkType === 'blockchain_internal') continue;
 
-    const sourceInScope = scopedTransactionIds.has(link.sourceTransactionId);
-    const targetInScope = scopedTransactionIds.has(link.targetTransactionId);
+    const sourceInScope = preparedTransactionIds.has(link.sourceTransactionId);
+    const targetInScope = preparedTransactionIds.has(link.targetTransactionId);
 
     if (!sourceInScope && !targetInScope) {
       continue;
