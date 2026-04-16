@@ -142,6 +142,13 @@ Phase 0 investigation log:
   - lot matching and scoped cost-basis calculation still read the scoped
     transaction build
   - this is an intentional intermediate boundary, not the final end state
+- next proving migration boundary is now explicit:
+  - lot matching, scoped transfer validation, and Canada tax projection are
+    still transaction-shaped consumers
+  - the current accounting-layer build result is not yet enough to migrate them
+    cleanly without rebuilding a transaction view inside each consumer
+  - the next decision is whether the canonical accounting layer now earns an
+    accounting-owned entry-group / transaction-view concept
 
 ## Chosen Model
 

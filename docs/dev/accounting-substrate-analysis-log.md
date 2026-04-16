@@ -1069,3 +1069,74 @@ Current Phase 0 lean after Pass 7:
   more open-ended terminology analysis
 
 Anything weaker should be rejected.
+
+## Pass 8
+
+### Scope
+
+Assess whether the current canonical accounting-layer build result is already
+strong enough to migrate lot matching and scoped cost-basis calculation, or
+whether the next migration slice still needs one more explicit model concept.
+
+### Evidence Inspected
+
+- [price-completeness.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/workflow/price-completeness.ts)
+- [run-standard-cost-basis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/run-standard-cost-basis.ts)
+- [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
+- [validated-scoped-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/validated-scoped-transfer-links.ts)
+- [canada-acb-workflow.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.ts)
+- [canada-tax-context-builder.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-context-builder.ts)
+- [canada-tax-event-carryover.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-carryover.ts)
+
+### Findings
+
+1. The canonical accounting layer is already strong enough for pricing
+   readiness, but not yet for lot matching.
+   Price completeness only needed:
+   - entry quantities
+   - provenance bindings
+   - deterministic derivation dependencies
+     That migration landed cleanly.
+
+2. Lot matching is still heavily transaction-shaped.
+   Current consumers depend on:
+   - grouped inflow / outflow / fee collections per scoped transaction
+   - movement-anchored confirmed-link validation
+   - transaction dependency sorting
+   - same-hash carryover target resolution by target movement fingerprint
+   - cross-transaction fee collection using source / target transaction pairs
+
+3. The current accounting-layer build result does not yet give one canonical
+   way to group entries back into an accounting-owned transaction view.
+   If we force lot matching onto bare `entries + processedTransactions`, the
+   consumer would have to rebuild that grouping itself from provenance bindings.
+   That would reintroduce reader-side reconstruction drift.
+
+4. This is a real model gap, not just implementation inconvenience.
+   The missing concept is not “more carryover data.”
+   The missing concept is a canonical, accounting-owned grouping/view boundary
+   for entry-level consumers that still reason in transaction order.
+
+### Implications
+
+- Price completeness was the right first proving migration.
+- The next migration slice should **not** force lot matching directly onto the
+  current bare build result.
+- The next clean decision is whether the canonical accounting layer now earns:
+  - `accounting entry groups`
+  - or another narrowly named accounting-owned transaction view
+- A cost-basis-local adapter is still possible, but it would carry migration
+  smell unless it is treated as a short-lived bridge with explicit boundaries.
+
+### Open Questions From Pass 8
+
+1. Is the right next concept `accounting entry groups`, or is there a narrower
+   view that supports lot matching without becoming a premature journal/document
+   model?
+
+2. Should validated transfer links keep resolving against movement fingerprints
+   only during the next stage, or should they gain an accounting-entry-facing
+   validation path before lot matching migrates?
+
+3. Can Canada tax event projection share the same next-layer grouping/view, or
+   would it immediately push toward a fuller journal/document model?
