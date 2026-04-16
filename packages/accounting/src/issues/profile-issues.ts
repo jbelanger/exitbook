@@ -16,6 +16,7 @@ import {
 
 export interface BuildProfileAccountingIssueScopeSnapshotInput {
   assetReviewSummaries: Iterable<AssetReviewSummary>;
+  excludedAssetIds?: ReadonlySet<string> | undefined;
   linkGapIssues: readonly LinkGapIssue[];
   profileId: number;
   scopeKey: string;
@@ -30,7 +31,7 @@ export function buildProfileAccountingIssueScopeSnapshot(
   const issues = [
     ...input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue)),
     ...[...input.assetReviewSummaries]
-      .filter((summary) => summary.accountingBlocked)
+      .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
       .sort((left, right) => left.assetId.localeCompare(right.assetId))
       .map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
   ];

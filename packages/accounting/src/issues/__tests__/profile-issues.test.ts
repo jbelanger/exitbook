@@ -53,6 +53,7 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       title: 'Main profile',
       linkGapIssues: [createLinkGapIssue()],
       assetReviewSummaries: [createAssetReviewSummary()],
+      excludedAssetIds: new Set<string>(),
       updatedAt: new Date('2026-04-14T12:00:00.000Z'),
     });
 
@@ -92,6 +93,25 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       title: 'Clean profile',
       linkGapIssues: [],
       assetReviewSummaries: [createAssetReviewSummary({ accountingBlocked: false })],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope.status).toBe('ready');
+    expect(snapshot.scope.openIssueCount).toBe(0);
+    expect(snapshot.scope.blockingIssueCount).toBe(0);
+    expect(snapshot.issues).toHaveLength(0);
+  });
+
+  it('does not surface asset-review blocker issues for excluded assets', () => {
+    const assetId = 'blockchain:ethereum:0xscam';
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 7,
+      scopeKey: 'profile:7',
+      title: 'Excluded asset profile',
+      linkGapIssues: [],
+      assetReviewSummaries: [createAssetReviewSummary({ assetId })],
+      excludedAssetIds: new Set<string>([assetId]),
       updatedAt: new Date('2026-04-14T12:00:00.000Z'),
     });
 

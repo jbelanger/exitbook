@@ -97,3 +97,77 @@ Open observations:
   - many `transfer_gap` issues
 - the failed scoped cost-basis lens is the best candidate for later CLI-only
   investigation of cross-command reporting workflows
+
+## Pass 2: First Real Asset-Issue Investigation
+
+Date: 2026-04-16
+
+Goal:
+
+- solve one real `asset_review_blocker` using only the CLI
+- note where the command surface is strong enough to act and where it still
+  leaves too much guesswork
+
+Issues investigated:
+
+1. `d9233f5e30`
+   - asset: `blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8`
+   - status: not solved yet
+2. `cf1c74f683`
+   - asset: `blockchain:arbitrum:0x531bae79da2e057731798be73f20fd87526dbfef`
+   - status: solved
+
+Commands used:
+
+```bash
+pnpm run dev issues view d9233f5e30
+pnpm run dev assets view blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+pnpm run dev assets view blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9
+pnpm run dev transactions list --platform arbitrum --asset USDT --json
+pnpm run dev assets list --action-required --json
+pnpm run dev issues view cf1c74f683
+pnpm run dev assets view blockchain:arbitrum:0x531bae79da2e057731798be73f20fd87526dbfef
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0x531bae79da2e057731798be73f20fd87526dbfef --reason "CLI-only issue resolution after fix" --json
+pnpm run dev issues view cf1c74f683 --json
+```
+
+Findings:
+
+- The Arbitrum `USDT` ambiguity is a real CLI decision-quality gap:
+  - the CLI exposes the conflicting contracts and enough evidence to see there
+    is a problem
+  - it does **not** expose enough evidence to choose `confirm` vs `exclude`
+    confidently for the unmatched contract
+  - symbol-level `transactions list --asset USDT` is helpful, but it still
+    mixes both contracts and does not let the user inspect one exact asset
+    cleanly
+- The scam-token blocker was a valid exclusion target:
+  - one movement
+  - explicit `SCAM_TOKEN` evidence
+  - unmatched canonical reference
+  - `assets view` gave enough evidence to justify exclusion
+- The CLI investigation exposed a real product bug:
+  - before the fix, `assets exclude` changed the asset state to `[Excluded]`
+    but left the `asset_review_blocker` issue open
+  - root cause: profile issue materialization ignored `excludedAssetIds` even
+    though the source reader already loaded them
+  - shipped fix: excluded assets no longer materialize as
+    `asset_review_blocker` issues
+
+Command-surface assessment:
+
+- good:
+  - `issues view` now gives enough owning-workflow examples to reach the right
+    command family quickly
+  - `assets view` is strong enough for obvious scam-token exclusions
+- still weak:
+  - the asset workflow needs a better exact-asset investigation path for
+    same-symbol ambiguity cases
+  - likely direction: exact-asset transaction inspection or stronger conflict
+    comparison from `assets view`
+
+Current solved state:
+
+- `cf1c74f683` is gone from `issues`
+- asset `blockchain:arbitrum:0x531bae79da2e057731798be73f20fd87526dbfef` is
+  excluded and now stays out of the profile issue queue

@@ -274,8 +274,10 @@ interface AccountingIssueScopeSummary {
 - Source: current asset-review projection summaries.
 - Scope kind: `profile`.
 - Code: `ASSET_REVIEW_BLOCKER`.
-- Inclusion rule: only rows with `accountingBlocked === true` become issue rows
-  in Phase 1A.
+- Inclusion rule:
+  - only rows with `accountingBlocked === true` become issue rows in Phase 1A
+  - assets excluded by the current profile exclusion policy do not become
+    `asset_review_blocker` issue rows
 - Canonical key inputs:
   - `assetId`
   - `evidenceFingerprint`

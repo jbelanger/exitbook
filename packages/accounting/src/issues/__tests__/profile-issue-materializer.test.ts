@@ -113,6 +113,36 @@ describe('materializeProfileAccountingIssueScopeSnapshot', () => {
     expect(result.value.issues.map((issue) => issue.issue.family)).toEqual(['transfer_gap', 'asset_review_blocker']);
   });
 
+  it('omits excluded asset-review blockers from the materialized profile scope', async () => {
+    const assetId = 'blockchain:ethereum:0xscam';
+    const sourceReader = {
+      loadProfileAccountingIssueSourceData: vi.fn().mockResolvedValue(
+        ok(
+          createSourceData({
+            assetReviewSummaries: [createAssetReviewSummary({ assetId })],
+            excludedAssetIds: new Set<string>([assetId]),
+            transactions: [],
+          })
+        )
+      ),
+    };
+
+    const result = await materializeProfileAccountingIssueScopeSnapshot({
+      profileId: 7,
+      scopeKey: 'profile:7',
+      sourceReader,
+      title: 'Main profile',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.scope.status).toBe('ready');
+    expect(result.value.issues).toHaveLength(0);
+  });
+
   it('keeps resolved gap overrides hidden when materializing the snapshot', async () => {
     const transaction = createBlockchainWithdrawal();
     const sourceReader = {

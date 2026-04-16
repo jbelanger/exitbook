@@ -575,6 +575,10 @@ Completed so far:
     - `links gaps reopen`
   - interactive `links explore` confirm/reject actions now use the same
     refresh path as the standalone `links confirm` / `links reject` commands
+- profile issue materialization now honors the active asset exclusion policy
+  for `asset_review_blocker`
+  - excluded assets no longer remain stranded as open blocker issues after
+    `assets exclude`
 
 Acceptance criteria:
 
@@ -584,6 +588,8 @@ Acceptance criteria:
   - candidate narrowing/removal targets:
     - duplicate interactive `cost-basis` readiness warning surfacing
     - broader accounting-review burden currently leaking through `links gaps`
+- excluded assets do not remain action-required or issue-blocking on the
+  profile issue queue
 - canonical specs describe the shipped system fully
 - end-to-end live verification is clean for at least one real reporting scope
 
