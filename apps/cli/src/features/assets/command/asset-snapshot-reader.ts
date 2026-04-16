@@ -1,3 +1,4 @@
+import { applyAssetExclusionsToReviewSummary } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import { readAssetReviewDecisions, readExcludedAssetIds } from '@exitbook/data/overrides';
@@ -208,7 +209,24 @@ export class AssetSnapshotReader {
       return err(freshProjectionResult.error);
     }
 
-    return readAssetReviewProjectionSummaries(this.db, profileId, assetIds);
+    const reviewSummariesResult = await readAssetReviewProjectionSummaries(this.db, profileId, assetIds);
+    if (reviewSummariesResult.isErr()) {
+      return err(reviewSummariesResult.error);
+    }
+
+    const excludedAssetIdsResult = await readExcludedAssetIds(this.overrideStore, profileKey);
+    if (excludedAssetIdsResult.isErr()) {
+      return err(excludedAssetIdsResult.error);
+    }
+
+    return ok(
+      new Map(
+        [...reviewSummariesResult.value.entries()].map(([assetId, summary]) => [
+          assetId,
+          applyAssetExclusionsToReviewSummary(summary, excludedAssetIdsResult.value),
+        ])
+      )
+    );
   }
 
   private async ensureBalanceSnapshotsReady(

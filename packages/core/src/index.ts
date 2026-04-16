@@ -181,6 +181,7 @@ export {
   type AssetReviewEvidence,
   type AssetReviewSummary,
 } from './asset-review/asset-review.js';
+export { applyAssetExclusionsToReviewSummary } from './asset-review/asset-review-summary-overlays.js';
 
 export {
   hasAnyDiagnosticCode,

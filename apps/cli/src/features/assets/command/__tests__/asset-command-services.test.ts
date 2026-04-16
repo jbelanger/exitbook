@@ -813,6 +813,77 @@ describe('asset command services', () => {
     expect(value.totalCount).toBe(1);
   });
 
+  it('clears ambiguity review when the only conflicting alternative is excluded', async () => {
+    const matchedAssetId = 'blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+    const excludedAssetId = 'blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8';
+    const mockDb = createMockDb(
+      [createTransaction({ id: 1, inflows: [{ assetId: matchedAssetId, assetSymbol: 'USDT', amount: '5' }] })],
+      [createSnapshotAsset(matchedAssetId, 'USDT', '5')]
+    );
+    const mockOverrideStore = createMockOverrideStore();
+    mockOverrideStore.exists.mockReturnValue(true);
+    mockOverrideStore.readByScopes.mockImplementation((_profileKey: string, scopes: string[]) => {
+      if (scopes.includes('asset-exclude')) {
+        return Promise.resolve(ok([createAssetExcludeEvent(excludedAssetId)]));
+      }
+
+      return Promise.resolve(ok([]));
+    });
+    vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(
+      ok(
+        new Map([
+          [
+            matchedAssetId,
+            createAssetReviewSummary(matchedAssetId, {
+              referenceStatus: 'matched',
+              warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdt',
+              evidence: [
+                {
+                  kind: 'same-symbol-ambiguity',
+                  severity: 'warning',
+                  message: 'Same-chain symbol ambiguity on arbitrum:usdt',
+                  metadata: {
+                    chain: 'arbitrum',
+                    normalizedSymbol: 'usdt',
+                    conflictingAssetIds: [excludedAssetId, matchedAssetId],
+                  },
+                },
+              ],
+            }),
+          ],
+        ])
+      )
+    );
+
+    const { snapshotReader } = createAssetsServices(mockDb, mockOverrideStore);
+
+    const actionRequiredResult = await snapshotReader.view({
+      actionRequiredOnly: true,
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
+    const actionRequiredView = assertOk(actionRequiredResult);
+
+    expect(actionRequiredView.assets).toEqual([]);
+    expect(actionRequiredView.actionRequiredCount).toBe(0);
+
+    const fullViewResult = await snapshotReader.view({
+      profileId: PROFILE_ID,
+      profileKey: PROFILE_KEY,
+    });
+    const fullView = assertOk(fullViewResult);
+
+    expect(fullView.assets).toHaveLength(1);
+    expect(fullView.assets[0]).toMatchObject({
+      assetId: matchedAssetId,
+      accountingBlocked: false,
+      confirmationIsStale: false,
+      reviewStatus: 'clear',
+      warningSummary: undefined,
+    });
+    expect(fullView.assets[0]?.evidence).toEqual([]);
+  });
+
   it('ignores exclusions written for a different profile', async () => {
     const blockedAssetId = 'blockchain:ethereum:0xscam';
     const mockDb = createMockDb([

@@ -278,6 +278,9 @@ interface AccountingIssueScopeSummary {
   - only rows with `accountingBlocked === true` become issue rows in Phase 1A
   - assets excluded by the current profile exclusion policy do not become
     `asset_review_blocker` issue rows
+  - same-symbol ambiguity is evaluated against the current exclusion policy at
+    read time; if every conflicting alternative is excluded, the surviving
+    asset does not remain an `asset_review_blocker`
 - Canonical key inputs:
   - `assetId`
   - `evidenceFingerprint`

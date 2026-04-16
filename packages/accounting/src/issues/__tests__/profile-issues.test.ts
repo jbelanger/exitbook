@@ -120,4 +120,41 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     expect(snapshot.scope.blockingIssueCount).toBe(0);
     expect(snapshot.issues).toHaveLength(0);
   });
+
+  it('does not surface ambiguity blockers once every conflicting alternative is excluded', () => {
+    const currentAssetId = 'blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+    const excludedAssetId = 'blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8';
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 7,
+      scopeKey: 'profile:7',
+      title: 'Resolved ambiguity profile',
+      linkGapIssues: [],
+      assetReviewSummaries: [
+        createAssetReviewSummary({
+          assetId: currentAssetId,
+          referenceStatus: 'matched',
+          warningSummary: 'Same-chain symbol ambiguity on arbitrum:usdt',
+          evidence: [
+            {
+              kind: 'same-symbol-ambiguity',
+              severity: 'warning',
+              message: 'Same-chain symbol ambiguity on arbitrum:usdt',
+              metadata: {
+                chain: 'arbitrum',
+                normalizedSymbol: 'usdt',
+                conflictingAssetIds: [excludedAssetId, currentAssetId],
+              },
+            },
+          ],
+        }),
+      ],
+      excludedAssetIds: new Set<string>([excludedAssetId]),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope.status).toBe('ready');
+    expect(snapshot.scope.openIssueCount).toBe(0);
+    expect(snapshot.scope.blockingIssueCount).toBe(0);
+    expect(snapshot.issues).toHaveLength(0);
+  });
 });
