@@ -96,6 +96,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
           transactionId: 11,
         },
       ],
+      missingPriceDetails: [],
       unknownTransactionClassificationCount: 1,
       unknownTransactionClassificationDetails: [
         {
