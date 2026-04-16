@@ -6,9 +6,8 @@ status: active
 # Accounting Issue Implementation Plan
 
 Owner: Codex + Joel
-Discovery log:
+Primary references:
 
-- [accounting-issue-operations-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-operations-plan.md)
 - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - [accounting-issues.md](/Users/joel/Dev/exitbook/docs/specs/accounting-issues.md)
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
@@ -35,187 +34,24 @@ It is done only when:
 - the remaining issue families are explicitly review-only by design, not by missing functionality
 - the user can go from open issues to a real ready-to-report state without code changes
 
-## Phase 0 Architecture Gate
+## Architecture Baseline
 
-Before expanding corrective actions further, we should raise the modeling bar and
-decide whether the current processed transactions are the right long-term
-canonical accounting layer.
-
-This gate exists because the Cardano mixed-scope staking case exposed a more
-general design pressure:
-
-- the current processed row is doing both provenance work and accounting work
-- mixed-scope economic events become awkward when downstream accounting reads the
-  same per-address rows that audit/provenance needs
-- adding more corrective actions on top of that pressure can harden the wrong
-  accounting layer
-
-Phase 0 does **not** assume a rewrite. Its purpose is to answer one structural
-question before more corrective-action breadth lands:
-
-- should accounting continue to use `transactions` / `transaction_movements` as
-  its canonical accounting layer
-- or should a new canonical accounting layer exist, with current processed
-  rows demoted to provenance/audit use
-
-### Why Do This Now
-
-The reason to do this now is not just quantity of work.
-
-The real risks are:
-
-- **dual truth risk**
-  - if we add a second accounting-like layer but let different consumers
-    read different tables, correctness gets worse, not better
-- **scope mismatch hardening**
-  - more corrective actions built on the current accounting layer may encode
-    per-address assumptions more deeply
-- **override-boundary drift**
-  - movement-role overrides, grouped transfer confirmation, and any future
-    residual correction need one clean accounting target
-- **migration cost growth**
-  - if an accounting-layer split is needed, doing it after more read/write surfaces land
-    will be harder
-
-The standing rule for this work is:
-
-- choose the cleanest end-state even if it requires a broad refactor
-- document the rewrite as it happens instead of preserving weaker boundaries
-  just because they already exist
-- gradual package extraction is allowed if it removes a real ownership blur
-- `v2`-style parallel packages are still rejected unless the architecture
-  contract itself changes
-
-### Phase 0 Deliverable
-
-Phase 0 should end with one explicit architectural decision:
-
-1. keep the current processed transactions as the canonical accounting layer
-2. introduce a new canonical accounting layer
-3. defer the accounting-layer change deliberately, with explicit reasons and boundaries
-
-The Phase 0 architectural decision is now recorded in:
+The accounting boundary work that started as Phase 0 is now complete and
+canonical in:
 
 - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
-The remaining follow-up is to implement the first accounting-owned reader port
-and the first proving migration slices against that boundary.
+For this initiative, the important stable rules are:
 
-### Phase 0 Acceptance Criteria
-
-- the canonical accounting layer is named explicitly
-- provenance/audit vs accounting responsibility is stated explicitly
-- override attachment points are stated explicitly
-- any identity bridge from current `txFingerprint` / `movementFingerprint`
-  contracts is stated explicitly
-- any accounting-layer migration target is stated explicitly at the accounting seam
-  level, not only as a storage-table change
-- any chosen accounting-layer model justifies itself against the smaller
-  accounting-entry-plus-provenance-binding baseline
-- the chosen linking and pricing boundaries are stated explicitly if the
-  accounting layer changes
-- the initial migration order is stated explicitly if the accounting layer changes
-- any future accounting-layer split is generic, not Cardano-specific
-- no further corrective-action expansion starts until this gate is resolved
-
-### Phase 0 Current Status
-
-- accepted architectural decision recorded in:
-  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
-- canonical boundary spec recorded in:
-  - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
-- first accounting-owned reader seam landed:
-  - accounting now owns `AccountingEntry` types, fingerprint rules, and the
-    first accounting-layer reader seam
-- first proving migration surfaced one real model gap:
-  - plain `AccountingEntry[]` was not enough to replace the full current
-    cost-basis input shape cleanly
-  - the canonical reader now grows to a narrow accounting-layer build result:
-    - `accountingTransactionViews`
-    - `processedTransactions`
-    - `entries`
-    - `derivationDependencies`
-    - `internalTransferCarryovers`
-- Phase 0 follow-up now shifts from “should the read model grow?” to “how the
-  first consumer migration should use the narrowed build result without
-  reintroducing cost-basis-local shape”
-- first proving migration slice now landed at the pricing boundary:
-  - accounting-side price completeness / rebuild subset selection now reads the
-    canonical accounting layer
-  - this is an intentional intermediate boundary, not the final end state
-- next proving migration slice now landed at the standard lot-matching boundary:
-  - the canonical accounting layer now includes
-    `accountingTransactionViews` as the grouped transaction view for
-    transaction-shaped consumers
-  - canonical transfer-link validation now runs on
-    `accountingTransactionViews`
-  - canonical internal-transfer carryover resolution now exists:
-    - synthetic carryover source entries resolve back to processed-transaction
-      movement refs
-    - retained targets and fee entries resolve to accounting transaction views
-  - standard lot matching and standard cost-basis calculation now read the
-    canonical accounting layer end-to-end
-  - Canada tax input building, transfer validation, fee adjustments, and
-    carryover handling now also read the canonical accounting layer end-to-end
-  - transfer-proposal confirmability now reads canonical
-    `accountingTransactionViews`, not prepared transactions
-  - linking strategy execution and CLI manual link confirmation/review now
-    build and consume the canonical accounting layer directly for transfer
-    confirmability
-  - portfolio now also reads the canonical accounting layer for:
-    - holdings
-    - account breakdown
-    - net external fiat
-  - the old injected portfolio holdings-calculation port is removed
-  - profile issue materialization is now accounting-owned:
-    - `data` only loads profile issue source facts
-    - accounting now owns gap analysis, resolved-gap visibility, and profile issue snapshot materialization
-    - CLI no longer assembles profile issue snapshots directly
-  - transfer-gap issue sourcing remains provenance-shaped by design:
-    - it reads processed transactions, links, accounts, and override-derived visibility inputs
-    - it does **not** move onto the canonical accounting model
-    - the shared profile gap-analysis seam is now accounting-owned and reused by:
-      - `links gaps`
-      - profile issue materialization
-    - `data` now exposes a profile link-gap source reader instead of making
-      hosts assemble that source shape ad hoc
-  - `@exitbook/accounting/accounting-model` now exists as the explicit public
-    capability boundary for canonical accounting-layer builders, readers,
-    validators, and types
-  - the canonical accounting layer now collapses zero-quantity asset and fee
-    artifacts instead of treating them as material accounting entries
-  - post-migration cleanup aligned the remaining Canada/cost-basis vocabulary:
-    - `inputTransactionIds` replaced historical `scopedTransactionIds`
-    - `internal-transfer-carryover` replaced historical
-      `fee-only-carryover`
-    - `prepareAccountingTransactions(...)` and
-      `prepared-accounting-types.ts` now live under `accounting-model/`
-      instead of `cost-basis/standard/matching/`
-    - the exclusion-policy seam plus
-      `assertNoAccountingModelAssetsRequireReview(...)` now live under
-      `accounting-model/`
-      instead of `cost-basis/standard/validation/`
-    - `price-validation.ts` now also lives under `accounting-model/`, so the
-      old `cost-basis/standard/validation/` pocket no longer owns draft-layer
-      helpers
-    - `buildAccountingModelFromTransactions(...)` now owns the repeated
-      `build draft -> apply exclusions -> build canonical layer` sequence when
-      an exclusion policy is present, so Canada, standard cost basis, and
-      price completeness no longer orchestrate that chain separately at each
-      call site
-    - asset-review preflight now reads the canonical accounting layer instead
-      of the draft-prepared transaction array, and the dead scoped price-quality
-      export has been removed
-    - cost-basis lot helpers no longer accept `PreparedAccountingTransaction`;
-      their remaining mixed transaction union is now the two real production
-      shapes: `AccountingTransactionView | Transaction`
-    - the oversized Canada stage-test compatibility bridge now lives in a
-      dedicated test utility instead of inside the main stage spec
-  - the next proving migration boundary is now narrower:
-    - remaining scoped compatibility seams such as
-      `PreparedAccountingBuildResult`
-    - whether `PreparedAccountingTransaction` should remain an explicit
-      intermediate draft model or collapse behind a narrower internal seam
+- accounting semantics must read the canonical accounting layer, not
+  `processed transactions`, unless the canonical spec explicitly marks a path as
+  provenance-scoped
+- `processed transactions` remain the provenance/audit layer
+- issue projections are persisted read models, not accounting truth
+- transfer-gap analysis is the intentional provenance-shaped exception:
+  - it remains accounting-owned
+  - it does not move onto the canonical accounting model
+- no further issue or corrective-action work should reintroduce dual truth
 
 ## Chosen Model
 
@@ -352,7 +188,6 @@ Phase 1A implementation should now treat the following docs as authoritative:
 - CLI read-surface contract:
   [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
 
-Do not mine the frozen operations doc for missing rules during implementation.
 The canonical docs above now commit:
 
 - `ISSUE-REF` derivation and prefix-resolution rules
@@ -385,30 +220,32 @@ This initiative is complete only when all of the following are true:
 
 ## Phase Plan
 
-### Phase 0: Canonical Accounting Layer Decision
+### Phase 0: Canonical Accounting Boundary
 
-Status: now required before further corrective-action expansion
+Status: complete
 
-Deliver:
+Completed so far:
 
-- a short architectural decision doc in `docs/dev`
-- explicit choice of canonical accounting layer
-- explicit statement of what remains provenance-only
-- explicit override attachment boundary for future corrective actions
-- any canonical spec updates needed to reflect the chosen boundary
+- the canonical accounting boundary is now specified in
+  [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
+- the core accounting consumers now read the canonical accounting layer:
+  - cost basis
+  - transfer validation / linking quantity semantics
+  - portfolio accounting quantities
+  - accounting-side issue materialization
+- transfer-gap sourcing is explicitly classified as provenance-scoped and stays
+  accounting-owned without moving onto the canonical accounting model
+- the canonical accounting model now includes the deterministic build metadata
+  needed by current consumers:
+  - `accountingTransactionViews`
+  - `entries`
+  - `derivationDependencies`
+  - `internalTransferCarryovers`
 
 Guardrail:
 
-- do not expand corrective-action breadth beyond the currently shipped commands
-  until this phase is resolved
-
-Acceptance criteria:
-
-- the canonical accounting layer decision is explicit, written down, and reviewable
-- the system has no ambiguous “sometimes provenance rows, sometimes accounting
-  rows” rule
-- any proposed new accounting layer is generic and reusable, not Cardano-specific
-- future corrective actions have one clear accounting target
+- new issue and corrective-action work must follow the canonical boundary rules
+  in [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 
 ### Phase 1A: Profile-Global Issue Projection
 
@@ -611,7 +448,7 @@ Acceptance criteria:
 
 ### Phase 3: Domain Corrective Actions
 
-Status: partially complete, paused behind Phase 0 for further expansion
+Status: partially complete
 
 Completed so far:
 
