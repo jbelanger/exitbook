@@ -95,6 +95,7 @@ export const TransactionLinkMetadataSchema = z
     blockchain: z.string().optional(),
     sameHashExternalGroup: z.literal(true).optional(),
     sameHashMixedExternalGroup: z.literal(true).optional(),
+    sameHashExternalTargetEvidence: z.enum(['exact_hash', 'exact_amount_timing']).optional(),
     sameHashExternalFeeAccounting: z.enum(['deduped_shared_fee', 'per_source_allocated_fee']).optional(),
     sameHashExternalTotalFee: z.string().optional(),
     dedupedSameHashFee: z.string().optional(),

@@ -557,6 +557,121 @@ describe('SameHashExternalOutflowStrategy', () => {
     expect(result.value.consumedCandidateIds.size).toBe(0);
   });
 
+  it('suggests a same-hash external group when one exact exchange deposit matches by amount and tight timing but has no hash', () => {
+    const hash = 'f976ebbad12a363c826f83a9c02af63bcf1a5475dc688ee87e07d7061611b23c';
+    const timestamp = new Date('2024-07-05T11:37:19.000Z');
+    const targetTimestamp = new Date('2024-07-05T11:54:06.902Z');
+    const toAddress = '3J11opeYh2dBkKXzsCPe6PybEMP729sX1M';
+
+    const sources = [
+      createLinkableMovement({
+        id: 1,
+        transactionId: 407,
+        accountId: 14,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('0.00297392'),
+        grossAmount: parseDecimal('0.00301222'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:407:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 2,
+        transactionId: 409,
+        accountId: 16,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('0.00083993'),
+        grossAmount: parseDecimal('0.00087823'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:409:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 3,
+        transactionId: 411,
+        accountId: 18,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('0.00199199'),
+        grossAmount: parseDecimal('0.00203029'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:411:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 4,
+        transactionId: 413,
+        accountId: 20,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('0.00621314'),
+        grossAmount: parseDecimal('0.00625144'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:413:outflow:0',
+      }),
+      createLinkableMovement({
+        id: 5,
+        transactionId: 415,
+        accountId: 22,
+        platformKey: 'bitcoin',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:bitcoin:native',
+        amount: parseDecimal('0.00303659'),
+        grossAmount: parseDecimal('0.00307489'),
+        direction: 'out',
+        timestamp,
+        blockchainTxHash: hash,
+        toAddress,
+        movementFingerprint: 'movement:bitcoin:415:outflow:0',
+      }),
+    ];
+
+    const targets = [
+      createLinkableMovement({
+        id: 100,
+        transactionId: 264,
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        assetId: 'exchange:kraken:btc',
+        amount: parseDecimal('0.01520877'),
+        direction: 'in',
+        timestamp: targetTimestamp,
+        movementFingerprint: 'movement:kraken:264:inflow:0',
+      }),
+    ];
+
+    const strategy = new SameHashExternalOutflowStrategy();
+    const result = strategy.execute(sources, targets, buildMatchingConfig());
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value.links).toHaveLength(5);
+    expect(result.value.links.every((link) => link.status === 'suggested')).toBe(true);
+    expect(
+      result.value.links.every((link) => link.metadata?.['sameHashExternalTargetEvidence'] === 'exact_amount_timing')
+    ).toBe(true);
+    expect(result.value.links.every((link) => link.metadata?.['sameHashExternalGroup'] === true)).toBe(true);
+    expect([...result.value.consumedCandidateIds].sort((left, right) => left - right)).toEqual([1, 2, 3, 4, 5, 100]);
+  });
+
   it('skips the group when more than one exact exchange inflow target matches the synthetic amount', () => {
     const hash = '0xmulti-target';
     const timestamp = new Date('2024-01-01T12:00:00Z');

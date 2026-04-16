@@ -328,7 +328,19 @@ group amount =
 - builds one synthetic group source for scoring only
 - only proceeds when exactly one exchange inflow target matches that synthetic source with:
   - `amountSimilarity = 1.0`
+  - and either:
+    - the target shares the exact normalized blockchain hash
+    - or the target has no blockchain hash and is the only exact-amount exchange inflow within `1 hour` after the grouped send
   - or exact target excess explained by one exact same-hash residual described below
+- hashless exchange-target fallback is allowed only when:
+  - the group has no tracked blockchain sibling inflows
+  - the exchange target has no normalized blockchain hash
+  - the exchange target amount equals the grouped send amount exactly
+  - the target timestamp is after the grouped send and within `1 hour`
+  - address evidence does not explicitly contradict the route
+  - exactly one exchange inflow target satisfies those conditions
+- hash-backed group matches remain eligible for `confirmed` or `suggested` status based on confidence
+- hashless exact-amount/tight-timing fallback matches are always emitted as `suggested`
 - exact explained residual is allowed only when:
   - the group has no tracked blockchain sibling inflows
   - the target is an exchange inflow
@@ -390,6 +402,7 @@ Persisted metadata rules:
   - `consumedAmount`
 - same-hash external outflow expansions additionally store:
   - `sameHashMixedExternalGroup`
+  - `sameHashExternalTargetEvidence`
   - `sameHashExternalFeeAccounting`
   - `sameHashExternalTotalFee`
   - `dedupedSameHashFee`
@@ -523,6 +536,9 @@ graph TD
 - **Strict persisted identity**: Every persisted link has both asset ids and both movement fingerprints.
 - **Positive quantities**: Persisted `sourceAmount` and `targetAmount` are always positive.
 - **Conservative same-hash handling**: Ambiguous same-hash blockchain groups never emit synthetic internal links.
+- **Conservative hashless exchange fallback**: Same-hash external outflow groups may use a
+  hashless exchange target only when one exact-amount, tight-timing candidate exists; otherwise
+  the group remains unmatched.
 - **Deterministic replay**: For the same transaction set and override log order, replay produces the same final link states.
 - **Rejected links are not persisted**: `links run` saves only non-rejected links.
 
@@ -537,7 +553,11 @@ graph TD
 ## Known Limitations (Current Implementation)
 
 - Ambiguous same-hash blockchain groups are intentionally left unmatched rather than approximated.
-- Same-hash external outflow matching only handles exact single-target exchange matches; non-exact groups still fall back to ordinary strategies or remain unmatched.
+- Same-hash external outflow matching handles:
+  - exact hash-backed exchange targets
+  - exact hash-backed targets with one exact explained residual
+  - one exact-amount, tight-timing hashless exchange target fallback
+- broader grouped exchange routing without exact quantity equality still remains unmatched.
 - Matching allocation is greedy, not globally optimal.
 - Override fingerprints are still symbol-based; they do not yet use the stricter persisted asset-id pair.
 - Movement fingerprints are stored as plain strings rather than a dedicated fingerprint schema/type.
@@ -552,4 +572,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-04-16_

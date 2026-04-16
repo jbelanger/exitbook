@@ -733,6 +733,17 @@ Patterns that currently look like good candidates for more automatic handling:
   - these are currently handled honestly as manual gap exceptions
   - they may be good candidates for stronger automatic guidance, but not yet
     for silent auto-resolution
+- same-hash external sends into one exact exchange deposit with no hash
+  - example seen live: the 2024-07-05 BTC outflow cluster into Kraken
+  - the exchange deposit had no blockchain hash, so the old exact-hash-only
+    strategy produced no suggestion at all
+  - a conservative grouped strategy fallback was safe here because:
+    - one same-hash blockchain outflow group existed
+    - one exact-amount exchange deposit followed shortly after
+    - no tracked sibling inflows competed with the route
+    - there was only one viable exchange target candidate
+  - this is now implemented as a `suggested` same-hash external proposal, not
+    an auto-confirmed link
 
 Patterns that still look manual by design:
 
@@ -742,3 +753,70 @@ Patterns that still look manual by design:
   linking heuristics
 - cross-platform transfers that still need timing/amount/counterparty judgment
   beyond what one route can prove
+
+## Pass 13: Same-Hash BTC Cluster Closed By Strategy, Not Manual Exception
+
+Date: 2026-04-16
+
+Goal:
+
+- determine whether the BTC same-hash outflow cluster should stay a manual
+  grouped gap workflow or could be solved conservatively by the linker itself
+
+Commands used:
+
+```bash
+pnpm run dev transactions list --platform bitcoin --asset BTC --since 2024-07-05 --until 2024-07-06 --json
+pnpm run dev transactions view b12ff406b1 --json
+pnpm run dev links run --json
+pnpm run dev links gaps view 7c626aaafa
+pnpm run dev links gaps view 345af7d9e9 --json
+pnpm run dev links confirm 1b358e686e --json
+pnpm run dev issues view 54a85e55f5 --json
+pnpm run dev links gaps view 7c626aaafa --json
+pnpm run dev issues --json
+pnpm run dev links run --json
+```
+
+Findings:
+
+- the cluster was a real automatic-linking candidate, not a manual exception:
+  - five tracked BTC outflows shared one blockchain hash and one external
+    destination
+  - one Kraken BTC deposit followed shortly after with the exact grouped amount
+  - the Kraken deposit had no blockchain hash, so the old exact-hash-only
+    strategy never suggested a route
+- shipped fix:
+  - same-hash external outflow matching now allows one conservative fallback
+    target when:
+    - the target has no blockchain hash
+    - the grouped amount matches exactly
+    - the deposit arrives within one hour
+    - there is exactly one viable exchange target
+  - fallback matches are always emitted as `suggested`
+  - link metadata now records
+    `sameHashExternalTargetEvidence=exact_amount_timing`
+- live result:
+  - `links run --json` moved from `0` to `5` suggested links
+  - the same proposal ref `1b358e686e` appeared on multiple gap rows in the
+    cluster, which confirmed that the grouped decision was modeled coherently
+  - `links confirm 1b358e686e --json` confirmed all five links at once
+  - the related gap refs and issue refs disappeared immediately afterward
+  - the profile issue queue dropped from `52` to `47`
+  - a follow-up `links run --json` returned `0` suggested links, so the queue
+    was cleanly converged
+
+Command-surface assessment:
+
+- strong:
+  - the current CLI was sufficient to validate and confirm the grouped
+    strategy once the linker produced a real proposal
+  - one grouped proposal confirmation clearing five gap rows is the right
+    user-facing behavior for this pattern
+- still weak:
+  - `links gaps explore` still does not explain the suggested target route any
+    better than `links gaps view`
+  - the operator still cannot inspect the proposed target transaction ref or
+    the strategy evidence directly from the gap surface
+  - `links gaps` browse still has no `--limit`, which makes larger live queues
+    harder to slice during investigation

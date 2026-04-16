@@ -36,6 +36,7 @@ interface ResolvedGroupMatch {
   siblingInflowAmount: Decimal;
   sourceAllocations: SameHashUtxoSourceAllocation[];
   status: 'confirmed' | 'suggested';
+  targetEvidence: 'exact_amount_timing' | 'exact_hash';
 }
 
 interface GroupSourceCapacityPlan {
@@ -110,6 +111,7 @@ export class SameHashExternalOutflowStrategy implements ILinkingStrategy {
         const metadata: TransactionLinkMetadata = {
           ...link.metadata,
           sameHashExternalGroup: true,
+          sameHashExternalTargetEvidence: resolvedMatch.targetEvidence,
           sameHashExternalGroupAmount: resolvedMatch.groupAmount.toFixed(),
           sameHashExternalGroupSize: group.sources.length,
           sameHashExternalFeeAccounting: capacityPlanResult.value.feeAccounting.kind,
@@ -276,7 +278,11 @@ function resolveGroupMatch(
         : parseDecimal('0');
 
     if (!explainedTargetResidualAmount.gt(0)) {
-      return ok(undefined);
+      return resolveExactAmountTimingFallbackGroupMatch(group, exchangeTargets, config, {
+        groupAmount,
+        siblingInflowAmount,
+        sourceAllocations,
+      });
     }
 
     const explainedMatches = scoreAndFilterMatches(syntheticSource, exchangeTargets, config).filter((match) => {
@@ -296,7 +302,11 @@ function resolveGroupMatch(
     });
 
     if (explainedMatches.length !== 1) {
-      return ok(undefined);
+      return resolveExactAmountTimingFallbackGroupMatch(group, exchangeTargets, config, {
+        groupAmount,
+        siblingInflowAmount,
+        sourceAllocations,
+      });
     }
 
     const explainedGroupMatch = explainedMatches[0]!;
@@ -307,6 +317,7 @@ function resolveGroupMatch(
       siblingInflowAmount,
       sourceAllocations,
       status: shouldAutoConfirm(explainedGroupMatch, config) ? 'confirmed' : 'suggested',
+      targetEvidence: 'exact_hash',
     });
   }
 
@@ -318,6 +329,56 @@ function resolveGroupMatch(
     sourceAllocations,
     status:
       group.siblingInflows.length > 0 ? 'suggested' : shouldAutoConfirm(groupMatch, config) ? 'confirmed' : 'suggested',
+    targetEvidence: 'exact_hash',
+  });
+}
+
+function resolveExactAmountTimingFallbackGroupMatch(
+  group: SameHashExternalOutflowGroup,
+  exchangeTargets: LinkableMovement[],
+  config: MatchingConfig,
+  params: {
+    groupAmount: Decimal;
+    siblingInflowAmount: Decimal;
+    sourceAllocations: SameHashUtxoSourceAllocation[];
+  }
+): Result<ResolvedGroupMatch | undefined, Error> {
+  if (group.siblingInflows.length > 0) {
+    return ok(undefined);
+  }
+
+  const syntheticSource = buildSyntheticSource(group, params.groupAmount);
+  const fallbackMatches = scoreAndFilterMatches(syntheticSource, exchangeTargets, config).filter((match) => {
+    if (match.targetMovement.blockchainTxHash !== undefined) {
+      return false;
+    }
+
+    if (!match.targetMovement.amount.eq(params.groupAmount)) {
+      return false;
+    }
+
+    if (!match.matchCriteria.amountSimilarity.eq(1)) {
+      return false;
+    }
+
+    if (match.matchCriteria.timingHours < 0 || match.matchCriteria.timingHours > 1) {
+      return false;
+    }
+
+    return match.matchCriteria.addressMatch !== false;
+  });
+
+  if (fallbackMatches.length !== 1) {
+    return ok(undefined);
+  }
+
+  return ok({
+    groupAmount: params.groupAmount,
+    groupMatch: fallbackMatches[0]!,
+    siblingInflowAmount: params.siblingInflowAmount,
+    sourceAllocations: params.sourceAllocations,
+    status: 'suggested',
+    targetEvidence: 'exact_amount_timing',
   });
 }
 
