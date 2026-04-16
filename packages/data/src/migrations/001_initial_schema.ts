@@ -712,7 +712,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('severity', 'text', (col) => col.notNull())
     .addColumn('status', 'text', (col) => col.notNull())
     .addColumn('summary', 'text', (col) => col.notNull())
-    .addColumn('acknowledged_at', 'text')
     .addColumn('first_seen_at', 'text', (col) => col.notNull())
     .addColumn('last_seen_at', 'text', (col) => col.notNull())
     .addColumn('closed_at', 'text')

@@ -10,7 +10,6 @@ import {
 } from './issues-browse-command.js';
 import { registerIssuesCostBasisCommand } from './issues-cost-basis.js';
 import { registerIssuesListCommand } from './issues-list.js';
-import { registerIssuesAcknowledgeCommand, registerIssuesReopenCommand } from './issues-review-state-command.js';
 import { registerIssuesViewCommand } from './issues-view.js';
 
 const ISSUES_COMMAND_ID = 'issues';
@@ -29,14 +28,12 @@ Examples:
   $ exitbook issues
   $ exitbook issues list
   $ exitbook issues view 2d4c8e1af3
-  $ exitbook issues acknowledge 2d4c8e1af3
-  $ exitbook issues reopen 2d4c8e1af3
   $ exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost
 
 Notes:
   - Bare "issues" is the operator work queue overview for the active profile.
   - Use "issues view <ISSUE-REF>" for one static issue detail card.
-  - Review-state actions are available here; accounting-changing corrections stay in owning workflows.
+  - Issues are a persisted derived projection. Corrective actions stay in owning workflows.
 `
     )
     .action(async (tokens: string[] | undefined) => {
@@ -61,7 +58,5 @@ Notes:
 
   registerIssuesListCommand(issues);
   registerIssuesViewCommand(issues);
-  registerIssuesAcknowledgeCommand(issues);
-  registerIssuesReopenCommand(issues);
   registerIssuesCostBasisCommand(issues);
 }

@@ -111,10 +111,6 @@ Phase 1A row rules:
   - current issue detail
 - `issues cost-basis ...`
   - scoped cost-basis lens entry and browsing
-- `issues acknowledge <ISSUE-REF>`
-  - review-state acknowledgement only
-- `issues reopen <ISSUE-REF>`
-  - clear review-state acknowledgement
 
 ### Next-Action Model
 
@@ -134,7 +130,6 @@ Phase 1A row rules:
 
 Public issue contract:
 
-- issue summary/detail contracts expose `reviewState`, not lifecycle `status`
 - stored rows keep lifecycle `status`
 - scope rows keep readiness `status`
 
@@ -159,7 +154,6 @@ Issue row:
 - `code`
 - `severity`
 - stored lifecycle `status`
-- optional `acknowledgedAt`
 - `summary`
 - `firstSeenAt`
 - `lastSeenAt`
@@ -390,61 +384,31 @@ Acceptance criteria:
   - accounting owns the scoped materialization workflow
 - targeted tests + package builds + live CLI checks
 
-### Phase 2: Review-State Actions
+### Phase 2: Removed Issue-Local Review State
 
 Status: complete
 
-Completed so far:
+Outcome:
 
-- durable row-level review-state persistence landed on `accounting_issue_rows`
-  via nullable `acknowledged_at`
-- public issue contracts now expose `reviewState` instead of overloading
-  lifecycle `status`
-- cross-cutting direct review-state actions now render through the shared
-  `nextActions` surface:
-  - `acknowledge_issue`
-  - `reopen_acknowledgement`
-- CLI commands landed:
-  - `issues acknowledge <ISSUE-REF>`
-  - `issues reopen <ISSUE-REF>`
-- repository reconciliation preserves acknowledgement across rebuilds when the
-  canonical issue remains the same
-- reappearing issues require fresh acknowledgement because a new open row starts
-  with `acknowledged_at = null`
-- targeted tests landed for:
-  - repository acknowledgement / reopen behavior
-  - rebuild persistence / reappearance behavior
-  - review-state command JSON behavior
-  - static rendering of direct review-state actions
-- live CLI validation passed on the rebuilt workspace DB:
-  - `pnpm run dev issues acknowledge <ISSUE-REF> --json`
-  - `pnpm run dev issues view <ISSUE-REF> --json`
-  - `pnpm run dev issues reopen <ISSUE-REF> --json`
-- implementation guardrail:
-  - review-state live validation must run mutation/read checks sequentially for
-    the same issue selector; parallel validation races produce misleading
-    results
-
-Deliver:
-
-- `acknowledge`
-- `reopen` acknowledgement
-- durable review-state persistence shape
-- review-state actions appear in the same typed next-action model
+- `issues acknowledge` and `issues reopen` were removed
+- `reviewState` was removed from the public issue contract
+- `acknowledged_at` was removed from persisted issue rows
+- issue rows remain a persisted derived projection, but users no longer mutate
+  them directly
 
 Rules:
 
-- acknowledgement must not change accounting truth
-- acknowledgement must not make a blocking scope ready
-- reappearing issues must require fresh acknowledgement
+- issues disappear or change only because owning domain state changed
+- real corrective actions must update the owning workflow state, not the issue
+  row
+- the next issue materialization pass must reflect that source-state change
 
 Acceptance criteria:
 
-- review-state survives rebuilds as designed
-- readiness counts remain honest
-- current issue browse surfaces make review state visible without overloading
-  lifecycle state semantics
-- targeted tests + package builds + live CLI checks
+- no issue-local mutable review state remains
+- issue browse surfaces show only real corrective, routed, or review-only next
+  actions
+- persisted issue projections remain fast to read and fully derived
 
 ### Phase 3: Domain Corrective Actions
 

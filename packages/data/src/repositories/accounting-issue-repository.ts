@@ -7,7 +7,6 @@ import {
   AccountingIssueSummaryItemSchema,
   AccountingIssueStoredDetailPayloadSchema,
   buildAccountingIssueRef,
-  type AccountingIssueReviewState,
   type AccountingIssueDetailItem,
   type AccountingIssueScopeSnapshot,
   type AccountingIssueScopeSummary,
@@ -65,7 +64,6 @@ interface AccountingIssueRowInsertValues {
   severity: AccountingIssueRowsTable['severity'];
   status: 'open';
   summary: string;
-  acknowledged_at: null;
   first_seen_at: string;
   last_seen_at: string;
   closed_at: null;
@@ -261,7 +259,6 @@ export class AccountingIssueRepository extends BaseRepository {
           'issue_rows.severity',
           'issue_rows.status',
           'issue_rows.summary',
-          'issue_rows.acknowledged_at',
           'issue_rows.first_seen_at',
           'issue_rows.last_seen_at',
           'issue_rows.closed_at',
@@ -330,79 +327,6 @@ export class AccountingIssueRepository extends BaseRepository {
     }
   }
 
-  async acknowledgeCurrentIssue(
-    scopeKey: string,
-    issueKey: string,
-    acknowledgedAt: Date
-  ): Promise<Result<{ changed: boolean; found: boolean }, Error>> {
-    try {
-      const currentRow = await this.db
-        .selectFrom('accounting_issue_rows')
-        .select(['id', 'acknowledged_at'])
-        .where('scope_key', '=', scopeKey)
-        .where('issue_key', '=', issueKey)
-        .where('status', '=', 'open')
-        .executeTakeFirst();
-
-      if (!currentRow) {
-        return ok({ changed: false, found: false });
-      }
-
-      if (currentRow.acknowledged_at !== null) {
-        return ok({ changed: false, found: true });
-      }
-
-      await this.db
-        .updateTable('accounting_issue_rows')
-        .set({
-          acknowledged_at: acknowledgedAt.toISOString(),
-        })
-        .where('id', '=', currentRow.id)
-        .execute();
-
-      return ok({ changed: true, found: true });
-    } catch (error) {
-      this.logger.error({ error, scopeKey, issueKey }, 'Failed to acknowledge accounting issue');
-      return wrapError(error, `Failed to acknowledge accounting issue ${scopeKey}:${issueKey}`);
-    }
-  }
-
-  async reopenCurrentIssue(
-    scopeKey: string,
-    issueKey: string
-  ): Promise<Result<{ changed: boolean; found: boolean }, Error>> {
-    try {
-      const currentRow = await this.db
-        .selectFrom('accounting_issue_rows')
-        .select(['id', 'acknowledged_at'])
-        .where('scope_key', '=', scopeKey)
-        .where('issue_key', '=', issueKey)
-        .where('status', '=', 'open')
-        .executeTakeFirst();
-
-      if (!currentRow) {
-        return ok({ changed: false, found: false });
-      }
-
-      if (currentRow.acknowledged_at === null) {
-        return ok({ changed: false, found: true });
-      }
-
-      await this.db
-        .updateTable('accounting_issue_rows')
-        .set({
-          acknowledged_at: null,
-        })
-        .where('id', '=', currentRow.id)
-        .execute();
-
-      return ok({ changed: true, found: true });
-    } catch (error) {
-      this.logger.error({ error, scopeKey, issueKey }, 'Failed to reopen accounting issue acknowledgement');
-      return wrapError(error, `Failed to reopen accounting issue acknowledgement ${scopeKey}:${issueKey}`);
-    }
-  }
-
   private parseScopeRow(row: AccountingIssueScopeRecord): Result<AccountingIssueScopeSummary, Error> {
     const metadataResult = this.parseOptionalJson(
       row.metadata_json,
@@ -445,17 +369,14 @@ export class AccountingIssueRepository extends BaseRepository {
     if (nextActionsResult.isErr()) {
       return err(nextActionsResult.error);
     }
-    const reviewState = toAccountingIssueReviewState(row);
-    const nextActions = buildCurrentIssueNextActions(nextActionsResult.value, reviewState);
 
     const parsed = AccountingIssueSummaryItemSchema.safeParse({
       issueRef: buildAccountingIssueRef(row.scope_key, row.issue_key),
       family: row.family,
       code: row.code,
       severity: row.severity,
-      reviewState,
       summary: row.summary,
-      nextActions,
+      nextActions: nextActionsResult.value,
     });
 
     if (!parsed.success) {
@@ -553,7 +474,6 @@ export class AccountingIssueRepository extends BaseRepository {
       severity: materializedIssue.issue.severity,
       status: 'open',
       summary: materializedIssue.issue.summary,
-      acknowledged_at: null,
       first_seen_at: seenAtIso,
       last_seen_at: seenAtIso,
       closed_at: null,
@@ -594,37 +514,6 @@ export class AccountingIssueRepository extends BaseRepository {
   }
 }
 
-function toAccountingIssueReviewState(
-  row: Pick<AccountingIssueRowRecord, 'acknowledged_at'>
-): AccountingIssueReviewState {
-  return row.acknowledged_at === null ? 'open' : 'acknowledged';
-}
-
-function buildCurrentIssueNextActions(
-  baseActions: readonly z.infer<typeof AccountingIssueNextActionSchema>[],
-  reviewState: AccountingIssueReviewState
-): z.infer<typeof AccountingIssueNextActionSchema>[] {
-  if (reviewState === 'acknowledged') {
-    return [
-      {
-        kind: 'reopen_acknowledgement',
-        label: 'Reopen acknowledgement',
-        mode: 'direct',
-      },
-      ...baseActions,
-    ];
-  }
-
-  return [
-    ...baseActions,
-    {
-      kind: 'acknowledge_issue',
-      label: 'Acknowledge issue',
-      mode: 'direct',
-    },
-  ];
-}
-
 function compareAccountingIssueSummaryRecords(
   left: AccountingIssueSummaryRecord,
   right: AccountingIssueSummaryRecord
@@ -647,10 +536,6 @@ function compareScopedAccountingIssueSummaryRecords(
 function compareIssueSummaries(left: AccountingIssueSummaryItem, right: AccountingIssueSummaryItem): number {
   if (left.severity !== right.severity) {
     return left.severity === 'blocked' ? -1 : 1;
-  }
-
-  if (left.reviewState !== right.reviewState) {
-    return left.reviewState === 'open' ? -1 : 1;
   }
 
   const familyComparison = left.family.localeCompare(right.family);

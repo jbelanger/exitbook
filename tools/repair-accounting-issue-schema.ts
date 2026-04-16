@@ -12,7 +12,7 @@ const ACCOUNTING_ISSUE_ROWS_REPAIR_TABLE = 'accounting_issue_rows__repair_old';
 const REQUIRED_FAMILY_FRAGMENTS = ["'missing_price'", "'execution_failure'"] as const;
 const REQUIRED_CODE_FRAGMENT = "'WORKFLOW_EXECUTION_FAILED'";
 
-const EXPECTED_ACCOUNTING_ISSUE_ROW_COLUMNS = [
+const CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS = [
   'id',
   'scope_key',
   'issue_key',
@@ -28,7 +28,12 @@ const EXPECTED_ACCOUNTING_ISSUE_ROW_COLUMNS = [
   'detail_json',
   'evidence_json',
   'next_actions_json',
+] as const;
+
+const LEGACY_ACCOUNTING_ISSUE_ROW_COLUMNS = [
+  ...CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS.slice(0, 8),
   'acknowledged_at',
+  ...CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS.slice(8),
 ] as const;
 
 type AccountingIssueTableSchema = {
@@ -175,37 +180,46 @@ function loadAccountingIssueTableSchema(db: Database.Database): Result<Accountin
 }
 
 function assertSupportedAccountingIssueRowColumns(columns: string[]): Result<void, Error> {
-  const expectedColumns = [...EXPECTED_ACCOUNTING_ISSUE_ROW_COLUMNS].sort();
   const actualColumns = [...columns].sort();
+  const supportedShapes = [CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS, LEGACY_ACCOUNTING_ISSUE_ROW_COLUMNS];
 
-  if (expectedColumns.length !== actualColumns.length) {
-    return err(
-      `Unsupported ${ACCOUNTING_ISSUE_ROWS_TABLE} column shape. Expected ${expectedColumns.join(', ')} but found ${actualColumns.join(', ')}. Recreate the local database instead of running this repair.`
-    );
-  }
+  for (const supportedColumns of supportedShapes) {
+    const expectedColumns = [...supportedColumns].sort();
+    if (expectedColumns.length !== actualColumns.length) {
+      continue;
+    }
 
-  for (let index = 0; index < expectedColumns.length; index += 1) {
-    if (expectedColumns[index] !== actualColumns[index]) {
-      return err(
-        `Unsupported ${ACCOUNTING_ISSUE_ROWS_TABLE} column shape. Expected ${expectedColumns.join(', ')} but found ${actualColumns.join(', ')}. Recreate the local database instead of running this repair.`
-      );
+    let matches = true;
+    for (let index = 0; index < expectedColumns.length; index += 1) {
+      if (expectedColumns[index] !== actualColumns[index]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (matches) {
+      return ok(undefined);
     }
   }
 
-  return ok(undefined);
+  return err(
+    `Unsupported ${ACCOUNTING_ISSUE_ROWS_TABLE} column shape. Expected one of: ${supportedShapes.map((shape) => shape.join(', ')).join(' | ')} but found ${actualColumns.join(', ')}. Recreate the local database instead of running this repair.`
+  );
 }
 
 function isAccountingIssueSchemaCurrent(createTableSql: string): boolean {
   return (
     REQUIRED_FAMILY_FRAGMENTS.every((fragment) => createTableSql.includes(fragment)) &&
-    createTableSql.includes(REQUIRED_CODE_FRAGMENT)
+    createTableSql.includes(REQUIRED_CODE_FRAGMENT) &&
+    !createTableSql.includes('"acknowledged_at"')
   );
 }
 
 function buildRepairedCreateTableSql(createTableSql: string): Result<string, Error> {
   return resultDo(function* () {
+    const withoutAcknowledgedAt = removeColumnDefinition(createTableSql, 'acknowledged_at');
     const withCurrentFamilyConstraint = yield* replaceCheckConstraint(
-      createTableSql,
+      withoutAcknowledgedAt,
       'accounting_issue_rows_family_valid',
       `family IN ('transfer_gap', 'asset_review_blocker', 'missing_price', 'tax_readiness', 'execution_failure')`
     );
@@ -226,6 +240,12 @@ function buildRepairedCreateTableSql(createTableSql: string): Result<string, Err
       )`
     );
   });
+}
+
+function removeColumnDefinition(createTableSql: string, columnName: string): string {
+  return createTableSql
+    .replace(new RegExp(`,\\s*"${columnName}"\\s+text`, 'i'), '')
+    .replace(new RegExp(`"${columnName}"\\s+text,\\s*`, 'i'), '');
 }
 
 function replaceCheckConstraint(
@@ -267,14 +287,15 @@ function rebuildAccountingIssueRowsTable(
 ): Result<void, Error> {
   return resultTry(
     function* () {
-      const columnList = EXPECTED_ACCOUNTING_ISSUE_ROW_COLUMNS.join(', ');
+      const targetColumnList = CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS.join(', ');
+      const sourceColumnList = CURRENT_ACCOUNTING_ISSUE_ROW_COLUMNS.join(', ');
 
       db.transaction(() => {
         db.exec(`ALTER TABLE ${ACCOUNTING_ISSUE_ROWS_TABLE} RENAME TO ${ACCOUNTING_ISSUE_ROWS_REPAIR_TABLE}`);
         db.exec(repairedCreateTableSql);
         db.exec(
-          `INSERT INTO ${ACCOUNTING_ISSUE_ROWS_TABLE} (${columnList})
-         SELECT ${columnList}
+          `INSERT INTO ${ACCOUNTING_ISSUE_ROWS_TABLE} (${targetColumnList})
+         SELECT ${sourceColumnList}
          FROM ${ACCOUNTING_ISSUE_ROWS_REPAIR_TABLE}`
         );
         db.exec(`DROP TABLE ${ACCOUNTING_ISSUE_ROWS_REPAIR_TABLE}`);

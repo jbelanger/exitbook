@@ -185,11 +185,6 @@ describe('AccountingIssueRepository', () => {
     expect(summaries).toHaveLength(2);
     expect(summaries.map((record) => record.issue.family)).toEqual(['asset_review_blocker', 'transfer_gap']);
     expect(summaries[0]?.issue.issueRef).toHaveLength(10);
-    expect(summaries[0]?.issue.reviewState).toBe('open');
-    expect(summaries[0]?.issue.nextActions.at(-1)).toMatchObject({
-      kind: 'acknowledge_issue',
-      mode: 'direct',
-    });
 
     const transferGap = summaries.find((record) => record.issue.family === 'transfer_gap');
     expect(transferGap).toBeDefined();
@@ -267,49 +262,7 @@ describe('AccountingIssueRepository', () => {
     });
   });
 
-  it('acknowledges and reopens a current issue without changing lifecycle state', async () => {
-    assertOk(await repo.reconcileScope(createSnapshot()));
-
-    const transferGap = assertOk(await repo.listCurrentIssueSummaries('profile:1')).find(
-      (record) => record.issue.family === 'transfer_gap'
-    );
-    expect(transferGap).toBeDefined();
-
-    const acknowledgedAt = new Date('2026-04-14T12:15:00.000Z');
-    expect(assertOk(await repo.acknowledgeCurrentIssue('profile:1', transferGap!.issueKey, acknowledgedAt))).toEqual({
-      changed: true,
-      found: true,
-    });
-    expect(assertOk(await repo.acknowledgeCurrentIssue('profile:1', transferGap!.issueKey, acknowledgedAt))).toEqual({
-      changed: false,
-      found: true,
-    });
-
-    const acknowledgedDetail = assertOk(await repo.findCurrentIssueDetail('profile:1', transferGap!.issueKey));
-    expect(acknowledgedDetail?.issue.reviewState).toBe('acknowledged');
-    expect(acknowledgedDetail?.issue.nextActions[0]).toMatchObject({
-      kind: 'reopen_acknowledgement',
-      mode: 'direct',
-    });
-
-    expect(assertOk(await repo.reopenCurrentIssue('profile:1', transferGap!.issueKey))).toEqual({
-      changed: true,
-      found: true,
-    });
-    expect(assertOk(await repo.reopenCurrentIssue('profile:1', transferGap!.issueKey))).toEqual({
-      changed: false,
-      found: true,
-    });
-
-    const reopenedDetail = assertOk(await repo.findCurrentIssueDetail('profile:1', transferGap!.issueKey));
-    expect(reopenedDetail?.issue.reviewState).toBe('open');
-    expect(reopenedDetail?.issue.nextActions.at(-1)).toMatchObject({
-      kind: 'acknowledge_issue',
-      mode: 'direct',
-    });
-  });
-
-  it('preserves acknowledgement across rebuilds and requires fresh acknowledgement after reappearance', async () => {
+  it('reopens disappeared issues as fresh current rows after they reappear', async () => {
     const firstSnapshot = createSnapshot();
     assertOk(await repo.reconcileScope(firstSnapshot));
 
@@ -319,19 +272,12 @@ describe('AccountingIssueRepository', () => {
     expect(transferGap).toBeDefined();
 
     assertOk(
-      await repo.acknowledgeCurrentIssue('profile:1', transferGap!.issueKey, new Date('2026-04-14T12:20:00.000Z'))
-    );
-
-    assertOk(
       await repo.reconcileScope(
         createSnapshot({
           updatedAt: new Date('2026-04-14T12:30:00.000Z'),
         })
       )
     );
-
-    const persistedAcknowledgement = assertOk(await repo.findCurrentIssueDetail('profile:1', transferGap!.issueKey));
-    expect(persistedAcknowledgement?.issue.reviewState).toBe('acknowledged');
 
     assertOk(
       await repo.reconcileScope(
@@ -354,15 +300,11 @@ describe('AccountingIssueRepository', () => {
     const reappearedTransferGap = assertOk(await repo.listCurrentIssueSummaries('profile:1')).find(
       (record) => record.issue.family === 'transfer_gap'
     );
-    expect(reappearedTransferGap?.issue.reviewState).toBe('open');
-    expect(reappearedTransferGap?.issue.nextActions.at(-1)).toMatchObject({
-      kind: 'acknowledge_issue',
-      mode: 'direct',
-    });
+    expect(reappearedTransferGap).toBeDefined();
 
     const transferGapRows = await db
       .selectFrom('accounting_issue_rows')
-      .select(['id', 'issue_key', 'status', 'acknowledged_at', 'closed_reason'])
+      .select(['id', 'issue_key', 'status', 'closed_reason'])
       .where('scope_key', '=', 'profile:1')
       .where('issue_key', '=', transferGap!.issueKey)
       .orderBy('first_seen_at', 'asc')
@@ -373,11 +315,9 @@ describe('AccountingIssueRepository', () => {
       status: 'closed',
       closed_reason: 'disappeared',
     });
-    expect(transferGapRows[0]?.acknowledged_at).not.toBeNull();
     expect(transferGapRows[1]).toMatchObject({
       status: 'open',
     });
-    expect(transferGapRows[1]?.acknowledged_at).toBeNull();
   });
 
   it('lists current issue summaries across all scopes for one profile', async () => {
@@ -394,7 +334,7 @@ describe('AccountingIssueRepository', () => {
     ]);
     expect(scopedSummaries.map((record) => record.issue.family)).toEqual([
       'asset_review_blocker',
-      'tax_readiness',
+      'missing_price',
       'transfer_gap',
     ]);
   });

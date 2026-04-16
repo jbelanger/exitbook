@@ -163,8 +163,6 @@ type AccountingIssueCode =
   | 'INCOMPLETE_TRANSFER_LINKING'
   | 'WORKFLOW_EXECUTION_FAILED';
 
-type AccountingIssueReviewState = 'open' | 'acknowledged';
-
 type StoredAccountingIssueRowStatus = 'open' | 'closed';
 ```
 
@@ -203,8 +201,8 @@ Rules:
 - Routed actions must point to the owning workflow semantically, not as baked
   shell command strings.
 - Phase 1A is dominated by `routed` and `review_only` actions.
-- Phase 2 adds cross-cutting direct review-state actions once the underlying
-  write path exists.
+- Direct actions may appear only when they change owning domain state and cause
+  the issue projection to disappear or change on rematerialization.
 
 ### Summary and detail contracts
 
@@ -214,7 +212,6 @@ interface AccountingIssueSummaryItem {
   family: AccountingIssueFamily;
   code: AccountingIssueCode;
   severity: AccountingIssueSeverity;
-  reviewState: AccountingIssueReviewState;
   summary: string;
   nextActions: readonly AccountingIssueNextAction[];
 }
@@ -423,7 +420,6 @@ interface AccountingIssueRow {
   code: string;
   severity: string;
   status: StoredAccountingIssueRowStatus;
-  acknowledgedAt?: Date | undefined;
   summary: string;
   firstSeenAt: Date;
   lastSeenAt: Date;
@@ -440,12 +436,11 @@ Rules:
 - One open row at most per `(scopeKey, issueKey)`.
 - Reappearing issues create a new row.
 - Closed rows are retained for history and progress.
-- Current public `reviewState` is derived from `acknowledgedAt` on the open row:
-  - `acknowledgedAt = null` => `reviewState = 'open'`
-  - `acknowledgedAt != null` => `reviewState = 'acknowledged'`
 - `detailJson`, `evidenceJson`, and `nextActionsJson` cache typed accounting
   payloads. They are not permission to treat those contracts as untyped blobs at
   the accounting boundary.
+- Issue rows are a persisted derived projection. Users do not mutate issue rows
+  directly.
 
 ## Materialization Rules
 
@@ -468,11 +463,9 @@ For one scope materialization pass:
    - refresh its cached summary, detail, evidence, and next actions
    - keep the same row `id`
    - update `lastSeenAt`
-   - preserve `acknowledgedAt`
 5. If no open row exists:
    - create a new row
    - generate a new row `id`
-   - set `acknowledgedAt = null`
    - set `firstSeenAt = lastSeenAt = now`
 6. For any previously open stored row missing from the new derived set:
    - mark it `closed`
@@ -484,6 +477,11 @@ Logical replace-by-scope means:
 - current truth is fully rederived per scope
 - persistence preserves issue-occurrence continuity and disappearance history
   instead of deleting rows physically
+- owning workflows change source state, not issue rows
+- the next issue materialization pass must remove or change the affected issue
+  when that source state changed
+- hosts may refresh an affected scope projection immediately after a corrective
+  action when the affected scope is exact and cheap to recompute
 
 ## Read-Service Lean
 
@@ -519,22 +517,6 @@ assemble issue persistence ad hoc.
   `buildCostBasisScopeKey(profileId, config)`.
 - Add scoped lenses to the overview only after they have been materialized
   explicitly.
-
-### Phase 2
-
-- Add `issues acknowledge <ISSUE-REF>`.
-- Add `issues reopen <ISSUE-REF>`.
-- Acknowledge/reopen mutate only `acknowledgedAt` on the current open row.
-- Review-state actions do not change:
-  - canonical issue identity
-  - scope readiness
-  - open issue counts
-  - accounting truth
-- Reappearing issues always start with `acknowledgedAt = null`, so fresh review
-  attention is required.
-- Current issue rows append one cross-cutting direct review-state action:
-  - `acknowledge_issue` when `reviewState = 'open'`
-  - `reopen_acknowledgement` when `reviewState = 'acknowledged'`
 
 ### Later phases
 

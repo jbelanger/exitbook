@@ -33,7 +33,6 @@ function createSummaryItem(overrides: Partial<AccountingIssueSummaryItem> = {}):
     family: 'transfer_gap',
     code: 'LINK_GAP',
     severity: 'blocked',
-    reviewState: 'open',
     summary: 'ADA transfer still needs review',
     nextActions: [
       {
@@ -113,7 +112,6 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('Current Issues');
     expect(output).toContain('ISSUE-REF');
     expect(output).toContain('2d4c8e1af3');
-    expect(output).toContain('OPEN');
     expect(output).toContain('Transfer gap');
     expect(output).toContain('Review in links gaps');
   });
@@ -176,7 +174,6 @@ describe('issues-static-renderer', () => {
     );
 
     expect(output).toContain('Issue 2d4c8e1af3');
-    expect(output).toContain('[OPEN]');
     expect(output).toContain('Possible next actions');
     expect(output).toContain('Review in links gaps');
     expect(output).toContain('Routed action · links gaps view c6787f8ae9');
@@ -184,30 +181,6 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('Evidence');
     expect(output).toContain('GAP-REF c6787f8ae9');
     expect(output).toContain('TX-REF 9c1f37d0ab');
-  });
-
-  it('renders direct acknowledgement actions and acknowledged state clearly', () => {
-    const output = stripVTControlCharacters(
-      buildIssuesStaticDetail({
-        activeProfileKey: 'default',
-        activeProfileSource: 'default',
-        profileDisplayName: 'default',
-        issue: createDetailItem({
-          reviewState: 'acknowledged',
-          nextActions: [
-            {
-              kind: 'reopen_acknowledgement',
-              label: 'Reopen acknowledgement',
-              mode: 'direct',
-            },
-          ],
-        }),
-      })
-    );
-
-    expect(output).toContain('[ACKNOWLEDGED]');
-    expect(output).toContain('Review: ACKNOWLEDGED');
-    expect(output).toContain('Direct action · issues reopen 2d4c8e1af3');
   });
 
   it('renders a scoped cost-basis issue list with status metadata', () => {
