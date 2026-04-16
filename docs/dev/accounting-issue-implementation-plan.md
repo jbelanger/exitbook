@@ -555,6 +555,10 @@ Completed so far:
   - gap header state now distinguishes suggestion availability
     (`with suggestions` / `without suggestions`)
   - the gap lens remains specialized to transfer-gap review and gap exceptions
+- `issues view` now shows concrete owning-workflow command examples when the
+  routed selector is exact and the corrective commands are unambiguous
+  - first slice: asset-review blockers show `assets view`, `assets confirm`,
+    and `assets exclude` examples
 
 Acceptance criteria:
 

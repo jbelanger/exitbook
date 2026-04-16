@@ -74,6 +74,7 @@ export function buildIssuesStaticOverview(state: IssuesStaticOverviewState): str
 }
 
 export function buildIssuesStaticDetail(state: IssuesStaticDetailState): string {
+  const workflowExampleLines = buildOwningWorkflowExampleLines(state.issue);
   const lines: string[] = [
     `${pc.bold(`Issue ${state.issue.issueRef}`)} ${colorizeSeverity(
       state.issue.severity,
@@ -92,6 +93,7 @@ export function buildIssuesStaticDetail(state: IssuesStaticDetailState): string 
     pc.bold('Possible next actions'),
     ...buildNextActionLines(state.issue.nextActions),
     '',
+    ...workflowExampleLines,
     pc.bold('Evidence'),
     ...buildEvidenceLines(state.issue.evidenceRefs),
   ];
@@ -218,6 +220,37 @@ function buildEvidenceLines(evidenceRefs: readonly AccountingIssueEvidenceRef[])
         return `  TX-REF ${evidence.ref}`;
     }
   });
+}
+
+function buildOwningWorkflowExampleLines(issue: AccountingIssueDetailItem): string[] {
+  const assetSelector = findAssetWorkflowSelector(issue);
+  if (assetSelector === undefined) {
+    return [];
+  }
+
+  return [
+    pc.bold('Owning workflow examples'),
+    `  View asset detail · ${pc.dim(`assets view ${assetSelector}`)}`,
+    `  Confirm current evidence · ${pc.dim(`assets confirm --asset-id ${assetSelector}`)}`,
+    `  Exclude from accounting · ${pc.dim(`assets exclude --asset-id ${assetSelector}`)}`,
+    '',
+  ];
+}
+
+function findAssetWorkflowSelector(issue: AccountingIssueDetailItem): string | undefined {
+  if (issue.family !== 'asset_review_blocker') {
+    return undefined;
+  }
+
+  const routedAssetAction = issue.nextActions.find(
+    (action) => action.routeTarget?.family === 'assets' && action.routeTarget.selectorValue !== undefined
+  );
+  if (routedAssetAction?.routeTarget?.selectorValue) {
+    return routedAssetAction.routeTarget.selectorValue;
+  }
+
+  const assetEvidence = issue.evidenceRefs.find((evidence) => evidence.kind === 'asset');
+  return assetEvidence?.kind === 'asset' ? assetEvidence.selector : undefined;
 }
 
 function formatActionModeLabel(mode: AccountingIssueNextAction['mode']): string {

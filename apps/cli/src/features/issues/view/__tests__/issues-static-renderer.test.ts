@@ -183,6 +183,46 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('TX-REF 9c1f37d0ab');
   });
 
+  it('renders owning workflow command examples for asset review blockers', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticDetail({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        issue: createDetailItem({
+          family: 'asset_review_blocker',
+          code: 'ASSET_REVIEW_BLOCKER',
+          summary: 'Asset review still blocks accounting for blockchain:ethereum:0xaaa',
+          details: 'Asset blockchain:ethereum:0xaaa currently blocks accounting.',
+          whyThisMatters: 'Blocks accounting and reporting flows that involve this asset until review is complete.',
+          evidenceRefs: [
+            {
+              kind: 'asset',
+              selector: 'blockchain:ethereum:0xaaa',
+            },
+          ],
+          nextActions: [
+            {
+              kind: 'review_asset',
+              label: 'Review in assets',
+              mode: 'routed',
+              routeTarget: {
+                family: 'assets',
+                selectorKind: 'asset-selector',
+                selectorValue: 'blockchain:ethereum:0xaaa',
+              },
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(output).toContain('Owning workflow examples');
+    expect(output).toContain('assets view blockchain:ethereum:0xaaa');
+    expect(output).toContain('assets confirm --asset-id blockchain:ethereum:0xaaa');
+    expect(output).toContain('assets exclude --asset-id blockchain:ethereum:0xaaa');
+  });
+
   it('renders a scoped cost-basis issue list with status metadata', () => {
     const output = stripVTControlCharacters(
       buildIssuesStaticScopedList({

@@ -301,14 +301,17 @@ Scoped lens JSON contract:
 4. `Details`
 5. `Why this matters`
 6. `Possible next actions`
-7. `Evidence`
-8. optional routed workflow guidance
+7. optional owning-workflow command examples
+8. `Evidence`
+9. optional routed workflow guidance
 
 Rules:
 
 - detail must explain the issue in operator language, not only system language
 - detail must show all possible next actions for that row
 - `Why this matters` should be family-owned baseline copy with issue-specific detail only when needed
+- CLI detail may append concrete owning-workflow command examples only when the
+  routed selector is exact and the recommended commands are unambiguous
 - evidence refs should remain native:
   - `TX-REF`
   - `GAP-REF`
@@ -590,6 +593,25 @@ Possible next actions
 Evidence
   GAP-REF c6787f8ae9
   TX-REF  9c1f37d0ab
+```
+
+### Asset Blocker Detail Mockup
+
+```text
+Issue d9233f5e30 [BLOCKED] Asset review blocker
+
+Scope: profile (profile:1)
+Summary
+  Asset review still blocks accounting for blockchain:arbitrum:0…18d1f6481c771c1c614f8
+
+Possible next actions
+  1. Review in assets
+     Routed action · assets view blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+
+Owning workflow examples
+  View asset detail · assets view blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+  Confirm current evidence · assets confirm --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+  Exclude from accounting · assets exclude --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
 ```
 
 ### Future Direct-Action Detail Mockup
