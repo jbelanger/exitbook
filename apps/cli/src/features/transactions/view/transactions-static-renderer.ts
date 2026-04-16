@@ -141,10 +141,10 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
   ];
 
   if (transaction.from) {
-    lines.push(buildDetailLine('From', transaction.from));
+    lines.push(buildDetailLine('From', buildEndpointSummary(transaction.from, transaction.fromOwnership)));
   }
   if (transaction.to) {
-    lines.push(buildDetailLine('To', transaction.to));
+    lines.push(buildDetailLine('To', buildEndpointSummary(transaction.to, transaction.toOwnership)));
   }
   if (transaction.blockchain) {
     lines.push(buildDetailLine('Chain', transaction.blockchain.name));
@@ -224,6 +224,14 @@ function buildEmptyStateLines(state: TransactionsViewState): string[] {
 
 function buildDetailLine(label: string, value: string): string {
   return `${pc.dim(`${label}:`)} ${value}`;
+}
+
+function buildEndpointSummary(endpoint: string, ownership: TransactionViewItem['fromOwnership']): string {
+  if (ownership === undefined) {
+    return endpoint;
+  }
+
+  return `${endpoint} ${pc.dim(`[${ownership}]`)}`;
 }
 
 function buildMovementLines(label: string, prefix: '+' | '-', movements: TransactionViewItem['inflows']): string[] {

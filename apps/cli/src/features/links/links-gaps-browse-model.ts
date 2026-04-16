@@ -1,6 +1,8 @@
 import type { LinkGapIssue } from '@exitbook/accounting/linking';
 
-export type LinkGapEndpointOwnership = 'tracked' | 'untracked';
+import type { AddressOwnership } from '../shared/address-ownership.js';
+
+export type LinkGapEndpointOwnership = AddressOwnership;
 
 export interface LinkGapBrowseTransactionContext {
   blockchainTransactionHash?: string | undefined;

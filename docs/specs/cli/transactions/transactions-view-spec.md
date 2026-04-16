@@ -193,6 +193,9 @@ Rules:
 - `Debit`, `Credit`, and `Fees` use the same balance-summary semantics as the browse list
 - `Primary movement` is supplementary detail only and may render `—` when no primary movement can be derived
 - blockchain metadata appears only when present on the processed transaction
+- when `From` or `To` is present and the endpoint belongs to a tracked account
+  set for the active profile, the detail surface appends `[tracked]` or
+  `[untracked]` inline
 - asset movement detail lines must include:
   - transaction-scoped `MOVEMENT-REF`
   - the effective `movementRole` when it is non-principal
@@ -273,6 +276,9 @@ Rules:
 
 - detail JSON contains one selected transaction plus detail meta
 - selector detail JSON remains stable across static-detail and off-TTY explore paths
+- blockchain detail JSON may include:
+  - `fromOwnership`
+  - `toOwnership`
 - each inflow/outflow item in detail JSON must include:
   - `movementFingerprint`
   - `movementRole`

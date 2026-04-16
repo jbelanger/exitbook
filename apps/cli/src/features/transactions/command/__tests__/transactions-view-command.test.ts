@@ -118,6 +118,9 @@ describe('transactions view command', () => {
     mockPrepareTransactionsCommandScope.mockResolvedValue(
       ok({
         database: {
+          accounts: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
+          },
           transactions: {
             findByFingerprintRef: mockFindByFingerprintRef,
           },

@@ -10,6 +10,7 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
+import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
@@ -43,6 +44,10 @@ export async function buildTransactionsBrowsePresentation(
   params: TransactionsBrowseParams
 ): Promise<Result<TransactionsBrowsePresentation, CliFailure>> {
   return resultDoAsync(async function* () {
+    const trackedIdentifiers = yield* toCliResult(
+      await loadTrackedTransactionIdentifiers(scope.database, scope.profile.id),
+      ExitCodes.GENERAL_ERROR
+    );
     const selector = yield* await resolveSelectedTransaction(
       scope.database,
       scope.profile.id,
@@ -50,7 +55,7 @@ export async function buildTransactionsBrowsePresentation(
     );
 
     if (selector) {
-      return buildDetailPresentation(selector);
+      return buildDetailPresentation(selector, trackedIdentifiers);
     }
 
     const since = yield* toCliResult(parseSinceToUnixSeconds(params.since), ExitCodes.INVALID_ARGS);
@@ -71,7 +76,10 @@ export async function buildTransactionsBrowsePresentation(
       ExitCodes.GENERAL_ERROR
     );
 
-    return buildListPresentation(transactions.map(toTransactionViewItem), params);
+    return buildListPresentation(
+      transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers)),
+      params
+    );
   });
 }
 
@@ -102,8 +110,11 @@ async function resolveSelectedTransaction(
   });
 }
 
-function buildDetailPresentation(selector: ResolvedTransactionSelector): TransactionsBrowsePresentation {
-  const selectedTransaction = toTransactionViewItem(selector.transaction);
+function buildDetailPresentation(
+  selector: ResolvedTransactionSelector,
+  trackedIdentifiers: ReadonlySet<string>
+): TransactionsBrowsePresentation {
+  const selectedTransaction = toTransactionViewItem(selector.transaction, trackedIdentifiers);
   const jsonFilters = buildDefinedFilters(buildTransactionSelectorFilters(selector));
 
   return {

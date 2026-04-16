@@ -7,6 +7,7 @@ import type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from '@exi
 import type { Transaction } from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
+import { resolveAddressOwnership } from '../../../shared/address-ownership.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import {
   buildLinkGapRef,
@@ -14,11 +15,7 @@ import {
   buildLinkProposalRef,
   resolveLinkGapSelector,
 } from '../../link-selector.js';
-import type {
-  LinkGapBrowseItem,
-  LinkGapBrowseTransactionContext,
-  LinkGapEndpointOwnership,
-} from '../../links-gaps-browse-model.js';
+import type { LinkGapBrowseItem, LinkGapBrowseTransactionContext } from '../../links-gaps-browse-model.js';
 import { buildTransferProposalItems } from '../../transfer-proposals.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
@@ -192,17 +189,15 @@ function buildGapTransactionContextByFingerprint(
 function buildGapTransactionContext(
   transaction: Transaction,
   trackedIdentifiers: ReadonlySet<string>,
-  sameHashGroup?:
-    | {
-        openSameHashGapRowCount: number;
-        openSameHashTransactionRefs: string[];
-      }
-     
+  sameHashGroup?: {
+    openSameHashGapRowCount: number;
+    openSameHashTransactionRefs: string[];
+  }
 ): LinkGapBrowseTransactionContext {
   return {
     blockchainTransactionHash: transaction.blockchain?.transaction_hash,
     from: transaction.from,
-    fromOwnership: resolveEndpointOwnership(transaction.from, trackedIdentifiers),
+    fromOwnership: resolveAddressOwnership(transaction.from, trackedIdentifiers),
     ...(sameHashGroup !== undefined && sameHashGroup.openSameHashTransactionRefs.length > 1
       ? {
           openSameHashGapRowCount: sameHashGroup.openSameHashGapRowCount,
@@ -210,19 +205,8 @@ function buildGapTransactionContext(
         }
       : {}),
     to: transaction.to,
-    toOwnership: resolveEndpointOwnership(transaction.to, trackedIdentifiers),
+    toOwnership: resolveAddressOwnership(transaction.to, trackedIdentifiers),
   };
-}
-
-function resolveEndpointOwnership(
-  endpoint: string | undefined,
-  trackedIdentifiers: ReadonlySet<string>
-): LinkGapEndpointOwnership | undefined {
-  if (endpoint === undefined) {
-    return undefined;
-  }
-
-  return trackedIdentifiers.has(endpoint) ? 'tracked' : 'untracked';
 }
 
 function buildOpenSameHashGroupByNormalizedHash(

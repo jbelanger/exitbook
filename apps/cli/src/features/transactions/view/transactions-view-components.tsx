@@ -579,6 +579,12 @@ function buildBlockchainRows(item: TransactionViewItem): ReactElement[] {
         {'  '}
         <Text dimColor>From: </Text>
         <Text dimColor>{truncateHash(item.from)}</Text>
+        {item.fromOwnership && (
+          <>
+            {' '}
+            <Text dimColor>[{item.fromOwnership}]</Text>
+          </>
+        )}
       </Text>
     );
   }
@@ -588,6 +594,12 @@ function buildBlockchainRows(item: TransactionViewItem): ReactElement[] {
         {'  '}
         <Text dimColor>To: </Text>
         <Text dimColor>{truncateHash(item.to)}</Text>
+        {item.toOwnership && (
+          <>
+            {' '}
+            <Text dimColor>[{item.toOwnership}]</Text>
+          </>
+        )}
       </Text>
     );
   }

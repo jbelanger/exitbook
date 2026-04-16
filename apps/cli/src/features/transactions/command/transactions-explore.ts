@@ -32,6 +32,7 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
+import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
@@ -187,8 +188,17 @@ async function executeTransactionsExploreCommandResult(
       }),
       ExitCodes.GENERAL_ERROR
     );
+    const trackedIdentifiers = yield* toCliResult(
+      await loadTrackedTransactionIdentifiers(scope.database, scope.profile.id),
+      ExitCodes.GENERAL_ERROR
+    );
 
-    return buildTransactionsExploreListCompletion(transactions, prepared.params, prepared.presentation.mode);
+    return buildTransactionsExploreListCompletion(
+      trackedIdentifiers,
+      transactions,
+      prepared.params,
+      prepared.presentation.mode
+    );
   });
 }
 
@@ -229,11 +239,12 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
 }
 
 function buildTransactionsExploreListCompletion(
+  trackedIdentifiers: ReadonlySet<string>,
   transactions: Transaction[],
   params: ExploreTransactionsParams,
   mode: 'json' | 'static'
 ): CliCompletion {
-  const allViewItems = transactions.map(toTransactionViewItem);
+  const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
   const categoryCounts = computeCategoryCounts(allViewItems);
   const visibleItems = allViewItems.slice(0, params.limit);
   const filters = buildTransactionsViewFilters(params);
@@ -269,6 +280,10 @@ async function buildTransactionsExploreTuiCompletion(
       profileId,
       params.transactionSelector
     );
+    const trackedIdentifiers = yield* toCliResult(
+      await loadTrackedTransactionIdentifiers(database, profileId),
+      ExitCodes.GENERAL_ERROR
+    );
 
     const transactions = yield* toCliResult(
       await readTransactionsForCommand({
@@ -285,7 +300,7 @@ async function buildTransactionsExploreTuiCompletion(
       ExitCodes.GENERAL_ERROR
     );
 
-    const allViewItems = transactions.map(toTransactionViewItem);
+    const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
     const categoryCounts = computeCategoryCounts(allViewItems);
     const viewFilters = buildTransactionsViewFilters(params);
     const selectedIndex = resolveSelectedIndex(allViewItems, selectedTransaction);

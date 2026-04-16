@@ -820,3 +820,60 @@ Command-surface assessment:
     the strategy evidence directly from the gap surface
   - `links gaps` browse still has no `--limit`, which makes larger live queues
     harder to slice during investigation
+
+## Pass 14: Transaction Ownership Labels Exposed A Likely Cross-Chain Bridge Pattern
+
+Date: 2026-04-16
+
+Goal:
+
+- determine whether the next ETH transfer gaps still looked like plain external
+  sends and receives, or whether the CLI was hiding a stronger cross-chain
+  pattern
+
+Commands used:
+
+```bash
+pnpm run dev links gaps view 1b33c54609 --json
+pnpm run dev links gaps view 7b2c4cdced --json
+pnpm run dev transactions view d5d797e50d --json
+pnpm run dev transactions view 0d4605ab97 --json
+pnpm run dev accounts list --platform ethereum --json
+pnpm run dev accounts list --platform arbitrum --json
+pnpm run dev transactions list --platform arbitrum --asset ETH --since 2024-05-20 --until 2024-05-25 --json
+pnpm run dev transactions list --platform ethereum --asset ETH --since 2024-04-16 --until 2024-05-21 --json
+pnpm run dev transactions view d5d797e50d
+pnpm run dev transactions view 0d4605ab97
+```
+
+Findings:
+
+- the May 20 ETH pair is probably not two unrelated gaps:
+  - Ethereum withdrawal `d5d797e50d`
+    - `from` tracked `0x15a2...`
+    - `to` untracked `0x9936...`
+  - Arbitrum deposit `0d4605ab97`
+    - `from` untracked `0xf89d...`
+    - `to` tracked `0x15a2...`
+  - the same wallet address is tracked on both chains
+  - the timestamps are only minutes apart
+- that pattern is much closer to a self-bridge through untracked bridge
+  contracts than to two independent transfer exceptions
+- shipped UX fix:
+  - `transactions view` and `transactions view --json` now expose
+    `fromOwnership` / `toOwnership`
+  - this removes the extra `accounts list` detour for future investigations
+- this pass did not solve the bridge candidate through the CLI, because the
+  current command surface still cannot prove the route strongly enough on its
+  own
+
+Command-surface assessment:
+
+- improved:
+  - endpoint ownership now appears directly on transaction detail surfaces
+  - the likely self-bridge pattern becomes visible from transaction inspection,
+    not only from gap inspection plus separate account browsing
+- bigger unresolved problem:
+  - the linker still has no explicit same-owner cross-chain bridge strategy
+  - `issues` therefore presents probable bridge legs as ordinary transfer gaps
+  - this now looks like linking/product work, not a processor problem
