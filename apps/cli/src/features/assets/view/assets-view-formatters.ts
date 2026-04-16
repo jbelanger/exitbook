@@ -135,6 +135,14 @@ export function getAssetStaticActionHint(asset: AssetViewItem): string {
   return 'Nothing needs your attention right now.';
 }
 
+export function getAssetTransactionInspectionHint(asset: AssetViewItem): string | undefined {
+  if (asset.transactionCount === 0) {
+    return undefined;
+  }
+
+  return `Run "exitbook transactions list --asset-id ${asset.assetId}" to inspect only this asset's transactions.`;
+}
+
 export function formatAssetEvidenceMessage(kind: AssetViewItem['evidence'][number]['kind']): string {
   switch (kind) {
     case 'provider-spam-flag':
@@ -180,7 +188,7 @@ export function getAssetBlockchainTokenIdentity(assetId: string): { chain: strin
   };
 }
 
-export function getConflictingContracts(
+export function getConflictingAssetIds(
   metadata: AssetViewItem['evidence'][number]['metadata'],
   currentAssetId: string
 ): string[] {
@@ -189,12 +197,9 @@ export function getConflictingContracts(
     return [];
   }
 
-  return conflictingAssetIds
-    .filter((assetId): assetId is string => typeof assetId === 'string' && assetId !== currentAssetId)
-    .map((assetId) => {
-      const identity = getAssetBlockchainTokenIdentity(assetId);
-      return identity?.ref ?? assetId;
-    });
+  return conflictingAssetIds.filter(
+    (assetId): assetId is string => typeof assetId === 'string' && assetId !== currentAssetId
+  );
 }
 
 function countDistinctReasonCategories(asset: AssetViewItem): number {

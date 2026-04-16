@@ -170,6 +170,7 @@ describe('transactions root command', () => {
       platformKey: undefined,
       since: undefined,
       until: undefined,
+      assetId: undefined,
       assetSymbol: undefined,
       operationType: undefined,
       noPrice: undefined,

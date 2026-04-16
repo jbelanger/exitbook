@@ -51,6 +51,9 @@ export interface ExportHandlerParams {
   /** Filter by asset symbol */
   assetSymbol?: string | undefined;
 
+  /** Filter by exact asset ID */
+  assetId?: string | undefined;
+
   /** Filter by operation type */
   operationType?: string | undefined;
 

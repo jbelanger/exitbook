@@ -63,6 +63,7 @@ export async function buildTransactionsBrowsePresentation(
         platformKey: params.platform,
         since,
         until: params.until,
+        assetId: params.assetId,
         assetSymbol: params.assetSymbol,
         operationType: params.operationType,
         noPrice: params.noPrice,

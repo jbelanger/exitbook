@@ -58,6 +58,10 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition
     description: 'Filter by asset (e.g., BTC, ETH)',
   },
   {
+    flags: '--asset-id <asset-id>',
+    description: 'Filter by exact asset ID',
+  },
+  {
     flags: '--since <date>',
     description: 'Filter by date (ISO 8601 format, e.g., 2024-01-01)',
   },
@@ -120,7 +124,7 @@ export function prepareTransactionsBrowseCommand(
     return err(
       createCliFailure(
         new Error(
-          'Transaction selector cannot be combined with --platform, --asset, --since, --until, --operation-type, or --no-price'
+          'Transaction selector cannot be combined with --platform, --asset, --asset-id, --since, --until, --operation-type, or --no-price'
         ),
         ExitCodes.INVALID_ARGS
       )
@@ -131,6 +135,7 @@ export function prepareTransactionsBrowseCommand(
     params: {
       transactionSelector: input.transactionSelector,
       platform: options.platform,
+      assetId: options.assetId,
       assetSymbol: options.asset,
       since: options.since,
       until: options.until,
@@ -212,6 +217,7 @@ function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
   return (
     options.platform !== undefined ||
     options.asset !== undefined ||
+    options.assetId !== undefined ||
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||

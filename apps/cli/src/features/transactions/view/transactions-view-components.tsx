@@ -127,6 +127,7 @@ const TransactionsHeader: FC<{ state: TransactionsViewState }> = ({ state }) => 
   // Build title with filter label
   let filterLabel = '';
   if (filters.platformFilter) filterLabel = ` (${filters.platformFilter})`;
+  else if (filters.assetIdFilter) filterLabel = ` (${filters.assetIdFilter})`;
   else if (filters.assetFilter) filterLabel = ` (${filters.assetFilter})`;
   else if (filters.noPriceFilter) filterLabel = ' (missing prices)';
 
@@ -729,7 +730,11 @@ const ControlsBar: FC<{ hasExport: boolean; phase: TransactionsViewPhase }> = ({
 const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state }) => {
   const { filters, totalCount } = state;
   const hasFilters =
-    filters.platformFilter || filters.assetFilter || filters.operationTypeFilter || filters.noPriceFilter;
+    filters.platformFilter ||
+    filters.assetIdFilter ||
+    filters.assetFilter ||
+    filters.operationTypeFilter ||
+    filters.noPriceFilter;
 
   return (
     <Box flexDirection="column">
@@ -748,7 +753,13 @@ const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state })
         <Text>{'  '}All transactions have price data.</Text>
       ) : (
         <Text>
-          {'  '}No transactions found{filters.platformFilter ? ` for ${filters.platformFilter}` : ''}.
+          {'  '}No transactions found
+          {filters.platformFilter
+            ? ` for ${filters.platformFilter}`
+            : filters.assetIdFilter
+              ? ` for ${filters.assetIdFilter}`
+              : ''}
+          .
         </Text>
       )}
       <Text> </Text>

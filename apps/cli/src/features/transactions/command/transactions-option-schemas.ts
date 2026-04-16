@@ -23,20 +23,34 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
 const TransactionsFilterOptionsSchema = z.object({
   platform: z.string().optional(),
   asset: z.string().optional(),
+  assetId: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
   operationType: z.string().optional(),
   noPrice: z.boolean().optional(),
 });
 
+function addAssetFilterExclusivityRule<T extends { asset?: string | undefined; assetId?: string | undefined }>(
+  data: T,
+  ctx: z.RefinementCtx
+): void {
+  if (data.asset && data.assetId) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Cannot specify both --asset and --asset-id',
+      path: ['assetId'],
+    });
+  }
+}
+
 export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   json: z.boolean().optional(),
-});
+}).superRefine(addAssetFilterExclusivityRule);
 
 export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
-});
+}).superRefine(addAssetFilterExclusivityRule);
 
 export const TransactionsExportCommandOptionsSchema = z
   .object({

@@ -82,6 +82,61 @@ describe('applyTransactionFilters', () => {
   });
 
   describe('asset filtering', () => {
+    it('should filter transactions by exact asset ID across movements and fees', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({
+          id: 1,
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:arbitrum:usdt-a',
+                assetSymbol: 'USDT' as Currency,
+                grossAmount: parseDecimal('1.0'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+        createTestTransaction({
+          id: 2,
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:arbitrum:usdt-b',
+                assetSymbol: 'USDT' as Currency,
+                grossAmount: parseDecimal('2.0'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+        createTestTransaction({
+          id: 3,
+          movements: {
+            inflows: [],
+            outflows: [],
+          },
+          fees: [
+            {
+              assetId: 'blockchain:arbitrum:usdt-a',
+              assetSymbol: 'USDT' as Currency,
+              amount: parseDecimal('0.1'),
+              scope: 'platform',
+              settlement: 'balance',
+            },
+          ],
+        }),
+      ];
+
+      const result = unwrapOk(
+        applyTransactionFilters(transactions, {
+          assetId: 'blockchain:arbitrum:usdt-a',
+        })
+      );
+
+      expect(result.map((tx) => tx.id)).toEqual([1, 3]);
+    });
+
     it('should filter transactions by asset in inflows', () => {
       const transactions: Transaction[] = [
         createTestTransaction({
@@ -225,6 +280,48 @@ describe('applyTransactionFilters', () => {
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 2]);
+    });
+
+    it('should include fee-only matches when filtering by asset symbol', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({
+          id: 1,
+          movements: {
+            inflows: [],
+            outflows: [],
+          },
+          fees: [
+            {
+              assetId: 'blockchain:ethereum:native',
+              assetSymbol: 'ETH' as Currency,
+              amount: parseDecimal('0.001'),
+              scope: 'network',
+              settlement: 'balance',
+            },
+          ],
+        }),
+        createTestTransaction({
+          id: 2,
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:bitcoin:native',
+                assetSymbol: 'BTC' as Currency,
+                grossAmount: parseDecimal('1'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ];
+
+      const result = unwrapOk(
+        applyTransactionFilters(transactions, {
+          assetSymbol: 'ETH',
+        })
+      );
+
+      expect(result.map((tx) => tx.id)).toEqual([1]);
     });
 
     it('should return all transactions when asset filter is not provided', () => {

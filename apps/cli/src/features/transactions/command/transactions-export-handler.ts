@@ -51,6 +51,7 @@ export class TransactionsExportHandler {
         platformKey: params.platformKey,
         since: params.since,
         until: params.until,
+        assetId: params.assetId,
         assetSymbol: params.assetSymbol,
         operationType: params.operationType,
         noPrice: params.noPrice,

@@ -207,16 +207,18 @@ Body order:
 3. optional `Also seen as`
 4. optional `Contract`
 5. optional `CoinGecko`
-6. optional repeated `Conflict`
+6. optional repeated `Conflict asset`
 7. optional `Why`
 8. `Action`
-9. `Seen in`
-10. optional `Signals`
+9. optional `Inspect`
+10. `Seen in`
+11. optional `Signals`
 
 Rules:
 
 - static detail uses command-oriented action guidance, not TUI keybind wording
-- same-symbol ambiguity on blockchain tokens renders `Contract`, `CoinGecko`, and `Conflict`
+- same-symbol ambiguity on blockchain tokens renders `Contract`, `CoinGecko`, and full conflicting asset IDs under `Conflict asset`
+- when the asset has transactions, detail surfaces show an exact `transactions list --asset-id ...` inspection hint
 - signals are not artificially capped in static detail
 
 ### Explorer

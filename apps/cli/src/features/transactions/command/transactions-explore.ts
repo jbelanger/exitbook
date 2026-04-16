@@ -76,6 +76,7 @@ Examples:
   $ exitbook transactions explore
   $ exitbook transactions explore --limit 100
   $ exitbook transactions explore --asset BTC
+  $ exitbook transactions explore --asset-id blockchain:arbitrum:0xfd086...
   $ exitbook transactions explore --platform kraken
   $ exitbook transactions explore --since 2024-01-01
   $ exitbook transactions explore --operation-type trade
@@ -112,7 +113,7 @@ async function executeTransactionsExploreCommand(selector: string | undefined, r
         if (selector && hasExploreFiltersOrLimit(parsedOptions.options)) {
           return yield* cliErr(
             new Error(
-              'Transaction selector cannot be combined with --platform, --asset, --since, --until, --operation-type, --no-price, or --limit'
+              'Transaction selector cannot be combined with --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit'
             ),
             ExitCodes.INVALID_ARGS
           );
@@ -179,6 +180,7 @@ async function executeTransactionsExploreCommandResult(
         platformKey: prepared.params.platform,
         since,
         until: prepared.params.until,
+        assetId: prepared.params.assetId,
         assetSymbol: prepared.params.assetSymbol,
         operationType: prepared.params.operationType,
         noPrice: prepared.params.noPrice,
@@ -197,6 +199,7 @@ function buildExploreTransactionsParams(
   return {
     transactionSelector,
     platform: options.platform,
+    assetId: options.assetId,
     assetSymbol: options.asset,
     since: options.since,
     until: options.until,
@@ -216,6 +219,7 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
   return (
     options.platform !== undefined ||
     options.asset !== undefined ||
+    options.assetId !== undefined ||
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||
@@ -273,6 +277,7 @@ async function buildTransactionsExploreTuiCompletion(
         platformKey: params.platform,
         since,
         until: params.until,
+        assetId: params.assetId,
         assetSymbol: params.assetSymbol,
         operationType: params.operationType,
         noPrice: params.noPrice,
@@ -308,6 +313,7 @@ async function buildTransactionsExploreTuiCompletion(
             outputPath,
             since,
             until: params.until,
+            assetId: params.assetId,
             assetSymbol: params.assetSymbol,
             operationType: params.operationType,
             noPrice: params.noPrice,

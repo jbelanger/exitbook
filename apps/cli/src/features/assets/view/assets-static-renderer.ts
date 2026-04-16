@@ -10,9 +10,10 @@ import {
   getAssetBlockchainTokenIdentity,
   getAssetReason,
   getAssetReasonWithHint,
-  getConflictingContracts,
+  getConflictingAssetIds,
   getPrimaryAssetSymbol,
   getAssetStaticActionHint,
+  getAssetTransactionInspectionHint,
   pluralizeAssetLabel,
 } from './assets-view-formatters.js';
 import type { AssetsViewState } from './assets-view-state.js';
@@ -105,9 +106,10 @@ export function buildAssetStaticDetail(asset: AssetViewItem): string {
   const reason = getAssetReason(asset);
   const tokenIdentity = getAssetBlockchainTokenIdentity(asset.assetId);
   const ambiguityEvidence = asset.evidence.find((item) => item.kind === 'same-symbol-ambiguity');
-  const conflictingContracts = ambiguityEvidence
-    ? getConflictingContracts(ambiguityEvidence.metadata, asset.assetId)
+  const conflictingAssetIds = ambiguityEvidence
+    ? getConflictingAssetIds(ambiguityEvidence.metadata, asset.assetId)
     : [];
+  const transactionInspectionHint = getAssetTransactionInspectionHint(asset);
 
   const lines: string[] = [
     `${pc.bold(getPrimaryAssetSymbol(asset))} ${pc.dim(asset.currentQuantity)}${badge ? ` ${colorBadgeText(badge.color, `[${badge.label}]`)}` : ''}`,
@@ -124,8 +126,8 @@ export function buildAssetStaticDetail(asset: AssetViewItem): string {
     lines.push(buildDetailLine('CoinGecko', formatAssetCoinGeckoReferenceStatus(asset.referenceStatus)));
   }
 
-  for (const contract of conflictingContracts) {
-    lines.push(buildDetailLine('Conflict', contract));
+  for (const conflictingAssetId of conflictingAssetIds) {
+    lines.push(buildDetailLine('Conflict asset', conflictingAssetId));
   }
 
   if (reason) {
@@ -133,6 +135,9 @@ export function buildAssetStaticDetail(asset: AssetViewItem): string {
   }
 
   lines.push(buildDetailLine('Action', getAssetStaticActionHint(asset)));
+  if (transactionInspectionHint) {
+    lines.push(buildDetailLine('Inspect', transactionInspectionHint));
+  }
   lines.push(
     buildDetailLine(
       'Seen in',
