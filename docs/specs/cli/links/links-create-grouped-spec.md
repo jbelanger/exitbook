@@ -46,6 +46,13 @@ Rules:
     - `refund_rebate`
 - the command confirms all grouped links immediately and writes durable
   `link_override` events so the grouped correction survives reprocessing
+- ownership boundary:
+  - this command is the only shipped corrective path for one exact explained
+    target residual on a grouped many-to-one transfer
+  - there is no separate standalone residual mutation surface
+  - if the residual cannot be expressed exactly under this contract, the case
+    remains review-only or must be corrected through a different owning
+    workflow such as processor or movement-role correction
 
 ## Visual Example
 

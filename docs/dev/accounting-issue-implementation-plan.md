@@ -506,6 +506,11 @@ Rules:
 - corrections stay in domain-specific override streams
 - no generic `issues fix`
 - each corrective action ships independently with its own validation and replay rules
+- exact explained target residuals are not a separate corrective-action family:
+  - grouped transfer confirmation owns the narrow exact residual path
+  - movement-role override remains whole-movement only
+  - any residual that is not expressible through grouped transfer confirmation
+    stays review-only or points back to processor/domain correction
 
 Overlap risks to guard explicitly:
 
@@ -606,11 +611,6 @@ Acceptance criteria:
 
 These are real follow-ups, but they do not block the completed phases above.
 
-- `confirm_grouped_transfer` is now first and shipped.
-- grouped transfer confirmation now owns the narrow exact explained target
-  residual path; do we still need a separate residual corrective action after
-  that, or is any remaining residual work really movement-role or processor
-  correction instead?
 - Should later issue families add stronger scoped freshness/staleness signalling
   in bare `issues`, or is the current scoped-lens summary enough?
 
