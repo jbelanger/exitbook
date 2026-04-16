@@ -111,7 +111,7 @@ describe('validateScopedTransferLinks', () => {
     );
 
     const error = assertErr(result);
-    expect(error.message).toContain('crosses the scoped transaction boundary');
+    expect(error.message).toContain('crosses the accounting transaction boundary');
     expect(error.message).toContain('source tx 1 in scope=true');
     expect(error.message).toContain('target tx 2 in scope=false');
   });

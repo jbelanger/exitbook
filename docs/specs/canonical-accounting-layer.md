@@ -332,6 +332,16 @@ That means:
 - movement-anchored link identity is an explicit migration boundary, not a
   reason to let linking keep its own separate accounting math
 
+Current migration status:
+
+- canonical transfer-link validation now reads `accountingTransactionViews`
+- `validateScopedTransferLinks(...)` remains as a compatibility adapter for
+  transaction-shaped cost-basis consumers that still operate on scoped
+  transactions
+- the next real consumer migration should happen where the accounting-layer
+  build result is already available, rather than rebuilding it only to validate
+  links
+
 ### Initial Pricing Boundary
 
 Pricing remains explicitly split during the first migration stages:

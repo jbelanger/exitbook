@@ -149,9 +149,12 @@ Phase 0 investigation log:
   - the canonical accounting layer now includes
     `accountingTransactionViews` as the grouped transaction view for those
     consumers
-  - the next decision is whether that grouped view is now enough for the next
-    migration slice, or whether the canonical accounting layer still needs an
-    accounting-owned entry-group / transaction-view concept
+  - canonical transfer-link validation now runs on
+    `accountingTransactionViews`
+  - `validateScopedTransferLinks(...)` now exists only as a compatibility
+    adapter for transaction-shaped consumers
+  - the next decision is which real consumer should migrate next without
+    rebuilding the canonical accounting layer solely to use that validator
 
 ## Chosen Model
 

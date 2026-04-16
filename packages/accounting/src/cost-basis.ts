@@ -6,6 +6,7 @@ export {
   computeAccountingEntryFingerprint,
 } from './accounting-layer/accounting-entry-fingerprint.js';
 export { buildAccountingLayerFromTransactions } from './accounting-layer/build-accounting-layer-from-transactions.js';
+export { validateTransferLinks } from './accounting-layer/validated-transfer-links.js';
 export type {
   AccountingEntry,
   AccountingEntryDraft,
@@ -23,6 +24,11 @@ export type {
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer/accounting-layer-types.js';
+export type {
+  TransferValidationTransactionView,
+  ValidatedTransferLink,
+  ValidatedTransferSet,
+} from './accounting-layer/validated-transfer-links.js';
 export type { AccountingLayerSource, IAccountingLayerReader, IAccountingLayerSourceReader } from './ports/index.js';
 export type { CostBasisJurisdiction, CostBasisMethod } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 export {

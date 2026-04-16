@@ -1129,6 +1129,62 @@ consumers can migrate cleanly.
 
 Anything weaker should be rejected.
 
+## Pass 10
+
+### Scope
+
+Test whether transfer-link validation can move onto
+`accountingTransactionViews` cleanly, while preserving movement-anchored link
+identity and without forcing a premature lot-matching migration.
+
+### Evidence Inspected
+
+- [validated-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/validated-transfer-links.ts)
+- [validated-scoped-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/validated-scoped-transfer-links.ts)
+- [validated-transfer-links.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/__tests__/validated-transfer-links.test.ts)
+- [validated-scoped-transfer-links.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/__tests__/validated-scoped-transfer-links.test.ts)
+
+### Findings
+
+1. Transfer-link validation does move cleanly onto
+   `accountingTransactionViews`.
+   The validator only needed:
+   - grouped inflow / outflow views
+   - processed transaction metadata
+   - movement-anchored identity
+   - diagnostics for the explained-residual exception
+
+2. This is a good canonical-layer seam.
+   The validation logic no longer needs to live in a cost-basis-local module.
+   A thin scoped adapter is enough for existing transaction-shaped consumers.
+
+3. The next consumer migration should not rebuild the canonical accounting
+   layer solely to call the new validator.
+   That would harden redundant reconstruction instead of reducing it.
+
+### Implications
+
+- The canonical accounting layer is now strong enough for:
+  - price completeness
+  - rebuild dependency selection
+  - transfer-link validation
+- Lot matching and Canada tax projection remain the next real transaction-shaped
+  migrations.
+- The next migration should happen where the accounting-layer build result is
+  already in hand, or should move that build earlier once for the workflow.
+
+### Open Questions From Pass 10
+
+1. Should the next real consumer migration be:
+   - standard lot matching
+   - Canada ACB workflow input building
+   - or transfer-proposal confirmability
+
+2. Does lot matching need any further canonical relation beyond:
+   - `accountingTransactionViews`
+   - `internalTransferCarryovers`
+   - movement-anchored validated transfer links
+
 ## Pass 8
 
 ### Scope
