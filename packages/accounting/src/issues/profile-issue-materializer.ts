@@ -1,6 +1,6 @@
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
-import { applyResolvedLinkGapVisibility, analyzeLinkGaps } from '../linking/gaps/gap-analysis.js';
+import { buildVisibleProfileLinkGapAnalysis } from '../linking/gaps/profile-link-gap-analysis.js';
 import type { IProfileAccountingIssueSourceReader } from '../ports/profile-issue-source-reader.js';
 
 import type { AccountingIssueScopeSnapshot } from './issue-model.js';
@@ -19,11 +19,7 @@ export async function materializeProfileAccountingIssueScopeSnapshot(
 ): Promise<Result<AccountingIssueScopeSnapshot, Error>> {
   return resultDoAsync(async function* () {
     const source = yield* await input.sourceReader.loadProfileAccountingIssueSourceData();
-    const analysis = analyzeLinkGaps([...source.transactions], [...source.links], {
-      accounts: source.accounts,
-      excludedAssetIds: source.excludedAssetIds,
-    });
-    const visibleAnalysis = applyResolvedLinkGapVisibility(analysis, source.resolvedIssueKeys);
+    const visibleAnalysis = buildVisibleProfileLinkGapAnalysis(source);
 
     return buildProfileAccountingIssueScopeSnapshot({
       assetReviewSummaries: source.assetReviewSummaries,

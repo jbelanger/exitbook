@@ -1,16 +1,12 @@
-import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
+import { loadVisibleProfileLinkGapAnalysis, type LinkGapAnalysis } from '@exitbook/accounting/linking';
+import type { IProfileLinkGapSourceReader } from '@exitbook/accounting/ports';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import { buildLinkGapRef, buildLinkGapSelector, resolveLinkGapSelector } from '../../link-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
-
-import { loadLinksGapAnalysis } from './load-links-gap-analysis.js';
-
-type LinksGapsCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
 
 export interface LinksGapsBrowseParams {
   preselectInExplorer?: boolean | undefined;
@@ -24,16 +20,10 @@ export interface LinksGapsBrowsePresentation {
 }
 
 export async function buildLinksGapsBrowsePresentation(
-  database: LinksGapsCommandDatabase,
-  profileId: number,
-  params: LinksGapsBrowseParams,
-  excludedAssetIds?: ReadonlySet<string>,
-  resolvedIssueKeys?: ReadonlySet<string>
+  sourceReader: IProfileLinkGapSourceReader,
+  params: LinksGapsBrowseParams
 ): Promise<Result<LinksGapsBrowsePresentation, Error>> {
-  const loadedGapAnalysisResult = await loadLinksGapAnalysis(database, profileId, {
-    excludedAssetIds,
-    resolvedIssueKeys,
-  });
+  const loadedGapAnalysisResult = await loadVisibleProfileLinkGapAnalysis(sourceReader);
   if (loadedGapAnalysisResult.isErr()) {
     return err(loadedGapAnalysisResult.error);
   }

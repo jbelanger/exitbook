@@ -1,16 +1,18 @@
-import { buildLinkGapIssueKey, type LinkGapDirection, type LinkGapIssue } from '@exitbook/accounting/linking';
+import {
+  buildLinkGapIssueKey,
+  buildProfileLinkGapAnalysis,
+  type LinkGapDirection,
+  type LinkGapIssue,
+} from '@exitbook/accounting/linking';
+import type { IProfileLinkGapSourceReader } from '@exitbook/accounting/ports';
 import type { CreateOverrideEventOptions } from '@exitbook/core';
-import { readExcludedAssetIds, readResolvedLinkGapIssueKeys, type OverrideStore } from '@exitbook/data/overrides';
-import type { DataSession } from '@exitbook/data/session';
+import type { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import { buildLinkGapRef, buildLinkGapSelector, resolveLinkGapSelector } from '../../link-selector.js';
 
-import { loadLinksGapAnalysis } from './load-links-gap-analysis.js';
-
-type LinksGapResolutionStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
-type LinksGapResolutionDatabase = Pick<DataSession, 'accounts' | 'transactionLinks' | 'transactions'>;
+type LinksGapResolutionStore = Pick<OverrideStore, 'append'>;
 
 export type LinksGapResolutionAction = 'reopen' | 'resolve';
 
@@ -43,8 +45,7 @@ interface ResolvedLinkGapSelection {
 
 export class LinksGapResolutionHandler {
   constructor(
-    private readonly db: LinksGapResolutionDatabase,
-    private readonly profileId: number,
+    private readonly sourceReader: IProfileLinkGapSourceReader,
     private readonly profileKey: string,
     private readonly overrideStore: LinksGapResolutionStore
   ) {}
@@ -62,18 +63,15 @@ export class LinksGapResolutionHandler {
     action: LinksGapResolutionAction
   ): Promise<Result<LinksGapResolutionResult, Error>> {
     return resultDoAsync(async function* (self) {
-      const excludedAssetIds = yield* await readExcludedAssetIds(self.overrideStore, self.profileKey);
-      const resolvedIssueKeys = yield* await readResolvedLinkGapIssueKeys(self.overrideStore, self.profileKey);
-      const gapAnalysis = yield* await loadLinksGapAnalysis(self.db, self.profileId, {
-        excludedAssetIds,
-      });
-      const selectedGap = yield* self.resolveGap(gapAnalysis.analysis.issues, params.selector);
+      const source = yield* await self.sourceReader.loadProfileLinkGapSourceData();
+      const gapAnalysis = buildProfileLinkGapAnalysis(source);
+      const selectedGap = yield* self.resolveGap(gapAnalysis.issues, params.selector);
       const issueKey = buildLinkGapIssueKey({
         txFingerprint: selectedGap.gapIssue.txFingerprint,
         assetId: selectedGap.gapIssue.assetId,
         direction: selectedGap.gapIssue.direction,
       });
-      const isCurrentlyResolved = resolvedIssueKeys.has(issueKey);
+      const isCurrentlyResolved = source.resolvedIssueKeys.has(issueKey);
 
       if (action === 'resolve') {
         if (isCurrentlyResolved) {

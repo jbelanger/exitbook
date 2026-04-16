@@ -21,6 +21,11 @@ export {
 export type { PreparedGroupedManualLinks, PreparedManualLink } from './linking/orchestration/manual-link-utils.js';
 export { analyzeLinkGaps, applyResolvedLinkGapVisibility } from './linking/gaps/gap-analysis.js';
 export type { AnalyzeLinkGapsOptions, ResolvedLinkGapVisibilityResult } from './linking/gaps/gap-analysis.js';
+export {
+  buildProfileLinkGapAnalysis,
+  buildVisibleProfileLinkGapAnalysis,
+  loadVisibleProfileLinkGapAnalysis,
+} from './linking/gaps/profile-link-gap-analysis.js';
 export { buildLinkGapIssueKey } from './linking/gaps/gap-model.js';
 export type {
   GapCueKind,

@@ -178,9 +178,14 @@ Phase 0 investigation log:
     - `data` only loads profile issue source facts
     - accounting now owns gap analysis, resolved-gap visibility, and profile issue snapshot materialization
     - CLI no longer assembles profile issue snapshots directly
-  - transfer-gap issue sourcing still remains provenance-shaped for now:
+  - transfer-gap issue sourcing remains provenance-shaped by design:
     - it reads processed transactions, links, accounts, and override-derived visibility inputs
-    - but that ownership boundary now lives in accounting instead of `data`/CLI glue
+    - it does **not** move onto the canonical accounting model
+    - the shared profile gap-analysis seam is now accounting-owned and reused by:
+      - `links gaps`
+      - profile issue materialization
+    - `data` now exposes a profile link-gap source reader instead of making
+      hosts assemble that source shape ad hoc
   - `@exitbook/accounting/accounting-model` now exists as the explicit public
     capability boundary for canonical accounting-layer builders, readers,
     validators, and types

@@ -20,6 +20,7 @@ export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';
 export type { ReadPortfolioAssetReviewSummaries, ReadPortfolioDependencyWatermark } from './portfolio.js';
+export type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from './profile-link-gap-source-reader.js';
 export type {
   IProfileAccountingIssueSourceReader,
   ProfileAccountingIssueSourceData,

@@ -246,7 +246,8 @@ interface AccountingIssueScopeSummary {
 
 ### `transfer_gap`
 
-- Source: current link-gap analysis / projection.
+- Source: accounting-owned profile link-gap analysis over processed
+  transactions, links, accounts, and resolved-gap visibility inputs.
 - Scope kind: `profile`.
 - Code: `LINK_GAP`.
 - Canonical key inputs: existing `LinkGapIssueIdentity`.

@@ -1,3 +1,4 @@
+import { buildProfileLinkGapSourceReader } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
@@ -125,8 +126,10 @@ async function executeLinksGapResolutionCommandResult<TAction extends LinksGapRe
     }
 
     const handler = new LinksGapResolutionHandler(
-      database,
-      profileResult.value.id,
+      buildProfileLinkGapSourceReader(database, runtime.dataDir, {
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
+      }),
       profileResult.value.profileKey,
       new OverrideStore(runtime.dataDir)
     );

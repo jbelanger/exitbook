@@ -1,3 +1,4 @@
+import { buildLinkGapIssueKey } from '@exitbook/accounting/linking';
 import type { OverrideEvent, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
@@ -101,38 +102,23 @@ function createLinkGapResolveEvent(
 
 function createOverrideStore(overrides?: { appendResult?: OverrideEvent; gapResolutionEvents?: OverrideEvent[] }): {
   append: ReturnType<typeof vi.fn>;
-  exists: ReturnType<typeof vi.fn>;
-  readByScopes: ReturnType<typeof vi.fn>;
 } {
   return {
     append: vi.fn().mockResolvedValue(ok(overrides?.appendResult ?? createLinkGapResolveEvent('a'.repeat(64)))),
-    exists: vi.fn().mockReturnValue((overrides?.gapResolutionEvents?.length ?? 0) > 0),
-    readByScopes: vi.fn().mockImplementation(async (_profileKey: string, scopes: string[]) => {
-      if (scopes.includes('asset-exclude')) {
-        return ok([]);
-      }
-
-      if (scopes.includes('link-gap-resolve') || scopes.includes('link-gap-reopen')) {
-        return ok(overrides?.gapResolutionEvents ?? []);
-      }
-
-      return ok([]);
-    }),
   };
 }
 
 function createDatabase(transaction: Transaction, links: TransactionLink[] = []) {
   return {
-    accounts: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
-    },
-    transactionLinks: {
-      findAll: vi.fn().mockResolvedValue(ok(links)),
-    },
-    transactions: {
-      findAll: vi.fn().mockResolvedValue(ok([transaction])),
-      findByFingerprintRef: vi.fn().mockResolvedValue(ok(transaction)),
-    },
+    loadProfileLinkGapSourceData: vi.fn().mockResolvedValue(
+      ok({
+        accounts: [],
+        excludedAssetIds: new Set<string>(),
+        links,
+        resolvedIssueKeys: new Set<string>(),
+        transactions: [transaction],
+      })
+    ),
   };
 }
 
@@ -147,7 +133,7 @@ describe('LinksGapResolutionHandler', () => {
     const gapRef = buildLinkGapRef(gapIdentity);
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore();
-    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+    const handler = new LinksGapResolutionHandler(database as never, 'default', overrideStore as never);
 
     const result = await handler.resolve({
       selector: gapRef,
@@ -195,9 +181,20 @@ describe('LinksGapResolutionHandler', () => {
     };
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore({
-      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction)],
+      gapResolutionEvents: [
+        createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction),
+      ],
     });
-    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+    database.loadProfileLinkGapSourceData.mockResolvedValue(
+      ok({
+        accounts: [],
+        excludedAssetIds: new Set<string>(),
+        links: [],
+        resolvedIssueKeys: new Set([buildLinkGapIssueKey(gapIdentity)]),
+        transactions: [transaction],
+      })
+    );
+    const handler = new LinksGapResolutionHandler(database as never, 'default', overrideStore as never);
 
     const result = await handler.resolve({
       selector: buildLinkGapRef(gapIdentity),
@@ -222,9 +219,20 @@ describe('LinksGapResolutionHandler', () => {
     };
     const database = createDatabase(transaction);
     const overrideStore = createOverrideStore({
-      gapResolutionEvents: [createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction)],
+      gapResolutionEvents: [
+        createLinkGapResolveEvent(transaction.txFingerprint, gapIdentity.assetId, gapIdentity.direction),
+      ],
     });
-    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+    database.loadProfileLinkGapSourceData.mockResolvedValue(
+      ok({
+        accounts: [],
+        excludedAssetIds: new Set<string>(),
+        links: [],
+        resolvedIssueKeys: new Set([buildLinkGapIssueKey(gapIdentity)]),
+        transactions: [transaction],
+      })
+    );
+    const handler = new LinksGapResolutionHandler(database as never, 'default', overrideStore as never);
 
     const result = await handler.reopen({
       selector: buildLinkGapRef(gapIdentity),
@@ -267,7 +275,7 @@ describe('LinksGapResolutionHandler', () => {
     });
     const database = createDatabase(transaction, [createConfirmedLink(transaction.id)]);
     const overrideStore = createOverrideStore();
-    const handler = new LinksGapResolutionHandler(database as never, 1, 'default', overrideStore as never);
+    const handler = new LinksGapResolutionHandler(database as never, 'default', overrideStore as never);
 
     const result = await handler.resolve({
       selector: gapRef,

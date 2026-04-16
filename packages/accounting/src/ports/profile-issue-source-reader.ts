@@ -1,13 +1,10 @@
-import type { Account, AssetReviewSummary, Transaction, TransactionLink } from '@exitbook/core';
+import type { AssetReviewSummary } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
-export interface ProfileAccountingIssueSourceData {
-  accounts: readonly Account[];
+import type { ProfileLinkGapSourceData } from './profile-link-gap-source-reader.js';
+
+export interface ProfileAccountingIssueSourceData extends ProfileLinkGapSourceData {
   assetReviewSummaries: readonly AssetReviewSummary[];
-  excludedAssetIds: ReadonlySet<string>;
-  links: readonly TransactionLink[];
-  resolvedIssueKeys: ReadonlySet<string>;
-  transactions: readonly Transaction[];
 }
 
 export interface IProfileAccountingIssueSourceReader {

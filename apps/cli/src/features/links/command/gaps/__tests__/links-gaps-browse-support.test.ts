@@ -1,46 +1,48 @@
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockLoadLinksGapAnalysis } = vi.hoisted(() => ({
-  mockLoadLinksGapAnalysis: vi.fn(),
+const { mockLoadVisibleProfileLinkGapAnalysis } = vi.hoisted(() => ({
+  mockLoadVisibleProfileLinkGapAnalysis: vi.fn(),
 }));
 
-vi.mock('../load-links-gap-analysis.js', () => ({
-  loadLinksGapAnalysis: mockLoadLinksGapAnalysis,
-}));
+vi.mock('@exitbook/accounting/linking', () => {
+  return {
+    loadVisibleProfileLinkGapAnalysis: mockLoadVisibleProfileLinkGapAnalysis,
+  };
+});
 
 import { createMockGapAnalysis } from '../../../__tests__/test-utils.js';
 import { buildLinkGapRef } from '../../../link-selector.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
 
-type LinksGapsBrowseDatabase = Parameters<typeof buildLinksGapsBrowsePresentation>[0];
+type LinksGapSourceReader = Parameters<typeof buildLinksGapsBrowsePresentation>[0];
 
-function createLinksGapsBrowseDatabase(): LinksGapsBrowseDatabase {
+function createLinksGapSourceReader(): LinksGapSourceReader {
   return {
-    accounts: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
-    },
-    transactionLinks: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
-    },
-    transactions: {
-      findAll: vi.fn().mockResolvedValue(ok([])),
-    },
-  } as unknown as LinksGapsBrowseDatabase;
+    loadProfileLinkGapSourceData: vi.fn().mockResolvedValue(
+      ok({
+        accounts: [],
+        excludedAssetIds: new Set<string>(),
+        links: [],
+        resolvedIssueKeys: new Set<string>(),
+        transactions: [],
+      })
+    ),
+  };
 }
 
 describe('links-gaps-browse-support', () => {
   it('orders gap browsing data chronologically', async () => {
     const analysis = createMockGapAnalysis();
     analysis.issues = [analysis.issues[2]!, analysis.issues[0]!, analysis.issues[1]!];
-    mockLoadLinksGapAnalysis.mockResolvedValue(
+    mockLoadVisibleProfileLinkGapAnalysis.mockResolvedValue(
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
       })
     );
 
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapsBrowseDatabase(), 42, {});
+    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader(), {});
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -59,24 +61,19 @@ describe('links-gaps-browse-support', () => {
     ]);
   });
 
-  it('passes resolved issue keys into gap analysis loading', async () => {
-    mockLoadLinksGapAnalysis.mockResolvedValue(
+  it('loads gap analysis from the shared profile gap source reader seam', async () => {
+    mockLoadVisibleProfileLinkGapAnalysis.mockResolvedValue(
       ok({
         analysis: createMockGapAnalysis(),
         hiddenResolvedIssueCount: 1,
       })
     );
-    const resolvedIssueKeys = new Set(['eth-inflow-2|blockchain:ethereum:native|inflow']);
-    const excludedAssetIds = new Set(['test:eth']);
-    const database = createLinksGapsBrowseDatabase();
+    const sourceReader = createLinksGapSourceReader();
 
-    const result = await buildLinksGapsBrowsePresentation(database, 42, {}, excludedAssetIds, resolvedIssueKeys);
+    const result = await buildLinksGapsBrowsePresentation(sourceReader, {});
 
     expect(result.isOk()).toBe(true);
-    expect(mockLoadLinksGapAnalysis).toHaveBeenCalledWith(database, 42, {
-      excludedAssetIds,
-      resolvedIssueKeys,
-    });
+    expect(mockLoadVisibleProfileLinkGapAnalysis).toHaveBeenCalledWith(sourceReader);
   });
 
   it('treats same-transaction gap rows as distinct selector targets', async () => {
@@ -89,7 +86,7 @@ describe('links-gaps-browse-support', () => {
       totalAmount: '25',
     };
     analysis.issues = [analysis.issues[0]!, secondGap, analysis.issues[1]!];
-    mockLoadLinksGapAnalysis.mockResolvedValue(
+    mockLoadVisibleProfileLinkGapAnalysis.mockResolvedValue(
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
@@ -101,7 +98,7 @@ describe('links-gaps-browse-support', () => {
       assetId: secondGap.assetId,
       direction: secondGap.direction,
     });
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapsBrowseDatabase(), 42, {
+    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader(), {
       preselectInExplorer: true,
       selector: secondGapRef,
     });
@@ -125,14 +122,14 @@ describe('links-gaps-browse-support', () => {
         txFingerprint: '1234567890abcdef-gap',
       },
     ];
-    mockLoadLinksGapAnalysis.mockResolvedValue(
+    mockLoadVisibleProfileLinkGapAnalysis.mockResolvedValue(
       ok({
         analysis,
         hiddenResolvedIssueCount: 0,
       })
     );
 
-    const result = await buildLinksGapsBrowsePresentation(createLinksGapsBrowseDatabase(), 42, {});
+    const result = await buildLinksGapsBrowsePresentation(createLinksGapSourceReader(), {});
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {

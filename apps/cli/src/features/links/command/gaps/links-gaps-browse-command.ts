@@ -1,4 +1,4 @@
-import { OverrideStore, readResolvedLinkGapIssueKeys } from '@exitbook/data/overrides';
+import { buildProfileLinkGapSourceReader } from '@exitbook/data/accounting';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
@@ -18,7 +18,6 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../../cli/presentation.js';
-import { loadAccountingExclusionPolicy } from '../../../../runtime/accounting-exclusion-policy.js';
 import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { getLinkSelectorErrorExitCode } from '../../link-selector.js';
@@ -79,23 +78,12 @@ export async function executePreparedLinksGapsBrowseCommand(
   return resultDoAsync(async function* () {
     const database = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
-    const accountingExclusionPolicy = yield* toCliResult(
-      await loadAccountingExclusionPolicy(runtime.dataDir, profile.profileKey),
-      ExitCodes.GENERAL_ERROR
-    );
-    const overrideStore = new OverrideStore(runtime.dataDir);
-    const resolvedIssueKeys = yield* toCliResult(
-      await readResolvedLinkGapIssueKeys(overrideStore, profile.profileKey),
-      ExitCodes.GENERAL_ERROR
-    );
+    const sourceReader = buildProfileLinkGapSourceReader(database, runtime.dataDir, {
+      profileId: profile.id,
+      profileKey: profile.profileKey,
+    });
 
-    const browsePresentationResult = await buildLinksGapsBrowsePresentation(
-      database,
-      profile.id,
-      prepared.params,
-      accountingExclusionPolicy.excludedAssetIds,
-      resolvedIssueKeys
-    );
+    const browsePresentationResult = await buildLinksGapsBrowsePresentation(sourceReader, prepared.params);
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(
           createCliFailure(browsePresentationResult.error, getLinkSelectorErrorExitCode(browsePresentationResult.error))
