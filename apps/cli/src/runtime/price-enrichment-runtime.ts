@@ -1,4 +1,4 @@
-import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
 import {
   PriceEnrichmentPipeline,
   type PricingEvent,

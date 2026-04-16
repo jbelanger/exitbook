@@ -1,8 +1,8 @@
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
 import {
   CostBasisArtifactService,
   CostBasisWorkflow,
   persistCostBasisFailureSnapshot,
-  type AccountingExclusionPolicy,
   type CostBasisContext,
   type CostBasisDependencyWatermark,
   type ValidatedCostBasisConfig,

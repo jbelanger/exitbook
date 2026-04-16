@@ -2,6 +2,11 @@ import { type AssetReviewSummary, type Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import {
+  applyAccountingExclusionPolicy,
+  assertNoScopedAssetsRequireReview,
+  type AccountingExclusionPolicy,
+} from '../../../accounting-layer.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { buildAccountingScopedTransactions } from '../../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
@@ -12,9 +17,6 @@ import {
   validateAccountingLayerPrices,
 } from '../../workflow/price-completeness.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
-import type { AccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
-import { applyAccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
-import { assertNoScopedAssetsRequireReview } from '../validation/asset-review-preflight.js';
 
 import { calculateCostBasisFromAccountingLayer, type CostBasisSummary } from './standard-calculator.js';
 

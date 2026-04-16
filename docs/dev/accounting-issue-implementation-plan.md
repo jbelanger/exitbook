@@ -181,6 +181,10 @@ Phase 0 investigation log:
     - `buildAccountingScopedTransactions(...)` and
       `accounting-scoped-types.ts` now live under `accounting-layer/`
       instead of `cost-basis/standard/matching/`
+    - `applyAccountingExclusionPolicy(...)`,
+      `assertNoScopedAssetsRequireReview(...)`, and the public
+      `AccountingExclusionPolicy` type now live under `accounting-layer/`
+      instead of `cost-basis/standard/validation/`
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:

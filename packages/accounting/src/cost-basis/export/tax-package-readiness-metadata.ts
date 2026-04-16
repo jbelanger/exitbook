@@ -1,6 +1,6 @@
 import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 
-import { collectBlockingAssetReviewSummaries } from '../standard/validation/asset-review-preflight.js';
+import { collectBlockingAssetReviewSummaries } from '../../accounting-layer/asset-review-preflight.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
 
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';

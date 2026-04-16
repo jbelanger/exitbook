@@ -5,10 +5,10 @@ import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
+import type { AccountingExclusionPolicy } from '../accounting-layer/accounting-exclusion-policy.js';
 import { persistCostBasisFailureSnapshot } from '../cost-basis/artifacts/failure-snapshot-service.js';
 import { runCanadaCostBasisCalculation } from '../cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
 import type { FiatCurrency as AccountingFiatCurrency } from '../cost-basis/model/cost-basis-config.js';
-import type { AccountingExclusionPolicy } from '../cost-basis/standard/validation/accounting-exclusion-policy.js';
 /**
  * Portfolio calculation workflow and result shaping.
  */

@@ -1,6 +1,6 @@
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
 import {
   buildAccountingExclusionFingerprint,
-  type AccountingExclusionPolicy,
   type CostBasisDependencyWatermark,
 } from '@exitbook/accounting/cost-basis';
 import { buildCostBasisArtifactFreshnessPorts } from '@exitbook/data/accounting';

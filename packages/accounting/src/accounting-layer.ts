@@ -1,5 +1,15 @@
 export { buildAccountingLayerReader } from './accounting-layer/accounting-layer-reader.js';
 export {
+  applyAccountingExclusionPolicy,
+  createAccountingExclusionPolicy,
+  hasAccountingExclusions,
+  isExcludedAsset,
+} from './accounting-layer/accounting-exclusion-policy.js';
+export {
+  assertNoScopedAssetsRequireReview,
+  collectBlockingAssetReviewSummaries,
+} from './accounting-layer/asset-review-preflight.js';
+export {
   buildAccountingEntryFingerprintMaterial,
   computeAccountingEntryFingerprint,
 } from './accounting-layer/accounting-entry-fingerprint.js';
@@ -35,6 +45,10 @@ export type {
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer/accounting-layer-types.js';
+export type {
+  AccountingExclusionApplyResult,
+  AccountingExclusionPolicy,
+} from './accounting-layer/accounting-exclusion-policy.js';
 export type {
   TransferValidationTransactionView,
   ValidatedTransferLink,

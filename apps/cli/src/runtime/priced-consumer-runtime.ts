@@ -1,4 +1,4 @@
-import type { AccountingExclusionPolicy } from '@exitbook/accounting/cost-basis';
+import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-layer';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 

@@ -1,12 +1,12 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import type { AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
 import type {
   CostBasisDependencyWatermark,
   ICostBasisArtifactStore,
   ICostBasisContextReader,
 } from '../../ports/cost-basis-persistence.js';
-import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflow, CostBasisWorkflowResult } from '../workflow/cost-basis-workflow.js';
 

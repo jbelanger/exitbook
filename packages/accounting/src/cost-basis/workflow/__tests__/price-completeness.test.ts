@@ -13,8 +13,8 @@ import {
   createTransaction,
   createTransactionFromMovements,
 } from '../../../__tests__/test-utils.js';
+import { createAccountingExclusionPolicy } from '../../../accounting-layer/accounting-exclusion-policy.js';
 import type { IPriceCoverageData } from '../../../ports/transaction-price-coverage.js';
-import { createAccountingExclusionPolicy } from '../../standard/validation/accounting-exclusion-policy.js';
 import { checkTransactionPriceCoverage, getCostBasisRebuildTransactions } from '../price-completeness.js';
 
 function stubData(transactions: Transaction[]): IPriceCoverageData {

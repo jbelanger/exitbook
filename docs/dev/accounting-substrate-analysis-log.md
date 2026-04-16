@@ -1536,6 +1536,11 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 - `buildAccountingScopedTransactions(...)` and its draft types now live under
   `accounting-layer/`, so cost basis no longer owns the canonical layer's
   immediate implementation substrate
+- `applyAccountingExclusionPolicy(...)`,
+  `assertNoScopedAssetsRequireReview(...)`, and `AccountingExclusionPolicy`
+  ownership now also live under `accounting-layer/`, so price-enrichment, CLI
+  runtimes, and cost-basis consumers no longer need `cost-basis` as a type
+  barrel for draft-layer helpers
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 

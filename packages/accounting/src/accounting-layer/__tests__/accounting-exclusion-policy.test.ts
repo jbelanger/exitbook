@@ -3,14 +3,14 @@ import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
-import { createFee, createMovement, createTransactionFromMovements } from '../../../../__tests__/test-utils.js';
-import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
+import { createFee, createMovement, createTransactionFromMovements } from '../../__tests__/test-utils.js';
 import {
   applyAccountingExclusionPolicy,
   createAccountingExclusionPolicy,
   hasAccountingExclusions,
   isExcludedAsset,
 } from '../accounting-exclusion-policy.js';
+import { buildAccountingScopedTransactions } from '../build-accounting-scoped-transactions.js';
 
 const noopLogger = {
   trace: () => {

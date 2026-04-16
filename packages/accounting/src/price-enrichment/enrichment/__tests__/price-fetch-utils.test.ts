@@ -2,7 +2,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createTransactionFromMovements } from '../../../__tests__/test-utils.js';
-import { createAccountingExclusionPolicy } from '../../../cost-basis/standard/validation/accounting-exclusion-policy.js';
+import { createAccountingExclusionPolicy } from '../../../accounting-layer/accounting-exclusion-policy.js';
 import {
   createPriceQuery,
   determineEnrichmentStages,

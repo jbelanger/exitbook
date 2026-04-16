@@ -3,12 +3,14 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import {
+  applyAccountingExclusionPolicy,
+  assertNoScopedAssetsRequireReview,
+  type AccountingExclusionPolicy,
+} from '../../../../accounting-layer.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
-import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
-import { applyAccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
-import { assertNoScopedAssetsRequireReview } from '../../../standard/validation/asset-review-preflight.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type { CanadaAcbEngineResult, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
 
@@ -41,7 +43,10 @@ export async function runCanadaAcbWorkflow(
     );
 
     const accountingLayer = yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
-    const validatedTransfers = yield* validateTransferLinks(accountingLayer.accountingTransactionViews, params.confirmedLinks);
+    const validatedTransfers = yield* validateTransferLinks(
+      accountingLayer.accountingTransactionViews,
+      params.confirmedLinks
+    );
     const inputContext = yield* await buildCanadaTaxInputContext({
       accountingLayer,
       validatedTransfers,

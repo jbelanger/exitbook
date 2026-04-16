@@ -8,16 +8,6 @@ export {
   listCostBasisMethodCapabilitiesForJurisdiction,
   SUPPORTED_COST_BASIS_FIAT_CURRENCIES,
 } from './cost-basis/jurisdictions/jurisdiction-configs.js';
-export type {
-  AccountingExclusionApplyResult,
-  AccountingExclusionPolicy,
-} from './cost-basis/standard/validation/accounting-exclusion-policy.js';
-export {
-  applyAccountingExclusionPolicy,
-  createAccountingExclusionPolicy,
-  hasAccountingExclusions,
-  isExcludedAsset,
-} from './cost-basis/standard/validation/accounting-exclusion-policy.js';
 export { CostBasisArtifactService } from './cost-basis/artifacts/artifact-service.js';
 export { persistCostBasisFailureSnapshot } from './cost-basis/artifacts/failure-snapshot-service.js';
 export { CostBasisWorkflow } from './cost-basis/workflow/cost-basis-workflow.js';

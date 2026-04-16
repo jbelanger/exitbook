@@ -2,11 +2,11 @@ import type { AssetReviewSummary } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import type { AccountingExclusionPolicy } from '../accounting-layer/accounting-exclusion-policy.js';
 import { buildTaxPackageBuildContext } from '../cost-basis/export/tax-package-context-builder.js';
 import { deriveTaxPackageReadinessMetadata } from '../cost-basis/export/tax-package-readiness-metadata.js';
 import { evaluateTaxPackageReadiness } from '../cost-basis/export/tax-package-review-gate.js';
 import { validateTaxPackageScope } from '../cost-basis/export/tax-package-scope-validator.js';
-import type { AccountingExclusionPolicy } from '../cost-basis/standard/validation/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../cost-basis/workflow/cost-basis-input.js';
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type { ICostBasisContextReader } from '../ports/cost-basis-persistence.js';

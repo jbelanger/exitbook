@@ -1,5 +1,6 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 
+import type { AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
 import type {
   CanadaCostBasisCalculation,
   CanadaDisplayCostBasisReport,
@@ -9,7 +10,6 @@ import type {
 import type { CostBasisReport } from '../model/report-types.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../model/types.js';
 import type { CostBasisSummary } from '../standard/calculation/standard-calculator.js';
-import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
 
 export interface CostBasisExecutionMeta {
   missingPricesCount: number;
