@@ -184,6 +184,45 @@ describe('buildAccountingLayerFromTransactions', () => {
     });
   });
 
+  it('drops zero-quantity asset movements from the canonical accounting layer', () => {
+    const transaction = buildTransaction({
+      id: 3,
+      datetime: '2024-01-01T00:00:00Z',
+      platformKind: 'exchange',
+      platformKey: 'test-exchange',
+      category: 'transfer',
+      type: 'deposit',
+      inflows: [
+        {
+          assetId: 'exchange:test:xyz',
+          assetSymbol: 'XYZ',
+          amount: '100',
+          price: '0',
+        },
+      ],
+      outflows: [
+        {
+          assetId: 'fiat:usd',
+          assetSymbol: 'USD',
+          amount: '0',
+          price: '1',
+        },
+      ],
+    });
+
+    const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
+
+    expect(buildResult.accountingTransactionViews).toHaveLength(1);
+    expect(buildResult.accountingTransactionViews[0]!.inflows).toHaveLength(1);
+    expect(buildResult.accountingTransactionViews[0]!.outflows).toEqual([]);
+    expect(buildResult.entries).toHaveLength(1);
+    expect(buildResult.entries[0]).toMatchObject({
+      kind: 'asset_inflow',
+      assetId: 'exchange:test:xyz',
+      quantity: parseDecimal('100'),
+    });
+  });
+
   it('emits internal-transfer carryovers and derivation dependencies for pure internal same-hash transfers', () => {
     const sameHash = 'same-hash-transfer';
     const sourceTransaction = buildTransaction({

@@ -1,20 +1,37 @@
 import { getExplainedTargetResidual } from '@exitbook/core';
-import { isFiat, parseDecimal, wrapError } from '@exitbook/foundation';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
+import { isFiat } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import {
+  resolveInternalTransferCarryovers,
+  type ResolvedInternalTransferCarryover,
+  type ResolvedInternalTransferCarryoverTarget,
+} from '../../../accounting-layer/accounting-layer-resolution.js';
+import type {
+  AccountingLayerBuildResult,
+  AccountingTransactionView,
+} from '../../../accounting-layer/accounting-layer-types.js';
+import type { ValidatedTransferLink, ValidatedTransferSet } from '../../../accounting-layer/validated-transfer-links.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import {
-  processFeeOnlyInternalCarryoverSource,
-  processFeeOnlyInternalCarryoverTarget,
-  type CarryoverTargetBinding,
+  processInternalTransferCarryoverSource,
+  processInternalTransferCarryoverTarget,
+  type InternalTransferCarryoverTargetBinding,
 } from '../lots/internal-carryover-processing-utils.js';
 import {
   buildAcquisitionLotFromInflow,
   buildExplainedResidualAcquisitionLotFromInflow,
 } from '../lots/lot-creation-utils.js';
 import { matchOutflowDisposal } from '../lots/lot-disposal-utils.js';
+import {
+  getMovementAssetId,
+  getMovementAssetSymbol,
+  getMovementGrossQuantity,
+  getMovementNetQuantity,
+  type CostBasisMovementLike,
+} from '../lots/lot-transaction-shapes.js';
 import { processTransferSource, processTransferTarget } from '../lots/lot-transfer-processing-utils.js';
 import {
   sortTransactionsByDependency,
@@ -22,59 +39,29 @@ import {
 } from '../lots/transaction-dependency-sorting.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
-import type {
-  AccountingScopedBuildResult,
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-  FeeOnlyInternalCarryoverTarget,
-} from './build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferLink, ValidatedScopedTransferSet } from './validated-scoped-transfer-links.js';
-
-/**
- * Configuration for lot matching
- */
 interface LotMatcherConfig {
-  /** Calculation ID to associate lots with */
   calculationId: string;
-  /** Cost basis strategy to use (FIFO, LIFO, etc.) */
   strategy: ICostBasisStrategy;
-  /** Jurisdiction configuration for tax policy (required for transfer handling) */
   jurisdiction?:
     | {
         sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis';
       }
     | undefined;
-  /** Optional variance tolerance override */
   varianceTolerance?: { error: number; warn: number } | undefined;
 }
 
-/**
- * Result of lot matching for a single asset
- */
 export interface AssetLotMatchResult {
-  /** Asset ID (contract-level identifier) */
   assetId: string;
-  /** Asset symbol (display name) */
   assetSymbol: string;
-  /** Acquisition lots created */
   lots: AcquisitionLot[];
-  /** Disposals matched to lots */
   disposals: LotDisposal[];
-  /** Lot transfers (for cross-transaction cost basis tracking) */
   lotTransfers: LotTransfer[];
 }
 
-/**
- * Result of lot matching across all assets
- */
 interface LotMatchResult {
-  /** Results grouped by asset */
   assetResults: AssetLotMatchResult[];
-  /** Total number of acquisition lots created */
   totalLotsCreated: number;
-  /** Total number of disposals processed */
   totalDisposalsProcessed: number;
-  /** Total number of transfers processed */
   totalTransfersProcessed: number;
 }
 
@@ -85,28 +72,26 @@ interface AssetProcessingState {
   lots: AcquisitionLot[];
 }
 
-interface PreparedCarryover {
-  carryover: FeeOnlyInternalCarryover;
-  sourceTransaction: AccountingScopedTransaction;
-  targetBindings: CarryoverTargetBinding[];
+interface PreparedInternalTransferCarryover {
+  carryover: ResolvedInternalTransferCarryover;
+  targetBindings: InternalTransferCarryoverTargetBinding[];
 }
 
-interface PreparedCarryoverTarget {
-  carryover: FeeOnlyInternalCarryover;
-  sourceTransaction: AccountingScopedTransaction;
+interface PreparedInternalTransferCarryoverTarget {
   bindingKey: string;
-  target: FeeOnlyInternalCarryoverTarget;
+  carryover: ResolvedInternalTransferCarryover;
+  target: ResolvedInternalTransferCarryoverTarget;
 }
 
 function getExplainedResidualAcquisitionQuantity(
-  inflow: AccountingScopedTransaction['movements']['inflows'][number],
-  validatedTargetLinks: readonly ValidatedScopedTransferLink[]
+  inflow: CostBasisMovementLike,
+  validatedTargetLinks: readonly ValidatedTransferLink[]
 ): Decimal | undefined {
   if (validatedTargetLinks.length === 0) {
     return undefined;
   }
 
-  const fullMovementAmount = inflow.netAmount ?? inflow.grossAmount;
+  const fullMovementAmount = getMovementNetQuantity(inflow) ?? getMovementGrossQuantity(inflow);
   const linkedTargetAmount = validatedTargetLinks.reduce(
     (sum, validatedLink) => sum.plus(validatedLink.link.targetAmount),
     parseDecimal('0')
@@ -135,73 +120,66 @@ export class LotMatcher {
   private readonly logger = getLogger('LotMatcher');
 
   async match(
-    scopedBuildResult: AccountingScopedBuildResult,
-    validatedExternalLinks: ValidatedScopedTransferSet,
+    accountingLayer: AccountingLayerBuildResult,
+    validatedExternalLinks: ValidatedTransferSet,
     config: LotMatcherConfig
   ): Promise<Result<LotMatchResult, Error>> {
-    try {
-      if (
-        (validatedExternalLinks.links.length > 0 || scopedBuildResult.feeOnlyInternalCarryovers.length > 0) &&
-        !config.jurisdiction
-      ) {
-        return err(new Error('Jurisdiction configuration is required for transfer and carryover handling'));
+    return resultDoAsync(async function* (self: LotMatcher) {
+      const resolvedCarryovers = yield* resolveInternalTransferCarryovers(accountingLayer);
+      if ((validatedExternalLinks.links.length > 0 || resolvedCarryovers.length > 0) && !config.jurisdiction) {
+        return yield* err(new Error('Jurisdiction configuration is required for transfer and carryover handling'));
       }
 
-      const scopedByTxId = new Map(
-        scopedBuildResult.transactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction])
+      const transactionViewsById = new Map(
+        accountingLayer.accountingTransactionViews.map((transactionView) => [
+          transactionView.processedTransaction.id,
+          transactionView,
+        ])
       );
-      const carryoverPreparationResult = this.prepareCarryovers(scopedBuildResult, scopedByTxId);
-      if (carryoverPreparationResult.isErr()) {
-        return err(carryoverPreparationResult.error);
-      }
-
       const { carryoversBySourceTransactionId, carryoversByTargetMovementFingerprint } =
-        carryoverPreparationResult.value;
+        yield* self.prepareCarryovers(resolvedCarryovers);
 
       const dependencyEdges: TransactionDependencyEdge[] = [
         ...validatedExternalLinks.links.map((validatedLink) => ({
           sourceTransactionId: validatedLink.link.sourceTransactionId,
           targetTransactionId: validatedLink.link.targetTransactionId,
         })),
-        ...scopedBuildResult.feeOnlyInternalCarryovers.flatMap((carryover) =>
+        ...resolvedCarryovers.flatMap((carryover) =>
           carryover.targets.map((target) => ({
-            sourceTransactionId: carryover.sourceTransactionId,
-            targetTransactionId: target.targetTransactionId,
+            sourceTransactionId: carryover.source.processedTransaction.id,
+            targetTransactionId: target.target.processedTransaction.id,
           }))
         ),
       ];
 
-      const sortResult = sortTransactionsByDependency(
-        scopedBuildResult.transactions.map((scopedTransaction) => scopedTransaction.tx),
+      const sortedTransactions = yield* sortTransactionsByDependency(
+        accountingLayer.accountingTransactionViews.map((transactionView) => transactionView.processedTransaction),
         dependencyEdges
       );
-      if (sortResult.isErr()) {
-        return err(sortResult.error);
-      }
 
-      const sortedScopedTransactions: AccountingScopedTransaction[] = [];
-      for (const transaction of sortResult.value) {
-        const scopedTransaction = scopedByTxId.get(transaction.id);
-        if (!scopedTransaction) {
-          return err(new Error(`Scoped transaction ${transaction.id} not found after dependency sorting`));
+      const sortedTransactionViews: AccountingTransactionView[] = [];
+      for (const transaction of sortedTransactions) {
+        const transactionView = transactionViewsById.get(transaction.id);
+        if (!transactionView) {
+          return yield* err(
+            new Error(`Accounting transaction view ${transaction.id} not found after dependency sorting`)
+          );
         }
-        sortedScopedTransactions.push(scopedTransaction);
+
+        sortedTransactionViews.push(transactionView);
       }
 
       const lotStateByAssetId = new Map<string, AssetProcessingState>();
       const transfersByBindingKey = new Map<string, LotTransfer[]>();
 
-      for (const scopedTransaction of sortedScopedTransactions) {
-        const carryoversForSource = carryoversBySourceTransactionId.get(scopedTransaction.tx.id) ?? [];
-        for (const preparedCarryover of carryoversForSource) {
-          const assetState = this.getOrInitAssetState(
-            preparedCarryover.carryover.assetId,
-            preparedCarryover.carryover.assetSymbol,
-            lotStateByAssetId
-          );
+      for (const transactionView of sortedTransactionViews) {
+        const sourceCarryovers = carryoversBySourceTransactionId.get(transactionView.processedTransaction.id) ?? [];
+        for (const preparedCarryover of sourceCarryovers) {
+          const sourceAssetId = preparedCarryover.carryover.source.entry.assetId;
+          const sourceAssetSymbol = preparedCarryover.carryover.source.entry.assetSymbol;
+          const assetState = self.getOrInitAssetState(sourceAssetId, sourceAssetSymbol, lotStateByAssetId);
 
-          const carryoverSourceResult = processFeeOnlyInternalCarryoverSource(
-            preparedCarryover.sourceTransaction,
+          const carryoverSourceResult = processInternalTransferCarryoverSource(
             preparedCarryover.carryover,
             preparedCarryover.targetBindings,
             assetState.lots,
@@ -210,14 +188,14 @@ export class LotMatcher {
             config.jurisdiction!
           );
           if (carryoverSourceResult.isErr()) {
-            return err(carryoverSourceResult.error);
+            return yield* carryoverSourceResult;
           }
 
           for (const warning of carryoverSourceResult.value.warnings) {
-            return err(
+            return yield* err(
               new Error(
-                `Carryover fee price missing at tx ${preparedCarryover.sourceTransaction.tx.id}: ` +
-                  `${warning.data.feeAmount?.toFixed() ?? 'unknown'} ${preparedCarryover.carryover.assetSymbol}`
+                `Carryover fee price missing at tx ${preparedCarryover.carryover.source.processedTransaction.id}: ` +
+                  `${warning.data.feeAmount?.toFixed() ?? 'unknown'} ${sourceAssetSymbol}`
               )
             );
           }
@@ -226,20 +204,24 @@ export class LotMatcher {
           assetState.lots.splice(0, assetState.lots.length, ...carryoverSourceResult.value.updatedLots);
           for (const transfer of carryoverSourceResult.value.transfers) {
             assetState.lotTransfers.push(transfer);
-            this.pushTransfer(transfersByBindingKey, transfer);
+            self.pushTransfer(transfersByBindingKey, transfer);
           }
         }
 
-        for (const outflow of scopedTransaction.movements.outflows) {
-          if (isFiat(outflow.assetSymbol)) continue;
+        for (const outflow of transactionView.outflows) {
+          if (isFiat(getMovementAssetSymbol(outflow))) continue;
 
-          const assetState = this.getOrInitAssetState(outflow.assetId, outflow.assetSymbol, lotStateByAssetId);
-          const sourceLinks = this.findSourceLinks(validatedExternalLinks, outflow.movementFingerprint);
+          const assetState = self.getOrInitAssetState(
+            getMovementAssetId(outflow),
+            getMovementAssetSymbol(outflow),
+            lotStateByAssetId
+          );
+          const sourceLinks = self.findSourceLinks(validatedExternalLinks, outflow.movementFingerprint);
 
           if (sourceLinks.length === 0) {
-            const disposalResult = matchOutflowDisposal(scopedTransaction, outflow, assetState.lots, config.strategy);
+            const disposalResult = matchOutflowDisposal(transactionView, outflow, assetState.lots, config.strategy);
             if (disposalResult.isErr()) {
-              return err(disposalResult.error);
+              return yield* disposalResult;
             }
             assetState.disposals.push(...disposalResult.value.disposals);
             assetState.lots.splice(0, assetState.lots.length, ...disposalResult.value.updatedLots);
@@ -247,7 +229,7 @@ export class LotMatcher {
           }
 
           const transferResult = processTransferSource(
-            scopedTransaction,
+            transactionView,
             outflow,
             sourceLinks,
             assetState.lots,
@@ -257,7 +239,7 @@ export class LotMatcher {
             config.varianceTolerance
           );
           if (transferResult.isErr()) {
-            return err(transferResult.error);
+            return yield* transferResult;
           }
 
           for (const warning of transferResult.value.warnings) {
@@ -268,27 +250,27 @@ export class LotMatcher {
               warning.data.linkTargetAmount
             ) {
               const tolerance = config.varianceTolerance?.warn ?? 1.0;
-              this.logger.warn(
+              self.logger.warn(
                 {
-                  txId: scopedTransaction.tx.id,
+                  txId: transactionView.processedTransaction.id,
                   linkId: warning.data.linkId,
                   assetSymbol: warning.data.assetSymbol,
                   variancePct: warning.data.variancePct.toFixed(2),
                   linkedSourceAmount: warning.data.linkedSourceAmount.toFixed(),
                   linkTargetAmount: warning.data.linkTargetAmount.toFixed(),
-                  source: scopedTransaction.tx.platformKey,
+                  source: transactionView.processedTransaction.platformKey,
                 },
                 `Transfer variance (${warning.data.variancePct.toFixed(2)}%) exceeds warning threshold (${tolerance.toFixed()}). ` +
                   `Possible hidden fees or incomplete fee metadata. Review exchange fee policies.`
               );
             } else if (warning.type === 'missing-price' && warning.data.feeAmount) {
-              this.logger.warn(
+              self.logger.warn(
                 {
-                  txId: scopedTransaction.tx.id,
+                  txId: transactionView.processedTransaction.id,
                   linkId: warning.data.linkId,
                   assetSymbol: warning.data.assetSymbol,
                   feeAmount: warning.data.feeAmount.toFixed(),
-                  date: scopedTransaction.tx.datetime,
+                  date: transactionView.processedTransaction.datetime,
                 },
                 'Crypto fee missing price for add-to-basis policy. Fee will not be added to cost basis. ' +
                   'Run "prices enrich" to populate missing prices.'
@@ -300,37 +282,41 @@ export class LotMatcher {
           assetState.lots.splice(0, assetState.lots.length, ...transferResult.value.updatedLots);
           for (const transfer of transferResult.value.transfers) {
             assetState.lotTransfers.push(transfer);
-            this.pushTransfer(transfersByBindingKey, transfer);
+            self.pushTransfer(transfersByBindingKey, transfer);
           }
         }
 
-        for (const inflow of scopedTransaction.movements.inflows) {
-          if (isFiat(inflow.assetSymbol)) continue;
+        for (const inflow of transactionView.inflows) {
+          if (isFiat(getMovementAssetSymbol(inflow))) continue;
 
-          const validatedTargetLinks = this.findTargetLinks(validatedExternalLinks, inflow.movementFingerprint);
+          const validatedTargetLinks = self.findTargetLinks(validatedExternalLinks, inflow.movementFingerprint);
           const carryoverTargets = carryoversByTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [];
 
           if (validatedTargetLinks.length > 0 && carryoverTargets.length > 0) {
-            return err(
+            return yield* err(
               new Error(
-                `Movement ${inflow.movementFingerprint} is targeted by both validated transfer links and fee-only carryovers`
+                `Movement ${inflow.movementFingerprint} is targeted by both validated transfer links and internal transfer carryovers`
               )
             );
           }
 
-          const assetState = this.getOrInitAssetState(inflow.assetId, inflow.assetSymbol, lotStateByAssetId);
+          const assetState = self.getOrInitAssetState(
+            getMovementAssetId(inflow),
+            getMovementAssetSymbol(inflow),
+            lotStateByAssetId
+          );
 
           if (validatedTargetLinks.length > 0) {
             for (const validatedLink of validatedTargetLinks) {
-              const sourceTransaction = scopedByTxId.get(validatedLink.link.sourceTransactionId);
+              const sourceTransaction = transactionViewsById.get(validatedLink.link.sourceTransactionId);
               if (!sourceTransaction) {
-                return err(new Error(`Source transaction ${validatedLink.link.sourceTransactionId} not found`));
+                return yield* err(new Error(`Source transaction ${validatedLink.link.sourceTransactionId} not found`));
               }
 
               const transfersForLink =
-                transfersByBindingKey.get(this.getConfirmedLinkBindingKey(validatedLink.link.id)) ?? [];
+                transfersByBindingKey.get(self.getConfirmedLinkBindingKey(validatedLink.link.id)) ?? [];
               const transferTargetResult = processTransferTarget(
-                scopedTransaction,
+                transactionView,
                 inflow,
                 validatedLink,
                 sourceTransaction,
@@ -340,12 +326,12 @@ export class LotMatcher {
                 config.varianceTolerance
               );
               if (transferTargetResult.isErr()) {
-                return err(transferTargetResult.error);
+                return yield* transferTargetResult;
               }
 
               for (const warning of transferTargetResult.value.warnings) {
                 if (warning.type === 'no-transfers') {
-                  this.logger.error(
+                  self.logger.error(
                     {
                       linkId: warning.data.linkId,
                       targetTxId: warning.data.targetTxId,
@@ -359,7 +345,7 @@ export class LotMatcher {
                   warning.data.transferred &&
                   warning.data.received
                 ) {
-                  this.logger.warn(
+                  self.logger.warn(
                     {
                       linkId: warning.data.linkId,
                       targetTxId: warning.data.targetTxId,
@@ -371,7 +357,7 @@ export class LotMatcher {
                       `Possible fee discrepancy between source and target data.`
                   );
                 } else if (warning.type === 'missing-price' && warning.data.feeAssetSymbol && warning.data.feeAmount) {
-                  this.logger.warn(
+                  self.logger.warn(
                     {
                       txId: warning.data.txId,
                       linkId: warning.data.linkId,
@@ -391,14 +377,14 @@ export class LotMatcher {
             const explainedResidualQuantity = getExplainedResidualAcquisitionQuantity(inflow, validatedTargetLinks);
             if (explainedResidualQuantity?.gt(0)) {
               const residualLotResult = buildExplainedResidualAcquisitionLotFromInflow(
-                scopedTransaction,
+                transactionView,
                 inflow,
                 explainedResidualQuantity,
                 config.calculationId,
                 config.strategy.getName()
               );
               if (residualLotResult.isErr()) {
-                return err(residualLotResult.error);
+                return yield* residualLotResult;
               }
 
               assetState.lots.push(residualLotResult.value);
@@ -410,23 +396,23 @@ export class LotMatcher {
           if (carryoverTargets.length > 0) {
             for (const carryoverTarget of carryoverTargets) {
               const transfersForTarget = transfersByBindingKey.get(carryoverTarget.bindingKey) ?? [];
-              const carryoverTargetResult = processFeeOnlyInternalCarryoverTarget(
-                carryoverTarget.sourceTransaction,
-                scopedTransaction,
+              const carryoverTargetResult = processInternalTransferCarryoverTarget(
                 carryoverTarget.carryover,
-                carryoverTarget.target,
-                carryoverTarget.bindingKey,
+                {
+                  bindingKey: carryoverTarget.bindingKey,
+                  target: carryoverTarget.target,
+                },
                 transfersForTarget,
                 config.calculationId,
                 config.strategy.getName()
               );
               if (carryoverTargetResult.isErr()) {
-                return err(carryoverTargetResult.error);
+                return yield* carryoverTargetResult;
               }
 
               for (const warning of carryoverTargetResult.value.warnings) {
                 if (warning.type === 'missing-price') {
-                  return err(
+                  return yield* err(
                     new Error(
                       `Carryover target fee missing price at tx ${warning.data.txId}: ` +
                         `${warning.data.feeAmount?.toFixed() ?? 'unknown'} ${warning.data.feeAssetSymbol ?? 'fee'}`
@@ -440,7 +426,7 @@ export class LotMatcher {
                   warning.data.transferred &&
                   warning.data.received
                 ) {
-                  this.logger.warn(
+                  self.logger.warn(
                     {
                       targetTxId: warning.data.targetTxId,
                       targetMovementFingerprint: warning.data.targetMovementFingerprint,
@@ -460,13 +446,13 @@ export class LotMatcher {
           }
 
           const acquisitionResult = buildAcquisitionLotFromInflow(
-            scopedTransaction,
+            transactionView,
             inflow,
             config.calculationId,
             config.strategy.getName()
           );
           if (acquisitionResult.isErr()) {
-            return err(acquisitionResult.error);
+            return yield* acquisitionResult;
           }
           assetState.lots.push(acquisitionResult.value);
         }
@@ -483,63 +469,52 @@ export class LotMatcher {
         });
       }
 
-      return ok({
+      return {
         assetResults,
         totalLotsCreated: assetResults.reduce((sum, result) => sum + result.lots.length, 0),
         totalDisposalsProcessed: assetResults.reduce((sum, result) => sum + result.disposals.length, 0),
         totalTransfersProcessed: assetResults.reduce((sum, result) => sum + result.lotTransfers.length, 0),
-      });
-    } catch (error) {
-      return wrapError(error, 'Failed to match lots');
-    }
+      };
+    }, this);
   }
 
   private prepareCarryovers(
-    scopedBuildResult: AccountingScopedBuildResult,
-    scopedByTxId: Map<number, AccountingScopedTransaction>
+    resolvedCarryovers: readonly ResolvedInternalTransferCarryover[]
   ): Result<
     {
-      carryoversBySourceTransactionId: Map<number, PreparedCarryover[]>;
-      carryoversByTargetMovementFingerprint: Map<string, PreparedCarryoverTarget[]>;
+      carryoversBySourceTransactionId: Map<number, PreparedInternalTransferCarryover[]>;
+      carryoversByTargetMovementFingerprint: Map<string, PreparedInternalTransferCarryoverTarget[]>;
     },
     Error
   > {
-    const carryoversBySourceTransactionId = new Map<number, PreparedCarryover[]>();
-    const carryoversByTargetMovementFingerprint = new Map<string, PreparedCarryoverTarget[]>();
+    const carryoversBySourceTransactionId = new Map<number, PreparedInternalTransferCarryover[]>();
+    const carryoversByTargetMovementFingerprint = new Map<string, PreparedInternalTransferCarryoverTarget[]>();
 
-    for (const carryover of scopedBuildResult.feeOnlyInternalCarryovers) {
-      const sourceTransaction = scopedByTxId.get(carryover.sourceTransactionId);
-      if (!sourceTransaction) {
-        return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));
-      }
-
-      const targetBindings: CarryoverTargetBinding[] = [];
+    for (const carryover of resolvedCarryovers) {
+      const targetBindings: InternalTransferCarryoverTargetBinding[] = [];
       for (const target of carryover.targets) {
         const bindingKey = this.getCarryoverBindingKey(
-          carryover.sourceMovementFingerprint,
-          target.targetMovementFingerprint
+          carryover.source.movement.movementFingerprint,
+          target.target.movement.movementFingerprint
         );
         targetBindings.push({ bindingKey, target });
 
-        const preparedTarget: PreparedCarryoverTarget = {
-          carryover,
-          sourceTransaction,
+        const existingTargets = carryoversByTargetMovementFingerprint.get(target.target.movement.movementFingerprint) ?? [];
+        existingTargets.push({
           bindingKey,
+          carryover,
           target,
-        };
-
-        const existingTargets = carryoversByTargetMovementFingerprint.get(target.targetMovementFingerprint) ?? [];
-        existingTargets.push(preparedTarget);
-        carryoversByTargetMovementFingerprint.set(target.targetMovementFingerprint, existingTargets);
+        });
+        carryoversByTargetMovementFingerprint.set(target.target.movement.movementFingerprint, existingTargets);
       }
 
-      const existingCarryovers = carryoversBySourceTransactionId.get(carryover.sourceTransactionId) ?? [];
+      const sourceTransactionId = carryover.source.processedTransaction.id;
+      const existingCarryovers = carryoversBySourceTransactionId.get(sourceTransactionId) ?? [];
       existingCarryovers.push({
         carryover,
-        sourceTransaction,
         targetBindings,
       });
-      carryoversBySourceTransactionId.set(carryover.sourceTransactionId, existingCarryovers);
+      carryoversBySourceTransactionId.set(sourceTransactionId, existingCarryovers);
     }
 
     return ok({
@@ -562,16 +537,16 @@ export class LotMatcher {
   }
 
   private findSourceLinks(
-    validatedExternalLinks: ValidatedScopedTransferSet,
+    validatedExternalLinks: ValidatedTransferSet,
     movementFingerprint: string
-  ): ValidatedScopedTransferLink[] {
+  ): ValidatedTransferLink[] {
     return validatedExternalLinks.bySourceMovementFingerprint.get(movementFingerprint) ?? [];
   }
 
   private findTargetLinks(
-    validatedExternalLinks: ValidatedScopedTransferSet,
+    validatedExternalLinks: ValidatedTransferSet,
     movementFingerprint: string
-  ): ValidatedScopedTransferLink[] {
+  ): ValidatedTransferLink[] {
     return validatedExternalLinks.byTargetMovementFingerprint.get(movementFingerprint) ?? [];
   }
 

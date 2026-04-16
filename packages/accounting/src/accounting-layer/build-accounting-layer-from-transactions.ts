@@ -58,6 +58,10 @@ export function buildAccountingLayerFromScopedBuild(
         return err(entryResult.error);
       }
 
+      if (!entryResult.value) {
+        continue;
+      }
+
       entries.push(entryResult.value);
       inflowEntryByMovementFingerprint.set(inflow.movementFingerprint, entryResult.value);
       inflows.push({
@@ -77,6 +81,10 @@ export function buildAccountingLayerFromScopedBuild(
       const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_outflow', outflow);
       if (entryResult.isErr()) {
         return err(entryResult.error);
+      }
+
+      if (!entryResult.value) {
+        continue;
       }
 
       entries.push(entryResult.value);
@@ -195,13 +203,17 @@ function buildAssetAccountingEntry(
   transaction: Transaction,
   kind: 'asset_inflow' | 'asset_outflow',
   movement: AssetMovement
-): Result<AccountingEntry, Error> {
+): Result<AccountingEntry | undefined, Error> {
   const quantity = movement.netAmount ?? movement.grossAmount;
 
-  if (!quantity.gt(0)) {
+  if (quantity.isZero()) {
+    return ok(undefined);
+  }
+
+  if (quantity.lt(0)) {
     return err(
       new Error(
-        `Accounting asset entry quantity must be positive: transaction ${transaction.id}, movement ${movement.movementFingerprint}`
+        `Accounting asset entry quantity must be non-negative: transaction ${transaction.id}, movement ${movement.movementFingerprint}`
       )
     );
   }

@@ -1,15 +1,15 @@
 import { err, ok, parseDecimal, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-  FeeOnlyInternalCarryoverTarget,
-} from '../matching/build-cost-basis-scoped-transactions.js';
+  ResolvedInternalTransferCarryover,
+  ResolvedInternalTransferCarryoverTarget,
+} from '../../../accounting-layer/accounting-layer-resolution.js';
+import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { collectFiatFees } from './lot-fee-utils.js';
+import { type CostBasisTransactionLike } from './lot-transaction-shapes.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
@@ -20,9 +20,9 @@ import {
 import { applyLotQuantityUpdates, buildLotQuantityUpdateMap } from './lot-update-utils.js';
 import { createAcquisitionLot } from './lot.js';
 
-export interface CarryoverTargetBinding {
+export interface InternalTransferCarryoverTargetBinding {
   bindingKey: string;
-  target: FeeOnlyInternalCarryoverTarget;
+  target: ResolvedInternalTransferCarryoverTarget;
 }
 
 interface CarryoverWarningData {
@@ -42,15 +42,15 @@ interface CarryoverSourceWarning {
   data: CarryoverWarningData;
   type: 'missing-price';
 }
+
 interface CarryoverTargetWarning {
   data: CarryoverWarningData;
   type: 'missing-price' | 'no-transfers' | 'variance';
 }
 
-export function processFeeOnlyInternalCarryoverSource(
-  sourceTransaction: AccountingScopedTransaction,
-  carryover: FeeOnlyInternalCarryover,
-  targetBindings: CarryoverTargetBinding[],
+export function processInternalTransferCarryoverSource(
+  resolvedCarryover: ResolvedInternalTransferCarryover,
+  targetBindings: InternalTransferCarryoverTargetBinding[],
   lots: AcquisitionLot[],
   strategy: ICostBasisStrategy,
   calculationId: string,
@@ -66,21 +66,29 @@ export function processFeeOnlyInternalCarryoverSource(
 > {
   if (targetBindings.length === 0) {
     return err(
-      new Error(`Fee-only internal carryover for tx ${carryover.sourceTransactionId} has no resolved target bindings`)
+      new Error(
+        `Internal transfer carryover for tx ${resolvedCarryover.source.processedTransaction.id} has no resolved target bindings`
+      )
     );
   }
 
   const warnings: CarryoverSourceWarning[] = [];
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
+  const sourceEntry = resolvedCarryover.source.entry;
+  const sourceTransaction = resolvedCarryover.source.processedTransaction;
+  const sourceMovement = resolvedCarryover.source.movement;
+  const retainedQuantity = sourceEntry.quantity;
+  const carryoverFeeAmount = resolvedCarryover.fee?.entry.quantity ?? parseDecimal('0');
+  const carryoverFeePrice = resolvedCarryover.fee?.fee.priceAtTxTime;
   const transferDisposalQuantity =
-    feePolicy === 'add-to-basis' ? carryover.retainedQuantity.plus(carryover.fee.amount) : carryover.retainedQuantity;
+    feePolicy === 'add-to-basis' ? retainedQuantity.plus(carryoverFeeAmount) : retainedQuantity;
 
-  const openLots = lots.filter((lot) => lot.assetId === carryover.assetId && lot.remainingQuantity.gt(0));
+  const openLots = lots.filter((lot) => lot.assetId === sourceEntry.assetId && lot.remainingQuantity.gt(0));
   const disposal = {
-    transactionId: sourceTransaction.tx.id,
-    assetSymbol: carryover.assetSymbol,
+    transactionId: sourceTransaction.id,
+    assetSymbol: sourceEntry.assetSymbol,
     quantity: transferDisposalQuantity,
-    date: new Date(sourceTransaction.tx.datetime),
+    date: new Date(sourceTransaction.datetime),
     proceedsPerUnit: parseDecimal('0'),
   };
 
@@ -88,40 +96,39 @@ export function processFeeOnlyInternalCarryoverSource(
   if (lotDisposalsResult.isErr()) {
     return err(lotDisposalsResult.error);
   }
-  const lotDisposals = lotDisposalsResult.value;
 
-  let sameAssetFeeUsdValue: Decimal | undefined = undefined;
-  if (carryover.fee.amount.gt(0) && feePolicy === 'add-to-basis') {
-    if (!carryover.fee.priceAtTxTime) {
+  let sameAssetFeeUsdValue: Decimal | undefined;
+  if (carryoverFeeAmount.gt(0) && feePolicy === 'add-to-basis') {
+    if (!carryoverFeePrice) {
       warnings.push({
         type: 'missing-price',
         data: {
-          feeAmount: carryover.fee.amount,
+          feeAmount: carryoverFeeAmount,
         },
       });
     } else {
-      sameAssetFeeUsdValue = carryover.fee.amount.times(carryover.fee.priceAtTxTime.price.amount);
+      sameAssetFeeUsdValue = carryoverFeeAmount.times(carryoverFeePrice.price.amount);
     }
   }
 
   const transfers: LotTransfer[] = [];
   const quantityToSubtractByLotId = new Map<string, Decimal>();
-  const totalFeeAllocations = sameAssetFeeUsdValue ? lotDisposals.length * targetBindings.length : 0;
+  const totalFeeAllocations = sameAssetFeeUsdValue ? lotDisposalsResult.value.length * targetBindings.length : 0;
   let feeAllocationsCreated = 0;
   let allocatedFeeUsdSoFar = parseDecimal('0');
 
-  for (const lotDisposal of lotDisposals) {
+  for (const lotDisposal of lotDisposalsResult.value) {
     buildLotQuantityUpdateMap(lotDisposal.lotId, lotDisposal.quantityDisposed, quantityToSubtractByLotId);
 
     for (const binding of targetBindings) {
-      const linkTransferFraction = binding.target.quantity.dividedBy(carryover.retainedQuantity);
+      const linkTransferFraction = binding.target.binding.quantity.dividedBy(retainedQuantity);
       const allocatedDisposalQuantity = lotDisposal.quantityDisposed.times(linkTransferFraction);
       const quantityTransferred =
         feePolicy === 'disposal'
           ? allocatedDisposalQuantity
-          : lotDisposal.quantityDisposed.times(binding.target.quantity).dividedBy(transferDisposalQuantity);
+          : lotDisposal.quantityDisposed.times(binding.target.binding.quantity).dividedBy(transferDisposalQuantity);
 
-      let metadata: LotTransfer['metadata'] | undefined = undefined;
+      let metadata: LotTransfer['metadata'] | undefined;
       if (sameAssetFeeUsdValue) {
         feeAllocationsCreated += 1;
         const feeShareResult = calculateSameAssetFeeUsdShare(
@@ -145,14 +152,14 @@ export function processFeeOnlyInternalCarryoverSource(
         sourceLotId: lotDisposal.lotId,
         provenance: {
           kind: 'internal-transfer-carryover',
-          sourceMovementFingerprint: carryover.sourceMovementFingerprint,
-          targetMovementFingerprint: binding.target.targetMovementFingerprint,
+          sourceMovementFingerprint: sourceMovement.movementFingerprint,
+          targetMovementFingerprint: binding.target.target.movement.movementFingerprint,
         },
         quantityTransferred,
         costBasisPerUnit: lotDisposal.costBasisPerUnit,
-        sourceTransactionId: sourceTransaction.tx.id,
-        targetTransactionId: binding.target.targetTransactionId,
-        transferDate: new Date(sourceTransaction.tx.datetime),
+        sourceTransactionId: sourceTransaction.id,
+        targetTransactionId: binding.target.target.processedTransaction.id,
+        transferDate: new Date(sourceTransaction.datetime),
         metadata,
         createdAt: new Date(),
       });
@@ -160,21 +167,21 @@ export function processFeeOnlyInternalCarryoverSource(
   }
 
   const disposals: LotDisposal[] = [];
-  if (carryover.fee.amount.gt(0) && feePolicy === 'disposal') {
+  if (carryoverFeeAmount.gt(0) && feePolicy === 'disposal') {
     const lotsAfterTransferResult = applyLotQuantityUpdates(lots, quantityToSubtractByLotId);
     if (lotsAfterTransferResult.isErr()) {
       return err(lotsAfterTransferResult.error);
     }
 
     const remainingLotsAfterTransfer = lotsAfterTransferResult.value.filter(
-      (lot) => lot.assetId === carryover.assetId && lot.remainingQuantity.gt(0)
+      (lot) => lot.assetId === sourceEntry.assetId && lot.remainingQuantity.gt(0)
     );
     const feeDisposal = {
-      transactionId: sourceTransaction.tx.id,
-      assetSymbol: carryover.assetSymbol,
-      quantity: carryover.fee.amount,
-      date: new Date(sourceTransaction.tx.datetime),
-      proceedsPerUnit: carryover.fee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
+      transactionId: sourceTransaction.id,
+      assetSymbol: sourceEntry.assetSymbol,
+      quantity: carryoverFeeAmount,
+      date: new Date(sourceTransaction.datetime),
+      proceedsPerUnit: carryoverFeePrice?.price.amount ?? parseDecimal('0'),
     };
 
     const feeDisposalsResult = strategy.matchDisposal(feeDisposal, remainingLotsAfterTransfer);
@@ -193,15 +200,17 @@ export function processFeeOnlyInternalCarryoverSource(
     return err(updatedLotsResult.error);
   }
 
-  return ok({ disposals, transfers, updatedLots: updatedLotsResult.value, warnings });
+  return ok({
+    disposals,
+    transfers,
+    updatedLots: updatedLotsResult.value,
+    warnings,
+  });
 }
 
-export function processFeeOnlyInternalCarryoverTarget(
-  sourceTransaction: AccountingScopedTransaction,
-  targetTransaction: AccountingScopedTransaction,
-  carryover: FeeOnlyInternalCarryover,
-  target: FeeOnlyInternalCarryoverTarget,
-  bindingKey: string,
+export function processInternalTransferCarryoverTarget(
+  resolvedCarryover: ResolvedInternalTransferCarryover,
+  targetBinding: InternalTransferCarryoverTargetBinding,
   transfersForTarget: LotTransfer[],
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id'
@@ -213,44 +222,37 @@ export function processFeeOnlyInternalCarryoverTarget(
   Error
 > {
   const warnings: CarryoverTargetWarning[] = [];
+  const sourceTransaction = resolvedCarryover.source.processedTransaction;
+  const targetResolution = targetBinding.target.target;
+  const targetTransaction = targetResolution.processedTransaction;
+  const targetMovement = targetResolution.movement;
 
   if (transfersForTarget.length === 0) {
     warnings.push({
       type: 'no-transfers',
       data: {
-        targetTxId: targetTransaction.tx.id,
-        targetMovementFingerprint: target.targetMovementFingerprint,
-        sourceTxId: sourceTransaction.tx.id,
+        targetTxId: targetTransaction.id,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
+        sourceTxId: sourceTransaction.id,
       },
     });
     return err(
       new Error(
-        `No carryover lot transfers found for tx ${sourceTransaction.tx.id} -> ${targetTransaction.tx.id} ` +
-          `(binding ${bindingKey})`
-      )
-    );
-  }
-
-  const targetInflow = targetTransaction.movements.inflows.find(
-    (movement) => movement.movementFingerprint === target.targetMovementFingerprint
-  );
-  if (!targetInflow) {
-    return err(
-      new Error(
-        `Carryover target movement ${target.targetMovementFingerprint} not found in transaction ${targetTransaction.tx.id}`
+        `No carryover lot transfers found for tx ${sourceTransaction.id} -> ${targetTransaction.id} ` +
+          `(binding ${targetBinding.bindingKey})`
       )
     );
   }
 
   const { totalCostBasis: inheritedCostBasis, transferredQuantity } = calculateInheritedCostBasis(transfersForTarget);
-  const receivedQuantity = target.quantity;
+  const receivedQuantity = targetBinding.target.binding.quantity;
 
   const varianceResult = validateTransferVariance(
     transferredQuantity,
     receivedQuantity,
-    targetTransaction.tx.platformKey,
-    targetTransaction.tx.id,
-    targetInflow.assetSymbol
+    targetTransaction.platformKey,
+    targetTransaction.id,
+    targetMovement.assetSymbol
   );
   if (varianceResult.isErr()) {
     return err(varianceResult.error);
@@ -261,8 +263,8 @@ export function processFeeOnlyInternalCarryoverTarget(
     warnings.push({
       type: 'variance',
       data: {
-        targetTxId: targetTransaction.tx.id,
-        targetMovementFingerprint: target.targetMovementFingerprint,
+        targetTxId: targetTransaction.id,
+        targetMovementFingerprint: targetMovement.movementFingerprint,
         variancePct,
         transferred: transferredQuantity,
         received: receivedQuantity,
@@ -270,9 +272,11 @@ export function processFeeOnlyInternalCarryoverTarget(
     });
   }
 
-  const sourceFraction = target.quantity.dividedBy(carryover.retainedQuantity);
-  const targetFraction = target.quantity.dividedBy(targetInflow.grossAmount);
-  const fiatFeesResult = collectFiatFees(sourceTransaction, targetTransaction, {
+  const sourceFraction = receivedQuantity.dividedBy(resolvedCarryover.source.entry.quantity);
+  const targetFraction = receivedQuantity.dividedBy(targetMovement.grossQuantity);
+  const sourceTransactionLike = getTransactionLike(resolvedCarryover.source.transactionView, sourceTransaction);
+  const targetTransactionLike = getTransactionLike(targetResolution.transactionView, targetTransaction);
+  const fiatFeesResult = collectFiatFees(sourceTransactionLike, targetTransactionLike, {
     sourceFraction,
     targetFraction,
   });
@@ -280,8 +284,7 @@ export function processFeeOnlyInternalCarryoverTarget(
     return err(fiatFeesResult.error);
   }
 
-  const fiatFees = fiatFeesResult.value;
-  for (const fee of fiatFees) {
+  for (const fee of fiatFeesResult.value) {
     if (fee.priceAtTxTime) continue;
     warnings.push({
       type: 'missing-price',
@@ -294,18 +297,25 @@ export function processFeeOnlyInternalCarryoverTarget(
     });
   }
 
-  const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFees, receivedQuantity);
+  const costBasisPerUnit = calculateTargetCostBasis(inheritedCostBasis, fiatFeesResult.value, receivedQuantity);
   const lot = createAcquisitionLot({
     id: randomUUID(),
     calculationId,
-    acquisitionTransactionId: targetTransaction.tx.id,
-    assetId: targetInflow.assetId,
-    assetSymbol: targetInflow.assetSymbol,
+    acquisitionTransactionId: targetTransaction.id,
+    assetId: targetResolution.entry.assetId,
+    assetSymbol: targetMovement.assetSymbol,
     quantity: receivedQuantity,
     costBasisPerUnit,
     method: strategyName,
-    transactionDate: new Date(targetTransaction.tx.datetime),
+    transactionDate: new Date(targetTransaction.datetime),
   });
 
   return ok({ lot, warnings });
+}
+
+function getTransactionLike(
+  transactionView: CostBasisTransactionLike | undefined,
+  processedTransaction: CostBasisTransactionLike
+): CostBasisTransactionLike {
+  return transactionView ?? processedTransaction;
 }

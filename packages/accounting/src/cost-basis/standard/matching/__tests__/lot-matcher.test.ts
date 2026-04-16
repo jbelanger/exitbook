@@ -5,11 +5,12 @@ import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFeeMovement, createTransaction } from '../../../../__tests__/test-utils.js';
+import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import type { AccountingScopedTransaction } from '../build-cost-basis-scoped-transactions.js';
 import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../lot-matcher.js';
-import { validateScopedTransferLinks } from '../validated-scoped-transfer-links.js';
 
 describe('LotMatcher - Fee Handling', () => {
   const matcher = new LotMatcher();
@@ -26,13 +27,20 @@ describe('LotMatcher - Fee Handling', () => {
       return err(scopedResult.error);
     }
     const scoped = scopedResult.value;
+    const accountingLayerResult = buildAccountingLayerFromScopedBuild(scoped);
+    if (accountingLayerResult.isErr()) {
+      return err(accountingLayerResult.error);
+    }
     const hydratedLinks = hydrateTestLinks(scoped.transactions, confirmedLinks);
-    const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, hydratedLinks);
+    const validatedLinksResult = validateTransferLinks(
+      accountingLayerResult.value.accountingTransactionViews,
+      hydratedLinks
+    );
     if (validatedLinksResult.isErr()) {
       return err(validatedLinksResult.error);
     }
 
-    return matcher.match(scoped, validatedLinksResult.value, config);
+    return matcher.match(accountingLayerResult.value, validatedLinksResult.value, config);
   }
 
   function hydrateTestLinks(

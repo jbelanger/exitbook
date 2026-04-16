@@ -1,4 +1,4 @@
-import type { AssetMovementDraft, FeeMovementDraft, PriceAtTxTime } from '@exitbook/core';
+import type { FeeMovementDraft, PriceAtTxTime } from '@exitbook/core';
 import { isFiat, parseDecimal } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -7,9 +7,16 @@ import type { Decimal } from 'decimal.js';
 const logger = getLogger('lot-fee-utils');
 
 import {
+  getMovementAssetId,
+  getMovementAssetSymbol,
+  getMovementFingerprint,
+  getMovementGrossQuantity,
+  getMovementNetQuantity,
+  getMovementPriceAtTxTime,
   getRawTransaction,
   getTransactionFees,
   getTransactionMovements,
+  type CostBasisMovementLike,
   type CostBasisTransactionLike,
 } from './lot-transaction-shapes.js';
 import { getVarianceTolerance } from './transaction-dependency-sorting.js';
@@ -56,9 +63,9 @@ export function extractCryptoFee(
 
 export function extractAllocatedCryptoFee(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovementDraft
+  outflow: CostBasisMovementLike
 ): Result<{ amount: Decimal; feeType: string; priceAtTxTime?: PriceAtTxTime | undefined }, Error> {
-  const totalFeeResult = extractCryptoFee(transaction, outflow.assetId);
+  const totalFeeResult = extractCryptoFee(transaction, getMovementAssetId(outflow));
   if (totalFeeResult.isErr()) {
     return err(totalFeeResult.error);
   }
@@ -69,36 +76,38 @@ export function extractAllocatedCryptoFee(
   }
 
   const sameAssetOutflows = getTransactionMovements(transaction).outflows.filter(
-    (candidateOutflow) => candidateOutflow.assetId === outflow.assetId
+    (candidateOutflow) => getMovementAssetId(candidateOutflow) === getMovementAssetId(outflow)
   );
   if (sameAssetOutflows.length <= 1) {
     return ok(totalFee);
   }
 
-  const outflowIndex = sameAssetOutflows.indexOf(outflow);
+  const outflowIndex = sameAssetOutflows.findIndex(
+    (candidateOutflow) => getMovementFingerprint(candidateOutflow) === getMovementFingerprint(outflow)
+  );
   if (outflowIndex === -1) {
     return err(
       new Error(
-        `Failed to allocate crypto fee for asset ${outflow.assetId}: current outflow not found in transaction movements`
+        `Failed to allocate crypto fee for asset ${getMovementAssetId(outflow)}: current outflow not found in transaction movements`
       )
     );
   }
 
   const zero = parseDecimal('0');
   const transferBases = sameAssetOutflows.map(
-    (candidateOutflow) => candidateOutflow.netAmount ?? candidateOutflow.grossAmount
+    (candidateOutflow) => getMovementNetQuantity(candidateOutflow) ?? getMovementGrossQuantity(candidateOutflow)
   );
   const totalTransferBase = transferBases.reduce((sum, transferBase) => sum.plus(transferBase), zero);
   if (totalTransferBase.lte(0)) {
     return err(
       new Error(
-        `Failed to allocate crypto fee for asset ${outflow.assetId}: same-asset outflows must have positive transfer amounts`
+        `Failed to allocate crypto fee for asset ${getMovementAssetId(outflow)}: same-asset outflows must have positive transfer amounts`
       )
     );
   }
 
   const modeledFeeShares = sameAssetOutflows.map((candidateOutflow, index) => {
-    const modeledFee = candidateOutflow.grossAmount.minus(transferBases[index]!);
+    const modeledFee = getMovementGrossQuantity(candidateOutflow).minus(transferBases[index]!);
     return modeledFee.gt(0) ? modeledFee : zero;
   });
   const totalModeledFee = modeledFeeShares.reduce((sum, modeledFee) => sum.plus(modeledFee), zero);
@@ -147,19 +156,19 @@ function extractOnChainFees(transaction: CostBasisTransactionLike, assetId: stri
  * Detects hidden/undeclared fees when the difference exceeds tolerance.
  */
 export function validateOutflowFees(
-  outflow: AssetMovementDraft,
+  outflow: CostBasisMovementLike,
   transaction: CostBasisTransactionLike,
   source: string,
   txId: number,
   configOverride?: { error: number; warn: number }
 ): Result<void, Error> {
-  if (!outflow.netAmount) {
+  const netAmount = getMovementNetQuantity(outflow);
+  if (!netAmount) {
     return ok(undefined);
   }
 
-  const grossAmount = outflow.grossAmount;
-  const netAmount = outflow.netAmount;
-  const onChainFees = extractOnChainFees(transaction, outflow.assetId);
+  const grossAmount = getMovementGrossQuantity(outflow);
+  const onChainFees = extractOnChainFees(transaction, getMovementAssetId(outflow));
   const expectedNet = grossAmount.minus(onChainFees);
   const variance = expectedNet.minus(netAmount).abs();
   const variancePct = expectedNet.isZero() ? parseDecimal('0') : variance.dividedBy(expectedNet).times(100);
@@ -171,11 +180,11 @@ export function validateOutflowFees(
       new Error(
         `Outflow fee validation failed at tx ${txId}: ` +
           `Detected hidden fee. ` +
-          `grossAmount=${grossAmount.toFixed()} ${outflow.assetSymbol}, ` +
-          `declared on-chain fees=${onChainFees.toFixed()} ${outflow.assetSymbol}, ` +
-          `expected netAmount=${expectedNet.toFixed()} ${outflow.assetSymbol}, ` +
-          `actual netAmount=${netAmount.toFixed()} ${outflow.assetSymbol}, ` +
-          `hidden fee=${variance.toFixed()} ${outflow.assetSymbol} (${variancePct.toFixed(2)}%). ` +
+          `grossAmount=${grossAmount.toFixed()} ${getMovementAssetSymbol(outflow)}, ` +
+          `declared on-chain fees=${onChainFees.toFixed()} ${getMovementAssetSymbol(outflow)}, ` +
+          `expected netAmount=${expectedNet.toFixed()} ${getMovementAssetSymbol(outflow)}, ` +
+          `actual netAmount=${netAmount.toFixed()} ${getMovementAssetSymbol(outflow)}, ` +
+          `hidden fee=${variance.toFixed()} ${getMovementAssetSymbol(outflow)} (${variancePct.toFixed(2)}%). ` +
           `Exceeds error threshold (${tolerance.error.toFixed()}%). ` +
           `Review exchange fee policies and ensure all fees are declared.`
       )
@@ -238,7 +247,7 @@ export function collectFiatFees(
  */
 function calculateTotalFeeValueInFiat(
   fees: Pick<FeeMovementDraft, 'amount' | 'assetSymbol' | 'priceAtTxTime'>[],
-  targetMovement: AssetMovementDraft,
+  targetMovement: CostBasisMovementLike,
   transactionId: number
 ): Result<Decimal, Error> {
   let totalFeeValue = parseDecimal('0');
@@ -249,7 +258,8 @@ function calculateTotalFeeValueInFiat(
       continue;
     }
 
-    if (!isFiat(fee.assetSymbol) || !targetMovement.priceAtTxTime) {
+    const targetMovementPrice = getMovementPriceAtTxTime(targetMovement);
+    if (!isFiat(fee.assetSymbol) || !targetMovementPrice) {
       return err(
         new Error(
           `Fee in ${fee.assetSymbol} missing priceAtTxTime. Cost basis calculation requires all crypto fees to be priced. ` +
@@ -258,7 +268,7 @@ function calculateTotalFeeValueInFiat(
       );
     }
 
-    const targetPriceCurrency = targetMovement.priceAtTxTime.price.currency;
+    const targetPriceCurrency = targetMovementPrice.price.currency;
     if (fee.assetSymbol !== targetPriceCurrency) {
       return err(
         new Error(
@@ -279,43 +289,51 @@ function calculateTotalFeeValueInFiat(
  */
 function calculateMovementValues(
   transaction: CostBasisTransactionLike,
-  targetMovement: AssetMovementDraft,
+  targetMovement: CostBasisMovementLike,
   isInflow: boolean
 ): {
-  nonFiatMovements: AssetMovementDraft[];
+  nonFiatMovements: CostBasisMovementLike[];
   targetAmount: Decimal;
   targetMovementValue: Decimal;
   totalMovementValue: Decimal;
 } {
   const { inflows, outflows } = getTransactionMovements(transaction);
-  const allMovements = [...inflows, ...outflows];
+  const allMovements = [
+    ...inflows.map((movement) => ({ direction: 'inflow' as const, movement })),
+    ...outflows.map((movement) => ({ direction: 'outflow' as const, movement })),
+  ];
 
-  const nonFiatMovements = allMovements.filter((movement) => {
+  const nonFiatMovements = allMovements.filter(({ movement }) => {
     try {
-      return !isFiat(movement.assetSymbol);
+      return !isFiat(getMovementAssetSymbol(movement));
     } catch {
-      logger.warn({ assetSymbol: movement.assetSymbol }, 'isFiat check failed, treating as non-fiat');
+      logger.warn({ assetSymbol: getMovementAssetSymbol(movement) }, 'isFiat check failed, treating as non-fiat');
       return true;
     }
   });
 
-  const targetAmount = isInflow ? targetMovement.grossAmount : (targetMovement.netAmount ?? targetMovement.grossAmount);
-  const targetMovementValue = targetMovement.priceAtTxTime
-    ? targetAmount.times(targetMovement.priceAtTxTime.price.amount)
+  const targetAmount = isInflow
+    ? getMovementGrossQuantity(targetMovement)
+    : (getMovementNetQuantity(targetMovement) ?? getMovementGrossQuantity(targetMovement));
+  const targetMovementPrice = getMovementPriceAtTxTime(targetMovement);
+  const targetMovementValue = targetMovementPrice
+    ? targetAmount.times(targetMovementPrice.price.amount)
     : parseDecimal('0');
 
   let totalMovementValue = parseDecimal('0');
-  for (const movement of nonFiatMovements) {
-    if (!movement.priceAtTxTime) continue;
+  for (const { direction, movement } of nonFiatMovements) {
+    const movementPrice = getMovementPriceAtTxTime(movement);
+    if (!movementPrice) continue;
 
-    const movementAmount = inflows.includes(movement)
-      ? movement.grossAmount
-      : (movement.netAmount ?? movement.grossAmount);
-    totalMovementValue = totalMovementValue.plus(movementAmount.times(movement.priceAtTxTime.price.amount));
+    const movementAmount =
+      direction === 'inflow'
+        ? getMovementGrossQuantity(movement)
+        : (getMovementNetQuantity(movement) ?? getMovementGrossQuantity(movement));
+    totalMovementValue = totalMovementValue.plus(movementAmount.times(movementPrice.price.amount));
   }
 
   return {
-    nonFiatMovements,
+    nonFiatMovements: nonFiatMovements.map(({ movement }) => movement),
     targetAmount,
     targetMovementValue,
     totalMovementValue,
@@ -328,13 +346,13 @@ function calculateMovementValues(
 function allocateFeesProportionally(
   totalFeeValue: Decimal,
   values: {
-    nonFiatMovements: AssetMovementDraft[];
+    nonFiatMovements: CostBasisMovementLike[];
     targetAmount: Decimal;
     targetMovementValue: Decimal;
     totalMovementValue: Decimal;
   },
-  targetMovement: AssetMovementDraft,
-  inflows: AssetMovementDraft[]
+  targetMovement: CostBasisMovementLike,
+  inflows: readonly CostBasisMovementLike[]
 ): Decimal {
   if (!values.totalMovementValue.isZero()) {
     return totalFeeValue.times(values.targetMovementValue).dividedBy(values.totalMovementValue);
@@ -345,11 +363,15 @@ function allocateFeesProportionally(
   }
 
   const isTargetInNonFiat = values.nonFiatMovements.some((movement) => {
-    const movementAmount = inflows.includes(movement)
-      ? movement.grossAmount
-      : (movement.netAmount ?? movement.grossAmount);
+    const movementAmount = inflows.some((inflow) => getMovementFingerprint(inflow) === getMovementFingerprint(movement))
+      ? getMovementGrossQuantity(movement)
+      : (getMovementNetQuantity(movement) ?? getMovementGrossQuantity(movement));
 
-    return movement.assetId === targetMovement.assetId && movementAmount.eq(values.targetAmount);
+    return (
+      getMovementAssetId(movement) === getMovementAssetId(targetMovement) &&
+      movementAmount.eq(values.targetAmount) &&
+      getMovementFingerprint(movement) === getMovementFingerprint(targetMovement)
+    );
   });
 
   if (!isTargetInNonFiat) {
@@ -364,7 +386,7 @@ function allocateFeesProportionally(
  */
 export function calculateFeesInFiat(
   transaction: CostBasisTransactionLike,
-  targetMovement: AssetMovementDraft,
+  targetMovement: CostBasisMovementLike,
   isInflow: boolean
 ): Result<Decimal, Error> {
   const relevantFees = isInflow
@@ -376,7 +398,8 @@ export function calculateFeesInFiat(
   }
 
   const isFeeMovement = relevantFees.some(
-    (fee) => fee.assetId === targetMovement.assetId && fee.amount.eq(targetMovement.grossAmount)
+    (fee) =>
+      fee.assetId === getMovementAssetId(targetMovement) && fee.amount.eq(getMovementGrossQuantity(targetMovement))
   );
   if (isFeeMovement) {
     return ok(parseDecimal('0'));

@@ -340,14 +340,14 @@ Current migration status:
 
 - canonical transfer-link validation now reads `accountingTransactionViews`
 - `validateScopedTransferLinks(...)` remains as a compatibility adapter for
-  transaction-shaped cost-basis consumers that still operate on scoped
-  transactions
+  older scoped consumers and tests
 - canonical internal-transfer carryovers can now resolve back to:
   - processed-transaction movement refs for synthetic carryover sources
   - accounting transaction-view refs for retained targets and fee entries
-- the next real consumer migration should happen where the accounting-layer
-  build result is already available, rather than rebuilding it only to validate
-  links
+- standard lot matching and standard cost-basis calculation now read the
+  canonical accounting layer directly
+- the next real consumer migration should happen in the remaining scoped
+  compatibility seams, not by rebuilding transaction-local accounting math
 
 ### Initial Pricing Boundary
 
@@ -364,11 +364,13 @@ Current migration status:
   accounting-layer build result
 - Canada tax input building, fee adjustments, and carryover semantics now read
   the canonical accounting layer end-to-end
-- cost-basis lot matching and scoped calculation still read the scoped
-  transaction build
+- standard cost-basis lot matching and calculation now also read the canonical
+  accounting layer end-to-end
 - the canonical accounting layer now includes `accountingTransactionViews` as
   the replacement grouped transaction view for future transaction-shaped
   consumers
+- zero-quantity asset and fee artifacts are dropped at the accounting-layer
+  boundary instead of being materialized as accounting entries
 
 ## First Reader Boundary
 

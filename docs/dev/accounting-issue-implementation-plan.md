@@ -149,36 +149,36 @@ Phase 0 investigation log:
 - first proving migration slice now landed at the pricing boundary:
   - accounting-side price completeness / rebuild subset selection now reads the
     canonical accounting layer
-  - lot matching and scoped cost-basis calculation still read the scoped
-    transaction build
   - this is an intentional intermediate boundary, not the final end state
-- next proving migration boundary is now explicit:
-  - lot matching and parts of standard cost-basis calculation are still
-    transaction-shaped consumers
+- next proving migration slice now landed at the standard lot-matching boundary:
   - the canonical accounting layer now includes
-    `accountingTransactionViews` as the grouped transaction view for those
-    consumers
+    `accountingTransactionViews` as the grouped transaction view for
+    transaction-shaped consumers
   - canonical transfer-link validation now runs on
     `accountingTransactionViews`
   - `validateScopedTransferLinks(...)` now exists only as a compatibility
-    adapter for transaction-shaped consumers
+    adapter for older scoped consumers and tests
   - canonical internal-transfer carryover resolution now exists:
     - synthetic carryover source entries resolve back to processed-transaction
       movement refs
     - retained targets and fee entries resolve to accounting transaction views
+  - standard lot matching and standard cost-basis calculation now read the
+    canonical accounting layer end-to-end
   - Canada tax input building, transfer validation, fee adjustments, and
-    carryover handling now read the canonical accounting layer end-to-end
-  - the canonical accounting layer now collapses zero-quantity fee artifacts
-    instead of treating them as material accounting entries
+    carryover handling now also read the canonical accounting layer end-to-end
+  - the canonical accounting layer now collapses zero-quantity asset and fee
+    artifacts instead of treating them as material accounting entries
   - post-migration cleanup aligned the remaining Canada/cost-basis vocabulary:
     - `inputTransactionIds` replaced historical `scopedTransactionIds`
     - `internal-transfer-carryover` replaced historical
       `fee-only-carryover`
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
-  - the next proving migration boundary is now:
-    - lot matching and standard lot transfer processing
-    - any remaining transaction-shaped consumers outside the Canada path
+  - the next proving migration boundary is now narrower:
+    - remaining scoped compatibility seams such as
+      `transfer-proposal-confirmability`
+    - any remaining public/spec naming debt around
+      `FeeOnlyInternalCarryover`
 
 ## Chosen Model
 

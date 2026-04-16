@@ -1,17 +1,17 @@
 import type { TransactionLink } from '@exitbook/core';
-import { err, ok, randomUUID, type Result, wrapError } from '@exitbook/foundation';
+import { err, randomUUID, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import type { AccountingLayerBuildResult } from '../../../accounting-layer/accounting-layer-types.js';
+import { validateTransferLinks } from '../../../accounting-layer/validated-transfer-links.js';
 import type { IJurisdictionRules } from '../../jurisdictions/jurisdiction-rules.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
 import type { CostBasisCalculation } from '../../model/schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
-import { type AccountingScopedBuildResult } from '../matching/build-cost-basis-scoped-transactions.js';
 import type { LotMatcher } from '../matching/lot-matcher.js';
-import { validateScopedTransferLinks } from '../matching/validated-scoped-transfer-links.js';
 import { getStrategyForMethod } from '../strategies/strategy-factory.js';
-import { assertScopedPriceDataQuality } from '../validation/price-validation.js';
+import { assertAccountingLayerPriceDataQuality } from '../validation/price-validation.js';
 
 import { calculateGainLoss } from './gain-loss-utils.js';
 
@@ -39,84 +39,53 @@ export interface CostBasisSummary {
   lotTransfers: LotTransfer[];
 }
 
-const logger = getLogger('calculateScopedCostBasis');
+const logger = getLogger('calculateStandardCostBasis');
 
-export async function calculateCostBasisFromScopedTransactions(
-  scopedBuildResult: AccountingScopedBuildResult,
+export async function calculateCostBasisFromAccountingLayer(
+  accountingLayer: AccountingLayerBuildResult,
   config: CostBasisConfig,
   rules: IJurisdictionRules,
   lotMatcher: LotMatcher,
   confirmedLinks: TransactionLink[] = []
 ): Promise<Result<CostBasisSummary, Error>> {
-  if (config.jurisdiction === 'CA') {
-    return err(new Error('Canada (CA) cost basis must run through the specialized Canada workflow'));
-  }
-
-  if (config.method === 'average-cost') {
-    return err(new Error('average-cost is handled by the Canada workflow, not the standard calculator'));
-  }
-
-  const validationResult = assertScopedPriceDataQuality(scopedBuildResult);
-  if (validationResult.isErr()) {
-    return err(validationResult.error);
-  }
-
-  const validatedLinksResult = validateScopedTransferLinks(scopedBuildResult.transactions, confirmedLinks);
-  if (validatedLinksResult.isErr()) {
-    return err(validatedLinksResult.error);
-  }
-
-  const calculationId = randomUUID();
-  const calculationDate = new Date();
-
-  try {
-    const strategyResult = getStrategyForMethod(config.method);
-    if (strategyResult.isErr()) {
-      return err(strategyResult.error);
+  return resultDoAsync(async function* () {
+    if (config.jurisdiction === 'CA') {
+      return yield* err(new Error('Canada (CA) cost basis must run through the specialized Canada workflow'));
     }
-    const strategy = strategyResult.value;
 
+    if (config.method === 'average-cost') {
+      return yield* err(new Error('average-cost is handled by the Canada workflow, not the standard calculator'));
+    }
+
+    yield* assertAccountingLayerPriceDataQuality(accountingLayer);
+    const validatedLinks = yield* validateTransferLinks(accountingLayer.accountingTransactionViews, confirmedLinks);
+
+    const calculationId = randomUUID();
+    const calculationDate = new Date();
+    const strategy = yield* getStrategyForMethod(config.method);
     const jurisdictionConfig = rules.getConfig();
-
-    const matchResult = await lotMatcher.match(scopedBuildResult, validatedLinksResult.value, {
+    const lotMatchResult = yield* await lotMatcher.match(accountingLayer, validatedLinks, {
       calculationId,
       strategy,
       jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
     });
 
-    if (matchResult.isErr()) {
-      return err(matchResult.error);
-    }
-
-    const lotMatchResult = matchResult.value;
-
-    // Filter disposals to reporting period. Lot matching processes the full
-    // history so that pre-period acquisitions are available, but only
-    // in-period disposals count for the tax report.
     if (config.startDate) {
       for (const assetResult of lotMatchResult.assetResults) {
         assetResult.disposals = assetResult.disposals.filter((d) => d.disposalDate >= config.startDate!);
       }
     }
 
-    const gainLossResult = calculateGainLoss(lotMatchResult.assetResults, rules);
-
-    if (gainLossResult.isErr()) {
-      return err(gainLossResult.error);
-    }
-
-    const gainLoss = gainLossResult.value;
-
-    const lots = lotMatchResult.assetResults.flatMap((r) => r.lots);
-    const disposals = lotMatchResult.assetResults.flatMap((r) => r.disposals);
-    const lotTransfers = lotMatchResult.assetResults.flatMap((r) => r.lotTransfers);
+    const gainLoss = yield* calculateGainLoss(lotMatchResult.assetResults, rules);
+    const lots = lotMatchResult.assetResults.flatMap((result) => result.lots);
+    const disposals = lotMatchResult.assetResults.flatMap((result) => result.disposals);
+    const lotTransfers = lotMatchResult.assetResults.flatMap((result) => result.lotTransfers);
 
     if (lotTransfers.length > 0) {
       logger.info({ count: lotTransfers.length }, 'Processed lot transfers');
     }
 
-    const assetsProcessed = [...new Set([...gainLoss.byAsset.values()].map((s) => s.assetSymbol))];
-
+    const assetsProcessed = [...new Set([...gainLoss.byAsset.values()].map((summary) => summary.assetSymbol))];
     const completedCalculation: CostBasisCalculation = {
       id: calculationId,
       calculationDate,
@@ -128,7 +97,7 @@ export async function calculateCostBasisFromScopedTransactions(
       totalGainLoss: gainLoss.totalCapitalGainLoss,
       totalTaxableGainLoss: gainLoss.totalTaxableGainLoss,
       assetsProcessed,
-      transactionsProcessed: scopedBuildResult.transactions.length,
+      transactionsProcessed: accountingLayer.accountingTransactionViews.length,
       lotsCreated: lotMatchResult.totalLotsCreated,
       disposalsProcessed: disposals.length,
       status: 'completed',
@@ -136,7 +105,7 @@ export async function calculateCostBasisFromScopedTransactions(
       completedAt: new Date(),
     };
 
-    return ok({
+    return {
       calculation: completedCalculation,
       lotsCreated: lotMatchResult.totalLotsCreated,
       disposalsProcessed: disposals.length,
@@ -146,8 +115,6 @@ export async function calculateCostBasisFromScopedTransactions(
       lots,
       disposals,
       lotTransfers,
-    });
-  } catch (error) {
-    return wrapError(error, 'Failed to calculate cost basis');
-  }
+    };
+  });
 }

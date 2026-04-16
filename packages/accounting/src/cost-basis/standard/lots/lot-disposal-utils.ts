@@ -1,4 +1,3 @@
-import type { AssetMovementDraft } from '@exitbook/core';
 import { parseDecimal, wrapError } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
@@ -7,7 +6,15 @@ import type { AcquisitionLot, LotDisposal } from '../../model/schemas.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
-import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
+import {
+  getMovementAssetId,
+  getMovementAssetSymbol,
+  getMovementGrossQuantity,
+  getMovementPriceAtTxTime,
+  getRawTransaction,
+  type CostBasisMovementLike,
+  type CostBasisTransactionLike,
+} from './lot-transaction-shapes.js';
 
 /**
  * Calculate disposal proceeds facts from an outflow after fees.
@@ -16,14 +23,15 @@ import { getRawTransaction, type CostBasisTransactionLike } from './lot-transact
  */
 function calculateNetProceeds(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovementDraft
+  outflow: CostBasisMovementLike
 ): Result<{ grossProceeds: Decimal; netProceeds: Decimal; proceedsPerUnit: Decimal; sellingExpenses: Decimal }, Error> {
   const rawTransaction = getRawTransaction(transaction);
+  const priceAtTxTime = getMovementPriceAtTxTime(outflow);
+  const assetSymbol = getMovementAssetSymbol(outflow);
+  const grossQuantity = getMovementGrossQuantity(outflow);
 
-  if (!outflow.priceAtTxTime) {
-    return err(
-      new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${outflow.assetSymbol}`)
-    );
+  if (!priceAtTxTime) {
+    return err(new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${assetSymbol}`));
   }
 
   // Calculate fees attributable to this specific movement
@@ -36,9 +44,9 @@ function calculateNetProceeds(
 
   // Gross proceeds = quantity * price
   // Net proceeds per unit = (gross proceeds - fees) / quantity
-  const grossProceeds = outflow.grossAmount.times(outflow.priceAtTxTime.price.amount);
+  const grossProceeds = grossQuantity.times(priceAtTxTime.price.amount);
   const netProceeds = grossProceeds.minus(feeAmount);
-  const proceedsPerUnit = netProceeds.dividedBy(outflow.grossAmount);
+  const proceedsPerUnit = netProceeds.dividedBy(grossQuantity);
 
   return ok({
     grossProceeds,
@@ -79,7 +87,7 @@ function applyDisposalProceedsBreakdown(
  */
 export function matchOutflowDisposal(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovementDraft,
+  outflow: CostBasisMovementLike,
   allLots: AcquisitionLot[],
   strategy: ICostBasisStrategy
 ): Result<{ disposals: LotDisposal[]; updatedLots: AcquisitionLot[] }, Error> {
@@ -88,7 +96,8 @@ export function matchOutflowDisposal(
 
     // Find open lots for this asset (by assetId for contract-level precision)
     const openLots = allLots.filter(
-      (lot) => lot.assetId === outflow.assetId && (lot.status === 'open' || lot.status === 'partially_disposed')
+      (lot) =>
+        lot.assetId === getMovementAssetId(outflow) && (lot.status === 'open' || lot.status === 'partially_disposed')
     );
 
     // Calculate net proceeds after fees
@@ -96,18 +105,19 @@ export function matchOutflowDisposal(
     if (proceedsResult.isErr()) {
       return err(proceedsResult.error);
     }
-    if (!outflow.priceAtTxTime) {
-      return err(
-        new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${outflow.assetSymbol}`)
-      );
+    const priceAtTxTime = getMovementPriceAtTxTime(outflow);
+    const assetSymbol = getMovementAssetSymbol(outflow);
+    const grossQuantity = getMovementGrossQuantity(outflow);
+    if (!priceAtTxTime) {
+      return err(new Error(`Outflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${assetSymbol}`));
     }
     const { proceedsPerUnit, sellingExpenses } = proceedsResult.value;
 
     // Create disposal request
     const disposal = {
       transactionId: rawTransaction.id,
-      assetSymbol: outflow.assetSymbol,
-      quantity: outflow.grossAmount,
+      assetSymbol,
+      quantity: grossQuantity,
       date: new Date(rawTransaction.datetime),
       proceedsPerUnit,
     };
@@ -118,11 +128,9 @@ export function matchOutflowDisposal(
       return err(disposalResult.error);
     }
     const lotDisposals = applyDisposalProceedsBreakdown(disposalResult.value, {
-      grossProceedsPerUnit: outflow.priceAtTxTime.price.amount,
+      grossProceedsPerUnit: priceAtTxTime.price.amount,
       netProceedsPerUnit: proceedsPerUnit,
-      sellingExpensesPerUnit: outflow.grossAmount.isZero()
-        ? parseDecimal('0')
-        : sellingExpenses.dividedBy(outflow.grossAmount),
+      sellingExpensesPerUnit: grossQuantity.isZero() ? parseDecimal('0') : sellingExpenses.dividedBy(grossQuantity),
     });
 
     // Create updated lots array (no mutation)

@@ -16,7 +16,7 @@ import type { AccountingExclusionPolicy } from '../validation/accounting-exclusi
 import { applyAccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
 import { assertNoScopedAssetsRequireReview } from '../validation/asset-review-preflight.js';
 
-import { calculateCostBasisFromScopedTransactions, type CostBasisSummary } from './standard-calculator.js';
+import { calculateCostBasisFromAccountingLayer, type CostBasisSummary } from './standard-calculator.js';
 
 type MissingPricePolicy = 'error' | 'exclude';
 
@@ -158,9 +158,13 @@ export async function runCostBasisPipeline(
   }
 
   const lotMatcher = new LotMatcher();
+  const rebuildAccountingLayerResult = buildAccountingLayerFromScopedBuild(rebuildScopedBuild);
+  if (rebuildAccountingLayerResult.isErr()) {
+    return err(rebuildAccountingLayerResult.error);
+  }
 
-  const costBasisResult = await calculateCostBasisFromScopedTransactions(
-    rebuildScopedBuild,
+  const costBasisResult = await calculateCostBasisFromAccountingLayer(
+    rebuildAccountingLayerResult.value,
     config,
     rules,
     lotMatcher,

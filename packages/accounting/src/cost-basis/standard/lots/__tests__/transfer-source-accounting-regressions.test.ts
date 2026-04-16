@@ -9,16 +9,13 @@ import {
   createPriceAtTxTime,
   createFeeMovement,
 } from '../../../../__tests__/test-utils.js';
-import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-} from '../../matching/build-cost-basis-scoped-transactions.js';
+import type { ResolvedInternalTransferCarryover } from '../../../../accounting-layer/accounting-layer-resolution.js';
 import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
 import type { ValidatedScopedTransferLink } from '../../matching/validated-scoped-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import {
-  type CarryoverTargetBinding,
-  processFeeOnlyInternalCarryoverSource,
+  type InternalTransferCarryoverTargetBinding,
+  processInternalTransferCarryoverSource,
 } from '../internal-carryover-processing-utils.js';
 import { processTransferSource } from '../lot-transfer-processing-utils.js';
 
@@ -368,47 +365,154 @@ describe('transfer source accounting regressions', () => {
       type: 'withdrawal',
     });
 
-    const sourceTransaction: AccountingScopedTransaction = {
-      tx: rawSourceTransaction,
-      rebuildDependencyTransactionIds: [],
-      movements: { inflows: [], outflows: [] },
-      fees: [],
-    };
-
-    const carryover: FeeOnlyInternalCarryover = {
-      assetId: 'test:btc',
-      assetSymbol: 'BTC' as Currency,
-      fee: {
-        assetId: 'test:btc',
-        assetSymbol: 'BTC' as Currency,
-        amount: parseDecimal('0.5'),
-        movementFingerprint: 'movement:test:btc:fee:carryover',
-        originalTransactionId: 11,
-        scope: 'network',
-        settlement: 'on-chain',
-        priceAtTxTime: createPriceAtTxTime('60000'),
+    const carryover: ResolvedInternalTransferCarryover = {
+      carryover: {
+        sourceEntryFingerprint: 'entry:source',
+        targetBindings: [
+          {
+            quantity: parseDecimal('1.5'),
+            targetEntryFingerprint: 'entry:target',
+          },
+        ],
+        feeEntryFingerprint: 'entry:fee',
       },
-      retainedQuantity: parseDecimal('1.5'),
-      sourceTransactionId: 11,
-      sourceMovementFingerprint: 'source:movement:0',
+      source: {
+        entry: {
+          entryFingerprint: 'entry:source',
+          kind: 'asset_outflow',
+          assetId: 'test:btc',
+          assetSymbol: 'BTC' as Currency,
+          quantity: parseDecimal('1.5'),
+          role: 'principal',
+          provenanceBindings: [
+            {
+              txFingerprint: rawSourceTransaction.txFingerprint,
+              movementFingerprint: 'source:movement:0',
+              quantity: parseDecimal('1.5'),
+            },
+          ],
+        },
+        movement: {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC' as Currency,
+          grossQuantity: parseDecimal('2'),
+          movementFingerprint: 'source:movement:0',
+          netQuantity: parseDecimal('1.5'),
+          priceAtTxTime: createPriceAtTxTime('60000'),
+          role: 'principal',
+          sourceKind: 'processed_transaction',
+        },
+        provenanceBinding: {
+          txFingerprint: rawSourceTransaction.txFingerprint,
+          movementFingerprint: 'source:movement:0',
+          quantity: parseDecimal('1.5'),
+        },
+        processedTransaction: rawSourceTransaction,
+      },
+      fee: {
+        entry: {
+          entryFingerprint: 'entry:fee',
+          kind: 'fee',
+          assetId: 'test:btc',
+          assetSymbol: 'BTC' as Currency,
+          quantity: parseDecimal('0.5'),
+          feeScope: 'network',
+          feeSettlement: 'on-chain',
+          provenanceBindings: [
+            {
+              txFingerprint: rawSourceTransaction.txFingerprint,
+              movementFingerprint: 'movement:test:btc:fee:carryover',
+              quantity: parseDecimal('0.5'),
+            },
+          ],
+        },
+        fee: {
+          assetId: 'test:btc',
+          assetSymbol: 'BTC' as Currency,
+          entryFingerprint: 'entry:fee',
+          feeScope: 'network',
+          feeSettlement: 'on-chain',
+          movementFingerprint: 'movement:test:btc:fee:carryover',
+          priceAtTxTime: createPriceAtTxTime('60000'),
+          quantity: parseDecimal('0.5'),
+        },
+        provenanceBinding: {
+          txFingerprint: rawSourceTransaction.txFingerprint,
+          movementFingerprint: 'movement:test:btc:fee:carryover',
+          quantity: parseDecimal('0.5'),
+        },
+        transactionView: {
+          processedTransaction: rawSourceTransaction,
+          inflows: [],
+          outflows: [],
+          fees: [],
+        },
+      },
       targets: [
         {
-          targetTransactionId: 21,
-          targetMovementFingerprint: 'target:movement:0',
-          quantity: parseDecimal('1.5'),
+          binding: {
+            quantity: parseDecimal('1.5'),
+            targetEntryFingerprint: 'entry:target',
+          },
+          target: {
+            entry: {
+              entryFingerprint: 'entry:target',
+              kind: 'asset_inflow',
+              assetId: 'test:btc',
+              assetSymbol: 'BTC' as Currency,
+              quantity: parseDecimal('1.5'),
+              role: 'principal',
+              provenanceBindings: [
+                {
+                  txFingerprint: 'target:tx:fingerprint',
+                  movementFingerprint: 'target:movement:0',
+                  quantity: parseDecimal('1.5'),
+                },
+              ],
+            },
+            movement: {
+              assetId: 'test:btc',
+              assetSymbol: 'BTC' as Currency,
+              grossQuantity: parseDecimal('1.5'),
+              movementFingerprint: 'target:movement:0',
+              netQuantity: parseDecimal('1.5'),
+              priceAtTxTime: createPriceAtTxTime('60000'),
+              role: 'principal',
+              sourceKind: 'accounting_transaction_view',
+            },
+            provenanceBinding: {
+              txFingerprint: 'target:tx:fingerprint',
+              movementFingerprint: 'target:movement:0',
+              quantity: parseDecimal('1.5'),
+            },
+            processedTransaction: createTransactionFromMovements(21, '2024-03-02T00:30:00Z', {}, [], {
+              category: 'transfer',
+              platformKey: 'coinbase',
+              type: 'deposit',
+            }),
+            transactionView: {
+              processedTransaction: createTransactionFromMovements(21, '2024-03-02T00:30:00Z', {}, [], {
+                category: 'transfer',
+                platformKey: 'coinbase',
+                type: 'deposit',
+              }),
+              inflows: [],
+              outflows: [],
+              fees: [],
+            },
+          },
         },
       ],
     };
 
-    const targetBindings: CarryoverTargetBinding[] = [
+    const targetBindings: InternalTransferCarryoverTargetBinding[] = [
       {
         bindingKey: 'carryover:source:movement:0:target:movement:0',
         target: carryover.targets[0]!,
       },
     ];
 
-    const result = processFeeOnlyInternalCarryoverSource(
-      sourceTransaction,
+    const result = processInternalTransferCarryoverSource(
       carryover,
       targetBindings,
       createSourceLots(),

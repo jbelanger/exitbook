@@ -1,10 +1,11 @@
-import type { AssetMovementDraft, PriceAtTxTime } from '@exitbook/core';
+import type { PriceAtTxTime } from '@exitbook/core';
 import { parseDecimal } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { LotTransfer } from '../../model/schemas.js';
 
+import { getMovementGrossQuantity, type CostBasisMovementLike } from './lot-transaction-shapes.js';
 import { getVarianceTolerance } from './transaction-dependency-sorting.js';
 
 /**
@@ -45,11 +46,12 @@ export function validateTransferVariance(
  * @returns Amount to match from source lots before any separate fee disposal step
  */
 export function calculateTransferDisposalAmount(
-  outflow: AssetMovementDraft,
+  outflow: CostBasisMovementLike,
   transferredQuantity: Decimal,
   feePolicy: 'disposal' | 'add-to-basis'
 ): { transferDisposalQuantity: Decimal } {
-  const transferDisposalQuantity = feePolicy === 'add-to-basis' ? outflow.grossAmount : transferredQuantity;
+  const transferDisposalQuantity =
+    feePolicy === 'add-to-basis' ? getMovementGrossQuantity(outflow) : transferredQuantity;
 
   return { transferDisposalQuantity };
 }

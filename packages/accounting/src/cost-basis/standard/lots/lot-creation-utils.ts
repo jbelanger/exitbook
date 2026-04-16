@@ -1,11 +1,18 @@
-import type { AssetMovementDraft } from '@exitbook/core';
 import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import type { AcquisitionLot } from '../../model/schemas.js';
 
 import { calculateFeesInFiat } from './lot-fee-utils.js';
-import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
+import {
+  getMovementAssetId,
+  getMovementAssetSymbol,
+  getMovementGrossQuantity,
+  getMovementPriceAtTxTime,
+  getRawTransaction,
+  type CostBasisMovementLike,
+  type CostBasisTransactionLike,
+} from './lot-transaction-shapes.js';
 import { createAcquisitionLot } from './lot.js';
 
 /**
@@ -13,20 +20,20 @@ import { createAcquisitionLot } from './lot.js';
  */
 export function buildAcquisitionLotFromInflow(
   transaction: CostBasisTransactionLike,
-  inflow: AssetMovementDraft,
+  inflow: CostBasisMovementLike,
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id'
 ): Result<AcquisitionLot, Error> {
   const rawTransaction = getRawTransaction(transaction);
+  const priceAtTxTime = getMovementPriceAtTxTime(inflow);
+  const assetSymbol = getMovementAssetSymbol(inflow);
 
-  if (!inflow.priceAtTxTime) {
-    return err(
-      new Error(`Inflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${inflow.assetSymbol}`)
-    );
+  if (!priceAtTxTime) {
+    return err(new Error(`Inflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${assetSymbol}`));
   }
 
-  const quantity = inflow.grossAmount;
-  const basePrice = inflow.priceAtTxTime.price.amount;
+  const quantity = getMovementGrossQuantity(inflow);
+  const basePrice = priceAtTxTime.price.amount;
 
   // Calculate fees attributable to this specific movement
   // Fees increase the cost basis (you paid more to acquire the asset)
@@ -46,8 +53,8 @@ export function buildAcquisitionLotFromInflow(
       id: randomUUID(),
       calculationId,
       acquisitionTransactionId: rawTransaction.id,
-      assetId: inflow.assetId,
-      assetSymbol: inflow.assetSymbol,
+      assetId: getMovementAssetId(inflow),
+      assetSymbol,
       quantity,
       costBasisPerUnit,
       method: strategyName,
@@ -64,23 +71,23 @@ export function buildAcquisitionLotFromInflow(
  */
 export function buildExplainedResidualAcquisitionLotFromInflow(
   transaction: CostBasisTransactionLike,
-  inflow: AssetMovementDraft,
+  inflow: CostBasisMovementLike,
   quantity: Decimal,
   calculationId: string,
   strategyName: 'fifo' | 'lifo' | 'specific-id'
 ): Result<AcquisitionLot, Error> {
   const rawTransaction = getRawTransaction(transaction);
+  const priceAtTxTime = getMovementPriceAtTxTime(inflow);
+  const assetSymbol = getMovementAssetSymbol(inflow);
 
-  if (!inflow.priceAtTxTime) {
-    return err(
-      new Error(`Inflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${inflow.assetSymbol}`)
-    );
+  if (!priceAtTxTime) {
+    return err(new Error(`Inflow missing priceAtTxTime: transaction ${rawTransaction.id}, asset ${assetSymbol}`));
   }
 
   if (!quantity.gt(0)) {
     return err(
       new Error(
-        `Explained residual acquisition quantity must be positive: transaction ${rawTransaction.id}, asset ${inflow.assetSymbol}`
+        `Explained residual acquisition quantity must be positive: transaction ${rawTransaction.id}, asset ${assetSymbol}`
       )
     );
   }
@@ -90,10 +97,10 @@ export function buildExplainedResidualAcquisitionLotFromInflow(
       id: randomUUID(),
       calculationId,
       acquisitionTransactionId: rawTransaction.id,
-      assetId: inflow.assetId,
-      assetSymbol: inflow.assetSymbol,
+      assetId: getMovementAssetId(inflow),
+      assetSymbol,
       quantity,
-      costBasisPerUnit: inflow.priceAtTxTime.price.amount,
+      costBasisPerUnit: priceAtTxTime.price.amount,
       method: strategyName,
       transactionDate: new Date(rawTransaction.datetime),
     })

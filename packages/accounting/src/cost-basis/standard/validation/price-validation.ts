@@ -2,6 +2,7 @@ import { isFiat, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import type { AccountingLayerBuildResult } from '../../../accounting-layer/accounting-layer-types.js';
 import type { AccountingScopedBuildResult, AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
 
 const logger = getLogger('cost-basis.standard.validation.price');
@@ -93,6 +94,37 @@ function collectScopedPricedEntities(scopedTransactions: AccountingScopedTransac
       scopedTransaction.movements.outflows
     );
     appendPricedEntities(entities, scopedTransaction.tx.txFingerprint, datetime, 'fee', scopedTransaction.fees);
+  }
+
+  return entities;
+}
+
+function collectAccountingLayerPricedEntities(accountingLayer: AccountingLayerBuildResult): PricedEntity[] {
+  const entities: PricedEntity[] = [];
+
+  for (const transactionView of accountingLayer.accountingTransactionViews) {
+    const datetime = transactionView.processedTransaction.datetime ?? '(unknown)';
+    appendPricedEntities(
+      entities,
+      transactionView.processedTransaction.txFingerprint,
+      datetime,
+      'inflow',
+      transactionView.inflows
+    );
+    appendPricedEntities(
+      entities,
+      transactionView.processedTransaction.txFingerprint,
+      datetime,
+      'outflow',
+      transactionView.outflows
+    );
+    appendPricedEntities(
+      entities,
+      transactionView.processedTransaction.txFingerprint,
+      datetime,
+      'fee',
+      transactionView.fees
+    );
   }
 
   return entities;
@@ -303,6 +335,12 @@ function formatValidationError(result: PriceValidationResult): string {
  */
 export function assertScopedPriceDataQuality(scopedBuildResult: AccountingScopedBuildResult): Result<void, Error> {
   return assertEntityPriceDataQuality(collectScopedPricedEntities(scopedBuildResult.transactions));
+}
+
+export function assertAccountingLayerPriceDataQuality(
+  accountingLayer: AccountingLayerBuildResult
+): Result<void, Error> {
+  return assertEntityPriceDataQuality(collectAccountingLayerPricedEntities(accountingLayer));
 }
 
 function assertEntityPriceDataQuality(entities: PricedEntity[]): Result<void, Error> {

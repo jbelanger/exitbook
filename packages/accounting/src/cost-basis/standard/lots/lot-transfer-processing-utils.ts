@@ -1,4 +1,3 @@
-import type { AssetMovementDraft } from '@exitbook/core';
 import { err, ok, parseDecimal, randomUUID, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -7,7 +6,16 @@ import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schem
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
 import { collectFiatFees, extractAllocatedCryptoFee, validateOutflowFees } from './lot-fee-utils.js';
-import { getRawTransaction, type CostBasisTransactionLike } from './lot-transaction-shapes.js';
+import {
+  getMovementAssetId,
+  getMovementAssetSymbol,
+  getMovementGrossQuantity,
+  getMovementNetQuantity,
+  getMovementPriceAtTxTime,
+  getRawTransaction,
+  type CostBasisMovementLike,
+  type CostBasisTransactionLike,
+} from './lot-transaction-shapes.js';
 import {
   buildTransferMetadata,
   calculateInheritedCostBasis,
@@ -74,7 +82,7 @@ interface TargetWarning {
  */
 export function processTransferSource(
   transaction: CostBasisTransactionLike,
-  outflow: AssetMovementDraft,
+  outflow: CostBasisMovementLike,
   links: ValidatedTransferLink[],
   lots: AcquisitionLot[],
   strategy: ICostBasisStrategy,
@@ -100,7 +108,7 @@ export function processTransferSource(
   if (!allPartialLinks && links.length !== 1) {
     return err(
       new Error(
-        `Validated transfer source lookup for tx ${rawTransaction.id} movement ${outflow.assetId} returned ` +
+        `Validated transfer source lookup for tx ${rawTransaction.id} movement ${getMovementAssetId(outflow)} returned ` +
           `${links.length} full links. Expected exactly one.`
       )
     );
@@ -123,7 +131,7 @@ export function processTransferSource(
     return err(feeValidationResult.error);
   }
 
-  const netTransferAmount = outflow.netAmount ?? outflow.grossAmount;
+  const netTransferAmount = getMovementNetQuantity(outflow) ?? getMovementGrossQuantity(outflow);
   const transferredAmountByLinkId = new Map<number, Decimal>();
   let totalTransferredAmount = parseDecimal('0');
   let totalImpliedFeeAmount = parseDecimal('0');
@@ -157,7 +165,7 @@ export function processTransferSource(
       validatedLink.link.targetAmount,
       rawTransaction.platformKey,
       rawTransaction.id,
-      outflow.assetSymbol,
+      getMovementAssetSymbol(outflow),
       varianceTolerance
     );
     if (varianceResult.isErr()) {
@@ -169,7 +177,7 @@ export function processTransferSource(
       warnings.push({
         type: 'variance',
         data: {
-          assetSymbol: outflow.assetSymbol,
+          assetSymbol: getMovementAssetSymbol(outflow),
           linkId: validatedLink.link.id,
           linkTargetAmount: validatedLink.link.targetAmount,
           linkedSourceAmount: transferredAmount,
@@ -189,10 +197,11 @@ export function processTransferSource(
 
   const sameAssetFee = {
     amount: cryptoFee.amount.plus(totalImpliedFeeAmount),
-    priceAtTxTime: cryptoFee.priceAtTxTime ?? (totalImpliedFeeAmount.gt(0) ? outflow.priceAtTxTime : undefined),
+    priceAtTxTime:
+      cryptoFee.priceAtTxTime ?? (totalImpliedFeeAmount.gt(0) ? getMovementPriceAtTxTime(outflow) : undefined),
   };
 
-  const openLots = lots.filter((lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0));
+  const openLots = lots.filter((lot) => lot.assetId === getMovementAssetId(outflow) && lot.remainingQuantity.gt(0));
   const feePolicy = jurisdiction.sameAssetTransferFeePolicy;
   const transferDisposalQuantity = calculateTransferDisposalAmount(
     outflow,
@@ -202,7 +211,7 @@ export function processTransferSource(
 
   const disposal = {
     transactionId: rawTransaction.id,
-    assetSymbol: outflow.assetSymbol,
+    assetSymbol: getMovementAssetSymbol(outflow),
     quantity: transferDisposalQuantity,
     date: new Date(rawTransaction.datetime),
     proceedsPerUnit: parseDecimal('0'),
@@ -220,7 +229,7 @@ export function processTransferSource(
       warnings.push({
         type: 'missing-price',
         data: {
-          assetSymbol: outflow.assetSymbol,
+          assetSymbol: getMovementAssetSymbol(outflow),
           feeAmount: sameAssetFee.amount,
           linkId: links[0]!.link.id,
         },
@@ -304,11 +313,11 @@ export function processTransferSource(
     }
 
     const remainingLotsAfterTransfer = lotsAfterTransferResult.value.filter(
-      (lot) => lot.assetId === outflow.assetId && lot.remainingQuantity.gt(0)
+      (lot) => lot.assetId === getMovementAssetId(outflow) && lot.remainingQuantity.gt(0)
     );
     const feeDisposal = {
       transactionId: rawTransaction.id,
-      assetSymbol: outflow.assetSymbol,
+      assetSymbol: getMovementAssetSymbol(outflow),
       quantity: sameAssetFee.amount,
       date: new Date(rawTransaction.datetime),
       proceedsPerUnit: sameAssetFee.priceAtTxTime?.price.amount ?? parseDecimal('0'),
@@ -347,7 +356,7 @@ export function processTransferSource(
  */
 export function processTransferTarget(
   transaction: CostBasisTransactionLike,
-  inflow: AssetMovementDraft,
+  inflow: CostBasisMovementLike,
   validatedLink: ValidatedTransferLink,
   sourceTx: CostBasisTransactionLike,
   transfersForLink: LotTransfer[],
@@ -390,7 +399,7 @@ export function processTransferTarget(
     receivedQuantity,
     rawTransaction.platformKey,
     rawTransaction.id,
-    inflow.assetSymbol,
+    getMovementAssetSymbol(inflow),
     varianceTolerance
   );
   if (varianceResult.isErr()) {
@@ -441,8 +450,8 @@ export function processTransferTarget(
     id: randomUUID(),
     calculationId,
     acquisitionTransactionId: rawTransaction.id,
-    assetId: inflow.assetId,
-    assetSymbol: inflow.assetSymbol,
+    assetId: getMovementAssetId(inflow),
+    assetSymbol: getMovementAssetSymbol(inflow),
     quantity: receivedQuantity,
     costBasisPerUnit,
     method: strategyName,

@@ -1,4 +1,4 @@
-import type { AssetMovementDraft, Transaction, TransactionLink } from '@exitbook/core';
+import type { AssetMovement, Transaction, TransactionLink } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { Decimal } from 'decimal.js';
@@ -609,10 +609,11 @@ describe('lot-matcher-utils', () => {
 
   describe('validateOutflowFees', () => {
     it('should pass when netAmount matches grossAmount minus on-chain fees', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:0',
         netAmount: parseDecimal('0.9995'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
@@ -625,10 +626,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should pass when no netAmount is provided (legacy data)', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:1',
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {});
 
@@ -638,10 +640,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should ignore balance-settled fees when validating netAmount', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:2',
         netAmount: parseDecimal('1.0'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
@@ -654,10 +657,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should error when hidden fees exceed error threshold', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:3',
         netAmount: parseDecimal('0.94'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
@@ -673,10 +677,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should pass when hidden fees are within error threshold', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:4',
         netAmount: parseDecimal('0.98'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, []);
@@ -687,10 +692,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should sum multiple on-chain fees when validating', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:5',
         netAmount: parseDecimal('0.9988'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, [
@@ -704,10 +710,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should use custom tolerance when provided', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1.0'),
+        movementFingerprint: 'movement:test:btc:outflow:6',
         netAmount: parseDecimal('0.92'),
       };
       const tx = createTransactionFromMovements(1, '2024-01-01T00:00:00Z', {}, []);
@@ -727,10 +734,11 @@ describe('lot-matcher-utils', () => {
     });
 
     it('should return net amount for disposal policy', () => {
-      const outflow: AssetMovementDraft = {
+      const outflow: AssetMovement = {
         assetId: 'test:btc',
         assetSymbol: 'BTC' as Currency,
         grossAmount: parseDecimal('1'),
+        movementFingerprint: 'movement:test:btc:outflow:7',
         netAmount: parseDecimal('0.999'),
         priceAtTxTime: createPriceAtTxTime('50000'),
       };

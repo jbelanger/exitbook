@@ -1419,3 +1419,65 @@ whether the next migration slice still needs one more explicit model concept.
 
 3. Can Canada tax event projection share the same next-layer grouping/view, or
    would it immediately push toward a fuller journal/document model?
+
+## Pass 14
+
+### Scope
+
+Verify whether the canonical accounting layer is now strong enough to replace
+the standard lot-matching and standard cost-basis runtime path without
+reintroducing scoped transaction math inside the consumer.
+
+### Evidence Inspected
+
+- [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
+- [internal-carryover-processing-utils.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/lots/internal-carryover-processing-utils.ts)
+- [standard-calculator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/standard-calculator.ts)
+- [run-standard-cost-basis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/run-standard-cost-basis.ts)
+- [price-validation.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/validation/price-validation.ts)
+
+### Findings
+
+1. The canonical accounting layer is now strong enough for the standard
+   cost-basis runtime path.
+   The missing pieces from earlier passes are now present:
+   - grouped `accountingTransactionViews`
+   - canonical validated transfer links
+   - canonical internal-transfer carryover resolution
+
+2. The clean migration did not require a matcher-local shadow model.
+   Lot matching, carryover processing, and the standard calculator can now read
+   the canonical accounting layer directly instead of rebuilding scoped
+   transaction semantics inside the consumer.
+
+3. Zero-quantity asset rows were the last real boundary leak.
+   Once the canonical accounting layer dropped zero-quantity asset entries
+   alongside zero-quantity fees, the runtime path matched the old effective
+   behavior without carrying pointless accounting entries forward.
+
+4. The remaining Phase 0 pressure is now narrower.
+   The main remaining old-shape seams are:
+   - scoped compatibility helpers like `validateScopedTransferLinks(...)`
+   - proposal/confirmability paths that still read scoped transactions
+   - the public/spec naming debt around `FeeOnlyInternalCarryover`
+
+### Implications
+
+- Phase 0 is past the “can this support a real consumer?” threshold.
+- The canonical accounting layer is now the real accounting read path for:
+  - pricing completeness
+  - Canada tax projection
+  - standard lot matching
+  - standard cost-basis calculation
+- The next cleanup should target the remaining scoped compatibility seams, not
+  invent another intermediate accounting model.
+
+### Open Questions From Pass 14
+
+1. Which remaining scoped compatibility seam should migrate next:
+   - transfer proposal confirmability
+   - accounting exclusions
+   - another smaller transaction-shaped helper
+
+2. When should `FeeOnlyInternalCarryover` finally be renamed at the builder/spec
+   boundary so the canonical language stays uniform end-to-end?
