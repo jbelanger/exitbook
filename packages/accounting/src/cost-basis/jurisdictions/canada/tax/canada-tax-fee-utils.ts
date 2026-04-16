@@ -5,7 +5,6 @@ import type { Decimal } from 'decimal.js';
 
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
-import type { ScopedFeeMovement } from '../../../standard/matching/scoped-transaction-types.js';
 
 import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 import type { CanadaTaxValuation } from './canada-tax-types.js';
@@ -26,6 +25,14 @@ interface CollectedFiatFee {
   date: string;
   priceAtTxTime?: PriceAtTxTime | undefined;
   txId: number;
+}
+
+interface CanadaFeeLike {
+  amount?: Decimal | undefined;
+  quantity?: Decimal | undefined;
+  assetId: string;
+  assetSymbol: Currency;
+  priceAtTxTime?: PriceAtTxTime | undefined;
 }
 
 export async function buildValuedFee(params: {
@@ -85,8 +92,8 @@ export async function buildValuedFee(params: {
   });
 }
 
-export async function valueScopedFees(
-  fees: ScopedFeeMovement[],
+export async function valueCanadaFees(
+  fees: readonly CanadaFeeLike[],
   timestamp: Date,
   usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
@@ -94,9 +101,14 @@ export async function valueScopedFees(
   const valuedFees: CanadaValuedFee[] = [];
 
   for (const fee of fees) {
+    const feeAmount = fee.amount ?? fee.quantity;
+    if (feeAmount === undefined) {
+      return err(new Error(`Canada fee valuation requires either amount or quantity for ${fee.assetSymbol}`));
+    }
+
     const valuedFeeResult = await buildValuedFee({
       fee: {
-        amount: fee.amount,
+        amount: feeAmount,
         assetId: fee.assetId,
         assetSymbol: fee.assetSymbol,
         priceAtTxTime: fee.priceAtTxTime,
@@ -114,6 +126,8 @@ export async function valueScopedFees(
 
   return ok(valuedFees);
 }
+
+export const valueScopedFees = valueCanadaFees;
 
 export async function valueCollectedFiatFees(
   fees: CollectedFiatFee[],

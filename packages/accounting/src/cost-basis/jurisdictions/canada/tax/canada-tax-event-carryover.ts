@@ -2,16 +2,9 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { collectFiatFees } from '../../../standard/lots/lot-fee-utils.js';
-import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-} from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 
-import {
-  buildAddToPoolCostAdjustmentEvents,
-  buildEventIndex,
-  buildMovementIndexes,
-} from './canada-tax-event-stage-shared.js';
+import type { CanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
+import { buildAddToPoolCostAdjustmentEvents, buildEventIndex } from './canada-tax-event-stage-shared.js';
 import { valueCollectedFiatFees } from './canada-tax-fee-utils.js';
 import type {
   CanadaAcquisitionEvent,
@@ -23,11 +16,12 @@ import type {
 
 function convertCarryoverTargetToTransferIn(
   acquisitionEvent: CanadaAcquisitionEvent,
-  carryover: FeeOnlyInternalCarryover,
+  sourceTransactionId: number,
+  sourceMovementFingerprint: string,
   targetMovementFingerprint: string
 ): CanadaTransferInEvent {
   return {
-    eventId: `carryover:${carryover.sourceTransactionId}:${targetMovementFingerprint}:transfer-in`,
+    eventId: `carryover:${sourceTransactionId}:${targetMovementFingerprint}:transfer-in`,
     kind: 'transfer-in',
     transactionId: acquisitionEvent.transactionId,
     timestamp: acquisitionEvent.timestamp,
@@ -39,47 +33,53 @@ function convertCarryoverTargetToTransferIn(
     valuation: acquisitionEvent.valuation,
     priceAtTxTime: acquisitionEvent.priceAtTxTime,
     provenanceKind: 'fee-only-carryover',
-    sourceTransactionId: carryover.sourceTransactionId,
-    sourceMovementFingerprint: carryover.sourceMovementFingerprint,
+    sourceTransactionId,
+    sourceMovementFingerprint,
     targetMovementFingerprint,
   };
 }
 
 export async function applyCarryoverSemantics(params: {
+  canadaAccountingContext: CanadaAccountingLayerContext;
   events: CanadaTaxInputEvent[];
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
   identityConfig: CanadaTaxInputContextBuildOptions;
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<CanadaTaxInputEvent[], Error>> {
-  const { events, feeOnlyInternalCarryovers, identityConfig, scopedTransactions, usdConversionRateProvider } = params;
+  const { canadaAccountingContext, events, identityConfig, usdConversionRateProvider } = params;
   const { byMovementFingerprint } = buildEventIndex(events);
-  const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
   const finalizedEvents = [...events];
   const feeAdjustmentEvents: CanadaFeeAdjustmentEvent[] = [];
 
-  for (const carryover of feeOnlyInternalCarryovers) {
-    const sourceTransaction = scopedByTxId.get(carryover.sourceTransactionId);
-    if (!sourceTransaction) {
-      return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));
-    }
+  for (const resolvedCarryover of canadaAccountingContext.resolvedInternalTransferCarryovers) {
+    const sourceTransaction = resolvedCarryover.source.processedTransaction;
 
-    for (const target of carryover.targets) {
-      const indexedEvents = byMovementFingerprint.get(target.targetMovementFingerprint) ?? [];
+    for (const target of resolvedCarryover.targets) {
+      const targetTransactionView = target.target.transactionView;
+      if (!targetTransactionView) {
+        return err(
+          new Error(
+            `Internal-transfer carryover target ${target.target.entry.entryFingerprint} must resolve to an accounting transaction view`
+          )
+        );
+      }
+
+      const indexedEvents = byMovementFingerprint.get(target.target.movement.movementFingerprint) ?? [];
       const acquisitionEvent = indexedEvents.find((event) => event.kind === 'acquisition');
       if (!acquisitionEvent) {
         const conflictingEvent = indexedEvents[0];
         if (conflictingEvent) {
           return err(
             new Error(
-              `Movement ${target.targetMovementFingerprint} is already classified as ${conflictingEvent.kind} ` +
-                `and cannot also be a fee-only carryover target`
+              `Movement ${target.target.movement.movementFingerprint} is already classified as ${conflictingEvent.kind} ` +
+                `and cannot also be an internal-transfer carryover target`
             )
           );
         }
 
         return err(
-          new Error(`Carryover target movement ${target.targetMovementFingerprint} was not projected as acquisition`)
+          new Error(
+            `Internal-transfer carryover target movement ${target.target.movement.movementFingerprint} was not projected as acquisition`
+          )
         );
       }
 
@@ -92,20 +92,14 @@ export async function applyCarryoverSemantics(params: {
 
       finalizedEvents[eventIndex] = convertCarryoverTargetToTransferIn(
         acquisitionEvent,
-        carryover,
-        target.targetMovementFingerprint
+        sourceTransaction.id,
+        resolvedCarryover.source.movement.movementFingerprint,
+        target.target.movement.movementFingerprint
       );
 
-      const targetRef = inflowsByFingerprint.get(target.targetMovementFingerprint);
-      if (!targetRef) {
-        return err(
-          new Error(`Carryover target movement ${target.targetMovementFingerprint} not found in scoped inflow index`)
-        );
-      }
-
-      const sourceFraction = target.quantity.dividedBy(carryover.retainedQuantity);
-      const targetFraction = target.quantity.dividedBy(targetRef.movement.grossAmount);
-      const fiatFeesResult = collectFiatFees(sourceTransaction, targetRef.scopedTransaction, {
+      const sourceFraction = target.binding.quantity.dividedBy(resolvedCarryover.source.entry.quantity);
+      const targetFraction = target.binding.quantity.dividedBy(target.target.entry.quantity);
+      const fiatFeesResult = collectFiatFees(sourceTransaction, targetTransactionView, {
         sourceFraction,
         targetFraction,
       });
@@ -115,7 +109,7 @@ export async function applyCarryoverSemantics(params: {
 
       const valuedFeesResult = await valueCollectedFiatFees(
         fiatFeesResult.value,
-        new Date(targetRef.scopedTransaction.tx.datetime),
+        new Date(targetTransactionView.processedTransaction.datetime),
         usdConversionRateProvider,
         identityConfig
       );
@@ -124,18 +118,18 @@ export async function applyCarryoverSemantics(params: {
       }
 
       const feeAdjustmentEventsResult = buildAddToPoolCostAdjustmentEvents(
-        targetRef.movement,
+        target.target.movement,
         valuedFeesResult.value,
-        new Date(targetRef.scopedTransaction.tx.datetime),
-        targetRef.scopedTransaction.tx.id,
-        `carryover:${carryover.sourceTransactionId}:${target.targetMovementFingerprint}:fee-adjustment`,
-        `carryover:${carryover.sourceTransactionId}:${target.targetMovementFingerprint}:transfer-in`,
+        new Date(targetTransactionView.processedTransaction.datetime),
+        targetTransactionView.processedTransaction.id,
+        `carryover:${sourceTransaction.id}:${target.target.movement.movementFingerprint}:fee-adjustment`,
+        `carryover:${sourceTransaction.id}:${target.target.movement.movementFingerprint}:transfer-in`,
         identityConfig,
         {
           provenanceKind: 'fee-only-carryover',
-          sourceTransactionId: carryover.sourceTransactionId,
-          sourceMovementFingerprint: carryover.sourceMovementFingerprint,
-          targetMovementFingerprint: target.targetMovementFingerprint,
+          sourceTransactionId: sourceTransaction.id,
+          sourceMovementFingerprint: resolvedCarryover.source.movement.movementFingerprint,
+          targetMovementFingerprint: target.target.movement.movementFingerprint,
         }
       );
       if (feeAdjustmentEventsResult.isErr()) {

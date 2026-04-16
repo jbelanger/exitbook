@@ -190,6 +190,10 @@ Semantics:
 - this build result is intentionally narrow
 - do not add consumer-policy helpers such as
   `rebuildDependencyTransactionIds` directly to `AccountingEntry`
+- zero-quantity fee artifacts are non-material
+  - they may still exist in intermediate processed/scoped transaction shapes
+  - they must not materialize as canonical accounting fee entries or canonical
+    accounting fee views
 
 Semantics:
 
@@ -358,6 +362,8 @@ Current migration status:
 
 - accounting-side price completeness / rebuild subset selection now reads the
   accounting-layer build result
+- Canada tax input building, fee adjustments, and carryover semantics now read
+  the canonical accounting layer end-to-end
 - cost-basis lot matching and scoped calculation still read the scoped
   transaction build
 - the canonical accounting layer now includes `accountingTransactionViews` as

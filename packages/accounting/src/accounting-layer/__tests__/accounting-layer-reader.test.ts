@@ -145,6 +145,45 @@ describe('buildAccountingLayerFromTransactions', () => {
     ]);
   });
 
+  it('drops zero-quantity fees from the canonical accounting layer', () => {
+    const transaction = buildTransaction({
+      id: 2,
+      datetime: '2024-01-01T00:00:00Z',
+      platformKind: 'blockchain',
+      platformKey: 'bitcoin',
+      category: 'transfer',
+      type: 'withdrawal',
+      outflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '1',
+          netAmount: '1',
+        },
+      ],
+      fees: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC' as Currency,
+          amount: parseDecimal('0'),
+          scope: 'network',
+          settlement: 'on-chain',
+        },
+      ],
+    });
+
+    const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
+
+    expect(buildResult.accountingTransactionViews).toHaveLength(1);
+    expect(buildResult.accountingTransactionViews[0]!.fees).toEqual([]);
+    expect(buildResult.entries).toHaveLength(1);
+    expect(buildResult.entries[0]).toMatchObject({
+      kind: 'asset_outflow',
+      assetId: 'blockchain:bitcoin:native',
+      quantity: parseDecimal('1'),
+    });
+  });
+
   it('emits internal-transfer carryovers and derivation dependencies for pure internal same-hash transfers', () => {
     const sameHash = 'same-hash-transfer';
     const sourceTransaction = buildTransaction({

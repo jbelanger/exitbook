@@ -1,17 +1,14 @@
-import type { PriceAtTxTime } from '@exitbook/core';
+import type { PriceAtTxTime, Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
+import type { AccountingTransactionView, ValidatedTransferSet } from '../../../../cost-basis.js';
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fee-utils.js';
-import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-} from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../../../standard/matching/validated-scoped-transfer-links.js';
 
+import type { CanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
 import {
   buildAddToPoolCostAdjustmentEvents,
   buildMovementIndexes,
@@ -42,12 +39,13 @@ interface SameAssetFeeSourceRef {
   feePriceAtTxTime?: PriceAtTxTime | undefined;
   linkBindings?: readonly SameAssetFeeLinkBinding[] | undefined;
   movementFingerprint?: string | undefined;
+  processedTransaction: Transaction;
   provenanceKind: 'validated-link' | 'fee-only-carryover';
   quantityBase: Decimal;
   sourceQuantityBase: Decimal;
-  scopedTransaction: AccountingScopedTransaction;
-  sourceTransactionId?: number | undefined;
   sourceMovementFingerprint?: string | undefined;
+  sourceTransactionId?: number | undefined;
+  transaction: AccountingTransactionView | Transaction;
 }
 
 function collectAcquisitionEventsForTransaction(
@@ -89,18 +87,19 @@ function allocateCadAcrossEvents(
 }
 
 export async function applyGenericFeeAdjustments(params: {
+  canadaAccountingContext: CanadaAccountingLayerContext;
   events: CanadaTaxInputEvent[];
   identityConfig: CanadaTaxInputContextBuildOptions;
   sameAssetTransferFeeEvents: CanadaFeeAdjustmentEvent[];
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }): Promise<Result<void, Error>> {
-  const { events, identityConfig, sameAssetTransferFeeEvents, scopedTransactions, usdConversionRateProvider } = params;
+  const { canadaAccountingContext, events, identityConfig, sameAssetTransferFeeEvents, usdConversionRateProvider } =
+    params;
 
-  for (const scopedTransaction of scopedTransactions) {
-    const timestamp = new Date(scopedTransaction.tx.datetime);
+  for (const transactionView of canadaAccountingContext.accountingLayer.accountingTransactionViews) {
+    const timestamp = new Date(transactionView.processedTransaction.datetime);
     const valuedFeesResult = await valueScopedFees(
-      scopedTransaction.fees,
+      transactionView.fees,
       timestamp,
       usdConversionRateProvider,
       identityConfig
@@ -109,7 +108,7 @@ export async function applyGenericFeeAdjustments(params: {
       return err(valuedFeesResult.error);
     }
 
-    const acquisitionEvents = collectAcquisitionEventsForTransaction(events, scopedTransaction.tx.id);
+    const acquisitionEvents = collectAcquisitionEventsForTransaction(events, transactionView.processedTransaction.id);
     if (acquisitionEvents.length > 0) {
       const totalAcquisitionFeeCad = valuedFeesResult.value.reduce(
         (sum, valuedFee) => sum.plus(valuedFee.valuation.totalValueCad),
@@ -138,17 +137,17 @@ export async function applyGenericFeeAdjustments(params: {
       }
     }
 
-    const dispositionEvents = collectDispositionEventsForTransaction(events, scopedTransaction.tx.id);
+    const dispositionEvents = collectDispositionEventsForTransaction(events, transactionView.processedTransaction.id);
     if (dispositionEvents.length > 0) {
       const sameAssetReservedCad = sameAssetTransferFeeEvents
-        .filter((event) => event.transactionId === scopedTransaction.tx.id)
+        .filter((event) => event.transactionId === transactionView.processedTransaction.id)
         .reduce((sum, event) => sum.plus(event.valuation.totalValueCad), parseDecimal('0'));
       const onChainFees = valuedFeesResult.value.filter((valuedFee) =>
-        scopedTransaction.fees.some(
+        transactionView.fees.some(
           (fee) =>
             fee.assetId === valuedFee.feeAssetId &&
             fee.assetSymbol === valuedFee.feeAssetSymbol &&
-            fee.settlement === 'on-chain'
+            fee.feeSettlement === 'on-chain'
         )
       );
       const totalDispositionFeeCad = onChainFees.reduce(
@@ -159,7 +158,7 @@ export async function applyGenericFeeAdjustments(params: {
       if (residualDispositionFeeCad.lt(0)) {
         return err(
           new Error(
-            `Same-asset transfer fee adjustments over-allocated on-chain fees in tx ${scopedTransaction.tx.id}. ` +
+            `Same-asset transfer fee adjustments over-allocated on-chain fees in tx ${transactionView.processedTransaction.id}. ` +
               `Reserved ${sameAssetReservedCad.toFixed()} CAD from ${totalDispositionFeeCad.toFixed()} CAD.`
           )
         );
@@ -192,18 +191,18 @@ export async function applyGenericFeeAdjustments(params: {
 }
 
 export async function buildValidatedTransferTargetFeeAdjustments(params: {
+  canadaAccountingContext: CanadaAccountingLayerContext;
   identityConfig: CanadaTaxInputContextBuildOptions;
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
-  validatedTransfers: ValidatedScopedTransferSet;
+  validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
-  const { identityConfig, scopedTransactions, usdConversionRateProvider, validatedTransfers } = params;
-  const { inflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
+  const { canadaAccountingContext, identityConfig, usdConversionRateProvider, validatedTransfers } = params;
+  const { inflowsByFingerprint, transactionViewsById } = buildMovementIndexes(canadaAccountingContext.indexes);
   const events: CanadaFeeAdjustmentEvent[] = [];
 
   for (const validatedLink of validatedTransfers.links) {
-    const sourceTransaction = scopedByTxId.get(validatedLink.link.sourceTransactionId);
-    if (!sourceTransaction) {
+    const sourceTransactionView = transactionViewsById.get(validatedLink.link.sourceTransactionId);
+    if (!sourceTransactionView) {
       return err(new Error(`Transfer source transaction ${validatedLink.link.sourceTransactionId} not found`));
     }
 
@@ -214,7 +213,7 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
 
     const sourceFraction = validatedLink.link.sourceAmount.dividedBy(validatedLink.sourceMovementAmount);
     const targetFraction = validatedLink.link.targetAmount.dividedBy(validatedLink.targetMovementAmount);
-    const fiatFeesResult = collectFiatFees(sourceTransaction, targetRef.scopedTransaction, {
+    const fiatFeesResult = collectFiatFees(sourceTransactionView, targetRef.transactionView, {
       sourceFraction,
       targetFraction,
     });
@@ -224,7 +223,7 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
 
     const valuedFeesResult = await valueCollectedFiatFees(
       fiatFeesResult.value,
-      new Date(targetRef.scopedTransaction.tx.datetime),
+      new Date(targetRef.transactionView.processedTransaction.datetime),
       usdConversionRateProvider,
       identityConfig
     );
@@ -235,8 +234,8 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
     const eventResult = buildAddToPoolCostAdjustmentEvents(
       targetRef.movement,
       valuedFeesResult.value,
-      new Date(targetRef.scopedTransaction.tx.datetime),
-      targetRef.scopedTransaction.tx.id,
+      new Date(targetRef.transactionView.processedTransaction.datetime),
+      targetRef.transactionView.processedTransaction.id,
       `link:${validatedLink.link.id}:fee-adjustment:add-to-pool-cost`,
       `link:${validatedLink.link.id}:transfer-in`,
       identityConfig,
@@ -300,7 +299,7 @@ async function buildSameAssetTransferFeeAdjustmentEvent(
     eventId,
     kind: 'fee-adjustment',
     adjustmentType: 'same-asset-transfer-fee-add-to-basis',
-    transactionId: ref.scopedTransaction.tx.id,
+    transactionId: ref.processedTransaction.id,
     timestamp,
     assetId: ref.assetId,
     assetIdentityKey: ref.assetIdentityKey,
@@ -416,12 +415,11 @@ async function buildSameAssetTransferFeeAdjustmentEventsForRef(
 }
 
 function buildSameAssetFeeSourceRefs(
-  scopedTransactions: AccountingScopedTransaction[],
-  validatedTransfers: ValidatedScopedTransferSet,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
+  canadaAccountingContext: CanadaAccountingLayerContext,
+  validatedTransfers: ValidatedTransferSet,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Result<SameAssetFeeSourceRef[], Error> {
-  const { outflowsByFingerprint, scopedByTxId } = buildMovementIndexes(scopedTransactions);
+  const { outflowsByFingerprint } = buildMovementIndexes(canadaAccountingContext.indexes);
   const refs: SameAssetFeeSourceRef[] = [];
 
   for (const [sourceMovementFingerprint, validatedLinks] of validatedTransfers.bySourceMovementFingerprint.entries()) {
@@ -439,7 +437,7 @@ function buildSameAssetFeeSourceRefs(
       return err(identityResult.error);
     }
 
-    const cryptoFeeResult = extractCryptoFee(outflowRef.scopedTransaction, outflowRef.movement.assetId);
+    const cryptoFeeResult = extractCryptoFee(outflowRef.transactionView, outflowRef.movement.assetId);
     if (cryptoFeeResult.isErr()) {
       return err(cryptoFeeResult.error);
     }
@@ -468,51 +466,49 @@ function buildSameAssetFeeSourceRefs(
         targetMovementFingerprint: validatedLink.targetMovementFingerprint,
       })),
       movementFingerprint: sourceMovementFingerprint,
+      processedTransaction: outflowRef.transactionView.processedTransaction,
       provenanceKind: 'validated-link',
       quantityBase: validatedLinks.reduce(
         (sum, validatedLink) => sum.plus(validatedLink.link.sourceAmount),
         parseDecimal('0')
       ),
       sourceQuantityBase: sourceMovementAmount,
-      scopedTransaction: outflowRef.scopedTransaction,
       sourceMovementFingerprint,
+      transaction: outflowRef.transactionView,
     });
   }
 
-  for (const carryover of feeOnlyInternalCarryovers) {
-    const scopedTransaction = scopedByTxId.get(carryover.sourceTransactionId);
-    if (!scopedTransaction) {
-      return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));
-    }
-
+  for (const resolvedCarryover of canadaAccountingContext.resolvedInternalTransferCarryovers) {
     const carryoverIdentityResult = resolveTaxAssetIdentity(
       {
-        assetId: carryover.assetId,
-        assetSymbol: carryover.assetSymbol,
+        assetId: resolvedCarryover.source.entry.assetId,
+        assetSymbol: resolvedCarryover.source.entry.assetSymbol,
       },
       { assetIdentityOverridesByAssetId: identityConfig.assetIdentityOverridesByAssetId }
     );
     if (carryoverIdentityResult.isErr()) {
       return err(
         new Error(
-          `Failed to resolve carryover asset identity for ${carryover.assetSymbol} (${carryover.assetId}) ` +
-            `in source tx ${carryover.sourceTransactionId}: ${carryoverIdentityResult.error.message}`
+          `Failed to resolve carryover asset identity for ${resolvedCarryover.source.entry.assetSymbol} ` +
+            `(${resolvedCarryover.source.entry.assetId}) in source tx ${resolvedCarryover.source.processedTransaction.id}: ` +
+            `${carryoverIdentityResult.error.message}`
         )
       );
     }
 
     refs.push({
       assetIdentityKey: carryoverIdentityResult.value.identityKey,
-      assetId: carryover.assetId,
-      assetSymbol: carryover.assetSymbol,
-      feePriceAtTxTime: carryover.fee.priceAtTxTime,
-      movementFingerprint: carryover.sourceMovementFingerprint,
+      assetId: resolvedCarryover.source.entry.assetId,
+      assetSymbol: resolvedCarryover.source.entry.assetSymbol,
+      feePriceAtTxTime: resolvedCarryover.fee?.fee.priceAtTxTime,
+      movementFingerprint: resolvedCarryover.source.movement.movementFingerprint,
+      processedTransaction: resolvedCarryover.source.processedTransaction,
       provenanceKind: 'fee-only-carryover',
-      quantityBase: carryover.retainedQuantity,
-      sourceQuantityBase: carryover.retainedQuantity,
-      scopedTransaction,
-      sourceTransactionId: carryover.sourceTransactionId,
-      sourceMovementFingerprint: carryover.sourceMovementFingerprint,
+      quantityBase: resolvedCarryover.source.entry.quantity,
+      sourceQuantityBase: resolvedCarryover.source.entry.quantity,
+      sourceTransactionId: resolvedCarryover.source.processedTransaction.id,
+      sourceMovementFingerprint: resolvedCarryover.source.movement.movementFingerprint,
+      transaction: resolvedCarryover.source.transactionView ?? resolvedCarryover.source.processedTransaction,
     });
   }
 
@@ -520,32 +516,20 @@ function buildSameAssetFeeSourceRefs(
 }
 
 export async function buildSameAssetTransferFeeAdjustments(params: {
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  canadaAccountingContext: CanadaAccountingLayerContext;
   identityConfig: CanadaTaxInputContextBuildOptions;
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
-  validatedTransfers: ValidatedScopedTransferSet;
+  validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaFeeAdjustmentEvent[], Error>> {
-  const {
-    feeOnlyInternalCarryovers,
-    identityConfig,
-    scopedTransactions,
-    usdConversionRateProvider,
-    validatedTransfers,
-  } = params;
-  const refsResult = buildSameAssetFeeSourceRefs(
-    scopedTransactions,
-    validatedTransfers,
-    feeOnlyInternalCarryovers,
-    identityConfig
-  );
+  const { canadaAccountingContext, identityConfig, usdConversionRateProvider, validatedTransfers } = params;
+  const refsResult = buildSameAssetFeeSourceRefs(canadaAccountingContext, validatedTransfers, identityConfig);
   if (refsResult.isErr()) {
     return err(refsResult.error);
   }
 
   const refsByTransactionAndAsset = new Map<string, SameAssetFeeSourceRef[]>();
   for (const ref of refsResult.value) {
-    const key = `${ref.scopedTransaction.tx.id}:${ref.assetId}`;
+    const key = `${ref.processedTransaction.id}:${ref.assetId}`;
     const existingRefs = refsByTransactionAndAsset.get(key) ?? [];
     existingRefs.push(ref);
     refsByTransactionAndAsset.set(key, existingRefs);
@@ -554,7 +538,8 @@ export async function buildSameAssetTransferFeeAdjustments(params: {
   const events: CanadaFeeAdjustmentEvent[] = [];
 
   for (const [key, refs] of refsByTransactionAndAsset.entries()) {
-    const transaction = refs[0]!.scopedTransaction;
+    const processedTransaction = refs[0]!.processedTransaction;
+    const transaction = refs[0]!.transaction;
     const cryptoFeeResult = extractCryptoFee(transaction, refs[0]!.assetId);
     if (cryptoFeeResult.isErr()) {
       return err(cryptoFeeResult.error);
@@ -570,7 +555,7 @@ export async function buildSameAssetTransferFeeAdjustments(params: {
     if (totalSourceQuantityBase.lte(0) || totalInternalQuantityBase.lte(0)) {
       return err(
         new Error(
-          `Same-asset fee allocation requires positive quantity bases for tx ${transaction.tx.id} asset ${refs[0]!.assetId}`
+          `Same-asset fee allocation requires positive quantity bases for tx ${processedTransaction.id} asset ${refs[0]!.assetId}`
         )
       );
     }
@@ -593,10 +578,10 @@ export async function buildSameAssetTransferFeeAdjustments(params: {
         ref,
         allocatedFeeQuantity,
         cryptoFee.priceAtTxTime ?? ref.feePriceAtTxTime,
-        new Date(transaction.tx.datetime),
+        new Date(processedTransaction.datetime),
         usdConversionRateProvider,
         identityConfig,
-        `tx:${transaction.tx.id}:${key}:${index}:same-asset-transfer-fee`
+        `tx:${processedTransaction.id}:${key}:${index}:same-asset-transfer-fee`
       );
       if (eventResult.isErr()) {
         return err(eventResult.error);

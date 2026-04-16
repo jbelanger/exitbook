@@ -1,24 +1,24 @@
-import type { AssetMovement } from '@exitbook/core';
-import { getExplainedTargetResidual, getMovementRole } from '@exitbook/core';
+import { getExplainedTargetResidual } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
-import type { AccountingScopedTransaction } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type {
-  ValidatedScopedTransferLink,
-  ValidatedScopedTransferSet,
-} from '../../../standard/matching/validated-scoped-transfer-links.js';
+  AccountingAssetEntryView,
+  AccountingTransactionView,
+  ValidatedTransferLink,
+  ValidatedTransferSet,
+} from '../../../../cost-basis.js';
+import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 
 import { resolvePoolIdentity, type CanadaMovementEvent } from './canada-tax-event-stage-shared.js';
 import type { CanadaAcquisitionEvent, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 import { buildCanadaTaxValuation, normalizeDecimal } from './canada-tax-valuation.js';
 
-function getTransferComparableQuantity(movement: AssetMovement): Decimal {
-  return movement.netAmount ?? movement.grossAmount;
+function getTransferComparableQuantity(movement: AccountingAssetEntryView): Decimal {
+  return movement.netQuantity ?? movement.grossQuantity;
 }
 
-function sortValidatedLinks(links: ValidatedScopedTransferLink[]): ValidatedScopedTransferLink[] {
+function sortValidatedLinks(links: ValidatedTransferLink[]): ValidatedTransferLink[] {
   return [...links].sort((left, right) => left.link.id - right.link.id);
 }
 
@@ -40,8 +40,8 @@ function getResidualQuantity(
 }
 
 async function buildMovementEvent(
-  scopedTransaction: AccountingScopedTransaction,
-  movement: AssetMovement,
+  transactionView: AccountingTransactionView,
+  movement: AccountingAssetEntryView,
   quantity: Decimal,
   kind: CanadaMovementEvent['kind'],
   eventId: string,
@@ -62,7 +62,11 @@ async function buildMovementEvent(
   }
 
   if (!movement.priceAtTxTime) {
-    return err(new Error(`Missing priceAtTxTime for ${kind} ${movement.assetSymbol} in tx ${scopedTransaction.tx.id}`));
+    return err(
+      new Error(
+        `Missing priceAtTxTime for ${kind} ${movement.assetSymbol} in tx ${transactionView.processedTransaction.id}`
+      )
+    );
   }
 
   const identityResult = resolvePoolIdentity(movement, identityConfig);
@@ -73,7 +77,7 @@ async function buildMovementEvent(
   const valuationResult = await buildCanadaTaxValuation({
     priceAtTxTime: movement.priceAtTxTime,
     quantity,
-    timestamp: new Date(scopedTransaction.tx.datetime),
+    timestamp: new Date(transactionView.processedTransaction.datetime),
     usdConversionRateProvider,
   });
   if (valuationResult.isErr()) {
@@ -82,8 +86,8 @@ async function buildMovementEvent(
 
   const baseEvent = {
     eventId,
-    transactionId: scopedTransaction.tx.id,
-    timestamp: new Date(scopedTransaction.tx.datetime),
+    transactionId: transactionView.processedTransaction.id,
+    timestamp: new Date(transactionView.processedTransaction.datetime),
     assetId: movement.assetId,
     assetIdentityKey: identityResult.value.assetIdentityKey,
     taxPropertyKey: identityResult.value.taxPropertyKey,
@@ -114,12 +118,14 @@ async function buildMovementEvent(
   }
 }
 
-function getMovementIncomeCategory(movement: AssetMovement): CanadaAcquisitionEvent['incomeCategory'] | undefined {
-  return getMovementRole(movement) === 'staking_reward' ? 'staking_reward' : undefined;
+function getMovementIncomeCategory(
+  movement: Pick<AccountingAssetEntryView, 'role'>
+): CanadaAcquisitionEvent['incomeCategory'] | undefined {
+  return movement.role === 'staking_reward' ? 'staking_reward' : undefined;
 }
 
 function getExplainedResidualIncomeCategory(
-  links: readonly ValidatedScopedTransferLink[],
+  links: readonly ValidatedTransferLink[],
   residualQuantity: Decimal
 ): CanadaAcquisitionEvent['incomeCategory'] | undefined {
   const explainedResidual = getExplainedTargetResidual(links.map((validatedLink) => validatedLink.link));
@@ -136,14 +142,14 @@ function getExplainedResidualIncomeCategory(
 }
 
 async function projectTransferAwareMovementEvents(
-  scopedTransaction: AccountingScopedTransaction,
-  movement: AssetMovement,
+  transactionView: AccountingTransactionView,
+  movement: AccountingAssetEntryView,
   direction: 'inflow' | 'outflow',
-  validatedLinks: ValidatedScopedTransferLink[],
+  validatedLinks: readonly ValidatedTransferLink[],
   usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Promise<Result<CanadaMovementEvent[], Error>> {
-  const sortedLinks = sortValidatedLinks(validatedLinks);
+  const sortedLinks = sortValidatedLinks([...validatedLinks]);
   const transferEventKind = direction === 'inflow' ? 'transfer-in' : 'transfer-out';
   const residualEventKind = direction === 'inflow' ? 'acquisition' : 'disposition';
 
@@ -151,11 +157,11 @@ async function projectTransferAwareMovementEvents(
     const incomeCategory =
       direction === 'inflow' && residualEventKind === 'acquisition' ? getMovementIncomeCategory(movement) : undefined;
     const directEventResult = await buildMovementEvent(
-      scopedTransaction,
+      transactionView,
       movement,
-      movement.grossAmount,
+      movement.grossQuantity,
       residualEventKind,
-      `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
+      `tx:${transactionView.processedTransaction.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
       { provenanceKind: 'scoped-movement' },
@@ -188,7 +194,7 @@ async function projectTransferAwareMovementEvents(
   for (const validatedLink of sortedLinks) {
     const transferQuantity = direction === 'inflow' ? validatedLink.link.targetAmount : validatedLink.link.sourceAmount;
     const eventResult = await buildMovementEvent(
-      scopedTransaction,
+      transactionView,
       movement,
       transferQuantity,
       transferEventKind,
@@ -218,11 +224,11 @@ async function projectTransferAwareMovementEvents(
           getMovementIncomeCategory(movement))
         : undefined;
     const residualEventResult = await buildMovementEvent(
-      scopedTransaction,
+      transactionView,
       movement,
       residualQuantityResult.value,
       residualEventKind,
-      `tx:${scopedTransaction.tx.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
+      `tx:${transactionView.processedTransaction.id}:${residualEventKind}:${movement.movementFingerprint}:residual`,
       usdConversionRateProvider,
       identityConfig,
       { provenanceKind: 'scoped-movement' },
@@ -241,18 +247,18 @@ async function projectTransferAwareMovementEvents(
 }
 
 export async function projectCanadaMovementEvents(params: {
+  accountingTransactionViews: readonly AccountingTransactionView[];
   identityConfig: CanadaTaxInputContextBuildOptions;
-  scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
-  validatedTransfers: ValidatedScopedTransferSet;
+  validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaMovementEvent[], Error>> {
-  const { identityConfig, scopedTransactions, usdConversionRateProvider, validatedTransfers } = params;
+  const { accountingTransactionViews, identityConfig, usdConversionRateProvider, validatedTransfers } = params;
   const events: CanadaMovementEvent[] = [];
 
-  for (const scopedTransaction of scopedTransactions) {
-    for (const inflow of scopedTransaction.movements.inflows) {
+  for (const transactionView of accountingTransactionViews) {
+    for (const inflow of transactionView.inflows) {
       const inflowEventsResult = await projectTransferAwareMovementEvents(
-        scopedTransaction,
+        transactionView,
         inflow,
         'inflow',
         validatedTransfers.byTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [],
@@ -265,9 +271,9 @@ export async function projectCanadaMovementEvents(params: {
       events.push(...inflowEventsResult.value);
     }
 
-    for (const outflow of scopedTransaction.movements.outflows) {
+    for (const outflow of transactionView.outflows) {
       const outflowEventsResult = await projectTransferAwareMovementEvents(
-        scopedTransaction,
+        transactionView,
         outflow,
         'outflow',
         validatedTransfers.bySourceMovementFingerprint.get(outflow.movementFingerprint) ?? [],

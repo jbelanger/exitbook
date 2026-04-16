@@ -1,13 +1,10 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import type { AccountingLayerBuildResult, ValidatedTransferSet } from '../../../../cost-basis.js';
 import { UsdConversionRateProvider } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
-import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-} from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../../../standard/matching/validated-scoped-transfer-links.js';
 
+import { buildCanadaAccountingLayerContext } from './canada-accounting-layer-context.js';
 import { applyCarryoverSemantics } from './canada-tax-event-carryover.js';
 import {
   applyGenericFeeAdjustments,
@@ -20,14 +17,18 @@ import { buildTransferAwareIdentityConfig } from './canada-tax-identity-override
 import type { CanadaTaxInputContext, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
 export async function buildCanadaTaxInputContext(params: {
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  accountingLayer: AccountingLayerBuildResult;
   identityConfig: CanadaTaxInputContextBuildOptions;
   priceRuntime: IPriceProviderRuntime;
-  scopedTransactions: AccountingScopedTransaction[];
-  validatedTransfers: ValidatedScopedTransferSet;
+  validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaTaxInputContext, Error>> {
-  const { feeOnlyInternalCarryovers, identityConfig, priceRuntime, scopedTransactions, validatedTransfers } = params;
+  const { accountingLayer, identityConfig, priceRuntime, validatedTransfers } = params;
   const usdConversionRateProvider = new UsdConversionRateProvider(priceRuntime);
+  const canadaAccountingContextResult = buildCanadaAccountingLayerContext(accountingLayer);
+  if (canadaAccountingContextResult.isErr()) {
+    return err(canadaAccountingContextResult.error);
+  }
+  const canadaAccountingContext = canadaAccountingContextResult.value;
   const effectiveIdentityConfigResult = buildTransferAwareIdentityConfig(identityConfig, validatedTransfers);
   if (effectiveIdentityConfigResult.isErr()) {
     return err(effectiveIdentityConfigResult.error);
@@ -35,7 +36,7 @@ export async function buildCanadaTaxInputContext(params: {
   const effectiveIdentityConfig = effectiveIdentityConfigResult.value;
 
   const projectedEventsResult = await projectCanadaMovementEvents({
-    scopedTransactions,
+    accountingTransactionViews: accountingLayer.accountingTransactionViews,
     validatedTransfers,
     usdConversionRateProvider,
     identityConfig: effectiveIdentityConfig,
@@ -45,9 +46,8 @@ export async function buildCanadaTaxInputContext(params: {
   }
 
   const carryoverEventsResult = await applyCarryoverSemantics({
+    canadaAccountingContext,
     events: projectedEventsResult.value,
-    scopedTransactions,
-    feeOnlyInternalCarryovers,
     usdConversionRateProvider,
     identityConfig: effectiveIdentityConfig,
   });
@@ -58,7 +58,7 @@ export async function buildCanadaTaxInputContext(params: {
   const finalizedEvents = carryoverEventsResult.value;
 
   const validatedTargetFeeEventsResult = await buildValidatedTransferTargetFeeAdjustments({
-    scopedTransactions,
+    canadaAccountingContext,
     validatedTransfers,
     usdConversionRateProvider,
     identityConfig: effectiveIdentityConfig,
@@ -68,9 +68,8 @@ export async function buildCanadaTaxInputContext(params: {
   }
 
   const sameAssetTransferFeeEventsResult = await buildSameAssetTransferFeeAdjustments({
-    scopedTransactions,
+    canadaAccountingContext,
     validatedTransfers,
-    feeOnlyInternalCarryovers,
     usdConversionRateProvider,
     identityConfig: effectiveIdentityConfig,
   });
@@ -79,8 +78,8 @@ export async function buildCanadaTaxInputContext(params: {
   }
 
   const genericFeeAdjustmentsResult = await applyGenericFeeAdjustments({
+    canadaAccountingContext,
     events: finalizedEvents,
-    scopedTransactions,
     usdConversionRateProvider,
     identityConfig: effectiveIdentityConfig,
     sameAssetTransferFeeEvents: sameAssetTransferFeeEventsResult.value,
@@ -91,10 +90,12 @@ export async function buildCanadaTaxInputContext(params: {
 
   return ok({
     taxCurrency: 'CAD',
-    scopedTransactionIds: scopedTransactions.map((scopedTransaction) => scopedTransaction.tx.id),
+    scopedTransactionIds: accountingLayer.accountingTransactionViews.map(
+      (transactionView) => transactionView.processedTransaction.id
+    ),
     validatedTransferLinkIds: validatedTransfers.links.map((validatedLink) => validatedLink.link.id),
-    feeOnlyInternalCarryoverSourceTransactionIds: feeOnlyInternalCarryovers.map(
-      (carryover) => carryover.sourceTransactionId
+    feeOnlyInternalCarryoverSourceTransactionIds: canadaAccountingContext.resolvedInternalTransferCarryovers.map(
+      (carryover) => carryover.source.processedTransaction.id
     ),
     inputEvents: sortCanadaEvents([
       ...finalizedEvents,

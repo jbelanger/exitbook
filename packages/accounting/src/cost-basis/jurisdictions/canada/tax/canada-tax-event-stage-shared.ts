@@ -1,8 +1,12 @@
-import type { AssetMovement, AssetMovementDraft, FeeMovementDraft } from '@exitbook/core';
+import type { AssetMovementDraft, FeeMovementDraft } from '@exitbook/core';
 import { err, isFiat, ok, type Result } from '@exitbook/foundation';
 
+import type {
+  AccountingFeeEntryView,
+  AccountingLayerIndexes,
+  AccountingTransactionView,
+} from '../../../../cost-basis.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
-import type { AccountingScopedTransaction } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 
 import type { CanadaValuedFee } from './canada-tax-fee-utils.js';
 import { buildCanadaTaxPropertyKey } from './canada-tax-identity-utils.js';
@@ -33,13 +37,26 @@ export interface CanadaEventIndex {
 }
 
 export interface CanadaMovementIndexes {
-  inflowsByFingerprint: Map<string, { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }>;
-  outflowsByFingerprint: Map<string, { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }>;
-  scopedByTxId: Map<number, AccountingScopedTransaction>;
+  inflowsByFingerprint: Map<string, { movement: CanadaIndexedMovementRef; transactionView: AccountingTransactionView }>;
+  outflowsByFingerprint: Map<
+    string,
+    { movement: CanadaIndexedMovementRef; transactionView: AccountingTransactionView }
+  >;
+  transactionViewsById: Map<number, AccountingTransactionView>;
+}
+
+export interface CanadaIndexedMovementRef {
+  assetId: string;
+  assetSymbol: AccountingTransactionView['inflows'][number]['assetSymbol'];
+  grossQuantity: AccountingTransactionView['inflows'][number]['grossQuantity'];
+  movementFingerprint: string;
+  netQuantity?: AccountingTransactionView['inflows'][number]['netQuantity'];
+  priceAtTxTime?: AccountingTransactionView['inflows'][number]['priceAtTxTime'];
+  role: AccountingTransactionView['inflows'][number]['role'];
 }
 
 export function resolvePoolIdentity(
-  item: AssetMovementDraft | FeeMovementDraft,
+  item: Pick<AssetMovementDraft | FeeMovementDraft, 'assetId' | 'assetSymbol'>,
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Result<CanadaPoolIdentity, Error> {
   if (isFiat(item.assetSymbol)) {
@@ -95,32 +112,63 @@ export function buildEventIndex(events: CanadaTaxInputEvent[]): CanadaEventIndex
   return { byMovementFingerprint, byTransactionId };
 }
 
-export function buildMovementIndexes(scopedTransactions: AccountingScopedTransaction[]): CanadaMovementIndexes {
+export function buildMovementIndexes(indexes: AccountingLayerIndexes): CanadaMovementIndexes {
   const inflowsByFingerprint = new Map<
     string,
-    { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }
+    { movement: CanadaIndexedMovementRef; transactionView: AccountingTransactionView }
   >();
   const outflowsByFingerprint = new Map<
     string,
-    { movement: AssetMovement; scopedTransaction: AccountingScopedTransaction }
+    { movement: CanadaIndexedMovementRef; transactionView: AccountingTransactionView }
   >();
-  const scopedByTxId = new Map<number, AccountingScopedTransaction>();
 
-  for (const scopedTransaction of scopedTransactions) {
-    scopedByTxId.set(scopedTransaction.tx.id, scopedTransaction);
-    for (const inflow of scopedTransaction.movements.inflows) {
-      inflowsByFingerprint.set(inflow.movementFingerprint, { movement: inflow, scopedTransaction });
+  for (const [movementFingerprint, ref] of indexes.inflowRefsByMovementFingerprint.entries()) {
+    if (!ref.transactionView) {
+      continue;
     }
-    for (const outflow of scopedTransaction.movements.outflows) {
-      outflowsByFingerprint.set(outflow.movementFingerprint, { movement: outflow, scopedTransaction });
-    }
+
+    inflowsByFingerprint.set(movementFingerprint, {
+      movement: {
+        assetId: ref.movement.assetId,
+        assetSymbol: ref.movement.assetSymbol,
+        grossQuantity: ref.movement.grossQuantity,
+        movementFingerprint: ref.movement.movementFingerprint,
+        netQuantity: ref.movement.netQuantity,
+        priceAtTxTime: ref.movement.priceAtTxTime,
+        role: ref.movement.role,
+      },
+      transactionView: ref.transactionView,
+    });
   }
 
-  return { inflowsByFingerprint, outflowsByFingerprint, scopedByTxId };
+  for (const [movementFingerprint, ref] of indexes.outflowRefsByMovementFingerprint.entries()) {
+    if (!ref.transactionView) {
+      continue;
+    }
+
+    outflowsByFingerprint.set(movementFingerprint, {
+      movement: {
+        assetId: ref.movement.assetId,
+        assetSymbol: ref.movement.assetSymbol,
+        grossQuantity: ref.movement.grossQuantity,
+        movementFingerprint: ref.movement.movementFingerprint,
+        netQuantity: ref.movement.netQuantity,
+        priceAtTxTime: ref.movement.priceAtTxTime,
+        role: ref.movement.role,
+      },
+      transactionView: ref.transactionView,
+    });
+  }
+
+  return {
+    inflowsByFingerprint,
+    outflowsByFingerprint,
+    transactionViewsById: indexes.transactionViewsByTransactionId,
+  };
 }
 
 export function buildAddToPoolCostAdjustmentEvents(
-  poolMovement: AssetMovement,
+  poolMovement: Pick<CanadaIndexedMovementRef | AccountingFeeEntryView, 'assetId' | 'assetSymbol'>,
   valuedFees: CanadaValuedFee[],
   timestamp: Date,
   transactionId: number,

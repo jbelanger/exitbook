@@ -99,6 +99,10 @@ export function buildAccountingLayerFromScopedBuild(
         return err(entryResult.error);
       }
 
+      if (!entryResult.value) {
+        continue;
+      }
+
       entries.push(entryResult.value);
       feeEntryByMovementFingerprint.set(fee.movementFingerprint, entryResult.value);
       fees.push({
@@ -228,7 +232,14 @@ function buildAssetAccountingEntry(
   });
 }
 
-function buildFeeAccountingEntry(transaction: Transaction, fee: FeeMovement): Result<AccountingEntry, Error> {
+function buildFeeAccountingEntry(
+  transaction: Transaction,
+  fee: FeeMovement
+): Result<AccountingEntry | undefined, Error> {
+  if (fee.amount.isZero()) {
+    return ok(undefined);
+  }
+
   if (!fee.amount.gt(0)) {
     return err(
       new Error(`Accounting fee entry quantity must be positive: transaction ${transaction.id}, fee ${fee.assetId}`)

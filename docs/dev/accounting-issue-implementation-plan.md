@@ -153,8 +153,8 @@ Phase 0 investigation log:
     transaction build
   - this is an intentional intermediate boundary, not the final end state
 - next proving migration boundary is now explicit:
-  - lot matching, scoped transfer validation, and Canada tax projection are
-    still transaction-shaped consumers
+  - lot matching and parts of standard cost-basis calculation are still
+    transaction-shaped consumers
   - the canonical accounting layer now includes
     `accountingTransactionViews` as the grouped transaction view for those
     consumers
@@ -166,11 +166,13 @@ Phase 0 investigation log:
     - synthetic carryover source entries resolve back to processed-transaction
       movement refs
     - retained targets and fee entries resolve to accounting transaction views
-  - Canada tax event projection looks close to the canonical layer, but its
-    fee/carryover path still depends on older transaction-pair semantics
-  - the next decision is whether to:
-    - enrich the canonical carryover/read seam for Canada
-    - or migrate a different real consumer first
+  - Canada tax input building, transfer validation, fee adjustments, and
+    carryover handling now read the canonical accounting layer end-to-end
+  - the canonical accounting layer now collapses zero-quantity fee artifacts
+    instead of treating them as material accounting entries
+  - the next proving migration boundary is now:
+    - lot matching and standard lot transfer processing
+    - any remaining transaction-shaped consumers outside the Canada path
 
 ## Chosen Model
 

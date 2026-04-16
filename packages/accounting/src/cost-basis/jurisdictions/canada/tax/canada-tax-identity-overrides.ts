@@ -1,7 +1,7 @@
 import { err, ok, parseAssetId, type Result } from '@exitbook/foundation';
 
+import type { ValidatedTransferSet } from '../../../../cost-basis.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
-import type { ValidatedScopedTransferSet } from '../../../standard/matching/validated-scoped-transfer-links.js';
 
 import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
@@ -16,7 +16,7 @@ function isBlockchainTokenAsset(assetId: string): Result<boolean, Error> {
 }
 
 function buildBlockchainTokenIdentityOverride(
-  validatedLink: ValidatedScopedTransferSet['links'][number],
+  validatedLink: ValidatedTransferSet['links'][number],
   identityConfig: CanadaTaxInputContextBuildOptions
 ): Result<{ blockchainAssetId: string; exchangeIdentityKey: string } | undefined, Error> {
   const sourceParsedResult = parseAssetId(validatedLink.sourceAssetId);
@@ -101,7 +101,7 @@ function buildBlockchainTokenIdentityOverride(
 
 export function buildTransferAwareIdentityConfig(
   identityConfig: CanadaTaxInputContextBuildOptions,
-  validatedTransfers: ValidatedScopedTransferSet
+  validatedTransfers: ValidatedTransferSet
 ): Result<CanadaTaxInputContextBuildOptions, Error> {
   const overrides = new Map(identityConfig.assetIdentityOverridesByAssetId ?? []);
 

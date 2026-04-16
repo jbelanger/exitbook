@@ -10,8 +10,9 @@ import {
   materializeTestTransaction,
   noopLogger,
 } from '../../__tests__/test-utils.js';
+import { buildAccountingLayerFromScopedBuild } from '../../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import type { ValidatedTransferSet } from '../../../../../accounting-layer/validated-transfer-links.js';
 import { buildCostBasisScopedTransactions } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
-import type { ValidatedScopedTransferSet } from '../../../../standard/matching/validated-scoped-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
@@ -333,16 +334,16 @@ describe('buildCanadaTaxInputContext', () => {
       targetMovementAmount: parseDecimal('0.4'),
       targetMovementFingerprint,
     };
-    const validatedTransfers: ValidatedScopedTransferSet = {
+    const validatedTransfers: ValidatedTransferSet = {
       links: [validatedLink],
       bySourceMovementFingerprint: new Map([[sourceMovementFingerprint, [validatedLink]]]),
       byTargetMovementFingerprint: new Map([[targetMovementFingerprint, [validatedLink]]]),
     };
+    const accountingLayer = assertOk(buildAccountingLayerFromScopedBuild(scoped));
 
     const result = await buildCanadaTaxInputContext({
-      scopedTransactions: scoped.transactions,
+      accountingLayer,
       validatedTransfers,
-      feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
       priceRuntime: fxProvider,
       identityConfig: {},
     });

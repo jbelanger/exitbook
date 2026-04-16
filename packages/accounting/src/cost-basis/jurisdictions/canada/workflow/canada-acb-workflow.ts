@@ -3,8 +3,9 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
+import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
 import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import { assertNoScopedAssetsRequireReview } from '../../../standard/validation/asset-review-preflight.js';
@@ -46,8 +47,13 @@ export async function runCanadaAcbWorkflow(
     return err(assetReviewResult.error);
   }
 
-  const validatedLinksResult = validateScopedTransferLinks(
-    exclusionApplied.scopedBuildResult.transactions,
+  const accountingLayerResult = buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+  if (accountingLayerResult.isErr()) {
+    return err(accountingLayerResult.error);
+  }
+
+  const validatedLinksResult = validateTransferLinks(
+    accountingLayerResult.value.accountingTransactionViews,
     params.confirmedLinks
   );
   if (validatedLinksResult.isErr()) {
@@ -55,9 +61,8 @@ export async function runCanadaAcbWorkflow(
   }
 
   const inputContextResult = await buildCanadaTaxInputContext({
-    scopedTransactions: exclusionApplied.scopedBuildResult.transactions,
+    accountingLayer: accountingLayerResult.value,
     validatedTransfers: validatedLinksResult.value,
-    feeOnlyInternalCarryovers: exclusionApplied.scopedBuildResult.feeOnlyInternalCarryovers,
     priceRuntime: params.priceRuntime,
     identityConfig: {},
   });

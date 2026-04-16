@@ -7,8 +7,9 @@ import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
+import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
-import { validateScopedTransferLinks } from '../../../standard/matching/validated-scoped-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type {
   CanadaAcquisitionEvent,
@@ -138,13 +139,13 @@ export async function buildCanadaTestInputContext(
 ) {
   const scopedResult = buildCostBasisScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
-  const validatedLinksResult = validateScopedTransferLinks(scoped.transactions, confirmedLinks);
+  const accountingLayer = assertOk(buildAccountingLayerFromScopedBuild(scoped));
+  const validatedLinksResult = validateTransferLinks(accountingLayer.accountingTransactionViews, confirmedLinks);
   const validatedLinks = assertOk(validatedLinksResult);
 
   return buildCanadaTaxInputContext({
-    scopedTransactions: scoped.transactions,
+    accountingLayer,
     validatedTransfers: validatedLinks,
-    feeOnlyInternalCarryovers: scoped.feeOnlyInternalCarryovers,
     priceRuntime,
     identityConfig: {},
   });
