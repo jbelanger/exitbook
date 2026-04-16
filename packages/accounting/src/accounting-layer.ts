@@ -19,7 +19,10 @@ export {
   resolveFeeAccountingEntry,
   resolveInternalTransferCarryovers,
 } from './accounting-layer/accounting-layer-resolution.js';
-export { buildAccountingLayerFromTransactions } from './accounting-layer/build-accounting-layer-from-transactions.js';
+export {
+  buildAccountingLayerFromTransactions,
+  buildScopedAccountingLayerFromTransactions,
+} from './accounting-layer/build-accounting-layer-from-transactions.js';
 export {
   assertAccountingLayerPriceDataQuality,
   assertScopedPriceDataQuality,

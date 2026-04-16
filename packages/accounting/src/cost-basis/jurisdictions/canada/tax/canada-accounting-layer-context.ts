@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/foundation';
+import { resultDo, type Result } from '@exitbook/foundation';
 
 import {
   buildAccountingLayerIndexes,
@@ -17,19 +17,14 @@ export interface CanadaAccountingLayerContext {
 export function buildCanadaAccountingLayerContext(
   accountingLayer: AccountingLayerBuildResult
 ): Result<CanadaAccountingLayerContext, Error> {
-  const indexesResult = buildAccountingLayerIndexes(accountingLayer);
-  if (indexesResult.isErr()) {
-    return err(indexesResult.error);
-  }
+  return resultDo(function* () {
+    const indexes = yield* buildAccountingLayerIndexes(accountingLayer);
+    const resolvedInternalTransferCarryovers = yield* resolveInternalTransferCarryovers(accountingLayer);
 
-  const resolvedCarryoversResult = resolveInternalTransferCarryovers(accountingLayer);
-  if (resolvedCarryoversResult.isErr()) {
-    return err(resolvedCarryoversResult.error);
-  }
-
-  return ok({
-    accountingLayer,
-    indexes: indexesResult.value,
-    resolvedInternalTransferCarryovers: resolvedCarryoversResult.value,
+    return {
+      accountingLayer,
+      indexes,
+      resolvedInternalTransferCarryovers,
+    };
   });
 }

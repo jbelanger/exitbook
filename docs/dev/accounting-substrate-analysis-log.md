@@ -1544,6 +1544,10 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 - `price-validation.ts` now also lives under `accounting-layer/`, so the old
   `cost-basis/standard/validation/` pocket is gone and the remaining explicit
   `AccountingScoped...` helpers are concentrated under one capability
+- `buildScopedAccountingLayerFromTransactions(...)` now owns the repeated
+  `build draft -> apply exclusions -> build canonical layer` sequence, so the
+  remaining draft-layer exposure at consumer call sites is smaller and more
+  uniform
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 

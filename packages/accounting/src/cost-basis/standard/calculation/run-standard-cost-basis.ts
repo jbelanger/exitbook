@@ -1,14 +1,9 @@
 import { type AssetReviewSummary, type Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import {
-  applyAccountingExclusionPolicy,
-  assertNoScopedAssetsRequireReview,
-  type AccountingExclusionPolicy,
-} from '../../../accounting-layer.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import { buildAccountingScopedTransactions } from '../../../accounting-layer/build-accounting-scoped-transactions.js';
+import { assertNoScopedAssetsRequireReview, type AccountingExclusionPolicy } from '../../../accounting-layer.js';
+import { buildScopedAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
@@ -61,120 +56,82 @@ export async function runCostBasisPipeline(
   store: ICostBasisContextReader,
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
-  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
-  if (scopedResult.isErr()) {
-    return err(scopedResult.error);
-  }
-
-  const priceValidatedScopedBuild = applyAccountingExclusionPolicy(
-    scopedResult.value,
-    options.accountingExclusionPolicy
-  ).scopedBuildResult;
-
-  const assetReviewResult = assertNoScopedAssetsRequireReview(
-    priceValidatedScopedBuild.transactions,
-    options.assetReviewSummaries
-  );
-  if (assetReviewResult.isErr()) {
-    return err(assetReviewResult.error);
-  }
-
-  const accountingLayerBuildResult = buildAccountingLayerFromScopedBuild(priceValidatedScopedBuild);
-  if (accountingLayerBuildResult.isErr()) {
-    return err(accountingLayerBuildResult.error);
-  }
-
-  const validationResult = validateAccountingLayerPrices(accountingLayerBuildResult.value, config.currency);
-  if (validationResult.isErr()) {
-    return err(validationResult.error);
-  }
-
-  let { rebuildTransactions } = validationResult.value;
-  const { missingPricesCount } = validationResult.value;
-
-  if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
-    return err(
-      new Error(
-        `${missingPricesCount} transactions are missing required price data. ` +
-          `Run 'exitbook prices enrich' and retry cost basis.`
-      )
-    );
-  }
-
-  let rebuildScopedBuild = priceValidatedScopedBuild;
-  if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
-    logger.warn(
-      {
-        missingPricesCount,
-        originalTransactionsCount: transactions.length,
-        rebuildTransactionsCount: rebuildTransactions.length,
-      },
-      'Excluding transactions with missing prices from the soft cost-basis pipeline'
-    );
-
-    const stabilizedRebuildResult = stabilizeExcludedRebuildTransactions(
-      rebuildTransactions,
-      config.currency,
+  return resultDoAsync(async function* () {
+    const preparedAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+      transactions,
+      logger,
       options.accountingExclusionPolicy
     );
-    if (stabilizedRebuildResult.isErr()) {
-      return err(stabilizedRebuildResult.error);
-    }
 
-    rebuildTransactions = stabilizedRebuildResult.value;
-
-    // Same-hash scoping mutates the scoped transaction set and may emit
-    // fee-only carryovers. After stabilizing the retained raw transactions we
-    // must rebuild the scoped subset so those transfer decisions are recomputed
-    // against the surviving transactions rather than leaving dangling carryover state.
-    const rebuildScopedResult = buildAccountingScopedTransactions(rebuildTransactions, logger);
-    if (rebuildScopedResult.isErr()) {
-      return err(rebuildScopedResult.error);
-    }
-
-    rebuildScopedBuild = applyAccountingExclusionPolicy(
-      rebuildScopedResult.value,
-      options.accountingExclusionPolicy
-    ).scopedBuildResult;
-
-    const rebuildAssetReviewResult = assertNoScopedAssetsRequireReview(
-      rebuildScopedBuild.transactions,
+    yield* assertNoScopedAssetsRequireReview(
+      preparedAccountingLayer.scopedBuildResult.transactions,
       options.assetReviewSummaries
     );
-    if (rebuildAssetReviewResult.isErr()) {
-      return err(rebuildAssetReviewResult.error);
+
+    const validationResult = yield* validateAccountingLayerPrices(
+      preparedAccountingLayer.accountingLayer,
+      config.currency
+    );
+
+    let rebuildTransactions = validationResult.rebuildTransactions;
+    const { missingPricesCount } = validationResult;
+
+    if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
+      return yield* err(
+        new Error(
+          `${missingPricesCount} transactions are missing required price data. ` +
+            `Run 'exitbook prices enrich' and retry cost basis.`
+        )
+      );
     }
-  }
 
-  const rulesResult = resolveCostBasisJurisdictionRules(config.jurisdiction);
-  if (rulesResult.isErr()) {
-    return err(rulesResult.error);
-  }
+    let rebuildAccountingLayer = preparedAccountingLayer.accountingLayer;
+    if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
+      logger.warn(
+        {
+          missingPricesCount,
+          originalTransactionsCount: transactions.length,
+          rebuildTransactionsCount: rebuildTransactions.length,
+        },
+        'Excluding transactions with missing prices from the soft cost-basis pipeline'
+      );
 
-  const rules = rulesResult.value;
+      rebuildTransactions = yield* stabilizeExcludedRebuildTransactions(
+        rebuildTransactions,
+        config.currency,
+        options.accountingExclusionPolicy
+      );
 
-  // Load confirmed links from persistence
-  const contextResult = await store.loadCostBasisContext();
-  if (contextResult.isErr()) {
-    return err(contextResult.error);
-  }
+      // Same-hash scoping mutates the scoped transaction set and may emit
+      // fee-only carryovers. After stabilizing the retained raw transactions we
+      // must rebuild the scoped subset so those transfer decisions are recomputed
+      // against the surviving transactions rather than leaving dangling carryover state.
+      const rebuiltAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+        rebuildTransactions,
+        logger,
+        options.accountingExclusionPolicy
+      );
 
-  const lotMatcher = new LotMatcher();
-  const rebuildAccountingLayerResult = buildAccountingLayerFromScopedBuild(rebuildScopedBuild);
-  if (rebuildAccountingLayerResult.isErr()) {
-    return err(rebuildAccountingLayerResult.error);
-  }
+      rebuildAccountingLayer = rebuiltAccountingLayer.accountingLayer;
 
-  const costBasisResult = await calculateCostBasisFromAccountingLayer(
-    rebuildAccountingLayerResult.value,
-    config,
-    rules,
-    lotMatcher,
-    contextResult.value.confirmedLinks
-  );
-  if (costBasisResult.isErr()) {
-    return err(costBasisResult.error);
-  }
+      yield* assertNoScopedAssetsRequireReview(
+        rebuiltAccountingLayer.scopedBuildResult.transactions,
+        options.assetReviewSummaries
+      );
+    }
 
-  return ok({ summary: costBasisResult.value, missingPricesCount, rebuildTransactions });
+    const rules = yield* resolveCostBasisJurisdictionRules(config.jurisdiction);
+    const context = yield* await store.loadCostBasisContext();
+
+    const lotMatcher = new LotMatcher();
+    const summary = yield* await calculateCostBasisFromAccountingLayer(
+      rebuildAccountingLayer,
+      config,
+      rules,
+      lotMatcher,
+      context.confirmedLinks
+    );
+
+    return { summary, missingPricesCount, rebuildTransactions };
+  });
 }

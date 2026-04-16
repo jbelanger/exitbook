@@ -3,13 +3,8 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import {
-  applyAccountingExclusionPolicy,
-  assertNoScopedAssetsRequireReview,
-  type AccountingExclusionPolicy,
-} from '../../../../accounting-layer.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
+import { assertNoScopedAssetsRequireReview, type AccountingExclusionPolicy } from '../../../../accounting-layer.js';
+import { buildScopedAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type { CanadaAcbEngineResult, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
@@ -35,20 +30,22 @@ export async function runCanadaAcbWorkflow(
   params: RunCanadaAcbWorkflowParams
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   return resultDoAsync(async function* () {
-    const scopedBuildResult = yield* buildAccountingScopedTransactions(params.transactions, logger);
-    const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, params.accountingExclusionPolicy);
+    const preparedAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+      params.transactions,
+      logger,
+      params.accountingExclusionPolicy
+    );
     yield* assertNoScopedAssetsRequireReview(
-      exclusionApplied.scopedBuildResult.transactions,
+      preparedAccountingLayer.scopedBuildResult.transactions,
       params.assetReviewSummaries
     );
 
-    const accountingLayer = yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
     const validatedTransfers = yield* validateTransferLinks(
-      accountingLayer.accountingTransactionViews,
+      preparedAccountingLayer.accountingLayer.accountingTransactionViews,
       params.confirmedLinks
     );
     const inputContext = yield* await buildCanadaTaxInputContext({
-      accountingLayer,
+      accountingLayer: preparedAccountingLayer.accountingLayer,
       validatedTransfers,
       priceRuntime: params.priceRuntime,
       identityConfig: {},

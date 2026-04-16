@@ -1,9 +1,10 @@
 import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
-import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal, resultDo, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import { computeAccountingEntryFingerprint } from './accounting-entry-fingerprint.js';
 import type { AccountingEntry, AccountingEntryDraft } from './accounting-entry-types.js';
+import { applyAccountingExclusionPolicy, type AccountingExclusionPolicy } from './accounting-exclusion-policy.js';
 import type {
   AccountingAssetEntryView,
   AccountingFeeEntryView,
@@ -30,12 +31,33 @@ export function buildAccountingLayerFromTransactions(
   transactions: Transaction[],
   logger: Logger
 ): Result<AccountingLayerBuildResult, Error> {
-  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
-  if (scopedResult.isErr()) {
-    return err(scopedResult.error);
-  }
+  return resultDo(function* () {
+    const { accountingLayer } = yield* buildScopedAccountingLayerFromTransactions(transactions, logger);
+    return accountingLayer;
+  });
+}
 
-  return buildAccountingLayerFromScopedBuild(scopedResult.value);
+export function buildScopedAccountingLayerFromTransactions(
+  transactions: Transaction[],
+  logger: Logger,
+  accountingExclusionPolicy?: AccountingExclusionPolicy
+): Result<
+  {
+    accountingLayer: AccountingLayerBuildResult;
+    scopedBuildResult: AccountingScopedBuildResult;
+  },
+  Error
+> {
+  return resultDo(function* () {
+    const scopedBuildResult = yield* buildAccountingScopedTransactions(transactions, logger);
+    const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, accountingExclusionPolicy);
+    const accountingLayer = yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+
+    return {
+      accountingLayer,
+      scopedBuildResult: exclusionApplied.scopedBuildResult,
+    };
+  });
 }
 
 export function buildAccountingLayerFromScopedBuild(
