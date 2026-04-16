@@ -722,7 +722,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('next_actions_json', 'text', (col) => col.notNull())
     .addCheckConstraint(
       'accounting_issue_rows_family_valid',
-      sql`family IN ('transfer_gap', 'asset_review_blocker', 'tax_readiness', 'execution_failure')`
+      sql`family IN ('transfer_gap', 'asset_review_blocker', 'missing_price', 'tax_readiness', 'execution_failure')`
     )
     .addCheckConstraint(
       'accounting_issue_rows_code_valid',

@@ -266,6 +266,7 @@ describe('runCanadaCostBasisCalculation', () => {
     if (result.isOk()) {
       expect(result.value.executionMeta).toEqual({
         missingPricesCount: 1,
+        missingPriceTransactionIds: [2],
         retainedTransactionIds: [1],
       });
     }

@@ -182,6 +182,7 @@ describe('CostBasisWorkflow', () => {
 
     expect(result.value.executionMeta).toEqual({
       missingPricesCount: 1,
+      missingPriceTransactionIds: [2],
       retainedTransactionIds: [1],
     });
     expect(result.value.summary.lots).toHaveLength(1);
@@ -283,6 +284,7 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.displayReport?.summary.totalCostBasis.toFixed()).toBe('10000');
     expect(result.value.executionMeta).toEqual({
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2],
     });
   });
@@ -328,6 +330,7 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.kind).toBe('canada-workflow');
     expect(result.value.executionMeta).toEqual({
       missingPricesCount: 1,
+      missingPriceTransactionIds: [2],
       retainedTransactionIds: [1],
     });
   });
@@ -465,6 +468,7 @@ describe('CostBasisWorkflow', () => {
     expect(result.value.taxReport.summary.totalDeniedLossCad.toFixed()).toBe('2000');
     expect(result.value.executionMeta).toEqual({
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3],
     });
     expect(

@@ -249,6 +249,7 @@ describe('PortfolioHandler', () => {
         },
         executionMeta: {
           missingPricesCount: 0,
+          missingPriceTransactionIds: [],
           retainedTransactionIds: [tx.id],
         },
         taxReport: {
@@ -335,6 +336,7 @@ describe('PortfolioHandler', () => {
         lotTransfers: [],
         executionMeta: {
           missingPricesCount: 0,
+          missingPriceTransactionIds: [],
           retainedTransactionIds: [tx.id],
         },
       } as never)
@@ -494,6 +496,7 @@ describe('PortfolioHandler', () => {
         lotTransfers: [],
         executionMeta: {
           missingPricesCount: 1,
+          missingPriceTransactionIds: [10],
           retainedTransactionIds: [tx.id],
         },
       } as never)

@@ -42,6 +42,7 @@ export function toStoredStandardArtifact(
     lotTransfers: result.lotTransfers.map(toStoredLotTransfer),
     executionMeta: {
       missingPricesCount: result.executionMeta.missingPricesCount,
+      missingPriceTransactionIds: result.executionMeta.missingPriceTransactionIds,
       retainedTransactionIds: result.executionMeta.retainedTransactionIds,
     },
     ...(result.report ? { report: toStoredCostBasisReport(result.report) } : {}),
@@ -70,6 +71,7 @@ export function fromStoredStandardArtifact(
     },
     executionMeta: {
       missingPricesCount: artifact.executionMeta.missingPricesCount,
+      missingPriceTransactionIds: artifact.executionMeta.missingPriceTransactionIds,
       retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
     },
     ...(artifact.report ? { report: fromStoredCostBasisReport(artifact.report) } : {}),

@@ -1,4 +1,6 @@
 import type { AssetReviewSummary, Transaction } from '@exitbook/core';
+import { isFiat, parseCurrency } from '@exitbook/foundation';
+import { getLogger } from '@exitbook/logger';
 
 import { collectBlockingAssetReviewSummaries } from '../../accounting-model/asset-review-preflight.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -6,10 +8,14 @@ import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.
 import type { TaxPackageBuildContext } from './tax-package-build-context.js';
 import type {
   TaxPackageIncompleteTransferLinkDetail,
+  TaxPackageMissingPriceDetail,
+  TaxPackageMissingPriceItemDetail,
   TaxPackageReadinessMetadata,
   TaxPackageUncertainProceedsAllocationDetail,
   TaxPackageUnknownTransactionClassificationDetail,
 } from './tax-package-types.js';
+
+const logger = getLogger('cost-basis.export.tax-package-readiness-metadata');
 
 const ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES = new Set(['allocation_uncertain']);
 const UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES = new Set(['classification_uncertain', 'classification_failed']);
@@ -34,6 +40,7 @@ export function deriveTaxPackageReadinessMetadata(params: {
     fxFallbackCount: countFxFallbackRows(params.context),
     incompleteTransferLinkCount: incompleteTransferLinkDetails.length,
     incompleteTransferLinkDetails,
+    missingPriceDetails: collectMissingPriceDetails(params.context),
     unknownTransactionClassificationCount: unknownTransactionClassificationDetails.length,
     unknownTransactionClassificationDetails,
     unresolvedAssetReviewCount: countTaxRelevantAssetsRequiringReview(
@@ -218,6 +225,73 @@ function collectIncompleteTransferLinkDetails(
 
   // Standard workflow carryovers are deterministic internal fee handling and are not user-actionable linking work.
   return [];
+}
+
+function collectMissingPriceDetails(context: TaxPackageBuildContext): TaxPackageMissingPriceDetail[] {
+  return context.workflowResult.executionMeta.missingPriceTransactionIds.map((transactionId) => {
+    const transaction = context.sourceContext.transactionsById.get(transactionId);
+    if (!transaction) {
+      throw new Error(`Missing price readiness detail requires source transaction ${transactionId}`);
+    }
+
+    const missingItems = collectTransactionMissingPriceItems(transaction);
+    if (missingItems.length === 0) {
+      throw new Error(
+        `Missing price readiness detail could not find any missing priced items on transaction ${transaction.txFingerprint}`
+      );
+    }
+
+    return {
+      missingItems,
+      platformKey: transaction.platformKey,
+      reference: transaction.txFingerprint,
+      transactionDatetime: transaction.datetime,
+      transactionId: transaction.id,
+    };
+  });
+}
+
+function collectTransactionMissingPriceItems(transaction: Transaction): TaxPackageMissingPriceItemDetail[] {
+  return [
+    ...collectMissingPriceItemDetails('inflow', transaction.movements.inflows ?? []),
+    ...collectMissingPriceItemDetails('outflow', transaction.movements.outflows ?? []),
+    ...collectMissingPriceItemDetails('fee', transaction.fees ?? []),
+  ];
+}
+
+function collectMissingPriceItemDetails(
+  kind: TaxPackageMissingPriceItemDetail['kind'],
+  movements: readonly { assetSymbol: string; priceAtTxTime?: unknown }[]
+): TaxPackageMissingPriceItemDetail[] {
+  return movements.flatMap((movement) => {
+    if (movement.priceAtTxTime) {
+      return [];
+    }
+
+    if (isFiatAssetSymbol(movement.assetSymbol)) {
+      return [];
+    }
+
+    return [
+      {
+        assetSymbol: movement.assetSymbol,
+        kind,
+      },
+    ];
+  });
+}
+
+function isFiatAssetSymbol(assetSymbol: string): boolean {
+  const parsedCurrency = parseCurrency(assetSymbol.trim());
+  if (parsedCurrency.isOk()) {
+    return isFiat(parsedCurrency.value);
+  }
+
+  logger.warn(
+    { error: parsedCurrency.error, assetSymbol },
+    'Unknown asset symbol while deriving missing-price issue detail, treating it as price-requiring'
+  );
+  return false;
 }
 
 function countFxFallbackRows(context: TaxPackageBuildContext): number {

@@ -376,6 +376,7 @@ export function fromStoredCanadaArtifact(artifact: StoredCanadaArtifact): Canada
     ...(artifact.displayReport ? { displayReport: fromStoredCanadaDisplayReport(artifact.displayReport) } : {}),
     executionMeta: {
       missingPricesCount: artifact.executionMeta.missingPricesCount,
+      missingPriceTransactionIds: artifact.executionMeta.missingPriceTransactionIds,
       retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
     },
   };
@@ -431,6 +432,7 @@ function toStoredCanadaArtifact(
     ...(result.displayReport ? { displayReport: toStoredCanadaDisplayReport(result.displayReport) } : {}),
     executionMeta: {
       missingPricesCount: result.executionMeta.missingPricesCount,
+      missingPriceTransactionIds: result.executionMeta.missingPriceTransactionIds,
       retainedTransactionIds: result.executionMeta.retainedTransactionIds,
     },
   };

@@ -59,6 +59,7 @@ Accounting issues are always read inside an explicit accounting scope.
 
 - Purpose: filing/configuration-scoped accounting issues.
 - Current families:
+  - `missing_price`
   - `tax_readiness`
   - `execution_failure`
 - Scope key rule: build the full profile-qualified cost-basis scope key with
@@ -142,7 +143,12 @@ type AccountingIssueScopeKind = 'profile' | 'cost-basis';
 
 type AccountingIssueScopeStatus = 'ready' | 'has-open-issues' | 'failed';
 
-type AccountingIssueFamily = 'transfer_gap' | 'asset_review_blocker' | 'tax_readiness' | 'execution_failure';
+type AccountingIssueFamily =
+  | 'transfer_gap'
+  | 'asset_review_blocker'
+  | 'missing_price'
+  | 'tax_readiness'
+  | 'execution_failure';
 
 type AccountingIssueSeverity = 'warning' | 'blocked';
 
@@ -291,12 +297,35 @@ interface AccountingIssueScopeSummary {
 
 ## Phase 1B Family Mapping
 
+### `missing_price`
+
+- Source: transaction-backed missing-price readiness rows for one explicit
+  cost-basis scope.
+- Scope kind: `cost-basis`.
+- Code set:
+  - `MISSING_PRICE_DATA`
+- Item-backing rule:
+  - always transaction-backed
+  - no summary-only fallback row shape is allowed for this family
+- Canonical key inputs:
+  - readiness code
+  - source transaction ref
+- Severity mapping:
+  - always `blocked`
+- Evidence refs:
+  - always the owning transaction ref
+- Primary next-action mapping:
+  - `kind: 'review_prices'`
+  - `label: 'Review in prices'`
+  - `mode: 'routed'`
+  - `routeTarget.family: 'prices'`
+  - plus `inspect_transaction` review-only when the row is transaction-backed
+
 ### `tax_readiness`
 
 - Source: tax-package readiness evaluation for one explicit cost-basis scope.
 - Scope kind: `cost-basis`.
 - Code set:
-  - `MISSING_PRICE_DATA`
   - `FX_FALLBACK_USED`
   - `UNRESOLVED_ASSET_REVIEW`
   - `UNKNOWN_TRANSACTION_CLASSIFICATION`
@@ -307,22 +336,17 @@ interface AccountingIssueScopeSummary {
   - affected artifact when present
   - affected row ref when present
 - Severity mapping:
-  - `MISSING_PRICE_DATA`
   - `UNRESOLVED_ASSET_REVIEW`
   - `UNKNOWN_TRANSACTION_CLASSIFICATION`
+    map to `blocked`
   - `UNCERTAIN_PROCEEDS_ALLOCATION`
   - `INCOMPLETE_TRANSFER_LINKING`
-    map to `blocked`
+    map to `warning`
   - `FX_FALLBACK_USED` maps to `warning`
 - Evidence refs:
   - transaction refs when the readiness row is transaction-backed
   - no synthetic evidence refs when the issue is scope-backed only
 - Primary next-action mapping:
-  - `MISSING_PRICE_DATA`
-    - `kind: 'review_prices'`
-    - `label: 'Review in prices'`
-    - `mode: 'routed'`
-    - `routeTarget.family: 'prices'`
   - `UNRESOLVED_ASSET_REVIEW`
     - `kind: 'review_asset'`
     - `label: 'Review in assets'`

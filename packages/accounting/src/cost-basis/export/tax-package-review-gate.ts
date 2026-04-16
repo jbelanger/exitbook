@@ -8,6 +8,7 @@ import {
 import type { TaxPackageValidatedScope } from './tax-package-scope-validator.js';
 import type {
   TaxPackageIssue,
+  TaxPackageMissingPriceDetail,
   TaxPackageReadinessResult,
   TaxPackageReviewGateInput,
   TaxPackageUncertainProceedsAllocationDetail,
@@ -21,14 +22,21 @@ export function evaluateTaxPackageReadiness(
   const missingPricesCount = input.workflowResult.executionMeta.missingPricesCount;
 
   if (missingPricesCount > 0) {
-    issues.push(
-      buildReadinessIssue(
-        'MISSING_PRICE_DATA',
-        'blocked',
-        'Required transaction price data is missing.',
-        `Tax package export for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear} is blocked because ${missingPricesCount} retained transactions are missing required price data.`
-      )
-    );
+    const missingPriceDetails = requireMissingPriceDetails(input, missingPricesCount);
+    for (const detail of missingPriceDetails) {
+      issues.push(
+        buildReadinessIssue(
+          'MISSING_PRICE_DATA',
+          'blocked',
+          'A tax-relevant transaction is missing required price data.',
+          buildMissingPriceDetail(detail),
+          {
+            affectedArtifact: 'source transaction',
+            affectedRowRef: detail.reference,
+          }
+        )
+      );
+    }
   }
 
   if ((input.metadata?.unresolvedAssetReviewCount ?? 0) > 0) {
@@ -137,6 +145,20 @@ export function evaluateTaxPackageReadiness(
   };
 }
 
+function requireMissingPriceDetails(
+  input: TaxPackageReviewGateInput<TaxPackageValidatedScope>,
+  missingPricesCount: number
+): readonly TaxPackageMissingPriceDetail[] {
+  const missingPriceDetails = input.metadata?.missingPriceDetails ?? [];
+  if (missingPriceDetails.length === missingPricesCount) {
+    return missingPriceDetails;
+  }
+
+  throw new Error(
+    `Missing-price readiness detail count (${missingPriceDetails.length}) did not match executionMeta.missingPricesCount (${missingPricesCount}) for ${input.scope.config.jurisdiction} ${input.scope.config.taxYear}`
+  );
+}
+
 function buildReadinessIssue(
   code: TaxPackageIssue['code'],
   severity: TaxPackageIssue['severity'],
@@ -161,6 +183,15 @@ function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTr
       : '';
 
   return `Tax-relevant transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
+}
+
+function buildMissingPriceDetail(detail: TaxPackageMissingPriceDetail): string {
+  const missingItems = detail.missingItems
+    .map((item) => `${item.kind} ${item.assetSymbol}`)
+    .sort()
+    .join(', ');
+
+  return `Tax-relevant transaction ${detail.platformKey} at ${detail.transactionDatetime} is missing required price data for ${missingItems}.`;
 }
 
 function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProceedsAllocationDetail): string {

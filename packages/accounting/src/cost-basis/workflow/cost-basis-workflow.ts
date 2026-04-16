@@ -117,6 +117,7 @@ export class CostBasisWorkflow {
       lotTransfers,
       executionMeta: {
         missingPricesCount: pipelineResult.value.missingPricesCount,
+        missingPriceTransactionIds: pipelineResult.value.missingPriceTransactions.map((transaction) => transaction.id),
         retainedTransactionIds: pipelineResult.value.rebuildTransactions.map((transaction) => transaction.id),
       },
     };

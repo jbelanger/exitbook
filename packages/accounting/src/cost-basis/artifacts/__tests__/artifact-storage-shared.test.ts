@@ -40,31 +40,44 @@ describe('StoredCostBasisExecutionMetaSchema', () => {
   it('should accept valid execution metadata', () => {
     const valid = {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3],
     };
     expect(StoredCostBasisExecutionMetaSchema.parse(valid)).toEqual(valid);
   });
 
   it('should accept zero missing prices and empty retained ids', () => {
-    const valid = { missingPricesCount: 0, retainedTransactionIds: [] };
+    const valid = { missingPricesCount: 0, missingPriceTransactionIds: [], retainedTransactionIds: [] };
     expect(StoredCostBasisExecutionMetaSchema.parse(valid)).toEqual(valid);
   });
 
   it('should reject negative missingPricesCount', () => {
     expect(() =>
-      StoredCostBasisExecutionMetaSchema.parse({ missingPricesCount: -1, retainedTransactionIds: [] })
+      StoredCostBasisExecutionMetaSchema.parse({
+        missingPricesCount: -1,
+        missingPriceTransactionIds: [],
+        retainedTransactionIds: [],
+      })
     ).toThrow();
   });
 
   it('should reject non-positive transaction ids', () => {
     expect(() =>
-      StoredCostBasisExecutionMetaSchema.parse({ missingPricesCount: 0, retainedTransactionIds: [0] })
+      StoredCostBasisExecutionMetaSchema.parse({
+        missingPricesCount: 0,
+        missingPriceTransactionIds: [0],
+        retainedTransactionIds: [1],
+      })
     ).toThrow();
   });
 
   it('should reject non-integer missingPricesCount', () => {
     expect(() =>
-      StoredCostBasisExecutionMetaSchema.parse({ missingPricesCount: 1.5, retainedTransactionIds: [] })
+      StoredCostBasisExecutionMetaSchema.parse({
+        missingPricesCount: 1.5,
+        missingPriceTransactionIds: [],
+        retainedTransactionIds: [],
+      })
     ).toThrow();
   });
 });

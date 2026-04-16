@@ -51,18 +51,76 @@ describe('evaluateTaxPackageReadiness', () => {
       workflowResult: createStandardWorkflowArtifact({
         executionMeta: {
           missingPricesCount: 2,
+          missingPriceTransactionIds: [9, 10],
           retainedTransactionIds: [1, 2, 3],
         },
       }),
       scope: scope.value,
+      metadata: {
+        missingPriceDetails: [
+          {
+            platformKey: 'kraken',
+            reference: 'TXREF-1',
+            transactionDatetime: '2024-02-03T12:00:00.000Z',
+            transactionId: 9,
+            missingItems: [{ kind: 'outflow', assetSymbol: 'BTC' }],
+          },
+          {
+            platformKey: 'kraken',
+            reference: 'TXREF-2',
+            transactionDatetime: '2024-02-04T12:00:00.000Z',
+            transactionId: 10,
+            missingItems: [
+              { kind: 'fee', assetSymbol: 'ETH' },
+              { kind: 'inflow', assetSymbol: 'USDT' },
+            ],
+          },
+        ],
+      },
     });
 
     expect(result.status).toBe('blocked');
-    expect(result.blockingIssues).toHaveLength(1);
+    expect(result.blockingIssues).toHaveLength(2);
     expect(result.blockingIssues[0]?.code).toBe('MISSING_PRICE_DATA');
+    expect(result.blockingIssues[0]?.affectedArtifact).toBe('source transaction');
+    expect(result.blockingIssues[0]?.affectedRowRef).toBe('TXREF-1');
+    expect(result.blockingIssues[0]?.details).toContain('outflow BTC');
+    expect(result.blockingIssues[1]?.details).toContain('fee ETH, inflow USDT');
     expect(result.blockingIssues[0]?.recommendedAction).toBe(
       'Enrich or set the missing prices, then rerun the package export.'
     );
+  });
+
+  it('fails loudly when missing-price count is not backed by transaction detail', () => {
+    const scope = validateTaxPackageScope({
+      config: {
+        jurisdiction: 'US',
+        method: 'fifo',
+        taxYear: 2024,
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      },
+    });
+
+    if (scope.isErr()) {
+      throw scope.error;
+    }
+
+    expect(() =>
+      evaluateTaxPackageReadiness({
+        workflowResult: createStandardWorkflowArtifact({
+          executionMeta: {
+            missingPricesCount: 1,
+            missingPriceTransactionIds: [9],
+            retainedTransactionIds: [1, 2, 3],
+          },
+        }),
+        scope: scope.value,
+        metadata: {
+          missingPriceDetails: [],
+        },
+      })
+    ).toThrow(/Missing-price readiness detail count/);
   });
 
   it('keeps export ready when only warning issues remain', () => {

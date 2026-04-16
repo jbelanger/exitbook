@@ -71,6 +71,7 @@ beforeEach(() => {
       kind: 'canada-workflow',
       executionMeta: {
         missingPricesCount: 1,
+        missingPriceTransactionIds: [10],
         retainedTransactionIds: [10],
       },
     } as never)
@@ -92,6 +93,15 @@ beforeEach(() => {
     } as never)
   );
   mockDeriveTaxPackageReadinessMetadata.mockReturnValue({
+    missingPriceDetails: [
+      {
+        platformKey: 'kraken',
+        reference: 'abcdef1234567890',
+        transactionDatetime: '2024-07-26T20:35:00.000Z',
+        transactionId: 10,
+        missingItems: [{ kind: 'outflow', assetSymbol: 'ADA' }],
+      },
+    ],
     incompleteTransferLinkCount: 0,
   });
   mockEvaluateTaxPackageReadiness.mockReturnValue({
@@ -102,6 +112,8 @@ beforeEach(() => {
         severity: 'blocked',
         summary: 'Required transaction price data is missing.',
         details: '1 retained transaction is missing price data.',
+        affectedArtifact: 'source transaction',
+        affectedRowRef: 'abcdef1234567890',
         recommendedAction: 'Review price coverage before filing.',
       },
     ],
@@ -112,6 +124,8 @@ beforeEach(() => {
         severity: 'blocked',
         summary: 'Required transaction price data is missing.',
         details: '1 retained transaction is missing price data.',
+        affectedArtifact: 'source transaction',
+        affectedRowRef: 'abcdef1234567890',
         recommendedAction: 'Review price coverage before filing.',
       },
     ],
@@ -150,7 +164,7 @@ describe('materializeCostBasisAccountingIssueScopeSnapshot', () => {
         blockingIssueCount: 1,
       });
       expect(result.value.issues[0]?.issue).toMatchObject({
-        family: 'tax_readiness',
+        family: 'missing_price',
         code: 'MISSING_PRICE_DATA',
         summary: 'Required transaction price data is missing.',
       });

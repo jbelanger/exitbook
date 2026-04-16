@@ -144,6 +144,7 @@ export function createStandardWorkflowArtifact(
     ],
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3, 4, 5],
     },
     ...overrides,
@@ -254,6 +255,7 @@ export function createCanadaWorkflowArtifact(
     },
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [10, 11, 12],
     },
     ...overrides,

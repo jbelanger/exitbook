@@ -116,6 +116,7 @@ function createStandardArtifact(): Extract<CostBasisWorkflowResult, { kind: 'sta
     ],
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3],
     },
   };
@@ -265,6 +266,7 @@ function createCanadaArtifact(): Extract<CostBasisWorkflowResult, { kind: 'canad
     },
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [10, 11, 12],
     },
   };

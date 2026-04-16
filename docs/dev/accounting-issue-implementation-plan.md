@@ -695,7 +695,7 @@ Acceptance criteria:
 
 ### Phase 4: Remaining Issue Families
 
-Status: in progress
+Status: completed
 
 Completed so far:
 
@@ -704,15 +704,18 @@ Completed so far:
 - scoped issue materialization now returns a failed issue scope instead of
   hard-failing the `issues cost-basis` read path for those execution-stage
   failures
+- item-backed `missing_price` cost-basis issues now surface one current issue
+  row per blocked transaction instead of collapsing missing price coverage into
+  one summary-only readiness row
 
 Deliver:
 
-- missing-price issue family once item-backed accounting detail exists
 - any other deferred issue families needed for the accounting work queue to be complete
 
 Rules:
 
 - do not force summary-only rows into the queue when the actionable unit is still unknown
+- missing-price issue rows must stay transaction-backed; do not keep a fallback summary-only `MISSING_PRICE_DATA` issue path
 - do not add a family until its read seam and ownership are clear
 
 Acceptance criteria:

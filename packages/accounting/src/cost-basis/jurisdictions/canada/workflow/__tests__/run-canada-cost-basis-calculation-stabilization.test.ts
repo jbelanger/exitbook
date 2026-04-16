@@ -1,4 +1,3 @@
- 
 import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { ok, parseDecimal } from '@exitbook/foundation';
@@ -177,6 +176,7 @@ describe('runCanadaCostBasisCalculation stabilization seam', () => {
     mockGetCostBasisRebuildTransactions.mockReturnValue(
       ok({
         missingPricesCount: 1,
+        missingPriceTransactions: [unstableDependency],
         rebuildTransactions: [retained, unstableDependency],
       })
     );
@@ -205,6 +205,7 @@ describe('runCanadaCostBasisCalculation stabilization seam', () => {
     if (result.isOk()) {
       expect(result.value.executionMeta).toEqual({
         missingPricesCount: 1,
+        missingPriceTransactionIds: [2],
         retainedTransactionIds: [1],
       });
     }

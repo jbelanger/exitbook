@@ -171,6 +171,8 @@ function formatFamilyLabel(family: AccountingIssueSummaryItem['family']): string
       return 'Asset review blocker';
     case 'execution_failure':
       return 'Execution failure';
+    case 'missing_price':
+      return 'Missing price';
     case 'tax_readiness':
       return 'Tax readiness';
     case 'transfer_gap':

@@ -225,7 +225,7 @@ describe('issues-static-renderer', () => {
         }),
         currentIssues: [
           createSummaryItem({
-            family: 'tax_readiness',
+            family: 'missing_price',
             code: 'MISSING_PRICE_DATA',
             summary: 'Required transaction price data is missing.',
             nextActions: [
@@ -246,7 +246,7 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('Cost-basis issues');
     expect(output).toContain('CA / average-cost / 2024');
     expect(output).toContain('Status: not ready · 1 blocking · 1 open');
-    expect(output).toContain('Tax readiness');
+    expect(output).toContain('Missing price');
     expect(output).toContain('Review in prices');
   });
 });

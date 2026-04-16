@@ -70,6 +70,19 @@ export interface TaxPackageIncompleteTransferLinkDetail {
   transactionId: number;
 }
 
+export interface TaxPackageMissingPriceItemDetail {
+  assetSymbol: string;
+  kind: 'inflow' | 'outflow' | 'fee';
+}
+
+export interface TaxPackageMissingPriceDetail {
+  missingItems: readonly TaxPackageMissingPriceItemDetail[];
+  platformKey: string;
+  reference: string;
+  transactionDatetime: string;
+  transactionId: number;
+}
+
 export interface TaxPackageManifest {
   packageKind: TaxPackageKind;
   packageVersion: TaxPackageVersion;
@@ -132,6 +145,7 @@ export interface TaxPackageReadinessMetadata {
   fxFallbackCount?: number | undefined;
   incompleteTransferLinkCount?: number | undefined;
   incompleteTransferLinkDetails?: readonly TaxPackageIncompleteTransferLinkDetail[] | undefined;
+  missingPriceDetails?: readonly TaxPackageMissingPriceDetail[] | undefined;
   unknownTransactionClassificationCount?: number | undefined;
   unknownTransactionClassificationDetails?: readonly TaxPackageUnknownTransactionClassificationDetail[] | undefined;
   unresolvedAssetReviewCount?: number | undefined;

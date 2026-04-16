@@ -102,6 +102,7 @@ function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind
     lotTransfers: [],
     executionMeta: {
       missingPricesCount: 1,
+      missingPriceTransactionIds: [10],
       retainedTransactionIds: [1, 2],
     },
   };
@@ -174,6 +175,7 @@ describe('CostBasisArtifactService', () => {
         lotTransfers: [],
         executionMeta: {
           missingPricesCount: workflowResult.executionMeta.missingPricesCount,
+          missingPriceTransactionIds: workflowResult.executionMeta.missingPriceTransactionIds,
           retainedTransactionIds: workflowResult.executionMeta.retainedTransactionIds,
         },
       })

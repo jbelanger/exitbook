@@ -13,6 +13,7 @@ export type AccountingIssueScopeStatus = z.infer<typeof AccountingIssueScopeStat
 export const AccountingIssueFamilySchema = z.enum([
   'transfer_gap',
   'asset_review_blocker',
+  'missing_price',
   'tax_readiness',
   'execution_failure',
 ]);

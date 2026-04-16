@@ -43,6 +43,7 @@ export async function runCanadaCostBasisCalculation(
   }
 
   let rebuildTransactions = priceCoverageResult.value.rebuildTransactions;
+  const missingPriceTransactions = priceCoverageResult.value.missingPriceTransactions;
   const missingPricesCount = priceCoverageResult.value.missingPricesCount;
 
   if (params.missingPricePolicy === 'error' && missingPricesCount > 0) {
@@ -78,6 +79,7 @@ export async function runCanadaCostBasisCalculation(
 
   const executionMeta: CostBasisExecutionMeta = {
     missingPricesCount,
+    missingPriceTransactionIds: missingPriceTransactions.map((transaction) => transaction.id),
     retainedTransactionIds: rebuildTransactions.map((transaction) => transaction.id),
   };
 

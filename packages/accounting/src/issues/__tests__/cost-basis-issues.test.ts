@@ -50,13 +50,13 @@ describe('cost-basis-issues', () => {
       status: 'blocked',
       blockingIssues: [
         {
-          code: 'UNKNOWN_TRANSACTION_CLASSIFICATION',
+          code: 'MISSING_PRICE_DATA',
           severity: 'blocked',
-          summary: 'A tax-relevant transaction still has unresolved operation classification.',
-          details: 'Transaction still needs classification review.',
+          summary: 'A tax-relevant transaction is missing required price data.',
+          details: 'Transaction is missing required price data.',
           affectedArtifact: 'source transaction',
           affectedRowRef: 'abcdef1234567890',
-          recommendedAction: 'Review the transaction operation classification before filing.',
+          recommendedAction: 'Review price coverage before filing.',
         },
       ],
       warnings: [
@@ -70,13 +70,13 @@ describe('cost-basis-issues', () => {
       ],
       issues: [
         {
-          code: 'UNKNOWN_TRANSACTION_CLASSIFICATION',
+          code: 'MISSING_PRICE_DATA',
           severity: 'blocked',
-          summary: 'A tax-relevant transaction still has unresolved operation classification.',
-          details: 'Transaction still needs classification review.',
+          summary: 'A tax-relevant transaction is missing required price data.',
+          details: 'Transaction is missing required price data.',
           affectedArtifact: 'source transaction',
           affectedRowRef: 'abcdef1234567890',
-          recommendedAction: 'Review the transaction operation classification before filing.',
+          recommendedAction: 'Review price coverage before filing.',
         },
         {
           code: 'INCOMPLETE_TRANSFER_LINKING',
@@ -95,6 +95,20 @@ describe('cost-basis-issues', () => {
           rowId: 'transfer-1',
           transactionDatetime: '2024-07-25T20:35:00.000Z',
           transactionId: 88,
+        },
+      ],
+      missingPriceDetails: [
+        {
+          platformKey: 'kraken',
+          reference: 'abcdef1234567890',
+          transactionDatetime: '2024-07-26T20:35:00.000Z',
+          transactionId: 89,
+          missingItems: [
+            {
+              kind: 'outflow',
+              assetSymbol: 'ADA',
+            },
+          ],
         },
       ],
     };
@@ -123,7 +137,7 @@ describe('cost-basis-issues', () => {
       },
     });
 
-    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['tax_readiness', 'tax_readiness']);
+    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['missing_price', 'tax_readiness']);
     expect(snapshot.issues[0]?.issue.evidenceRefs).toEqual([
       {
         kind: 'transaction',
@@ -131,6 +145,13 @@ describe('cost-basis-issues', () => {
       },
     ]);
     expect(snapshot.issues[0]?.issue.nextActions[0]).toMatchObject({
+      kind: 'review_prices',
+      mode: 'routed',
+      routeTarget: {
+        family: 'prices',
+      },
+    });
+    expect(snapshot.issues[0]?.issue.nextActions[1]).toMatchObject({
       kind: 'inspect_transaction',
       mode: 'review_only',
       routeTarget: {
@@ -139,6 +160,7 @@ describe('cost-basis-issues', () => {
         selectorValue: 'abcdef1234',
       },
     });
+    expect(snapshot.issues[0]?.issue.details).toContain('Example: outflow ADA on 2024-07-26.');
     expect(snapshot.issues[1]?.issue.nextActions[0]).toMatchObject({
       kind: 'review_links',
       mode: 'routed',

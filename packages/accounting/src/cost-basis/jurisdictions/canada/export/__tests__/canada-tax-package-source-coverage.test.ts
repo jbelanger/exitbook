@@ -137,7 +137,7 @@ function makeArtifact(taxReport: CanadaTaxReport, inputContext?: CanadaTaxInputC
     },
     taxReport,
     inputContext,
-    executionMeta: { missingPricesCount: 0, retainedTransactionIds: [] },
+    executionMeta: { missingPricesCount: 0, missingPriceTransactionIds: [], retainedTransactionIds: [] },
   };
 }
 

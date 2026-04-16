@@ -70,6 +70,7 @@ export function createStandardWorkflowArtifact(
     lotTransfers: [],
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3],
     },
     ...overrides,
@@ -121,6 +122,7 @@ export function createCanadaWorkflowArtifact(
     },
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [10, 11],
     },
     ...overrides,
@@ -450,6 +452,7 @@ export function createStandardPackageBuildContext(): TaxPackageBuildContext {
     ],
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3, 4, 5],
     },
   });

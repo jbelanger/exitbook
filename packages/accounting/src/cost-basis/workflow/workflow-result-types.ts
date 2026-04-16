@@ -13,6 +13,7 @@ import type { CostBasisSummary } from '../standard/calculation/standard-calculat
 
 export interface CostBasisExecutionMeta {
   missingPricesCount: number;
+  missingPriceTransactionIds: number[];
   retainedTransactionIds: number[];
 }
 

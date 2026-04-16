@@ -148,9 +148,9 @@ The issue family may surface rows from these families:
 
 - `transfer_gap`
 - `asset_review_blocker`
+- `missing_price`
 - `tax_readiness`
 - `execution_failure`
-- later `missing_price`
 
 ### Next actions
 
@@ -562,7 +562,7 @@ Shape:
     "currentIssues": [
       {
         "issueRef": "a8f24c7d19",
-        "family": "tax_readiness",
+        "family": "missing_price",
         "code": "MISSING_PRICE_DATA",
         "severity": "blocked",
         "reviewState": "open",
@@ -574,6 +574,16 @@ Shape:
             "mode": "routed",
             "routeTarget": {
               "family": "prices"
+            }
+          },
+          {
+            "kind": "inspect_transaction",
+            "label": "Inspect transaction",
+            "mode": "review_only",
+            "routeTarget": {
+              "family": "transactions",
+              "selectorKind": "tx-ref",
+              "selectorValue": "abcd1234ef"
             }
           }
         ]

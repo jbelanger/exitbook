@@ -5,6 +5,7 @@ export const IsoDateTimeStringSchema = z.string().datetime({ offset: true });
 
 export const StoredCostBasisExecutionMetaSchema = z.object({
   missingPricesCount: z.number().int().nonnegative(),
+  missingPriceTransactionIds: z.array(z.number().int().positive()),
   retainedTransactionIds: z.array(z.number().int().positive()),
 });
 

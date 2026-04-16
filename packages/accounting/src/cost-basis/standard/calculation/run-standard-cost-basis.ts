@@ -37,6 +37,7 @@ interface CostBasisPipelineOptions {
 
 interface CostBasisPipelineResult {
   summary: CostBasisSummary;
+  missingPriceTransactions: Transaction[];
   missingPricesCount: number;
   /**
    * Raw transactions carried forward into the final stabilized scoped rebuild.
@@ -71,7 +72,7 @@ export async function runCostBasisPipeline(
     const validationResult = yield* validateAccountingModelPrices(preparedAccountingModel, config.currency);
 
     let rebuildTransactions = validationResult.rebuildTransactions;
-    const { missingPricesCount } = validationResult;
+    const { missingPriceTransactions, missingPricesCount } = validationResult;
 
     if (options.missingPricePolicy === 'error' && missingPricesCount > 0) {
       return yield* err(
@@ -126,6 +127,6 @@ export async function runCostBasisPipeline(
       context.confirmedLinks
     );
 
-    return { summary, missingPricesCount, rebuildTransactions };
+    return { summary, missingPriceTransactions, missingPricesCount, rebuildTransactions };
   });
 }

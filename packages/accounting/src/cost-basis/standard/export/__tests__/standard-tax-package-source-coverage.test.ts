@@ -107,7 +107,7 @@ function buildArtifact(
     lots,
     disposals,
     lotTransfers,
-    executionMeta: { missingPricesCount: 0, retainedTransactionIds: [] },
+    executionMeta: { missingPricesCount: 0, missingPriceTransactionIds: [], retainedTransactionIds: [] },
   };
 }
 

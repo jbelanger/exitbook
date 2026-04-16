@@ -259,6 +259,7 @@ function createWorkflowResult(overrides?: Partial<CanadaCostBasisWorkflowResult>
     displayReport: createDisplayReport(),
     executionMeta: {
       missingPricesCount: 0,
+      missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2],
     },
     ...overrides,

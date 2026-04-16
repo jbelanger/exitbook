@@ -43,6 +43,7 @@ function filterTransactionsByDateRange(transactions: Transaction[], startDate: D
 
 interface PriceValidationResult {
   evaluatedTransactionCount: number;
+  missingPriceTransactions: Transaction[];
   missingPricesCount: number;
   rebuildTransactions: Transaction[];
 }
@@ -120,9 +121,11 @@ export function validateAccountingModelPrices(
   const { evaluatedTransactionCount, missingPricesCount, ownerHasCompletePrices } = priceCoverageSummaryResult.value;
 
   const rebuildTransactionFingerprints = new Set<string>();
+  const missingPriceTransactionFingerprints = new Set<string>();
 
   for (const [ownerTxFingerprint, hasCompletePrices] of ownerHasCompletePrices) {
     if (!hasCompletePrices) {
+      missingPriceTransactionFingerprints.add(ownerTxFingerprint);
       continue;
     }
 
@@ -137,6 +140,7 @@ export function validateAccountingModelPrices(
   if (evaluatedTransactionCount === 0) {
     return ok({
       evaluatedTransactionCount: 0,
+      missingPriceTransactions: [],
       rebuildTransactions: [],
       missingPricesCount: 0,
     });
@@ -153,6 +157,10 @@ export function validateAccountingModelPrices(
   const rebuildTransactions = accountingModelBuild.processedTransactions.filter((transaction) =>
     rebuildTransactionFingerprints.has(transaction.txFingerprint)
   );
+  const missingPriceTransactions = accountingModelBuild.processedTransactions.filter((transaction) =>
+    missingPriceTransactionFingerprints.has(transaction.txFingerprint)
+  );
+
   if (rebuildTransactions.length !== rebuildTransactionFingerprints.size) {
     const foundFingerprints = new Set(rebuildTransactions.map((transaction) => transaction.txFingerprint));
     const missingTransactionFingerprints = [...rebuildTransactionFingerprints].filter(
@@ -165,8 +173,21 @@ export function validateAccountingModelPrices(
     );
   }
 
+  if (missingPriceTransactions.length !== missingPriceTransactionFingerprints.size) {
+    const foundFingerprints = new Set(missingPriceTransactions.map((transaction) => transaction.txFingerprint));
+    const missingTransactionFingerprints = [...missingPriceTransactionFingerprints].filter(
+      (txFingerprint) => !foundFingerprints.has(txFingerprint)
+    );
+    return err(
+      new Error(
+        `Missing-price transactions are absent from the input set: [${missingTransactionFingerprints.join(', ')}]`
+      )
+    );
+  }
+
   return ok({
     evaluatedTransactionCount,
+    missingPriceTransactions,
     rebuildTransactions,
     missingPricesCount,
   });

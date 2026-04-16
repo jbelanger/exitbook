@@ -5,6 +5,7 @@ import type { TaxPackageValidatedScope } from '../cost-basis/export/tax-package-
 import type {
   TaxPackageIncompleteTransferLinkDetail,
   TaxPackageIssue,
+  TaxPackageMissingPriceDetail,
   TaxPackageReadinessMetadata,
   TaxPackageReadinessResult,
 } from '../cost-basis/export/tax-package-types.js';
@@ -118,7 +119,7 @@ function buildTaxReadinessAccountingIssue(
       kind: 'cost-basis',
       key: scopeKey,
     },
-    family: 'tax_readiness',
+    family: issue.code === 'MISSING_PRICE_DATA' ? 'missing_price' : 'tax_readiness',
     code: issue.code,
     severity: issue.severity,
     reviewState: 'open',
@@ -185,6 +186,15 @@ function formatExecutionFailureStage(stage: string): string {
 }
 
 function buildTaxReadinessDetails(issue: TaxPackageIssue, readinessMetadata: TaxPackageReadinessMetadata): string {
+  if (issue.code === 'MISSING_PRICE_DATA') {
+    const detail = findMissingPriceDetail(readinessMetadata, issue.affectedRowRef);
+    if (detail) {
+      return `${issue.details} ${buildMissingPriceExample(detail)}`;
+    }
+
+    return issue.details;
+  }
+
   if (issue.code !== 'INCOMPLETE_TRANSFER_LINKING') {
     return issue.details;
   }
@@ -202,7 +212,20 @@ function buildIncompleteTransferLinkExample(detail: TaxPackageIncompleteTransfer
   return `Example: ${detail.assetSymbol} on ${date}.`;
 }
 
+function buildMissingPriceExample(detail: TaxPackageMissingPriceDetail): string {
+  const date = detail.transactionDatetime.slice(0, 10);
+  const missingItems = detail.missingItems
+    .map((item) => `${item.kind} ${item.assetSymbol}`)
+    .sort()
+    .join(', ');
+  return `Example: ${missingItems} on ${date}.`;
+}
+
 function buildTaxReadinessWhyThisMatters(issue: TaxPackageIssue): string {
+  if (issue.code === 'MISSING_PRICE_DATA') {
+    return 'Blocks this filing scope until the missing price coverage is resolved.';
+  }
+
   if (issue.severity === 'blocked') {
     return 'Blocks this filing scope from being ready for reporting.';
   }
@@ -229,16 +252,37 @@ function buildTaxReadinessEvidenceRefs(
 function buildTaxReadinessNextActions(issue: TaxPackageIssue, txRef: string | undefined): AccountingIssueNextAction[] {
   switch (issue.code) {
     case 'MISSING_PRICE_DATA':
-      return [
-        {
-          kind: 'review_prices',
-          label: 'Review in prices',
-          mode: 'routed',
-          routeTarget: {
-            family: 'prices',
-          },
-        },
-      ];
+      return txRef === undefined
+        ? [
+            {
+              kind: 'review_prices',
+              label: 'Review in prices',
+              mode: 'routed',
+              routeTarget: {
+                family: 'prices',
+              },
+            },
+          ]
+        : [
+            {
+              kind: 'review_prices',
+              label: 'Review in prices',
+              mode: 'routed',
+              routeTarget: {
+                family: 'prices',
+              },
+            },
+            {
+              kind: 'inspect_transaction',
+              label: 'Inspect transaction',
+              mode: 'review_only',
+              routeTarget: {
+                family: 'transactions',
+                selectorKind: 'tx-ref',
+                selectorValue: txRef,
+              },
+            },
+          ];
     case 'UNRESOLVED_ASSET_REVIEW':
       return [
         {
@@ -286,6 +330,17 @@ function buildTaxReadinessNextActions(issue: TaxPackageIssue, txRef: string | un
         },
       ];
   }
+}
+
+function findMissingPriceDetail(
+  readinessMetadata: TaxPackageReadinessMetadata,
+  affectedRowRef: string | undefined
+): TaxPackageMissingPriceDetail | undefined {
+  if (affectedRowRef === undefined) {
+    return undefined;
+  }
+
+  return readinessMetadata.missingPriceDetails?.find((detail) => detail.reference === affectedRowRef);
 }
 
 function formatIssueTransactionRef(reference: string | undefined): string | undefined {
