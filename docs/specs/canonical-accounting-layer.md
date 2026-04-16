@@ -121,10 +121,40 @@ flat `AccountingEntry[]`.
 
 ```ts
 interface AccountingLayerBuildResult {
+  accountingTransactionViews: readonly AccountingTransactionView[];
   processedTransactions: readonly Transaction[];
   entries: readonly AccountingEntry[];
   derivationDependencies: readonly AccountingDerivationDependency[];
   internalTransferCarryovers: readonly InternalTransferCarryover[];
+}
+
+interface AccountingTransactionView {
+  processedTransaction: Transaction;
+  inflows: readonly AccountingAssetEntryView[];
+  outflows: readonly AccountingAssetEntryView[];
+  fees: readonly AccountingFeeEntryView[];
+}
+
+interface AccountingAssetEntryView {
+  entryFingerprint: string;
+  movementFingerprint: string;
+  assetId: string;
+  assetSymbol: Currency;
+  grossQuantity: Decimal;
+  netQuantity?: Decimal;
+  role: MovementRole;
+  priceAtTxTime?: PriceAtTxTime;
+}
+
+interface AccountingFeeEntryView {
+  entryFingerprint: string;
+  movementFingerprint: string;
+  assetId: string;
+  assetSymbol: Currency;
+  quantity: Decimal;
+  feeScope: FeeMovement['scope'];
+  feeSettlement: FeeMovement['settlement'];
+  priceAtTxTime?: PriceAtTxTime;
 }
 
 interface AccountingDerivationDependency {
@@ -150,6 +180,8 @@ Semantics:
 - `processedTransactions` preserve direct access to processed transaction
   metadata and provenance context without duplicating that metadata on every
   entry
+- `accountingTransactionViews` are deterministic accounting-owned grouped views
+  for consumers that still reason in transaction order
 - `derivationDependencies` are deterministic build metadata that record which
   processed transactions influenced another transaction's accounting shape
 - `internalTransferCarryovers` capture deterministic same-asset internal
@@ -315,6 +347,9 @@ Current migration status:
   accounting-layer build result
 - cost-basis lot matching and scoped calculation still read the scoped
   transaction build
+- the canonical accounting layer now includes `accountingTransactionViews` as
+  the replacement grouped transaction view for future transaction-shaped
+  consumers
 
 ## First Reader Boundary
 
@@ -328,6 +363,8 @@ Why:
   dependencies between processed transactions
 - pure internal same-hash transfers introduce deterministic internal-transfer
   carryovers that are accounting meaning, not just cost-basis-local warnings
+- lot matching and Canada tax projection still need an accounting-owned grouped
+  transaction view
 
 This is the accepted narrow expansion beyond the smaller
 `accounting-entry-plus-provenance-binding` baseline.

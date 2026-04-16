@@ -82,9 +82,32 @@ describe('buildAccountingLayerFromTransactions', () => {
 
     const buildResult = assertOk(buildAccountingLayerFromTransactions([transaction], noopLogger));
 
+    expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.entries).toHaveLength(2);
     expect(buildResult.derivationDependencies).toEqual([]);
     expect(buildResult.internalTransferCarryovers).toEqual([]);
+    expect(buildResult.accountingTransactionViews[0]).toMatchObject({
+      processedTransaction: transaction,
+      inflows: [],
+      outflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          grossQuantity: parseDecimal('1.01'),
+          netQuantity: parseDecimal('1'),
+          role: 'principal',
+        },
+      ],
+      fees: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          quantity: parseDecimal('0.01'),
+          feeScope: 'network',
+          feeSettlement: 'on-chain',
+        },
+      ],
+    });
 
     expect(buildResult.entries[0]).toMatchObject({
       kind: 'asset_outflow',
@@ -174,6 +197,7 @@ describe('buildAccountingLayerFromTransactions', () => {
       buildAccountingLayerFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
     );
 
+    expect(buildResult.accountingTransactionViews).toHaveLength(2);
     expect(buildResult.entries).toHaveLength(3);
     expect(buildResult.derivationDependencies).toEqual([
       {
@@ -254,6 +278,7 @@ describe('buildAccountingLayerReader', () => {
     const buildResult = assertOk(await reader.loadAccountingLayer());
 
     expect(loadAccountingLayerSource).toHaveBeenCalledOnce();
+    expect(buildResult.accountingTransactionViews).toHaveLength(1);
     expect(buildResult.processedTransactions).toEqual([transaction]);
     expect(buildResult.entries).toHaveLength(1);
     expect(buildResult.entries[0]).toMatchObject({

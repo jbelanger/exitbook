@@ -129,6 +129,7 @@ Phase 0 investigation log:
   - plain `AccountingEntry[]` was not enough to replace the full current
     cost-basis input shape cleanly
   - the canonical reader now grows to a narrow accounting-layer build result:
+    - `accountingTransactionViews`
     - `processedTransactions`
     - `entries`
     - `derivationDependencies`
@@ -145,9 +146,11 @@ Phase 0 investigation log:
 - next proving migration boundary is now explicit:
   - lot matching, scoped transfer validation, and Canada tax projection are
     still transaction-shaped consumers
-  - the current accounting-layer build result is not yet enough to migrate them
-    cleanly without rebuilding a transaction view inside each consumer
-  - the next decision is whether the canonical accounting layer now earns an
+  - the canonical accounting layer now includes
+    `accountingTransactionViews` as the grouped transaction view for those
+    consumers
+  - the next decision is whether that grouped view is now enough for the next
+    migration slice, or whether the canonical accounting layer still needs an
     accounting-owned entry-group / transaction-view concept
 
 ## Chosen Model

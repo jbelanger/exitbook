@@ -15,8 +15,11 @@ export type {
   FeeAccountingEntry,
 } from './accounting-layer/accounting-entry-types.js';
 export type {
+  AccountingAssetEntryView,
   AccountingDerivationDependency,
+  AccountingFeeEntryView,
   AccountingLayerBuildResult,
+  AccountingTransactionView,
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer/accounting-layer-types.js';

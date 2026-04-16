@@ -1021,8 +1021,9 @@ doing the conceptual work twice.
    one, or allow a short transitional note that older Phase 0 analysis used the
    word `component`?
 
-2. If the layer later gains entry groups, should that concept be called
-   `entry group`, `accounting document`, or `journal document`?
+2. If the layer later gains richer grouping beyond the new transaction view,
+   should that concept be called `entry group`, `accounting document`, or
+   `journal document`?
 
 ## Current Working Position
 
@@ -1067,6 +1068,64 @@ Current Phase 0 lean after Pass 7:
   - [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
 - the next step is the canonical spec for the canonical accounting layer, not
   more open-ended terminology analysis
+
+## Pass 9
+
+### Scope
+
+Decide whether the canonical accounting layer needs an explicit
+accounting-owned grouped transaction view before more transaction-shaped
+consumers can migrate cleanly.
+
+### Evidence Inspected
+
+- [build-accounting-layer-from-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/build-accounting-layer-from-transactions.ts)
+- [lot-fee-utils.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/lots/lot-fee-utils.ts)
+- [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
+- [canada-tax-event-projection.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-projection.ts)
+- [canada-tax-event-stage-shared.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-stage-shared.ts)
+
+### Findings
+
+1. The missing concept was real.
+   Transaction-shaped accounting consumers need one accounting-owned grouped
+   view with:
+   - processed transaction metadata
+   - grouped inflow / outflow / fee entries
+   - entry fingerprints on those grouped items
+   - gross / net quantities and price context preserved per grouped item
+
+2. Bare `entries + processedTransactions` was still too low-level.
+   Consumers like lot matching and Canada event projection would otherwise have
+   to rebuild transaction grouping and movement context themselves from
+   provenance bindings.
+
+3. A grouped transaction view is enough for the current stage without
+   overcommitting to fuller journal/document semantics.
+   The canonical layer now carries:
+   - `accountingTransactionViews`
+     This is narrower than a journal/document model and cleaner than keeping
+     cost-basis-local scoped transactions as the long-term grouped view.
+
+### Implications
+
+- The canonical accounting layer is no longer just:
+  - entries
+  - derivation dependencies
+  - internal-transfer carryovers
+- It now also includes an accounting-owned grouped transaction view.
+- The next migration slice should test whether `accountingTransactionViews`
+  are enough for the first transaction-shaped consumer migration.
+
+### Open Questions From Pass 9
+
+1. Can transfer-link validation move onto `accountingTransactionViews`
+   cleanly before lot matching itself migrates?
+
+2. Does lot matching need any further canonical relation beyond:
+   - `accountingTransactionViews`
+   - `internalTransferCarryovers`
+   - movement-anchored transfer links
 
 Anything weaker should be rejected.
 

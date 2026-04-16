@@ -11,8 +11,11 @@ import {
 import { computeAccountingEntryFingerprint } from './accounting-entry-fingerprint.js';
 import type { AccountingEntry, AccountingEntryDraft } from './accounting-entry-types.js';
 import type {
+  AccountingAssetEntryView,
+  AccountingFeeEntryView,
   AccountingLayerBuildResult,
   AccountingDerivationDependency,
+  AccountingTransactionView,
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer-types.js';
@@ -39,6 +42,7 @@ export function buildAccountingLayerFromTransactions(
 export function buildAccountingLayerFromScopedBuild(
   scopedBuildResult: AccountingScopedBuildResult
 ): Result<AccountingLayerBuildResult, Error> {
+  const accountingTransactionViews: AccountingTransactionView[] = [];
   const transactionById = new Map<number, Transaction>(
     scopedBuildResult.inputTransactions.map((transaction) => [transaction.id, transaction])
   );
@@ -47,6 +51,7 @@ export function buildAccountingLayerFromScopedBuild(
   const feeEntryByMovementFingerprint = new Map<string, AccountingEntry>();
 
   for (const scopedTransaction of scopedBuildResult.transactions) {
+    const inflows: AccountingAssetEntryView[] = [];
     for (const inflow of scopedTransaction.movements.inflows) {
       const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_inflow', inflow);
       if (entryResult.isErr()) {
@@ -55,8 +60,19 @@ export function buildAccountingLayerFromScopedBuild(
 
       entries.push(entryResult.value);
       inflowEntryByMovementFingerprint.set(inflow.movementFingerprint, entryResult.value);
+      inflows.push({
+        assetId: inflow.assetId,
+        assetSymbol: inflow.assetSymbol,
+        entryFingerprint: entryResult.value.entryFingerprint,
+        grossQuantity: inflow.grossAmount,
+        movementFingerprint: inflow.movementFingerprint,
+        netQuantity: inflow.netAmount,
+        priceAtTxTime: inflow.priceAtTxTime,
+        role: inflow.movementRole ?? 'principal',
+      });
     }
 
+    const outflows: AccountingAssetEntryView[] = [];
     for (const outflow of scopedTransaction.movements.outflows) {
       const entryResult = buildAssetAccountingEntry(scopedTransaction.tx, 'asset_outflow', outflow);
       if (entryResult.isErr()) {
@@ -64,8 +80,19 @@ export function buildAccountingLayerFromScopedBuild(
       }
 
       entries.push(entryResult.value);
+      outflows.push({
+        assetId: outflow.assetId,
+        assetSymbol: outflow.assetSymbol,
+        entryFingerprint: entryResult.value.entryFingerprint,
+        grossQuantity: outflow.grossAmount,
+        movementFingerprint: outflow.movementFingerprint,
+        netQuantity: outflow.netAmount,
+        priceAtTxTime: outflow.priceAtTxTime,
+        role: outflow.movementRole ?? 'principal',
+      });
     }
 
+    const fees: AccountingFeeEntryView[] = [];
     for (const fee of scopedTransaction.fees) {
       const entryResult = buildFeeAccountingEntry(scopedTransaction.tx, fee);
       if (entryResult.isErr()) {
@@ -74,7 +101,24 @@ export function buildAccountingLayerFromScopedBuild(
 
       entries.push(entryResult.value);
       feeEntryByMovementFingerprint.set(fee.movementFingerprint, entryResult.value);
+      fees.push({
+        assetId: fee.assetId,
+        assetSymbol: fee.assetSymbol,
+        entryFingerprint: entryResult.value.entryFingerprint,
+        feeScope: fee.scope,
+        feeSettlement: fee.settlement,
+        movementFingerprint: fee.movementFingerprint,
+        priceAtTxTime: fee.priceAtTxTime,
+        quantity: fee.amount,
+      });
     }
+
+    accountingTransactionViews.push({
+      fees,
+      inflows,
+      outflows,
+      processedTransaction: scopedTransaction.tx,
+    });
   }
 
   const sortedCarryovers = [...scopedBuildResult.feeOnlyInternalCarryovers].sort(compareCarryoverIdentity);
@@ -135,6 +179,7 @@ export function buildAccountingLayerFromScopedBuild(
   }
 
   return ok({
+    accountingTransactionViews,
     processedTransactions: scopedBuildResult.inputTransactions,
     entries,
     derivationDependencies: derivationDependenciesResult.value,
