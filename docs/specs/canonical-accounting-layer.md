@@ -303,6 +303,9 @@ Required behavior:
 
 - accounting consumers must not reconstruct their own alternative accounting
   quantities from raw processed movements once accounting entries exist
+- new accounting features must not read `processed transactions` directly for
+  accounting semantics unless this spec explicitly classifies that feature as a
+  provenance exception
 - provenance and browse consumers may continue to read processed transactions
   directly
 - processed transaction identity remains the root for replay and traceability
@@ -428,3 +431,5 @@ contracts defined here.
 - no chain-specific entry kinds appear in the first canonical model.
 - no accounting consumer is allowed to treat processed movements and accounting
   entries as parallel optional truths.
+- any feature that needs direct `processed transactions` access must be
+  specified explicitly as provenance-scoped rather than accounting-scoped.
