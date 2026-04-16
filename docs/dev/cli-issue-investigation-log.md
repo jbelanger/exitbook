@@ -580,3 +580,64 @@ Command-surface assessment:
 - one smaller follow-up smell remains:
   - `links reject` still does not accept a `--reason`, unlike gap-resolution
     commands
+
+## Pass 11: Repeated BTC Inflow Gaps Resolved As No-Link Exceptions
+
+Date: 2026-04-16
+
+Goal:
+
+- continue reducing the live profile issue queue strictly through the CLI
+- determine whether the remaining transfer gaps included a repeatable pattern
+  that could later become a user-facing investigation skill
+
+Issues and gaps resolved:
+
+1. `0bc2408d69` / `65e2da44fb`
+   - transaction ref: `c8cbc2c15c`
+2. `0eb4db9c9c` / `8431e48c50`
+   - transaction ref: `5997082341`
+
+Commands used:
+
+```bash
+pnpm run dev issues view 0bc2408d69 --json
+pnpm run dev links gaps view 65e2da44fb --json
+pnpm run dev transactions view c8cbc2c15c --json
+pnpm run dev transactions list --platform bitcoin --asset BTC --since 2026-02-12 --until 2026-02-14 --json
+pnpm run dev accounts list --platform bitcoin --json
+pnpm run dev links gaps resolve 65e2da44fb --reason "External BTC inflow from untracked source address bc1qkavv9h6dhexg8e62e7kc4xwunksk3h3jfl9943" --json
+pnpm run dev issues view 0bc2408d69 --json
+pnpm run dev issues view 0eb4db9c9c --json
+pnpm run dev links gaps view 8431e48c50 --json
+pnpm run dev transactions view 5997082341 --json
+pnpm run dev links gaps resolve 8431e48c50 --reason "External BTC inflow from untracked source address bc1qtvr642rlwlwu20p3nqfppmwlyl7mc2s7dyp3ad" --json
+pnpm run dev issues view 0eb4db9c9c --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- both gaps matched the same pattern:
+  - single BTC inflow on a tracked destination address
+  - source address not present in the imported Bitcoin account set
+  - no matching Bitcoin or exchange-side BTC outflow candidate in the repaired
+    date window
+  - no diagnostics or suggested proposals pointing to an internal transfer path
+- in both cases, `links gaps resolve` was the honest command:
+  - the transaction intentionally had no internal link to confirm
+  - the issue disappeared immediately after the resolve command
+  - the profile issue queue dropped from 55 to 53
+
+Command-surface assessment:
+
+- this is the first strong candidate for a user-facing CLI investigation skill:
+  - inspect issue
+  - inspect gap
+  - inspect transaction
+  - check nearby date-window candidates
+  - check whether destination is tracked and source is not
+  - resolve as a gap exception with an evidence-based reason
+- current limitation:
+  - the CLI does not yet summarize this pattern directly, so the operator still
+    has to infer it manually from the transaction and account surfaces
