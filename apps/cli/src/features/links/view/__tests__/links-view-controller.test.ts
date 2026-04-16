@@ -254,7 +254,7 @@ describe('linksViewReducer', () => {
     }
   });
 
-  it('prevents confirming non-suggested link', () => {
+  it('prevents confirming fully confirmed proposals', () => {
     const links = createMockLinksBatch();
     const state = createLinksViewState(links);
     state.selectedIndex = 0; // confirmed link
@@ -263,7 +263,27 @@ describe('linksViewReducer', () => {
     expect(newState.mode).toBe('links');
     if (newState.mode === 'links') {
       expect(newState.pendingAction).toBeUndefined();
-      expect(newState.error).toBe('Can only confirm proposals with suggested links and no rejected legs');
+      expect(newState.error).toBe('Can only confirm proposals with suggested or rejected legs');
+    }
+  });
+
+  it('allows confirming rejected proposals', () => {
+    const links = createMockLinksBatch();
+    const state = createLinksViewState(links);
+    state.selectedIndex = 3; // rejected link
+
+    const newState = linksViewReducer(state, { type: 'CONFIRM_SELECTED' });
+    expect(newState.mode).toBe('links');
+    if (newState.mode === 'links') {
+      expect(newState.pendingAction).toEqual({
+        affectedLinkIds: [4],
+        linkId: 4,
+        action: 'confirm',
+        proposalKey:
+          'single:v1:movement:exchange:source:4:btc:outflow:0:movement:blockchain:target:4:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+        transferProposalKey: undefined,
+      });
+      expect(newState.error).toBeUndefined();
     }
   });
 

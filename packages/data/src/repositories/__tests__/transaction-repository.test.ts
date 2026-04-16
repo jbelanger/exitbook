@@ -1475,6 +1475,44 @@ describe('TransactionRepository', () => {
       expect(profileTwoTransactions.map((tx) => tx.id)).toEqual([txId2]);
     });
 
+    it('filters findAll({ since }) by transaction datetime rather than row creation time', async () => {
+      const olderTransactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            identityReference: 'audit-kraken-older',
+            datetime: '2024-01-01T00:00:00.000Z',
+            timestamp: Date.parse('2024-01-01T00:00:00.000Z'),
+          }),
+          1
+        )
+      );
+      const newerTransactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            identityReference: 'audit-kraken-newer',
+            datetime: '2026-02-13T15:18:39.000Z',
+            timestamp: Date.parse('2026-02-13T15:18:39.000Z'),
+          }),
+          1
+        )
+      );
+
+      const transactions = assertOk(
+        await repo.findAll({
+          profileId: 1,
+          includeExcluded: true,
+          since: Math.floor(Date.parse('2026-02-12T00:00:00.000Z') / 1000),
+        })
+      );
+
+      expect(transactions.map((tx) => tx.id)).toEqual([newerTransactionId]);
+      expect(transactions.map((tx) => tx.id)).not.toContain(olderTransactionId);
+    });
+
     it('handles large account ID filters without exceeding SQLite variable limits', async () => {
       const txId1 = assertOk(
         await repo.create(makePersistedTransaction({ platformKey: 'kraken', platformKind: 'exchange' }), 1)

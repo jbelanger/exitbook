@@ -163,9 +163,14 @@ Behavior:
 - When present, detail also shows:
   - a cue line describing the likely pattern behind the issue
   - a context line describing deterministic diagnostic or movement-role context on the transaction
+  - exact `links confirm <LINK-REF>` commands when the gap can be mapped to one
+    or more specific suggested proposals
 - When the transaction has multiple gap rows, detail also shows the count of open gap rows still present on that transaction.
 - Includes next-step guidance:
-  - review suggested proposals with `links explore --status suggested` when suggestions exist
+  - confirm the first exact `LINK-REF` directly when specific proposal refs are
+    known
+  - review suggested proposals with `links explore --status suggested` only
+    when suggestions exist but no exact ref can be derived
   - use `links gaps resolve <gap-ref>` when the transaction intentionally has no internal link
   - rerun `links run` when no suggestions exist yet
 
@@ -216,6 +221,8 @@ Behavior:
 
 - Proposal detail returns one proposal object with leg-level detail.
 - Gap detail returns one gap object plus `transactionGapCount` metadata for the containing transaction.
+- Gap detail and summary rows may include `suggestedProposalRefs` when the CLI
+  can map visible suggested proposals back onto that gap identity.
 - Detail metadata includes the selected ref.
 
 ## Review Commands

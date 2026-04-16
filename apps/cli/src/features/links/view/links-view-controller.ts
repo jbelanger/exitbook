@@ -20,12 +20,7 @@ function getConfirmActionableLinkIds(state: Extract<LinksViewState, { mode: 'lin
     return [];
   }
 
-  const hasRejectedLeg = selected.legs.some((leg) => leg.link.status === 'rejected');
-  if (hasRejectedLeg) {
-    return [];
-  }
-
-  return selected.legs.filter((leg) => leg.link.status === 'suggested').map((leg) => leg.link.id);
+  return selected.legs.filter((leg) => leg.link.status !== 'confirmed').map((leg) => leg.link.id);
 }
 
 function getRejectActionableLinkIds(state: Extract<LinksViewState, { mode: 'links' }>): number[] {
@@ -89,7 +84,7 @@ export function linksViewReducer(state: LinksViewState, action: LinksViewAction)
       if (!selected || actionableLinkIds.length === 0) {
         return {
           ...state,
-          error: 'Can only confirm proposals with suggested links and no rejected legs',
+          error: 'Can only confirm proposals with suggested or rejected legs',
         };
       }
 

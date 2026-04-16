@@ -70,20 +70,11 @@ export class TransferProposalReviewService {
       const allLinks = allLinksResult.value;
       const transferProposal = resolveTransferProposal(selectedLink, allLinks);
       const actionableLinks = transferProposal.links.filter((candidate) =>
-        targetStatus === 'confirmed' ? candidate.status === 'suggested' : candidate.status !== 'rejected'
+        targetStatus === 'confirmed' ? candidate.status !== 'confirmed' : candidate.status !== 'rejected'
       );
       const actionableIds = actionableLinks.map((candidate) => candidate.id);
 
       if (targetStatus === 'confirmed') {
-        const rejectedLinks = transferProposal.links.filter((candidate) => candidate.status === 'rejected');
-        if (rejectedLinks.length > 0) {
-          return err(
-            new Error(
-              `Link ${selectedLink.id} cannot be confirmed: transfer proposal contains rejected links (${rejectedLinks.map((candidate) => candidate.id).join(', ')})`
-            )
-          );
-        }
-
         if (actionableLinks.length === 0) {
           logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
           return ok({

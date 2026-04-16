@@ -324,3 +324,259 @@ Command-surface assessment:
   - inspect surviving asset
   - see stale ambiguity remain
   - verify that `issues` still blocked on the same stale ambiguity
+
+## Pass 6: Cost-Basis Failure Routed Back To Profile Asset Review
+
+Date: 2026-04-16
+
+Goal:
+
+- investigate the failed `CA / average-cost / 2024` cost-basis scope strictly
+  through the CLI
+- determine whether the failure was really a price problem or an earlier
+  profile-level blocker
+
+Commands used:
+
+```bash
+pnpm run dev issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z --json
+pnpm run dev cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --json
+pnpm run dev issues view 2af7f64baf
+pnpm run dev assets view blockchain:arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831
+pnpm run dev assets view blockchain:arbitrum:0xecdbd3db08665184630db0b5b4502aa336b69736
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xecdbd3db08665184630db0b5b4502aa336b69736
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0xecdbd3db08665184630db0b5b4502aa336b69736 --reason "CLI-only ambiguity resolution after exact asset investigation" --json
+pnpm run dev assets view blockchain:arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831
+pnpm run dev issues view ee6b88fa51 --json
+pnpm run dev issues view 91d3b4747a --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- the scope-level failure route is useful:
+  - bare `cost-basis` still surfaced the user-facing missing-price failure
+  - `issues cost-basis` showed the current scoped blocker as
+    `execution_failure`
+  - `issues view 2af7f64baf` exposed the true current cause:
+    unresolved profile asset-review blockers, not prices yet
+- the Arbitrum `USDC` pair followed the same pattern as the earlier `USDT` case:
+  - matched contract `0xaf88...` had real deposit/withdrawal history
+  - unmatched contract `0xecdb...` was outbound-only, negative, and lacked the
+    fee context the matched withdrawals had
+- excluding `0xecdb...` cleared the surviving matched `USDC` asset
+  immediately; no second confirm step was needed
+- after resolving the `USDT` and `USDC` ambiguity pairs, the profile issue queue
+  dropped from `69` to `64`
+
+Command-surface assessment:
+
+- good:
+  - scoped `issues view` is strong enough to explain when a filing failure is
+    really a profile review problem in disguise
+  - the asset + exact-transaction workflow is now reusable across same-symbol
+    ambiguity cases
+- still open:
+  - the scoped issue family is still named `execution_failure`, even when the
+    detail clearly reveals a deterministic preflight blocker that could
+    potentially surface as a more specific scoped issue later
+
+## Pass 7: Cleared Scoped Missing-Price Scam Noise Through Assets CLI
+
+Date: 2026-04-16
+
+Goal:
+
+- continue the `CA / average-cost / 2024` scoped issue investigation strictly
+  through the CLI
+- determine whether the remaining `missing_price` rows were real price-work or
+  earlier asset-review noise leaking into the filing scope
+
+Commands used:
+
+```bash
+pnpm run dev issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z --json
+pnpm run dev issues view d5aaf88c80 --json
+pnpm run dev transactions view fb78bc2336 --json
+pnpm run dev transactions view 56feb63288 --json
+pnpm run dev transactions view 5276082946 --json
+pnpm run dev transactions view ae5740d3b3 --json
+pnpm run dev transactions view 438e64bbef --json
+pnpm run dev assets list --action-required --json
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0x03072a044a7fdd4031b86a8c83d0feb5d04ace8c --reason "CLI-only cost-basis missing-price scam exclusion" --json
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0x95e8799b6c3c7942e321ff95ee0a656fefe20bda --reason "CLI-only cost-basis missing-price scam exclusion" --json
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0x8bc3051e5ae5ec07b1246b1bd25f1ecb2443ca1b --reason "CLI-only cost-basis missing-price scam exclusion" --json
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0x8030b0966b55a2573699ea37dc2dc71262c2f76e --reason "CLI-only cost-basis missing-price scam exclusion" --json
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0xbf829835cce05a22382ac2e09a04fb9435eae18b --reason "CLI-only cost-basis missing-price scam exclusion" --json
+pnpm run dev issues cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z --json
+pnpm run dev cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --json
+```
+
+Findings:
+
+- the five remaining scoped `missing_price` issues were not real price-research
+  work:
+  - each was a one-off Arbitrum scam-token inflow
+  - each carried clear `SCAM_TOKEN` evidence in transaction detail
+  - each asset was already visible in `assets list --action-required`
+- excluding the five scam assets through the normal `assets exclude` workflow
+  was enough to clear the scoped price burden honestly
+- after the exclusions:
+  - `issues cost-basis ...` dropped from 6 rows to 1 row
+  - the remaining row became a warning-only
+    `UNCERTAIN_PROCEEDS_ALLOCATION` issue
+  - `cost-basis --jurisdiction CA --tax-year 2024 --method average-cost --json`
+    completed successfully
+
+Command-surface assessment:
+
+- this was a strong cross-workflow success case:
+  - scoped filing issues routed to exact transactions
+  - transaction detail exposed the real scam evidence
+  - the owning corrective action stayed in `assets`
+  - re-reading the same filing scope reflected the result honestly
+- remaining gap:
+  - the scoped `missing_price` issue family still required manual recognition
+    that the right fix lived in `assets`, not `prices`
+
+## Pass 8: Transfer-Gap Investigation Exposed Broken Date Filtering
+
+Date: 2026-04-16
+
+Goal:
+
+- investigate the remaining transfer-gap burden strictly through the CLI
+- confirm whether the shipped transaction browse surface was strong enough to
+  inspect likely same-day candidates without guessing
+
+Commands used:
+
+```bash
+pnpm run dev issues view 0bc2408d69 --json
+pnpm run dev links gaps view 65e2da44fb --json
+pnpm run dev transactions view c8cbc2c15c --json
+pnpm run dev transactions list --platform bitcoin --asset BTC --since 2026-02-12 --until 2026-02-14 --json
+```
+
+Findings:
+
+- this exposed a real browse bug:
+  - `transactions list --since/--until` was filtering on row creation time,
+    not transaction datetime
+  - the command returned irrelevant 2023-2026 BTC history when it should have
+    returned only the requested 2026-02-12 to 2026-02-14 window
+- shipped fix:
+  - repository date filtering now uses `transactions.transaction_datetime`
+  - a regression test now protects `findAll({ since })`
+
+Command-surface assessment:
+
+- the live CLI investigation was necessary to reveal this; unit coverage had
+  not caught the fact that the browse command violated its obvious user
+  contract
+- once fixed, date-window investigation became usable enough for real transfer
+  review
+
+## Pass 9: Resolved High-Confidence Transfer Suggestions, Then Closed The Gap-View Command Hop
+
+Date: 2026-04-16
+
+Goal:
+
+- continue transfer-gap cleanup through the CLI alone
+- identify where the user still had to jump between commands to finish an
+  otherwise obvious resolution
+
+Commands used:
+
+```bash
+pnpm run dev links list --status suggested --min-confidence 0.9 --json
+pnpm run dev transactions view ee9ba3a19e --json
+pnpm run dev transactions view 846dfdd39d --json
+pnpm run dev links view 49256e4264 --json
+pnpm run dev links confirm 49256e4264 --json
+pnpm run dev links view 5be524d412 --json
+pnpm run dev links view 4f343401d0 --json
+pnpm run dev links confirm 5be524d412 --json
+pnpm run dev links confirm 4f343401d0 --json
+pnpm run dev links gaps view 445883f6ee --json
+pnpm run dev links gaps view 8650cd6e7c --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- the live CLI workflow successfully resolved:
+  - the `RNDR` KuCoin → Ethereum pair through proposal `49256e4264`
+  - the two remaining 100% confidence BTC proposals `5be524d412` and
+    `4f343401d0`
+- those confirmations reduced the profile issue queue from 61 transfer-gap rows
+  to 55 total issues
+- but the workflow exposed a real discoverability defect:
+  - `links gaps view` showed `suggestedCount` and confidence
+  - it did **not** show the exact proposal ref to confirm
+  - the user had to leave the gap workflow, open `links list --status suggested`,
+    and manually correlate the right `LINK-REF`
+- shipped fix:
+  - `links gaps view` detail now shows exact `links confirm <LINK-REF>` commands
+    when the proposal ref can be derived honestly
+  - gap JSON now includes `suggestedProposalRefs`
+
+Command-surface assessment:
+
+- before the fix, gap review still leaked too much internal navigation
+- after the fix, the gap detail surface itself carries the exact next command
+  when the data supports it
+- current live workspace note:
+  - after resolving the remaining suggestions, there were no naturally pending
+    suggested gaps left to exercise the new detail path live again
+  - the improvement is still grounded in the earlier real workflow and covered
+    by focused CLI tests
+
+## Pass 10: Link Review Commands Were Not Symmetric
+
+Date: 2026-04-16
+
+Goal:
+
+- use the CLI itself to validate the revised link-review surface
+- verify that a mistaken rejection can be recovered without leaving the command
+  surface
+
+Commands used:
+
+```bash
+pnpm run dev links view 4f343401d0 --json
+pnpm run dev links reject 4f343401d0 --json
+pnpm run dev links confirm 4f343401d0 --json
+pnpm run dev links view 4f343401d0 --json
+```
+
+Findings:
+
+- this exposed a second real command-surface bug:
+  - `links reject` allowed a previously confirmed proposal to move to
+    `rejected`
+  - `links confirm` then refused to move the same proposal back to
+    `confirmed`
+  - the CLI had a one-way review mutation even though both commands were
+    visible as first-class review actions
+- shipped fix:
+  - `links confirm` now confirms any non-confirmed proposal legs in the
+    selected proposal
+  - `links reject` and `links confirm` are now symmetric review mutations over
+    reviewable proposal legs
+  - the TUI reducer and command help copy now use the same model
+- live result:
+  - proposal `4f343401d0` was rejected through the CLI
+  - the same proposal was then restored to `confirmed` through the CLI
+  - the workspace ended back in a clean semantic state
+
+Command-surface assessment:
+
+- this was exactly the kind of defect the CLI-only investigation is meant to
+  surface: the product looked complete, but one real recovery path was missing
+- one smaller follow-up smell remains:
+  - `links reject` still does not accept a `--reason`, unlike gap-resolution
+    commands

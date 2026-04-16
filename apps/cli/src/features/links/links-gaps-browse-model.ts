@@ -3,6 +3,7 @@ import type { LinkGapIssue } from '@exitbook/accounting/linking';
 export interface LinkGapBrowseItem {
   gapRef: string;
   gapIssue: LinkGapIssue;
+  suggestedProposalRefs?: string[] | undefined;
   transactionGapCount: number;
   transactionRef: string;
 }

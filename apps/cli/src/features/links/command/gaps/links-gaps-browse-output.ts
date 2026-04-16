@@ -94,6 +94,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     operationCategory: item.gapIssue.operationCategory,
     operationType: item.gapIssue.operationType,
     suggestedCount: item.gapIssue.suggestedCount,
+    suggestedProposalRefs: item.suggestedProposalRefs,
     highestSuggestedConfidencePercent: item.gapIssue.highestSuggestedConfidencePercent,
     direction: item.gapIssue.direction,
     gapCue: item.gapIssue.gapCue,

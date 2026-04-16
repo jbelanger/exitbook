@@ -1,10 +1,20 @@
-import { loadVisibleProfileLinkGapAnalysis, type LinkGapAnalysis } from '@exitbook/accounting/linking';
-import type { IProfileLinkGapSourceReader } from '@exitbook/accounting/ports';
-import { err, ok, type Result } from '@exitbook/foundation';
+import {
+  buildLinkGapIssueKey,
+  buildVisibleProfileLinkGapAnalysis,
+  type LinkGapAnalysis,
+} from '@exitbook/accounting/linking';
+import type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from '@exitbook/accounting/ports';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
-import { buildLinkGapRef, buildLinkGapSelector, resolveLinkGapSelector } from '../../link-selector.js';
+import {
+  buildLinkGapRef,
+  buildLinkGapSelector,
+  buildLinkProposalRef,
+  resolveLinkGapSelector,
+} from '../../link-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
+import { buildTransferProposalItems } from '../../transfer-proposals.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
 
@@ -23,41 +33,44 @@ export async function buildLinksGapsBrowsePresentation(
   sourceReader: IProfileLinkGapSourceReader,
   params: LinksGapsBrowseParams
 ): Promise<Result<LinksGapsBrowsePresentation, Error>> {
-  const loadedGapAnalysisResult = await loadVisibleProfileLinkGapAnalysis(sourceReader);
-  if (loadedGapAnalysisResult.isErr()) {
-    return err(loadedGapAnalysisResult.error);
-  }
+  return resultDoAsync(async function* () {
+    const source = yield* await sourceReader.loadProfileLinkGapSourceData();
+    const visibility = buildVisibleProfileLinkGapAnalysis(source);
+    const sortedAnalysis = sortLinkGapAnalysisByTimestamp(visibility.analysis);
+    const state = createGapsViewState(sortedAnalysis, {
+      hiddenResolvedIssueCount: visibility.hiddenResolvedIssueCount,
+    });
+    const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
+    const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
+    const gaps = sortedAnalysis.issues.map((gapIssue) => ({
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      suggestedProposalRefs: suggestedProposalRefsByIssueKey.get(
+        buildLinkGapIssueKey({
+          txFingerprint: gapIssue.txFingerprint,
+          assetId: gapIssue.assetId,
+          direction: gapIssue.direction,
+        })
+      ),
+      transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    }));
+    const resolvedGap =
+      params.selector !== undefined ? yield* resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : undefined;
+    const selectedGap = resolvedGap?.item;
+    if (params.preselectInExplorer && selectedGap) {
+      preselectGapsState(state, gaps, selectedGap);
+    }
 
-  const sortedAnalysis = sortLinkGapAnalysisByTimestamp(loadedGapAnalysisResult.value.analysis);
-  const state = createGapsViewState(sortedAnalysis, {
-    hiddenResolvedIssueCount: loadedGapAnalysisResult.value.hiddenResolvedIssueCount,
-  });
-  const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
-  const gaps = sortedAnalysis.issues.map((gapIssue) => ({
-    gapRef: buildLinkGapRef({
-      txFingerprint: gapIssue.txFingerprint,
-      assetId: gapIssue.assetId,
-      direction: gapIssue.direction,
-    }),
-    gapIssue,
-    transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
-    transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
-  }));
-  const selectedGapResult =
-    params.selector !== undefined ? resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : ok(undefined);
-  if (selectedGapResult.isErr()) {
-    return err(selectedGapResult.error);
-  }
-
-  const selectedGap = selectedGapResult.value?.item;
-  if (params.preselectInExplorer && selectedGap) {
-    preselectGapsState(state, gaps, selectedGap);
-  }
-
-  return ok({
-    gaps,
-    selectedGap,
-    state,
+    return {
+      gaps,
+      selectedGap,
+      state,
+    };
   });
 }
 
@@ -139,4 +152,69 @@ function compareLinkGapIssuesByTimestamp(
   }
 
   return left.txFingerprint.localeCompare(right.txFingerprint);
+}
+
+function buildSuggestedProposalRefsByIssueKey(source: ProfileLinkGapSourceData): Result<Map<string, string[]>, Error> {
+  const txFingerprintByTransactionId = new Map(
+    source.transactions.map((transaction) => [transaction.id, transaction.txFingerprint])
+  );
+  const proposalRefsByIssueKey = new Map<string, Set<string>>();
+  const suggestedProposalItems = buildTransferProposalItems(
+    source.links.filter((link) => link.status === 'suggested').map((link) => ({ link }))
+  );
+
+  for (const proposalItem of suggestedProposalItems) {
+    const proposalRef = buildLinkProposalRef(proposalItem.proposalKey);
+
+    for (const item of proposalItem.items) {
+      const sourceTxFingerprint = txFingerprintByTransactionId.get(item.link.sourceTransactionId);
+      if (sourceTxFingerprint === undefined) {
+        return err(
+          new Error(
+            `Suggested link ${item.link.id} source transaction ${item.link.sourceTransactionId} missing from profile gap source data`
+          )
+        );
+      }
+
+      const targetTxFingerprint = txFingerprintByTransactionId.get(item.link.targetTransactionId);
+      if (targetTxFingerprint === undefined) {
+        return err(
+          new Error(
+            `Suggested link ${item.link.id} target transaction ${item.link.targetTransactionId} missing from profile gap source data`
+          )
+        );
+      }
+
+      appendSuggestedProposalRef(
+        proposalRefsByIssueKey,
+        buildLinkGapIssueKey({
+          txFingerprint: sourceTxFingerprint,
+          assetId: item.link.sourceAssetId,
+          direction: 'outflow',
+        }),
+        proposalRef
+      );
+      appendSuggestedProposalRef(
+        proposalRefsByIssueKey,
+        buildLinkGapIssueKey({
+          txFingerprint: targetTxFingerprint,
+          assetId: item.link.targetAssetId,
+          direction: 'inflow',
+        }),
+        proposalRef
+      );
+    }
+  }
+
+  return ok(new Map([...proposalRefsByIssueKey.entries()].map(([issueKey, refs]) => [issueKey, [...refs].sort()])));
+}
+
+function appendSuggestedProposalRef(
+  proposalRefsByIssueKey: Map<string, Set<string>>,
+  issueKey: string,
+  proposalRef: string
+): void {
+  const refs = proposalRefsByIssueKey.get(issueKey) ?? new Set<string>();
+  refs.add(proposalRef);
+  proposalRefsByIssueKey.set(issueKey, refs);
 }

@@ -166,25 +166,36 @@ describe('LinksConfirmHandler', () => {
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
     });
 
-    it('should reject confirming a rejected link', async () => {
+    it('should confirm a rejected link', async () => {
       const params: LinksReviewParams = {
         linkId: 123,
       };
 
-      const rejectedLink = createMockLink(123, {
-        status: 'rejected',
+      const fixture = createConfirmableTransferFixture();
+      const rejectedLink = {
+        ...fixture.link,
+        id: 123,
+        status: 'rejected' as const,
         reviewedBy: 'cli-user',
         reviewedAt: new Date('2024-01-02T12:00:00Z'),
-      });
+      };
 
       mockLinkRepository.findById.mockResolvedValue(ok(rejectedLink));
       mockLinkRepository.findAll.mockResolvedValue(ok([rejectedLink]));
+      mockLinkRepository.updateStatuses.mockResolvedValue(ok(1));
+      mockTransactionRepository.findAll.mockResolvedValue(ok([fixture.sourceTransaction, fixture.targetTransaction]));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params, 'confirm');
 
-      const error = assertErr(result);
-      expect(error.message).toContain('contains rejected links');
-      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
+      const confirmResult = assertOk(result);
+      expect(confirmResult.linkId).toBe(123);
+      expect(confirmResult.newStatus).toBe('confirmed');
+      expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user', expect.any(Map));
     });
 
     it('should confirm only actionable proposal legs when the selected leg is already confirmed', async () => {

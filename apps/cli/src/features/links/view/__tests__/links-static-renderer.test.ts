@@ -155,6 +155,7 @@ describe('links static renderer', () => {
           direction: gapIssue.direction,
         }),
         gapIssue,
+        suggestedProposalRefs: ['abc123def0'],
         transactionGapCount: 1,
         transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
       },
@@ -172,6 +173,8 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain(
       'Context: Cardano transaction includes wallet-scoped staking withdrawal of 10.524451 ADA'
     );
+    expect(stripAnsi(detailOutput)).toContain('Confirm: exitbook links confirm abc123def0');
+    expect(stripAnsi(detailOutput)).toContain('Next: exitbook links confirm abc123def0');
   });
 
   it('shows resolution overrides in the gaps empty state', () => {

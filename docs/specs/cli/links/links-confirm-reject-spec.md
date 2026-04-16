@@ -4,6 +4,15 @@
 
 `exitbook links confirm <link-ref>` and `exitbook links reject <link-ref>` remain as standalone CLI commands for scripting and non-TUI workflows. They use the same `LINK-REF` contract as `links view` and `links explore`.
 
+These commands operate on a reviewable transfer proposal, not just an untouched
+suggestion:
+
+- `confirm` moves any non-confirmed legs in the selected proposal to
+  `confirmed`
+- `reject` moves any non-rejected legs in the selected proposal to `rejected`
+- re-running the same command against an already-satisfied proposal is
+  idempotent
+
 ---
 
 ## Visual Examples
@@ -89,3 +98,5 @@ Current implementation:
 - Proposal selectors use the same `LINK-REF` shown by `links`, `links view`, and `links explore`
 - The handler logic still operates on the representative numeric link ID internally after CLI ref resolution
 - Accepts `LINK-REF` prefixes and fails on ambiguous prefixes the same way the browse commands do
+- `confirm` and `reject` are symmetric review mutations; a rejected proposal can
+  be restored through `links confirm <link-ref>`

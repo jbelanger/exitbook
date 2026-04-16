@@ -21,6 +21,7 @@ describe('links-gaps-browse-output', () => {
         direction: firstIssue.direction,
       }),
       gapIssue: firstIssue,
+      suggestedProposalRefs: ['abc123def0'],
       transactionGapCount: 1,
       transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),
     };
@@ -42,6 +43,7 @@ describe('links-gaps-browse-output', () => {
 
     const output = result.value.output as CliJsonOutput;
     const payload = output.data as {
+      data: [{ suggestedProposalRefs?: string[] }];
       meta: {
         filters: {
           hiddenByResolutionOverrides: number;
@@ -50,5 +52,6 @@ describe('links-gaps-browse-output', () => {
     };
 
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
+    expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
   });
 });

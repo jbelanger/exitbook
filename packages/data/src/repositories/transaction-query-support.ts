@@ -33,7 +33,7 @@ function applyCommonTransactionFilters<TQuery extends WhereCapable<TQuery>>(
 
   if (filters.since) {
     const sinceDate = new Date(filters.since * 1000).toISOString();
-    nextQuery = nextQuery.where('transactions.created_at', '>=', sinceDate as unknown as string);
+    nextQuery = nextQuery.where('transactions.transaction_datetime', '>=', sinceDate as unknown as string);
   }
 
   if (!filters.includeExcluded) {
