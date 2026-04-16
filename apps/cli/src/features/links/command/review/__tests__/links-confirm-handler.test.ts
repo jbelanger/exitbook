@@ -379,7 +379,7 @@ describe('LinksConfirmHandler', () => {
 
       const error = assertErr(result);
       expect(error.message).toContain('cannot be confirmed');
-      expect(error.message).toContain('does not reconcile with scoped movement amount');
+      expect(error.message).toContain('does not reconcile with accounting movement amount');
       expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
     });
 
