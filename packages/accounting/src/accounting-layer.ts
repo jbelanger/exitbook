@@ -1,6 +1,5 @@
 export { buildAccountingLayerReader } from './accounting-layer/accounting-layer-reader.js';
 export {
-  applyAccountingExclusionPolicy,
   createAccountingExclusionPolicy,
   hasAccountingExclusions,
   isExcludedAsset,
@@ -46,10 +45,7 @@ export type {
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer/accounting-layer-types.js';
-export type {
-  AccountingExclusionApplyResult,
-  AccountingExclusionPolicy,
-} from './accounting-layer/accounting-exclusion-policy.js';
+export type { AccountingExclusionPolicy } from './accounting-layer/accounting-exclusion-policy.js';
 export type {
   TransferValidationTransactionView,
   ValidatedTransferLink,

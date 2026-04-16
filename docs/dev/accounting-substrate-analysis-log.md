@@ -1536,12 +1536,11 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
 - `buildAccountingScopedTransactions(...)` and its draft types now live under
   `accounting-layer/`, so cost basis no longer owns the canonical layer's
   immediate implementation substrate
-- `applyAccountingExclusionPolicy(...)`,
-  `assertNoAccountingLayerAssetsRequireReview(...)`, and
-  `AccountingExclusionPolicy`
-  ownership now also live under `accounting-layer/`, so price-enrichment, CLI
-  runtimes, and cost-basis consumers no longer need `cost-basis` as a type
-  barrel for draft-layer helpers
+- the exclusion-policy seam plus
+  `assertNoAccountingLayerAssetsRequireReview(...)` now also live under
+  `accounting-layer/`, so price-enrichment, CLI runtimes, and cost-basis
+  consumers no longer need `cost-basis` as a type barrel for draft-layer
+  helpers
 - `price-validation.ts` now also lives under `accounting-layer/`, so the old
   `cost-basis/standard/validation/` pocket is gone and the remaining explicit
   `AccountingScoped...` helpers are concentrated under one capability

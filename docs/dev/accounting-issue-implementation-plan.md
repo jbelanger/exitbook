@@ -181,9 +181,9 @@ Phase 0 investigation log:
     - `buildAccountingScopedTransactions(...)` and
       `accounting-scoped-types.ts` now live under `accounting-layer/`
       instead of `cost-basis/standard/matching/`
-    - `applyAccountingExclusionPolicy(...)`,
-      `assertNoAccountingLayerAssetsRequireReview(...)`, and the public
-      `AccountingExclusionPolicy` type now live under `accounting-layer/`
+    - the exclusion-policy seam plus
+      `assertNoAccountingLayerAssetsRequireReview(...)` now live under
+      `accounting-layer/`
       instead of `cost-basis/standard/validation/`
     - `price-validation.ts` now also lives under `accounting-layer/`, so the
       old `cost-basis/standard/validation/` pocket no longer owns draft-layer
