@@ -258,4 +258,17 @@ describe('cost-basis command', () => {
       'json'
     );
   });
+
+  it('adds the scoped issues route when cost-basis execution fails', async () => {
+    const program = createProgram();
+    mockRunCostBasisArtifact.mockResolvedValue(err(new Error('Price coverage remains incomplete')));
+
+    await expect(
+      program.parseAsync(['cost-basis', '--jurisdiction', 'US', '--tax-year', '2024', '--method', 'fifo', '--json'], {
+        from: 'user',
+      })
+    ).rejects.toThrow(
+      'CLI:cost-basis:json:Price coverage remains incomplete. Review this scope with: exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo:1'
+    );
+  });
 });

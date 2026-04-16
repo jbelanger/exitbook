@@ -747,6 +747,8 @@ Completed so far:
 - interactive `cost-basis` no longer renders its own per-issue detail/repair UI
 - `cost-basis` now shows narrow scoped issue notices and routes detailed review
   back to `issues cost-basis ...`
+- failed `cost-basis` runs now include the scoped `issues cost-basis ...` route
+  instead of failing with a dead-end message
 
 Acceptance criteria:
 

@@ -125,11 +125,11 @@ async function executeCostBasisJsonCommand(
   params: ValidatedCostBasisConfig
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const result = yield* toCliResult(
+    const result = yield* toCostBasisExecutionCliResult(
       await withCostBasisCommandScope(ctx, { format: 'json', params }, (scope) =>
         runCostBasisArtifact(scope, params, { refresh: options.refresh })
       ),
-      ExitCodes.GENERAL_ERROR
+      params
     );
 
     const presentation = yield* toCliResult(buildCostBasisPresentation(result, params), ExitCodes.GENERAL_ERROR);
@@ -144,9 +144,9 @@ async function executeCostBasisTextCommand(
   params: ValidatedCostBasisConfig
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const result = yield* toCliResult(
+    const result = yield* toCostBasisExecutionCliResult(
       await loadCostBasisTextResult(ctx, params, options.refresh),
-      ExitCodes.GENERAL_ERROR
+      params
     );
 
     return yield* toCliResult(await buildCostBasisTuiCompletion(ctx, options, params, result), ExitCodes.GENERAL_ERROR);
@@ -254,4 +254,22 @@ function buildCostBasisPresentation(
     });
     return buildPresentationModel(result.artifact, { issueNotices });
   }, 'Failed to build cost basis presentation');
+}
+
+function toCostBasisExecutionCliResult<T>(
+  result: Result<T, Error>,
+  params: ValidatedCostBasisConfig
+): Result<T, CliFailure> {
+  if (result.isOk()) {
+    return ok(result.value);
+  }
+
+  return cliErr(
+    new Error(`${result.error.message}. Review this scope with: ${buildScopedIssuesReviewCommand(params)}`),
+    ExitCodes.GENERAL_ERROR
+  );
+}
+
+function buildScopedIssuesReviewCommand(params: ValidatedCostBasisConfig): string {
+  return `exitbook issues cost-basis --jurisdiction ${params.jurisdiction} --tax-year ${params.taxYear} --method ${params.method}`;
 }
