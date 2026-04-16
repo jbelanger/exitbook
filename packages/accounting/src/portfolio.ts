@@ -8,12 +8,7 @@ export type {
   SortMode,
   SpotPriceResult,
 } from './portfolio/portfolio-types.js';
-export type {
-  CalculatePortfolioHoldings,
-  PortfolioHoldingsCalculation,
-  ReadPortfolioAssetReviewSummaries,
-  ReadPortfolioDependencyWatermark,
-} from './ports/index.js';
+export type { ReadPortfolioAssetReviewSummaries, ReadPortfolioDependencyWatermark } from './ports/index.js';
 export {
   aggregatePositionsByAssetSymbol,
   buildAccountAssetBalances,

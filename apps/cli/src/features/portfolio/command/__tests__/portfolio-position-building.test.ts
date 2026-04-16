@@ -1,3 +1,4 @@
+import { buildAccountingModelFromTransactions } from '@exitbook/accounting/accounting-model';
 import {
   aggregatePositionsByAssetSymbol,
   buildCanadaPortfolioPositions,
@@ -24,6 +25,16 @@ import {
   filterTransactionsForAsset,
   filterTransactionsForAssets,
 } from '../../shared/portfolio-history-utils.js';
+
+const noop = () => undefined;
+const noopLogger = {
+  child: () => noopLogger,
+  debug: noop,
+  error: noop,
+  info: noop,
+  trace: noop,
+  warn: noop,
+};
 
 function createLot(params: {
   assetId?: string | undefined;
@@ -89,6 +100,7 @@ function createTransaction(params: {
     to: params.to,
     movements: {
       inflows: (params.inflows ?? []).map((inflow) => ({
+        movementFingerprint: `mv-${params.id}-in-${inflow.assetId}`,
         assetId: inflow.assetId,
         assetSymbol: inflow.assetSymbol,
         grossAmount: new Decimal(inflow.amount),
@@ -96,6 +108,7 @@ function createTransaction(params: {
         priceAtTxTime: toPrice(inflow.price),
       })),
       outflows: (params.outflows ?? []).map((outflow) => ({
+        movementFingerprint: `mv-${params.id}-out-${outflow.assetId}`,
         assetId: outflow.assetId,
         assetSymbol: outflow.assetSymbol,
         grossAmount: new Decimal(outflow.amount),
@@ -104,6 +117,7 @@ function createTransaction(params: {
       })),
     },
     fees: (params.fees ?? []).map((fee) => ({
+      movementFingerprint: `mv-${params.id}-fee-${fee.assetId}`,
       assetId: fee.assetId,
       assetSymbol: fee.assetSymbol,
       amount: new Decimal(fee.amount),
@@ -117,6 +131,15 @@ function createTransaction(params: {
     },
     notes: [],
   } as unknown as Transaction;
+}
+
+function buildAccountingModel(transactions: Transaction[]) {
+  const result = buildAccountingModelFromTransactions(transactions, noopLogger);
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) {
+    throw result.error;
+  }
+  return result.value;
 }
 
 describe('portfolio position building', () => {
@@ -737,7 +760,7 @@ describe('portfolio position building', () => {
       inflows: [{ assetId: 'blockchain:bitcoin:native', assetSymbol: 'BTC', amount: '0.005' }],
     });
 
-    const result = computeNetFiatInUsd([deposit, withdrawal, trade, cryptoTransfer]);
+    const result = computeNetFiatInUsd(buildAccountingModel([deposit, withdrawal, trade, cryptoTransfer]));
     expect(result.netFiatInUsd.toFixed(2)).toBe('795.00');
     expect(result.skippedNonUsdMovementsWithoutPrice).toBe(0);
   });
@@ -753,7 +776,7 @@ describe('portfolio position building', () => {
       inflows: [{ assetId: 'exchange:kraken:cad', assetSymbol: 'CAD', amount: '100', price: '0.75' }],
     });
 
-    const result = computeNetFiatInUsd([cadDeposit]);
+    const result = computeNetFiatInUsd(buildAccountingModel([cadDeposit]));
     expect(result.netFiatInUsd.toFixed(2)).toBe('75.00');
     expect(result.skippedNonUsdMovementsWithoutPrice).toBe(0);
   });
@@ -769,7 +792,7 @@ describe('portfolio position building', () => {
       inflows: [{ assetId: 'fiat:eur', assetSymbol: 'EUR', amount: '1000' }],
     });
 
-    const result = computeNetFiatInUsd([eurDepositNoPrice]);
+    const result = computeNetFiatInUsd(buildAccountingModel([eurDepositNoPrice]));
     expect(result.netFiatInUsd.toFixed(2)).toBe('0.00');
     expect(result.skippedNonUsdMovementsWithoutPrice).toBe(1);
   });

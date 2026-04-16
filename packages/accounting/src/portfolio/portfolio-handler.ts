@@ -1,11 +1,20 @@
 import type { AssetReviewSummary, Transaction, TransactionLink } from '@exitbook/core';
-import { parseCurrency, type Currency } from '@exitbook/foundation';
-import { err, ok, wrapError, type Result } from '@exitbook/foundation';
+import {
+  err,
+  ok,
+  parseCurrency,
+  resultDoAsync,
+  resultTryAsync,
+  type Currency,
+  type Result,
+} from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 import { Decimal } from 'decimal.js';
 
 import type { AccountingExclusionPolicy } from '../accounting-model/accounting-exclusion-policy.js';
+import type { AccountingModelBuildResult } from '../accounting-model/accounting-model-types.js';
+import { buildAccountingModelFromTransactions } from '../accounting-model/build-accounting-model-from-transactions.js';
 import { persistCostBasisFailureSnapshot } from '../cost-basis/artifacts/failure-snapshot-service.js';
 import { runCanadaCostBasisCalculation } from '../cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
 import type { FiatCurrency as AccountingFiatCurrency } from '../cost-basis/model/cost-basis-config.js';
@@ -19,7 +28,6 @@ import {
 } from '../cost-basis/workflow/cost-basis-input.js';
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type {
-  CalculatePortfolioHoldings,
   CostBasisDependencyWatermark,
   ICostBasisContextReader,
   ICostBasisFailureSnapshotStore,
@@ -31,6 +39,7 @@ import { UsdConversionRateProvider } from '../price-enrichment/fx/usd-conversion
 import {
   aggregatePositionsByAssetSymbol,
   buildAccountAssetBalances,
+  buildPortfolioHoldings,
   buildCanadaPortfolioPositions,
   buildClosedPositionsByAssetId,
   buildPortfolioPositions,
@@ -86,7 +95,6 @@ export interface PortfolioResult {
 
 export interface PortfolioHandlerDeps {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
-  calculateHoldings: CalculatePortfolioHoldings;
   costBasisStore: ICostBasisContextReader;
   failureSnapshotStore: ICostBasisFailureSnapshotStore;
   priceRuntime: IPriceProviderRuntime;
@@ -111,6 +119,7 @@ interface PortfolioExecutionInputs extends ValidatedPortfolioParams {
   assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
   confirmedLinks: TransactionLink[];
   dependencyWatermark: CostBasisDependencyWatermark;
+  portfolioAccountingModel: AccountingModelBuildResult;
   portfolioTransactions: Transaction[];
 }
 
@@ -150,114 +159,89 @@ export class PortfolioHandler {
    * Execute the portfolio calculation.
    */
   async execute(params: PortfolioHandlerParams): Promise<Result<PortfolioResult, Error>> {
-    try {
-      const validated = validatePortfolioParams(params);
-      if (validated.isErr()) {
-        return err(validated.error);
-      }
-      const executionInputsResult = await this.loadPortfolioExecutionInputs(validated.value);
-      if (executionInputsResult.isErr()) {
-        return err(executionInputsResult.error);
-      }
-      const executionInputs = executionInputsResult.value;
+    return resultTryAsync(
+      async function* (self) {
+        const validated = yield* validatePortfolioParams(params);
+        const executionInputs = yield* await self.loadPortfolioExecutionInputs(validated);
 
-      if (executionInputs === undefined) {
-        return ok(
-          emptyPortfolioResult(
-            validated.value.asOf,
-            validated.value.method,
-            validated.value.jurisdiction,
-            validated.value.displayCurrency
-          )
-        );
-      }
+        if (executionInputs === undefined) {
+          return emptyPortfolioResult(
+            validated.asOf,
+            validated.method,
+            validated.jurisdiction,
+            validated.displayCurrency
+          );
+        }
 
-      const valuationContextResult = await this.buildPortfolioValuationContext(executionInputs);
-      if (valuationContextResult.isErr()) {
-        return err(valuationContextResult.error);
-      }
+        const valuationContext = yield* await self.buildPortfolioValuationContext(executionInputs);
+        const positions = yield* await self.buildPortfolioPositionsForJurisdiction(executionInputs, valuationContext);
 
-      const positionsResult = await this.buildPortfolioPositionsForJurisdiction(
-        executionInputs,
-        valuationContextResult.value
-      );
-      if (positionsResult.isErr()) {
-        return err(positionsResult.error);
-      }
-
-      return ok(this.buildPortfolioResult(executionInputs, valuationContextResult.value, positionsResult.value));
-    } catch (error) {
-      return wrapError(error, 'Failed to build portfolio');
-    }
+        return self.buildPortfolioResult(executionInputs, valuationContext, positions);
+      },
+      this,
+      'Failed to build portfolio'
+    );
   }
 
   private async loadPortfolioExecutionInputs(
     params: ValidatedPortfolioParams
   ): Promise<Result<PortfolioExecutionInputs | undefined, Error>> {
-    logger.debug(
-      {
-        method: params.method,
-        jurisdiction: params.jurisdiction,
-        displayCurrency: params.displayCurrency,
-        asOf: params.asOf.toISOString(),
-      },
-      'Starting portfolio calculation'
-    );
+    return resultDoAsync(async function* (self: PortfolioHandler) {
+      logger.debug(
+        {
+          method: params.method,
+          jurisdiction: params.jurisdiction,
+          displayCurrency: params.displayCurrency,
+          asOf: params.asOf.toISOString(),
+        },
+        'Starting portfolio calculation'
+      );
 
-    const contextResult = await this.deps.costBasisStore.loadCostBasisContext();
-    if (contextResult.isErr()) {
-      return err(contextResult.error);
-    }
+      const context = yield* await self.deps.costBasisStore.loadCostBasisContext();
+      if (context.transactions.length === 0) {
+        return undefined;
+      }
 
-    const allTransactions = contextResult.value.transactions;
-    if (allTransactions.length === 0) {
-      return ok(undefined);
-    }
+      const transactionsUpToAsOf = context.transactions.filter((tx) => new Date(tx.timestamp) <= params.asOf);
+      if (transactionsUpToAsOf.length === 0) {
+        return undefined;
+      }
 
-    const transactionsUpToAsOf = allTransactions.filter((tx) => new Date(tx.timestamp) <= params.asOf);
-    if (transactionsUpToAsOf.length === 0) {
-      return ok(undefined);
-    }
+      const portfolioTransactions = filterTransactionsTouchingExcludedAssets(
+        transactionsUpToAsOf,
+        self.accountingExclusionPolicy
+      );
+      if (portfolioTransactions.length === 0) {
+        return undefined;
+      }
 
-    const portfolioTransactions = filterTransactionsTouchingExcludedAssets(
-      transactionsUpToAsOf,
-      this.accountingExclusionPolicy
-    );
-    if (portfolioTransactions.length === 0) {
-      return ok(undefined);
-    }
+      const portfolioAccountingModel = yield* buildAccountingModelFromTransactions(portfolioTransactions, logger);
+      const assetReviewSummaries = yield* await self.deps.readAssetReviewSummaries();
+      const dependencyWatermark = yield* await self.deps.readDependencyWatermark();
 
-    const assetReviewSummariesResult = await this.deps.readAssetReviewSummaries();
-    if (assetReviewSummariesResult.isErr()) {
-      return err(assetReviewSummariesResult.error);
-    }
+      const accountMetadataById = new Map<number, PortfolioAccountMetadata>(
+        context.accounts.map((account) => [
+          account.id,
+          { platformKey: account.platformKey, accountType: account.accountType },
+        ])
+      );
 
-    const dependencyWatermarkResult = await this.deps.readDependencyWatermark();
-    if (dependencyWatermarkResult.isErr()) {
-      return err(dependencyWatermarkResult.error);
-    }
-
-    const accountMetadataById = new Map<number, PortfolioAccountMetadata>(
-      contextResult.value.accounts.map((account) => [
-        account.id,
-        { platformKey: account.platformKey, accountType: account.accountType },
-      ])
-    );
-
-    return ok({
-      ...params,
-      accountMetadataById,
-      assetReviewSummaries: assetReviewSummariesResult.value,
-      confirmedLinks: contextResult.value.confirmedLinks,
-      dependencyWatermark: dependencyWatermarkResult.value,
-      portfolioTransactions,
-    });
+      return {
+        ...params,
+        accountMetadataById,
+        assetReviewSummaries,
+        confirmedLinks: context.confirmedLinks,
+        dependencyWatermark,
+        portfolioAccountingModel,
+        portfolioTransactions,
+      };
+    }, this);
   }
 
   private async buildPortfolioValuationContext(
     inputs: PortfolioExecutionInputs
   ): Promise<Result<PortfolioValuationContext, Error>> {
-    const fiatFlowComputation = computeNetFiatInUsd(inputs.portfolioTransactions);
+    const fiatFlowComputation = computeNetFiatInUsd(inputs.portfolioAccountingModel);
     const warnings: string[] = [];
     if (fiatFlowComputation.skippedNonUsdMovementsWithoutPrice > 0) {
       warnings.push(
@@ -269,7 +253,7 @@ export class PortfolioHandler {
       );
     }
 
-    const { balances, assetMetadata } = this.deps.calculateHoldings(inputs.portfolioTransactions);
+    const { balances, assetMetadata } = buildPortfolioHoldings(inputs.portfolioAccountingModel);
     const holdings: Record<string, Decimal> = {};
     for (const [assetId, balance] of Object.entries(balances)) {
       if (!balance.isZero()) {
@@ -302,7 +286,7 @@ export class PortfolioHandler {
     }
 
     return ok({
-      accountBreakdown: buildAccountAssetBalances(inputs.portfolioTransactions, inputs.accountMetadataById),
+      accountBreakdown: buildAccountAssetBalances(inputs.portfolioAccountingModel, inputs.accountMetadataById),
       assetMetadata,
       costBasisParams,
       effectiveDisplayCurrency: displayCurrencyContext.effectiveDisplayCurrency,

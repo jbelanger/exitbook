@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-15
+last_verified: 2026-04-16
 status: active
 ---
 
@@ -169,6 +169,11 @@ Phase 0 investigation log:
   - linking strategy execution and CLI manual link confirmation/review now
     build and consume the canonical accounting layer directly for transfer
     confirmability
+  - portfolio now also reads the canonical accounting layer for:
+    - holdings
+    - account breakdown
+    - net external fiat
+  - the old injected portfolio holdings-calculation port is removed
   - `@exitbook/accounting/accounting-model` now exists as the explicit public
     capability boundary for canonical accounting-layer builders, readers,
     validators, and types
@@ -179,13 +184,13 @@ Phase 0 investigation log:
     - `internal-transfer-carryover` replaced historical
       `fee-only-carryover`
     - `prepareAccountingTransactions(...)` and
-      `prepared-accounting-types.ts` now live under `accounting-layer/`
+      `prepared-accounting-types.ts` now live under `accounting-model/`
       instead of `cost-basis/standard/matching/`
     - the exclusion-policy seam plus
       `assertNoAccountingModelAssetsRequireReview(...)` now live under
-      `accounting-layer/`
+      `accounting-model/`
       instead of `cost-basis/standard/validation/`
-    - `price-validation.ts` now also lives under `accounting-layer/`, so the
+    - `price-validation.ts` now also lives under `accounting-model/`, so the
       old `cost-basis/standard/validation/` pocket no longer owns draft-layer
       helpers
     - `buildAccountingModelFromTransactions(...)` now owns the repeated

@@ -6,7 +6,6 @@ import {
   type ICostBasisFailureSnapshotStore,
 } from '@exitbook/accounting/cost-basis';
 import {
-  type CalculatePortfolioHoldings,
   PortfolioHandler,
   type ReadPortfolioAssetReviewSummaries,
   type ReadPortfolioDependencyWatermark,
@@ -66,6 +65,7 @@ function createTransaction(): Transaction {
     movements: {
       inflows: [
         {
+          movementFingerprint: 'mv-ext-1-in-1',
           assetId: 'exchange:kraken:btc',
           assetSymbol: 'BTC',
           grossAmount: new Decimal('1'),
@@ -101,6 +101,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
     movements: {
       inflows: [
         {
+          movementFingerprint: 'mv-ext-2-in-1',
           assetId: 'blockchain:base:0xspam',
           assetSymbol: 'SPAM',
           grossAmount: new Decimal('1000'),
@@ -109,6 +110,7 @@ function createExcludedAssetTradeTransaction(): Transaction {
       ],
       outflows: [
         {
+          movementFingerprint: 'mv-ext-2-out-1',
           assetId: 'blockchain:base:usdt',
           assetSymbol: 'USDT',
           grossAmount: new Decimal('147.55110826'),
@@ -132,11 +134,9 @@ describe('PortfolioHandler', () => {
   let mockFailureSnapshotStore: ICostBasisFailureSnapshotStore;
   let mockReadAssetReviewSummaries: ReadPortfolioAssetReviewSummaries;
   let mockReadDependencyWatermark: ReadPortfolioDependencyWatermark;
-  let mockCalculateHoldings: CalculatePortfolioHoldings;
   let loadCostBasisContext: Mock;
   let readAssetReviewSummaries: Mock;
   let readDependencyWatermark: Mock;
-  let calculateHoldings: Mock;
   const tx = createTransaction();
 
   beforeEach(() => {
@@ -183,12 +183,6 @@ describe('PortfolioHandler', () => {
       setManualFxRate: vi.fn().mockResolvedValue(ok(undefined)),
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
-
-    calculateHoldings = vi.fn().mockReturnValue({
-      balances: { 'exchange:kraken:btc': new Decimal('1') },
-      assetMetadata: { 'exchange:kraken:btc': 'BTC' },
-    });
-    mockCalculateHoldings = calculateHoldings;
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
       ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
     );
@@ -336,7 +330,6 @@ describe('PortfolioHandler', () => {
     );
 
     handler = new PortfolioHandler({
-      calculateHoldings: mockCalculateHoldings,
       costBasisStore: mockCostBasisStore,
       failureSnapshotStore: mockFailureSnapshotStore,
       priceRuntime: mockPriceRuntime,
@@ -469,14 +462,6 @@ describe('PortfolioHandler', () => {
       })
     );
 
-    calculateHoldings.mockImplementation((transactions) => {
-      expect(transactions).toEqual([tx]);
-      return {
-        balances: { 'exchange:kraken:btc': new Decimal('1') },
-        assetMetadata: { 'exchange:kraken:btc': 'BTC' },
-      };
-    });
-
     mockCostBasisWorkflowExecute.mockResolvedValue(
       ok({
         kind: 'standard-workflow',
@@ -496,7 +481,6 @@ describe('PortfolioHandler', () => {
 
     handler = new PortfolioHandler({
       accountingExclusionPolicy: { excludedAssetIds: new Set(['blockchain:base:0xspam']) },
-      calculateHoldings: mockCalculateHoldings,
       costBasisStore: mockCostBasisStore,
       failureSnapshotStore: mockFailureSnapshotStore,
       priceRuntime: mockPriceRuntime,

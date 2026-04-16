@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFeeMovement } from '../../__tests__/test-utils.js';
+import { buildAccountingModelFromTransactions } from '../../accounting-model/build-accounting-model-from-transactions.js';
 import { buildAccountAssetBalances } from '../portfolio-position-building.js';
+
+const noop = () => undefined;
+const noopLogger = {
+  child: () => noopLogger,
+  debug: noop,
+  error: noop,
+  info: noop,
+  trace: noop,
+  warn: noop,
+};
 
 describe('buildAccountAssetBalances', () => {
   it('uses shared balance impact semantics for embedded and separate fees', () => {
@@ -37,8 +48,14 @@ describe('buildAccountAssetBalances', () => {
       }),
     ];
 
+    const accountingModelResult = buildAccountingModelFromTransactions(transactions, noopLogger);
+    expect(accountingModelResult.isOk()).toBe(true);
+    if (accountingModelResult.isErr()) {
+      throw accountingModelResult.error;
+    }
+
     const breakdown = buildAccountAssetBalances(
-      transactions,
+      accountingModelResult.value,
       new Map([[7, { accountType: 'exchange-api', platformKey: 'kraken' }]])
     );
 

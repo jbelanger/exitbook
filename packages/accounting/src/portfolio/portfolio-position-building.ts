@@ -2,11 +2,15 @@
  * Portfolio position-building and aggregation helpers.
  */
 
-import { buildTransactionBalanceImpact, type Transaction } from '@exitbook/core';
+import type { Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { Decimal } from 'decimal.js';
 
+import type {
+  AccountingModelBuildResult,
+  AccountingTransactionView,
+} from '../accounting-model/accounting-model-types.js';
 import type {
   CanadaDisplayCostBasisReport,
   CanadaTaxInputContext,
@@ -28,6 +32,44 @@ const USD_CURRENCY = 'USD' as Currency;
 interface AccountMetadata {
   accountType: AccountBreakdownItem['accountType'];
   platformKey: string;
+}
+
+function applyAccountingTransactionBalanceImpact(
+  transactionView: AccountingTransactionView,
+  applyDelta: (assetId: string, assetSymbol: string, quantityDelta: Decimal) => void
+): void {
+  for (const inflow of transactionView.inflows) {
+    applyDelta(inflow.assetId, inflow.assetSymbol, inflow.grossQuantity);
+  }
+
+  for (const outflow of transactionView.outflows) {
+    applyDelta(outflow.assetId, outflow.assetSymbol, outflow.grossQuantity.negated());
+  }
+
+  for (const fee of transactionView.fees) {
+    if (fee.feeSettlement === 'on-chain') {
+      continue;
+    }
+
+    applyDelta(fee.assetId, fee.assetSymbol, fee.quantity.negated());
+  }
+}
+
+export function buildPortfolioHoldings(accountingModel: AccountingModelBuildResult): {
+  assetMetadata: Record<string, string>;
+  balances: Record<string, Decimal>;
+} {
+  const balances: Record<string, Decimal> = {};
+  const assetMetadata: Record<string, string> = {};
+
+  for (const transactionView of accountingModel.accountingTransactionViews) {
+    applyAccountingTransactionBalanceImpact(transactionView, (assetId, assetSymbol, quantityDelta) => {
+      assetMetadata[assetId] = assetSymbol;
+      balances[assetId] = (balances[assetId] ?? new Decimal(0)).plus(quantityDelta);
+    });
+  }
+
+  return { balances, assetMetadata };
 }
 
 /**
@@ -776,36 +818,33 @@ export function computeWeightedAvgCost(openLots: AcquisitionLot[]): Decimal {
 // ─── Account Breakdown ──────────────────────────────────────────────────────
 
 /**
- * Build per-account asset balances from transactions.
- * Groups transactions by accountId and calculates balances per account for each asset.
+ * Build per-account asset balances from the canonical accounting model.
+ * Groups accounting transaction views by accountId and calculates balances per account for each asset.
  */
 export function buildAccountAssetBalances(
-  transactions: Transaction[],
+  accountingModel: AccountingModelBuildResult,
   accountMetadataById: Map<number, AccountMetadata>
 ): Map<string, AccountBreakdownItem[]> {
-  const accountTransactions = new Map<number, Transaction[]>();
+  const accountTransactions = new Map<number, AccountingTransactionView[]>();
 
-  for (const tx of transactions) {
-    const existing = accountTransactions.get(tx.accountId);
+  for (const transactionView of accountingModel.accountingTransactionViews) {
+    const accountId = transactionView.processedTransaction.accountId;
+    const existing = accountTransactions.get(accountId);
     if (existing) {
-      existing.push(tx);
+      existing.push(transactionView);
     } else {
-      accountTransactions.set(tx.accountId, [tx]);
+      accountTransactions.set(accountId, [transactionView]);
     }
   }
 
   const accountBalances = new Map<number, Record<string, Decimal>>();
-  for (const [accountId, txs] of accountTransactions.entries()) {
+  for (const [accountId, transactionViews] of accountTransactions.entries()) {
     const balances: Record<string, Decimal> = {};
 
-    for (const tx of txs) {
-      const balanceImpact = buildTransactionBalanceImpact(tx);
-
-      for (const assetImpact of balanceImpact.assets) {
-        balances[assetImpact.assetId] = (balances[assetImpact.assetId] ?? new Decimal(0)).plus(
-          assetImpact.netBalanceDelta
-        );
-      }
+    for (const transactionView of transactionViews) {
+      applyAccountingTransactionBalanceImpact(transactionView, (assetId, _assetSymbol, quantityDelta) => {
+        balances[assetId] = (balances[assetId] ?? new Decimal(0)).plus(quantityDelta);
+      });
     }
 
     accountBalances.set(accountId, balances);
@@ -814,10 +853,10 @@ export function buildAccountAssetBalances(
   const breakdown = new Map<string, AccountBreakdownItem[]>();
 
   for (const [accountId, balances] of accountBalances.entries()) {
-    const fallbackTx = accountTransactions.get(accountId)?.[0];
+    const fallbackTransaction = accountTransactions.get(accountId)?.[0]?.processedTransaction;
     const metadata = accountMetadataById.get(accountId) ?? {
-      platformKey: fallbackTx?.platformKey ?? `account-${accountId}`,
-      accountType: deriveAccountTypeFromSourceType(fallbackTx?.platformKind),
+      platformKey: fallbackTransaction?.platformKey ?? `account-${accountId}`,
+      accountType: deriveAccountTypeFromSourceType(fallbackTransaction?.platformKind),
     };
 
     if (!accountMetadataById.has(accountId)) {
@@ -974,24 +1013,25 @@ interface NetFiatInComputation {
 }
 
 /**
- * Compute net external fiat funding in USD using transfer transactions only.
+ * Compute net external fiat funding in USD using transfer transaction views only.
  *
  * Net fiat in = fiat inflows - fiat outflows - fiat fees.
  */
-export function computeNetFiatInUsd(transactions: Transaction[]): NetFiatInComputation {
+export function computeNetFiatInUsd(accountingModel: AccountingModelBuildResult): NetFiatInComputation {
   let netFiatInUsd = new Decimal(0);
   let skippedNonUsdMovementsWithoutPrice = 0;
 
-  for (const tx of transactions) {
+  for (const transactionView of accountingModel.accountingTransactionViews) {
+    const tx = transactionView.processedTransaction;
     if (tx.operation.category !== 'transfer') {
       continue;
     }
 
-    for (const inflow of tx.movements.inflows ?? []) {
+    for (const inflow of transactionView.inflows) {
       if (!isFiatSymbol(inflow.assetSymbol)) {
         continue;
       }
-      const usdAmount = toUsdAmount(inflow.assetSymbol, inflow.grossAmount, inflow.priceAtTxTime?.price.amount);
+      const usdAmount = toUsdAmount(inflow.assetSymbol, inflow.grossQuantity, inflow.priceAtTxTime?.price.amount);
       if (usdAmount === undefined) {
         skippedNonUsdMovementsWithoutPrice++;
         continue;
@@ -999,11 +1039,11 @@ export function computeNetFiatInUsd(transactions: Transaction[]): NetFiatInCompu
       netFiatInUsd = netFiatInUsd.plus(usdAmount);
     }
 
-    for (const outflow of tx.movements.outflows ?? []) {
+    for (const outflow of transactionView.outflows) {
       if (!isFiatSymbol(outflow.assetSymbol)) {
         continue;
       }
-      const usdAmount = toUsdAmount(outflow.assetSymbol, outflow.grossAmount, outflow.priceAtTxTime?.price.amount);
+      const usdAmount = toUsdAmount(outflow.assetSymbol, outflow.grossQuantity, outflow.priceAtTxTime?.price.amount);
       if (usdAmount === undefined) {
         skippedNonUsdMovementsWithoutPrice++;
         continue;
@@ -1011,11 +1051,11 @@ export function computeNetFiatInUsd(transactions: Transaction[]): NetFiatInCompu
       netFiatInUsd = netFiatInUsd.minus(usdAmount);
     }
 
-    for (const fee of tx.fees ?? []) {
+    for (const fee of transactionView.fees) {
       if (!isFiatSymbol(fee.assetSymbol)) {
         continue;
       }
-      const usdAmount = toUsdAmount(fee.assetSymbol, fee.amount, fee.priceAtTxTime?.price.amount);
+      const usdAmount = toUsdAmount(fee.assetSymbol, fee.quantity, fee.priceAtTxTime?.price.amount);
       if (usdAmount === undefined) {
         skippedNonUsdMovementsWithoutPrice++;
         continue;

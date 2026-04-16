@@ -2,7 +2,6 @@ import { PortfolioHandler } from '@exitbook/accounting/portfolio';
 import type { Profile } from '@exitbook/core';
 import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
 import { err, resultTryAsync, type Result } from '@exitbook/foundation';
-import { calculateBalances } from '@exitbook/ingestion/balance';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
@@ -45,7 +44,6 @@ export async function withPortfolioCommandScope<T>(
     const value = yield* await operation({
       handler: new PortfolioHandler({
         accountingExclusionPolicy: pricedRuntimeResult.value.accountingExclusionPolicy,
-        calculateHoldings: (transactions) => calculateBalances(transactions),
         costBasisStore: buildCostBasisPorts(database, profileResult.value.id),
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
         priceRuntime: pricedRuntimeResult.value.priceRuntime,
