@@ -1295,6 +1295,60 @@ capability extraction into separate packages as the rewrite proceeds.
    - cost basis
    - linking
 
+## Pass 13
+
+### Scope
+
+Test whether the canonical accounting layer can provide a shared carryover
+resolution seam strong enough to support later Canada and lot-matching
+migrations without reintroducing `FeeOnlyInternalCarryover` as a public
+consumer contract.
+
+### Evidence Inspected
+
+- [accounting-layer-resolution.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/accounting-layer-resolution.ts)
+- [accounting-layer-reader.test.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/__tests__/accounting-layer-reader.test.ts)
+- [canada-tax-event-carryover.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-carryover.ts)
+- [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
+
+### Findings
+
+1. The canonical carryover model already had enough identity.
+   The missing piece was a shared resolver from:
+   - `entryFingerprint`
+   - `movementFingerprint`
+     back to:
+   - processed transaction refs
+   - accounting transaction-view refs
+
+2. Synthetic carryover source entries are the important special case.
+   They are real accounting entries, but their backing source movement does not
+   survive inside `accountingTransactionViews`.
+   The correct resolution is:
+   - source side resolves to processed-transaction movement refs
+   - target side resolves to accounting transaction-view refs
+
+3. That split is honest and generic.
+   It does not recreate the old scoped-build model.
+   It simply acknowledges that the canonical accounting layer still sits on top
+   of processed transactions for provenance.
+
+### Implications
+
+- Canada and lot matching no longer need to invent their own carryover
+  resolution logic.
+- The next migration question is narrower:
+  - which consumer should adopt the canonical carryover resolver first
+  - not whether the canonical layer is expressive enough in principle
+
+### Open Questions From Pass 13
+
+1. Should Canada be the first consumer to adopt the canonical carryover
+   resolver, or is lot matching now the cleaner proving migration?
+
+2. Does the canonical accounting layer need one more shared fee-collection seam
+   for transaction-pair fee allocation, or is the current resolver enough?
+
 ## Pass 8
 
 ### Scope

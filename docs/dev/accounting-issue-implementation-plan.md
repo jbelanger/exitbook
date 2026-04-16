@@ -162,6 +162,10 @@ Phase 0 investigation log:
     `accountingTransactionViews`
   - `validateScopedTransferLinks(...)` now exists only as a compatibility
     adapter for transaction-shaped consumers
+  - canonical internal-transfer carryover resolution now exists:
+    - synthetic carryover source entries resolve back to processed-transaction
+      movement refs
+    - retained targets and fee entries resolve to accounting transaction views
   - Canada tax event projection looks close to the canonical layer, but its
     fee/carryover path still depends on older transaction-pair semantics
   - the next decision is whether to:

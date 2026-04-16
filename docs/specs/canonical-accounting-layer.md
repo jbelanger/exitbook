@@ -338,6 +338,9 @@ Current migration status:
 - `validateScopedTransferLinks(...)` remains as a compatibility adapter for
   transaction-shaped cost-basis consumers that still operate on scoped
   transactions
+- canonical internal-transfer carryovers can now resolve back to:
+  - processed-transaction movement refs for synthetic carryover sources
+  - accounting transaction-view refs for retained targets and fee entries
 - the next real consumer migration should happen where the accounting-layer
   build result is already available, rather than rebuilding it only to validate
   links
@@ -375,6 +378,10 @@ Why:
   carryovers that are accounting meaning, not just cost-basis-local warnings
 - lot matching and Canada tax projection still need an accounting-owned grouped
   transaction view
+- transaction-shaped consumers that still need source/target movement refs for
+  internal-transfer carryovers should use the canonical accounting-layer
+  resolution seam instead of rebuilding `FeeOnlyInternalCarryover`-style local
+  contracts
 
 This is the accepted narrow expansion beyond the smaller
 `accounting-entry-plus-provenance-binding` baseline.

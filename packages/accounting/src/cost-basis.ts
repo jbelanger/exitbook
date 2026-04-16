@@ -5,6 +5,12 @@ export {
   buildAccountingEntryFingerprintMaterial,
   computeAccountingEntryFingerprint,
 } from './accounting-layer/accounting-entry-fingerprint.js';
+export {
+  buildAccountingLayerIndexes,
+  resolveAssetAccountingEntry,
+  resolveFeeAccountingEntry,
+  resolveInternalTransferCarryovers,
+} from './accounting-layer/accounting-layer-resolution.js';
 export { buildAccountingLayerFromTransactions } from './accounting-layer/build-accounting-layer-from-transactions.js';
 export { validateTransferLinks } from './accounting-layer/validated-transfer-links.js';
 export type {
@@ -15,6 +21,13 @@ export type {
   AssetAccountingEntry,
   FeeAccountingEntry,
 } from './accounting-layer/accounting-entry-types.js';
+export type {
+  AccountingAssetEntryResolution,
+  AccountingFeeEntryResolution,
+  AccountingLayerIndexes,
+  ResolvedInternalTransferCarryover,
+  ResolvedInternalTransferCarryoverTarget,
+} from './accounting-layer/accounting-layer-resolution.js';
 export type {
   AccountingAssetEntryView,
   AccountingDerivationDependency,

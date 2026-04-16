@@ -9,6 +9,12 @@ import type { IAccountingLayerSourceReader } from '../../ports/accounting-layer-
 import { computeAccountingEntryFingerprint } from '../accounting-entry-fingerprint.js';
 import type { AccountingEntryDraft } from '../accounting-entry-types.js';
 import { buildAccountingLayerReader } from '../accounting-layer-reader.js';
+import {
+  buildAccountingLayerIndexes,
+  resolveAssetAccountingEntry,
+  resolveFeeAccountingEntry,
+  resolveInternalTransferCarryovers,
+} from '../accounting-layer-resolution.js';
 import { buildAccountingLayerFromTransactions } from '../build-accounting-layer-from-transactions.js';
 
 const noopLogger: Logger = {
@@ -258,6 +264,95 @@ describe('buildAccountingLayerFromTransactions', () => {
         },
       ],
     });
+  });
+
+  it('resolves canonical entries and internal-transfer carryovers back to transaction views cleanly', () => {
+    const sameHash = 'same-hash-transfer';
+    const sourceTransaction = buildTransaction({
+      accountId: 1,
+      id: 1,
+      datetime: '2024-01-01T00:00:00Z',
+      platformKind: 'blockchain',
+      platformKey: 'bitcoin',
+      category: 'transfer',
+      type: 'withdrawal',
+      blockchain: { name: 'bitcoin', transaction_hash: sameHash, is_confirmed: true },
+      outflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '1.001',
+          price: '50000',
+        },
+      ],
+      fees: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC' as Currency,
+          amount: parseDecimal('0.001'),
+          scope: 'network',
+          settlement: 'on-chain',
+          priceAtTxTime: {
+            price: { amount: parseDecimal('50000'), currency: 'USD' as Currency },
+            source: 'manual',
+            fetchedAt: new Date('2024-01-01T00:00:00Z'),
+            granularity: 'exact',
+          },
+        },
+      ],
+    });
+    const receiverTransaction = buildTransaction({
+      accountId: 2,
+      id: 2,
+      datetime: '2024-01-01T00:00:00Z',
+      platformKind: 'blockchain',
+      platformKey: 'bitcoin',
+      category: 'transfer',
+      type: 'deposit',
+      blockchain: { name: 'bitcoin', transaction_hash: sameHash, is_confirmed: true },
+      inflows: [
+        {
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          amount: '1',
+          price: '50000',
+        },
+      ],
+    });
+
+    const buildResult = assertOk(
+      buildAccountingLayerFromTransactions([sourceTransaction, receiverTransaction], noopLogger)
+    );
+    const indexes = assertOk(buildAccountingLayerIndexes(buildResult));
+
+    const carryover = buildResult.internalTransferCarryovers[0]!;
+    const resolvedCarryovers = assertOk(resolveInternalTransferCarryovers(buildResult));
+    const sourceResolution = assertOk(resolveAssetAccountingEntry(indexes, carryover.sourceEntryFingerprint));
+    const feeResolution = assertOk(resolveFeeAccountingEntry(indexes, carryover.feeEntryFingerprint!));
+
+    expect(sourceResolution.processedTransaction.id).toBe(sourceTransaction.id);
+    expect(sourceResolution.movement.movementFingerprint).toBe(
+      sourceTransaction.movements.outflows?.[0]!.movementFingerprint
+    );
+    expect(sourceResolution.movement.sourceKind).toBe('processed_transaction');
+    expect(sourceResolution.entry.quantity.toFixed()).toBe('1');
+
+    expect(feeResolution.transactionView.processedTransaction.id).toBe(sourceTransaction.id);
+    expect(feeResolution.fee.movementFingerprint).toBe(sourceTransaction.fees[0]!.movementFingerprint);
+    expect(feeResolution.entry.quantity.toFixed()).toBe('0.001');
+
+    expect(resolvedCarryovers).toHaveLength(1);
+    const resolvedCarryover = resolvedCarryovers[0];
+    expect(resolvedCarryover).toBeDefined();
+    expect(resolvedCarryover!.source.processedTransaction.id).toBe(sourceTransaction.id);
+    expect(resolvedCarryover!.source.movement.sourceKind).toBe('processed_transaction');
+    expect(resolvedCarryover!.targets).toHaveLength(1);
+    const resolvedTarget = resolvedCarryover!.targets[0];
+    expect(resolvedTarget).toBeDefined();
+    expect(resolvedTarget!.target.transactionView?.processedTransaction.id).toBe(receiverTransaction.id);
+    expect(resolvedTarget!.target.movement.movementFingerprint).toBe(
+      receiverTransaction.movements.inflows?.[0]!.movementFingerprint
+    );
   });
 });
 
