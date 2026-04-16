@@ -10,15 +10,15 @@ import type {
 } from '../../../../../accounting-layer.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type {
+  AccountingScopedTransaction,
+  InternalTransferCarryoverDraft,
+  ScopedFeeMovement,
+} from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
+import type {
   ValidatedTransferLink,
   ValidatedTransferSet,
 } from '../../../../../accounting-layer/validated-transfer-links.js';
 import type { UsdConversionRateProviderLike } from '../../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
-import type {
-  AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-  ScopedFeeMovement,
-} from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import {
   buildCanadaAccountingLayerContext,
   type CanadaAccountingLayerContext,
@@ -118,13 +118,13 @@ function buildStageAccountingLayer(params: {
     buildAccountingLayerFromScopedBuild({
       inputTransactions: params.scopedTransactions.map((scopedTransaction) => scopedTransaction.tx),
       transactions: params.scopedTransactions,
-      feeOnlyInternalCarryovers: [],
+      internalTransferCarryoverDrafts: [],
     })
   );
 }
 
 function buildStageCanadaAccountingContext(params: {
-  feeOnlyInternalCarryovers?: FeeOnlyInternalCarryover[] | undefined;
+  internalTransferCarryoverDrafts?: InternalTransferCarryoverDraft[] | undefined;
   scopedTransactions: AccountingScopedTransaction[];
 }): Result<CanadaAccountingLayerContext, Error> {
   const accountingLayer = buildStageAccountingLayer({ scopedTransactions: params.scopedTransactions });
@@ -136,7 +136,7 @@ function buildStageCanadaAccountingContext(params: {
   const resolvedCarryoversResult = buildStageResolvedCarryovers(
     accountingLayer,
     params.scopedTransactions,
-    params.feeOnlyInternalCarryovers ?? []
+    params.internalTransferCarryoverDrafts ?? []
   );
   if (resolvedCarryoversResult.isErr()) {
     return err(resolvedCarryoversResult.error);
@@ -165,14 +165,14 @@ export async function projectCanadaMovementEvents(params: {
 
 export async function applyCarryoverSemantics(params: {
   events: Parameters<typeof applyCarryoverSemanticsImpl>[0]['events'];
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
   identityConfig: typeof identityConfig;
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
   scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
     scopedTransactions: params.scopedTransactions,
-    feeOnlyInternalCarryovers: params.feeOnlyInternalCarryovers,
+    internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
     return err(canadaAccountingContextResult.error);
@@ -208,15 +208,15 @@ export async function buildValidatedTransferTargetFeeAdjustments(params: {
 }
 
 export async function buildSameAssetTransferFeeAdjustments(params: {
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
   identityConfig: typeof identityConfig;
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
   scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
     scopedTransactions: params.scopedTransactions,
-    feeOnlyInternalCarryovers: params.feeOnlyInternalCarryovers,
+    internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
     return err(canadaAccountingContextResult.error);
@@ -232,15 +232,15 @@ export async function buildSameAssetTransferFeeAdjustments(params: {
 
 export async function applyGenericFeeAdjustments(params: {
   events: Parameters<typeof applyGenericFeeAdjustmentsImpl>[0]['events'];
-  feeOnlyInternalCarryovers?: FeeOnlyInternalCarryover[] | undefined;
   identityConfig: typeof identityConfig;
+  internalTransferCarryoverDrafts?: InternalTransferCarryoverDraft[] | undefined;
   sameAssetTransferFeeEvents: Parameters<typeof applyGenericFeeAdjustmentsImpl>[0]['sameAssetTransferFeeEvents'];
   scopedTransactions: AccountingScopedTransaction[];
   usdConversionRateProvider: UsdConversionRateProviderLike;
 }) {
   const canadaAccountingContextResult = buildStageCanadaAccountingContext({
     scopedTransactions: params.scopedTransactions,
-    feeOnlyInternalCarryovers: params.feeOnlyInternalCarryovers,
+    internalTransferCarryoverDrafts: params.internalTransferCarryoverDrafts,
   });
   if (canadaAccountingContextResult.isErr()) {
     return err(canadaAccountingContextResult.error);
@@ -258,7 +258,7 @@ export async function applyGenericFeeAdjustments(params: {
 function buildStageResolvedCarryovers(
   accountingLayer: AccountingLayerBuildResult,
   scopedTransactions: AccountingScopedTransaction[],
-  feeOnlyInternalCarryovers: readonly FeeOnlyInternalCarryover[]
+  internalTransferCarryoverDrafts: readonly InternalTransferCarryoverDraft[]
 ): Result<ResolvedInternalTransferCarryover[], Error> {
   const scopedTransactionsById = new Map(
     scopedTransactions.map((scopedTransaction) => [scopedTransaction.tx.id, scopedTransaction] as const)
@@ -271,7 +271,7 @@ function buildStageResolvedCarryovers(
   );
   const resolvedCarryovers: ResolvedInternalTransferCarryover[] = [];
 
-  for (const carryover of feeOnlyInternalCarryovers) {
+  for (const carryover of internalTransferCarryoverDrafts) {
     const sourceScopedTransaction = scopedTransactionsById.get(carryover.sourceTransactionId);
     if (!sourceScopedTransaction) {
       return err(new Error(`Carryover source transaction ${carryover.sourceTransactionId} not found`));

@@ -3,7 +3,10 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountingLayerBuildResult } from '../../../accounting-layer/accounting-layer-types.js';
-import type { AccountingScopedBuildResult, AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+} from '../../../accounting-layer/accounting-scoped-types.js';
 
 const logger = getLogger('cost-basis.standard.validation.price');
 

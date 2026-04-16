@@ -91,7 +91,7 @@ For each `(blockchain, normalizedHash, assetId)` group it:
 - fails closed on ambiguous topology
 - removes purely internal inflows from the scoped transaction set
 - reduces the sender outflow to the external quantity when internal change exists
-- emits `FeeOnlyInternalCarryover` sidecars when the entire transfer quantity is internal and only fee treatment remains
+- emits `InternalTransferCarryoverDraft` sidecars when the entire transfer quantity is internal and only fee treatment remains
 
 This is why cost basis no longer needs `blockchain_internal` links as an accounting side channel.
 
@@ -202,7 +202,7 @@ That means:
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
+    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateTransferLinks"]
     C --> E["Scoped price validation"]

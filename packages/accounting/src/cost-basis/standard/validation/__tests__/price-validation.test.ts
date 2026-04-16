@@ -5,7 +5,7 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction } from '../../../../__tests__/test-utils.js';
-import type { AccountingScopedBuildResult } from '../../matching/scoped-transaction-types.js';
+import type { AccountingScopedBuildResult } from '../../../../accounting-layer/accounting-scoped-types.js';
 import { assertScopedPriceDataQuality } from '../price-validation.js';
 
 /**
@@ -28,7 +28,7 @@ function wrapAsScopedBuildResult(transactions: Transaction[]): AccountingScopedB
         movementFingerprint: `fee-${tx.id}-${fee.assetSymbol}`,
       })),
     })),
-    feeOnlyInternalCarryovers: [],
+    internalTransferCarryoverDrafts: [],
   };
 }
 

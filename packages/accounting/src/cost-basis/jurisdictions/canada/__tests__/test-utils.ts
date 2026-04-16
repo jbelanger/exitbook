@@ -8,8 +8,8 @@ import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
-import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type {
   CanadaAcquisitionEvent,
@@ -137,7 +137,7 @@ export async function buildCanadaTestInputContext(
   confirmedLinks: TransactionLink[],
   priceRuntime: IPriceProviderRuntime
 ) {
-  const scopedResult = buildCostBasisScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
+  const scopedResult = buildAccountingScopedTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
   const accountingLayer = assertOk(buildAccountingLayerFromScopedBuild(scoped));
   const validatedLinksResult = validateTransferLinks(accountingLayer.accountingTransactionViews, confirmedLinks);

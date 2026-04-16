@@ -204,17 +204,14 @@ async function renderLinksExploreTui(
     await renderApp((unmount) =>
       React.createElement(LinksViewApp, {
         initialState: browsePresentation.state,
-        onAction: async (linkId, action) => {
-          const result = await reviewHandler.execute({ linkId }, action);
-          if (result.isErr()) {
-            throw result.error;
-          }
-
-          return {
-            affectedLinkIds: result.value.affectedLinkIds,
-            newStatus: result.value.newStatus,
-          };
-        },
+        onAction: async (linkId, action) =>
+          resultDoAsync(async function* () {
+            const result = yield* await reviewHandler.execute({ linkId }, action);
+            return {
+              affectedLinkIds: result.affectedLinkIds,
+              newStatus: result.newStatus,
+            };
+          }),
         onQuit: unmount,
       })
     );

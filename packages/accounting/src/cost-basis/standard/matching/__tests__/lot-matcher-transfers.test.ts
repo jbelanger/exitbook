@@ -13,10 +13,12 @@ import {
   materializeTestTransaction,
 } from '../../../../__tests__/test-utils.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import {
+  buildAccountingScopedTransactions,
+  type AccountingScopedTransaction,
+} from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
-import type { AccountingScopedTransaction } from '../build-cost-basis-scoped-transactions.js';
-import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../lot-matcher.js';
 
 describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () => {
@@ -80,7 +82,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const scopedResult = buildCostBasisScopedTransactions(rawTransactions, logger);
+    const scopedResult = buildAccountingScopedTransactions(rawTransactions, logger);
     if (scopedResult.isErr()) {
       return err(scopedResult.error);
     }

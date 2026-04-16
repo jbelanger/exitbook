@@ -1,4 +1,7 @@
-import type { AccountingScopedBuildResult, AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
+import type {
+  AccountingScopedBuildResult,
+  AccountingScopedTransaction,
+} from '../../../accounting-layer/accounting-scoped-types.js';
 
 export interface AccountingExclusionPolicy {
   excludedAssetIds: ReadonlySet<string>;
@@ -81,7 +84,7 @@ export function applyAccountingExclusionPolicy(
     });
   }
 
-  const feeOnlyInternalCarryovers = scopedBuildResult.feeOnlyInternalCarryovers.filter(
+  const internalTransferCarryoverDrafts = scopedBuildResult.internalTransferCarryoverDrafts.filter(
     (carryover) => !isExcludedAsset(policy, carryover.assetId)
   );
 
@@ -89,7 +92,7 @@ export function applyAccountingExclusionPolicy(
     scopedBuildResult: {
       inputTransactions: scopedBuildResult.inputTransactions,
       transactions,
-      feeOnlyInternalCarryovers,
+      internalTransferCarryoverDrafts,
     },
     fullyExcludedTransactionIds,
     partiallyExcludedTransactionIds,

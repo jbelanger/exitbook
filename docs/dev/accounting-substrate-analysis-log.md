@@ -277,7 +277,7 @@ would be localized enough to be viable, or already too diffuse to stay clean.
   - `db.transactions.findAll(...)`
   - `loadCostBasisContext()`
   - `loadPricingContext()`
-  - `buildCostBasisScopedTransactions(...)`
+  - `buildAccountingScopedTransactions(...)`
 
 ### Findings
 
@@ -299,7 +299,7 @@ would be localized enough to be viable, or already too diffuse to stay clean.
    - linking:
      - `LinkingOrchestrator.loadTransactions()`
      - `buildLinkableMovements(...)`
-     - `buildCostBasisScopedTransactions(...)` inside linking
+     - `buildAccountingScopedTransactions(...)` inside linking
    - portfolio:
      - `PortfolioHandler.loadPortfolioExecutionInputs()`
      - `calculateHoldings(...)`
@@ -553,8 +553,8 @@ This pass is about the leading candidate model, not final adoption.
 - [transaction.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/transaction.ts)
 - [movement.ts](/Users/joel/Dev/exitbook/packages/core/src/transaction/movement.ts)
 - [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
-- [build-cost-basis-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/build-cost-basis-scoped-transactions.ts)
-- [scoped-transaction-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/scoped-transaction-types.ts)
+- [build-accounting-scoped-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/build-accounting-scoped-transactions.ts)
+- [accounting-scoped-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/accounting-scoped-types.ts)
 - Pass 1, Pass 2, and Pass 3 findings in this document
 
 ### Findings
@@ -653,7 +653,7 @@ This pass is about the leading candidate model, not final adoption.
    - it is too cost-basis-shaped
    - it is still transaction-shaped
    - it carries cost-basis-local constructs like `rebuildDependencyTransactionIds`
-     and `FeeOnlyInternalCarryover`
+     and `InternalTransferCarryoverDraft`
    - it does not define a general new accounting identity
    - it would still need new entry-like vocabulary for mixed-scope events,
      which means the entry model would end up reappearing inside a heavier
@@ -729,7 +729,7 @@ complexity, it should be rejected here.
    Today cost basis must:
    - build a special scoped accounting view in memory
    - perform same-hash reductions there
-   - carry cost-basis-local artifacts like `FeeOnlyInternalCarryover`
+   - carry cost-basis-local artifacts like `InternalTransferCarryoverDraft`
      That work exists because processed rows are not yet the right accounting
      substrate.
      If canonical accounting entries existed, the cost-basis seam could read
@@ -1211,14 +1211,14 @@ needs one more canonical-layer step first.
 
 2. Canada fee and carryover handling are the real remaining blockers.
    They still depend on:
-   - `FeeOnlyInternalCarryover`
+   - `InternalTransferCarryoverDraft`
    - source / target transaction-pair fee collection
    - direct scoped movement indexes
 
 3. The canonical layer is not obviously wrong here, but the migration boundary
    is not yet settled.
    `InternalTransferCarryovers` are already more canonical than
-   `FeeOnlyInternalCarryover`, but the Canada pipeline still expects a more
+   `InternalTransferCarryoverDraft`, but the Canada pipeline still expects a more
    transaction-pair-shaped carryover contract.
 
 ### Implications
@@ -1301,7 +1301,7 @@ capability extraction into separate packages as the rewrite proceeds.
 
 Test whether the canonical accounting layer can provide a shared carryover
 resolution seam strong enough to support later Canada and lot-matching
-migrations without reintroducing `FeeOnlyInternalCarryover` as a public
+migrations without reintroducing `InternalTransferCarryoverDraft` as a public
 consumer contract.
 
 ### Evidence Inspected
@@ -1458,7 +1458,7 @@ reintroducing scoped transaction math inside the consumer.
 4. The remaining Phase 0 pressure is now narrower.
    The main remaining old-shape seams are:
    - proposal/confirmability paths that still read scoped transactions
-   - the public/spec naming debt around `FeeOnlyInternalCarryover`
+   - the public/spec naming debt around `InternalTransferCarryoverDraft`
 
 ### Implications
 
@@ -1479,7 +1479,7 @@ reintroducing scoped transaction math inside the consumer.
    - accounting exclusions
    - another smaller transaction-shaped helper
 
-2. When should `FeeOnlyInternalCarryover` finally be renamed at the builder/spec
+2. When should `InternalTransferCarryoverDraft` finally be renamed at the builder/spec
    boundary so the canonical language stays uniform end-to-end?
 
 ## Pass 15
@@ -1533,11 +1533,16 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   - transfer-proposal confirmability
   - linking strategy execution
   - CLI manual link confirmation/review
+- `buildAccountingScopedTransactions(...)` and its draft types now live under
+  `accounting-layer/`, so cost basis no longer owns the canonical layer's
+  immediate implementation substrate
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 
 ### Open Questions From Pass 15
 
-1. When should `buildCostBasisScopedTransactions(...)` stop being the internal
+1. When should `buildAccountingScopedTransactions(...)` stop being the internal
    implementation substrate beneath `buildAccountingLayerFromTransactions(...)`?
-2. What is the cleanest remaining rename path for `FeeOnlyInternalCarryover`?
+2. Should `AccountingScopedBuildResult` and `AccountingScopedTransaction`
+   remain explicit intermediate draft types, or collapse behind a narrower
+   internal seam once more consumers migrate?

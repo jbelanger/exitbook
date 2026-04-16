@@ -48,7 +48,6 @@ export {
   checkTransactionPriceCoverage,
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
-export { buildCostBasisScopedTransactions } from './cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
 export {
   buildAccountingExclusionFingerprint,
   buildCostBasisScopeKey,

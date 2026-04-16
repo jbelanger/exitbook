@@ -4,8 +4,8 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createPriceAtTxTime } from '../../../../../__tests__/test-utils.js';
+import type { InternalTransferCarryoverDraft } from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { ValidatedTransferLink } from '../../../../../accounting-layer/validated-transfer-links.js';
-import type { FeeOnlyInternalCarryover } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { CanadaAcquisitionEvent, CanadaFeeAdjustmentEvent } from '../canada-tax-types.js';
 
 import {
@@ -486,7 +486,7 @@ describe('applyCarryoverSemantics', () => {
     const acquisitionBefore = projectedEvents.find((e) => e.kind === 'acquisition' && e.transactionId === 101);
     expect(acquisitionBefore).toBeDefined();
 
-    const carryover: FeeOnlyInternalCarryover = {
+    const carryover: InternalTransferCarryoverDraft = {
       assetId: 'exchange:test:btc',
       assetSymbol: 'BTC' as Currency,
       fee: {
@@ -514,7 +514,7 @@ describe('applyCarryoverSemantics', () => {
       await applyCarryoverSemantics({
         events: projectedEvents,
         scopedTransactions: [scopedSource, scopedTarget],
-        feeOnlyInternalCarryovers: [carryover],
+        internalTransferCarryoverDrafts: [carryover],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -552,7 +552,7 @@ describe('applyCarryoverSemantics', () => {
     // Try to carryover into a fingerprint that has a disposition (not acquisition)
     const dispositionFp = scopedTarget.movements.outflows[0]!.movementFingerprint;
 
-    const carryover: FeeOnlyInternalCarryover = {
+    const carryover: InternalTransferCarryoverDraft = {
       assetId: 'exchange:test:btc',
       assetSymbol: 'BTC' as Currency,
       fee: {
@@ -588,7 +588,7 @@ describe('applyCarryoverSemantics', () => {
       await applyCarryoverSemantics({
         events: projectedEvents,
         scopedTransactions: [scopedSource, scopedTarget],
-        feeOnlyInternalCarryovers: [carryover],
+        internalTransferCarryoverDrafts: [carryover],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -600,7 +600,7 @@ describe('applyCarryoverSemantics', () => {
   it('returns error when carryover source transaction is not found', async () => {
     const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
-    const carryover: FeeOnlyInternalCarryover = {
+    const carryover: InternalTransferCarryoverDraft = {
       assetId: 'exchange:test:btc',
       assetSymbol: 'BTC' as Currency,
       fee: {
@@ -628,7 +628,7 @@ describe('applyCarryoverSemantics', () => {
       await applyCarryoverSemantics({
         events: [],
         scopedTransactions: [],
-        feeOnlyInternalCarryovers: [carryover],
+        internalTransferCarryoverDrafts: [carryover],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -646,7 +646,7 @@ describe('applyCarryoverSemantics', () => {
     const scopedSource = buildScopedTransaction(sourceTx);
     const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
 
-    const carryover: FeeOnlyInternalCarryover = {
+    const carryover: InternalTransferCarryoverDraft = {
       assetId: 'exchange:test:btc',
       assetSymbol: 'BTC' as Currency,
       fee: {
@@ -674,7 +674,7 @@ describe('applyCarryoverSemantics', () => {
       await applyCarryoverSemantics({
         events: [],
         scopedTransactions: [scopedSource],
-        feeOnlyInternalCarryovers: [carryover],
+        internalTransferCarryoverDrafts: [carryover],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -1284,7 +1284,7 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        feeOnlyInternalCarryovers: [],
+        internalTransferCarryoverDrafts: [],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -1359,7 +1359,7 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedWithdrawal, scopedDeposit],
         validatedTransfers: transfers,
-        feeOnlyInternalCarryovers: [],
+        internalTransferCarryoverDrafts: [],
         usdConversionRateProvider,
         identityConfig,
       })
@@ -1393,7 +1393,7 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
     const sourceMovementFp = scopedSource.movements.outflows[0]!.movementFingerprint;
     const targetMovementFp = scopedTarget.movements.inflows[0]!.movementFingerprint;
 
-    const carryover: FeeOnlyInternalCarryover = {
+    const carryover: InternalTransferCarryoverDraft = {
       assetId: 'exchange:test:btc',
       assetSymbol: 'BTC' as Currency,
       fee: {
@@ -1424,7 +1424,7 @@ describe('buildSameAssetTransferFeeAdjustments', () => {
       await buildSameAssetTransferFeeAdjustments({
         scopedTransactions: [scopedSource, scopedTarget],
         validatedTransfers: emptyTransferSet(),
-        feeOnlyInternalCarryovers: [carryover],
+        internalTransferCarryoverDrafts: [carryover],
         usdConversionRateProvider,
         identityConfig,
       })

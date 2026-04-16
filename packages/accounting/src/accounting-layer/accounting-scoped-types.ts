@@ -21,24 +21,24 @@ export interface AccountingScopedTransaction {
   fees: ScopedFeeMovement[];
 }
 
-export interface FeeOnlyInternalCarryoverTarget {
+export interface InternalTransferCarryoverDraftTarget {
   targetTransactionId: number;
   targetMovementFingerprint: string;
   quantity: Decimal;
 }
 
-export interface FeeOnlyInternalCarryover {
+export interface InternalTransferCarryoverDraft {
   assetId: string;
   assetSymbol: Currency;
   fee: ScopedFeeMovement;
   retainedQuantity: Decimal;
   sourceTransactionId: number;
   sourceMovementFingerprint: string;
-  targets: FeeOnlyInternalCarryoverTarget[];
+  targets: InternalTransferCarryoverDraftTarget[];
 }
 
 export interface AccountingScopedBuildResult {
   inputTransactions: Transaction[];
   transactions: AccountingScopedTransaction[];
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
 }

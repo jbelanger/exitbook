@@ -11,9 +11,9 @@ import {
   createPriceAtTxTime,
   createTransaction,
   materializeTestTransaction,
-} from '../../../../__tests__/test-utils.js';
-import { createExplainedMultiSourceAdaHashPartialTransactions } from '../../../../linking/strategies/test-utils.js';
-import { buildCostBasisScopedTransactions } from '../build-cost-basis-scoped-transactions.js';
+} from '../../__tests__/test-utils.js';
+import { createExplainedMultiSourceAdaHashPartialTransactions } from '../../linking/strategies/test-utils.js';
+import { buildAccountingScopedTransactions } from '../build-accounting-scoped-transactions.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -94,7 +94,7 @@ function createBlockchainTx(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('buildCostBasisScopedTransactions', () => {
+describe('buildAccountingScopedTransactions', () => {
   describe('non-blockchain transactions pass through unchanged', () => {
     it('should preserve exchange transactions without modification', () => {
       const txs = [
@@ -107,11 +107,11 @@ describe('buildCostBasisScopedTransactions', () => {
         ),
       ];
 
-      const result = buildCostBasisScopedTransactions(txs, noopLogger);
+      const result = buildAccountingScopedTransactions(txs, noopLogger);
       const value = assertOk(result);
 
       expect(value.transactions).toHaveLength(1);
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(0);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(0);
 
       const scoped = value.transactions[0]!;
       expect(scoped.movements.inflows).toHaveLength(1);
@@ -160,7 +160,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       // Note: same accountId=1 as sender, but different txId due to per-address import
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx, changeTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx, changeTx], noopLogger);
       const value = assertOk(result);
 
       // Sender outflow should be reduced: 1 - 0.5 (receiver) - 0.4 (change) = 0.1 (external only... wait)
@@ -184,9 +184,9 @@ describe('buildCostBasisScopedTransactions', () => {
       // Internal inflow total = 0.5 + 0.4 = 0.9
       // External = 1 - 0.9 - 0.1 = 0 → fee-only carryover
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(1);
 
-      const carryover = value.feeOnlyInternalCarryovers[0]!;
+      const carryover = value.internalTransferCarryoverDrafts[0]!;
       expect(carryover.assetId).toBe('blockchain:bitcoin:native');
       expect(carryover.sourceTransactionId).toBe(1);
       expect(carryover.targets).toHaveLength(2);
@@ -219,10 +219,10 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       receiverTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(0);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(0);
 
       // Sender outflow should be reduced: 2 - 0.5 = 1.5 gross
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
@@ -280,10 +280,10 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx, trackedChangeTx], noopLogger);
+      const result = buildAccountingScopedTransactions([firstSourceTx, secondSourceTx, trackedChangeTx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(0);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(0);
 
       const firstScoped = value.transactions.find((tx) => tx.tx.id === 6356)!;
       expect(firstScoped.movements.outflows).toHaveLength(1);
@@ -334,7 +334,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       secondSourceTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([firstSourceTx, secondSourceTx], noopLogger);
+      const result = buildAccountingScopedTransactions([firstSourceTx, secondSourceTx], noopLogger);
       const value = assertOk(result);
 
       const firstScoped = value.transactions.find((tx) => tx.tx.id === 1)!;
@@ -378,7 +378,7 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
@@ -414,7 +414,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       receiverTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
@@ -434,7 +434,7 @@ describe('buildCostBasisScopedTransactions', () => {
     });
 
     it('preserves already-allocated per-source fees instead of deduping them again', () => {
-      const result = buildCostBasisScopedTransactions(
+      const result = buildAccountingScopedTransactions(
         createExplainedMultiSourceAdaHashPartialTransactions(),
         noopLogger
       );
@@ -489,7 +489,7 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([tx1, tx2], noopLogger);
+      const result = buildAccountingScopedTransactions([tx1, tx2], noopLogger);
       const error = assertErr(result);
       expect(error.message).toContain('Asset identity collision');
       expect(error.message).toContain('USDC');
@@ -497,7 +497,7 @@ describe('buildCostBasisScopedTransactions', () => {
   });
 
   describe('fee-only internal transfer (Rule 3)', () => {
-    it('should emit FeeOnlyInternalCarryover for pure internal same-hash', () => {
+    it('should emit InternalTransferCarryoverDraft for pure internal same-hash', () => {
       // Send 1 BTC to own address on another account, entire amount is internal
       const senderTx = createBlockchainTx(
         1,
@@ -523,7 +523,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       receiverTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
       // Sender outflow should be removed (no external quantity)
@@ -535,8 +535,8 @@ describe('buildCostBasisScopedTransactions', () => {
       expect(receiverScoped.movements.inflows).toHaveLength(1);
 
       // Carryover should be emitted
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
-      const carryover = value.feeOnlyInternalCarryovers[0]!;
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(1);
+      const carryover = value.internalTransferCarryoverDrafts[0]!;
       expect(carryover.assetId).toBe('blockchain:bitcoin:native');
       expect(carryover.assetSymbol).toBe('BTC');
       expect(carryover.fee.amount.toFixed()).toBe('0.001');
@@ -580,11 +580,11 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiver1Tx, receiver2Tx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiver1Tx, receiver2Tx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
-      const carryover = value.feeOnlyInternalCarryovers[0]!;
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(1);
+      const carryover = value.internalTransferCarryoverDrafts[0]!;
       expect(carryover.targets).toHaveLength(2);
 
       const target1 = carryover.targets.find((t) => t.targetTransactionId === 2)!;
@@ -629,7 +629,7 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([sourceOneTx, sourceTwoTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([sourceOneTx, sourceTwoTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
       const firstScoped = value.transactions.find((tx) => tx.tx.id === 1)!;
@@ -643,16 +643,20 @@ describe('buildCostBasisScopedTransactions', () => {
       expect(firstScoped.rebuildDependencyTransactionIds).toEqual([3]);
       expect(secondScoped.rebuildDependencyTransactionIds).toEqual([3]);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(2);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(2);
 
-      const firstCarryover = value.feeOnlyInternalCarryovers.find((carryover) => carryover.sourceTransactionId === 1)!;
+      const firstCarryover = value.internalTransferCarryoverDrafts.find(
+        (carryover) => carryover.sourceTransactionId === 1
+      )!;
       expect(firstCarryover.fee.amount.toFixed()).toBe('0.0001');
       expect(firstCarryover.retainedQuantity.toFixed()).toBe('1');
       expect(firstCarryover.targets).toHaveLength(1);
       expect(firstCarryover.targets[0]!.targetTransactionId).toBe(3);
       expect(firstCarryover.targets[0]!.quantity.toFixed()).toBe('1');
 
-      const secondCarryover = value.feeOnlyInternalCarryovers.find((carryover) => carryover.sourceTransactionId === 2)!;
+      const secondCarryover = value.internalTransferCarryoverDrafts.find(
+        (carryover) => carryover.sourceTransactionId === 2
+      )!;
       expect(secondCarryover.fee.amount.toFixed()).toBe('0');
       expect(secondCarryover.retainedQuantity.toFixed()).toBe('1');
       expect(secondCarryover.targets).toHaveLength(1);
@@ -684,11 +688,11 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       receiverTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
-      expect(value.feeOnlyInternalCarryovers[0]!.fee.amount.toFixed()).toBe('0.001');
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(1);
+      expect(value.internalTransferCarryoverDrafts[0]!.fee.amount.toFixed()).toBe('0.001');
 
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
       const senderOnChainFees = senderScoped.fees.filter(
@@ -728,7 +732,7 @@ describe('buildCostBasisScopedTransactions', () => {
       const originalSenderOutflowGross = senderTx.movements.outflows![0]!.grossAmount;
       const originalReceiverInflowGross = receiverTx.movements.inflows![0]!.grossAmount;
 
-      buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
 
       // Raw transactions should be unchanged
       expect(senderTx.movements.outflows![0]!.grossAmount).toBe(originalSenderOutflowGross);
@@ -760,7 +764,7 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
       const senderScoped = value.transactions.find((t) => t.tx.id === 1)!;
@@ -798,11 +802,11 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       receiverTx.fees[0]!.assetId = 'blockchain:bitcoin:native';
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(1);
-      const carryover = value.feeOnlyInternalCarryovers[0]!;
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(1);
+      const carryover = value.internalTransferCarryoverDrafts[0]!;
       expect(carryover.sourceMovementFingerprint).toBe(senderTx.movements.outflows![0]!.movementFingerprint);
       expect(carryover.targets[0]!.targetMovementFingerprint).toBe(
         receiverTx.movements.inflows![0]!.movementFingerprint
@@ -834,7 +838,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
 
       const logger = createSpyLogger();
-      const result = buildCostBasisScopedTransactions([tx1, tx2], logger);
+      const result = buildAccountingScopedTransactions([tx1, tx2], logger);
       const value = assertOk(result);
 
       expect(value.transactions).toHaveLength(2);
@@ -892,7 +896,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
 
       const logger = createSpyLogger();
-      const result = buildCostBasisScopedTransactions([tx1, tx2], logger);
+      const result = buildAccountingScopedTransactions([tx1, tx2], logger);
       const value = assertOk(result);
 
       const senderScoped = value.transactions.find((transaction) => transaction.tx.id === 1)!;
@@ -953,7 +957,7 @@ describe('buildCostBasisScopedTransactions', () => {
       );
 
       const logger = createSpyLogger();
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], logger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], logger);
       const value = assertOk(result);
 
       expect(value.transactions).toHaveLength(2);
@@ -988,7 +992,7 @@ describe('buildCostBasisScopedTransactions', () => {
         []
       );
 
-      const result = buildCostBasisScopedTransactions([senderTx, receiverTx], noopLogger);
+      const result = buildAccountingScopedTransactions([senderTx, receiverTx], noopLogger);
       const error = assertErr(result);
       expect(error.message).toContain('internal inflows plus deduped fee exceed sender outflow');
     });
@@ -1020,10 +1024,10 @@ describe('buildCostBasisScopedTransactions', () => {
       );
       litecoinTx.fees[0]!.assetId = 'blockchain:litecoin:native';
 
-      const result = buildCostBasisScopedTransactions([bitcoinTx, litecoinTx], noopLogger);
+      const result = buildAccountingScopedTransactions([bitcoinTx, litecoinTx], noopLogger);
       const value = assertOk(result);
 
-      expect(value.feeOnlyInternalCarryovers).toHaveLength(0);
+      expect(value.internalTransferCarryoverDrafts).toHaveLength(0);
 
       const bitcoinScoped = value.transactions.find((t) => t.tx.id === 1)!;
       expect(bitcoinScoped.movements.outflows[0]!.grossAmount.toFixed()).toBe('1');

@@ -4,6 +4,7 @@
 
 import type { LinkGapAssetSummary, LinkGapIssue } from '@exitbook/accounting/linking';
 import type { LinkStatus } from '@exitbook/core';
+import type { Result } from '@exitbook/foundation';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
@@ -63,7 +64,7 @@ export const LinksViewApp: FC<{
   onAction?: (
     linkId: number,
     action: 'confirm' | 'reject'
-  ) => Promise<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }>;
+  ) => Promise<Result<{ affectedLinkIds: number[]; newStatus: 'confirmed' | 'rejected' }, Error>>;
   onQuit: () => void;
 }> = ({ initialState, onAction, onQuit }) => {
   // Set up state management
@@ -92,17 +93,23 @@ export const LinksViewApp: FC<{
     if (state.mode === 'links' && state.pendingAction && onAction) {
       const { linkId, action } = state.pendingAction;
 
-      void onAction(linkId, action)
-        .then((result) => {
+      void onAction(linkId, action).then(
+        (result) => {
+          if (result.isErr()) {
+            dispatch({ type: 'SET_ERROR', error: result.error.message });
+            return;
+          }
+
           dispatch({
             type: 'ACTION_SUCCESS',
-            affectedLinkIds: result.affectedLinkIds,
-            newStatus: result.newStatus,
+            affectedLinkIds: result.value.affectedLinkIds,
+            newStatus: result.value.newStatus,
           });
-        })
-        .catch((error: unknown) => {
+        },
+        (error: unknown) => {
           dispatch({ type: 'SET_ERROR', error: error instanceof Error ? error.message : String(error) });
-        });
+        }
+      );
     }
   }, [state.mode === 'links' ? state.pendingAction : undefined, onAction]);
 

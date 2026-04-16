@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { buildAccountingLayerFromScopedBuild } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
@@ -10,7 +11,6 @@ import {
   stabilizeExcludedRebuildTransactions,
   validateAccountingLayerPrices,
 } from '../../workflow/price-completeness.js';
-import { buildCostBasisScopedTransactions } from '../matching/build-cost-basis-scoped-transactions.js';
 import { LotMatcher } from '../matching/lot-matcher.js';
 import type { AccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../validation/accounting-exclusion-policy.js';
@@ -59,7 +59,7 @@ export async function runCostBasisPipeline(
   store: ICostBasisContextReader,
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
-  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
+  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
@@ -125,7 +125,7 @@ export async function runCostBasisPipeline(
     // fee-only carryovers. After stabilizing the retained raw transactions we
     // must rebuild the scoped subset so those transfer decisions are recomputed
     // against the surviving transactions rather than leaving dangling carryover state.
-    const rebuildScopedResult = buildCostBasisScopedTransactions(rebuildTransactions, logger);
+    const rebuildScopedResult = buildAccountingScopedTransactions(rebuildTransactions, logger);
     if (rebuildScopedResult.isErr()) {
       return err(rebuildScopedResult.error);
     }

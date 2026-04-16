@@ -393,7 +393,7 @@ Why:
   transaction view
 - transaction-shaped consumers that still need source/target movement refs for
   internal-transfer carryovers should use the canonical accounting-layer
-  resolution seam instead of rebuilding `FeeOnlyInternalCarryover`-style local
+  resolution seam instead of rebuilding `InternalTransferCarryoverDraft`-style local
   contracts
 
 This is the accepted narrow expansion beyond the smaller

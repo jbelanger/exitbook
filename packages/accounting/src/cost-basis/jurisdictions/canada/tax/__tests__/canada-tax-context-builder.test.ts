@@ -11,8 +11,8 @@ import {
   noopLogger,
 } from '../../__tests__/test-utils.js';
 import { buildAccountingLayerFromScopedBuild } from '../../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { ValidatedTransferSet } from '../../../../../accounting-layer/validated-transfer-links.js';
-import { buildCostBasisScopedTransactions } from '../../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import { buildCanadaTaxInputContext } from '../canada-tax-context-builder.js';
 
 describe('buildCanadaTaxInputContext', () => {
@@ -317,7 +317,7 @@ describe('buildCanadaTaxInputContext', () => {
       },
     });
 
-    const scopedResult = buildCostBasisScopedTransactions(
+    const scopedResult = buildAccountingScopedTransactions(
       [withdrawal, deposit].map(materializeTestTransaction),
       noopLogger
     );

@@ -10,8 +10,8 @@ import {
   createFeeMovement,
 } from '../../../../__tests__/test-utils.js';
 import type { ResolvedInternalTransferCarryover } from '../../../../accounting-layer/accounting-layer-resolution.js';
+import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { ValidatedTransferLink } from '../../../../accounting-layer/validated-transfer-links.js';
-import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import {
   type InternalTransferCarryoverTargetBinding,
@@ -48,7 +48,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
-    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
     const scopedTransaction = assertOk(scopedResult).transactions[0];
     const outflow = scopedTransaction?.movements.outflows[0];
 
@@ -130,7 +130,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kucoin', type: 'withdrawal' }
     );
 
-    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
     const scopedTransaction = assertOk(scopedResult).transactions[0];
     const outflow = scopedTransaction?.movements.outflows[0];
 
@@ -212,7 +212,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'arbitrum', platformKind: 'blockchain', type: 'withdrawal' }
     );
 
-    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
     const scopedTransaction = assertOk(scopedResult).transactions[0];
     const outflow = scopedTransaction?.movements.outflows[0];
 
@@ -292,7 +292,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
-    const scopedResult = buildCostBasisScopedTransactions([rawTransaction], logger);
+    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
     const scopedTransaction = assertOk(scopedResult).transactions[0];
     const outflow = scopedTransaction?.movements.outflows[0];
 

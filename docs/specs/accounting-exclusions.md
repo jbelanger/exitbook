@@ -17,7 +17,7 @@ Defines how Exitbook excludes transactions or assets from accounting-facing work
 | Spam/scam signal     | diagnostics may inform review surfaces, but they do not auto-set baseline exclusion               |
 | User policy source   | Asset exclusions come from override events, not a balances projection or cached transaction field |
 | Policy identity      | User exclusions are keyed by `profileKey + assetId`, never by display symbol alone                |
-| Scoped seam          | Asset exclusion is applied after `buildCostBasisScopedTransactions()`                             |
+| Scoped seam          | Asset exclusion is applied after `buildAccountingScopedTransactions()`                            |
 | Mixed transactions   | Excluded movements and fees are pruned; surviving included activity stays in scope                |
 | Price gating         | Price coverage and cost basis validate the post-exclusion scoped result                           |
 | Soft price exclusion | `missingPricePolicy: 'exclude'` is a missing-price fallback, not user exclusion policy            |
@@ -130,7 +130,7 @@ This keeps user policy independent from projection rebuilds and database resets 
 
 ### Asset Exclusion Runs After Scoped Build
 
-`applyAccountingExclusionPolicy(...)` runs after `buildCostBasisScopedTransactions(...)`.
+`applyAccountingExclusionPolicy(...)` runs after `buildAccountingScopedTransactions(...)`.
 
 For each scoped transaction it:
 
@@ -140,7 +140,7 @@ For each scoped transaction it:
 - drops the entire scoped transaction if nothing remains
 - marks the transaction as partially excluded if some activity survives
 
-It also removes `feeOnlyInternalCarryovers` whose carryover `assetId` is excluded.
+It also removes `internalTransferCarryoverDrafts` whose carryover `assetId` is excluded.
 
 Raw source transactions are not mutated. Repository-level visibility does not change.
 
@@ -168,7 +168,7 @@ Price coverage flow:
 ```mermaid
 graph TD
     A["Loaded transactions"] --> B["Date-range filter"]
-    B --> C["buildCostBasisScopedTransactions"]
+    B --> C["buildAccountingScopedTransactions"]
     C --> D["applyAccountingExclusionPolicy"]
     D --> E["scopedTransactionHasAllPrices"]
 ```
@@ -177,7 +177,7 @@ Generic cost-basis flow:
 
 ```mermaid
 graph TD
-    A["Loaded transactions"] --> B["buildCostBasisScopedTransactions"]
+    A["Loaded transactions"] --> B["buildAccountingScopedTransactions"]
     B --> C["applyAccountingExclusionPolicy"]
     C --> D["validateScopedTransactionPrices"]
     D --> E["validateTransferLinks / lot matching"]
@@ -195,7 +195,7 @@ Rules:
 Canada ACB does not bypass exclusions. It follows:
 
 ```text
-buildCostBasisScopedTransactions()
+buildAccountingScopedTransactions()
   -> applyAccountingExclusionPolicy()
   -> validateTransferLinks()
   -> buildCanadaTaxInputContext()

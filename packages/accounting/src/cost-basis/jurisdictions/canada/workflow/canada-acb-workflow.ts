@@ -1,11 +1,11 @@
 import type { AssetReviewSummary, TransactionLink, Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
-import { buildCostBasisScopedTransactions } from '../../../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { AccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../../../standard/validation/accounting-exclusion-policy.js';
 import { assertNoScopedAssetsRequireReview } from '../../../standard/validation/asset-review-preflight.js';
@@ -32,51 +32,27 @@ export interface RunCanadaAcbWorkflowParams {
 export async function runCanadaAcbWorkflow(
   params: RunCanadaAcbWorkflowParams
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
-  const scopedResult = buildCostBasisScopedTransactions(params.transactions, logger);
-  if (scopedResult.isErr()) {
-    return err(scopedResult.error);
-  }
+  return resultDoAsync(async function* () {
+    const scopedBuildResult = yield* buildAccountingScopedTransactions(params.transactions, logger);
+    const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, params.accountingExclusionPolicy);
+    yield* assertNoScopedAssetsRequireReview(
+      exclusionApplied.scopedBuildResult.transactions,
+      params.assetReviewSummaries
+    );
 
-  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, params.accountingExclusionPolicy);
+    const accountingLayer = yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+    const validatedTransfers = yield* validateTransferLinks(accountingLayer.accountingTransactionViews, params.confirmedLinks);
+    const inputContext = yield* await buildCanadaTaxInputContext({
+      accountingLayer,
+      validatedTransfers,
+      priceRuntime: params.priceRuntime,
+      identityConfig: {},
+    });
+    const acbEngineResult = yield* runCanadaAcbEngine(inputContext);
 
-  const assetReviewResult = assertNoScopedAssetsRequireReview(
-    exclusionApplied.scopedBuildResult.transactions,
-    params.assetReviewSummaries
-  );
-  if (assetReviewResult.isErr()) {
-    return err(assetReviewResult.error);
-  }
-
-  const accountingLayerResult = buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
-  if (accountingLayerResult.isErr()) {
-    return err(accountingLayerResult.error);
-  }
-
-  const validatedLinksResult = validateTransferLinks(
-    accountingLayerResult.value.accountingTransactionViews,
-    params.confirmedLinks
-  );
-  if (validatedLinksResult.isErr()) {
-    return err(validatedLinksResult.error);
-  }
-
-  const inputContextResult = await buildCanadaTaxInputContext({
-    accountingLayer: accountingLayerResult.value,
-    validatedTransfers: validatedLinksResult.value,
-    priceRuntime: params.priceRuntime,
-    identityConfig: {},
-  });
-  if (inputContextResult.isErr()) {
-    return err(inputContextResult.error);
-  }
-
-  const acbEngineResult = runCanadaAcbEngine(inputContextResult.value);
-  if (acbEngineResult.isErr()) {
-    return err(acbEngineResult.error);
-  }
-
-  return ok({
-    inputContext: inputContextResult.value,
-    acbEngineResult: acbEngineResult.value,
+    return {
+      inputContext,
+      acbEngineResult,
+    };
   });
 }

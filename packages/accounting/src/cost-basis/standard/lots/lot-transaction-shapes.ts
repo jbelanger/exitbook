@@ -6,7 +6,7 @@ import type {
   AccountingAssetEntryView,
   AccountingTransactionView,
 } from '../../../accounting-layer/accounting-layer-types.js';
-import type { AccountingScopedTransaction } from '../matching/scoped-transaction-types.js';
+import type { AccountingScopedTransaction } from '../../../accounting-layer/accounting-scoped-types.js';
 
 export type CostBasisTransactionLike = AccountingScopedTransaction | AccountingTransactionView | Transaction;
 export type CostBasisMovementLike = AssetMovement | AccountingAssetEntryView;

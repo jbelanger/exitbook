@@ -2,12 +2,6 @@ import type { AssetMovement, FeeMovement, Transaction } from '@exitbook/core';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
-import {
-  buildCostBasisScopedTransactions,
-  type AccountingScopedBuildResult,
-  type FeeOnlyInternalCarryover,
-} from '../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
-
 import { computeAccountingEntryFingerprint } from './accounting-entry-fingerprint.js';
 import type { AccountingEntry, AccountingEntryDraft } from './accounting-entry-types.js';
 import type {
@@ -19,6 +13,11 @@ import type {
   InternalTransferCarryover,
   InternalTransferCarryoverTargetBinding,
 } from './accounting-layer-types.js';
+import {
+  buildAccountingScopedTransactions,
+  type AccountingScopedBuildResult,
+  type InternalTransferCarryoverDraft,
+} from './build-accounting-scoped-transactions.js';
 
 /**
  * Build the canonical accounting-layer read model from processed transactions.
@@ -31,7 +30,7 @@ export function buildAccountingLayerFromTransactions(
   transactions: Transaction[],
   logger: Logger
 ): Result<AccountingLayerBuildResult, Error> {
-  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
+  const scopedResult = buildAccountingScopedTransactions(transactions, logger);
   if (scopedResult.isErr()) {
     return err(scopedResult.error);
   }
@@ -133,7 +132,7 @@ export function buildAccountingLayerFromScopedBuild(
     });
   }
 
-  const sortedCarryovers = [...scopedBuildResult.feeOnlyInternalCarryovers].sort(compareCarryoverIdentity);
+  const sortedCarryovers = [...scopedBuildResult.internalTransferCarryoverDrafts].sort(compareCarryoverIdentity);
   const sourceEntryByMovementFingerprint = new Map<string, AccountingEntry>();
 
   for (const carryover of sortedCarryovers) {
@@ -287,7 +286,7 @@ function buildFeeAccountingEntry(
 
 function buildCarryoverSourceAccountingEntry(
   transaction: Transaction,
-  carryover: FeeOnlyInternalCarryover
+  carryover: InternalTransferCarryoverDraft
 ): Result<AccountingEntry, Error> {
   if (!carryover.retainedQuantity.gt(0)) {
     return err(
@@ -324,7 +323,7 @@ function buildCarryoverSourceAccountingEntry(
 }
 
 function buildInternalTransferCarryoverTargetBindings(
-  carryover: FeeOnlyInternalCarryover,
+  carryover: InternalTransferCarryoverDraft,
   sourceEntry: AccountingEntry,
   inflowEntryByMovementFingerprint: Map<string, AccountingEntry>
 ): Result<InternalTransferCarryoverTargetBinding[], Error> {
@@ -376,7 +375,7 @@ function buildInternalTransferCarryoverTargetBindings(
 }
 
 function resolveCarryoverFeeEntryFingerprint(
-  carryover: FeeOnlyInternalCarryover,
+  carryover: InternalTransferCarryoverDraft,
   feeEntryByMovementFingerprint: Map<string, AccountingEntry>
 ): Result<string | undefined, Error> {
   if (!carryover.fee.amount.gt(0)) {
@@ -453,7 +452,7 @@ function buildDerivationDependencies(
   return ok(dependencies);
 }
 
-function compareCarryoverIdentity(left: FeeOnlyInternalCarryover, right: FeeOnlyInternalCarryover): number {
+function compareCarryoverIdentity(left: InternalTransferCarryoverDraft, right: InternalTransferCarryoverDraft): number {
   const sourceTransactionComparison = left.sourceTransactionId - right.sourceTransactionId;
   if (sourceTransactionComparison !== 0) {
     return sourceTransactionComparison;
@@ -463,8 +462,8 @@ function compareCarryoverIdentity(left: FeeOnlyInternalCarryover, right: FeeOnly
 }
 
 function compareCarryoverTargetIdentity(
-  left: FeeOnlyInternalCarryover['targets'][number],
-  right: FeeOnlyInternalCarryover['targets'][number]
+  left: InternalTransferCarryoverDraft['targets'][number],
+  right: InternalTransferCarryoverDraft['targets'][number]
 ): number {
   const transactionComparison = left.targetTransactionId - right.targetTransactionId;
   if (transactionComparison !== 0) {

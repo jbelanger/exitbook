@@ -1,13 +1,13 @@
 import type { AssetMovementDraft, FeeMovementDraft, FeeMovement, Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency } from '@exitbook/foundation';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, resultDo, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountingEntry } from '../../accounting-layer/accounting-entry-types.js';
 import type { AccountingLayerBuildResult } from '../../accounting-layer/accounting-layer-types.js';
 import { buildAccountingLayerFromScopedBuild } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingScopedTransactions } from '../../accounting-layer/build-accounting-scoped-transactions.js';
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
-import { buildCostBasisScopedTransactions } from '../standard/matching/build-cost-basis-scoped-transactions.js';
 import type { AccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
 import { applyAccountingExclusionPolicy } from '../standard/validation/accounting-exclusion-policy.js';
 
@@ -220,13 +220,11 @@ function buildAccountingLayerForPriceValidation(
   transactions: Transaction[],
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<AccountingLayerBuildResult, Error> {
-  const scopedResult = buildCostBasisScopedTransactions(transactions, logger);
-  if (scopedResult.isErr()) {
-    return err(scopedResult.error);
-  }
-
-  const exclusionApplied = applyAccountingExclusionPolicy(scopedResult.value, accountingExclusionPolicy);
-  return buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+  return resultDo(function* () {
+    const scopedBuildResult = yield* buildAccountingScopedTransactions(transactions, logger);
+    const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, accountingExclusionPolicy);
+    return yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
+  });
 }
 
 export function getCostBasisRebuildTransactions(
@@ -234,12 +232,10 @@ export function getCostBasisRebuildTransactions(
   requiredCurrency: string,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<PriceValidationResult, Error> {
-  const accountingLayerResult = buildAccountingLayerForPriceValidation(transactions, accountingExclusionPolicy);
-  if (accountingLayerResult.isErr()) {
-    return err(accountingLayerResult.error);
-  }
-
-  return validateAccountingLayerPrices(accountingLayerResult.value, requiredCurrency);
+  return resultDo(function* () {
+    const accountingLayerBuild = yield* buildAccountingLayerForPriceValidation(transactions, accountingExclusionPolicy);
+    return yield* validateAccountingLayerPrices(accountingLayerBuild, requiredCurrency);
+  });
 }
 
 function buildTransactionIdSetKey(transactions: readonly Transaction[]): string {

@@ -1,15 +1,14 @@
- 
 import type { Transaction } from '@exitbook/core';
 import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBuildCostBasisScopedTransactions } = vi.hoisted(() => ({
-  mockBuildCostBasisScopedTransactions: vi.fn(),
+const { mockBuildAccountingScopedTransactions } = vi.hoisted(() => ({
+  mockBuildAccountingScopedTransactions: vi.fn(),
 }));
 
-vi.mock('../../standard/matching/build-cost-basis-scoped-transactions.js', () => ({
-  buildCostBasisScopedTransactions: mockBuildCostBasisScopedTransactions,
+vi.mock('../../../accounting-layer/build-accounting-scoped-transactions.js', () => ({
+  buildAccountingScopedTransactions: mockBuildAccountingScopedTransactions,
 }));
 
 import { createPriceAtTxTime, createTransactionFromMovements } from '../../../__tests__/test-utils.js';
@@ -37,7 +36,7 @@ describe('stabilizeExcludedRebuildTransactions', () => {
     const priced = createTransaction(1, true);
     const dependency = createTransaction(2, false);
 
-    mockBuildCostBasisScopedTransactions
+    mockBuildAccountingScopedTransactions
       .mockReturnValueOnce(
         ok({
           inputTransactions: [priced, dependency],
@@ -57,7 +56,7 @@ describe('stabilizeExcludedRebuildTransactions', () => {
               fees: [],
             },
           ],
-          feeOnlyInternalCarryovers: [],
+          internalTransferCarryoverDrafts: [],
         })
       )
       .mockReturnValueOnce(
@@ -79,13 +78,13 @@ describe('stabilizeExcludedRebuildTransactions', () => {
               fees: [],
             },
           ],
-          feeOnlyInternalCarryovers: [],
+          internalTransferCarryoverDrafts: [],
         })
       );
 
     const result = assertOk(stabilizeExcludedRebuildTransactions([priced, dependency], 'USD'));
 
     expect(result.map((transaction) => transaction.id)).toEqual([1]);
-    expect(mockBuildCostBasisScopedTransactions).toHaveBeenCalledTimes(2);
+    expect(mockBuildAccountingScopedTransactions).toHaveBeenCalledTimes(2);
   });
 });

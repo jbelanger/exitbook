@@ -7,23 +7,23 @@ import { Decimal } from 'decimal.js';
 import {
   allocateSameHashUtxoAmountInTxOrder,
   planSameHashUtxoSourceCapacities,
-} from '../../../linking/same-hash-utxo-allocation.js';
-import { normalizeTransactionHash } from '../../../linking/strategies/exact-hash-utils.js';
+} from '../linking/same-hash-utxo-allocation.js';
+import { normalizeTransactionHash } from '../linking/strategies/exact-hash-utils.js';
 
 export type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
-  FeeOnlyInternalCarryoverTarget,
+  InternalTransferCarryoverDraft,
+  InternalTransferCarryoverDraftTarget,
   ScopedFeeMovement,
-} from './scoped-transaction-types.js';
+} from './accounting-scoped-types.js';
 
 import type {
   AccountingScopedBuildResult,
   AccountingScopedTransaction,
-  FeeOnlyInternalCarryover,
+  InternalTransferCarryoverDraft,
   ScopedFeeMovement,
-} from './scoped-transaction-types.js';
+} from './accounting-scoped-types.js';
 
 // ---------------------------------------------------------------------------
 // Internal grouping types
@@ -143,13 +143,14 @@ type SameHashDecision =
 // ---------------------------------------------------------------------------
 
 /**
- * Build the cost-basis-owned accounting view from processed transactions.
+ * Build the accounting-layer-owned scoped transaction draft from processed
+ * transactions.
  *
  * This scoped result is the seam for later accounting exclusions: callers can
  * remove scoped movements, assets, or fees after this build step and before
  * price validation or lot matching, without reopening matcher-local UTXO logic.
  */
-export function buildCostBasisScopedTransactions(
+export function buildAccountingScopedTransactions(
   transactions: Transaction[],
   logger: Logger
 ): Result<AccountingScopedBuildResult, Error> {
@@ -166,7 +167,7 @@ export function buildCostBasisScopedTransactions(
   if (groupsResult.isErr()) return err(groupsResult.error);
 
   // Step 3: Reduce each group and apply scoping decisions
-  const feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[] = [];
+  const internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[] = [];
 
   for (const group of groupsResult.value) {
     const decisionResult = reduceSameHashGroupForCostBasis(group, logger);
@@ -175,14 +176,19 @@ export function buildCostBasisScopedTransactions(
     const decision = decisionResult.value;
     if (decision === undefined) continue;
 
-    const applyResult = applyDecisionToScopedTransactions(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+    const applyResult = applyDecisionToScopedTransactions(
+      scopedByTxId,
+      internalTransferCarryoverDrafts,
+      decision,
+      logger
+    );
     if (applyResult.isErr()) return err(applyResult.error);
   }
 
   return ok({
     inputTransactions: transactions,
     transactions: [...scopedByTxId.values()],
-    feeOnlyInternalCarryovers,
+    internalTransferCarryoverDrafts,
   });
 }
 
@@ -254,7 +260,9 @@ function groupSameHashTransactionsForCostBasis(
 
     const normalizedHash = normalizeTransactionHash(tx.blockchain.transaction_hash);
     const bucketKey = buildSameHashBucketKey(tx.blockchain.name, normalizedHash);
-    const entry = txsByBlockchainAndHash.get(bucketKey) ?? {
+    const entry: { blockchain: string; normalizedHash: string; txs: Transaction[] } = txsByBlockchainAndHash.get(
+      bucketKey
+    ) ?? {
       blockchain: tx.blockchain.name,
       normalizedHash,
       txs: [],
@@ -805,7 +813,7 @@ function allocateSameHashReceiversAcrossSources(
 
 function applyDecisionToScopedTransactions(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: SameHashDecision,
   logger: Logger
 ): Result<void, Error> {
@@ -814,14 +822,14 @@ function applyDecisionToScopedTransactions(
   }
 
   if (decision.type === 'internal_fee_only') {
-    return applyInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+    return applyInternalFeeOnly(scopedByTxId, internalTransferCarryoverDrafts, decision, logger);
   }
 
   if (decision.type === 'multi_source_scoped_external_amount') {
     return applyMultiSourceScopedExternalAmount(scopedByTxId, decision, logger);
   }
 
-  return applyMultiSourceInternalFeeOnly(scopedByTxId, feeOnlyInternalCarryovers, decision, logger);
+  return applyMultiSourceInternalFeeOnly(scopedByTxId, internalTransferCarryoverDrafts, decision, logger);
 }
 
 function addScopedRebuildDependencies(
@@ -911,7 +919,7 @@ function applyMultiSourceScopedExternalAmount(
 
 function applyMultiSourceInternalFeeOnly(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: MultiSourceInternalFeeOnly,
   logger: Logger
 ): Result<void, Error> {
@@ -944,7 +952,7 @@ function applyMultiSourceInternalFeeOnly(
 
     if (feeOwnerScopedFee) {
       for (const sourceCarryover of decision.sourceCarryovers) {
-        feeOnlyInternalCarryovers.push({
+        internalTransferCarryoverDrafts.push({
           assetId: decision.assetId,
           assetSymbol: decision.assetSymbol as Currency,
           fee:
@@ -977,7 +985,7 @@ function applyMultiSourceInternalFeeOnly(
         continue;
       }
 
-      feeOnlyInternalCarryovers.push({
+      internalTransferCarryoverDrafts.push({
         assetId: decision.assetId,
         assetSymbol: decision.assetSymbol as Currency,
         fee: sourceFee,
@@ -1058,7 +1066,7 @@ function applyInternalWithExternalAmount(
 
 function applyInternalFeeOnly(
   scopedByTxId: Map<number, AccountingScopedTransaction>,
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[],
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[],
   decision: InternalFeeOnly,
   logger: Logger
 ): Result<void, Error> {
@@ -1089,7 +1097,7 @@ function applyInternalFeeOnly(
   if (senderFee) {
     const retainedQuantity = decision.receivers.reduce((sum, r) => sum.plus(r.quantity), new Decimal(0));
 
-    feeOnlyInternalCarryovers.push({
+    internalTransferCarryoverDrafts.push({
       assetId: decision.assetId,
       assetSymbol: decision.assetSymbol as Currency,
       fee: senderFee,

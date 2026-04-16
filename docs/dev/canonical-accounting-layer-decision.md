@@ -121,7 +121,7 @@ Reasons:
 - it is still transaction-shaped
 - it carries cost-basis-local constructs like:
   - `rebuildDependencyTransactionIds`
-  - `FeeOnlyInternalCarryover`
+  - `InternalTransferCarryoverDraft`
 - it does not define a clean generic accounting identity
 - once generalized for mixed-scope events, entry-like primitives would reappear
   inside it anyway

@@ -4,7 +4,7 @@ import type { Logger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { createFee, createMovement, createTransactionFromMovements } from '../../../../__tests__/test-utils.js';
-import { buildCostBasisScopedTransactions } from '../../matching/build-cost-basis-scoped-transactions.js';
+import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
 import {
   applyAccountingExclusionPolicy,
   createAccountingExclusionPolicy,
@@ -42,7 +42,7 @@ describe('accounting-exclusion-policy', () => {
     const transaction = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
       inflows: [createMovement('ETH', '1', '3000'), createMovement('SCAM', '1000')],
     });
-    const scopedBuildResult = assertOk(buildCostBasisScopedTransactions([transaction], noopLogger));
+    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
     scopedBuildResult.transactions[0]!.rebuildDependencyTransactionIds.push(99);
 
     const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
@@ -60,7 +60,7 @@ describe('accounting-exclusion-policy', () => {
     const transaction = createTransactionFromMovements(1, '2025-01-10T00:00:00.000Z', {
       inflows: [createMovement('SCAM', '1000')],
     });
-    const scopedBuildResult = assertOk(buildCostBasisScopedTransactions([transaction], noopLogger));
+    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
 
     const result = applyAccountingExclusionPolicy(scopedBuildResult, createAccountingExclusionPolicy(['test:scam']));
 
@@ -78,8 +78,8 @@ describe('accounting-exclusion-policy', () => {
       },
       [createFee('SCAM', '5')]
     );
-    const scopedBuildResult = assertOk(buildCostBasisScopedTransactions([transaction], noopLogger));
-    scopedBuildResult.feeOnlyInternalCarryovers.push({
+    const scopedBuildResult = assertOk(buildAccountingScopedTransactions([transaction], noopLogger));
+    scopedBuildResult.internalTransferCarryoverDrafts.push({
       assetId: 'test:scam',
       assetSymbol: 'SCAM' as Currency,
       fee: {
@@ -107,7 +107,7 @@ describe('accounting-exclusion-policy', () => {
 
     expect(result.scopedBuildResult.transactions).toHaveLength(1);
     expect(result.scopedBuildResult.transactions[0]?.fees).toEqual([]);
-    expect(result.scopedBuildResult.feeOnlyInternalCarryovers).toEqual([]);
+    expect(result.scopedBuildResult.internalTransferCarryoverDrafts).toEqual([]);
   });
 
   it('recognizes excluded assets through the shared predicate', () => {

@@ -18,7 +18,7 @@ Defines the accounting-owned boundary that cost basis builds from processed tran
 | Ambiguity policy       | Same-hash asset identity collisions and mixed/multi-movement topologies return `Err`                                 |
 | Movement identity      | Scoped inflows/outflows keep persisted `movementFingerprint`; scoped rewrites preserve fingerprint-targeted identity |
 | Fee ownership          | Same-asset on-chain fees are deduplicated to one sender-owned scoped fee using `max(...)`                            |
-| Fee-only internal case | Purely internal same-hash groups emit `FeeOnlyInternalCarryover` sidecars                                            |
+| Fee-only internal case | Purely internal same-hash groups emit `InternalTransferCarryoverDraft` sidecars                                      |
 | Price gating           | Price coverage and hard price validation run on scoped movements and scoped fees                                     |
 | Link eligibility       | Cost basis validates only `status='confirmed'` non-`blockchain_internal` links                                       |
 | Exclusions seam        | Accounting exclusions belong after scoped build and before downstream validation/matching                            |
@@ -70,25 +70,25 @@ Semantics:
 - `movementFingerprint` always points back to the persisted processed movement identity, even after scoped rewriting.
 - scoped fees are cloned and normalized separately from raw `tx.fees`.
 
-### FeeOnlyInternalCarryover
+### InternalTransferCarryoverDraft
 
 Cost-basis-local sidecar for a same-hash internal transfer where no external transfer quantity remains but fee treatment still matters:
 
 ```ts
-interface FeeOnlyInternalCarryoverTarget {
+interface InternalTransferCarryoverDraftTarget {
   targetTransactionId: number;
   targetMovementFingerprint: string;
   quantity: Decimal;
 }
 
-interface FeeOnlyInternalCarryover {
+interface InternalTransferCarryoverDraft {
   assetId: string;
   assetSymbol: Currency;
   fee: ScopedFeeMovement;
   retainedQuantity: Decimal;
   sourceTransactionId: number;
   sourceMovementFingerprint: string;
-  targets: FeeOnlyInternalCarryoverTarget[];
+  targets: InternalTransferCarryoverDraftTarget[];
 }
 ```
 
@@ -100,7 +100,7 @@ This is not a persisted `TransactionLink`. It exists only inside the cost-basis 
 interface AccountingScopedBuildResult {
   inputTransactions: Transaction[];
   transactions: AccountingScopedTransaction[];
-  feeOnlyInternalCarryovers: FeeOnlyInternalCarryover[];
+  internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[];
 }
 ```
 
@@ -135,7 +135,7 @@ These indexes are matcher-facing lookup structures, not persistence.
 
 ### Scoped Build
 
-`buildCostBasisScopedTransactions(...)` is the first accounting step after processed transactions are loaded.
+`buildAccountingScopedTransactions(...)` is the first accounting step after processed transactions are loaded.
 
 For every raw transaction it:
 
@@ -213,7 +213,7 @@ When the same-hash group has zero external quantity after internal inflows and d
 - remove the sender scoped outflow for that asset
 - keep receiver scoped inflows in place
 - normalize same-asset on-chain fee ownership onto the sender scoped transaction
-- emit one `FeeOnlyInternalCarryover` with movement-fingerprint-targeted receiver bindings
+- emit one `InternalTransferCarryoverDraft` with movement-fingerprint-targeted receiver bindings
 
 If internal inflows plus deduplicated fee exceed the sender outflow, return `Err`.
 
@@ -277,7 +277,7 @@ Accounting exclusions belong after the scoped build and before scoped validation
 ```text
 processed transactions
         ↓
-buildCostBasisScopedTransactions()
+buildAccountingScopedTransactions()
         ↓
 accounting exclusion policy
         ↓
@@ -290,7 +290,7 @@ The matcher must not become the place where excluded movements are re-decided.
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
+    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateScopedTransactionPrices / checkTransactionPriceCoverage"]
     C --> E["validateTransferLinks"]

@@ -178,13 +178,16 @@ Phase 0 investigation log:
     - `inputTransactionIds` replaced historical `scopedTransactionIds`
     - `internal-transfer-carryover` replaced historical
       `fee-only-carryover`
+    - `buildAccountingScopedTransactions(...)` and
+      `accounting-scoped-types.ts` now live under `accounting-layer/`
+      instead of `cost-basis/standard/matching/`
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:
     - remaining scoped compatibility seams such as
-      `buildCostBasisScopedTransactions(...)`
-    - any remaining public/spec naming debt around
-      `FeeOnlyInternalCarryover`
+      `AccountingScopedBuildResult`
+    - whether `AccountingScopedTransaction` should remain an explicit
+      intermediate draft model or collapse behind a narrower internal seam
 
 ## Chosen Model
 

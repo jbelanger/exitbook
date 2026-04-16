@@ -296,7 +296,7 @@ Canada consumes:
 
 1. `AccountingScopedTransaction[]`
 2. `ValidatedTransferSet`
-3. `FeeOnlyInternalCarryover[]`
+3. `InternalTransferCarryoverDraft[]`
 
 Movement projection rules:
 
@@ -321,7 +321,7 @@ Event ordering is deterministic:
 
 For same-hash internal transfers whose external quantity is zero and only fee treatment remains:
 
-- the scoped builder emits a `FeeOnlyInternalCarryover`
+- the scoped builder emits an `InternalTransferCarryoverDraft`
 - the Canada context builder rewrites the target acquisition event into a `transfer-in`
 - the carryover keeps provenance through `sourceTransactionId`, `sourceMovementFingerprint`, and `targetMovementFingerprint`
 - proportional fiat fees from source and target sides are converted into `add-to-pool-cost` fee-adjustment events attached to the transfer target

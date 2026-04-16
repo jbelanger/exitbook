@@ -75,7 +75,7 @@ Targets never scan all transfers. They resolve directly through the binding key 
 
 ```mermaid
 graph TD
-    A["Processed transactions"] --> B["buildCostBasisScopedTransactions"]
+    A["Processed transactions"] --> B["buildAccountingScopedTransactions"]
     B --> C["AccountingScopedBuildResult"]
     C --> D["validateTransferLinks"]
     C --> E["Prepare fee-only carryovers"]
