@@ -1,4 +1,4 @@
-import type { AssetReviewSummary, Transaction, TransactionLink } from '@exitbook/core';
+import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 import {
   err,
   ok,
@@ -17,6 +17,10 @@ import type { AccountingModelBuildResult } from '../accounting-model/accounting-
 import { buildAccountingModelFromTransactions } from '../accounting-model/build-accounting-model-from-transactions.js';
 import { persistCostBasisFailureSnapshot } from '../cost-basis/artifacts/failure-snapshot-service.js';
 import { buildCostBasisScopeKey } from '../cost-basis/cost-basis-scope-key.js';
+import {
+  buildCostBasisIssueNoticeSummaries,
+  type CostBasisIssueNoticeSummary,
+} from '../cost-basis/export/cost-basis-issue-notice-summaries.js';
 import { runCanadaCostBasisCalculation } from '../cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
 import type { FiatCurrency as AccountingFiatCurrency } from '../cost-basis/model/cost-basis-config.js';
 /**
@@ -29,6 +33,7 @@ import {
 } from '../cost-basis/workflow/cost-basis-input.js';
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type {
+  CostBasisContext,
   CostBasisDependencyWatermark,
   ICostBasisContextReader,
   ICostBasisFailureSnapshotStore,
@@ -74,6 +79,7 @@ export interface PortfolioHandlerParams {
 export interface PortfolioResult {
   positions: PortfolioPositionItem[];
   closedPositions: PortfolioPositionItem[];
+  issueNoticeSummaries: CostBasisIssueNoticeSummary[];
   transactions: Transaction[];
   totalValue?: string | undefined;
   totalCost?: string | undefined;
@@ -119,10 +125,9 @@ interface ValidatedPortfolioParams {
 interface PortfolioExecutionInputs extends ValidatedPortfolioParams {
   accountMetadataById: Map<number, PortfolioAccountMetadata>;
   assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
-  confirmedLinks: TransactionLink[];
   dependencyWatermark: CostBasisDependencyWatermark;
   portfolioAccountingModel: AccountingModelBuildResult;
-  portfolioTransactions: Transaction[];
+  portfolioSourceContext: CostBasisContext;
 }
 
 interface PortfolioValuationContext {
@@ -139,6 +144,7 @@ interface PortfolioValuationContext {
 
 interface PortfolioPositionsBuildResult {
   closedPositions: PortfolioPositionItem[];
+  issueNoticeSummaries: CostBasisIssueNoticeSummary[];
   positions: PortfolioPositionItem[];
   realizedGainLossByAssetId: Map<string, Decimal>;
   realizedGainLossDisplayContext: RealizedGainLossDisplayContext;
@@ -232,10 +238,13 @@ export class PortfolioHandler {
         ...params,
         accountMetadataById,
         assetReviewSummaries,
-        confirmedLinks: context.confirmedLinks,
         dependencyWatermark,
         portfolioAccountingModel,
-        portfolioTransactions,
+        portfolioSourceContext: {
+          accounts: context.accounts,
+          confirmedLinks: context.confirmedLinks,
+          transactions: portfolioTransactions,
+        },
       };
     }, this);
   }
@@ -363,11 +372,10 @@ export class PortfolioHandler {
         assetReviewSummaries: inputs.assetReviewSummaries,
         asOf: inputs.asOf,
         assetMetadata: valuationContext.assetMetadata,
-        confirmedLinks: inputs.confirmedLinks,
         costBasisParams: valuationContext.costBasisParams,
         holdings: valuationContext.holdings,
+        portfolioSourceContext: inputs.portfolioSourceContext,
         spotPrices: valuationContext.spotPrices,
-        transactionsUpToAsOf: inputs.portfolioTransactions,
       });
       if (canadaPortfolioResult.isErr()) {
         const persistedResult = await this.persistCostBasisFailure(
@@ -385,6 +393,7 @@ export class PortfolioHandler {
 
       return ok({
         closedPositions: canadaPortfolioResult.value.closedPositions,
+        issueNoticeSummaries: canadaPortfolioResult.value.issueNoticeSummaries,
         positions: canadaPortfolioResult.value.positions,
         realizedGainLossByAssetId: canadaPortfolioResult.value.realizedGainLossByPortfolioKey,
         realizedGainLossDisplayContext: { sourceCurrency: 'display' },
@@ -400,16 +409,19 @@ export class PortfolioHandler {
     valuationContext: PortfolioValuationContext
   ): Promise<Result<PortfolioPositionsBuildResult, Error>> {
     const workflow = new CostBasisWorkflow(this.deps.costBasisStore, this.deps.priceRuntime);
-    const workflowResult = await workflow.execute(valuationContext.costBasisParams, inputs.portfolioTransactions, {
-      accountingExclusionPolicy: this.accountingExclusionPolicy,
-      assetReviewSummaries: inputs.assetReviewSummaries,
-      // Portfolio is a best-effort holdings view, not a tax filing surface.
-      // Keeping the price-complete subset lets us still show open lots and
-      // spot-valued positions, while warning that unrealized P&L is
-      // incomplete until the excluded transactions are enriched with
-      // prices.
-      missingPricePolicy: 'exclude',
-    });
+    const workflowResult = await workflow.execute(
+      valuationContext.costBasisParams,
+      inputs.portfolioSourceContext.transactions,
+      {
+        accountingExclusionPolicy: this.accountingExclusionPolicy,
+        assetReviewSummaries: inputs.assetReviewSummaries,
+        // Portfolio is a best-effort holdings view, not a tax filing surface.
+        // Keeping the price-complete subset lets us still show open lots and
+        // spot-valued positions, while routing missing-price review burden
+        // through the scoped issues surface.
+        missingPricePolicy: 'exclude',
+      }
+    );
     if (workflowResult.isErr()) {
       const persistedResult = await this.persistCostBasisFailure(
         this.deps.failureSnapshotStore,
@@ -430,16 +442,18 @@ export class PortfolioHandler {
       );
     }
 
-    const warnings: string[] = [];
-    const { summary: costBasisSummary, executionMeta } = workflowResult.value;
-    const missingPriceWarning = this.buildMissingPriceWarning(
-      inputs.portfolioTransactions,
-      executionMeta.retainedTransactionIds,
-      executionMeta.missingPricesCount
+    const issueNoticeSummariesResult = this.buildPortfolioIssueNoticeSummaries(
+      workflowResult.value,
+      inputs.assetReviewSummaries,
+      valuationContext.costBasisParams,
+      inputs.portfolioSourceContext
     );
-    if (missingPriceWarning) {
-      warnings.push(missingPriceWarning);
+    if (issueNoticeSummariesResult.isErr()) {
+      return err(issueNoticeSummariesResult.error);
     }
+
+    const warnings: string[] = [];
+    const { summary: costBasisSummary } = workflowResult.value;
 
     const openLotsByAssetId = new Map<string, typeof costBasisSummary.lots>();
     for (const lot of costBasisSummary.lots) {
@@ -507,6 +521,7 @@ export class PortfolioHandler {
           })),
         'value'
       ),
+      issueNoticeSummaries: issueNoticeSummariesResult.value,
       realizedGainLossByAssetId,
       realizedGainLossDisplayContext,
       warnings,
@@ -576,7 +591,8 @@ export class PortfolioHandler {
     return {
       positions: positionsResult.positions,
       closedPositions: positionsResult.closedPositions,
-      transactions: inputs.portfolioTransactions,
+      issueNoticeSummaries: positionsResult.issueNoticeSummaries,
+      transactions: inputs.portfolioSourceContext.transactions,
       totalValue,
       totalCost,
       totalUnrealizedGainLoss,
@@ -597,47 +613,20 @@ export class PortfolioHandler {
     };
   }
 
-  private buildMissingPriceWarning(
-    transactionsUpToAsOf: Transaction[],
-    retainedTransactionIds: number[],
-    missingPricesCount: number
-  ): string | undefined {
-    if (missingPricesCount === 0) {
-      return undefined;
-    }
-
-    const retainedTransactionIdSet = new Set(retainedTransactionIds);
-    const excludedForMissingPrices = transactionsUpToAsOf.filter((tx) => !retainedTransactionIdSet.has(tx.id));
-    const excludedCount = excludedForMissingPrices.filter((tx) => isExcludedTransaction(tx)).length;
-
-    logger.warn(
-      {
-        missingPricesCount,
-        excludedCount,
-        excludedTransactionIds: excludedForMissingPrices.slice(0, 10).map((tx) => tx.id),
-      },
-      'Excluding transactions with missing prices from portfolio cost basis calculation'
-    );
-
-    return excludedCount > 0
-      ? `${missingPricesCount} transactions missing prices were excluded from cost basis (including ${excludedCount} explicitly excluded transactions) — unrealized P&L may be incomplete`
-      : `${missingPricesCount} transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete`;
-  }
-
   private async buildCanadaPortfolioCostBasis(params: {
     accountBreakdown: Map<string, AccountBreakdownItem[]>;
     asOf: Date;
     assetMetadata: Record<string, string>;
     assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
-    confirmedLinks: TransactionLink[];
     costBasisParams: ValidatedCostBasisConfig;
     holdings: Record<string, Decimal>;
+    portfolioSourceContext: CostBasisContext;
     spotPrices: Map<string, SpotPriceResult>;
-    transactionsUpToAsOf: Transaction[];
   }): Promise<
     Result<
       {
         closedPositions: PortfolioPositionItem[];
+        issueNoticeSummaries: CostBasisIssueNoticeSummary[];
         positions: PortfolioPositionItem[];
         realizedGainLossByPortfolioKey: Map<string, Decimal>;
         warnings: string[];
@@ -647,8 +636,8 @@ export class PortfolioHandler {
   > {
     const canadaCostBasisResult = await runCanadaCostBasisCalculation({
       input: params.costBasisParams,
-      transactions: params.transactionsUpToAsOf,
-      confirmedLinks: params.confirmedLinks,
+      transactions: params.portfolioSourceContext.transactions,
+      confirmedLinks: params.portfolioSourceContext.confirmedLinks,
       priceRuntime: this.deps.priceRuntime,
       accountingExclusionPolicy: this.accountingExclusionPolicy,
       assetReviewSummaries: params.assetReviewSummaries,
@@ -663,16 +652,17 @@ export class PortfolioHandler {
       return err(new Error('Canada portfolio cost basis result is missing input context'));
     }
 
-    const warnings: string[] = [];
-    const missingPriceWarning = this.buildMissingPriceWarning(
-      params.transactionsUpToAsOf,
-      canadaCostBasisResult.value.executionMeta.retainedTransactionIds,
-      canadaCostBasisResult.value.executionMeta.missingPricesCount
+    const issueNoticeSummariesResult = this.buildPortfolioIssueNoticeSummaries(
+      canadaCostBasisResult.value,
+      params.assetReviewSummaries,
+      params.costBasisParams,
+      params.portfolioSourceContext
     );
-    if (missingPriceWarning) {
-      warnings.push(missingPriceWarning);
+    if (issueNoticeSummariesResult.isErr()) {
+      return err(issueNoticeSummariesResult.error);
     }
 
+    const warnings: string[] = [];
     const built = buildCanadaPortfolioPositions({
       accountBreakdown: params.accountBreakdown,
       asOf: params.asOf,
@@ -712,8 +702,24 @@ export class PortfolioHandler {
     return ok({
       positions,
       closedPositions,
+      issueNoticeSummaries: issueNoticeSummariesResult.value,
       realizedGainLossByPortfolioKey: built.realizedGainLossByPortfolioKey,
       warnings,
+    });
+  }
+
+  private buildPortfolioIssueNoticeSummaries(
+    artifact: Parameters<typeof buildCostBasisIssueNoticeSummaries>[0]['artifact'],
+    assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>,
+    scopeConfig: ValidatedCostBasisConfig,
+    sourceContext: CostBasisContext
+  ): Result<CostBasisIssueNoticeSummary[], Error> {
+    return buildCostBasisIssueNoticeSummaries({
+      artifact,
+      assetReviewSummaries,
+      scopeConfig,
+      scopeKey: buildCostBasisScopeKey(this.deps.profileId, scopeConfig),
+      sourceContext,
     });
   }
 
@@ -754,6 +760,7 @@ function emptyPortfolioResult(
   return {
     positions: [],
     closedPositions: [],
+    issueNoticeSummaries: [],
     transactions: [],
     warnings: [],
     asOf: asOf.toISOString(),
@@ -824,10 +831,6 @@ function validatePortfolioParams(params: PortfolioHandlerParams): Result<
     displayCurrency,
     asOf: params.asOf,
   });
-}
-
-function isExcludedTransaction(transaction: Transaction): boolean {
-  return transaction.excludedFromAccounting === true;
 }
 
 function filterTransactionsTouchingExcludedAssets(

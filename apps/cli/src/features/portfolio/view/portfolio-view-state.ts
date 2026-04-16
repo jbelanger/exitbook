@@ -6,6 +6,7 @@ import type { PortfolioPositionItem, SortMode } from '@exitbook/accounting/portf
 import type { Currency } from '@exitbook/foundation';
 
 import type { ListNavigationAction } from '../../../ui/shared/list-navigation.js';
+import type { CostBasisIssueNotice } from '../../cost-basis/cost-basis-issue-notices.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 
 export type PortfolioPnlMode = 'unrealized' | 'realized' | 'both';
@@ -21,6 +22,7 @@ export interface PortfolioAssetsState {
   positions: PortfolioPositionItem[];
   closedPositions: PortfolioPositionItem[];
   transactionsByAssetId: Map<string, PortfolioTransactionItem[]>;
+  issueNotices: readonly CostBasisIssueNotice[];
   warnings: string[];
 
   totalTransactions: number;
@@ -74,6 +76,7 @@ export interface CreatePortfolioAssetsStateParams {
   positions: PortfolioPositionItem[];
   closedPositions?: PortfolioPositionItem[] | undefined;
   transactionsByAssetId: Map<string, PortfolioTransactionItem[]>;
+  issueNotices?: readonly CostBasisIssueNotice[] | undefined;
   warnings?: string[] | undefined;
   totalTransactions: number;
   totalValue?: string | undefined;
@@ -94,6 +97,7 @@ export function createPortfolioAssetsState(params: CreatePortfolioAssetsStatePar
     positions: params.positions,
     closedPositions: params.closedPositions ?? [],
     transactionsByAssetId: params.transactionsByAssetId,
+    issueNotices: params.issueNotices ?? [],
     warnings: params.warnings ?? [],
     totalTransactions: params.totalTransactions,
     totalValue: params.totalValue,

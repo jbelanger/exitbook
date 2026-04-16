@@ -749,6 +749,8 @@ Completed so far:
   back to `issues cost-basis ...`
 - failed `cost-basis` runs now include the scoped `issues cost-basis ...` route
   instead of failing with a dead-end message
+- `portfolio` now routes scoped accounting-review burden through exact
+  `issues cost-basis ...` notices instead of warning-string duplication
 
 Acceptance criteria:
 
@@ -757,7 +759,6 @@ Acceptance criteria:
 - legacy surfaces no longer carry issue-review burden that properly belongs in `issues`
   - candidate narrowing/removal targets:
     - duplicate interactive `cost-basis` readiness warning surfacing
-    - portfolio warning-string issue surfacing
     - broader accounting-review burden currently leaking through `links gaps`
 - canonical specs describe the shipped system fully
 - end-to-end live verification is clean for at least one real reporting scope

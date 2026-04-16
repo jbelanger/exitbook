@@ -110,6 +110,7 @@ describe('portfolio command', () => {
     totalUnrealizedPct: '25',
     totalRealizedGainLossAllTime: '10',
     totalNetFiatIn: '70',
+    issueNoticeSummaries: [],
     positions: [
       {
         assetId: 'btc',
@@ -167,6 +168,7 @@ describe('portfolio command', () => {
           totalUnrealizedPct: '25',
           totalRealizedGainLossAllTime: '10',
           totalNetFiatIn: '70',
+          issueNotices: [],
           positions: portfolioResult.positions,
           closedPositions: [],
         },

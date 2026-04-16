@@ -188,9 +188,9 @@ When scoped accounting issues remain, issue notices appear between the header an
 
 ```
   ⚠ 2 blocking issues in this scope. Review them in issues.
-     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo
+     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z
   ⚠ 1 warning issue in this scope. Review it in issues.
-     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo
+     Review: exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z
 ```
 
 - One two-line notice per severity bucket
@@ -765,14 +765,14 @@ Bypasses the TUI. Outputs calculation results in JSON format.
       "severity": "blocked",
       "count": 2,
       "message": "2 blocking issues in this scope. Review them in issues.",
-      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo"
+      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z"
     },
     {
       "kind": "warning_issues",
       "severity": "warning",
       "count": 3,
       "message": "3 warning issues in this scope. Review them in issues.",
-      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo"
+      "reviewCommand": "exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method fifo --fiat-currency CAD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z"
     }
   ],
   "summary": {

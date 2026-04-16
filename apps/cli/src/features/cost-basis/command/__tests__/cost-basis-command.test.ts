@@ -7,6 +7,7 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockBuildCostBasisIssueNotices,
+  mockBuildCostBasisIssuesReviewCommand,
   mockBuildCostBasisInputFromFlags,
   mockBuildCostBasisJsonData,
   mockBuildPresentationModel,
@@ -22,6 +23,7 @@ const {
   mockWithCostBasisCommandScope,
 } = vi.hoisted(() => ({
   mockBuildCostBasisIssueNotices: vi.fn(),
+  mockBuildCostBasisIssuesReviewCommand: vi.fn(),
   mockBuildCostBasisInputFromFlags: vi.fn(),
   mockBuildCostBasisJsonData: vi.fn(),
   mockBuildPresentationModel: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock('../../../../runtime/command-runtime.js', () => ({
 
 vi.mock('../../cost-basis-issue-notices.js', () => ({
   buildCostBasisIssueNotices: mockBuildCostBasisIssueNotices,
+  buildCostBasisIssuesReviewCommand: mockBuildCostBasisIssuesReviewCommand,
 }));
 
 vi.mock('../../../../cli/error.js', () => ({
@@ -167,6 +170,9 @@ describe('cost-basis command', () => {
       })
     );
     mockBuildCostBasisIssueNotices.mockReturnValue(ok([]));
+    mockBuildCostBasisIssuesReviewCommand.mockReturnValue(
+      'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo --fiat-currency USD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z'
+    );
     mockBuildPresentationModel.mockReturnValue(presentation);
     mockBuildCostBasisJsonData.mockReturnValue({
       calculationId: 'calc-1',
@@ -268,7 +274,7 @@ describe('cost-basis command', () => {
         from: 'user',
       })
     ).rejects.toThrow(
-      'CLI:cost-basis:json:Price coverage remains incomplete. Review this scope with: exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo:1'
+      'CLI:cost-basis:json:Price coverage remains incomplete. Review this scope with: exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo --fiat-currency USD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T23:59:59.999Z:1'
     );
   });
 });

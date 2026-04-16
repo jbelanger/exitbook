@@ -1,10 +1,9 @@
 import {
-  buildTaxPackageBuildContext,
-  deriveTaxPackageReadinessMetadata,
-  evaluateTaxPackageReadiness,
+  buildCostBasisIssueNoticeSummaries,
   type CostBasisContext,
+  type CostBasisIssueNoticeSummary,
   type CostBasisWorkflowResult,
-  type TaxPackageConfigScope,
+  type ValidatedCostBasisConfig,
 } from '@exitbook/accounting/cost-basis';
 import type { AssetReviewSummary } from '@exitbook/core';
 import { resultTry, type Result } from '@exitbook/foundation';
@@ -23,7 +22,7 @@ export interface CostBasisIssueNotice {
 interface BuildCostBasisIssueNoticesParams {
   artifact: CostBasisWorkflowResult;
   assetReviewSummaries: ReadonlyMap<string, AssetReviewSummary>;
-  scopeConfig: TaxPackageConfigScope;
+  scopeConfig: ValidatedCostBasisConfig;
   scopeKey: string;
   snapshotId?: string | undefined;
   sourceContext: CostBasisContext;
@@ -33,51 +32,36 @@ export function buildCostBasisIssueNotices(
   params: BuildCostBasisIssueNoticesParams
 ): Result<CostBasisIssueNotice[], Error> {
   return resultTry(function* () {
-    const context = yield* buildTaxPackageBuildContext({
-      artifact: params.artifact,
-      sourceContext: params.sourceContext,
-      scopeKey: params.scopeKey,
-      snapshotId: params.snapshotId,
-    });
-
-    const readiness = evaluateTaxPackageReadiness({
-      workflowResult: params.artifact,
-      scope: { config: params.scopeConfig },
-      metadata: deriveTaxPackageReadinessMetadata({
-        context,
-        assetReviewSummaries: params.assetReviewSummaries,
-      }),
-    });
-
-    const reviewCommand = buildScopedIssuesReviewCommand(params.scopeConfig);
-    const notices: CostBasisIssueNotice[] = [];
-
-    if (readiness.blockingIssues.length > 0) {
-      notices.push({
-        count: readiness.blockingIssues.length,
-        kind: 'blocking_issues',
-        message: formatIssueNoticeMessage('blocking', readiness.blockingIssues.length),
-        reviewCommand,
-        severity: 'blocked',
-      });
-    }
-
-    if (readiness.warnings.length > 0) {
-      notices.push({
-        count: readiness.warnings.length,
-        kind: 'warning_issues',
-        message: formatIssueNoticeMessage('warning', readiness.warnings.length),
-        reviewCommand,
-        severity: 'warning',
-      });
-    }
-
-    return notices;
+    const summaries = yield* buildCostBasisIssueNoticeSummaries(params);
+    return formatCostBasisIssueNotices(params.scopeConfig, summaries);
   }, 'Failed to derive cost basis issue notices');
 }
 
-function buildScopedIssuesReviewCommand(scopeConfig: TaxPackageConfigScope): string {
-  return `exitbook issues cost-basis --jurisdiction ${scopeConfig.jurisdiction} --tax-year ${scopeConfig.taxYear} --method ${scopeConfig.method}`;
+export function formatCostBasisIssueNotices(
+  scopeConfig: ValidatedCostBasisConfig,
+  summaries: readonly CostBasisIssueNoticeSummary[]
+): CostBasisIssueNotice[] {
+  const reviewCommand = buildCostBasisIssuesReviewCommand(scopeConfig);
+
+  return summaries.map((summary) => ({
+    count: summary.count,
+    kind: summary.kind,
+    message: formatIssueNoticeMessage(summary.kind === 'blocking_issues' ? 'blocking' : 'warning', summary.count),
+    reviewCommand,
+    severity: summary.severity,
+  }));
+}
+
+export function buildCostBasisIssuesReviewCommand(scopeConfig: ValidatedCostBasisConfig): string {
+  return [
+    'exitbook issues cost-basis',
+    `--jurisdiction ${scopeConfig.jurisdiction}`,
+    `--tax-year ${scopeConfig.taxYear}`,
+    `--method ${scopeConfig.method}`,
+    `--fiat-currency ${scopeConfig.currency}`,
+    `--start-date ${scopeConfig.startDate.toISOString()}`,
+    `--end-date ${scopeConfig.endDate.toISOString()}`,
+  ].join(' ');
 }
 
 function formatIssueNoticeMessage(kind: 'blocking' | 'warning', count: number): string {

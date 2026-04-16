@@ -13,7 +13,7 @@ family:
 - `exitbook issues`
 - `exitbook issues list`
 - `exitbook issues view <selector>`
-- `exitbook issues cost-basis --jurisdiction ... --tax-year ... --method ...`
+- `exitbook issues cost-basis --jurisdiction ... --tax-year ... --method ... [--fiat-currency ... --start-date ... --end-date ...]`
 - `exitbook issues acknowledge <selector>`
 - `exitbook issues reopen <selector>`
 
@@ -67,15 +67,15 @@ Shared contract note:
 
 ### Browse shapes
 
-| Shape                                                              | Meaning                                     | Human surface      |
-| ------------------------------------------------------------------ | ------------------------------------------- | ------------------ |
-| `issues`                                                           | Overview of current accounting work         | Static overview    |
-| `issues list`                                                      | Explicit alias of the same overview surface | Static overview    |
-| `issues view <selector>`                                           | Focused inspection of one current issue     | Static detail card |
-| `issues cost-basis --jurisdiction ... --tax-year ... --method ...` | Scoped issue list for one cost-basis lens   | Static scoped list |
-| `issues acknowledge <selector>`                                    | Acknowledge one current issue               | Text / JSON result |
-| `issues reopen <selector>`                                         | Reopen one acknowledged issue               | Text / JSON result |
-| Any of the above + `--json`                                        | Machine output for the same semantic target | JSON               |
+| Shape                                                                                                                    | Meaning                                     | Human surface      |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------ |
+| `issues`                                                                                                                 | Overview of current accounting work         | Static overview    |
+| `issues list`                                                                                                            | Explicit alias of the same overview surface | Static overview    |
+| `issues view <selector>`                                                                                                 | Focused inspection of one current issue     | Static detail card |
+| `issues cost-basis --jurisdiction ... --tax-year ... --method ... [--fiat-currency ... --start-date ... --end-date ...]` | Scoped issue list for one cost-basis lens   | Static scoped list |
+| `issues acknowledge <selector>`                                                                                          | Acknowledge one current issue               | Text / JSON result |
+| `issues reopen <selector>`                                                                                               | Reopen one acknowledged issue               | Text / JSON result |
+| Any of the above + `--json`                                                                                              | Machine output for the same semantic target | JSON               |
 
 Rules:
 
@@ -97,6 +97,7 @@ exitbook issues cost-basis --jurisdiction CA --tax-year 2024 --method average-co
 Rules:
 
 - scoped cost-basis browsing is a separate lens under the same issue family
+- when a host already knows the exact cost-basis scope, it should include `--fiat-currency`, `--start-date`, and `--end-date` in the routed command instead of collapsing back to a looser tax-year-only selector
 - scoped issue rows must never appear without an explicit scope story
 - `issues cost-basis ...` is list-shaped
 - `issues view <selector>` remains the detail path even for scoped issues

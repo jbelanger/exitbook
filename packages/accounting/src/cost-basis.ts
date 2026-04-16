@@ -69,6 +69,7 @@ export {
   formatUnresolvedAssetReviewNotice,
 } from './cost-basis/export/tax-package-readiness-messages.js';
 export { deriveTaxPackageReadinessMetadata } from './cost-basis/export/tax-package-readiness-metadata.js';
+export { buildCostBasisIssueNoticeSummaries } from './cost-basis/export/cost-basis-issue-notice-summaries.js';
 export { evaluateTaxPackageReadiness } from './cost-basis/export/tax-package-review-gate.js';
 export { exportTaxPackage } from './cost-basis/export/tax-package-exporter.js';
 export type { ExportTaxPackageInput } from './cost-basis/export/tax-package-exporter.js';
@@ -85,6 +86,11 @@ export type {
   TaxPackageManifest,
   WrittenTaxPackageFile,
 } from './cost-basis/export/tax-package-types.js';
+export type {
+  CostBasisIssueNoticeSummary,
+  CostBasisIssueNoticeSummaryKind,
+  CostBasisIssueNoticeSummarySeverity,
+} from './cost-basis/export/cost-basis-issue-notice-summaries.js';
 export type {
   ConvertedAcquisitionLot,
   ConvertedLotDisposal,

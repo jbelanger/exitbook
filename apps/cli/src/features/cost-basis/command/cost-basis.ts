@@ -21,7 +21,7 @@ import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cl
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
-import { buildCostBasisIssueNotices } from '../cost-basis-issue-notices.js';
+import { buildCostBasisIssueNotices, buildCostBasisIssuesReviewCommand } from '../cost-basis-issue-notices.js';
 import { CostBasisApp } from '../view/cost-basis-view-components.jsx';
 import { createCostBasisAssetState, createCostBasisTimelineState } from '../view/cost-basis-view-state.js';
 import { buildPresentationModel, type CostBasisPresentationModel } from '../view/cost-basis-view-utils.js';
@@ -66,6 +66,8 @@ Notes:
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA, US, UK, EU')
     .option('--tax-year <year>', 'Tax year for calculation (e.g., 2024)')
     .option('--fiat-currency <currency>', 'Fiat currency for cost basis: USD, CAD, EUR, GBP (defaults by jurisdiction)')
+    .option('--start-date <datetime>', 'Explicit calculation start date/time (ISO 8601; requires --end-date)')
+    .option('--end-date <datetime>', 'Explicit calculation end date/time (ISO 8601; requires --start-date)')
     .option('--asset <symbol>', 'Filter to specific asset (lands on asset history timeline)')
     .option('--refresh', 'Force recomputation and replace the latest stored snapshot for this scope')
     .option('--json', 'Output results in JSON format')
@@ -265,11 +267,7 @@ function toCostBasisExecutionCliResult<T>(
   }
 
   return cliErr(
-    new Error(`${result.error.message}. Review this scope with: ${buildScopedIssuesReviewCommand(params)}`),
+    new Error(`${result.error.message}. Review this scope with: ${buildCostBasisIssuesReviewCommand(params)}`),
     ExitCodes.GENERAL_ERROR
   );
-}
-
-function buildScopedIssuesReviewCommand(params: ValidatedCostBasisConfig): string {
-  return `exitbook issues cost-basis --jurisdiction ${params.jurisdiction} --tax-year ${params.taxYear} --method ${params.method}`;
 }

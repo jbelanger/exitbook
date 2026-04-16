@@ -132,6 +132,10 @@ function getHeaderLines(state: PortfolioAssetsState): number {
 
   let lines = 1;
 
+  if (state.issueNotices.length > 0) {
+    lines += state.issueNotices.length * 2;
+  }
+
   if (state.warnings.length > 0) {
     lines += state.warnings.length;
   }
@@ -293,6 +297,7 @@ const PortfolioAssetsView: FC<{
     <Box flexDirection="column">
       <Text> </Text>
       <PortfolioHeader state={state} />
+      <PortfolioIssueNotices notices={state.issueNotices} />
       {state.warnings.map((warning) => (
         <Text
           key={warning}
@@ -321,6 +326,32 @@ const PortfolioAssetsView: FC<{
       )}
       <Text> </Text>
       <Text dimColor>{'↑↓/j/k · ^U/^D page · Home/End · s sort · r pnl · enter history · q/esc quit'}</Text>
+    </Box>
+  );
+};
+
+const PortfolioIssueNotices: FC<{
+  notices: PortfolioAssetsState['issueNotices'];
+}> = ({ notices }) => {
+  if (notices.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box flexDirection="column">
+      {notices.map((notice) => (
+        <Box
+          key={notice.kind}
+          flexDirection="column"
+        >
+          <Text color={notice.severity === 'blocked' ? 'red' : 'yellow'}>
+            {'  '}⚠ {notice.message}
+          </Text>
+          <Text dimColor>
+            {'     '}Review: {notice.reviewCommand}
+          </Text>
+        </Box>
+      ))}
     </Box>
   );
 };

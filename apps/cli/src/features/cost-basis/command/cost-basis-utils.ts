@@ -6,10 +6,12 @@ import { err, type Result } from '@exitbook/foundation';
  */
 export interface CostBasisCommandOptions {
   asset?: string | undefined;
+  endDate?: string | undefined;
   method?: string | undefined;
   jurisdiction?: string | undefined;
   taxYear?: string | number | undefined;
   fiatCurrency?: string | undefined;
+  startDate?: string | undefined;
   refresh?: boolean | undefined;
   json?: boolean | undefined;
 }
@@ -28,9 +30,11 @@ export function buildCostBasisInputFromFlags(
   }
 
   return buildCostBasisInput({
+    endDate: options.endDate,
     method: options.method,
     jurisdiction: options.jurisdiction,
     taxYear: options.taxYear,
     fiatCurrency: options.fiatCurrency,
+    startDate: options.startDate,
   });
 }

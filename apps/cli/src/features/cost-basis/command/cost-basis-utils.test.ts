@@ -98,6 +98,25 @@ describe('buildCostBasisInputFromFlags', () => {
     }
   });
 
+  it('should pass through explicit scope dates', () => {
+    const options: CostBasisCommandOptions = {
+      method: 'fifo',
+      jurisdiction: 'US',
+      taxYear: 2024,
+      fiatCurrency: 'USD',
+      startDate: '2024-03-01T00:00:00.000Z',
+      endDate: '2024-09-30T23:59:59.999Z',
+    };
+
+    const result = buildCostBasisInputFromFlags(options);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.startDate.toISOString()).toBe('2024-03-01T00:00:00.000Z');
+      expect(result.value.endDate.toISOString()).toBe('2024-09-30T23:59:59.999Z');
+    }
+  });
+
   it('should error when CA is requested with fifo', () => {
     const options: CostBasisCommandOptions = {
       method: 'fifo',

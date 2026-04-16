@@ -20,6 +20,9 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 const { mockCostBasisWorkflowExecute } = vi.hoisted(() => ({
   mockCostBasisWorkflowExecute: vi.fn(),
 }));
+const { mockBuildCostBasisIssueNoticeSummaries } = vi.hoisted(() => ({
+  mockBuildCostBasisIssueNoticeSummaries: vi.fn(),
+}));
 
 vi.mock('../../../../../../../packages/accounting/src/cost-basis/workflow/cost-basis-workflow.ts', () => ({
   CostBasisWorkflow: vi.fn().mockImplementation(function () {
@@ -31,6 +34,9 @@ vi.mock('../../../../../../../packages/accounting/src/cost-basis/workflow/cost-b
 
 vi.mock('../../../../../../../packages/accounting/src/cost-basis/artifacts/failure-snapshot-service.ts', () => ({
   persistCostBasisFailureSnapshot: vi.fn(),
+}));
+vi.mock('../../../../../../../packages/accounting/src/cost-basis/export/cost-basis-issue-notice-summaries.ts', () => ({
+  buildCostBasisIssueNoticeSummaries: mockBuildCostBasisIssueNoticeSummaries,
 }));
 
 vi.mock('../../../../../../../packages/accounting/src/price-enrichment/fx/usd-conversion-rate-provider.ts', () => ({
@@ -168,6 +174,7 @@ describe('PortfolioHandler', () => {
     mockFailureSnapshotStore = {
       replaceLatest: vi.fn().mockResolvedValue(ok(undefined)),
     };
+    mockBuildCostBasisIssueNoticeSummaries.mockReturnValue(ok([]));
 
     mockPriceRuntime = {
       fetchPrice: vi.fn().mockResolvedValue(
@@ -496,7 +503,7 @@ describe('PortfolioHandler', () => {
         lotTransfers: [],
         executionMeta: {
           missingPricesCount: 1,
-          missingPriceTransactionIds: [10],
+          missingPriceTransactionIds: [tx.id],
           retainedTransactionIds: [tx.id],
         },
       } as never)
@@ -511,6 +518,15 @@ describe('PortfolioHandler', () => {
       readAssetReviewSummaries: mockReadAssetReviewSummaries,
       readDependencyWatermark: mockReadDependencyWatermark,
     });
+    mockBuildCostBasisIssueNoticeSummaries.mockReturnValue(
+      ok([
+        {
+          count: 1,
+          kind: 'warning_issues',
+          severity: 'warning',
+        },
+      ])
+    );
 
     const result = await handler.execute({
       method: 'fifo',
@@ -532,9 +548,14 @@ describe('PortfolioHandler', () => {
 
     if (result.isOk()) {
       expect(result.value.transactions).toEqual([tx]);
-      expect(result.value.warnings).toEqual([
-        '1 transactions missing prices were excluded from cost basis — unrealized P&L may be incomplete',
+      expect(result.value.issueNoticeSummaries).toEqual([
+        {
+          count: 1,
+          kind: 'warning_issues',
+          severity: 'warning',
+        },
       ]);
+      expect(result.value.warnings).toEqual([]);
     }
   });
 });

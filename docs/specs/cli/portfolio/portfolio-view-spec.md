@@ -72,6 +72,22 @@ Unrealized gain/loss is computed from the cost basis engine's open lots (lots wi
 
 When an asset has a positive balance but no open lots (e.g., received from an external source without acquisition history), cost basis and unrealized P&L show as unavailable. The asset still displays with its quantity and spot price, and contributes to `totalValue` but not `totalCost` or `totalUnrealizedGainLoss`.
 
+### Scoped Issue Notices
+
+When the exact portfolio cost-basis scope still has unresolved accounting work, portfolio renders the same scoped issue notices used by `cost-basis`:
+
+```text
+  ⚠ 1 warning issue in this scope. Review it in issues.
+     Review: exitbook issues cost-basis --jurisdiction US --tax-year 2025 --method fifo --fiat-currency USD --start-date 1970-01-01T00:00:00.000Z --end-date 2025-01-01T00:00:00.000Z
+```
+
+Rules:
+
+- issue notices appear between the header and any runtime warnings
+- issue notices represent accounting-review burden only
+- portfolio must not restate missing-price scope issues as free-form warning strings
+- detailed review happens in `issues cost-basis ...`
+
 ### Prereq Loading UX
 
 Prerequisites (`ensureLinks()`, `ensurePrices()`) may mount their own monitor TUI screens (linking progress, price enrichment progress) before the portfolio view renders. This is the same behavior as the cost-basis command — the prereq monitors display, complete, then the portfolio TUI replaces them. In JSON mode, prereqs run silently (no monitor screens).
@@ -215,7 +231,7 @@ Portfolio  {assetCount} assets · {currency} {totalValue}
 
 ## Warning Bar
 
-When assets could not be priced, a warning line appears between the header and the list:
+When runtime pricing warnings remain, warning lines appear below any scoped issue notices and above the list:
 
 ```
   ⚠ {n} assets could not be priced — values may be incomplete
@@ -566,6 +582,15 @@ Bypasses the TUI. Outputs portfolio data in JSON format.
     "totalCost": "95045.00",
     "totalUnrealizedGainLoss": "32405.23",
     "totalUnrealizedPct": "34.1",
+    "issueNotices": [
+      {
+        "kind": "warning_issues",
+        "severity": "warning",
+        "count": 1,
+        "message": "1 warning issue in this scope. Review it in issues.",
+        "reviewCommand": "exitbook issues cost-basis --jurisdiction US --tax-year 2026 --method fifo --fiat-currency USD --start-date 1970-01-01T00:00:00.000Z --end-date 2026-02-13T15:30:00.000Z"
+      }
+    ],
     "positions": [
       {
         "assetId": "blockchain:bitcoin:native",
@@ -727,6 +752,9 @@ interface PortfolioAssetsState {
   positions: PortfolioPositionItem[];
   transactionsByAssetId: Map<string, PortfolioTransactionItem[]>;
   totalTransactions: number;
+
+  // Accounting issue notices for the exact portfolio cost-basis scope
+  issueNotices: CostBasisIssueNotice[];
 
   // Sorting
   sortMode: SortMode;

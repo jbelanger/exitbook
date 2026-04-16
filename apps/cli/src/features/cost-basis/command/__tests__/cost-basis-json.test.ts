@@ -22,7 +22,8 @@ describe('buildCostBasisJsonData', () => {
           count: 2,
           kind: 'warning_issues',
           message: '2 warning issues in this scope. Review them in issues.',
-          reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
+          reviewCommand:
+            'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo --fiat-currency USD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T00:00:00.000Z',
           severity: 'warning',
         },
       ],
@@ -43,7 +44,8 @@ describe('buildCostBasisJsonData', () => {
         count: 2,
         kind: 'warning_issues',
         message: '2 warning issues in this scope. Review them in issues.',
-        reviewCommand: 'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo',
+        reviewCommand:
+          'exitbook issues cost-basis --jurisdiction US --tax-year 2024 --method fifo --fiat-currency USD --start-date 2024-01-01T00:00:00.000Z --end-date 2024-12-31T00:00:00.000Z',
         severity: 'warning',
       },
     ]);

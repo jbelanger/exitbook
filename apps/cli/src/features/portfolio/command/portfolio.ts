@@ -17,6 +17,7 @@ import {
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { formatCostBasisIssueNotices, type CostBasisIssueNotice } from '../../cost-basis/cost-basis-issue-notices.js';
 import { createSpinner, stopSpinner } from '../../shared/spinner.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 import {
@@ -91,6 +92,7 @@ async function executePortfolioCommandResult(
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
     const result = yield* toCliResult(await loadPortfolioResult(ctx, normalized, format), ExitCodes.GENERAL_ERROR);
+    const issueNotices = buildPortfolioIssueNotices(result);
 
     if (format === 'json') {
       return jsonSuccess({
@@ -105,6 +107,7 @@ async function executePortfolioCommandResult(
           totalUnrealizedPct: result.totalUnrealizedPct,
           totalRealizedGainLossAllTime: result.totalRealizedGainLossAllTime,
           totalNetFiatIn: result.totalNetFiatIn,
+          issueNotices,
           positions: result.positions,
           closedPositions: result.closedPositions,
         },
@@ -113,7 +116,7 @@ async function executePortfolioCommandResult(
       });
     }
 
-    return yield* toCliResult(await buildPortfolioTuiCompletion(ctx, result), ExitCodes.GENERAL_ERROR);
+    return yield* toCliResult(await buildPortfolioTuiCompletion(ctx, result, issueNotices), ExitCodes.GENERAL_ERROR);
   });
 }
 
@@ -150,7 +153,8 @@ async function loadPortfolioResult(
 
 async function buildPortfolioTuiCompletion(
   ctx: CommandRuntime,
-  value: PortfolioResult
+  value: PortfolioResult,
+  issueNotices: readonly CostBasisIssueNotice[]
 ): Promise<Result<ReturnType<typeof silentSuccess>, Error>> {
   try {
     const assetIdsBySymbol = buildAssetIdsBySymbol(value.transactions);
@@ -170,6 +174,7 @@ async function buildPortfolioTuiCompletion(
       method: value.method,
       jurisdiction: value.jurisdiction,
       displayCurrency: value.displayCurrency,
+      issueNotices,
       positions: value.positions,
       closedPositions: value.closedPositions,
       transactionsByAssetId,
@@ -197,6 +202,20 @@ async function buildPortfolioTuiCompletion(
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }
+}
+
+function buildPortfolioIssueNotices(value: PortfolioResult): CostBasisIssueNotice[] {
+  return formatCostBasisIssueNotices(
+    {
+      method: value.method as 'fifo' | 'lifo' | 'average-cost',
+      jurisdiction: value.jurisdiction as 'CA' | 'US',
+      currency: value.displayCurrency as 'USD' | 'CAD' | 'EUR' | 'GBP',
+      taxYear: new Date(value.asOf).getUTCFullYear(),
+      startDate: new Date(0),
+      endDate: new Date(value.asOf),
+    },
+    value.issueNoticeSummaries
+  );
 }
 
 function normalizePortfolioOptionsResult(

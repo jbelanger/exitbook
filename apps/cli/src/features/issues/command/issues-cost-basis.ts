@@ -4,21 +4,15 @@ import { z } from 'zod';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { parseCliCommandOptionsResult, detectCliOutputFormat } from '../../../cli/options.js';
+import { CostBasisScopeOptionsSchema } from '../../cost-basis/command/cost-basis-option-schemas.js';
 import { buildCostBasisInputFromFlags } from '../../cost-basis/command/cost-basis-utils.js';
-import { validateAccountingMethodJurisdictionOptions } from '../../shared/option-schema-primitives.js';
 import { outputIssuesStaticScopedList, type IssuesStaticScopedListState } from '../view/issues-static-renderer.js';
 
 import { loadScopedCostBasisIssuesData, type IssuesScopedCostBasisData } from './issues-data.js';
 
-const IssuesCostBasisCommandOptionsSchema = z
-  .object({
-    method: z.string().optional(),
-    jurisdiction: z.string().optional(),
-    taxYear: z.string().optional(),
-    fiatCurrency: z.string().optional(),
-    json: z.boolean().optional(),
-  })
-  .superRefine(validateAccountingMethodJurisdictionOptions);
+const IssuesCostBasisCommandOptionsSchema = CostBasisScopeOptionsSchema.extend({
+  json: z.boolean().optional(),
+});
 
 type IssuesCostBasisCommandOptions = z.infer<typeof IssuesCostBasisCommandOptionsSchema>;
 
@@ -30,6 +24,8 @@ export function registerIssuesCostBasisCommand(issuesCommand: Command): void {
     .option('--jurisdiction <code>', 'Tax jurisdiction: CA or US')
     .option('--tax-year <year>', 'Tax year for calculation (for example, 2024)')
     .option('--fiat-currency <currency>', 'Fiat currency override when supported')
+    .option('--start-date <datetime>', 'Explicit calculation start date/time (ISO 8601; requires --end-date)')
+    .option('--end-date <datetime>', 'Explicit calculation end date/time (ISO 8601; requires --start-date)')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
