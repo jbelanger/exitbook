@@ -4,6 +4,7 @@ import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingLayerBuildResult } from '../../../accounting-layer/accounting-layer-types.js';
+import { assertAccountingLayerPriceDataQuality } from '../../../accounting-layer/price-validation.js';
 import { validateTransferLinks } from '../../../accounting-layer/validated-transfer-links.js';
 import type { IJurisdictionRules } from '../../jurisdictions/jurisdiction-rules.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
@@ -11,7 +12,6 @@ import type { CostBasisCalculation } from '../../model/schemas.js';
 import type { AcquisitionLot, LotDisposal, LotTransfer } from '../../model/schemas.js';
 import type { LotMatcher } from '../matching/lot-matcher.js';
 import { getStrategyForMethod } from '../strategies/strategy-factory.js';
-import { assertAccountingLayerPriceDataQuality } from '../validation/price-validation.js';
 
 import { calculateGainLoss } from './gain-loss-utils.js';
 

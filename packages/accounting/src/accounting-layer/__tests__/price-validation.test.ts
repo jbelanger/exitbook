@@ -4,8 +4,8 @@ import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildTransaction } from '../../../../__tests__/test-utils.js';
-import type { AccountingScopedBuildResult } from '../../../../accounting-layer/accounting-scoped-types.js';
+import { buildTransaction } from '../../__tests__/test-utils.js';
+import type { AccountingScopedBuildResult } from '../accounting-scoped-types.js';
 import { assertScopedPriceDataQuality } from '../price-validation.js';
 
 /**

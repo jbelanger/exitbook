@@ -1434,7 +1434,7 @@ reintroducing scoped transaction math inside the consumer.
 - [internal-carryover-processing-utils.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/lots/internal-carryover-processing-utils.ts)
 - [standard-calculator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/standard-calculator.ts)
 - [run-standard-cost-basis.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/run-standard-cost-basis.ts)
-- [price-validation.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/validation/price-validation.ts)
+- [price-validation.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-layer/price-validation.ts)
 
 ### Findings
 
@@ -1541,6 +1541,9 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   ownership now also live under `accounting-layer/`, so price-enrichment, CLI
   runtimes, and cost-basis consumers no longer need `cost-basis` as a type
   barrel for draft-layer helpers
+- `price-validation.ts` now also lives under `accounting-layer/`, so the old
+  `cost-basis/standard/validation/` pocket is gone and the remaining explicit
+  `AccountingScoped...` helpers are concentrated under one capability
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 

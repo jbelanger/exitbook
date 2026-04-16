@@ -20,6 +20,10 @@ export {
   resolveInternalTransferCarryovers,
 } from './accounting-layer/accounting-layer-resolution.js';
 export { buildAccountingLayerFromTransactions } from './accounting-layer/build-accounting-layer-from-transactions.js';
+export {
+  assertAccountingLayerPriceDataQuality,
+  assertScopedPriceDataQuality,
+} from './accounting-layer/price-validation.js';
 export { validateTransferLinks } from './accounting-layer/validated-transfer-links.js';
 export type {
   AccountingEntry,

@@ -185,6 +185,9 @@ Phase 0 investigation log:
       `assertNoScopedAssetsRequireReview(...)`, and the public
       `AccountingExclusionPolicy` type now live under `accounting-layer/`
       instead of `cost-basis/standard/validation/`
+    - `price-validation.ts` now also lives under `accounting-layer/`, so the
+      old `cost-basis/standard/validation/` pocket no longer owns draft-layer
+      helpers
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:
