@@ -5,11 +5,8 @@ import { getLogger } from '@exitbook/logger';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFeeMovement, createTransaction } from '../../../../__tests__/test-utils.js';
-import { buildAccountingLayerFromScopedBuild } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
-import {
-  buildAccountingScopedTransactions,
-  type AccountingScopedTransaction,
-} from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
+import type { AccountingTransactionView } from '../../../../accounting-layer/accounting-layer-types.js';
+import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import { LotMatcher } from '../lot-matcher.js';
@@ -24,16 +21,11 @@ describe('LotMatcher - Fee Handling', () => {
     confirmedLinks: TransactionLink[],
     config: Parameters<LotMatcher['match']>[2]
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
-    const scopedResult = buildAccountingScopedTransactions(transactions, logger);
-    if (scopedResult.isErr()) {
-      return err(scopedResult.error);
-    }
-    const scoped = scopedResult.value;
-    const accountingLayerResult = buildAccountingLayerFromScopedBuild(scoped);
+    const accountingLayerResult = buildAccountingLayerFromTransactions(transactions, logger);
     if (accountingLayerResult.isErr()) {
       return err(accountingLayerResult.error);
     }
-    const hydratedLinks = hydrateTestLinks(scoped.transactions, confirmedLinks);
+    const hydratedLinks = hydrateTestLinks(accountingLayerResult.value.accountingTransactionViews, confirmedLinks);
     const validatedLinksResult = validateTransferLinks(
       accountingLayerResult.value.accountingTransactionViews,
       hydratedLinks
@@ -46,22 +38,22 @@ describe('LotMatcher - Fee Handling', () => {
   }
 
   function hydrateTestLinks(
-    scopedTransactions: AccountingScopedTransaction[],
+    transactionViews: readonly AccountingTransactionView[],
     confirmedLinks: TransactionLink[]
   ): TransactionLink[] {
     return confirmedLinks.map((link) => {
-      const sourceTransaction = scopedTransactions.find(
-        (scopedTransaction) => scopedTransaction.tx.id === link.sourceTransactionId
+      const sourceTransaction = transactionViews.find(
+        (transactionView) => transactionView.processedTransaction.id === link.sourceTransactionId
       );
-      const targetTransaction = scopedTransactions.find(
-        (scopedTransaction) => scopedTransaction.tx.id === link.targetTransactionId
+      const targetTransaction = transactionViews.find(
+        (transactionView) => transactionView.processedTransaction.id === link.targetTransactionId
       );
       if (!sourceTransaction || !targetTransaction) {
         throw new Error(`Failed to hydrate test link ${link.id}: source or target transaction not found`);
       }
 
-      const sourceMovement = resolveScopedMovement(sourceTransaction, 'outflow', link.sourceMovementFingerprint);
-      const targetMovement = resolveScopedMovement(targetTransaction, 'inflow', link.targetMovementFingerprint);
+      const sourceMovement = resolveAccountingMovement(sourceTransaction, 'outflow', link.sourceMovementFingerprint);
+      const targetMovement = resolveAccountingMovement(targetTransaction, 'inflow', link.targetMovementFingerprint);
 
       return {
         ...link,
@@ -73,19 +65,18 @@ describe('LotMatcher - Fee Handling', () => {
     });
   }
 
-  function resolveScopedMovement(
-    scopedTransaction: AccountingScopedTransaction,
+  function resolveAccountingMovement(
+    transactionView: AccountingTransactionView,
     movementType: 'inflow' | 'outflow',
     fingerprintHint: string
   ) {
     const positionMatch = fingerprintHint.match(/:(inflow|outflow):(\d+)$/);
     const position = positionMatch ? Number.parseInt(positionMatch[2]!, 10) : 0;
-    const movements =
-      movementType === 'inflow' ? scopedTransaction.movements.inflows : scopedTransaction.movements.outflows;
+    const movements = movementType === 'inflow' ? transactionView.inflows : transactionView.outflows;
     const movement = movements[position];
     if (!movement) {
       throw new Error(
-        `Failed to resolve scoped ${movementType} movement at position ${position} for transaction ${scopedTransaction.tx.id}`
+        `Failed to resolve ${movementType} movement at position ${position} for transaction ${transactionView.processedTransaction.id}`
       );
     }
     return movement;

@@ -1551,6 +1551,9 @@ keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
   uniform
 - asset-review preflight now consumes `accountingTransactionViews` directly,
   and the scoped-only public price-validation helper is gone
+- cost-basis lot helpers no longer depend on `AccountingScopedTransaction`;
+  the remaining mixed transaction shape there is now
+  `AccountingTransactionView | Transaction`
 - The remaining scoped runtime seams are now narrower and more obviously
   compatibility-only.
 

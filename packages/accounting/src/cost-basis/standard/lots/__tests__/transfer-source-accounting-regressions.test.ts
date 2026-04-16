@@ -1,3 +1,4 @@
+import type { Transaction } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { getLogger } from '@exitbook/logger';
@@ -10,7 +11,11 @@ import {
   createFeeMovement,
 } from '../../../../__tests__/test-utils.js';
 import type { ResolvedInternalTransferCarryover } from '../../../../accounting-layer/accounting-layer-resolution.js';
-import { buildAccountingScopedTransactions } from '../../../../accounting-layer/build-accounting-scoped-transactions.js';
+import type {
+  AccountingAssetEntryView,
+  AccountingTransactionView,
+} from '../../../../accounting-layer/accounting-layer-types.js';
+import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { ValidatedTransferLink } from '../../../../accounting-layer/validated-transfer-links.js';
 import { FifoStrategy } from '../../strategies/fifo-strategy.js';
 import {
@@ -27,6 +32,20 @@ describe('transfer source accounting regressions', () => {
       createLot('11111111-1111-4111-8111-111111111111', 'BTC', '1', '10000', new Date('2024-01-01T00:00:00Z')),
       createLot('22222222-2222-4222-8222-222222222222', 'BTC', '1', '20000', new Date('2024-01-02T00:00:00Z')),
     ];
+  }
+
+  function prepareTransferSource(rawTransaction: Transaction) {
+    const accountingLayer = assertOk(buildAccountingLayerFromTransactions([rawTransaction], logger));
+    const transactionView = accountingLayer.accountingTransactionViews[0];
+    const outflow = transactionView?.outflows[0];
+
+    expect(transactionView).toBeDefined();
+    expect(outflow).toBeDefined();
+
+    return {
+      transactionView: transactionView as AccountingTransactionView,
+      outflow: outflow as AccountingAssetEntryView,
+    };
   }
 
   it('matches same-asset transfer fee disposal against the post-transfer remaining lots', () => {
@@ -48,12 +67,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
-    const scopedTransaction = assertOk(scopedResult).transactions[0];
-    const outflow = scopedTransaction?.movements.outflows[0];
-
-    expect(scopedTransaction).toBeDefined();
-    expect(outflow).toBeDefined();
+    const { transactionView, outflow } = prepareTransferSource(rawTransaction);
 
     const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
@@ -66,7 +80,7 @@ describe('transfer source accounting regressions', () => {
         targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('1.5'),
         targetAmount: parseDecimal('1.5'),
-        sourceMovementFingerprint: outflow!.movementFingerprint,
+        sourceMovementFingerprint: outflow.movementFingerprint,
         targetMovementFingerprint: 'target:movement:0',
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('99'),
@@ -82,15 +96,15 @@ describe('transfer source accounting regressions', () => {
       },
       sourceAssetId: 'test:btc',
       sourceMovementAmount: parseDecimal('1.5'),
-      sourceMovementFingerprint: outflow!.movementFingerprint,
+      sourceMovementFingerprint: outflow.movementFingerprint,
       targetAssetId: 'test:btc',
       targetMovementAmount: parseDecimal('1.5'),
       targetMovementFingerprint: 'target:movement:0',
     };
 
     const result = processTransferSource(
-      scopedTransaction!,
-      outflow!,
+      transactionView,
+      outflow,
       [validatedLink],
       createSourceLots(),
       new FifoStrategy(),
@@ -130,12 +144,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kucoin', type: 'withdrawal' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
-    const scopedTransaction = assertOk(scopedResult).transactions[0];
-    const outflow = scopedTransaction?.movements.outflows[0];
-
-    expect(scopedTransaction).toBeDefined();
-    expect(outflow).toBeDefined();
+    const { transactionView, outflow } = prepareTransferSource(rawTransaction);
 
     const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
@@ -148,7 +157,7 @@ describe('transfer source accounting regressions', () => {
         targetAssetId: 'test:tfuel',
         sourceAmount: parseDecimal('1'),
         targetAmount: parseDecimal('1'),
-        sourceMovementFingerprint: outflow!.movementFingerprint,
+        sourceMovementFingerprint: outflow.movementFingerprint,
         targetMovementFingerprint: 'target:movement:1',
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('99'),
@@ -164,15 +173,15 @@ describe('transfer source accounting regressions', () => {
       },
       sourceAssetId: 'test:tfuel',
       sourceMovementAmount: parseDecimal('1'),
-      sourceMovementFingerprint: outflow!.movementFingerprint,
+      sourceMovementFingerprint: outflow.movementFingerprint,
       targetAssetId: 'test:tfuel',
       targetMovementAmount: parseDecimal('1'),
       targetMovementFingerprint: 'target:movement:1',
     };
 
     const result = processTransferSource(
-      scopedTransaction!,
-      outflow!,
+      transactionView,
+      outflow,
       [validatedLink],
       [
         createLot('11111111-1111-4111-8111-111111111111', 'TFUEL', '10', '0.05', new Date('2024-01-01T00:00:00Z')),
@@ -212,12 +221,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'arbitrum', platformKind: 'blockchain', type: 'withdrawal' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
-    const scopedTransaction = assertOk(scopedResult).transactions[0];
-    const outflow = scopedTransaction?.movements.outflows[0];
-
-    expect(scopedTransaction).toBeDefined();
-    expect(outflow).toBeDefined();
+    const { transactionView, outflow } = prepareTransferSource(rawTransaction);
 
     const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
@@ -231,7 +235,7 @@ describe('transfer source accounting regressions', () => {
         sourceAmount: parseDecimal('0.04'),
         targetAmount: parseDecimal('0.038410276629335232'),
         impliedFeeAmount: parseDecimal('0.001589723370664768'),
-        sourceMovementFingerprint: outflow!.movementFingerprint,
+        sourceMovementFingerprint: outflow.movementFingerprint,
         targetMovementFingerprint: 'target:movement:2',
         linkType: 'blockchain_to_blockchain',
         confidenceScore: parseDecimal('1'),
@@ -248,15 +252,15 @@ describe('transfer source accounting regressions', () => {
       },
       sourceAssetId: 'test:eth',
       sourceMovementAmount: parseDecimal('0.04'),
-      sourceMovementFingerprint: outflow!.movementFingerprint,
+      sourceMovementFingerprint: outflow.movementFingerprint,
       targetAssetId: 'test:eth',
       targetMovementAmount: parseDecimal('0.038410276629335232'),
       targetMovementFingerprint: 'target:movement:2',
     };
 
     const result = processTransferSource(
-      scopedTransaction!,
-      outflow!,
+      transactionView,
+      outflow,
       [validatedLink],
       [createLot('11111111-1111-4111-8111-111111111111', 'ETH', '1', '3000', new Date('2024-01-01T00:00:00Z'))],
       new FifoStrategy(),
@@ -292,12 +296,7 @@ describe('transfer source accounting regressions', () => {
       { category: 'transfer', platformKey: 'kraken', type: 'withdrawal' }
     );
 
-    const scopedResult = buildAccountingScopedTransactions([rawTransaction], logger);
-    const scopedTransaction = assertOk(scopedResult).transactions[0];
-    const outflow = scopedTransaction?.movements.outflows[0];
-
-    expect(scopedTransaction).toBeDefined();
-    expect(outflow).toBeDefined();
+    const { transactionView, outflow } = prepareTransferSource(rawTransaction);
 
     const validatedLink: ValidatedTransferLink = {
       isPartialMatch: false,
@@ -310,7 +309,7 @@ describe('transfer source accounting regressions', () => {
         targetAssetId: 'test:btc',
         sourceAmount: parseDecimal('2.99998'),
         targetAmount: parseDecimal('2.99998'),
-        sourceMovementFingerprint: outflow!.movementFingerprint,
+        sourceMovementFingerprint: outflow.movementFingerprint,
         targetMovementFingerprint: 'target:movement:3',
         linkType: 'exchange_to_blockchain',
         confidenceScore: parseDecimal('1'),
@@ -326,15 +325,15 @@ describe('transfer source accounting regressions', () => {
       },
       sourceAssetId: 'test:btc',
       sourceMovementAmount: parseDecimal('2.99998'),
-      sourceMovementFingerprint: outflow!.movementFingerprint,
+      sourceMovementFingerprint: outflow.movementFingerprint,
       targetAssetId: 'test:btc',
       targetMovementAmount: parseDecimal('2.99998'),
       targetMovementFingerprint: 'target:movement:3',
     };
 
     const result = processTransferSource(
-      scopedTransaction!,
-      outflow!,
+      transactionView,
+      outflow,
       [validatedLink],
       [
         createLot('11111111-1111-4111-8111-111111111111', 'BTC', '1', '45000', new Date('2024-01-01T00:00:00Z')),

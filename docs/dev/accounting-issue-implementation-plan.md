@@ -195,6 +195,9 @@ Phase 0 investigation log:
     - asset-review preflight now reads the canonical accounting layer instead
       of the draft-scoped transaction array, and the dead scoped price-quality
       export has been removed
+    - cost-basis lot helpers no longer accept `AccountingScopedTransaction`;
+      their remaining mixed transaction union is now the two real production
+      shapes: `AccountingTransactionView | Transaction`
     - the oversized Canada stage-test compatibility bridge now lives in a
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:

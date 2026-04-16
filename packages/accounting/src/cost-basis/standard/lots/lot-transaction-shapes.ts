@@ -6,9 +6,8 @@ import type {
   AccountingAssetEntryView,
   AccountingTransactionView,
 } from '../../../accounting-layer/accounting-layer-types.js';
-import type { AccountingScopedTransaction } from '../../../accounting-layer/accounting-scoped-types.js';
 
-export type CostBasisTransactionLike = AccountingScopedTransaction | AccountingTransactionView | Transaction;
+export type CostBasisTransactionLike = AccountingTransactionView | Transaction;
 export type CostBasisMovementLike = AssetMovement | AccountingAssetEntryView;
 
 function isAccountingAssetEntryView(movement: CostBasisMovementLike): movement is AccountingAssetEntryView {
@@ -16,11 +15,7 @@ function isAccountingAssetEntryView(movement: CostBasisMovementLike): movement i
 }
 
 export function getRawTransaction(transaction: CostBasisTransactionLike): Transaction {
-  if ('processedTransaction' in transaction) {
-    return transaction.processedTransaction;
-  }
-
-  return 'tx' in transaction ? transaction.tx : transaction;
+  return 'processedTransaction' in transaction ? transaction.processedTransaction : transaction;
 }
 
 export function getTransactionMovements(transaction: CostBasisTransactionLike): {
