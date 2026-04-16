@@ -29,7 +29,7 @@ import type {
 // Internal grouping types
 // ---------------------------------------------------------------------------
 
-interface CostBasisSameHashParticipant {
+interface SameHashPreparedParticipant {
   txId: number;
   accountId: number;
   assetId: string;
@@ -44,12 +44,12 @@ interface CostBasisSameHashParticipant {
   inflowMovementFingerprint: string | undefined;
 }
 
-interface CostBasisSameHashAssetGroup {
+interface SameHashPreparedAssetGroup {
   normalizedHash: string;
   blockchain: string;
   assetId: string;
   assetSymbol: string;
-  participants: CostBasisSameHashParticipant[];
+  participants: SameHashPreparedParticipant[];
 }
 
 // ---------------------------------------------------------------------------
@@ -162,14 +162,14 @@ export function prepareAccountingTransactions(
   }
 
   // Step 2: Group same-hash blockchain transactions
-  const groupsResult = groupSameHashTransactionsForCostBasis(transactions, preparedByTxId);
+  const groupsResult = groupSameHashTransactionsForPreparation(transactions, preparedByTxId);
   if (groupsResult.isErr()) return err(groupsResult.error);
 
   // Step 3: Reduce each group and apply scoping decisions
   const internalTransferCarryoverDrafts: InternalTransferCarryoverDraft[] = [];
 
   for (const group of groupsResult.value) {
-    const decisionResult = reduceSameHashGroupForCostBasis(group, logger);
+    const decisionResult = reduceSameHashGroupForPreparation(group, logger);
     if (decisionResult.isErr()) return err(decisionResult.error);
 
     const decision = decisionResult.value;
@@ -243,10 +243,10 @@ function clonePreparedTransaction(tx: Transaction): Result<PreparedAccountingTra
 // Group same-hash blockchain transactions by (blockchain, normalizedHash, assetId)
 // ---------------------------------------------------------------------------
 
-function groupSameHashTransactionsForCostBasis(
+function groupSameHashTransactionsForPreparation(
   transactions: Transaction[],
   preparedByTxId: Map<number, PreparedAccountingTransaction>
-): Result<CostBasisSameHashAssetGroup[], Error> {
+): Result<SameHashPreparedAssetGroup[], Error> {
   // Group by (blockchain, normalizedHash)
   const txsByBlockchainAndHash = new Map<string, { blockchain: string; normalizedHash: string; txs: Transaction[] }>();
 
@@ -270,7 +270,7 @@ function groupSameHashTransactionsForCostBasis(
     txsByBlockchainAndHash.set(bucketKey, entry);
   }
 
-  const groups: CostBasisSameHashAssetGroup[] = [];
+  const groups: SameHashPreparedAssetGroup[] = [];
 
   for (const { normalizedHash, blockchain, txs } of txsByBlockchainAndHash.values()) {
     if (txs.length < 2) continue;
@@ -327,10 +327,10 @@ function groupSameHashTransactionsForCostBasis(
 
     // Build a group per asset
     for (const { assetId, assetSymbol } of assetMap.values()) {
-      const participants: CostBasisSameHashParticipant[] = [];
+      const participants: SameHashPreparedParticipant[] = [];
 
       for (const tx of txs) {
-        const scoped = preparedByTxId.get(tx.id)!;
+        const prepared = preparedByTxId.get(tx.id)!;
 
         let inflowGrossAmount = new Decimal(0);
         let outflowGrossAmount = new Decimal(0);
@@ -339,7 +339,7 @@ function groupSameHashTransactionsForCostBasis(
         let outflowMovementFingerprint: string | undefined;
         let inflowMovementFingerprint: string | undefined;
 
-        for (const inflow of filterTransferEligibleMovements(scoped.movements.inflows)) {
+        for (const inflow of filterTransferEligibleMovements(prepared.movements.inflows)) {
           if (inflow.assetId !== assetId) continue;
           inflowGrossAmount = inflowGrossAmount.plus(inflow.grossAmount);
           inflowMovementCount++;
@@ -350,7 +350,7 @@ function groupSameHashTransactionsForCostBasis(
           }
         }
 
-        for (const outflow of filterTransferEligibleMovements(scoped.movements.outflows)) {
+        for (const outflow of filterTransferEligibleMovements(prepared.movements.outflows)) {
           if (outflow.assetId !== assetId) continue;
           outflowGrossAmount = outflowGrossAmount.plus(outflow.grossAmount);
           outflowMovementCount++;
@@ -364,7 +364,7 @@ function groupSameHashTransactionsForCostBasis(
         if (inflowGrossAmount.isZero() && outflowGrossAmount.isZero()) continue;
 
         let onChainFeeAmount = new Decimal(0);
-        for (const fee of scoped.fees) {
+        for (const fee of prepared.fees) {
           if (fee.assetId !== assetId) continue;
           if (fee.settlement !== 'on-chain') continue;
           onChainFeeAmount = onChainFeeAmount.plus(fee.amount);
@@ -400,13 +400,13 @@ function groupSameHashTransactionsForCostBasis(
 // Reduce a single same-hash group to a scoping decision
 // ---------------------------------------------------------------------------
 
-function reduceSameHashGroupForCostBasis(
-  group: CostBasisSameHashAssetGroup,
+function reduceSameHashGroupForPreparation(
+  group: SameHashPreparedAssetGroup,
   logger: Logger
 ): Result<SameHashDecision | undefined, Error> {
-  const pureOutflows: CostBasisSameHashParticipant[] = [];
-  const pureInflows: CostBasisSameHashParticipant[] = [];
-  const mixed: CostBasisSameHashParticipant[] = [];
+  const pureOutflows: SameHashPreparedParticipant[] = [];
+  const pureInflows: SameHashPreparedParticipant[] = [];
+  const mixed: SameHashPreparedParticipant[] = [];
 
   for (const p of group.participants) {
     const hasInflow = p.inflowGrossAmount.gt(0);
@@ -431,7 +431,7 @@ function reduceSameHashGroupForCostBasis(
         asset: group.assetSymbol,
         mixedTxIds: mixed.map((participant) => participant.txId),
       },
-      'Ambiguous same-hash group: participant has both inflows and outflows for same asset; skipping cost-basis scoping'
+      'Ambiguous same-hash group: participant has both inflows and outflows for same asset; skipping accounting preparation'
     );
     return ok(undefined);
   }
@@ -453,7 +453,7 @@ function reduceSameHashGroupForCostBasis(
           senderTxId: sender.txId,
           senderOutflowMovementCount: sender.outflowMovementCount,
         },
-        'Ambiguous same-hash group: sender has multiple outflow movements for same asset; skipping cost-basis scoping'
+        'Ambiguous same-hash group: sender has multiple outflow movements for same asset; skipping accounting preparation'
       );
       return ok(undefined);
     }
@@ -489,7 +489,7 @@ function reduceSameHashGroupForCostBasis(
           receiverTxId: receiver.txId,
           receiverInflowMovementCount: receiver.inflowMovementCount,
         },
-        'Ambiguous same-hash group: receiver has multiple inflow movements for same asset; skipping cost-basis scoping'
+        'Ambiguous same-hash group: receiver has multiple inflow movements for same asset; skipping accounting preparation'
       );
       return ok(undefined);
     }
@@ -554,9 +554,9 @@ function reduceSameHashGroupForCostBasis(
 }
 
 function planSameHashSourceAllocations(
-  group: CostBasisSameHashAssetGroup,
-  pureOutflows: CostBasisSameHashParticipant[],
-  pureInflows: CostBasisSameHashParticipant[]
+  group: SameHashPreparedAssetGroup,
+  pureOutflows: SameHashPreparedParticipant[],
+  pureInflows: SameHashPreparedParticipant[]
 ): Result<
   {
     externalAmount: Decimal;
@@ -625,8 +625,8 @@ function planSameHashSourceAllocations(
 }
 
 function resolveMultiSourceCapacityPlan(
-  group: CostBasisSameHashAssetGroup,
-  pureOutflows: CostBasisSameHashParticipant[]
+  group: SameHashPreparedAssetGroup,
+  pureOutflows: SameHashPreparedParticipant[]
 ): Result<
   {
     capacities: {
@@ -738,7 +738,7 @@ function resolveMultiSourceCapacityPlan(
 
 function allocateSameHashReceiversAcrossSources(
   sourceAllocations: SameHashSourceAllocation[],
-  pureInflows: CostBasisSameHashParticipant[]
+  pureInflows: SameHashPreparedParticipant[]
 ): Result<
   {
     retainedQuantity: Decimal;
@@ -910,7 +910,7 @@ function applyMultiSourceScopedExternalAmount(
         feeDeducted: allocation.feeDeducted.toFixed(),
       })),
     },
-    'Applied same-hash scoped external amount (multi-source)'
+    'Applied same-hash prepared external amount (multi-source)'
   );
 
   return ok(undefined);
