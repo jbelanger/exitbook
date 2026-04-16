@@ -5,6 +5,7 @@ import { err, type Result } from '@exitbook/foundation';
 import { applyTransactionFilters, type TransactionsBrowseFilters } from './transactions-browse-utils.js';
 
 interface ReadTransactionsForCommandParams {
+  assetId?: string | undefined;
   assetSymbol?: string | undefined;
   db: DataSession;
   noPrice?: boolean | undefined;
@@ -32,6 +33,7 @@ export async function readTransactionsForCommand(
   }
 
   return applyTransactionFilters(transactionsResult.value, {
+    assetId: params.assetId,
     assetSymbol: params.assetSymbol,
     noPrice: params.noPrice,
     operationType: params.operationType,

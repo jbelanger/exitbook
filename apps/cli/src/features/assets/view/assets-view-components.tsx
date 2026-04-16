@@ -12,8 +12,9 @@ import {
   getAssetBlockchainTokenIdentity,
   getAssetReason,
   getAssetReasonWithHint,
-  getConflictingContracts,
+  getConflictingAssetIds,
   getPrimaryAssetSymbol,
+  getAssetTransactionInspectionHint,
   getAssetTuiActionHint,
   pluralizeAssetLabel,
 } from './assets-view-formatters.js';
@@ -283,6 +284,7 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
   const reason = getAssetReason(asset);
   const evidenceRows = buildEvidenceRows(asset);
   const ambiguityContextRows = buildAmbiguityContextRows(asset);
+  const transactionInspectionHint = getAssetTransactionInspectionHint(asset);
 
   const rows: ReactElement[] = [
     <Text key="title">
@@ -325,6 +327,18 @@ function buildAssetDetailRows(asset: AssetViewItem): ReactElement[] {
       <Text dimColor>Action: </Text>
       <Text>{getAssetTuiActionHint(asset)}</Text>
     </Text>,
+    ...(transactionInspectionHint
+      ? [
+          <Text
+            key="inspect"
+            wrap="wrap"
+          >
+            {'  '}
+            <Text dimColor>Inspect: </Text>
+            <Text>{transactionInspectionHint}</Text>
+          </Text>,
+        ]
+      : []),
     <Text key="seen-in">
       {'  '}
       <Text dimColor>Seen in: </Text>
@@ -421,17 +435,17 @@ function buildAmbiguityContextRows(asset: AssetViewItem): ReactElement[] {
     </Text>,
   ];
 
-  const conflictingContracts = getConflictingContracts(ambiguityEvidence.metadata, asset.assetId);
-  if (conflictingContracts.length > 0) {
+  const conflictingAssetIds = getConflictingAssetIds(ambiguityEvidence.metadata, asset.assetId);
+  if (conflictingAssetIds.length > 0) {
     rows.push(
-      ...conflictingContracts.map((contract, index) => (
+      ...conflictingAssetIds.map((conflictingAssetId, index) => (
         <Text
           key={`conflict-${index}`}
           wrap="wrap"
         >
           {'  '}
-          <Text dimColor>Conflict: </Text>
-          <Text>{contract}</Text>
+          <Text dimColor>Conflict asset: </Text>
+          <Text>{conflictingAssetId}</Text>
         </Text>
       ))
     );

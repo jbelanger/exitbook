@@ -171,3 +171,51 @@ Current solved state:
 - `cf1c74f683` is gone from `issues`
 - asset `blockchain:arbitrum:0x531bae79da2e057731798be73f20fd87526dbfef` is
   excluded and now stays out of the profile issue queue
+
+## Pass 3: Exact Asset Investigation Upgrade
+
+Date: 2026-04-16
+
+Goal:
+
+- improve the CLI enough to inspect one exact conflicting asset without mixing
+  same-symbol transactions from a different contract
+- make the asset detail surface advertise that exact investigation path
+
+Commands used:
+
+```bash
+pnpm run dev issues view d9233f5e30
+pnpm run dev assets view blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8 --json
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9 --json
+```
+
+Findings:
+
+- shipped fix: `transactions list` and related browse/export flows now accept
+  `--asset-id`, which isolates one exact asset instead of mixing all contracts
+  that share a symbol
+- shipped fix: `assets view` now shows:
+  - full conflicting asset IDs under `Conflict asset`
+  - an exact inspection command:
+    `transactions list --asset-id <asset-id>`
+- the exact filter made the Arbitrum `USDT` ambiguity materially clearer:
+  - unmatched asset `0xc7cb...` shows only 2 withdrawals totaling
+    `218.061708 USDT`
+  - matched asset `0xfd08...` shows the earlier `218.061708 USDT` deposit, the
+    later withdrawals, and a small later dust deposit
+- that is enough to continue the investigation honestly through the CLI without
+  guessing at symbol-level transaction lists
+
+Command-surface assessment:
+
+- strong improvement:
+  - the user no longer has to infer an exact-asset transaction command
+  - ambiguity detail no longer shortens conflicting assets into bare contract
+    refs that are awkward to reuse
+- still open:
+  - the current asset detail still does not explain _why_ one conflicting asset
+    might be safer to exclude than the other
+  - the next CLI-only step for this case is likely transaction-level inspection
+    of one of the exact conflicting transfers, not more asset-surface changes

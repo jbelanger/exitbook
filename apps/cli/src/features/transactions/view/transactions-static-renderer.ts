@@ -194,6 +194,7 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
 function buildListHeader(state: TransactionsViewState): string {
   const activeFilters = [
     state.filters.platformFilter,
+    state.filters.assetIdFilter,
     state.filters.assetFilter,
     state.filters.operationTypeFilter,
     state.filters.noPriceFilter ? 'missing prices' : undefined,
@@ -210,6 +211,7 @@ function buildListHeader(state: TransactionsViewState): string {
 function buildEmptyStateLines(state: TransactionsViewState): string[] {
   if (
     state.filters.platformFilter === undefined &&
+    state.filters.assetIdFilter === undefined &&
     state.filters.assetFilter === undefined &&
     state.filters.operationTypeFilter === undefined &&
     state.filters.noPriceFilter !== true

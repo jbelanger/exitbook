@@ -240,7 +240,8 @@ describe('AssetsViewApp', () => {
 
     expect(frame).toContain('Contract: ethereum 0xaaa');
     expect(frame).toContain('CoinGecko: matched canonical token');
-    expect(frame).toContain('Conflict: 0xbbb');
+    expect(frame).toContain('Conflict asset: blockchain:ethereum:0xbbb');
+    expect(frame).toContain('Inspect: Run "exitbook transactions list --asset-id blockchain:ethereum:0xaaa"');
   });
 
   it('shows one review badge, reason, and action for flagged assets', () => {

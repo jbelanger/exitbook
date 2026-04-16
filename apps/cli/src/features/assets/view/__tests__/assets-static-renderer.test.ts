@@ -108,10 +108,13 @@ describe('buildAssetStaticDetail', () => {
     expect(stripAnsi(output)).toContain('Also seen as: USDC, USDC.e');
     expect(stripAnsi(output)).toContain('Contract: ethereum 0xaaa');
     expect(stripAnsi(output)).toContain('CoinGecko: matched canonical token');
-    expect(stripAnsi(output)).toContain('Conflict: 0xbbb');
+    expect(stripAnsi(output)).toContain('Conflict asset: blockchain:ethereum:0xbbb');
     expect(stripAnsi(output)).toContain('Why: same symbol conflict');
     expect(stripAnsi(output)).toContain(
       'Action: Run "exitbook assets confirm --asset-id blockchain:ethereum:0xaaa" to mark it reviewed, or "exitbook assets exclude --asset-id blockchain:ethereum:0xaaa" to exclude a conflicting asset.'
+    );
+    expect(stripAnsi(output)).toContain(
+      `Inspect: Run "exitbook transactions list --asset-id blockchain:ethereum:0xaaa" to inspect only this asset's transactions.`
     );
     expect(stripAnsi(output)).toContain('Signals');
     expect(stripAnsi(output)).not.toContain('q quit');

@@ -77,6 +77,7 @@ export interface CategoryCounts {
 export interface TransactionsViewFilters {
   platformFilter?: string | undefined;
   assetFilter?: string | undefined;
+  assetIdFilter?: string | undefined;
   operationTypeFilter?: string | undefined;
   noPriceFilter?: boolean | undefined;
 }

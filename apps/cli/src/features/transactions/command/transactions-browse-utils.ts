@@ -15,6 +15,7 @@ import type { TransactionsViewFilters } from '../transactions-view-model.js';
 export interface TransactionsBrowseFilters extends CommonViewFilters {
   platform?: string | undefined;
   assetSymbol?: string | undefined;
+  assetId?: string | undefined;
   operationType?: string | undefined;
   noPrice?: boolean | undefined;
 }
@@ -38,12 +39,20 @@ export function applyTransactionFilters(
     filtered = filtered.filter((tx) => new Date(tx.datetime) <= untilDate);
   }
 
-  // Filter by asset
-  if (params.assetSymbol) {
+  if (params.assetId) {
+    filtered = filtered.filter((tx) => {
+      const hasInflow = tx.movements.inflows?.some((movement) => movement.assetId === params.assetId);
+      const hasOutflow = tx.movements.outflows?.some((movement) => movement.assetId === params.assetId);
+      const hasFee = tx.fees?.some((fee) => fee.assetId === params.assetId);
+      return hasInflow || hasOutflow || hasFee;
+    });
+  } else if (params.assetSymbol) {
+    // Filter by asset symbol
     filtered = filtered.filter((tx) => {
       const hasInflow = tx.movements.inflows?.some((m) => m.assetSymbol === params.assetSymbol);
       const hasOutflow = tx.movements.outflows?.some((m) => m.assetSymbol === params.assetSymbol);
-      return hasInflow || hasOutflow;
+      const hasFee = tx.fees?.some((fee) => fee.assetSymbol === params.assetSymbol);
+      return hasInflow || hasOutflow || hasFee;
     });
   }
 
@@ -90,22 +99,27 @@ export function validateUntilDate(until: string | undefined): Result<void, Error
 }
 
 export function buildTransactionsViewFilters(
-  params: Pick<TransactionsBrowseFilters, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
+  params: Pick<TransactionsBrowseFilters, 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
 ): TransactionsViewFilters {
   return {
     platformFilter: params.platform,
     assetFilter: params.assetSymbol,
+    assetIdFilter: params.assetId,
     operationTypeFilter: params.operationType,
     noPriceFilter: params.noPrice,
   };
 }
 
 export function buildTransactionsJsonFilters(
-  params: Pick<TransactionsBrowseFilters, 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'>
+  params: Pick<
+    TransactionsBrowseFilters,
+    'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
+  >
 ): Record<string, unknown> | undefined {
   return buildDefinedFilters({
     platform: params.platform,
     asset: params.assetSymbol,
+    assetId: params.assetId,
     since: params.since,
     until: params.until,
     operationType: params.operationType,
@@ -119,8 +133,16 @@ export function buildTransactionsJsonFilters(
 export function generateDefaultPath(filters: TransactionsViewFilters, format: ExportFormat): string {
   const parts: string[] = [];
   if (filters.platformFilter) parts.push(filters.platformFilter);
+  if (filters.assetIdFilter) parts.push(sanitizePathSegment(filters.assetIdFilter));
   if (filters.assetFilter) parts.push(filters.assetFilter.toLowerCase());
   parts.push('transactions');
   const extension = format === 'json' ? '.json' : '.csv';
   return `data/${parts.join('-')}${extension}`;
+}
+
+function sanitizePathSegment(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
