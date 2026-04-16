@@ -9,7 +9,6 @@ Owner: Codex + Joel
 Discovery log:
 
 - [accounting-issue-operations-plan.md](/Users/joel/Dev/exitbook/docs/dev/accounting-issue-operations-plan.md)
-- [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
 - [canonical-accounting-layer.md](/Users/joel/Dev/exitbook/docs/specs/canonical-accounting-layer.md)
 - [accounting-issues.md](/Users/joel/Dev/exitbook/docs/specs/accounting-issues.md)
 - [issues-view-spec.md](/Users/joel/Dev/exitbook/docs/specs/cli/issues/issues-view-spec.md)
@@ -101,10 +100,6 @@ The Phase 0 architectural decision is now recorded in:
 
 The remaining follow-up is to implement the first accounting-owned reader port
 and the first proving migration slices against that boundary.
-
-Phase 0 investigation log:
-
-- [accounting-substrate-analysis-log.md](/Users/joel/Dev/exitbook/docs/dev/accounting-substrate-analysis-log.md)
 
 ### Phase 0 Acceptance Criteria
 
