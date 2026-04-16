@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildCostBasisScopeKey } from '../../cost-basis/cost-basis-scope-key.js';
 import type { TaxPackageValidatedScope } from '../../cost-basis/export/tax-package-scope-validator.js';
 import type {
   TaxPackageReadinessMetadata,
   TaxPackageReadinessResult,
 } from '../../cost-basis/export/tax-package-types.js';
 import type { ValidatedCostBasisConfig } from '../../cost-basis/workflow/cost-basis-input.js';
-import {
-  buildCostBasisAccountingIssueScopeKey,
-  buildCostBasisAccountingIssueScopeSnapshot,
-} from '../cost-basis-issues.js';
+import { buildCostBasisAccountingIssueScopeSnapshot } from '../cost-basis-issues.js';
 
 const CONFIG: ValidatedCostBasisConfig = {
   jurisdiction: 'CA',
@@ -35,9 +33,9 @@ const VALIDATED_SCOPE: TaxPackageValidatedScope = {
 
 describe('cost-basis-issues', () => {
   it('builds a profile-qualified deterministic cost-basis issue scope key', () => {
-    const left = buildCostBasisAccountingIssueScopeKey(7, CONFIG);
-    const right = buildCostBasisAccountingIssueScopeKey(7, { ...CONFIG });
-    const differentProfile = buildCostBasisAccountingIssueScopeKey(8, CONFIG);
+    const left = buildCostBasisScopeKey(7, CONFIG);
+    const right = buildCostBasisScopeKey(7, { ...CONFIG });
+    const differentProfile = buildCostBasisScopeKey(8, CONFIG);
 
     expect(left).toBe(right);
     expect(left).toMatch(/^profile:7:cost-basis:/);

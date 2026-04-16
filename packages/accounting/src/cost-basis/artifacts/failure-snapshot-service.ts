@@ -9,8 +9,6 @@ import type {
 } from '../../ports/cost-basis-persistence.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 
-import { buildCostBasisScopeKey } from './artifact-snapshot-storage.js';
-
 const logger = getLogger('cost-basis.artifacts.failure-snapshot');
 
 interface PersistCostBasisFailureSnapshotParams {
@@ -18,6 +16,7 @@ interface PersistCostBasisFailureSnapshotParams {
   input: ValidatedCostBasisConfig;
   dependencyWatermark: CostBasisDependencyWatermark;
   error: Error;
+  scopeKey: string;
   stage: string;
   context?: Record<string, unknown> | undefined;
 }
@@ -40,7 +39,7 @@ export async function persistCostBasisFailureSnapshot(
     return err(error instanceof Error ? error : new Error(String(error)));
   }
 
-  const scopeKey = buildCostBasisScopeKey(config);
+  const scopeKey = params.scopeKey;
   const snapshotId = randomUUID();
   const timestamp = new Date();
   const snapshot: CostBasisFailureSnapshotRecord = {

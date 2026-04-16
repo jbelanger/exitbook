@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { AccountingExclusionPolicy } from '../accounting-model/accounting-exclusion-policy.js';
+import { buildCostBasisScopeKey } from '../cost-basis/cost-basis-scope-key.js';
 import { buildTaxPackageBuildContext } from '../cost-basis/export/tax-package-context-builder.js';
 import { deriveTaxPackageReadinessMetadata } from '../cost-basis/export/tax-package-readiness-metadata.js';
 import { evaluateTaxPackageReadiness } from '../cost-basis/export/tax-package-review-gate.js';
@@ -11,10 +12,7 @@ import type { ValidatedCostBasisConfig } from '../cost-basis/workflow/cost-basis
 import { CostBasisWorkflow } from '../cost-basis/workflow/cost-basis-workflow.js';
 import type { ICostBasisContextReader } from '../ports/cost-basis-persistence.js';
 
-import {
-  buildCostBasisAccountingIssueScopeKey,
-  buildCostBasisAccountingIssueScopeSnapshot,
-} from './cost-basis-issues.js';
+import { buildCostBasisAccountingIssueScopeSnapshot } from './cost-basis-issues.js';
 import type { AccountingIssueScopeSnapshot } from './issue-model.js';
 
 export interface MaterializeCostBasisAccountingIssueScopeSnapshotInput {
@@ -57,7 +55,7 @@ export async function materializeCostBasisAccountingIssueScopeSnapshot(
     return err(workflowResult.error);
   }
 
-  const scopeKey = buildCostBasisAccountingIssueScopeKey(input.profileId, input.config);
+  const scopeKey = buildCostBasisScopeKey(input.profileId, input.config);
   const buildContext = buildTaxPackageBuildContext({
     artifact: workflowResult.value,
     sourceContext: sourceContext.value,

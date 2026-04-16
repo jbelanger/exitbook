@@ -1,26 +1,24 @@
 ---
-last_verified: 2026-03-14
+last_verified: 2026-04-16
 status: canonical
 ---
 
 # Cost Basis Artifact Storage Specification
 
-> ⚠️ **Code is law**: If this document disagrees with implementation, the implementation is correct and this spec must be updated.
-
 Defines how Exitbook persists, reloads, and invalidates cost-basis artifacts and failure snapshots. This spec covers latest-success snapshot reuse, dependency watermark freshness, storage DTO boundaries, and latest-failure persistence.
 
 ## Quick Reference
 
-| Concept                 | Key Rule                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------- |
-| Latest success snapshot | One mutable latest row per cost-basis scope in `cost_basis_snapshots`                         |
-| Latest failure snapshot | One mutable latest row per `(scope_key, consumer)` in `cost_basis_failure_snapshots`          |
-| Scope identity          | Scope key hashes calculation config only, not presentation filters like `--asset` or JSON     |
-| Freshness gate          | Reuse requires matching versions, fresh projections, matching timestamps, and same exclusions |
-| Price freshness         | Reuse compares `pricesLastMutatedAt`, not a projection-state row                              |
-| Storage boundary        | Persisted payloads are explicit JSON DTOs validated with Zod on write and read                |
-| Unreadable snapshot     | A fresh-but-unreadable latest artifact is rebuilt rather than partially trusted               |
-| History / pins          | Not implemented; only mutable latest success and latest failure snapshots exist               |
+| Concept                 | Key Rule                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| Latest success snapshot | One mutable latest row per cost-basis scope in `cost_basis_snapshots`                           |
+| Latest failure snapshot | One mutable latest row per `(scope_key, consumer)` in `cost_basis_failure_snapshots`            |
+| Scope identity          | Scope key is profile-qualified and includes a stable config fingerprint, not presentation flags |
+| Freshness gate          | Reuse requires matching versions, fresh projections, matching timestamps, and same exclusions   |
+| Price freshness         | Reuse compares `pricesLastMutatedAt`, not a projection-state row                                |
+| Storage boundary        | Persisted payloads are explicit JSON DTOs validated with Zod on write and read                  |
+| Unreadable snapshot     | A fresh-but-unreadable latest artifact is rebuilt rather than partially trusted                 |
+| History / pins          | Not implemented; only mutable latest success and latest failure snapshots exist                 |
 
 ## Goals
 
@@ -44,10 +42,15 @@ Defines how Exitbook persists, reloads, and invalidates cost-basis artifacts and
 The latest-success and latest-failure surfaces are keyed by the cost-basis calculation scope:
 
 ```ts
-buildCostBasisScopeKey(config);
+buildCostBasisScopeKey(profileId, config);
 ```
 
-Current scope identity includes:
+Current full scope identity includes:
+
+- `profileId`
+- stable config fingerprint
+
+The stable config fingerprint includes:
 
 - `method`
 - `jurisdiction`
@@ -57,12 +60,18 @@ Current scope identity includes:
 - `currency`
 - `specificLotSelectionStrategy`
 
-Current scope identity excludes:
+The stable config fingerprint excludes:
 
 - `asset`
 - `json`
 
 Those are presentation concerns, not calculation identity.
+
+The config-only fingerprint is built separately via:
+
+```ts
+buildCostBasisConfigScopeKey(config);
+```
 
 ### Dependency Watermark
 
@@ -130,7 +139,7 @@ Key fields:
 
 Rules:
 
-1. Build `scopeKey` from the calculation config.
+1. Build `scopeKey` from the profile-qualified calculation scope.
 2. If `refresh !== true`, try `artifactStore.findLatest(scopeKey)`.
 3. If a latest row exists, evaluate freshness against the current dependency watermark.
 4. If freshness is `fresh`, parse the stored payload back into runtime artifact/debug objects.

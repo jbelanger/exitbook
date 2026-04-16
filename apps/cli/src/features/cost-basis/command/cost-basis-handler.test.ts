@@ -1,6 +1,7 @@
 import {
   CostBasisArtifactService,
   CostBasisWorkflow,
+  buildCostBasisScopeKey,
   persistCostBasisFailureSnapshot,
 } from '@exitbook/accounting/cost-basis';
 import type { DataSession } from '@exitbook/data/session';
@@ -98,7 +99,7 @@ describe('CostBasisHandler', () => {
       })
     );
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
-      ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
+      ok({ scopeKey: buildCostBasisScopeKey(PROFILE_ID, validParams), snapshotId: 'failure-snapshot-1' })
     );
 
     mockArtifactServiceExecute = vi.fn().mockResolvedValue(
@@ -112,7 +113,7 @@ describe('CostBasisHandler', () => {
           exclusionFingerprint: 'excluded-assets:none',
         },
         rebuilt: false,
-        scopeKey: 'cost-basis:test',
+        scopeKey: buildCostBasisScopeKey(PROFILE_ID, validParams),
         snapshotId: 'snapshot-1',
       })
     );
@@ -166,6 +167,7 @@ describe('CostBasisHandler', () => {
       expect(mockArtifactServiceExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           config: validParams,
+          scopeKey: buildCostBasisScopeKey(PROFILE_ID, validParams),
           refresh: true,
           accountingExclusionPolicy: { excludedAssetIds: new Set<string>() },
           assetReviewSummaries: new Map(),

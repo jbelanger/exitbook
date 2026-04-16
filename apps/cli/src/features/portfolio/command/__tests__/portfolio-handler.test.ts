@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import {
+  buildCostBasisScopeKey,
   persistCostBasisFailureSnapshot,
   runCanadaCostBasisCalculation,
   type ICostBasisContextReader,
@@ -184,7 +185,17 @@ describe('PortfolioHandler', () => {
       setManualPrice: vi.fn().mockResolvedValue(ok(undefined)),
     };
     vi.mocked(persistCostBasisFailureSnapshot).mockResolvedValue(
-      ok({ scopeKey: 'cost-basis:test', snapshotId: 'failure-snapshot-1' })
+      ok({
+        scopeKey: buildCostBasisScopeKey(7, {
+          method: 'fifo',
+          jurisdiction: 'US',
+          taxYear: 2025,
+          currency: 'USD',
+          startDate: new Date(0),
+          endDate: new Date('2025-01-01T00:00:00.000Z'),
+        }),
+        snapshotId: 'failure-snapshot-1',
+      })
     );
 
     vi.mocked(runCanadaCostBasisCalculation).mockResolvedValue(
@@ -333,6 +344,7 @@ describe('PortfolioHandler', () => {
       costBasisStore: mockCostBasisStore,
       failureSnapshotStore: mockFailureSnapshotStore,
       priceRuntime: mockPriceRuntime,
+      profileId: 7,
       readAssetReviewSummaries: mockReadAssetReviewSummaries,
       readDependencyWatermark: mockReadDependencyWatermark,
     });
@@ -429,6 +441,14 @@ describe('PortfolioHandler', () => {
         consumer: 'portfolio',
         stage: 'portfolio.canada-cost-basis',
         error: expect.objectContaining({ message: 'canada workflow failed' }),
+        scopeKey: buildCostBasisScopeKey(7, {
+          method: 'average-cost',
+          jurisdiction: 'CA',
+          taxYear: 2025,
+          currency: 'USD',
+          startDate: new Date(0),
+          endDate: new Date('2025-01-01T00:00:00.000Z'),
+        }),
       })
     );
   });
@@ -484,6 +504,7 @@ describe('PortfolioHandler', () => {
       costBasisStore: mockCostBasisStore,
       failureSnapshotStore: mockFailureSnapshotStore,
       priceRuntime: mockPriceRuntime,
+      profileId: 7,
       readAssetReviewSummaries: mockReadAssetReviewSummaries,
       readDependencyWatermark: mockReadDependencyWatermark,
     });

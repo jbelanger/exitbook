@@ -511,7 +511,10 @@ Status: complete
 
 Completed so far:
 
-- profile-qualified cost-basis issue scope identity landed in `packages/accounting/src/issues/`
+- profile-qualified cost-basis scope identity is now shared across:
+  - issue scopes
+  - cost-basis artifact reuse
+  - latest failure snapshots
 - scoped `tax_readiness` issue family mapping landed in `packages/accounting/src/issues/cost-basis-issues.ts`
 - accounting-owned cost-basis issue materialization landed in `packages/accounting/src/issues/cost-basis-issue-materializer.ts`
 - cross-scope current-issue lookup landed in `packages/data/src/repositories/accounting-issue-repository.ts`

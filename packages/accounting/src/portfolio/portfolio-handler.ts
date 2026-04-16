@@ -16,6 +16,7 @@ import type { AccountingExclusionPolicy } from '../accounting-model/accounting-e
 import type { AccountingModelBuildResult } from '../accounting-model/accounting-model-types.js';
 import { buildAccountingModelFromTransactions } from '../accounting-model/build-accounting-model-from-transactions.js';
 import { persistCostBasisFailureSnapshot } from '../cost-basis/artifacts/failure-snapshot-service.js';
+import { buildCostBasisScopeKey } from '../cost-basis/cost-basis-scope-key.js';
 import { runCanadaCostBasisCalculation } from '../cost-basis/jurisdictions/canada/workflow/run-canada-cost-basis-calculation.js';
 import type { FiatCurrency as AccountingFiatCurrency } from '../cost-basis/model/cost-basis-config.js';
 /**
@@ -98,6 +99,7 @@ export interface PortfolioHandlerDeps {
   costBasisStore: ICostBasisContextReader;
   failureSnapshotStore: ICostBasisFailureSnapshotStore;
   priceRuntime: IPriceProviderRuntime;
+  profileId: number;
   readAssetReviewSummaries: ReadPortfolioAssetReviewSummaries;
   readDependencyWatermark: ReadPortfolioDependencyWatermark;
 }
@@ -727,6 +729,7 @@ export class PortfolioHandler {
       input,
       dependencyWatermark,
       error,
+      scopeKey: buildCostBasisScopeKey(this.deps.profileId, input),
       stage,
     });
     if (persistResult.isErr()) {

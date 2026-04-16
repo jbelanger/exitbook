@@ -61,11 +61,10 @@ Accounting issues are always read inside an explicit accounting scope.
 - Planned families:
   - `tax_readiness`
   - later `execution_failure`
-- Scope key rule: build a profile-qualified issue scope key. Reuse
-  `buildCostBasisScopeKey(config)` only as the stable config-fingerprint
-  component, not as the whole issue scope key.
-- Canonical Phase 1B shape:
-  `profile:<profileId>:${buildCostBasisScopeKey(config)}`.
+- Scope key rule: build the full profile-qualified cost-basis scope key with
+  `buildCostBasisScopeKey(profileId, config)`.
+- Config-only fingerprint rule: reuse `buildCostBasisConfigScopeKey(config)` as
+  the stable config component when that narrower identity is needed.
 - Materialization rule in Phase 1B: scoped issue rows are created only when the
   user explicitly enters or refreshes that cost-basis scope.
 
@@ -472,8 +471,8 @@ assemble issue persistence ad hoc.
 ### Phase 1B
 
 - Add explicit `cost-basis` scoped issue browsing on the same issue model.
-- Use a profile-qualified cost-basis issue scope key:
-  `profile:<profileId>:${buildCostBasisScopeKey(config)}`.
+- Use the full profile-qualified cost-basis scope key:
+  `buildCostBasisScopeKey(profileId, config)`.
 - Add scoped lenses to the overview only after they have been materialized
   explicitly.
 

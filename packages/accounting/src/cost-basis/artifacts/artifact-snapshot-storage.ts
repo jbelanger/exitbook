@@ -2,6 +2,7 @@ import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CostBasisDependencyWatermark, CostBasisSnapshotRecord } from '../../ports/cost-basis-persistence.js';
+import { hashCostBasisStableValue } from '../cost-basis-stable-hash.js';
 import {
   buildCanadaArtifactSnapshotParts,
   fromStoredCanadaArtifact,
@@ -45,35 +46,13 @@ interface CostBasisArtifactFreshnessResult {
 export const COST_BASIS_STORAGE_SCHEMA_VERSION = 4;
 export const COST_BASIS_CALCULATION_ENGINE_VERSION = 1;
 
-export function buildCostBasisScopeKey(config: {
-  currency: string;
-  endDate?: Date | undefined;
-  jurisdiction: string;
-  method: string;
-  specificLotSelectionStrategy?: string | undefined;
-  startDate?: Date | undefined;
-  taxYear: number;
-}): string {
-  const stableConfig = {
-    currency: config.currency,
-    endDate: config.endDate?.toISOString() ?? undefined,
-    jurisdiction: config.jurisdiction,
-    method: config.method,
-    specificLotSelectionStrategy: config.specificLotSelectionStrategy ?? undefined,
-    startDate: config.startDate?.toISOString() ?? undefined,
-    taxYear: config.taxYear,
-  };
-
-  return `cost-basis:${hashString(JSON.stringify(stableConfig))}`;
-}
-
 export function buildAccountingExclusionFingerprint(excludedAssetIds: ReadonlySet<string>): string {
   const sorted = [...excludedAssetIds].sort();
   if (sorted.length === 0) {
     return 'excluded-assets:none';
   }
 
-  return `excluded-assets:${hashString(JSON.stringify(sorted))}`;
+  return `excluded-assets:${hashCostBasisStableValue(JSON.stringify(sorted))}`;
 }
 
 export function evaluateCostBasisArtifactFreshness(
@@ -272,14 +251,4 @@ export function readCostBasisSnapshotArtifact(
     debug,
     snapshotId: snapshot.snapshotId,
   });
-}
-
-function hashString(value: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, '0');
 }

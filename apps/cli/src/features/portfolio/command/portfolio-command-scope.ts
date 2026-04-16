@@ -47,6 +47,7 @@ export async function withPortfolioCommandScope<T>(
         costBasisStore: buildCostBasisPorts(database, profileResult.value.id),
         failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
         priceRuntime: pricedRuntimeResult.value.priceRuntime,
+        profileId: profileResult.value.id,
         readAssetReviewSummaries: () => readAssetReviewProjectionSummaries(database, profileResult.value.id),
         readDependencyWatermark: () =>
           readCostBasisDependencyWatermark(

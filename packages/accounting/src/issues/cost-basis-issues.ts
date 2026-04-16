@@ -1,6 +1,6 @@
 import { formatTransactionFingerprintRef } from '@exitbook/core';
 
-import { buildCostBasisScopeKey } from '../cost-basis/artifacts/artifact-snapshot-storage.js';
+import { buildCostBasisScopeKey } from '../cost-basis/cost-basis-scope-key.js';
 import type { TaxPackageValidatedScope } from '../cost-basis/export/tax-package-scope-validator.js';
 import type {
   TaxPackageIncompleteTransferLinkDetail,
@@ -28,15 +28,11 @@ export interface BuildCostBasisAccountingIssueScopeSnapshotInput {
   updatedAt?: Date | undefined;
 }
 
-export function buildCostBasisAccountingIssueScopeKey(profileId: number, config: ValidatedCostBasisConfig): string {
-  return `profile:${profileId}:${buildCostBasisScopeKey(config)}`;
-}
-
 export function buildCostBasisAccountingIssueScopeSnapshot(
   input: BuildCostBasisAccountingIssueScopeSnapshotInput
 ): AccountingIssueScopeSnapshot {
   const updatedAt = input.updatedAt ?? new Date();
-  const scopeKey = buildCostBasisAccountingIssueScopeKey(input.profileId, input.config);
+  const scopeKey = buildCostBasisScopeKey(input.profileId, input.config);
   const issues = input.readiness.issues.map((issue) =>
     buildTaxReadinessAccountingIssue(scopeKey, issue, input.readinessMetadata)
   );

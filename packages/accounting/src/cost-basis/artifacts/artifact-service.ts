@@ -12,7 +12,6 @@ import type { CostBasisWorkflow, CostBasisWorkflowResult } from '../workflow/cos
 
 import {
   buildCostBasisSnapshotRecord,
-  buildCostBasisScopeKey,
   evaluateCostBasisArtifactFreshness,
   readCostBasisSnapshotArtifact,
   type CostBasisArtifactDebugPayload,
@@ -26,6 +25,7 @@ interface CostBasisArtifactServiceExecuteParams {
   refresh?: boolean | undefined;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, import('@exitbook/core').AssetReviewSummary> | undefined;
+  scopeKey: string;
 }
 
 interface CostBasisArtifactServiceResult {
@@ -45,7 +45,7 @@ export class CostBasisArtifactService {
   ) {}
 
   async execute(params: CostBasisArtifactServiceExecuteParams): Promise<Result<CostBasisArtifactServiceResult, Error>> {
-    const scopeKey = buildCostBasisScopeKey(params.config);
+    const scopeKey = params.scopeKey;
 
     if (!params.refresh) {
       const latestResult = await this.artifactStore.findLatest(scopeKey);

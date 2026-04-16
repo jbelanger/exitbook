@@ -2,6 +2,7 @@ import { err, ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ICostBasisFailureSnapshotStore } from '../../../ports/cost-basis-persistence.js';
+import { buildCostBasisScopeKey } from '../../cost-basis-scope-key.js';
 import { persistCostBasisFailureSnapshot } from '../failure-snapshot-service.js';
 
 describe('persistCostBasisFailureSnapshot', () => {
@@ -21,6 +22,14 @@ describe('persistCostBasisFailureSnapshot', () => {
         startDate: new Date('2024-01-01T00:00:00.000Z'),
         endDate: new Date('2024-12-31T23:59:59.999Z'),
       },
+      scopeKey: buildCostBasisScopeKey(7, {
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      }),
       dependencyWatermark: {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
@@ -59,6 +68,14 @@ describe('persistCostBasisFailureSnapshot', () => {
         startDate: new Date('2024-01-01T00:00:00.000Z'),
         endDate: new Date('2024-12-31T23:59:59.999Z'),
       },
+      scopeKey: buildCostBasisScopeKey(7, {
+        method: 'fifo',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        currency: 'USD',
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      }),
       dependencyWatermark: {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },

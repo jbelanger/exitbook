@@ -2,6 +2,7 @@ import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-
 import {
   CostBasisArtifactService,
   CostBasisWorkflow,
+  buildCostBasisScopeKey,
   persistCostBasisFailureSnapshot,
   type CostBasisContext,
   type CostBasisDependencyWatermark,
@@ -96,6 +97,7 @@ export class CostBasisHandler {
     try {
       const workflow = new CostBasisWorkflow(contextReader, this.priceRuntime);
       const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);
+      const scopeKey = buildCostBasisScopeKey(this.profileId, params);
 
       const assetReviewSummariesResult = await readAssetReviewProjectionSummaries(this.db, this.profileId);
       if (assetReviewSummariesResult.isErr()) {
@@ -109,6 +111,7 @@ export class CostBasisHandler {
 
       const result = await artifactService.execute({
         config: params,
+        scopeKey,
         dependencyWatermark: watermarkResult.value,
         refresh: options?.refresh,
         accountingExclusionPolicy: this.accountingExclusionPolicy,
@@ -120,6 +123,7 @@ export class CostBasisHandler {
           input: params,
           dependencyWatermark: watermarkResult.value,
           error: result.error,
+          scopeKey,
           stage: 'artifact-service.execute',
           context: {
             refresh: options?.refresh === true,

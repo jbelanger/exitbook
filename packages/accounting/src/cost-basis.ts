@@ -40,12 +40,12 @@ export {
 } from './cost-basis/workflow/price-completeness.js';
 export {
   buildAccountingExclusionFingerprint,
-  buildCostBasisScopeKey,
   COST_BASIS_CALCULATION_ENGINE_VERSION,
   COST_BASIS_STORAGE_SCHEMA_VERSION,
   evaluateCostBasisArtifactFreshness,
   readCostBasisSnapshotArtifact,
 } from './cost-basis/artifacts/artifact-snapshot-storage.js';
+export { buildCostBasisConfigScopeKey, buildCostBasisScopeKey } from './cost-basis/cost-basis-scope-key.js';
 export {
   StoredCanadaCostBasisArtifactSchema,
   StoredCostBasisArtifactEnvelopeSchema,

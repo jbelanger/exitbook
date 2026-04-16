@@ -7,12 +7,12 @@ import type {
   ICostBasisArtifactStore,
   ICostBasisContextReader,
 } from '../../../ports/cost-basis-persistence.js';
+import { buildCostBasisScopeKey } from '../../cost-basis-scope-key.js';
 import type { CostBasisWorkflow, CostBasisWorkflowResult } from '../../workflow/cost-basis-workflow.js';
 import { CostBasisArtifactService } from '../artifact-service.js';
 import {
   COST_BASIS_CALCULATION_ENGINE_VERSION,
   COST_BASIS_STORAGE_SCHEMA_VERSION,
-  buildCostBasisScopeKey,
 } from '../artifact-snapshot-storage.js';
 
 const dependencyWatermark: CostBasisDependencyWatermark = {
@@ -108,7 +108,7 @@ function createStandardWorkflowResult(): Extract<CostBasisWorkflowResult, { kind
 }
 
 function createStoredSnapshot(artifactJson = '{"bad"'): CostBasisSnapshotRecord {
-  const scopeKey = buildCostBasisScopeKey(config);
+  const scopeKey = buildCostBasisScopeKey(7, config);
   return {
     scopeKey,
     snapshotId: '8e596a8b-a0dc-4f08-ae45-a8517bf0b3a7',
@@ -195,7 +195,7 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ config, dependencyWatermark });
+    const result = await service.execute({ config, dependencyWatermark, scopeKey: buildCostBasisScopeKey(7, config) });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -226,7 +226,12 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ config, dependencyWatermark, refresh: true });
+    const result = await service.execute({
+      config,
+      dependencyWatermark,
+      refresh: true,
+      scopeKey: buildCostBasisScopeKey(7, config),
+    });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
@@ -263,7 +268,7 @@ describe('CostBasisArtifactService', () => {
     } as unknown as CostBasisWorkflow;
 
     const service = new CostBasisArtifactService(contextReader, artifactStore, workflow);
-    const result = await service.execute({ config, dependencyWatermark });
+    const result = await service.execute({ config, dependencyWatermark, scopeKey: buildCostBasisScopeKey(7, config) });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {
