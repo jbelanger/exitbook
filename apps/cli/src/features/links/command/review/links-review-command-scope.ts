@@ -1,3 +1,4 @@
+import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
 import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
@@ -9,6 +10,7 @@ import { LinksReviewHandler } from './links-review-handler.js';
 
 export interface LinksReviewCommandScope {
   handler: LinksReviewHandler;
+  refreshProfileIssues(): Promise<Result<void, Error>>;
   resolveProposalRef(selector: string): Promise<Result<ResolvedLinkProposalRef, Error>>;
 }
 
@@ -30,6 +32,12 @@ export async function withLinksReviewCommandScope<T>(
         profileResult.value.profileKey,
         new OverrideStore(runtime.dataDir)
       ),
+      refreshProfileIssues: () =>
+        refreshProfileAccountingIssueProjection(database, runtime.dataDir, {
+          displayName: profileResult.value.displayName,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        }),
       resolveProposalRef: async (selector: string) => {
         const linksResult = await database.transactionLinks.findAll({ profileId: profileResult.value.id });
         if (linksResult.isErr()) {

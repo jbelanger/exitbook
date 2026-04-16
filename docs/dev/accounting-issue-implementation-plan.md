@@ -559,6 +559,20 @@ Completed so far:
   routed selector is exact and the corrective commands are unambiguous
   - first slice: asset-review blockers show `assets view`, `assets confirm`,
     and `assets exclude` examples
+- profile-owned corrective actions now refresh the persisted `profile` issue
+  projection immediately when the affected scope is exact and cheap to
+  recompute
+  - shipped paths:
+    - `assets confirm`
+    - `assets clear-review`
+    - `assets exclude`
+    - `assets include`
+    - `links confirm`
+    - `links reject`
+    - `links create`
+    - `links create-grouped`
+    - `links gaps resolve`
+    - `links gaps reopen`
 
 Acceptance criteria:
 

@@ -1,4 +1,4 @@
-import type { Result } from '@exitbook/foundation';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { AssetsCommandScope } from './assets-command-scope.js';
 import type {
@@ -19,44 +19,52 @@ export async function runAssetsExclude(
   scope: AssetsCommandScope,
   params: AssetOverrideParams
 ): Promise<Result<AssetOverrideResult, Error>> {
-  return scope.overrideService.exclude({
-    ...params,
-    profileId: scope.profile.id,
-    profileKey: scope.profile.profileKey,
-  });
+  return runAssetOverrideOperation(scope, () =>
+    scope.overrideService.exclude({
+      ...params,
+      profileId: scope.profile.id,
+      profileKey: scope.profile.profileKey,
+    })
+  );
 }
 
 export async function runAssetsInclude(
   scope: AssetsCommandScope,
   params: AssetOverrideParams
 ): Promise<Result<AssetOverrideResult, Error>> {
-  return scope.overrideService.include({
-    ...params,
-    profileId: scope.profile.id,
-    profileKey: scope.profile.profileKey,
-  });
+  return runAssetOverrideOperation(scope, () =>
+    scope.overrideService.include({
+      ...params,
+      profileId: scope.profile.id,
+      profileKey: scope.profile.profileKey,
+    })
+  );
 }
 
 export async function runAssetsConfirmReview(
   scope: AssetsCommandScope,
   params: AssetOverrideParams
 ): Promise<Result<AssetReviewOverrideResult, Error>> {
-  return scope.overrideService.confirmReview({
-    ...params,
-    profileId: scope.profile.id,
-    profileKey: scope.profile.profileKey,
-  });
+  return runAssetOverrideOperation(scope, () =>
+    scope.overrideService.confirmReview({
+      ...params,
+      profileId: scope.profile.id,
+      profileKey: scope.profile.profileKey,
+    })
+  );
 }
 
 export async function runAssetsClearReview(
   scope: AssetsCommandScope,
   params: AssetOverrideParams
 ): Promise<Result<AssetReviewOverrideResult, Error>> {
-  return scope.overrideService.clearReview({
-    ...params,
-    profileId: scope.profile.id,
-    profileKey: scope.profile.profileKey,
-  });
+  return runAssetOverrideOperation(scope, () =>
+    scope.overrideService.clearReview({
+      ...params,
+      profileId: scope.profile.id,
+      profileKey: scope.profile.profileKey,
+    })
+  );
 }
 
 export async function runAssetsExclusions(scope: AssetsCommandScope): Promise<Result<AssetExclusionsResult, Error>> {
@@ -86,5 +94,20 @@ export async function runAssetsBrowse(
     selector: params.selector,
     profileId: scope.profile.id,
     profileKey: scope.profile.profileKey,
+  });
+}
+
+async function runAssetOverrideOperation<TResult extends { changed: boolean }>(
+  scope: AssetsCommandScope,
+  operation: () => Promise<Result<TResult, Error>>
+): Promise<Result<TResult, Error>> {
+  return resultDoAsync(async function* () {
+    const result = yield* await operation();
+
+    if (result.changed) {
+      yield* await scope.refreshProfileIssues();
+    }
+
+    return result;
   });
 }

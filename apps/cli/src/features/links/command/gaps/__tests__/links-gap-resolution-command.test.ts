@@ -3,17 +3,20 @@ import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  mockBuildProfileLinkGapSourceReader,
   mockCtx,
   mockExitCliFailure,
   mockHandlerConstructor,
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
+  mockRefreshProfileIssueProjection,
   mockReopen,
   mockResolve,
   mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
+  mockBuildProfileLinkGapSourceReader: vi.fn(),
   mockCtx: {
     dataDir: '/tmp/exitbook-links',
     database: vi.fn().mockResolvedValue({ tag: 'db' }),
@@ -24,6 +27,7 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
+  mockRefreshProfileIssueProjection: vi.fn(),
   mockReopen: vi.fn(),
   mockResolve: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
@@ -54,6 +58,13 @@ vi.mock('../../../../../cli/output.js', () => ({
 vi.mock('../../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
 }));
+
+vi.mock('@exitbook/data/accounting', async () => {
+  return {
+    buildProfileLinkGapSourceReader: mockBuildProfileLinkGapSourceReader,
+    refreshProfileAccountingIssueProjection: mockRefreshProfileIssueProjection,
+  };
+});
 
 vi.mock('../links-gap-resolution-handler.js', () => ({
   LinksGapResolutionHandler: vi.fn().mockImplementation(function MockLinksGapResolutionHandler(...args: unknown[]) {
@@ -96,6 +107,8 @@ describe('links gap resolution commands', () => {
         createdAt: new Date('2026-04-01T00:00:00.000Z'),
       })
     );
+    mockBuildProfileLinkGapSourceReader.mockReturnValue({ tag: 'source-reader' });
+    mockRefreshProfileIssueProjection.mockResolvedValue(ok(undefined));
     consoleLogSpy.mockClear();
   });
 
@@ -128,10 +141,19 @@ describe('links gap resolution commands', () => {
     );
 
     expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-links');
-    expect(mockHandlerConstructor).toHaveBeenCalledWith({ tag: 'db' }, 1, 'default', mockOverrideStoreInstance);
+    expect(mockBuildProfileLinkGapSourceReader).toHaveBeenCalledWith({ tag: 'db' }, '/tmp/exitbook-links', {
+      profileId: 1,
+      profileKey: 'default',
+    });
+    expect(mockHandlerConstructor).toHaveBeenCalledWith({ tag: 'source-reader' }, 'default', mockOverrideStoreInstance);
     expect(mockResolve).toHaveBeenCalledWith({
       selector: 'a1b2c3d4e5',
       reason: 'BullBitcoin purchase sent directly to wallet',
+    });
+    expect(mockRefreshProfileIssueProjection).toHaveBeenCalledWith({ tag: 'db' }, '/tmp/exitbook-links', {
+      displayName: 'default',
+      profileId: 1,
+      profileKey: 'default',
     });
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Link gap resolved');
@@ -165,6 +187,11 @@ describe('links gap resolution commands', () => {
     expect(mockReopen).toHaveBeenCalledWith({
       selector: '761aacb377',
       reason: undefined,
+    });
+    expect(mockRefreshProfileIssueProjection).toHaveBeenCalledWith({ tag: 'db' }, '/tmp/exitbook-links', {
+      displayName: 'default',
+      profileId: 1,
+      profileKey: 'default',
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('links-gaps-reopen', result, undefined);
     expect(consoleLogSpy).not.toHaveBeenCalled();

@@ -8,6 +8,7 @@ const {
   mockHandlerConstructor,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
+  mockRefreshProfileIssueProjection,
   mockResolveCommandProfile,
   mockRunCliRuntimeCommand,
 } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const {
   mockHandlerConstructor: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
+  mockRefreshProfileIssueProjection: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCliRuntimeCommand: vi.fn(),
 }));
@@ -37,6 +39,10 @@ vi.mock('../../../../../cli/command.js', async () => {
 
 vi.mock('../../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
+}));
+
+vi.mock('@exitbook/data/accounting', () => ({
+  refreshProfileAccountingIssueProjection: mockRefreshProfileIssueProjection,
 }));
 
 vi.mock('../links-create-grouped-handler.js', () => ({
@@ -70,6 +76,7 @@ describe('links create-grouped command', () => {
         createdAt: new Date('2026-04-01T00:00:00.000Z'),
       })
     );
+    mockRefreshProfileIssueProjection.mockResolvedValue(ok(undefined));
     mockRunCliRuntimeCommand.mockImplementation(async (options) => {
       const preparedResult = await options.prepare();
       if (preparedResult.isErr()) {
@@ -140,6 +147,11 @@ describe('links create-grouped command', () => {
       reason: undefined,
       sourceSelectors: ['78a82e8482', 'd0c794045d'],
       targetSelectors: ['38adc7a548'],
+    });
+    expect(mockRefreshProfileIssueProjection).toHaveBeenCalledWith({ tag: 'db' }, '/tmp/exitbook-links', {
+      displayName: 'default',
+      profileId: 1,
+      profileKey: 'default',
     });
   });
 });

@@ -1,3 +1,4 @@
+import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
@@ -109,6 +110,17 @@ async function executeLinksCreateCommandResult(
     });
     if (createResult.isErr()) {
       return yield* err(createCliFailure(createResult.error, getTransactionSelectorErrorExitCode(createResult.error)));
+    }
+
+    if (createResult.value.changed) {
+      const refreshResult = await refreshProfileAccountingIssueProjection(database, runtime.dataDir, {
+        displayName: profileResult.value.displayName,
+        profileId: profileResult.value.id,
+        profileKey: profileResult.value.profileKey,
+      });
+      if (refreshResult.isErr()) {
+        return yield* err(createCliFailure(refreshResult.error, ExitCodes.GENERAL_ERROR));
+      }
     }
 
     if (format === 'json') {

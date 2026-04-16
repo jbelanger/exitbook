@@ -1,4 +1,5 @@
 import type { Profile } from '@exitbook/core';
+import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
 import { buildBalancePorts } from '@exitbook/data/balances';
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
@@ -14,6 +15,7 @@ import { AssetSnapshotReader, type BalanceSnapshotRebuilder } from './asset-snap
 export interface AssetsCommandScope {
   overrideService: AssetOverrideService;
   profile: Profile;
+  refreshProfileIssues(): Promise<Result<void, Error>>;
   snapshotReader: AssetSnapshotReader;
 }
 
@@ -39,6 +41,12 @@ export async function withAssetsCommandScope<T>(
     const value = yield* await operation({
       overrideService: new AssetOverrideService(database, overrideStore, snapshotReader),
       profile: profileResult.value,
+      refreshProfileIssues: () =>
+        refreshProfileAccountingIssueProjection(database, runtime.dataDir, {
+          displayName: profileResult.value.displayName,
+          profileId: profileResult.value.id,
+          profileKey: profileResult.value.profileKey,
+        }),
       snapshotReader,
     });
     return value;

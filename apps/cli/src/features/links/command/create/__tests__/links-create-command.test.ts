@@ -10,6 +10,7 @@ const {
   mockOutputSuccess,
   mockOverrideStoreConstructor,
   mockOverrideStoreInstance,
+  mockRefreshProfileIssueProjection,
   mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
@@ -24,6 +25,7 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
   mockOverrideStoreInstance: { tag: 'override-store' },
+  mockRefreshProfileIssueProjection: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
@@ -50,6 +52,10 @@ vi.mock('../../../../../cli/output.js', () => ({
 
 vi.mock('../../../../profiles/profile-resolution.js', () => ({
   resolveCommandProfile: mockResolveCommandProfile,
+}));
+
+vi.mock('@exitbook/data/accounting', () => ({
+  refreshProfileAccountingIssueProjection: mockRefreshProfileIssueProjection,
 }));
 
 vi.mock('../links-create-handler.js', () => ({
@@ -91,6 +97,7 @@ describe('links create command', () => {
         createdAt: new Date('2026-04-01T00:00:00.000Z'),
       })
     );
+    mockRefreshProfileIssueProjection.mockResolvedValue(ok(undefined));
     consoleLogSpy.mockClear();
   });
 
@@ -134,6 +141,11 @@ describe('links create command', () => {
       sourceSelector: 'e96a8b7baa',
       targetSelector: 'b7c08af224',
     });
+    expect(mockRefreshProfileIssueProjection).toHaveBeenCalledWith({ tag: 'db' }, '/tmp/exitbook-links', {
+      displayName: 'default',
+      profileId: 1,
+      profileKey: 'default',
+    });
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('✓');
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Manual link created');
     expect(consoleLogSpy).toHaveBeenCalledWith('   Link: #91 (blockchain_to_blockchain)');
@@ -174,6 +186,7 @@ describe('links create command', () => {
       sourceSelector: 'e96a8b7baa',
       targetSelector: 'b7c08af224',
     });
+    expect(mockRefreshProfileIssueProjection).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledWith('links-create', result, undefined);
     expect(consoleLogSpy).not.toHaveBeenCalled();
   });
