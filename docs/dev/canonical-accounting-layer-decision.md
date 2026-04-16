@@ -143,6 +143,23 @@ Reasons:
 The new layer should land inside the existing `@exitbook/accounting` package,
 behind clear ports and capability seams.
 
+### 4. Avoid Deeper Refactor Because The Rewrite Is Large
+
+Rejected.
+
+Refactor cost is not a valid reason to keep a weaker model in place.
+
+If a deeper rewrite or a gradual capability extraction produces a cleaner final
+architecture, that is acceptable and preferred over preserving current shapes
+for convenience.
+
+The only constraint is architectural cleanliness:
+
+- no migration-shaped public architecture
+- no long-lived dual package truth
+- no package extraction unless the capability boundary is already real
+- no “temporary” package split that merely relocates old debt
+
 ## Implementation Shape
 
 This decision does **not** create a parallel public architecture.
@@ -154,6 +171,9 @@ Implementation should follow these rules:
 - migrate capabilities by seam, not by public `v2` namespaces
 - allow temporary shadowing only for validation during migration
 - do not leave long-lived dual read paths in the final design
+- if a capability boundary becomes strong enough, gradual extraction into a
+  separate package is allowed, but only when the extracted package can own a
+  clean stable responsibility
 
 The end state should look like one clean accounting system, not a migrated
 system that permanently exposes both old and new models.

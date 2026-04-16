@@ -1237,6 +1237,64 @@ needs one more canonical-layer step first.
 2. Is Canada still the best next migration, or does lot matching become
    simpler first now that transfer-link validation is canonical?
 
+## Pass 12
+
+### Scope
+
+Decide whether Phase 0 should remain an in-package refactor inside
+`@exitbook/accounting`, or whether the cleanliness bar now favors gradual
+capability extraction into separate packages as the rewrite proceeds.
+
+### Evidence Inspected
+
+- [architecture-package-contract.md](/Users/joel/Dev/exitbook/docs/architecture/architecture-package-contract.md)
+- current `packages/accounting/src` capability layout
+- [canonical-accounting-layer-decision.md](/Users/joel/Dev/exitbook/docs/dev/canonical-accounting-layer-decision.md)
+
+### Findings
+
+1. A clean package extraction is allowed by the architecture contract.
+   The codebase is already a capability-first modular monolith, so a stronger
+   capability boundary may become its own package later without violating the
+   architecture.
+
+2. A package split is not automatically cleaner than an in-package refactor.
+   Extraction is only justified when a capability can own:
+   - a stable responsibility
+   - a small public surface
+   - clear ports
+   - fewer cross-feature backreferences than it has today
+
+3. The current canonical accounting-layer rewrite does not yet force a package
+   split.
+   The cleanest immediate path is still:
+   - one package
+   - stronger internal boundaries
+   - gradual consumer migration
+
+4. The standing rule should be explicit:
+   if a capability boundary becomes real enough, we should extract it instead
+   of preserving a muddy package just to avoid refactor churn.
+
+### Implications
+
+- We should not create `accounting-v2` or any parallel migration package.
+- We also should not protect the current `@exitbook/accounting` package shape
+  if a real capability boundary later deserves extraction.
+- The cleanliness test is architectural, not based on rewrite effort.
+
+### Open Questions From Pass 12
+
+1. Does the canonical accounting layer eventually become its own package, or
+   does it remain an internal slice inside `@exitbook/accounting` after the
+   cost-basis/linking migrations settle?
+
+2. If package extraction happens later, which capability is most likely to earn
+   it first:
+   - canonical accounting layer
+   - cost basis
+   - linking
+
 ## Pass 8
 
 ### Scope

@@ -79,6 +79,15 @@ The real risks are:
   - if an accounting-layer split is needed, doing it after more read/write surfaces land
     will be harder
 
+The standing rule for this work is:
+
+- choose the cleanest end-state even if it requires a broad refactor
+- document the rewrite as it happens instead of preserving weaker boundaries
+  just because they already exist
+- gradual package extraction is allowed if it removes a real ownership blur
+- `v2`-style parallel packages are still rejected unless the architecture
+  contract itself changes
+
 ### Phase 0 Deliverable
 
 Phase 0 should end with one explicit architectural decision:
