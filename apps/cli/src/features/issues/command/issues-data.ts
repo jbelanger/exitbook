@@ -63,6 +63,9 @@ export interface IssuesScopedCostBasisData {
   scope: AccountingIssueScopeSummary;
 }
 
+type IssuesDb = Awaited<ReturnType<CommandRuntime['database']>>;
+type AccountingIssueScopeSnapshot = Parameters<IssuesDb['accountingIssues']['reconcileScope']>[0];
+
 export async function loadIssuesOverviewData(
   runtime: CommandRuntime,
   format: CliOutputFormat
@@ -180,19 +183,7 @@ async function materializeCurrentProfileIssues(
       }),
       ExitCodes.GENERAL_ERROR
     );
-
-    yield* toCliResult(await db.accountingIssues.reconcileScope(snapshot), ExitCodes.GENERAL_ERROR);
-
-    const scopeResult = yield* toCliResult(await db.accountingIssues.findScope(scopeKey), ExitCodes.GENERAL_ERROR);
-    const scope = yield* toCliValue(
-      scopeResult,
-      new Error(`Accounting issue scope '${scopeKey}' not found after reconciliation`),
-      ExitCodes.GENERAL_ERROR
-    );
-    const issueRecords = yield* toCliResult(
-      await db.accountingIssues.listCurrentIssueSummaries(scopeKey),
-      ExitCodes.GENERAL_ERROR
-    );
+    const { issueRecords, scope } = yield* await reconcileAndLoadCurrentScopeData(db, snapshot);
     const scopeSummaries = yield* toCliResult(
       await db.accountingIssues.listScopeSummaries(profile.id),
       ExitCodes.GENERAL_ERROR
@@ -249,22 +240,7 @@ async function materializeScopedCostBasisIssues(
       }),
       ExitCodes.GENERAL_ERROR
     );
-
-    yield* toCliResult(await db.accountingIssues.reconcileScope(snapshot), ExitCodes.GENERAL_ERROR);
-
-    const scopeResult = yield* toCliResult(
-      await db.accountingIssues.findScope(snapshot.scope.scopeKey),
-      ExitCodes.GENERAL_ERROR
-    );
-    const scope = yield* toCliValue(
-      scopeResult,
-      new Error(`Accounting issue scope '${snapshot.scope.scopeKey}' not found after reconciliation`),
-      ExitCodes.GENERAL_ERROR
-    );
-    const issueRecords = yield* toCliResult(
-      await db.accountingIssues.listCurrentIssueSummaries(snapshot.scope.scopeKey),
-      ExitCodes.GENERAL_ERROR
-    );
+    const { issueRecords, scope } = yield* await reconcileAndLoadCurrentScopeData(db, snapshot);
 
     return {
       issueRecords,
@@ -304,5 +280,30 @@ async function ensureProfileIssueInputsReady(
       }),
       ExitCodes.GENERAL_ERROR
     );
+  });
+}
+
+async function reconcileAndLoadCurrentScopeData(
+  db: IssuesDb,
+  snapshot: AccountingIssueScopeSnapshot
+): Promise<Result<{ issueRecords: IssueSummaryRecord[]; scope: AccountingIssueScopeSummary }, CliFailure>> {
+  return resultDoAsync(async function* () {
+    yield* toCliResult(await db.accountingIssues.reconcileScope(snapshot), ExitCodes.GENERAL_ERROR);
+
+    const scopeResult = yield* toCliResult(
+      await db.accountingIssues.findScope(snapshot.scope.scopeKey),
+      ExitCodes.GENERAL_ERROR
+    );
+    const scope = yield* toCliValue(
+      scopeResult,
+      new Error(`Accounting issue scope '${snapshot.scope.scopeKey}' not found after reconciliation`),
+      ExitCodes.GENERAL_ERROR
+    );
+    const issueRecords = yield* toCliResult(
+      await db.accountingIssues.listCurrentIssueSummaries(snapshot.scope.scopeKey),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    return { issueRecords, scope };
   });
 }

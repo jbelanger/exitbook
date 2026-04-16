@@ -15,12 +15,7 @@ export function buildAccountingModelReader(input: BuildAccountingModelReaderInpu
     loadAccountingModel: () =>
       resultDoAsync(async function* () {
         const source = yield* await input.sourceReader.loadAccountingModelSource();
-        const buildResult = buildAccountingModelFromTransactions(source.transactions, input.logger);
-        if (buildResult.isErr()) {
-          return yield* buildResult;
-        }
-
-        return buildResult.value;
+        return yield* buildAccountingModelFromTransactions(source.transactions, input.logger);
       }),
   };
 }
