@@ -219,3 +219,108 @@ Command-surface assessment:
     might be safer to exclude than the other
   - the next CLI-only step for this case is likely transaction-level inspection
     of one of the exact conflicting transfers, not more asset-surface changes
+
+## Pass 4: Resolved Ambiguous Arbitrum USDT Through CLI
+
+Date: 2026-04-16
+
+Goal:
+
+- decide whether issue `d9233f5e30` could now be resolved honestly through the
+  shipped CLI alone
+
+Commands used:
+
+```bash
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+pnpm run dev transactions list --asset-id blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9
+pnpm run dev transactions view 3c0e0a5234
+pnpm run dev transactions view 079b26908d
+pnpm run dev transactions view 08e44da752
+pnpm run dev transactions view f8c08002e6
+pnpm run dev assets exclude --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8 --reason "CLI-only ambiguity resolution after exact asset investigation" --json
+pnpm run dev assets view blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
+pnpm run dev issues view d9233f5e30 --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- the unmatched asset `0xc7cb...` now had enough CLI-visible evidence to
+  exclude safely:
+  - no canonical match
+  - only 2 outbound transfers
+  - negative net quantity (`-218.061708`)
+  - exact quantities mirrored the matched `USDT` asset’s real deposit and later
+    withdrawals
+  - the unmatched transfers also lacked network-fee context that the matched
+    withdrawals had
+- after `assets exclude`, the issue disappeared from `issues view`
+- the broader profile issue queue dropped from `71` to `70` open/blocking
+  issues
+- the excluded asset detail now stays coherent:
+  - `[Excluded]`
+  - include command shown as the reversal path
+  - exact transaction inspection path still available for audit
+
+Command-surface assessment:
+
+- this is the first same-symbol ambiguity case that became fully solvable
+  through the CLI after the `--asset-id` upgrade
+- the successful flow depended on two things:
+  - exact-asset transaction isolation
+  - public transaction detail by `TX-REF`
+- remaining gap:
+  - the CLI still made the user do the reasoning manually; it surfaced the
+    evidence, but did not summarize the mirrored-transfer pattern itself
+
+## Pass 5: Fixed Stale Ambiguity After Exclusion
+
+Date: 2026-04-16
+
+Goal:
+
+- verify the next real asset-review blocker after Pass 4 and confirm that
+  excluding the unwanted contract fully clears the surviving intended asset
+
+Commands used:
+
+```bash
+pnpm run dev issues view e7509ce04a
+pnpm run dev assets view blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9
+pnpm run dev assets confirm --asset-id blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9 --json
+pnpm run dev assets view blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9
+pnpm run dev issues view e7509ce04a --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- this exposed a second real bug:
+  - after excluding the fake `USDT` contract, the matched `USDT` asset still
+    showed `same-symbol-ambiguity`
+  - `assets confirm` recorded review, but returned `accountingBlocked: true`
+  - `issues` kept surfacing the matched asset as blocked
+- root cause:
+  - read paths were using raw persisted ambiguity evidence without applying the
+    current exclusion policy to `conflictingAssetIds`
+- shipped fix:
+  - asset-review read paths now apply the current exclusion policy over
+    same-symbol ambiguity metadata
+  - when every conflicting alternative is excluded, the surviving asset reads
+    as clear
+- live result after the fix:
+  - `assets view` for `0xfd08...` now shows no badge, no conflict line, and
+    `Action: Nothing needs your attention right now.`
+  - `issues view e7509ce04a` now returns `NOT_FOUND`
+  - the profile issue queue dropped from `70` to `69`
+
+Command-surface assessment:
+
+- this was not a missing command. It was a stale domain rule leaking through the
+  CLI correctly enough to reveal itself.
+- the CLI investigation sequence was strong enough to isolate the defect:
+  - exclude unwanted asset
+  - inspect surviving asset
+  - see stale ambiguity remain
+  - verify that `issues` still blocked on the same stale ambiguity

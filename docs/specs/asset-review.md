@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-03-26
+last_verified: 2026-04-16
 status: canonical
 ---
 
@@ -15,15 +15,15 @@ the `assets` browse family.
 
 ## Quick Reference
 
-| Concept              | Key Rule                                                                   |
-| -------------------- | -------------------------------------------------------------------------- |
-| `asset facts`        | Descriptive provider facts are not trust decisions                         |
-| `risk evidence`      | Additive suspicious/ambiguity signals that drive review                    |
-| `reference status`   | `matched`, `unmatched`, or `unknown`; useful context, not a spam verdict   |
-| `review state`       | Current workflow state: `clear`, `needs-review`, or `reviewed`             |
-| `override store`     | Durable audit log for confirm/clear/include/exclude intent                 |
-| `asset_review_state` | Current per-profile, per-asset review snapshot stored in `transactions.db` |
-| `accountingBlocked`  | `true` for same-symbol ambiguity or unresolved error evidence              |
+| Concept              | Key Rule                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `asset facts`        | Descriptive provider facts are not trust decisions                                              |
+| `risk evidence`      | Additive suspicious/ambiguity signals that drive review                                         |
+| `reference status`   | `matched`, `unmatched`, or `unknown`; useful context, not a spam verdict                        |
+| `review state`       | Current workflow state: `clear`, `needs-review`, or `reviewed`                                  |
+| `override store`     | Durable audit log for confirm/clear/include/exclude intent                                      |
+| `asset_review_state` | Current per-profile, per-asset review snapshot stored in `transactions.db`                      |
+| `accountingBlocked`  | `true` for same-symbol ambiguity against non-excluded alternatives or unresolved error evidence |
 
 ## Goals
 
@@ -79,6 +79,9 @@ Current risk evidence kinds:
 
 Risk evidence can drive `needs-review` or `accountingBlocked`, but it does not
 exclude an asset by itself.
+
+Read-time exclusion policy may remove same-symbol ambiguity from a surviving
+asset when every conflicting alternative is currently excluded.
 
 ### Reference Status
 
@@ -441,7 +444,8 @@ accounting preflight.
 
 Implications:
 
-- same-symbol ambiguity stays blocking even after confirmation
+- same-symbol ambiguity stays blocking even after confirmation while at least
+  one non-excluded conflicting alternative remains
 - confirming non-ambiguity evidence can unblock accounting when the confirmed
   fingerprint still matches
 - warning-only evidence remains visible in the `assets` browse surfaces without breaking
@@ -538,6 +542,11 @@ The `assets` browse family reads exclusion state from the override store for row
 exist in holdings/history/review data. Override-only exclusions are managed via
 `assets exclusions`, not synthesized into the main asset browser.
 
+Read-time asset-review consumers apply the current exclusion policy over
+same-symbol ambiguity metadata. If every conflicting alternative is excluded,
+the surviving asset reads as clear instead of remaining permanently blocked on
+stale ambiguity evidence.
+
 Presentation rules:
 
 - the primary TUI is intentionally simplified and should surface assets plus
@@ -578,7 +587,7 @@ overflow row.
 5. returns the updated summary
 
 If the remaining evidence is same-symbol ambiguity, confirmation is recorded but
-accounting stays blocked until one conflicting asset is excluded.
+accounting stays blocked until every conflicting alternative is excluded.
 
 `assets clear-review`:
 
@@ -632,4 +641,4 @@ No consumer should rebuild review summaries ad hoc in its handler.
 
 ---
 
-_Last updated: 2026-03-26_
+_Last updated: 2026-04-16_

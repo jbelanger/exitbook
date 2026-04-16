@@ -156,7 +156,10 @@ Rules:
 - excluded assets are never action-required
 - stale confirmations are action-required
 - reviewed assets can still be action-required when accounting remains blocked
-- same-symbol ambiguity can keep an asset action-required even after review confirmation
+- same-symbol ambiguity can keep an asset action-required even after review
+  confirmation while at least one non-excluded conflicting alternative remains
+- excluding every conflicting alternative clears same-symbol ambiguity from the
+  surviving asset at read time
 
 ## Browse Surfaces
 

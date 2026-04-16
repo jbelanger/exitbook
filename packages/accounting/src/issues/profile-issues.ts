@@ -1,4 +1,8 @@
-import { formatTransactionFingerprintRef, type AssetReviewSummary } from '@exitbook/core';
+import {
+  applyAssetExclusionsToReviewSummary,
+  formatTransactionFingerprintRef,
+  type AssetReviewSummary,
+} from '@exitbook/core';
 import { sha256Hex } from '@exitbook/foundation';
 
 import { type GapCueKind, type LinkGapIssue, buildLinkGapIssueKey } from '../linking/gaps/gap-model.js';
@@ -28,12 +32,13 @@ export function buildProfileAccountingIssueScopeSnapshot(
   input: BuildProfileAccountingIssueScopeSnapshotInput
 ): AccountingIssueScopeSnapshot {
   const updatedAt = input.updatedAt ?? new Date();
+  const normalizedAssetReviewSummaries = [...input.assetReviewSummaries]
+    .map((summary) => applyAssetExclusionsToReviewSummary(summary, input.excludedAssetIds ?? new Set<string>()))
+    .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
+    .sort((left, right) => left.assetId.localeCompare(right.assetId));
   const issues = [
     ...input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue)),
-    ...[...input.assetReviewSummaries]
-      .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
-      .sort((left, right) => left.assetId.localeCompare(right.assetId))
-      .map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
+    ...normalizedAssetReviewSummaries.map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
   ];
 
   const blockingIssueCount = issues.filter((issue) => issue.issue.severity === 'blocked').length;

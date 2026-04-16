@@ -15,7 +15,7 @@ describe('CostBasisCommandOptionsSchema', () => {
 });
 
 describe('CostBasisExportCommandOptionsSchema', () => {
-  it('strips fiat currency overrides for tax package export', () => {
+  it('preserves fiat currency overrides for tax package export parsing', () => {
     const result = CostBasisExportCommandOptionsSchema.safeParse({
       jurisdiction: 'CA',
       taxYear: '2024',
@@ -24,7 +24,7 @@ describe('CostBasisExportCommandOptionsSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).not.toHaveProperty('fiatCurrency');
+      expect(result.data.fiatCurrency).toBe('EUR');
     }
   });
 });

@@ -679,7 +679,7 @@ describe('handleLinksKeyboardInput', () => {
     );
     expect(receivedVisibleRows).toBe(7);
 
-    // Gaps mode with one summary asset: terminalHeight(24) - 20 = 4
+    // Gaps mode with one summary asset: terminalHeight(24) - 22 = 2
     handleLinksKeyboardInput(
       'j',
       {
@@ -698,6 +698,6 @@ describe('handleLinksKeyboardInput', () => {
       'gaps',
       1
     );
-    expect(receivedVisibleRows).toBe(4);
+    expect(receivedVisibleRows).toBe(2);
   });
 });
