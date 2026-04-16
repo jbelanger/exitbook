@@ -29,34 +29,13 @@ import {
  */
 export function buildAccountingLayerFromTransactions(
   transactions: Transaction[],
-  logger: Logger
-): Result<AccountingLayerBuildResult, Error> {
-  return resultDo(function* () {
-    const { accountingLayer } = yield* buildScopedAccountingLayerFromTransactions(transactions, logger);
-    return accountingLayer;
-  });
-}
-
-export function buildScopedAccountingLayerFromTransactions(
-  transactions: Transaction[],
   logger: Logger,
   accountingExclusionPolicy?: AccountingExclusionPolicy
-): Result<
-  {
-    accountingLayer: AccountingLayerBuildResult;
-    scopedBuildResult: AccountingScopedBuildResult;
-  },
-  Error
-> {
+): Result<AccountingLayerBuildResult, Error> {
   return resultDo(function* () {
     const scopedBuildResult = yield* buildAccountingScopedTransactions(transactions, logger);
     const exclusionApplied = applyAccountingExclusionPolicy(scopedBuildResult, accountingExclusionPolicy);
-    const accountingLayer = yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
-
-    return {
-      accountingLayer,
-      scopedBuildResult: exclusionApplied.scopedBuildResult,
-    };
+    return yield* buildAccountingLayerFromScopedBuild(exclusionApplied.scopedBuildResult);
   });
 }
 

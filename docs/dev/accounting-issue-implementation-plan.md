@@ -188,10 +188,11 @@ Phase 0 investigation log:
     - `price-validation.ts` now also lives under `accounting-layer/`, so the
       old `cost-basis/standard/validation/` pocket no longer owns draft-layer
       helpers
-    - `buildScopedAccountingLayerFromTransactions(...)` now owns the repeated
-      `build draft -> apply exclusions -> build canonical layer` sequence, so
-      Canada, standard cost basis, and price completeness no longer orchestrate
-      that chain separately at each call site
+    - `buildAccountingLayerFromTransactions(...)` now owns the repeated
+      `build draft -> apply exclusions -> build canonical layer` sequence when
+      an exclusion policy is present, so Canada, standard cost basis, and
+      price completeness no longer orchestrate that chain separately at each
+      call site
     - asset-review preflight now reads the canonical accounting layer instead
       of the draft-scoped transaction array, and the dead scoped price-quality
       export has been removed

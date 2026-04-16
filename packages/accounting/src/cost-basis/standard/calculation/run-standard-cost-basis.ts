@@ -6,7 +6,7 @@ import {
   assertNoAccountingLayerAssetsRequireReview,
   type AccountingExclusionPolicy,
 } from '../../../accounting-layer.js';
-import { buildScopedAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingLayerFromTransactions } from '../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { ICostBasisContextReader } from '../../../ports/cost-basis-persistence.js';
 import { resolveCostBasisJurisdictionRules } from '../../jurisdictions/registry.js';
 import type { CostBasisConfig } from '../../model/cost-basis-config.js';
@@ -60,21 +60,15 @@ export async function runCostBasisPipeline(
   options: CostBasisPipelineOptions
 ): Promise<Result<CostBasisPipelineResult, Error>> {
   return resultDoAsync(async function* () {
-    const preparedAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+    const preparedAccountingLayer = yield* buildAccountingLayerFromTransactions(
       transactions,
       logger,
       options.accountingExclusionPolicy
     );
 
-    yield* assertNoAccountingLayerAssetsRequireReview(
-      preparedAccountingLayer.accountingLayer,
-      options.assetReviewSummaries
-    );
+    yield* assertNoAccountingLayerAssetsRequireReview(preparedAccountingLayer, options.assetReviewSummaries);
 
-    const validationResult = yield* validateAccountingLayerPrices(
-      preparedAccountingLayer.accountingLayer,
-      config.currency
-    );
+    const validationResult = yield* validateAccountingLayerPrices(preparedAccountingLayer, config.currency);
 
     let rebuildTransactions = validationResult.rebuildTransactions;
     const { missingPricesCount } = validationResult;
@@ -88,7 +82,7 @@ export async function runCostBasisPipeline(
       );
     }
 
-    let rebuildAccountingLayer = preparedAccountingLayer.accountingLayer;
+    let rebuildAccountingLayer = preparedAccountingLayer;
     if (options.missingPricePolicy === 'exclude' && missingPricesCount > 0) {
       logger.warn(
         {
@@ -109,18 +103,15 @@ export async function runCostBasisPipeline(
       // fee-only carryovers. After stabilizing the retained raw transactions we
       // must rebuild the scoped subset so those transfer decisions are recomputed
       // against the surviving transactions rather than leaving dangling carryover state.
-      const rebuiltAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+      const rebuiltAccountingLayer = yield* buildAccountingLayerFromTransactions(
         rebuildTransactions,
         logger,
         options.accountingExclusionPolicy
       );
 
-      rebuildAccountingLayer = rebuiltAccountingLayer.accountingLayer;
+      rebuildAccountingLayer = rebuiltAccountingLayer;
 
-      yield* assertNoAccountingLayerAssetsRequireReview(
-        rebuiltAccountingLayer.accountingLayer,
-        options.assetReviewSummaries
-      );
+      yield* assertNoAccountingLayerAssetsRequireReview(rebuiltAccountingLayer, options.assetReviewSummaries);
     }
 
     const rules = yield* resolveCostBasisJurisdictionRules(config.jurisdiction);

@@ -6,7 +6,7 @@ import { getLogger } from '@exitbook/logger';
 import type { AccountingEntry } from '../../accounting-layer/accounting-entry-types.js';
 import { type AccountingExclusionPolicy } from '../../accounting-layer/accounting-exclusion-policy.js';
 import type { AccountingLayerBuildResult } from '../../accounting-layer/accounting-layer-types.js';
-import { buildScopedAccountingLayerFromTransactions } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingLayerFromTransactions } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
 import type { IPriceCoverageData } from '../../ports/transaction-price-coverage.js';
 
 const logger = getLogger('cost-basis.workflow.price-completeness');
@@ -218,14 +218,7 @@ function buildAccountingLayerForPriceValidation(
   transactions: Transaction[],
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Result<AccountingLayerBuildResult, Error> {
-  return resultDo(function* () {
-    const { accountingLayer } = yield* buildScopedAccountingLayerFromTransactions(
-      transactions,
-      logger,
-      accountingExclusionPolicy
-    );
-    return accountingLayer;
-  });
+  return buildAccountingLayerFromTransactions(transactions, logger, accountingExclusionPolicy);
 }
 
 export function getCostBasisRebuildTransactions(

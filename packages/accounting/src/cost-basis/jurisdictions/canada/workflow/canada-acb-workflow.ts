@@ -7,7 +7,7 @@ import {
   assertNoAccountingLayerAssetsRequireReview,
   type AccountingExclusionPolicy,
 } from '../../../../accounting-layer.js';
-import { buildScopedAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
+import { buildAccountingLayerFromTransactions } from '../../../../accounting-layer/build-accounting-layer-from-transactions.js';
 import { validateTransferLinks } from '../../../../accounting-layer/validated-transfer-links.js';
 import { buildCanadaTaxInputContext } from '../tax/canada-tax-context-builder.js';
 import type { CanadaAcbEngineResult, CanadaTaxInputContext } from '../tax/canada-tax-types.js';
@@ -33,22 +33,19 @@ export async function runCanadaAcbWorkflow(
   params: RunCanadaAcbWorkflowParams
 ): Promise<Result<CanadaAcbWorkflowResult, Error>> {
   return resultDoAsync(async function* () {
-    const preparedAccountingLayer = yield* buildScopedAccountingLayerFromTransactions(
+    const accountingLayer = yield* buildAccountingLayerFromTransactions(
       params.transactions,
       logger,
       params.accountingExclusionPolicy
     );
-    yield* assertNoAccountingLayerAssetsRequireReview(
-      preparedAccountingLayer.accountingLayer,
-      params.assetReviewSummaries
-    );
+    yield* assertNoAccountingLayerAssetsRequireReview(accountingLayer, params.assetReviewSummaries);
 
     const validatedTransfers = yield* validateTransferLinks(
-      preparedAccountingLayer.accountingLayer.accountingTransactionViews,
+      accountingLayer.accountingTransactionViews,
       params.confirmedLinks
     );
     const inputContext = yield* await buildCanadaTaxInputContext({
-      accountingLayer: preparedAccountingLayer.accountingLayer,
+      accountingLayer,
       validatedTransfers,
       priceRuntime: params.priceRuntime,
       identityConfig: {},
