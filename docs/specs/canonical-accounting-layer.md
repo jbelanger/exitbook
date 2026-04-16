@@ -67,6 +67,8 @@ Reserved:
 
 - `@exitbook/accounting` owns the accounting-entry model, accounting-layer
   build model, and accounting-owned reader ports
+- `@exitbook/accounting/accounting-layer` is the public capability boundary
+  for canonical accounting-layer builders, readers, validators, and types
 - `@exitbook/data` owns persistence and repository implementations
 - `apps/cli` owns browse surfaces, rendering, and command wiring
 - `processed transactions` remain the canonical provenance roots for:
@@ -341,6 +343,9 @@ Current migration status:
 - canonical transfer-link validation now reads `accountingTransactionViews`
 - `validateScopedTransferLinks(...)` remains as a compatibility adapter for
   older scoped consumers and tests
+- transfer-proposal confirmability now also reads `accountingTransactionViews`
+- linking strategy execution now builds the canonical accounting layer directly
+  before confirmability filtering
 - canonical internal-transfer carryovers can now resolve back to:
   - processed-transaction movement refs for synthetic carryover sources
   - accounting transaction-view refs for retained targets and fee entries
@@ -366,6 +371,8 @@ Current migration status:
   the canonical accounting layer end-to-end
 - standard cost-basis lot matching and calculation now also read the canonical
   accounting layer end-to-end
+- CLI manual link confirmation and review now also build and consume the
+  canonical accounting layer for transfer confirmability
 - the canonical accounting layer now includes `accountingTransactionViews` as
   the replacement grouped transaction view for future transaction-shaped
   consumers

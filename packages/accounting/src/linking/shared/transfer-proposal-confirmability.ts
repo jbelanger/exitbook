@@ -2,18 +2,18 @@ import type { TransactionLink } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
+import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
+import { validateTransferLinks } from '../../accounting-layer/validated-transfer-links.js';
+
 import {
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
   type TransferProposalGroup,
   type TransferProposalLink,
-} from '../../../linking/shared/transfer-proposals.js';
-
-import type { AccountingScopedTransaction } from './scoped-transaction-types.js';
-import { validateScopedTransferLinks } from './validated-scoped-transfer-links.js';
+} from './transfer-proposals.js';
 
 export function validateTransferProposalConfirmability(
-  scopedTransactions: AccountingScopedTransaction[],
+  accountingTransactionViews: readonly TransferValidationTransactionView[],
   existingConfirmedLinks: readonly TransferProposalLink[],
   proposalLinks: readonly TransferProposalLink[]
 ): Result<void, Error> {
@@ -23,7 +23,7 @@ export function validateTransferProposalConfirmability(
     status: 'confirmed' as const,
   }));
 
-  const validationResult = validateScopedTransferLinks(scopedTransactions, [
+  const validationResult = validateTransferLinks(accountingTransactionViews, [
     ...hydratedConfirmedLinks,
     ...hydratedProposalLinks,
   ]);
@@ -35,7 +35,7 @@ export function validateTransferProposalConfirmability(
 }
 
 export function filterConfirmableTransferProposals<TLink extends TransferProposalLink>(
-  scopedTransactions: AccountingScopedTransaction[],
+  accountingTransactionViews: readonly TransferValidationTransactionView[],
   existingConfirmedLinks: readonly TransferProposalLink[],
   candidateLinks: TLink[],
   logger?: Logger
@@ -50,7 +50,7 @@ export function filterConfirmableTransferProposals<TLink extends TransferProposa
 
   for (const proposal of proposals) {
     const confirmabilityResult = validateTransferProposalConfirmability(
-      scopedTransactions,
+      accountingTransactionViews,
       acceptedConfirmedLinks,
       proposal.links
     );

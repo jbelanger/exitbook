@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
-import type { AccountingTransactionView, ValidatedTransferSet } from '../../../../cost-basis.js';
+import type { AccountingTransactionView, ValidatedTransferSet } from '../../../../accounting-layer.js';
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 import { collectFiatFees, extractCryptoFee } from '../../../standard/lots/lot-fee-utils.js';

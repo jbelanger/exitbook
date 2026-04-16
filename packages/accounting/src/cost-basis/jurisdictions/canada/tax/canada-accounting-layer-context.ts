@@ -6,7 +6,7 @@ import {
   type AccountingLayerIndexes,
   type AccountingLayerBuildResult,
   type ResolvedInternalTransferCarryover,
-} from '../../../../cost-basis.js';
+} from '../../../../accounting-layer.js';
 
 export interface CanadaAccountingLayerContext {
   accountingLayer: AccountingLayerBuildResult;

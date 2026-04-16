@@ -5,7 +5,7 @@ import type {
   AccountingFeeEntryView,
   AccountingLayerIndexes,
   AccountingTransactionView,
-} from '../../../../cost-basis.js';
+} from '../../../../accounting-layer.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 
 import type { CanadaValuedFee } from './canada-tax-fee-utils.js';

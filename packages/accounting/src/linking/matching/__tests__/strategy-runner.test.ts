@@ -4,7 +4,7 @@ import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AccountingScopedTransaction } from '../../../cost-basis/standard/matching/scoped-transaction-types.js';
+import type { TransferValidationTransactionView } from '../../../accounting-layer/validated-transfer-links.js';
 import { createLinkableMovement } from '../../shared/test-utils.js';
 import type { ILinkingStrategy, StrategyResult } from '../../strategies/types.js';
 import { buildMatchingConfig } from '../matching-config.js';
@@ -143,13 +143,13 @@ describe('StrategyRunner', () => {
     const secondStrategy = createMockStrategy('second', { links: [], consumedCandidateIds: new Set() });
 
     // Build minimal scoped transactions so the link can pass confirmability
-    const scopedTransactions: AccountingScopedTransaction[] = [];
+    const accountingTransactionViews: TransferValidationTransactionView[] = [];
 
     const runner = new StrategyRunner(
       [firstStrategy, secondStrategy],
       logger,
       buildMatchingConfig(),
-      scopedTransactions
+      accountingTransactionViews
     );
 
     const movements = [

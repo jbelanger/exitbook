@@ -6,28 +6,28 @@ import { createConfirmableTransferFixture, createMockLink } from '../../../__tes
 
 const {
   mockAppendLinkOverrideEvent,
-  mockBuildCostBasisScopedTransactions,
+  mockBuildAccountingLayerFromTransactions,
   mockBuildManualLinkOverrideMetadata,
   mockGetDefaultReviewer,
   mockPrepareManualLinkFromTransactions,
   mockValidateTransferProposalConfirmability,
 } = vi.hoisted(() => ({
   mockAppendLinkOverrideEvent: vi.fn(),
-  mockBuildCostBasisScopedTransactions: vi.fn(),
+  mockBuildAccountingLayerFromTransactions: vi.fn(),
   mockBuildManualLinkOverrideMetadata: vi.fn(),
   mockGetDefaultReviewer: vi.fn(),
   mockPrepareManualLinkFromTransactions: vi.fn(),
   mockValidateTransferProposalConfirmability: vi.fn(),
 }));
 
-vi.mock('@exitbook/accounting/cost-basis', () => ({
-  buildCostBasisScopedTransactions: mockBuildCostBasisScopedTransactions,
-  validateTransferProposalConfirmability: mockValidateTransferProposalConfirmability,
+vi.mock('@exitbook/accounting/accounting-layer', () => ({
+  buildAccountingLayerFromTransactions: mockBuildAccountingLayerFromTransactions,
 }));
 
 vi.mock('@exitbook/accounting/linking', () => ({
   buildManualLinkOverrideMetadata: mockBuildManualLinkOverrideMetadata,
   prepareManualLinkFromTransactions: mockPrepareManualLinkFromTransactions,
+  validateTransferProposalConfirmability: mockValidateTransferProposalConfirmability,
 }));
 
 vi.mock('../../review/link-review-policy.js', () => ({
@@ -120,7 +120,7 @@ describe('ManualLinkCreateHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDefaultReviewer.mockReturnValue('cli-user');
-    mockBuildCostBasisScopedTransactions.mockReturnValue(ok({ transactions: [] }));
+    mockBuildAccountingLayerFromTransactions.mockReturnValue(ok({ accountingTransactionViews: [] }));
     mockValidateTransferProposalConfirmability.mockReturnValue(ok(undefined));
     mockBuildManualLinkOverrideMetadata.mockImplementation((overrideId: string, overrideLinkType: string) => ({
       overrideId,

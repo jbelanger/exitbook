@@ -1,7 +1,3 @@
-import {
-  buildCostBasisScopedTransactions,
-  validateTransferProposalConfirmability,
-} from '@exitbook/accounting/cost-basis';
 import { resolveTransactionLinkProvenance, type TransactionLink, type TransactionLinkMetadata } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
@@ -10,6 +6,7 @@ import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import { resolveTransferProposal } from '../../transfer-proposals.js';
+import { validateConfirmedManualLinkSet } from '../link-confirmation-shared.js';
 
 import { getDefaultReviewer } from './link-review-policy.js';
 import { writeLinkOverrideEvent, writeUnlinkOverrideEvent } from './links-override-utils.js';
@@ -187,21 +184,8 @@ export class TransferProposalReviewService {
       return err(transactionsResult.error);
     }
 
-    const scopedResult = buildCostBasisScopedTransactions(transactionsResult.value, logger);
-    if (scopedResult.isErr()) {
-      return err(scopedResult.error);
-    }
-
     const proposalLinkIds = new Set(proposalLinks.map((candidate) => candidate.id));
-    const existingConfirmedLinks = allLinks.filter(
-      (candidate) => candidate.status === 'confirmed' && !proposalLinkIds.has(candidate.id)
-    );
-
-    return validateTransferProposalConfirmability(
-      scopedResult.value.transactions,
-      existingConfirmedLinks,
-      proposalLinks
-    );
+    return validateConfirmedManualLinkSet(transactionsResult.value, allLinks, proposalLinks, [...proposalLinkIds]);
   }
 
   private async writeOverrideEvents(

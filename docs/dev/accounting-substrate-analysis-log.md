@@ -1481,3 +1481,64 @@ reintroducing scoped transaction math inside the consumer.
 
 2. When should `FeeOnlyInternalCarryover` finally be renamed at the builder/spec
    boundary so the canonical language stays uniform end-to-end?
+
+## Pass 15
+
+### Scope
+
+Test whether the remaining transfer-proposal confirmability and manual-link
+validation seam can move cleanly onto the canonical accounting layer without
+keeping `AccountingScopedTransaction[]` alive as a runtime truth for linking.
+
+### Evidence Inspected
+
+- [transfer-proposal-confirmability.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/shared/transfer-proposal-confirmability.ts)
+- [strategy-runner.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/matching/strategy-runner.ts)
+- [linking-orchestrator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/linking/orchestration/linking-orchestrator.ts)
+- [link-confirmation-shared.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/link-confirmation-shared.ts)
+- [links-create-grouped-handler.ts](/Users/joel/Dev/exitbook/apps/cli/src/features/links/command/create/links-create-grouped-handler.ts)
+
+### Findings
+
+1. Transfer-proposal confirmability did not need scoped transactions.
+   It only needed canonical transfer-validation transaction views.
+
+2. Its old location under `cost-basis/standard/matching` was ownership drift.
+   The logic is a linking concern validated against the canonical accounting
+   layer.
+
+3. Linking strategy execution can now build the canonical accounting layer once
+   and carry those transaction views through confirmability filtering directly.
+
+4. CLI manual link confirmation and proposal review can do the same.
+   They no longer need to rebuild cost-basis scoped transactions only to ask a
+   confirmability question.
+
+5. This migration also justified a real public capability boundary:
+   `@exitbook/accounting/accounting-layer`.
+   Keeping canonical accounting-layer builders and validators under the
+   `cost-basis` barrel would have preserved the wrong ownership model.
+
+6. The grouped-link persistence path had a real style bug.
+   It was throwing inside `executeInTransaction(...)` even though the callback
+   already speaks `Result`.
+   That was removable immediately with `resultDoAsync(...)`.
+
+### Implications
+
+- The canonical accounting layer is now the real transfer-quantity truth for:
+  - cost basis
+  - Canada tax input
+  - transfer-link validation
+  - transfer-proposal confirmability
+  - linking strategy execution
+  - CLI manual link confirmation/review
+- The remaining scoped runtime seams are now narrower and more obviously
+  compatibility-only.
+
+### Open Questions From Pass 15
+
+1. When should `validateScopedTransferLinks(...)` be deleted entirely?
+2. When should `buildCostBasisScopedTransactions(...)` stop being the internal
+   implementation substrate beneath `buildAccountingLayerFromTransactions(...)`?
+3. What is the cleanest remaining rename path for `FeeOnlyInternalCarryover`?

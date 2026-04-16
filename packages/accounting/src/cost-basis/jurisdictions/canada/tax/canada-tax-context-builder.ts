@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { AccountingLayerBuildResult, ValidatedTransferSet } from '../../../../cost-basis.js';
+import type { AccountingLayerBuildResult, ValidatedTransferSet } from '../../../../accounting-layer.js';
 import { UsdConversionRateProvider } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 
 import { buildCanadaAccountingLayerContext } from './canada-accounting-layer-context.js';

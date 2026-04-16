@@ -2,9 +2,9 @@ import type { NewTransactionLink } from '@exitbook/core';
 import { ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
-import type { AccountingScopedTransaction } from '../../cost-basis/standard/matching/scoped-transaction-types.js';
-import { filterConfirmableTransferProposals } from '../../cost-basis/standard/matching/transfer-proposal-confirmability.js';
+import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
 import type { LinkableMovement } from '../pre-linking/types.js';
+import { filterConfirmableTransferProposals } from '../shared/transfer-proposal-confirmability.js';
 import type { MatchingConfig } from '../shared/types.js';
 import type { ILinkingStrategy } from '../strategies/types.js';
 
@@ -31,7 +31,7 @@ export class StrategyRunner {
     private readonly strategies: ILinkingStrategy[],
     private readonly logger: Logger,
     private readonly config: MatchingConfig,
-    private readonly scopedTransactions: AccountingScopedTransaction[]
+    private readonly accountingTransactionViews: readonly TransferValidationTransactionView[]
   ) {}
 
   run(linkableMovements: LinkableMovement[]): Result<StrategyRunnerResult, Error> {
@@ -75,7 +75,7 @@ export class StrategyRunner {
       }
 
       const confirmableLinks = filterConfirmableTransferProposals(
-        this.scopedTransactions,
+        this.accountingTransactionViews,
         allLinks.filter((link) => link.status === 'confirmed'),
         result.value.links,
         this.logger

@@ -1,48 +1,5 @@
 export type { FiatCurrency } from './cost-basis/model/cost-basis-config.js';
 export { getDefaultDateRange } from './cost-basis/model/cost-basis-config.js';
-export { buildAccountingLayerReader } from './accounting-layer/accounting-layer-reader.js';
-export {
-  buildAccountingEntryFingerprintMaterial,
-  computeAccountingEntryFingerprint,
-} from './accounting-layer/accounting-entry-fingerprint.js';
-export {
-  buildAccountingLayerIndexes,
-  resolveAssetAccountingEntry,
-  resolveFeeAccountingEntry,
-  resolveInternalTransferCarryovers,
-} from './accounting-layer/accounting-layer-resolution.js';
-export { buildAccountingLayerFromTransactions } from './accounting-layer/build-accounting-layer-from-transactions.js';
-export { validateTransferLinks } from './accounting-layer/validated-transfer-links.js';
-export type {
-  AccountingEntry,
-  AccountingEntryDraft,
-  AccountingEntryKind,
-  AccountingProvenanceBinding,
-  AssetAccountingEntry,
-  FeeAccountingEntry,
-} from './accounting-layer/accounting-entry-types.js';
-export type {
-  AccountingAssetEntryResolution,
-  AccountingFeeEntryResolution,
-  AccountingLayerIndexes,
-  ResolvedInternalTransferCarryover,
-  ResolvedInternalTransferCarryoverTarget,
-} from './accounting-layer/accounting-layer-resolution.js';
-export type {
-  AccountingAssetEntryView,
-  AccountingDerivationDependency,
-  AccountingFeeEntryView,
-  AccountingLayerBuildResult,
-  AccountingTransactionView,
-  InternalTransferCarryover,
-  InternalTransferCarryoverTargetBinding,
-} from './accounting-layer/accounting-layer-types.js';
-export type {
-  TransferValidationTransactionView,
-  ValidatedTransferLink,
-  ValidatedTransferSet,
-} from './accounting-layer/validated-transfer-links.js';
-export type { AccountingLayerSource, IAccountingLayerReader, IAccountingLayerSourceReader } from './ports/index.js';
 export type { CostBasisJurisdiction, CostBasisMethod } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 export {
   getDefaultCostBasisCurrencyForJurisdiction,
@@ -92,10 +49,6 @@ export {
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
 export { buildCostBasisScopedTransactions } from './cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
-export {
-  filterConfirmableTransferProposals,
-  validateTransferProposalConfirmability,
-} from './cost-basis/standard/matching/transfer-proposal-confirmability.js';
 export { validateScopedTransferLinks } from './cost-basis/standard/matching/validated-scoped-transfer-links.js';
 export {
   buildAccountingExclusionFingerprint,

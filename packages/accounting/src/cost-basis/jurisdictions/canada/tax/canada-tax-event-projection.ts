@@ -7,7 +7,7 @@ import type {
   AccountingTransactionView,
   ValidatedTransferLink,
   ValidatedTransferSet,
-} from '../../../../cost-basis.js';
+} from '../../../../accounting-layer.js';
 import type { UsdConversionRateProviderLike } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
 
 import { resolvePoolIdentity, type CanadaMovementEvent } from './canada-tax-event-stage-shared.js';

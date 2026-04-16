@@ -166,6 +166,14 @@ Phase 0 investigation log:
     canonical accounting layer end-to-end
   - Canada tax input building, transfer validation, fee adjustments, and
     carryover handling now also read the canonical accounting layer end-to-end
+  - transfer-proposal confirmability now reads canonical
+    `accountingTransactionViews`, not scoped transactions
+  - linking strategy execution and CLI manual link confirmation/review now
+    build and consume the canonical accounting layer directly for transfer
+    confirmability
+  - `@exitbook/accounting/accounting-layer` now exists as the explicit public
+    capability boundary for canonical accounting-layer builders, readers,
+    validators, and types
   - the canonical accounting layer now collapses zero-quantity asset and fee
     artifacts instead of treating them as material accounting entries
   - post-migration cleanup aligned the remaining Canada/cost-basis vocabulary:
@@ -176,7 +184,8 @@ Phase 0 investigation log:
       dedicated test utility instead of inside the main stage spec
   - the next proving migration boundary is now narrower:
     - remaining scoped compatibility seams such as
-      `transfer-proposal-confirmability`
+      `validateScopedTransferLinks(...)`
+      and `buildCostBasisScopedTransactions(...)`
     - any remaining public/spec naming debt around
       `FeeOnlyInternalCarryover`
 

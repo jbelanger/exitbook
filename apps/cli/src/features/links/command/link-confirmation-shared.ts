@@ -1,11 +1,9 @@
-import {
-  buildCostBasisScopedTransactions,
-  validateTransferProposalConfirmability,
-} from '@exitbook/accounting/cost-basis';
+import { buildAccountingLayerFromTransactions } from '@exitbook/accounting/accounting-layer';
+import { validateTransferProposalConfirmability } from '@exitbook/accounting/linking';
 import {
   computeResolvedLinkFingerprint,
-  type NewTransactionLink,
   resolveTransactionLinkProvenance,
+  type NewTransactionLink,
   type Transaction,
   type TransactionLink,
   type TransactionLinkMetadata,
@@ -13,7 +11,7 @@ import {
 import { err, resultDo, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-const logger = getLogger('ManualLinkCommandShared');
+const logger = getLogger('LinkConfirmationShared');
 
 export interface ExistingExactLinkMatch {
   link: TransactionLink;
@@ -77,20 +75,18 @@ export function findExistingExactLinkMatch(
 export function validateConfirmedManualLinkSet(
   transactions: Transaction[],
   allLinks: TransactionLink[],
-  candidateLinks: (TransactionLink | NewTransactionLink)[],
-  excludedExistingLinkIds: number[] = []
+  candidateLinks: readonly (TransactionLink | NewTransactionLink)[],
+  excludedExistingLinkIds: readonly number[] = []
 ): Result<void, Error> {
-  const scopedTransactions = buildCostBasisScopedTransactions(transactions, logger);
-  if (scopedTransactions.isErr()) {
-    return err(scopedTransactions.error);
-  }
+  return resultDo(function* () {
+    const accountingLayer = yield* buildAccountingLayerFromTransactions(transactions, logger);
+    const excludedIds = new Set(excludedExistingLinkIds);
+    const existingConfirmedLinks = allLinks.filter((link) => link.status === 'confirmed' && !excludedIds.has(link.id));
 
-  const excludedIds = new Set(excludedExistingLinkIds);
-  const existingConfirmedLinks = allLinks.filter((link) => link.status === 'confirmed' && !excludedIds.has(link.id));
-
-  return validateTransferProposalConfirmability(
-    scopedTransactions.value.transactions,
-    existingConfirmedLinks,
-    candidateLinks
-  );
+    return yield* validateTransferProposalConfirmability(
+      accountingLayer.accountingTransactionViews,
+      existingConfirmedLinks,
+      candidateLinks
+    );
+  });
 }

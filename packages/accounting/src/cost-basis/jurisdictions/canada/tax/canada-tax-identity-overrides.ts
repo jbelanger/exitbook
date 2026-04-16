@@ -1,6 +1,6 @@
 import { err, ok, parseAssetId, type Result } from '@exitbook/foundation';
 
-import type { ValidatedTransferSet } from '../../../../cost-basis.js';
+import type { ValidatedTransferSet } from '../../../../accounting-layer.js';
 import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 
 import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';

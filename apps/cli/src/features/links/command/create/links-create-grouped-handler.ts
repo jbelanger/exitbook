@@ -22,15 +22,14 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../../../transactions/transaction-selector.js';
-import { getDefaultReviewer } from '../review/link-review-policy.js';
-import { appendLinkOverrideEvents } from '../review/links-override-append.js';
-
 import {
   buildReviewedLinkMetadata,
   findExistingExactLinkMatch,
   type ExistingExactLinkMatch,
   validateConfirmedManualLinkSet,
-} from './manual-link-command-shared.js';
+} from '../link-confirmation-shared.js';
+import { getDefaultReviewer } from '../review/link-review-policy.js';
+import { appendLinkOverrideEvents } from '../review/links-override-append.js';
 
 const logger = getLogger('ManualGroupedLinkCreateHandler');
 
@@ -262,62 +261,63 @@ export class ManualGroupedLinkCreateHandler {
     overrideEvents: OverrideEvent[],
     reviewedBy: string
   ): Promise<Result<Map<number, number>, Error>> {
-    const mutationResult = await this.db.executeInTransaction(async (tx) => {
-      const persistedLinkIds = new Map<number, number>();
+    const mutationResult = await this.db.executeInTransaction((tx) =>
+      resultDoAsync(async function* () {
+        const persistedLinkIds = new Map<number, number>();
 
-      for (const [offset, changedEntry] of entries.entries()) {
-        const { entry, plannedIndex } = changedEntry;
-        const overrideEvent = overrideEvents[offset];
-        if (!overrideEvent) {
-          throw new Error('Grouped link override batch returned fewer events than expected');
-        }
-
-        if (entry.existingMatch) {
-          const updateResult = await tx.transactionLinks.updateStatuses(
-            [entry.existingMatch.link.id],
-            'confirmed',
-            reviewedBy,
-            new Map([
-              [
-                entry.existingMatch.link.id,
-                buildReviewedLinkMetadata(entry.existingMatch.link, overrideEvent.id, entry.preparedLink.link.metadata),
-              ],
-            ])
-          );
-          if (updateResult.isErr()) {
-            throw updateResult.error;
+        for (const [offset, changedEntry] of entries.entries()) {
+          const { entry, plannedIndex } = changedEntry;
+          const overrideEvent = overrideEvents[offset];
+          if (!overrideEvent) {
+            return yield* err(new Error('Grouped link override batch returned fewer events than expected'));
           }
-          if (updateResult.value !== 1) {
-            throw new Error(
-              `Failed to confirm grouped manual link ${entry.existingMatch.link.id}: expected 1 updated row, got ${updateResult.value}`
+
+          if (entry.existingMatch) {
+            const updatedRows = yield* await tx.transactionLinks.updateStatuses(
+              [entry.existingMatch.link.id],
+              'confirmed',
+              reviewedBy,
+              new Map([
+                [
+                  entry.existingMatch.link.id,
+                  buildReviewedLinkMetadata(
+                    entry.existingMatch.link,
+                    overrideEvent.id,
+                    entry.preparedLink.link.metadata
+                  ),
+                ],
+              ])
             );
+            if (updatedRows !== 1) {
+              return yield* err(
+                new Error(
+                  `Failed to confirm grouped manual link ${entry.existingMatch.link.id}: expected 1 updated row, got ${updatedRows}`
+                )
+              );
+            }
+
+            persistedLinkIds.set(plannedIndex, entry.existingMatch.link.id);
+            continue;
           }
 
-          persistedLinkIds.set(plannedIndex, entry.existingMatch.link.id);
-          continue;
+          const linkToCreate: NewTransactionLink = {
+            ...entry.preparedLink.link,
+            metadata: {
+              ...(entry.preparedLink.link.metadata ?? {}),
+              ...buildManualLinkOverrideMetadata(
+                overrideEvent.id,
+                'transfer',
+                getExplainedTargetResidualFromMetadata(entry.preparedLink.link.metadata)
+              ),
+            },
+          };
+          const createdLinkId = yield* await tx.transactionLinks.create(linkToCreate);
+          persistedLinkIds.set(plannedIndex, createdLinkId);
         }
 
-        const linkToCreate: NewTransactionLink = {
-          ...entry.preparedLink.link,
-          metadata: {
-            ...(entry.preparedLink.link.metadata ?? {}),
-            ...buildManualLinkOverrideMetadata(
-              overrideEvent.id,
-              'transfer',
-              getExplainedTargetResidualFromMetadata(entry.preparedLink.link.metadata)
-            ),
-          },
-        };
-        const createResult = await tx.transactionLinks.create(linkToCreate);
-        if (createResult.isErr()) {
-          throw createResult.error;
-        }
-
-        persistedLinkIds.set(plannedIndex, createResult.value);
-      }
-
-      return ok(persistedLinkIds);
-    });
+        return persistedLinkIds;
+      })
+    );
 
     if (mutationResult.isErr()) {
       return err(

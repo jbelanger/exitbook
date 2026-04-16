@@ -8,6 +8,11 @@ export {
   groupLinksByTransferProposal,
 } from './linking/shared/transfer-proposals.js';
 export {
+  filterConfirmableTransferProposals,
+  validateTransferProposalConfirmability,
+} from './linking/shared/transfer-proposal-confirmability.js';
+export type { TransferProposalLink } from './linking/shared/transfer-proposals.js';
+export {
   buildConfirmedLinkFromExactMovements,
   buildManualLinkOverrideMetadata,
   prepareGroupedManualLinksFromTransactions,

@@ -20,14 +20,13 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../../../transactions/transaction-selector.js';
-import { getDefaultReviewer } from '../review/link-review-policy.js';
-import { appendLinkOverrideEvent } from '../review/links-override-append.js';
-
 import {
   buildReviewedLinkMetadata,
   findExistingExactLinkMatch,
   validateConfirmedManualLinkSet,
-} from './manual-link-command-shared.js';
+} from '../link-confirmation-shared.js';
+import { getDefaultReviewer } from '../review/link-review-policy.js';
+import { appendLinkOverrideEvent } from '../review/links-override-append.js';
 
 const logger = getLogger('ManualLinkCreateHandler');
 

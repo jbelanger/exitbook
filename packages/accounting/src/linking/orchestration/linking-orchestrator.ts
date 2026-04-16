@@ -4,10 +4,8 @@ import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import {
-  buildCostBasisScopedTransactions,
-  type AccountingScopedTransaction,
-} from '../../cost-basis/standard/matching/build-cost-basis-scoped-transactions.js';
+import { buildAccountingLayerFromTransactions } from '../../accounting-layer/build-accounting-layer-from-transactions.js';
+import type { TransferValidationTransactionView } from '../../accounting-layer/validated-transfer-links.js';
 import type { ILinkingPersistence } from '../../ports/linking-persistence.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildMatchingConfig } from '../matching/matching-config.js';
@@ -104,7 +102,7 @@ export class LinkingOrchestrator {
         });
 
         // 3–5. Match + overrides (pure computation, no I/O)
-        const scopedTransactions = (yield* buildCostBasisScopedTransactions(transactions, logger)).transactions;
+        const accountingLayer = yield* buildAccountingLayerFromTransactions(transactions, logger);
 
         const { finalLinks, internalCount, confirmedCount, suggestedCount, strategyResult } = yield* self.runMatching(
           linkableMovements,
@@ -113,7 +111,7 @@ export class LinkingOrchestrator {
           overrides,
           transactions,
           txById,
-          scopedTransactions
+          accountingLayer.accountingTransactionViews
         );
 
         // 7. Persist links
@@ -173,7 +171,7 @@ export class LinkingOrchestrator {
     overrides: OverrideEvent[],
     transactions: Transaction[],
     txById: Map<number, Transaction>,
-    scopedTransactions: AccountingScopedTransaction[]
+    accountingTransactionViews: readonly TransferValidationTransactionView[]
   ): Result<
     {
       confirmedCount: number;
@@ -193,7 +191,7 @@ export class LinkingOrchestrator {
         autoConfirmThreshold: params.autoConfirmThreshold,
       });
 
-      const runner = new StrategyRunner(defaultStrategies(), logger, config, scopedTransactions);
+      const runner = new StrategyRunner(defaultStrategies(), logger, config, accountingTransactionViews);
       const strategyResult = yield* runner.run(linkableMovements);
       const allLinks = [...internalLinks, ...strategyResult.links];
 

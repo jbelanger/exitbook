@@ -7,28 +7,28 @@ import { createMockLink } from '../../../__tests__/test-utils.js';
 
 const {
   mockAppendLinkOverrideEvents,
-  mockBuildCostBasisScopedTransactions,
+  mockBuildAccountingLayerFromTransactions,
   mockBuildManualLinkOverrideMetadata,
   mockGetDefaultReviewer,
   mockPrepareGroupedManualLinksFromTransactions,
   mockValidateTransferProposalConfirmability,
 } = vi.hoisted(() => ({
   mockAppendLinkOverrideEvents: vi.fn(),
-  mockBuildCostBasisScopedTransactions: vi.fn(),
+  mockBuildAccountingLayerFromTransactions: vi.fn(),
   mockBuildManualLinkOverrideMetadata: vi.fn(),
   mockGetDefaultReviewer: vi.fn(),
   mockPrepareGroupedManualLinksFromTransactions: vi.fn(),
   mockValidateTransferProposalConfirmability: vi.fn(),
 }));
 
-vi.mock('@exitbook/accounting/cost-basis', () => ({
-  buildCostBasisScopedTransactions: mockBuildCostBasisScopedTransactions,
-  validateTransferProposalConfirmability: mockValidateTransferProposalConfirmability,
+vi.mock('@exitbook/accounting/accounting-layer', () => ({
+  buildAccountingLayerFromTransactions: mockBuildAccountingLayerFromTransactions,
 }));
 
 vi.mock('@exitbook/accounting/linking', () => ({
   buildManualLinkOverrideMetadata: mockBuildManualLinkOverrideMetadata,
   prepareGroupedManualLinksFromTransactions: mockPrepareGroupedManualLinksFromTransactions,
+  validateTransferProposalConfirmability: mockValidateTransferProposalConfirmability,
 }));
 
 vi.mock('../../review/link-review-policy.js', () => ({
@@ -239,7 +239,7 @@ describe('ManualGroupedLinkCreateHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDefaultReviewer.mockReturnValue('cli-user');
-    mockBuildCostBasisScopedTransactions.mockReturnValue(ok({ transactions: [] }));
+    mockBuildAccountingLayerFromTransactions.mockReturnValue(ok({ accountingTransactionViews: [] }));
     mockValidateTransferProposalConfirmability.mockReturnValue(ok(undefined));
     mockBuildManualLinkOverrideMetadata.mockImplementation((overrideId: string, overrideLinkType: string) => ({
       overrideId,
