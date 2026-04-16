@@ -153,8 +153,11 @@ Phase 0 investigation log:
     `accountingTransactionViews`
   - `validateScopedTransferLinks(...)` now exists only as a compatibility
     adapter for transaction-shaped consumers
-  - the next decision is which real consumer should migrate next without
-    rebuilding the canonical accounting layer solely to use that validator
+  - Canada tax event projection looks close to the canonical layer, but its
+    fee/carryover path still depends on older transaction-pair semantics
+  - the next decision is whether to:
+    - enrich the canonical carryover/read seam for Canada
+    - or migrate a different real consumer first
 
 ## Chosen Model
 

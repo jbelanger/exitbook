@@ -1185,6 +1185,58 @@ identity and without forcing a premature lot-matching migration.
    - `internalTransferCarryovers`
    - movement-anchored validated transfer links
 
+## Pass 11
+
+### Scope
+
+Assess whether Canada tax input building is the next clean consumer migration
+after transfer-link validation, or whether its remaining dependency shape still
+needs one more canonical-layer step first.
+
+### Evidence Inspected
+
+- [canada-tax-context-builder.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-context-builder.ts)
+- [canada-tax-event-projection.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-projection.ts)
+- [canada-tax-event-fee-adjustments.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-fee-adjustments.ts)
+- [canada-tax-event-carryover.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-carryover.ts)
+- [canada-tax-event-stage-shared.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-stage-shared.ts)
+
+### Findings
+
+1. Canada event projection itself is close to the canonical accounting layer.
+   It mainly needs:
+   - grouped inflow / outflow transaction views
+   - processed transaction metadata
+   - movement-anchored validated transfer links
+
+2. Canada fee and carryover handling are the real remaining blockers.
+   They still depend on:
+   - `FeeOnlyInternalCarryover`
+   - source / target transaction-pair fee collection
+   - direct scoped movement indexes
+
+3. The canonical layer is not obviously wrong here, but the migration boundary
+   is not yet settled.
+   `InternalTransferCarryovers` are already more canonical than
+   `FeeOnlyInternalCarryover`, but the Canada pipeline still expects a more
+   transaction-pair-shaped carryover contract.
+
+### Implications
+
+- Canada tax is not yet a clean “just switch the input type” migration.
+- The next good slice is likely one of:
+  - enrich the canonical carryover/read seam enough for Canada fee semantics
+  - or choose a different consumer migration before Canada
+
+### Open Questions From Pass 11
+
+1. Should the canonical accounting layer gain a carryover resolver/index that
+   maps `InternalTransferCarryovers` back to transaction-view and movement-view
+   refs?
+
+2. Is Canada still the best next migration, or does lot matching become
+   simpler first now that transfer-link validation is canonical?
+
 ## Pass 8
 
 ### Scope
