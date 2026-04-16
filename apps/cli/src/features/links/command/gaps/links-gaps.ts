@@ -24,7 +24,7 @@ export function registerLinksGapsCommand(linksCommand: Command): void {
     .usage('[options]')
     .argument('[tokens...]')
     .allowUnknownOption(true)
-    .description('Review unresolved link coverage gaps and resolve issue-level exceptions')
+    .description('Review unresolved link coverage gaps and manage resolved gap exceptions')
     .addHelpText(
       'after',
       `

@@ -197,8 +197,8 @@ exitbook links gaps reopen <gap-ref> --json
 
 Behavior:
 
-- `resolve` records an issue-level reviewed exception without creating a link.
-- `reopen` removes that issue-level exception and returns that gap issue to the open gaps lens.
+- `resolve` records a resolved gap exception without creating a link.
+- `reopen` removes that gap exception and returns that gap row to the open gaps lens.
 - These commands use the same `GAP-REF` shown in the gap list and gap detail.
 - `--reason` stores free-form audit context on the override event.
 

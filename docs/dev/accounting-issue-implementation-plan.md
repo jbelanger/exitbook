@@ -573,6 +573,8 @@ Completed so far:
     - `links create-grouped`
     - `links gaps resolve`
     - `links gaps reopen`
+  - interactive `links explore` confirm/reject actions now use the same
+    refresh path as the standalone `links confirm` / `links reject` commands
 
 Acceptance criteria:
 

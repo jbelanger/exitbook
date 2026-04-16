@@ -33,7 +33,7 @@ const LINKS_COMMAND_ID = 'links';
  *   links explore             - Interactive review explorer
  *   links create <src> <dst>  - Create a confirmed manual link
  *   links create-grouped      - Create confirmed grouped manual links
- *   links gaps                - Gap list and issue-level gap resolution workflow
+ *   links gaps                - Gap list and gap-exception workflow
  *   links run                 - Run the linking algorithm
  *   links confirm <link-ref>  - Confirm a suggested proposal
  *   links reject <link-ref>   - Reject a proposal
@@ -70,7 +70,7 @@ Notes:
   - Use "links view <link-ref>" for one static proposal detail card.
   - Use "links create <source-ref> <target-ref> --asset <symbol>" when you know the exact pair and no proposal exists.
   - Use "links create-grouped" for exact many-to-one or one-to-many grouped transfers.
-  - Use "links gaps" for the dedicated gap workflow and issue-level gap exceptions.
+  - Use "links gaps" for the dedicated gap workflow and resolved gap exceptions.
   - Use "links explore" for the interactive explorer.
   - Use "links run" to refresh suggestions before reviewing them.
 `

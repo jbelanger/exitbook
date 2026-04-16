@@ -1,3 +1,4 @@
+import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
@@ -31,6 +32,7 @@ import {
 } from './links-browse-support.js';
 import { LinksBrowseCommandOptionsSchema } from './links-option-schemas.js';
 import { LinksReviewHandler } from './review/links-review-handler.js';
+import { runLinksReview } from './review/run-links-review.js';
 
 export interface PreparedLinksBrowseCommand {
   params: LinksBrowseParams;
@@ -190,7 +192,7 @@ export async function executePreparedLinksBrowseCommand(
 async function renderLinksExploreTui(
   _runtime: CommandRuntime,
   database: Awaited<ReturnType<CommandRuntime['database']>>,
-  profile: { id: number; profileKey: string },
+  profile: { displayName: string; id: number; profileKey: string },
   browsePresentation: LinksBrowsePresentation
 ): Promise<Result<void, Error>> {
   try {
@@ -200,13 +202,22 @@ async function renderLinksExploreTui(
       profile.profileKey,
       new OverrideStore(_runtime.dataDir)
     );
+    const reviewScope = {
+      handler: reviewHandler,
+      refreshProfileIssues: () =>
+        refreshProfileAccountingIssueProjection(database, _runtime.dataDir, {
+          displayName: profile.displayName,
+          profileId: profile.id,
+          profileKey: profile.profileKey,
+        }),
+    };
 
     await renderApp((unmount) =>
       React.createElement(LinksViewApp, {
         initialState: browsePresentation.state,
         onAction: async (linkId, action) =>
           resultDoAsync(async function* () {
-            const result = yield* await reviewHandler.execute({ linkId }, action);
+            const result = yield* await runLinksReview(reviewScope, { linkId }, action);
             return {
               affectedLinkIds: result.affectedLinkIds,
               newStatus: result.newStatus,
