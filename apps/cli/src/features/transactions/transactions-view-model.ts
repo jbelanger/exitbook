@@ -1,4 +1,4 @@
-import type { MovementRole } from '@exitbook/core';
+import type { MovementRole, RawTransaction } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 import type { AddressOwnership } from '../shared/address-ownership.js';
@@ -63,6 +63,7 @@ export interface TransactionViewItem {
   diagnostics: { code: string; message: string; severity?: string | undefined }[];
   userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;
+  rawSources?: RawTransaction[] | undefined;
 }
 
 /**

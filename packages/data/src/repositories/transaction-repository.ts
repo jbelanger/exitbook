@@ -3,18 +3,22 @@ import {
   AmbiguousTransactionFingerprintRefError,
   MovementRoleSchema,
   type MovementRole,
+  type RawTransaction,
   type Transaction,
   type TransactionDraft,
 } from '@exitbook/core';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
+import type { Selectable } from '@exitbook/sqlite';
 
+import type { RawTransactionTable } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { loadValidatedAccountFingerprint } from './account-identity-support.js';
 import { BaseRepository } from './base-repository.js';
+import { toRawTransaction } from './raw-transaction-row-mapper.js';
 import {
   materializeTransactionMovementRoleOverrides,
   materializeTransactionUserNoteOverrides,
@@ -38,6 +42,11 @@ export interface StoredTransactionMovementRoleState {
   overrideRole?: MovementRole | undefined;
 }
 
+export interface PersistedTransactionWrite {
+  rawTransactionIds?: number[] | undefined;
+  transaction: TransactionDraft;
+}
+
 function normalizeTransactionFingerprintRef(fingerprintRef: string): Result<string, Error> {
   const normalized = fingerprintRef.trim().toLowerCase();
   if (normalized.length === 0) {
@@ -45,6 +54,51 @@ function normalizeTransactionFingerprintRef(fingerprintRef: string): Result<stri
   }
 
   return ok(normalized);
+}
+
+function isPersistedTransactionWrite(
+  value: TransactionDraft | PersistedTransactionWrite
+): value is PersistedTransactionWrite {
+  return typeof value === 'object' && value !== null && 'transaction' in value;
+}
+
+function normalizePersistedTransactionWrite(
+  value: TransactionDraft | PersistedTransactionWrite
+): PersistedTransactionWrite {
+  if (isPersistedTransactionWrite(value)) {
+    return {
+      rawTransactionIds: normalizeRawTransactionIds(value.rawTransactionIds),
+      transaction: value.transaction,
+    };
+  }
+
+  return {
+    rawTransactionIds: undefined,
+    transaction: value,
+  };
+}
+
+function normalizeRawTransactionIds(rawTransactionIds?: number[]): number[] | undefined {
+  if (rawTransactionIds === undefined) {
+    return undefined;
+  }
+
+  return [...new Set(rawTransactionIds)];
+}
+
+function toRawTransactions(rows: Selectable<RawTransactionTable>[]): Result<RawTransaction[], Error> {
+  const rawTransactions: RawTransaction[] = [];
+
+  for (const row of rows) {
+    const rawTransactionResult = toRawTransaction(row);
+    if (rawTransactionResult.isErr()) {
+      return err(rawTransactionResult.error);
+    }
+
+    rawTransactions.push(rawTransactionResult.value);
+  }
+
+  return ok(rawTransactions);
 }
 
 export class TransactionRepository extends BaseRepository {
@@ -57,7 +111,11 @@ export class TransactionRepository extends BaseRepository {
    * Transaction-agnostic: executes directly on this.db.
    * Callers that need atomicity should use DataSession.executeInTransaction().
    */
-  async create(transaction: TransactionDraft, accountId: number): Promise<Result<number, Error>> {
+  async create(
+    transaction: TransactionDraft,
+    accountId: number,
+    rawTransactionIds?: number[]
+  ): Promise<Result<number, Error>> {
     const accountFingerprintResult = await loadValidatedAccountFingerprint(this.db, accountId);
     if (accountFingerprintResult.isErr()) {
       return err(accountFingerprintResult.error);
@@ -88,6 +146,11 @@ export class TransactionRepository extends BaseRepository {
           return err(existingResult.error);
         }
 
+        const bindingResult = await this.persistRawTransactionBindings(existingResult.value, rawTransactionIds);
+        if (bindingResult.isErr()) {
+          return err(bindingResult.error);
+        }
+
         return ok(existingResult.value);
       }
 
@@ -103,6 +166,11 @@ export class TransactionRepository extends BaseRepository {
         await this.db.insertInto('transaction_movements').values(movementRows).execute();
       }
 
+      const bindingResult = await this.persistRawTransactionBindings(transactionId, rawTransactionIds);
+      if (bindingResult.isErr()) {
+        return err(bindingResult.error);
+      }
+
       return ok(transactionId);
     } catch (error) {
       return wrapError(error, 'Failed to save transaction');
@@ -115,7 +183,7 @@ export class TransactionRepository extends BaseRepository {
    * Callers that need atomicity should use DataSession.executeInTransaction().
    */
   async createBatch(
-    transactions: TransactionDraft[],
+    transactions: (TransactionDraft | PersistedTransactionWrite)[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
     if (transactions.length === 0) {
@@ -132,8 +200,14 @@ export class TransactionRepository extends BaseRepository {
       let saved = 0;
       let duplicates = 0;
 
-      for (const [index, transaction] of transactions.entries()) {
-        const valuesResult = buildInsertValues(transaction, accountFingerprintResult.value, accountId, createdAt);
+      for (const [index, transactionEntry] of transactions.entries()) {
+        const normalizedEntry = normalizePersistedTransactionWrite(transactionEntry);
+        const valuesResult = buildInsertValues(
+          normalizedEntry.transaction,
+          accountFingerprintResult.value,
+          accountId,
+          createdAt
+        );
         if (valuesResult.isErr()) {
           return err(new Error(`Transaction index-${index}: ${valuesResult.error.message}`));
         }
@@ -167,7 +241,7 @@ export class TransactionRepository extends BaseRepository {
         }
 
         if (!isDuplicate) {
-          const movementRowsResult = buildMovementRows(transaction, transactionId, txFingerprint);
+          const movementRowsResult = buildMovementRows(normalizedEntry.transaction, transactionId, txFingerprint);
           if (movementRowsResult.isErr()) {
             return err(movementRowsResult.error);
           }
@@ -176,6 +250,14 @@ export class TransactionRepository extends BaseRepository {
           if (movementRows.length > 0) {
             await this.db.insertInto('transaction_movements').values(movementRows).execute();
           }
+        }
+
+        const bindingResult = await this.persistRawTransactionBindings(
+          transactionId,
+          normalizedEntry.rawTransactionIds
+        );
+        if (bindingResult.isErr()) {
+          return err(bindingResult.error);
         }
 
         if (!isDuplicate) {
@@ -301,6 +383,34 @@ export class TransactionRepository extends BaseRepository {
       return ok(transactionResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to find transaction by fingerprint ref');
+    }
+  }
+
+  async findRawTransactionsByTransactionId(
+    transactionId: number,
+    profileId?: number
+  ): Promise<Result<RawTransaction[], Error>> {
+    try {
+      let query = this.db
+        .selectFrom('transaction_raw_bindings')
+        .innerJoin('transactions', 'transactions.id', 'transaction_raw_bindings.transaction_id')
+        .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+        .innerJoin('raw_transactions', 'raw_transactions.id', 'transaction_raw_bindings.raw_transaction_id')
+        .selectAll('raw_transactions')
+        .where('transaction_raw_bindings.transaction_id', '=', transactionId)
+        .whereRef('raw_transactions.account_id', '=', 'transactions.account_id');
+
+      if (profileId !== undefined) {
+        query = query.where('accounts.profile_id', '=', profileId);
+      }
+
+      const rows = await query
+        .orderBy('raw_transactions.timestamp', 'asc')
+        .orderBy('raw_transactions.id', 'asc')
+        .execute();
+      return toRawTransactions(rows);
+    } catch (error) {
+      return wrapError(error, `Failed to load raw transactions for processed transaction ${transactionId}`);
     }
   }
 
@@ -519,6 +629,59 @@ export class TransactionRepository extends BaseRepository {
       return ok(Number(result.numDeletedRows));
     } catch (error) {
       return wrapError(error, 'Failed to delete all transactions');
+    }
+  }
+
+  private async persistRawTransactionBindings(
+    transactionId: number,
+    rawTransactionIds?: number[]
+  ): Promise<Result<void, Error>> {
+    if (rawTransactionIds === undefined || rawTransactionIds.length === 0) {
+      return ok(undefined);
+    }
+
+    try {
+      const transactionRow = await this.db
+        .selectFrom('transactions')
+        .select(['account_id'])
+        .where('id', '=', transactionId)
+        .executeTakeFirst();
+
+      if (!transactionRow) {
+        return err(new Error(`Processed transaction ${transactionId} not found while persisting raw lineage`));
+      }
+
+      const matchingRawRows = await this.db
+        .selectFrom('raw_transactions')
+        .select(['id'])
+        .where('account_id', '=', transactionRow.account_id)
+        .where('id', 'in', rawTransactionIds)
+        .execute();
+
+      const matchingRawIds = new Set(matchingRawRows.map((row) => row.id));
+      const invalidRawIds = rawTransactionIds.filter((rawTransactionId) => !matchingRawIds.has(rawTransactionId));
+      if (invalidRawIds.length > 0) {
+        return err(
+          new Error(
+            `Raw lineage for processed transaction ${transactionId} includes rows outside the owning account: ${invalidRawIds.join(', ')}`
+          )
+        );
+      }
+
+      await this.db
+        .insertInto('transaction_raw_bindings')
+        .values(
+          rawTransactionIds.map((rawTransactionId) => ({
+            raw_transaction_id: rawTransactionId,
+            transaction_id: transactionId,
+          }))
+        )
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+
+      return ok(undefined);
+    } catch (error) {
+      return wrapError(error, `Failed to persist raw transaction bindings for processed transaction ${transactionId}`);
     }
   }
 

@@ -1,6 +1,11 @@
 import type { TransactionDraft } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
+export interface ProcessedTransactionWrite {
+  rawTransactionIds: number[];
+  transaction: TransactionDraft;
+}
+
 /**
  * Port for persisting processed transactions.
  * The adapter handles transaction boundaries (e.g. DB transactions).
@@ -11,7 +16,7 @@ export interface IProcessedTransactionSink {
    * Returns count of saved and duplicate-skipped transactions.
    */
   saveProcessedBatch(
-    transactions: TransactionDraft[],
+    transactions: ProcessedTransactionWrite[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>>;
 }

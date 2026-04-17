@@ -25,7 +25,10 @@ The `transactions` family is the processed-transaction inspection surface.
 Rules:
 
 - browse commands are read-only
-- browse commands read processed transactions only and never call live providers
+- browse commands read processed transactions by default
+- `transactions view <selector> --provider-data` may additionally read linked raw
+  source rows for that selected transaction
+- browse commands never call live providers
 - browse commands may include excluded transactions because the family is an operator surface, not an accounting filter
 - transaction identity is the persisted `txFingerprint`; numeric `id` is display metadata only
 
@@ -78,6 +81,10 @@ Shared browse options:
 - `--no-price`: show only transactions missing full price coverage
 - `--json`: output JSON
 
+Detail-only option:
+
+- `--provider-data`: include linked raw source rows, original `provider_data`, and stored `normalized_data`
+
 Explorer-only option:
 
 - `--limit <number>`: cap the visible list for `explore` list-mode outputs
@@ -85,6 +92,7 @@ Explorer-only option:
 Rules:
 
 - `transactions` and `transactions list` do not accept `--limit`
+- `--provider-data` requires a transaction selector
 - `transactions view <selector>` is always detail-shaped, even with `--json`
 - `transactions explore <selector>` is always selector-shaped, even when it falls back to static detail off-TTY
 
@@ -98,7 +106,12 @@ Rules:
 
 - browse commands never rebuild or reprocess transactions
 - missing or invalid filter dates fail fast before loading the browse surface
-- list and detail projection use the same processed-transaction source; only presentation changes between static, JSON, and TUI outputs
+- list and detail projection use the same processed-transaction source by
+  default
+- `transactions view <selector> --provider-data` enriches the detail projection
+  with linked raw source rows from persisted lineage bindings
+- only presentation changes between static, JSON, and TUI outputs unless an
+  explicit detail-only enrichment flag is requested
 
 ### Filtering
 
@@ -186,6 +199,7 @@ Body order:
 17. optional `Outflows`
 18. optional transaction-fee detail block
 19. optional `User notes`
+20. optional `Source data`
 
 Rules:
 
@@ -200,6 +214,9 @@ Rules:
   - transaction-scoped `MOVEMENT-REF`
   - the effective `movementRole` when it is non-principal
 - user notes render in full and are not artificially capped
+- `Source data` renders only when `--provider-data` is requested
+- each source row includes identifying metadata plus the linked `provider_data`
+  and `normalized_data` payloads
 
 ### Explorer
 

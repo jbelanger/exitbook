@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- ok for tests */
 import type { Transaction } from '@exitbook/core';
+import type { RawTransaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { ok, parseDecimal } from '@exitbook/foundation';
 import { Command } from 'commander';
@@ -11,6 +12,7 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockFindByFingerprintRef,
+  mockFindRawTransactionsByTransactionId,
   mockOutputSuccess,
   mockOutputTransactionStaticDetail,
   mockOutputTransactionsStaticList,
@@ -21,6 +23,7 @@ const {
   mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
   mockFindByFingerprintRef: vi.fn(),
+  mockFindRawTransactionsByTransactionId: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOutputTransactionStaticDetail: vi.fn(),
   mockOutputTransactionsStaticList: vi.fn(),
@@ -123,6 +126,7 @@ describe('transactions view command', () => {
           },
           transactions: {
             findByFingerprintRef: mockFindByFingerprintRef,
+            findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
           },
         },
         profile: {
@@ -135,6 +139,7 @@ describe('transactions view command', () => {
     );
     mockReadTransactionsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
+    mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
   });
 
   it('renders static detail for one transaction fingerprint ref', async () => {
@@ -206,6 +211,39 @@ describe('transactions view command', () => {
         }),
       }),
       undefined
+    );
+  });
+
+  it('loads linked raw source rows when --provider-data is requested', async () => {
+    const program = createProgram();
+    const transaction = createTransaction({ id: 17, txFingerprint: createFingerprint('d') });
+    const rawSource: RawTransaction = {
+      accountId: 1,
+      blockchainTransactionHash: undefined,
+      createdAt: new Date('2026-03-02T00:00:00.000Z'),
+      eventId: 'evt-1',
+      id: 301,
+      normalizedData: { normalized: true },
+      processedAt: new Date('2026-03-02T00:00:00.000Z'),
+      processingStatus: 'processed',
+      providerData: { amount: '1.25' },
+      providerName: 'kraken',
+      sourceAddress: undefined,
+      timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+      transactionTypeHint: 'trade',
+    };
+    const fingerprintRef = transaction.txFingerprint.slice(0, 10);
+
+    mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
+    mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([rawSource]));
+
+    await program.parseAsync(['transactions', 'view', fingerprintRef, '--provider-data'], { from: 'user' });
+
+    expect(mockFindRawTransactionsByTransactionId).toHaveBeenCalledWith(transaction.id, 1);
+    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rawSources: [rawSource],
+      })
     );
   });
 

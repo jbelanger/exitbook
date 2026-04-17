@@ -1,5 +1,5 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import { formatAccountFingerprintRef, type RawTransaction, type TransactionDraft } from '@exitbook/core';
+import { formatAccountFingerprintRef, type RawTransaction } from '@exitbook/core';
 import type { EventBus } from '@exitbook/events';
 import { getErrorMessage } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
@@ -9,6 +9,7 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
 import type { ProcessingAccountInfo } from '../../ports/account-lookup.js';
+import type { ProcessedTransactionWrite } from '../../ports/processed-transaction-sink.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
@@ -21,6 +22,7 @@ import {
   NearStreamBatchProvider,
   type IRawDataBatchProvider,
 } from './batch-providers/index.js';
+import { buildProcessedTransactionWrites } from './raw-transaction-lineage.js';
 
 export interface ReprocessPlan {
   accountIds: number[];
@@ -479,11 +481,30 @@ export class ProcessingWorkflow {
       }
 
       const transactions = transactionsResult.value;
+      const transactionWritesResult = buildProcessedTransactionWrites({
+        platformKey,
+        platformKind: account.accountType,
+        rawTransactions: rawDataItems,
+        transactions,
+      });
+      if (transactionWritesResult.isErr()) {
+        this.logger.error(
+          `CRITICAL: Failed to bind raw lineage for account ${accountId} batch ${batchNumber} - ${transactionWritesResult.error.message}`
+        );
+        return err(
+          new Error(
+            `Cannot proceed: Account ${accountId} lineage binding failed at batch ${batchNumber}. ` +
+              `${transactionWritesResult.error.message}. This would lose source provenance for processed transactions.`
+          )
+        );
+      }
+
+      const transactionWrites = transactionWritesResult.value;
       totalProcessed += rawDataItems.length;
 
       // Atomically: save processed transactions + mark raw data as processed
       const commitResult = await this.ports.withTransaction(async (tx) => {
-        const saveResult = await this.saveTransactionsWithPorts(tx, transactions, accountId);
+        const saveResult = await this.saveTransactionsWithPorts(tx, transactionWrites, accountId);
         if (saveResult.isErr()) return err(saveResult.error);
 
         const markResult = await this.markRawDataAsProcessedWithPorts(tx, rawDataItems);
@@ -629,7 +650,7 @@ export class ProcessingWorkflow {
 
   private async saveTransactionsWithPorts(
     ports: ProcessingPorts,
-    transactions: TransactionDraft[],
+    transactions: ProcessedTransactionWrite[],
     accountId: number
   ): Promise<Result<{ duplicates: number; saved: number }, Error>> {
     let savedCount = 0;

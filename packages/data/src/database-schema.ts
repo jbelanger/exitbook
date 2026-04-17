@@ -182,6 +182,15 @@ export interface TransactionsTable {
 }
 
 /**
+ * Join table linking one processed transaction to the raw rows that produced it.
+ * This lives in the derived layer and is rebuilt alongside processed transactions.
+ */
+export interface TransactionRawBindingsTable {
+  transaction_id: number; // FK to transactions.id
+  raw_transaction_id: number; // FK to raw_transactions.id
+}
+
+/**
  * Transaction movements table - normalized storage for asset movements and fees
  * Each row represents either an inflow, outflow, or fee
  */
@@ -401,6 +410,7 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
+  transaction_raw_bindings: TransactionRawBindingsTable;
   transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;

@@ -7,11 +7,13 @@ export function registerTransactionsViewCommand(transactionsCommand: Command): v
     transactionsCommand
       .command('view <selector>')
       .description('Show static detail for one processed transaction')
+      .option('--provider-data', 'Include linked raw source rows and provider payloads')
       .addHelpText(
         'after',
         `
 Examples:
   $ exitbook transactions view a1b2c3d4e5
+  $ exitbook transactions view a1b2c3d4e5 --provider-data
   $ exitbook transactions view a1b2c3d4e5 --json
 
 Notes:

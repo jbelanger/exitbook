@@ -244,6 +244,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .column('excluded_from_accounting')
     .execute();
 
+  // Create transaction_raw_bindings table - lineage from processed transactions back to raw source rows
+  await db.schema
+    .createTable('transaction_raw_bindings')
+    .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id').onDelete('cascade'))
+    .addColumn('raw_transaction_id', 'integer', (col) =>
+      col.notNull().references('raw_transactions.id').onDelete('cascade')
+    )
+    .addPrimaryKeyConstraint('pk_transaction_raw_bindings', ['transaction_id', 'raw_transaction_id'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_raw_bindings_raw_transaction_id')
+    .on('transaction_raw_bindings')
+    .column('raw_transaction_id')
+    .execute();
+
   // Create transaction_movements table - normalized storage for asset movements and fees
   await db.schema
     .createTable('transaction_movements')
@@ -773,6 +789,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('projection_state').execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
+  await db.schema.dropTable('transaction_raw_bindings').execute();
   // Drop transaction linking table
   await db.schema.dropTable('transaction_links').execute();
   // Drop token metadata tables

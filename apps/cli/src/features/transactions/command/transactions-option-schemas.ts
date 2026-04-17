@@ -46,6 +46,7 @@ function addAssetFilterExclusivityRule<T extends { asset?: string | undefined; a
 
 export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   json: z.boolean().optional(),
+  providerData: z.boolean().optional(),
 }).superRefine(addAssetFilterExclusivityRule);
 
 export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({

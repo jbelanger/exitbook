@@ -31,6 +31,7 @@ import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 
 export interface TransactionsBrowseParams extends TransactionsBrowseFilters {
+  providerData?: boolean | undefined;
   transactionSelector?: string | undefined;
 }
 
@@ -61,7 +62,9 @@ export async function buildTransactionsBrowsePresentation(
     const accountFilter = yield* await resolveSelectedAccountFilter(scope.database, scope.profile.id, params.account);
 
     if (selector) {
-      return buildDetailPresentation(selector, trackedIdentifiers);
+      return yield* await buildDetailPresentation(scope.database, scope.profile.id, selector, trackedIdentifiers, {
+        providerData: params.providerData,
+      });
     }
 
     const since = yield* toCliResult(parseSinceToUnixSeconds(params.since), ExitCodes.INVALID_ARGS);
@@ -133,25 +136,54 @@ async function resolveSelectedTransaction(
   });
 }
 
-function buildDetailPresentation(
+async function buildDetailPresentation(
+  database: DataSession,
+  profileId: number,
   selector: ResolvedTransactionSelector,
-  trackedIdentifiers: ReadonlySet<string>
-): TransactionsBrowsePresentation {
-  const selectedTransaction = toTransactionViewItem(selector.transaction, trackedIdentifiers);
-  const jsonFilters = buildDefinedFilters(buildTransactionSelectorFilters(selector));
+  trackedIdentifiers: ReadonlySet<string>,
+  options: {
+    providerData?: boolean | undefined;
+  }
+): Promise<Result<TransactionsBrowsePresentation, CliFailure>> {
+  return resultDoAsync(async function* () {
+    const rawSources =
+      options.providerData === true
+        ? yield* toCliResult(
+            await database.transactions.findRawTransactionsByTransactionId(selector.transaction.id, profileId),
+            ExitCodes.GENERAL_ERROR
+          )
+        : undefined;
+    const selectedTransaction = {
+      ...toTransactionViewItem(selector.transaction, trackedIdentifiers),
+      ...(rawSources !== undefined ? { rawSources } : {}),
+    };
+    const jsonFilters = buildDefinedFilters(buildTransactionSelectorFilters(selector));
 
-  return {
-    initialState: createTransactionsViewState([selectedTransaction], {}, 1),
-    selectedTransaction,
-    listJsonResult: {
-      data: [selectedTransaction],
-      meta: buildViewMeta(1, 0, 1, 1, jsonFilters),
-    },
-    detailJsonResult: {
-      data: selectedTransaction,
-      meta: buildViewMeta(1, 0, 1, 1, jsonFilters),
-    },
-  };
+    return {
+      initialState: createTransactionsViewState([selectedTransaction], {}, 1),
+      selectedTransaction,
+      listJsonResult: {
+        data: [selectedTransaction],
+        meta: buildViewMeta(
+          1,
+          0,
+          1,
+          1,
+          options.providerData === true ? { ...jsonFilters, providerData: true } : jsonFilters
+        ),
+      },
+      detailJsonResult: {
+        data: selectedTransaction,
+        meta: buildViewMeta(
+          1,
+          0,
+          1,
+          1,
+          options.providerData === true ? { ...jsonFilters, providerData: true } : jsonFilters
+        ),
+      },
+    };
+  });
 }
 
 function buildListPresentation(

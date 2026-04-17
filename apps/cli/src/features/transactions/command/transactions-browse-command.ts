@@ -135,6 +135,10 @@ export function prepareTransactionsBrowseCommand(
     );
   }
 
+  if (!input.transactionSelector && options.providerData === true) {
+    return err(createCliFailure(new Error('--provider-data requires a transaction selector'), ExitCodes.INVALID_ARGS));
+  }
+
   return ok({
     params: {
       transactionSelector: input.transactionSelector,
@@ -146,6 +150,7 @@ export function prepareTransactionsBrowseCommand(
       until: options.until,
       operationType: options.operationType,
       noPrice: options.noPrice,
+      providerData: options.providerData,
     },
     surfaceKind: input.transactionSelector ? 'detail' : 'list',
   });

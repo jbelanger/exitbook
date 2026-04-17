@@ -187,6 +187,9 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
       })
     );
   }
+  if (transaction.rawSources && transaction.rawSources.length > 0) {
+    lines.push('', ...buildRawSourceLines(transaction.rawSources));
+  }
 
   return `${lines.join('\n')}\n`;
 }
@@ -258,6 +261,34 @@ function buildPrimaryMovementSummary(transaction: TransactionViewItem): string {
 
   const direction = formatTransactionDirection(transaction.primaryMovementDirection);
   return `${transaction.primaryMovementAmount} ${transaction.primaryMovementAsset}${direction === '—' ? '' : ` ${direction}`}`;
+}
+
+function buildRawSourceLines(rawSources: NonNullable<TransactionViewItem['rawSources']>): string[] {
+  const lines = [pc.dim(`Source data (${rawSources.length})`)];
+
+  for (const rawSource of rawSources) {
+    const metadata = [
+      `provider=${rawSource.providerName}`,
+      `event=${rawSource.eventId}`,
+      `at=${formatTransactionTimestamp(new Date(rawSource.timestamp).toISOString())}`,
+      rawSource.transactionTypeHint ? `hint=${rawSource.transactionTypeHint}` : undefined,
+      rawSource.blockchainTransactionHash ? `hash=${rawSource.blockchainTransactionHash}` : undefined,
+      rawSource.sourceAddress ? `source=${rawSource.sourceAddress}` : undefined,
+    ].filter((value): value is string => value !== undefined);
+
+    lines.push(`  Raw #${rawSource.id} ${pc.dim(metadata.join(' · '))}`);
+    lines.push(...indentJsonBlock('providerData', rawSource.providerData));
+    lines.push(...indentJsonBlock('normalizedData', rawSource.normalizedData));
+  }
+
+  return lines;
+}
+
+function indentJsonBlock(label: string, value: unknown): string[] {
+  const rendered = JSON.stringify(value, undefined, 2) ?? 'null';
+  const lines = rendered.split('\n');
+
+  return [`    ${pc.dim(`${label}:`)}`, ...lines.map((line) => `      ${line}`)];
 }
 
 function colorizeStatusLabel(color: TransactionsStatusColor, value: string): string {

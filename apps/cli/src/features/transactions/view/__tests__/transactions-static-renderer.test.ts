@@ -143,4 +143,36 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('+ 1.25 BTC · 1234567890:1');
     expect(stripAnsi(output)).toContain('+ 10.5 ADA [staking_reward] · fedcba0987:2');
   });
+
+  it('renders linked raw source data when present', () => {
+    const output = buildTransactionStaticDetail({
+      ...createTransactionViewItem(),
+      rawSources: [
+        {
+          accountId: 1,
+          blockchainTransactionHash: undefined,
+          createdAt: new Date('2026-03-01T12:10:00.000Z'),
+          eventId: 'evt-123',
+          id: 700,
+          normalizedData: { normalized: true },
+          processedAt: new Date('2026-03-01T12:10:01.000Z'),
+          processingStatus: 'processed',
+          providerData: { amount: '1.25' },
+          providerName: 'kraken',
+          sourceAddress: undefined,
+          timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+          transactionTypeHint: 'trade',
+        },
+      ],
+    });
+
+    expect(stripAnsi(output)).toContain('Source data (1)');
+    expect(stripAnsi(output)).toContain('Raw #700');
+    expect(stripAnsi(output)).toContain('provider=kraken');
+    expect(stripAnsi(output)).toContain('event=evt-123');
+    expect(stripAnsi(output)).toContain('providerData:');
+    expect(stripAnsi(output)).toContain('"amount": "1.25"');
+    expect(stripAnsi(output)).toContain('normalizedData:');
+    expect(stripAnsi(output)).toContain('"normalized": true');
+  });
 });
