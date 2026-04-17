@@ -5,7 +5,7 @@ import type { TransactionRelatedContext } from '../transactions/transactions-vie
 
 export type LinkGapEndpointOwnership = AddressOwnership;
 
-export interface LinkGapBrowseTransactionContext {
+export interface LinkGapBrowseTransactionSnapshot {
   blockchainTransactionHash?: string | undefined;
   from?: string | undefined;
   fromOwnership?: LinkGapEndpointOwnership | undefined;
@@ -20,7 +20,7 @@ export interface LinkGapBrowseItem {
   gapIssue: LinkGapIssue;
   relatedContext?: TransactionRelatedContext | undefined;
   suggestedProposalRefs?: string[] | undefined;
-  transactionContext?: LinkGapBrowseTransactionContext | undefined;
+  transactionSnapshot?: LinkGapBrowseTransactionSnapshot | undefined;
   transactionGapCount: number;
   transactionRef: string;
 }

@@ -241,7 +241,7 @@ Behavior:
 - Gap rows may also include:
   - `gapCueCounterpartTxFingerprint`
   - `gapCueCounterpartTransactionRef`
-- Gap rows may include `transactionContext` with:
+- Gap rows may include `transactionSnapshot` with:
   - `blockchainTransactionHash`
   - `from`, `fromOwnership`
   - `to`, `toOwnership`
@@ -264,7 +264,7 @@ Behavior:
 - Gap detail returns one gap object plus `transactionGapCount` metadata for the containing transaction.
 - Gap detail and summary rows may include `suggestedProposalRefs` when the CLI
   can map visible suggested proposals back onto that gap identity.
-- Gap detail uses the same `transactionContext` shape as gap summary rows.
+- Gap detail uses the same `transactionSnapshot` shape as gap summary rows.
 - Gap detail uses the same `relatedContext` shape as `transactions view`.
 - Detail metadata includes the selected ref.
 

@@ -328,30 +328,33 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     ...(gapIssue.blockchainName && gapIssue.blockchainName !== gapIssue.platformKey
       ? [buildDetailLine('Blockchain', gapIssue.blockchainName)]
       : []),
-    ...(item.transactionContext?.blockchainTransactionHash
-      ? [buildDetailLine('Blockchain hash', item.transactionContext.blockchainTransactionHash)]
+    ...(item.transactionSnapshot?.blockchainTransactionHash
+      ? [buildDetailLine('Blockchain hash', item.transactionSnapshot.blockchainTransactionHash)]
       : []),
     buildDetailLine('Date', gapIssue.timestamp),
     buildDetailLine('Operation', `${gapIssue.operationCategory}/${gapIssue.operationType}`),
-    ...(item.transactionContext?.from ? [buildDetailLine('From', item.transactionContext.from)] : []),
-    ...(item.transactionContext?.to ? [buildDetailLine('To', item.transactionContext.to)] : []),
-    ...(buildGapOwnershipRouteLabel(item.transactionContext?.fromOwnership, item.transactionContext?.toOwnership)
+    ...(item.transactionSnapshot?.from ? [buildDetailLine('From', item.transactionSnapshot.from)] : []),
+    ...(item.transactionSnapshot?.to ? [buildDetailLine('To', item.transactionSnapshot.to)] : []),
+    ...(buildGapOwnershipRouteLabel(item.transactionSnapshot?.fromOwnership, item.transactionSnapshot?.toOwnership)
       ? [
           buildDetailLine(
             'Ownership',
             colorizeGapOwnershipRoute(
-              buildGapOwnershipRouteLabel(item.transactionContext?.fromOwnership, item.transactionContext?.toOwnership)!
+              buildGapOwnershipRouteLabel(
+                item.transactionSnapshot?.fromOwnership,
+                item.transactionSnapshot?.toOwnership
+              )!
             )
           ),
         ]
       : []),
-    ...(item.transactionContext?.openSameHashGapRowCount !== undefined &&
-    item.transactionContext.openSameHashGapRowCount > 1
-      ? [buildDetailLine('Open same-hash gap rows', String(item.transactionContext.openSameHashGapRowCount))]
+    ...(item.transactionSnapshot?.openSameHashGapRowCount !== undefined &&
+    item.transactionSnapshot.openSameHashGapRowCount > 1
+      ? [buildDetailLine('Open same-hash gap rows', String(item.transactionSnapshot.openSameHashGapRowCount))]
       : []),
-    ...(item.transactionContext?.openSameHashTransactionRefs !== undefined &&
-    item.transactionContext.openSameHashTransactionRefs.length > 1
-      ? [buildDetailLine('Open same-hash tx refs', item.transactionContext.openSameHashTransactionRefs.join(', '))]
+    ...(item.transactionSnapshot?.openSameHashTransactionRefs !== undefined &&
+    item.transactionSnapshot.openSameHashTransactionRefs.length > 1
+      ? [buildDetailLine('Open same-hash tx refs', item.transactionSnapshot.openSameHashTransactionRefs.join(', '))]
       : []),
     ...(item.relatedContext ? ['', ...buildTransactionRelatedContextLines(item.relatedContext)] : []),
     buildDetailLine('Asset ID', gapIssue.assetId),

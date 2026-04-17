@@ -168,7 +168,7 @@ describe('links static renderer', () => {
           sharedToTransactionCount: 2,
           sharedToTransactionRefs: ['to11111111', 'to22222222'],
         },
-        transactionContext: {
+        transactionSnapshot: {
           blockchainTransactionHash: 'shared-hash',
           from: 'bc1qtrackedsource',
           fromOwnership: 'tracked' as const,

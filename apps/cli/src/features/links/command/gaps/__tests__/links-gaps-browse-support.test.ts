@@ -446,7 +446,7 @@ describe('links-gaps-browse-support', () => {
       throw result.error;
     }
 
-    expect(result.value.gaps[0]?.transactionContext).toEqual({
+    expect(result.value.gaps[0]?.transactionSnapshot).toEqual({
       blockchainTransactionHash: 'shared-hash',
       from: 'bc1qtrackedsource',
       fromOwnership: 'tracked',

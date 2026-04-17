@@ -29,7 +29,7 @@ describe('links-gaps-browse-output', () => {
         },
       },
       suggestedProposalRefs: ['abc123def0'],
-      transactionContext: {
+      transactionSnapshot: {
         blockchainTransactionHash: 'shared-hash',
         from: 'bc1qtracked',
         fromOwnership: 'tracked' as const,
@@ -64,7 +64,7 @@ describe('links-gaps-browse-output', () => {
           gapCueCounterpartTransactionRef?: string;
           relatedContext?: { fromAccount?: { accountRef?: string } };
           suggestedProposalRefs?: string[];
-          transactionContext?: { openSameHashGapRowCount?: number };
+          transactionSnapshot?: { openSameHashGapRowCount?: number };
         },
       ];
       meta: {
@@ -77,7 +77,7 @@ describe('links-gaps-browse-output', () => {
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
     expect(payload.data[0]?.relatedContext?.fromAccount?.accountRef).toBe('acctref1234');
-    expect(payload.data[0]?.transactionContext?.openSameHashGapRowCount).toBe(2);
+    expect(payload.data[0]?.transactionSnapshot?.openSameHashGapRowCount).toBe(2);
   });
 
   it('includes cue counterpart transaction refs in json detail', () => {

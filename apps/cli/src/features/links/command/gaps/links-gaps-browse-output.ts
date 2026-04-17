@@ -82,7 +82,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     ref: item.gapRef,
     transactionRef: item.transactionRef,
     relatedContext: item.relatedContext,
-    transactionContext: item.transactionContext,
+    transactionSnapshot: item.transactionSnapshot,
     transactionId: item.gapIssue.transactionId,
     transactionGapCount: item.transactionGapCount,
     txFingerprint: item.gapIssue.txFingerprint,
