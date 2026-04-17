@@ -66,6 +66,18 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition
     description: 'Filter by exact asset ID',
   },
   {
+    flags: '--address <value>',
+    description: 'Filter by endpoint address or identifier appearing in from/to',
+  },
+  {
+    flags: '--from <value>',
+    description: 'Filter by exact from endpoint',
+  },
+  {
+    flags: '--to <value>',
+    description: 'Filter by exact to endpoint',
+  },
+  {
     flags: '--since <date>',
     description: 'Filter by date (ISO 8601 format, e.g., 2024-01-01)',
   },
@@ -128,7 +140,7 @@ export function prepareTransactionsBrowseCommand(
     return err(
       createCliFailure(
         new Error(
-          'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, or --no-price'
+          'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, or --no-price'
         ),
         ExitCodes.INVALID_ARGS
       )
@@ -146,6 +158,9 @@ export function prepareTransactionsBrowseCommand(
       platform: options.platform,
       assetId: options.assetId,
       assetSymbol: options.asset,
+      address: options.address,
+      from: options.from,
+      to: options.to,
       since: options.since,
       until: options.until,
       operationType: options.operationType,
@@ -229,6 +244,9 @@ function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
     options.platform !== undefined ||
     options.asset !== undefined ||
     options.assetId !== undefined ||
+    options.address !== undefined ||
+    options.from !== undefined ||
+    options.to !== undefined ||
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||

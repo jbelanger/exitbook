@@ -84,6 +84,9 @@ export interface TransactionsViewFilters {
   platformFilter?: string | undefined;
   assetFilter?: string | undefined;
   assetIdFilter?: string | undefined;
+  addressFilter?: string | undefined;
+  fromFilter?: string | undefined;
+  toFilter?: string | undefined;
   operationTypeFilter?: string | undefined;
   noPriceFilter?: boolean | undefined;
 }

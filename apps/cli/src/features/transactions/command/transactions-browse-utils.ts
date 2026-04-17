@@ -23,6 +23,9 @@ export interface TransactionsBrowseFilters extends CommonViewFilters {
   platform?: string | undefined;
   assetSymbol?: string | undefined;
   assetId?: string | undefined;
+  address?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
   operationType?: string | undefined;
   noPrice?: boolean | undefined;
 }
@@ -44,6 +47,18 @@ export function applyTransactionFilters(
     }
     const untilDate = untilDateResult.value;
     filtered = filtered.filter((tx) => new Date(tx.datetime) <= untilDate);
+  }
+
+  if (params.address) {
+    filtered = filtered.filter((tx) => tx.from === params.address || tx.to === params.address);
+  }
+
+  if (params.from) {
+    filtered = filtered.filter((tx) => tx.from === params.from);
+  }
+
+  if (params.to) {
+    filtered = filtered.filter((tx) => tx.to === params.to);
   }
 
   if (params.assetId) {
@@ -108,7 +123,7 @@ export function validateUntilDate(until: string | undefined): Result<void, Error
 export function buildTransactionsViewFilters(
   params: Pick<
     TransactionsBrowseFilters,
-    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'
+    'account' | 'address' | 'assetId' | 'assetSymbol' | 'from' | 'noPrice' | 'operationType' | 'platform' | 'to'
   >
 ): TransactionsViewFilters {
   return {
@@ -116,6 +131,9 @@ export function buildTransactionsViewFilters(
     platformFilter: params.platform,
     assetFilter: params.assetSymbol,
     assetIdFilter: params.assetId,
+    addressFilter: params.address,
+    fromFilter: params.from,
+    toFilter: params.to,
     operationTypeFilter: params.operationType,
     noPriceFilter: params.noPrice,
   };
@@ -124,7 +142,17 @@ export function buildTransactionsViewFilters(
 export function buildTransactionsJsonFilters(
   params: Pick<
     TransactionsBrowseFilters,
-    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
+    | 'account'
+    | 'address'
+    | 'assetId'
+    | 'assetSymbol'
+    | 'from'
+    | 'noPrice'
+    | 'operationType'
+    | 'platform'
+    | 'since'
+    | 'to'
+    | 'until'
   >
 ): Record<string, unknown> | undefined {
   return buildDefinedFilters({
@@ -132,6 +160,9 @@ export function buildTransactionsJsonFilters(
     platform: params.platform,
     asset: params.assetSymbol,
     assetId: params.assetId,
+    address: params.address,
+    from: params.from,
+    to: params.to,
     since: params.since,
     until: params.until,
     operationType: params.operationType,
@@ -145,7 +176,7 @@ export function buildTransactionsJsonFilters(
 export function generateDefaultPath(
   filters: TransactionsViewFilters,
   format: ExportFormat,
-  accountFilter?: Pick<ResolvedTransactionsAccountFilter, 'selector'>  
+  accountFilter?: Pick<ResolvedTransactionsAccountFilter, 'selector'>
 ): string {
   const parts: string[] = [];
   const accountPathSegment = buildAccountPathSegment(accountFilter);
@@ -155,6 +186,9 @@ export function generateDefaultPath(
   if (filters.platformFilter) parts.push(filters.platformFilter);
   if (filters.assetIdFilter) parts.push(sanitizePathSegment(filters.assetIdFilter));
   if (filters.assetFilter) parts.push(filters.assetFilter.toLowerCase());
+  if (filters.addressFilter) parts.push(`addr-${sanitizePathSegment(filters.addressFilter)}`);
+  if (filters.fromFilter) parts.push(`from-${sanitizePathSegment(filters.fromFilter)}`);
+  if (filters.toFilter) parts.push(`to-${sanitizePathSegment(filters.toFilter)}`);
   parts.push('transactions');
   const extension = format === 'json' ? '.json' : '.csv';
   return `data/${parts.join('-')}${extension}`;
@@ -163,7 +197,17 @@ export function generateDefaultPath(
 export function buildTransactionsJsonFiltersWithResolvedAccount(
   params: Pick<
     TransactionsBrowseFilters,
-    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
+    | 'account'
+    | 'address'
+    | 'assetId'
+    | 'assetSymbol'
+    | 'from'
+    | 'noPrice'
+    | 'operationType'
+    | 'platform'
+    | 'since'
+    | 'to'
+    | 'until'
   >,
   accountFilter: Pick<ResolvedTransactionsAccountFilter, 'selector'> | undefined
 ): Record<string, unknown> | undefined {
@@ -172,6 +216,9 @@ export function buildTransactionsJsonFiltersWithResolvedAccount(
     platform: params.platform,
     asset: params.assetSymbol,
     assetId: params.assetId,
+    address: params.address,
+    from: params.from,
+    to: params.to,
     since: params.since,
     until: params.until,
     operationType: params.operationType,

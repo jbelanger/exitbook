@@ -200,6 +200,9 @@ function buildListHeader(state: TransactionsViewState): string {
     state.filters.platformFilter,
     state.filters.assetIdFilter,
     state.filters.assetFilter,
+    state.filters.addressFilter ? `address=${state.filters.addressFilter}` : undefined,
+    state.filters.fromFilter ? `from=${state.filters.fromFilter}` : undefined,
+    state.filters.toFilter ? `to=${state.filters.toFilter}` : undefined,
     state.filters.operationTypeFilter,
     state.filters.noPriceFilter ? 'missing prices' : undefined,
   ].filter((value): value is string => value !== undefined);
@@ -218,6 +221,9 @@ function buildEmptyStateLines(state: TransactionsViewState): string[] {
     state.filters.platformFilter === undefined &&
     state.filters.assetIdFilter === undefined &&
     state.filters.assetFilter === undefined &&
+    state.filters.addressFilter === undefined &&
+    state.filters.fromFilter === undefined &&
+    state.filters.toFilter === undefined &&
     state.filters.operationTypeFilter === undefined &&
     state.filters.noPriceFilter !== true
   ) {

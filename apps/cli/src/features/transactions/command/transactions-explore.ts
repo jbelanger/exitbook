@@ -84,6 +84,8 @@ Examples:
   $ exitbook transactions explore --account wallet-main
   $ exitbook transactions explore --asset BTC
   $ exitbook transactions explore --asset-id blockchain:arbitrum:0xfd086...
+  $ exitbook transactions explore --address 0xabc...
+  $ exitbook transactions explore --from 0xabc... --to 0xdef...
   $ exitbook transactions explore --platform kraken
   $ exitbook transactions explore --since 2024-01-01
   $ exitbook transactions explore --operation-type trade
@@ -120,7 +122,7 @@ async function executeTransactionsExploreCommand(selector: string | undefined, r
         if (selector && hasExploreFiltersOrLimit(parsedOptions.options)) {
           return yield* cliErr(
             new Error(
-              'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit'
+              'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --no-price, or --limit'
             ),
             ExitCodes.INVALID_ARGS
           );
@@ -192,6 +194,9 @@ async function executeTransactionsExploreCommandResult(
         profileId: scope.profile.id,
         accountIds: accountFilter?.accountIds,
         platformKey: prepared.params.platform,
+        address: prepared.params.address,
+        from: prepared.params.from,
+        to: prepared.params.to,
         since,
         until: prepared.params.until,
         assetId: prepared.params.assetId,
@@ -226,6 +231,9 @@ function buildExploreTransactionsParams(
     platform: options.platform,
     assetId: options.assetId,
     assetSymbol: options.asset,
+    address: options.address,
+    from: options.from,
+    to: options.to,
     since: options.since,
     until: options.until,
     operationType: options.operationType,
@@ -246,6 +254,9 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
     options.platform !== undefined ||
     options.asset !== undefined ||
     options.assetId !== undefined ||
+    options.address !== undefined ||
+    options.from !== undefined ||
+    options.to !== undefined ||
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||

@@ -6,14 +6,17 @@ import { applyTransactionFilters, type TransactionsBrowseFilters } from './trans
 
 interface ReadTransactionsForCommandParams {
   accountIds?: number[] | undefined;
+  address?: string | undefined;
   assetId?: string | undefined;
   assetSymbol?: string | undefined;
   db: DataSession;
+  from?: string | undefined;
   noPrice?: boolean | undefined;
   operationType?: string | undefined;
   profileId: number;
   since?: number | undefined;
   platformKey?: string | undefined;
+  to?: string | undefined;
   until?: string | undefined;
 }
 
@@ -35,10 +38,13 @@ export async function readTransactionsForCommand(
   }
 
   return applyTransactionFilters(transactionsResult.value, {
+    address: params.address,
     assetId: params.assetId,
     assetSymbol: params.assetSymbol,
+    from: params.from,
     noPrice: params.noPrice,
     operationType: params.operationType,
+    to: params.to,
     until: params.until,
   } satisfies TransactionsBrowseFilters);
 }

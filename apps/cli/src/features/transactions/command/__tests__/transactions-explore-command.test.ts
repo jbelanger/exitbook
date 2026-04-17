@@ -74,12 +74,15 @@ vi.mock('../transactions-browse-utils.js', () => ({
   buildTransactionsJsonFiltersWithResolvedAccount: vi.fn(
     (params: {
       account?: string | undefined;
+      address?: string | undefined;
       assetId?: string | undefined;
       assetSymbol?: string | undefined;
+      from?: string | undefined;
       noPrice?: boolean | undefined;
       operationType?: string | undefined;
       platform?: string | undefined;
       since?: string | undefined;
+      to?: string | undefined;
       until?: string | undefined;
     }) => {
       const filters = Object.fromEntries(
@@ -88,6 +91,9 @@ vi.mock('../transactions-browse-utils.js', () => ({
           platform: params.platform,
           asset: params.assetSymbol,
           assetId: params.assetId,
+          address: params.address,
+          from: params.from,
+          to: params.to,
           since: params.since,
           until: params.until,
           operationType: params.operationType,
@@ -101,16 +107,22 @@ vi.mock('../transactions-browse-utils.js', () => ({
   buildTransactionsViewFilters: vi.fn(
     (params: {
       account?: string | undefined;
+      address?: string | undefined;
       assetId?: string | undefined;
       assetSymbol?: string | undefined;
+      from?: string | undefined;
       noPrice?: boolean | undefined;
       operationType?: string | undefined;
       platform?: string | undefined;
+      to?: string | undefined;
     }) => ({
       accountFilter: params.account,
       platformFilter: params.platform,
       assetIdFilter: params.assetId,
       assetFilter: params.assetSymbol,
+      addressFilter: params.address,
+      fromFilter: params.from,
+      toFilter: params.to,
       operationTypeFilter: params.operationType,
       noPriceFilter: params.noPrice,
     })
@@ -246,6 +258,9 @@ describe('transactions explore command', () => {
       profileId: 1,
       accountIds: undefined,
       platformKey: 'kraken',
+      address: undefined,
+      from: undefined,
+      to: undefined,
       since: undefined,
       until: undefined,
       assetId: undefined,
@@ -439,7 +454,7 @@ describe('transactions explore command', () => {
     await expect(
       program.parseAsync(['transactions', 'explore', 'bbbbbbbbbb', '--limit', '100'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:transactions-explore:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit:2'
+      'CLI:transactions-explore:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --no-price, or --limit:2'
     );
 
     expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();

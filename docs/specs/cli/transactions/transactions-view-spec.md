@@ -75,6 +75,9 @@ Shared browse options:
 
 - `--platform <name>`: filter by exchange or blockchain platform
 - `--asset <symbol>`: filter by asset symbol
+- `--address <value>`: filter by exact endpoint value appearing in `from` or `to`
+- `--from <value>`: filter by exact `from` endpoint
+- `--to <value>`: filter by exact `to` endpoint
 - `--since <date>`: inclusive lower date bound
 - `--until <date>`: inclusive upper date bound
 - `--operation-type <type>`: filter by operation type
@@ -92,6 +95,7 @@ Explorer-only option:
 Rules:
 
 - `transactions` and `transactions list` do not accept `--limit`
+- `--address` cannot be combined with `--from` or `--to`
 - `--provider-data` requires a transaction selector
 - `transactions view <selector>` is always detail-shaped, even with `--json`
 - `transactions explore <selector>` is always selector-shaped, even when it falls back to static detail off-TTY
@@ -120,12 +124,15 @@ Filters are applied in this order:
 1. platform
 2. `since`
 3. `until`
-4. asset participation
-5. operation type
-6. missing-price status
+4. endpoint filters (`address`, `from`, `to`)
+5. asset participation
+6. operation type
+7. missing-price status
 
 Rules:
 
+- `--address` matches either `from` or `to`
+- `--from` and `--to` match their respective endpoint fields exactly
 - asset filtering matches either inflows or outflows
 - `--no-price` includes `none` and `partial` price coverage
 - empty filtered results are valid browse outcomes and do not fail

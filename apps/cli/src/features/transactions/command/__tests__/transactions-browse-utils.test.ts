@@ -340,6 +340,54 @@ describe('applyTransactionFilters', () => {
     });
   });
 
+  describe('endpoint filtering', () => {
+    it('filters transactions by address across either endpoint', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({ id: 1, from: '0xsource-1', to: '0xtarget-1' }),
+        createTestTransaction({ id: 2, from: '0xsource-2', to: '0xtarget-2' }),
+        createTestTransaction({ id: 3, from: '0xsource-3', to: '0xsource-1' }),
+      ];
+
+      const result = unwrapOk(
+        applyTransactionFilters(transactions, {
+          address: '0xsource-1',
+        })
+      );
+
+      expect(result.map((tx) => tx.id)).toEqual([1, 3]);
+    });
+
+    it('filters transactions by exact from endpoint', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({ id: 1, from: '0xsource-1', to: '0xtarget-1' }),
+        createTestTransaction({ id: 2, from: '0xsource-2', to: '0xtarget-1' }),
+      ];
+
+      const result = unwrapOk(
+        applyTransactionFilters(transactions, {
+          from: '0xsource-2',
+        })
+      );
+
+      expect(result.map((tx) => tx.id)).toEqual([2]);
+    });
+
+    it('filters transactions by exact to endpoint', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({ id: 1, from: '0xsource-1', to: '0xtarget-1' }),
+        createTestTransaction({ id: 2, from: '0xsource-1', to: '0xtarget-2' }),
+      ];
+
+      const result = unwrapOk(
+        applyTransactionFilters(transactions, {
+          to: '0xtarget-2',
+        })
+      );
+
+      expect(result.map((tx) => tx.id)).toEqual([2]);
+    });
+  });
+
   describe('operation type filtering', () => {
     it('should filter transactions by operation type', () => {
       const transactions: Transaction[] = [
@@ -616,6 +664,9 @@ describe('transaction browse filter metadata', () => {
       platformFilter: 'bitcoin',
       assetFilter: 'BTC',
       assetIdFilter: undefined,
+      addressFilter: undefined,
+      fromFilter: undefined,
+      toFilter: undefined,
       operationTypeFilter: undefined,
       noPriceFilter: true,
     });
@@ -625,6 +676,30 @@ describe('transaction browse filter metadata', () => {
       asset: 'BTC',
       since: '2024-01-01',
       noPrice: true,
+    });
+  });
+
+  it('includes endpoint filters in view and JSON filter metadata', () => {
+    const params: TransactionsBrowseFilters = {
+      address: '0xabc',
+      from: undefined,
+      to: '0xdef',
+    };
+
+    expect(buildTransactionsViewFilters(params)).toEqual({
+      accountFilter: undefined,
+      platformFilter: undefined,
+      assetFilter: undefined,
+      assetIdFilter: undefined,
+      addressFilter: '0xabc',
+      fromFilter: undefined,
+      toFilter: '0xdef',
+      operationTypeFilter: undefined,
+      noPriceFilter: undefined,
+    });
+    expect(buildTransactionsJsonFilters(params)).toEqual({
+      address: '0xabc',
+      to: '0xdef',
     });
   });
 });

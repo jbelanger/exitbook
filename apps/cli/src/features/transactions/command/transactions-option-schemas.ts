@@ -25,6 +25,9 @@ const TransactionsFilterOptionsSchema = z.object({
   platform: z.string().optional(),
   asset: z.string().optional(),
   assetId: z.string().optional(),
+  address: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
   operationType: z.string().optional(),
@@ -44,15 +47,31 @@ function addAssetFilterExclusivityRule<T extends { asset?: string | undefined; a
   }
 }
 
+function addAddressFilterExclusivityRule<
+  T extends { address?: string | undefined; from?: string | undefined; to?: string | undefined },
+>(data: T, ctx: z.RefinementCtx): void {
+  if (data.address && (data.from || data.to)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Cannot specify --address together with --from or --to',
+      path: ['address'],
+    });
+  }
+}
+
 export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   json: z.boolean().optional(),
   providerData: z.boolean().optional(),
-}).superRefine(addAssetFilterExclusivityRule);
+})
+  .superRefine(addAssetFilterExclusivityRule)
+  .superRefine(addAddressFilterExclusivityRule);
 
 export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
-}).superRefine(addAssetFilterExclusivityRule);
+})
+  .superRefine(addAssetFilterExclusivityRule)
+  .superRefine(addAddressFilterExclusivityRule);
 
 export const TransactionsExportCommandOptionsSchema = z
   .object({
