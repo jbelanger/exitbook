@@ -5,8 +5,10 @@
 import type { LinkGapAnalysis } from '@exitbook/accounting/linking';
 import type { LinkStatus } from '@exitbook/core';
 
+import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import { summarizeProposalProvenance } from '../link-proposal-provenance.js';
-import type { LinksGapBrowseHiddenCounts } from '../links-gaps-browse-model.js';
+import { buildLinkGapRef } from '../link-selector.js';
+import type { LinkGapBrowseItem, LinksGapBrowseHiddenCounts } from '../links-gaps-browse-model.js';
 import type { LinkStatusCounts, LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 import { buildTransferProposalItems } from '../transfer-proposals.js';
 
@@ -59,6 +61,7 @@ export interface LinksViewLinksState {
 export interface LinksViewGapsState {
   mode: 'gaps';
 
+  gaps: LinkGapBrowseItem[];
   linkAnalysis: LinkGapAnalysis;
   hiddenResolvedIssueCount: number;
   selectedIndex: number;
@@ -173,13 +176,28 @@ export function createGapsViewState(
   analysis: LinkGapAnalysis,
   hiddenCounts: LinksGapBrowseHiddenCounts = {
     hiddenResolvedIssueCount: 0,
-  }
+  },
+  gaps: LinkGapBrowseItem[] = buildDefaultGapBrowseItems(analysis)
 ): LinksViewGapsState {
   return {
     mode: 'gaps',
+    gaps,
     linkAnalysis: analysis,
     hiddenResolvedIssueCount: hiddenCounts.hiddenResolvedIssueCount,
     selectedIndex: 0,
     scrollOffset: 0,
   };
+}
+
+function buildDefaultGapBrowseItems(analysis: LinkGapAnalysis): LinkGapBrowseItem[] {
+  return analysis.issues.map((gapIssue) => ({
+    gapRef: buildLinkGapRef({
+      txFingerprint: gapIssue.txFingerprint,
+      assetId: gapIssue.assetId,
+      direction: gapIssue.direction,
+    }),
+    gapIssue,
+    transactionGapCount: 1,
+    transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+  }));
 }

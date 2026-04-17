@@ -4,8 +4,9 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import { buildTransactionRelatedContextLines } from '../../transactions/view/transaction-related-context-static-renderer.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
-import type { LinkGapBrowseItem, LinkGapEndpointOwnership } from '../links-gaps-browse-model.js';
+import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 
+import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import {
   countGapSuggestionBuckets,
   formatCompactAmount,
@@ -482,25 +483,6 @@ function buildGapSuggestionDetailLines(suggestedProposalRefs: string[]): string[
   );
 }
 
-function buildGapOwnershipRouteLabel(
-  fromOwnership: LinkGapEndpointOwnership | undefined,
-  toOwnership: LinkGapEndpointOwnership | undefined
-): string | undefined {
-  if (fromOwnership === undefined && toOwnership === undefined) {
-    return undefined;
-  }
-
-  if (fromOwnership !== undefined && toOwnership !== undefined) {
-    return `${fromOwnership} source -> ${toOwnership} destination`;
-  }
-
-  if (fromOwnership !== undefined) {
-    return `${fromOwnership} source`;
-  }
-
-  return `${toOwnership!} destination`;
-}
-
 function colorizeStatus(color: string, value: string): string {
   switch (color) {
     case 'green':
@@ -517,15 +499,14 @@ function colorizeStatus(color: string, value: string): string {
 }
 
 function colorizeGapOwnershipRoute(value: string): string {
-  if (value === 'tracked source -> untracked destination') {
-    return pc.yellow(value);
+  switch (getGapOwnershipRouteColor(value)) {
+    case 'yellow':
+      return pc.yellow(value);
+    case 'green':
+      return pc.green(value);
+    default:
+      return pc.dim(value);
   }
-
-  if (value === 'untracked source -> tracked destination') {
-    return pc.green(value);
-  }
-
-  return pc.dim(value);
 }
 
 function colorizeText(color: string, value: string): string {

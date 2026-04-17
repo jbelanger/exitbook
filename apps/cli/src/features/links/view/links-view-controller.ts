@@ -47,7 +47,7 @@ type LinksViewAction =
  * Get the item count for the current mode
  */
 function getItemCount(state: LinksViewState): number {
-  return state.mode === 'links' ? state.proposals.length : state.linkAnalysis.issues.length;
+  return state.mode === 'links' ? state.proposals.length : state.gaps.length;
 }
 
 /**

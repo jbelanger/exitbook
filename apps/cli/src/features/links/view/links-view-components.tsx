@@ -18,8 +18,10 @@ import {
 } from '../../../ui/shared/index.js';
 import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import { buildLinkProposalRef } from '../link-selector.js';
+import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import type { LinkWithTransactions, TransferProposalWithTransactions } from '../links-view-model.js';
 
+import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
   countGapSuggestionBuckets,
@@ -749,17 +751,16 @@ function renderGapSuggestionSummary(issue: LinkGapIssue): ReactElement {
  * Gap list component with scrolling support
  */
 const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ state, terminalHeight }) => {
-  const { linkAnalysis, selectedIndex, scrollOffset } = state;
-  const issues = linkAnalysis.issues;
+  const { gaps, linkAnalysis, selectedIndex, scrollOffset } = state;
 
   const visibleRows = calculateVisibleRows(terminalHeight, getGapsChromeLines(linkAnalysis.summary.assets.length));
 
   const startIndex = scrollOffset;
-  const endIndex = Math.min(startIndex + visibleRows, issues.length);
-  const visibleIssues = issues.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + visibleRows, gaps.length);
+  const visibleGaps = gaps.slice(startIndex, endIndex);
 
   const hasMoreAbove = startIndex > 0;
-  const hasMoreBelow = endIndex < issues.length;
+  const hasMoreBelow = endIndex < gaps.length;
 
   return (
     <Box flexDirection="column">
@@ -768,19 +769,19 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
           {'  '}▲ {startIndex} more above
         </Text>
       )}
-      {visibleIssues.map((issue, windowIndex) => {
+      {visibleGaps.map((gap, windowIndex) => {
         const actualIndex = startIndex + windowIndex;
         return (
           <GapRow
-            key={`${issue.transactionId}-${issue.assetId}-${issue.direction}`}
-            issue={issue}
+            key={gap.gapRef}
+            gap={gap}
             isSelected={actualIndex === selectedIndex}
           />
         );
       })}
       {hasMoreBelow && (
         <Text dimColor>
-          {'  '}▼ {issues.length - endIndex} more below
+          {'  '}▼ {gaps.length - endIndex} more below
         </Text>
       )}
     </Box>
@@ -791,9 +792,10 @@ const GapList: FC<{ state: LinksViewGapsState; terminalHeight: number }> = ({ st
  * Individual gap row component
  */
 const GapRow: FC<{
+  gap: LinkGapBrowseItem;
   isSelected: boolean;
-  issue: LinkGapIssue;
-}> = ({ issue, isSelected }) => {
+}> = ({ gap, isSelected }) => {
+  const { gapIssue: issue } = gap;
   const platform = issue.platformKey;
   const timestamp = formatGapRowTimestamp(issue.timestamp);
   const dir = issue.direction === 'inflow' ? 'IN ' : 'OUT';
@@ -835,21 +837,22 @@ const GapRow: FC<{
  * Detail panel for selected gap issue
  */
 const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
-  const issue = state.linkAnalysis.issues[state.selectedIndex];
+  const selectedGap = state.gaps[state.selectedIndex];
 
-  if (!issue) {
+  if (!selectedGap) {
     return null;
   }
 
   return (
     <FixedHeightDetail
       height={GAP_DETAIL_LINES}
-      rows={buildGapDetailRows(issue)}
+      rows={buildGapDetailRows(selectedGap)}
     />
   );
 };
 
-function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
+function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
+  const { gapIssue: issue } = gap;
   const txId = `#${issue.transactionId}`;
   const operation = `${issue.operationCategory}/${issue.operationType}`;
   const directionLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
@@ -878,6 +881,15 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
             {'  '}
             <Text dimColor>Blockchain: </Text>
             {issue.blockchainName}
+          </Text>,
+        ]
+      : []),
+    ...(gap.transactionSnapshot?.blockchainTransactionHash
+      ? [
+          <Text key="transaction-hash">
+            {'  '}
+            <Text dimColor>Blockchain hash: </Text>
+            {gap.transactionSnapshot.blockchainTransactionHash}
           </Text>,
         ]
       : []),
@@ -913,6 +925,121 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
         <Text color="yellow">no suggested candidates</Text>
       )}
     </Text>,
+    ...(gap.relatedContext?.fromAccount
+      ? [
+          <Text key="from-account">
+            {'  '}
+            <Text dimColor>From account: </Text>
+            {formatGapAccountMatch(gap.relatedContext.fromAccount)}
+          </Text>,
+        ]
+      : []),
+    ...(gap.relatedContext?.toAccount
+      ? [
+          <Text key="to-account">
+            {'  '}
+            <Text dimColor>To account: </Text>
+            {formatGapAccountMatch(gap.relatedContext.toAccount)}
+          </Text>,
+        ]
+      : []),
+    ...(gap.relatedContext?.openGapRefs !== undefined && gap.relatedContext.openGapRefs.length > 0
+      ? [
+          <Text key="open-gap-refs">
+            {'  '}
+            <Text dimColor>Open gap refs: </Text>
+            {gap.relatedContext.openGapRefs.join(', ')}
+          </Text>,
+        ]
+      : []),
+    ...(gap.relatedContext?.sameHashSiblingTransactionRefs !== undefined &&
+    gap.relatedContext.sameHashSiblingTransactionCount !== undefined
+      ? [
+          <Text key="same-hash-siblings">
+            {'  '}
+            <Text dimColor>Same-hash sibling txs: </Text>
+            {formatGapRelatedTransactionRefs(
+              gap.relatedContext.sameHashSiblingTransactionRefs,
+              gap.relatedContext.sameHashSiblingTransactionCount
+            )}
+          </Text>,
+        ]
+      : []),
+    ...(gap.relatedContext?.sharedFromTransactionRefs !== undefined &&
+    gap.relatedContext.sharedFromTransactionCount !== undefined
+      ? [
+          <Text key="shared-from">
+            {'  '}
+            <Text dimColor>Same from endpoint txs: </Text>
+            {formatGapRelatedTransactionRefs(
+              gap.relatedContext.sharedFromTransactionRefs,
+              gap.relatedContext.sharedFromTransactionCount
+            )}
+          </Text>,
+        ]
+      : []),
+    ...(gap.relatedContext?.sharedToTransactionRefs !== undefined &&
+    gap.relatedContext.sharedToTransactionCount !== undefined
+      ? [
+          <Text key="shared-to">
+            {'  '}
+            <Text dimColor>Same to endpoint txs: </Text>
+            {formatGapRelatedTransactionRefs(
+              gap.relatedContext.sharedToTransactionRefs,
+              gap.relatedContext.sharedToTransactionCount
+            )}
+          </Text>,
+        ]
+      : []),
+    ...(gap.transactionSnapshot?.from
+      ? [
+          <Text key="from">
+            {'  '}
+            <Text dimColor>From: </Text>
+            {gap.transactionSnapshot.from}
+          </Text>,
+        ]
+      : []),
+    ...(gap.transactionSnapshot?.to
+      ? [
+          <Text key="to">
+            {'  '}
+            <Text dimColor>To: </Text>
+            {gap.transactionSnapshot.to}
+          </Text>,
+        ]
+      : []),
+    ...(buildGapOwnershipRouteLabel(gap.transactionSnapshot?.fromOwnership, gap.transactionSnapshot?.toOwnership)
+      ? [
+          <Text key="ownership">
+            {'  '}
+            <Text dimColor>Ownership: </Text>
+            {renderGapOwnershipRoute(
+              buildGapOwnershipRouteLabel(gap.transactionSnapshot?.fromOwnership, gap.transactionSnapshot?.toOwnership)!
+            )}
+          </Text>,
+        ]
+      : []),
+    ...(gap.transactionSnapshot?.openSameHashGapRowCount !== undefined &&
+    gap.transactionSnapshot.openSameHashGapRowCount > 1
+      ? [
+          <Text key="same-hash-count">
+            {'  '}
+            <Text dimColor>Open same-hash gap rows: </Text>
+            {String(gap.transactionSnapshot.openSameHashGapRowCount)}
+          </Text>,
+        ]
+      : []),
+    ...(gap.transactionSnapshot?.openSameHashTransactionRefs !== undefined &&
+    gap.transactionSnapshot.openSameHashTransactionRefs.length > 1
+      ? [
+          <Text key="same-hash-refs">
+            {'  '}
+            <Text dimColor>Open same-hash tx refs: </Text>
+            {gap.transactionSnapshot.openSameHashTransactionRefs.join(', ')}
+          </Text>,
+        ]
+      : []),
     ...(issue.gapCue
       ? [
           <Text key="cue">
@@ -974,6 +1101,35 @@ function buildGapDetailRows(issue: LinkGapIssue): ReactElement[] {
       )}
     </Text>,
   ];
+}
+
+function formatGapAccountMatch(
+  accountMatch: NonNullable<NonNullable<LinkGapBrowseItem['relatedContext']>['fromAccount']>
+): ReactElement {
+  return (
+    <Text>
+      {accountMatch.accountName ? `${accountMatch.accountName} ` : ''}
+      <Text dimColor>({accountMatch.accountRef})</Text> <Text color="cyan">{accountMatch.platformKey}</Text>
+    </Text>
+  );
+}
+
+function formatGapRelatedTransactionRefs(refs: string[], totalCount: number): ReactElement {
+  return (
+    <Text>
+      {refs.join(', ')}
+      {totalCount > refs.length ? <Text dimColor>{` (${totalCount} total)`}</Text> : null}
+    </Text>
+  );
+}
+
+function renderGapOwnershipRoute(value: string): ReactElement {
+  const color = getGapOwnershipRouteColor(value);
+  if (color === 'dim') {
+    return <Text dimColor>{value}</Text>;
+  }
+
+  return <Text color={color}>{value}</Text>;
 }
 
 /**

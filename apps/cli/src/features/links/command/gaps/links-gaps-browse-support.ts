@@ -41,9 +41,6 @@ export async function buildLinksGapsBrowsePresentation(
     const source = yield* await sourceReader.loadProfileLinkGapSourceData();
     const visibility = buildVisibleProfileLinkGapAnalysis(source);
     const sortedAnalysis = sortLinkGapAnalysisByTimestamp(visibility.analysis);
-    const state = createGapsViewState(sortedAnalysis, {
-      hiddenResolvedIssueCount: visibility.hiddenResolvedIssueCount,
-    });
     const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
     const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
     const transactionSnapshotByFingerprint = yield* buildGapTransactionSnapshotByFingerprint(source, sortedAnalysis);
@@ -67,6 +64,13 @@ export async function buildLinksGapsBrowsePresentation(
       transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
       transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
     }));
+    const state = createGapsViewState(
+      sortedAnalysis,
+      {
+        hiddenResolvedIssueCount: visibility.hiddenResolvedIssueCount,
+      },
+      gaps
+    );
     const resolvedGap =
       params.selector !== undefined ? yield* resolveLinkGapSelector(toGapCandidates(gaps), params.selector) : undefined;
     const selectedGap = resolvedGap?.item;

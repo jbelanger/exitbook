@@ -10,6 +10,7 @@ import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
+import { buildLinkGapRef } from '../../link-selector.js';
 import type { LinkWithTransactions } from '../../links-view-model.js';
 import { LinksViewApp } from '../links-view-components.jsx';
 import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
@@ -586,6 +587,74 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('wallet-scoped staking withdrawal of 10.524451 ADA');
     expect(normalizedFrame).toContain('Next:');
     expect(normalizedFrame).toContain('exitbook links run');
+  });
+
+  it('renders shared transaction investigation context in the gap detail panel', () => {
+    const analysis = createMockGapAnalysis();
+    const firstIssue = analysis.issues[0]!;
+    const state = createGapsViewState(
+      analysis,
+      {
+        hiddenResolvedIssueCount: 0,
+      },
+      [
+        {
+          gapRef: buildLinkGapRef({
+            txFingerprint: firstIssue.txFingerprint,
+            assetId: firstIssue.assetId,
+            direction: firstIssue.direction,
+          }),
+          gapIssue: firstIssue,
+          relatedContext: {
+            fromAccount: {
+              accountName: 'wallet-main',
+              accountRef: 'acctref1234',
+              platformKey: 'ethereum',
+            },
+            openGapRefs: ['gap11111111'],
+            sharedToTransactionCount: 2,
+            sharedToTransactionRefs: ['to11111111', 'to22222222'],
+          },
+          transactionSnapshot: {
+            blockchainTransactionHash: 'shared-hash',
+            from: '0xsource',
+            fromOwnership: 'tracked',
+            to: '0xtarget',
+            toOwnership: 'untracked',
+          },
+          transactionGapCount: 1,
+          transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),
+        },
+        ...analysis.issues.slice(1).map((gapIssue) => ({
+          gapRef: buildLinkGapRef({
+            txFingerprint: gapIssue.txFingerprint,
+            assetId: gapIssue.assetId,
+            direction: gapIssue.direction,
+          }),
+          gapIssue,
+          transactionGapCount: 1,
+          transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+        })),
+      ]
+    );
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('Blockchain hash:');
+    expect(normalizedFrame).toContain('shared-hash');
+    expect(normalizedFrame).toContain('From account:');
+    expect(normalizedFrame).toContain('wallet-main');
+    expect(normalizedFrame).toContain('Open gap refs:');
+    expect(normalizedFrame).toContain('gap11111111');
+    expect(normalizedFrame).toContain('Same to endpoint txs:');
+    expect(normalizedFrame).toContain('to11111111, to22222222');
   });
 
   it('shows "All movements have confirmed counterparties" empty state', () => {
