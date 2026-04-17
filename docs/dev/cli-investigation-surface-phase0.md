@@ -321,3 +321,223 @@ This Phase 0 is complete when:
 5. We have a ranked implementation order for the redesign.
 6. We can resume live issue resolution with less repetitive guesswork than the
    current workflow.
+
+## Pass Results
+
+### Pass 1: Surface Inventory
+
+Findings:
+
+- `issues` is correctly acting as the work queue and route surface. It should
+  not absorb more investigation depth.
+- the live command-hopping burden lands in three places:
+  - `transactions`: exact inspection and related-context lookup
+  - `links gaps`: transfer-gap review and no-link exception workflow
+  - `accounts`: wallet-boundary and ownership decisions
+- the highest-confidence missing capabilities are not new screens:
+  - address/account search
+  - richer related-context blocks
+  - repeated-pattern guidance inside existing detail views
+
+Decision:
+
+- keep the redesign inside `accounts`, `transactions`, and `links gaps`
+- do not add a new top-level investigation family
+
+### Pass 2: Wallet Classification Model
+
+Findings:
+
+- the current binary model is insufficient:
+  - owned account
+  - everything else
+- the live family-wallet mistake proved we need a first-class distinction
+  between:
+  - owned
+  - known external
+  - unknown
+- the current `Account` model is owned/importable by design:
+  - provider
+  - refresh
+  - balance snapshot
+  - sessions
+- overloading `Account` rows to represent non-owned wallets would leak the
+  wrong semantics into refresh, balances, and imports.
+
+Decision:
+
+- `known external wallet` should be a first-class concept
+- the owning CLI family should still be `accounts`
+- but it should **not** be stored as a normal `Account`
+- the clean direction is:
+  - keep `accounts` as the operator entrypoint
+  - add a profile-owned wallet-classification record behind it
+  - project `owned` / `known external` / `unknown` into `transactions` and
+    `links gaps`
+
+Implementation consequence:
+
+- this is not a new screen problem
+- it is a model and command-shape decision inside the `accounts` family
+
+### Pass 3: Transaction Evidence and Related-Context Model
+
+Findings:
+
+- `transactions view` is already the best single-transaction inspection surface
+- the easy wins are related-context and search, not raw provider payloads
+- current transaction querying is still weak for investigation because it lacks
+  address-centered lookup
+- current transaction detail still makes the user hop to other commands to
+  answer:
+  - where else did this address appear?
+  - which other gaps involve this route?
+  - what same-hash siblings exist?
+- provider/source data is desirable, but it is not yet a trivial read-path
+  addition:
+  - the current processed transaction schema does not carry a direct
+    `raw_transaction_id`
+  - the `transactions` family spec currently says browse reads processed
+    transactions only
+
+Decision:
+
+- related-context inspection belongs in `transactions`
+- address/account search also belongs in `transactions`, not in a separate
+  search family
+- provider/source data should still land in `transactions view`, but only after
+  we add a trustworthy processed-to-raw provenance binding
+
+Implementation consequence:
+
+- address-centered filters and related-context blocks are ready now
+- raw/provider evidence is a second-step design item, not the first rewrite
+
+### Pass 4: Grouped Review Shape
+
+Findings:
+
+- the remaining hard transfer-gap cases are not row-shaped in human terms:
+  - bridge-like pairs
+  - receive-then-forward patterns
+  - repeated-address clusters
+- `links gaps` already owns the right workflow, and it now carries enough cue
+  data to keep growing there:
+  - counterpart transaction refs
+  - same-hash context
+  - endpoint ownership
+- the current weakness is mutation shape, not command-family ownership
+
+Decision:
+
+- keep rewriting `links gaps`
+- do not create a new top-level grouped review surface
+- if we need pair/group actions later, they should be narrow additions under
+  `links gaps`, not a separate family
+
+Implementation consequence:
+
+- grouped context belongs in `links gaps view/explore`
+- pair/group mutation remains an open design discussion after the simpler
+  rewrites land
+
+### Pass 5: Batch and Policy Boundary
+
+Findings:
+
+- repeated manual gap resolution is not one problem; it splits into three
+  different classes:
+  - known external wallet routes
+  - repeated unsolicited receipts
+  - tiny dust deposits
+- these do **not** all deserve the same answer:
+  - known external wallet routes want stored classification plus batch backfill
+  - unsolicited receipts likely want batch handling first and policy later
+  - tiny dust deposits want linking-policy suppression, not permanent queue debt
+
+Decision:
+
+- do not solve every repetitive case with one generic batch feature
+- separate the answers:
+  - classification-backed batch resolution for known external wallets
+  - explicit batch resolution for repeated operator-confirmed patterns
+  - policy suppression for mechanical dust/noise cases
+
+Implementation consequence:
+
+- `links gaps` may earn a narrow batch action under the existing family
+- dust suppression belongs to linking policy, not just CLI UX
+
+### Pass 6: Synthesis and Ranked Delivery Order
+
+Conclusion:
+
+- no new top-level CLI investigation surface is justified
+- the work should start with existing-surface rewrites that are already clean,
+  then move to the model changes that still need discussion
+
+## Ranked Implementation Order
+
+### Ready Now: High-Confidence Rewrites
+
+1. Strengthen address-centered search inside existing families.
+   - add address filters to `transactions`
+   - make `accounts` lookup/search usable by identifier/address, not just owned
+     account name/ref
+2. Rewrite `transactions view` to carry richer related context from existing
+   processed data.
+   - related gaps
+   - same-hash siblings
+   - other recent transactions involving the same endpoints
+   - owned account matches for visible identifiers
+3. Rewrite `links gaps view/explore` to consume the same related-context model
+   more consistently.
+   - repeated counterparty/address context
+   - clearer grouped impact preview
+   - stronger next-step guidance for repeated patterns
+
+### After One Bounded Model Decision
+
+4. Add wallet classification under `accounts`.
+   - first-class `known external wallet`
+   - stored as profile-owned classification, not as full `Account`
+5. Project that classification into investigation surfaces.
+   - replace the current binary `tracked` / `untracked` story with
+     `owned` / `known external` / `unknown`
+   - make `links gaps` and `transactions view` reflect that state directly
+6. Add classification-backed batch resolution inside `links gaps`.
+   - batch backfill existing gaps for one known external wallet
+   - prevent repeated manual resolves for the same pattern
+
+### Discussion-Heavy Work After The Above
+
+7. Add provider/source data inspection to `transactions view`.
+   - requires a trustworthy processed-to-raw provenance binding first
+   - should not ship as fuzzy raw lookup
+8. Decide whether bridge pairs and receive-then-forward groups need explicit
+   pair/group actions under `links gaps`.
+   - keep this inside `links gaps` if possible
+   - only add a new subcommand if the rewrite becomes awkward
+9. Move tiny dust and similar mechanical one-way receipts out of permanent
+   operator debt.
+   - likely linking-policy work, not just CLI work
+
+## Immediate Discussion Topics
+
+These are the items that still deserve explicit discussion before
+implementation starts on them:
+
+1. exact command shape for `accounts`-owned wallet classification
+2. provenance-binding design for trustworthy provider/source evidence
+3. mutation semantics for bridge-pair and receive-then-forward review
+
+## Phase 0 Recommendation
+
+Start implementation with the `Ready Now` rewrites.
+
+Those give immediate operator value, reduce command-hopping, and do not depend
+on unresolved model choices.
+
+Only after those land should we take the three discussion-heavy items above,
+because those are the places where the current codebase still has genuine model
+and correctness questions.
