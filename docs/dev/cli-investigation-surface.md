@@ -48,8 +48,8 @@ It is now:
 5. Provider/source evidence must be viewable from the CLI.
 6. Do not parse provider payloads into ad-hoc summaries. Show a full dump or
    nothing.
-7. Wallet-boundary classification should start from `accounts`, unless later
-   work proves that boundary too narrow.
+7. Wallet-boundary evidence should start from profiles and `accounts`, unless
+   later work proves that boundary too narrow.
 8. No new top-level CLI investigation family is justified today.
 
 ## Decisions
@@ -123,17 +123,26 @@ What we learned:
 - the binary model is insufficient:
   - owned
   - everything else
-- the family-wallet mistake proved we need a first-class distinction between:
-  - owned
-  - known external
+- the family-wallet mistake proved we need better wallet-boundary evidence, but
+  the cheapest useful route is:
+  - owned by the active profile
+  - belongs to another local profile
   - unknown
-- normal `Account` rows are the wrong persistence model for non-owned wallets
+- normal `Account` rows are still the wrong persistence model for non-owned
+  wallets inside the active profile
 
 Decision:
 
-- `known external wallet` should become a first-class concept
-- the owning command family should still be `accounts`
-- it should not be stored as a normal `Account`
+- use cross-profile ownership evidence first
+- the user action is:
+  - create another profile
+  - add/import those wallets there
+- investigation surfaces should then project:
+  - `owned`
+  - `other profile`
+  - `unknown`
+- defer any broader `known external wallet` feature unless real pain remains
+  after cross-profile evidence lands
 
 ## What This Work Unlocked
 
@@ -165,8 +174,8 @@ These conclusions are now strong enough to treat as real design input:
 - receive-then-forward patterns need better grouping and guidance
 - account/address search was a real weakness and is now better, but repeated
   route investigation is still not smooth enough
-- a first-class known-external-wallet concept would have prevented the
-  family-wallet misclassification churn
+- cross-profile ownership evidence is the cheapest route to prevent the
+  family-wallet misclassification churn in the current database scenarios
 
 ## What Is Not Justified
 
@@ -174,26 +183,28 @@ These ideas were considered and rejected for now:
 
 - a new top-level CLI investigation family
 - a separate provider-data screen
-- treating known external wallets as normal owned accounts
+- treating external wallets as normal owned accounts inside the active profile
 - parsing provider payloads into custom CLI interpretations
 
 ## Remaining Work
 
 ### Next bounded model decision
 
-1. Add wallet classification under `accounts`.
-   - first-class `known external wallet`
-   - stored as a profile-owned classification, not as a full `Account`
+1. Add cross-profile ownership evidence.
+   - when an address/account belongs to another local profile, treat that as a
+     first-class investigation signal
+   - do not add a new CLI family for this
 
-2. Project that classification into investigation surfaces.
+2. Project that evidence into investigation surfaces.
    - replace the current binary `tracked` / `untracked` story with:
      - `owned`
-     - `known external`
+     - `other profile`
      - `unknown`
 
-3. Add classification-backed batch resolution inside `links gaps`.
-   - batch backfill existing gaps for one known external wallet
-   - prevent repeated manual resolves for the same pattern
+3. Use that evidence to resolve current repeated gap cases through the CLI.
+   - a cross-profile route is enough to treat the wallet as not owned by the
+     active profile
+   - broader external-wallet modeling stays deferred unless gaps remain hard
 
 ### Discussion-heavy work after that
 
@@ -211,6 +222,7 @@ These ideas were considered and rejected for now:
 These are the remaining decisions that still deserve explicit discussion before
 implementation:
 
-1. Exact command shape for `accounts`-owned wallet classification
+1. How cross-profile ownership should be surfaced in `transactions` and
+   `links gaps`
 2. Mutation semantics for bridge-pair and receive-then-forward review
 3. Suppression policy for tiny dust and similar mechanical one-way receipts
