@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-16
+last_verified: 2026-04-17
 status: active
 ---
 
@@ -932,3 +932,125 @@ Command-surface assessment:
     workflow
   - a future bridge investigation or grouped bridge review surface would likely
     pay off more than adding more prose to individual gap rows
+
+## Pass 16: Mistaken Family-Wallet Import vs External Counterparty Reality
+
+Date: 2026-04-17
+
+Goal:
+
+- test the “missing owned wallet” hypothesis against real transfer gaps
+- distinguish true missing owned accounts from known external family wallets
+- record the correct CLI workflow when a wallet was mistakenly added as owned
+
+Commands used:
+
+```bash
+pnpm run dev accounts add ethereum-wallet-4 --blockchain ethereum --address 0x442b5aa21ae931fb42ed22ecd3fe9952235bd7e9 --json
+pnpm run dev import ethereum-wallet-4 --json
+pnpm run dev links run --json
+pnpm run dev accounts add solana-wallet-5 --blockchain solana --address HjsUD6HyUVvyLJG9n4LqX9jMZpM15Xji5iP2SbyeW1vR --json
+pnpm run dev import solana-wallet-5 --json
+pnpm run dev links run --json
+pnpm run dev accounts remove ethereum-wallet-4 --confirm --json
+pnpm run dev accounts remove solana-wallet-5 --confirm --json
+pnpm run dev links gaps resolve <GAP-REF> --reason "<external-family-wallet reason>" --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- the “missing owned wallet” hypothesis is still valid in general:
+  - repeated address reuse across tracked wallets and exchange withdrawals can
+    be strong evidence that a wallet is missing from the profile
+- but the same pattern can also describe a known external family wallet:
+  - `0x442b...` and `HjsUD6...` belonged to Joel’s son, not to Joel
+  - adding them as owned accounts created false internal-accounting structure
+    even though the import and linking mechanics themselves behaved correctly
+- the correct recovery path is:
+  1. remove the mistakenly added account through `accounts remove`
+  2. let the CLI purge imported data and affected projections
+  3. resolve the reopened gaps with an explicit external-counterparty reason
+- after that correction, the external family-wallet transfers became ordinary
+  gap exceptions again rather than owned-account routing problems
+
+Command-surface assessment:
+
+- good:
+  - `accounts remove` is the right correction seam
+  - it explicitly purges imported data and resets affected projections
+  - this keeps the fix inside the shipped CLI surface instead of forcing DB
+    surgery
+- still missing:
+  - there is no first-class workflow to say “this wallet is known, but not
+    mine”
+  - the operator currently has to infer that by:
+    - removing the account if it was added
+    - resolving every affected gap one by one with a reason
+
+Larger product conclusions:
+
+- the CLI needs a better distinction between:
+  - owned wallets
+  - known external wallets
+  - unknown counterparties
+- a future “known external counterparty wallet” workflow would be materially
+  better than either:
+  - incorrectly importing family wallets as owned
+  - or resolving each transaction row individually forever
+
+## Pass 17: One-Way Receipts and Dust Should Not Become Permanent Queue Debt
+
+Date: 2026-04-17
+
+Goal:
+
+- determine which remaining transfer gaps were real operator decisions versus
+  queue noise
+- reduce permanent transfer-gap debt where the CLI already had enough evidence
+  to act honestly
+
+Commands used:
+
+```bash
+pnpm run dev links gaps view <GAP-REF>
+pnpm run dev transactions view <TX-REF> --json
+pnpm run dev transactions list --platform <platform> --since <date> --until <date> --json
+pnpm run dev links gaps resolve <GAP-REF> --reason "<one-way receipt reason>" --json
+pnpm run dev links gaps resolve <GAP-REF> --reason "<tiny deposit reason>" --json
+pnpm run dev issues --json
+```
+
+Findings:
+
+- some gaps are not unresolved transfer routes; they are just one-way receipts:
+  - repeated `RENDER` inflows from the same untracked Solana source
+  - one-way token receipts such as `UNDG`, `SP`, `NOODLE`, and `FAM`
+- some gaps are operational dust, not meaningful accounting review:
+  - multiple `0.00001 SOL` deposits
+  - one `0.0001 NEAR` deposit
+- these were honestly resolvable as gap exceptions because there was:
+  - no tracked internal source
+  - no reciprocal ownership signal
+  - no bridge cue
+  - no evidence that the route should become an internal link
+
+Command-surface assessment:
+
+- strong enough today:
+  - the current CLI can resolve these one by one with explicit reasons
+  - immediate issue refresh makes the queue reduction visible right away
+- still weak:
+  - the operator has to do repetitive row-by-row cleanup
+  - the system does not distinguish “needs real transfer review” from
+    “obviously one-way external receipt” early enough
+
+Larger product conclusions:
+
+- tiny one-way deposits should not become permanent transfer-gap debt
+- bridge-like pairs are still a real command-surface gap
+- “receive then forward” patterns need better grouping and guidance
+- account and address search in the CLI is still too weak for this kind of
+  investigation
+- repeated one-way receipt patterns should probably graduate from manual
+  exception handling into linking policy or stronger automated guidance
