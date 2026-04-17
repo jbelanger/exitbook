@@ -136,6 +136,10 @@ Behavior:
 - Rows may include inline review context when the analyzer has:
   - a likely heuristic cue (`gapCue`)
   - or deterministic diagnostic / movement-role context (`contextHint`)
+- Current cue labels include:
+  - `likely correlated service swap`
+  - `likely cross-chain migration`
+  - `likely same-owner cross-chain bridge`
 
 List columns:
 
@@ -165,6 +169,8 @@ Behavior:
   - raw `from` / `to` endpoint values from the processed transaction
   - endpoint ownership context such as `tracked source -> untracked destination`
   - a cue line describing the likely pattern behind the issue
+  - a counterpart transaction ref when the cue is paired to another specific
+    transaction
   - a context line describing deterministic diagnostic or movement-role context on the transaction
   - exact `links confirm <LINK-REF>` commands when the gap can be mapped to one
     or more specific suggested proposals
@@ -176,6 +182,8 @@ Behavior:
 - Includes next-step guidance:
   - confirm the first exact `LINK-REF` directly when specific proposal refs are
     known
+  - inspect the paired transaction first when the gap carries a paired cue such
+    as `likely same-owner cross-chain bridge`
   - review suggested proposals with `links explore --status suggested` only
     when suggestions exist but no exact ref can be derived
   - use `links gaps resolve <gap-ref>` when the transaction intentionally has no internal link
@@ -223,6 +231,9 @@ Behavior:
 - JSON list output includes standard view metadata with active filters, including:
   - `hiddenResolvedIssues`
 - Gap rows include `gapCue` and `contextHint` when the analyzer derives them.
+- Gap rows may also include:
+  - `gapCueCounterpartTxFingerprint`
+  - `gapCueCounterpartTransactionRef`
 - Gap rows may include `transactionContext` with:
   - `blockchainTransactionHash`
   - `from`, `fromOwnership`

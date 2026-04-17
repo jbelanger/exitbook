@@ -877,3 +877,58 @@ Command-surface assessment:
   - the linker still has no explicit same-owner cross-chain bridge strategy
   - `issues` therefore presents probable bridge legs as ordinary transfer gaps
   - this now looks like linking/product work, not a processor problem
+
+## Pass 15: Bridge Guidance Landed Without Inventing Linking Truth
+
+Date: 2026-04-16
+
+Goal:
+
+- make likely same-owner bridge gaps materially easier to investigate through
+  the CLI without auto-linking them prematurely
+
+Commands used:
+
+```bash
+pnpm run dev links gaps view 1b33c54609
+pnpm run dev links gaps view 1b33c54609 --json
+pnpm run dev links gaps view 7b2c4cdced
+pnpm run dev links gaps view 7b2c4cdced --json
+```
+
+Findings:
+
+- the May 20 ETH pair now surfaces as a paired heuristic instead of two blind
+  gaps:
+  - Ethereum gap `1b33c54609` now shows
+    `likely same-owner cross-chain bridge`
+  - Arbitrum gap `7b2c4cdced` shows the same cue
+  - each detail view now exposes the exact counterpart transaction ref and an
+    `exitbook transactions view <TX-REF>` command
+- the cue is still intentionally weaker than a real linking strategy:
+  - it only appears when the pair is unique
+  - it requires the same tracked self-address on both chains
+  - it requires native assets on both chains
+  - it tolerates partial receipt, but only above a conservative receipt ratio
+- exact same-profile exact-amount migrations now also carry counterpart
+  transaction fingerprints, which makes those cues more actionable in JSON too
+
+Command-surface assessment:
+
+- improved:
+  - `links gaps view` now points directly to the paired transaction instead of
+    sending the operator back to generic `links run`
+  - JSON now carries both `gapCueCounterpartTxFingerprint` and
+    `gapCueCounterpartTransactionRef`, which is enough for a future user-facing
+    skill to build a deterministic next step
+- still unresolved:
+  - this is guidance only; the linker still does not produce a real bridge
+    proposal or link strategy
+  - bridge-like flows therefore still remain in the issue queue until a human
+    confirms the route or resolves the gap explicitly
+- larger product smell:
+  - the system now knows enough to say “inspect this exact counterpart
+    transaction,” but not enough to let the operator review the pair as one
+    workflow
+  - a future bridge investigation or grouped bridge review surface would likely
+    pay off more than adding more prose to individual gap rows

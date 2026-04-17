@@ -1514,6 +1514,97 @@ describe('analyzeLinkGaps', () => {
       'likely_cross_chain_migration',
       'likely_cross_chain_migration',
     ]);
+    expect(analysis.issues.map((issue) => issue.gapCueCounterpartTxFingerprint)).toStrictEqual([
+      'render-ethereum-withdrawal',
+      'render-solana-deposit',
+    ]);
+  });
+
+  it('should cue same-owner native cross-chain pairs with partial receipt as likely cross-chain bridges', () => {
+    const ethereumWithdrawal = createBlockchainWithdrawal({
+      id: 410,
+      accountId: 21,
+      txFingerprint: 'eth-bridge-withdrawal',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-08-15T18:10:00.000Z',
+      timestamp: Date.parse('2024-08-15T18:10:00.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xrouter000000000000000000000000000000000001',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-bridge-withdrawal-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('1.005'),
+            netAmount: parseDecimal('1.005'),
+          },
+        ],
+      },
+    });
+
+    const arbitrumDeposit = createBlockchainDeposit({
+      id: 411,
+      accountId: 22,
+      txFingerprint: 'arb-bridge-deposit',
+      platformKey: 'arbitrum',
+      platformKind: 'blockchain',
+      datetime: '2024-08-15T18:18:00.000Z',
+      timestamp: Date.parse('2024-08-15T18:18:00.000Z'),
+      from: '0xrouter000000000000000000000000000000000002',
+      to: '0x15a2000000000000000000000000000000000000',
+      blockchain: {
+        name: 'arbitrum',
+        transaction_hash: 'arb-bridge-deposit-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:arbitrum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.998'),
+            netAmount: parseDecimal('0.998'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+    });
+
+    const analysis = analyzeLinkGaps([ethereumWithdrawal, arbitrumDeposit], [], {
+      accounts: [
+        createMockAccount({
+          id: 21,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+        createMockAccount({
+          id: 22,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.map((issue) => issue.gapCue)).toStrictEqual([
+      'likely_cross_chain_bridge',
+      'likely_cross_chain_bridge',
+    ]);
+    expect(analysis.issues.map((issue) => issue.gapCueCounterpartTxFingerprint)).toStrictEqual([
+      'eth-bridge-withdrawal',
+      'arb-bridge-deposit',
+    ]);
   });
 
   it('should not cue same-asset cross-chain pairs across different profiles', () => {

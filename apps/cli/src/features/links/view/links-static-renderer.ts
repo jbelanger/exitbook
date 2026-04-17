@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
+import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import type { LinkGapBrowseItem, LinkGapEndpointOwnership } from '../links-gaps-browse-model.js';
 
@@ -301,12 +302,18 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const { gapIssue } = item;
   const coverageNum = parseFloat(gapIssue.confirmedCoveragePercent);
   const suggestedProposalRefs = item.suggestedProposalRefs ?? [];
+  const gapCueCounterpartTransactionRef =
+    gapIssue.gapCueCounterpartTxFingerprint !== undefined
+      ? formatTransactionFingerprintRef(gapIssue.gapCueCounterpartTxFingerprint)
+      : undefined;
   const nextStep =
     suggestedProposalRefs.length > 0
       ? `exitbook links confirm ${suggestedProposalRefs[0]!}`
-      : gapIssue.suggestedCount > 0
-        ? 'exitbook links explore --status suggested'
-        : 'exitbook links run';
+      : gapCueCounterpartTransactionRef !== undefined
+        ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
+        : gapIssue.suggestedCount > 0
+          ? 'exitbook links explore --status suggested'
+          : 'exitbook links run';
 
   const lines = [
     `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(`[${gapIssue.direction}]`)}`,
@@ -354,6 +361,12 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
     ...(gapIssue.gapCue ? [buildDetailLine('Cue', colorizeText('cyan', formatGapCueLabel(gapIssue.gapCue)))] : []),
+    ...(gapCueCounterpartTransactionRef !== undefined
+      ? [
+          buildDetailLine('Counterpart tx ref', gapCueCounterpartTransactionRef),
+          buildDetailLine('Inspect counterpart', `exitbook transactions view ${gapCueCounterpartTransactionRef}`),
+        ]
+      : []),
     ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),

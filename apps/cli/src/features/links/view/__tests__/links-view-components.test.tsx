@@ -9,6 +9,7 @@ import { Decimal } from 'decimal.js';
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
+import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import type { LinkWithTransactions } from '../../links-view-model.js';
 import { LinksViewApp } from '../links-view-components.jsx';
 import { createGapsViewState, createLinksViewState } from '../links-view-state.js';
@@ -645,6 +646,33 @@ describe('LinksViewApp - gaps mode', () => {
     // Normalize to handle text wrapping across lines
     const normalizedFrame = frame!.replace(/\n/g, ' ').replace(/\s+/g, ' ');
     expect(normalizedFrame).toContain('may be treated as a gift');
+  });
+
+  it('renders bridge counterpart guidance in the gap detail panel', () => {
+    const analysis = createMockGapAnalysis();
+    analysis.issues[0] = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_cross_chain_bridge',
+      gapCueCounterpartTxFingerprint: 'arb-bridge-counterpart',
+      suggestedCount: 0,
+    };
+    const state = createGapsViewState(analysis);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+    const counterpartRef = formatTransactionFingerprintRef('arb-bridge-counterpart');
+
+    expect(normalizedFrame).toContain('likely same-owner cross-chain bridge');
+    expect(normalizedFrame).toContain('Counterpart tx ref:');
+    expect(normalizedFrame).toContain(counterpartRef);
+    expect(normalizedFrame).toContain('exitbook transactions view');
+    expect(normalizedFrame).toContain('before resolving this gap');
   });
 
   it('renders resolution override empty state when all open gaps are hidden', () => {

@@ -24,6 +24,7 @@ import {
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 30 * 60 * 1000;
+const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
@@ -94,12 +95,20 @@ interface CrossChainMigrationCueCandidate {
   assetId: string;
   assetSymbol: string;
   blockchainName: string;
+  counterpartyAddress?: string | undefined;
   direction: LinkGapDirection;
+  isNativeAsset: boolean;
   issueKey: string;
   profileId: number;
   selfAddress: string;
   timestampMs: number;
   totalAmount: Decimal;
+  txFingerprint: string;
+}
+
+interface GapCueAnnotation {
+  cue: GapCueKind;
+  counterpartTxFingerprint?: string | undefined;
 }
 
 function normalizeAddress(address: string | undefined): string | undefined {
@@ -861,7 +870,18 @@ function buildCrossChainMigrationCueCandidates(
       assetId: issue.assetId,
       assetSymbol: issue.assetSymbol.toUpperCase(),
       blockchainName: tx.blockchain.name,
+      counterpartyAddress: getCounterpartyAddress({
+        assetId: issue.assetId,
+        assetSymbol: issue.assetSymbol.toUpperCase(),
+        blockchainName: tx.blockchain.name,
+        direction: issue.direction,
+        selfAddress,
+        timestampMs: tx.timestamp,
+        totalAmount: parseDecimal(issue.totalAmount),
+        transaction: tx,
+      }),
       direction: issue.direction,
+      isNativeAsset: isBlockchainNativeAssetForTransaction(tx, issue.assetId),
       issueKey: buildLinkGapIssueKey({
         txFingerprint: issue.txFingerprint,
         assetId: issue.assetId,
@@ -871,6 +891,7 @@ function buildCrossChainMigrationCueCandidates(
       selfAddress,
       timestampMs: tx.timestamp,
       totalAmount: parseDecimal(issue.totalAmount),
+      txFingerprint: issue.txFingerprint,
     });
   }
 
@@ -900,6 +921,52 @@ function isLikelyCrossChainMigrationCuePair(
   return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
 }
 
+function isLikelyCrossChainBridgeCuePair(
+  left: CrossChainMigrationCueCandidate,
+  right: CrossChainMigrationCueCandidate
+): boolean {
+  if (left.direction === right.direction) {
+    return false;
+  }
+
+  if (left.profileId !== right.profileId || left.accountId === right.accountId) {
+    return false;
+  }
+
+  if (left.blockchainName === right.blockchainName) {
+    return false;
+  }
+
+  if (left.assetSymbol !== right.assetSymbol || left.selfAddress !== right.selfAddress) {
+    return false;
+  }
+
+  if (!left.isNativeAsset || !right.isNativeAsset) {
+    return false;
+  }
+
+  if (left.counterpartyAddress === undefined || right.counterpartyAddress === undefined) {
+    return false;
+  }
+
+  if (left.counterpartyAddress === left.selfAddress || right.counterpartyAddress === right.selfAddress) {
+    return false;
+  }
+
+  const outflowCandidate = left.direction === 'outflow' ? left : right;
+  const inflowCandidate = left.direction === 'inflow' ? left : right;
+  if (!outflowCandidate.totalAmount.greaterThan(inflowCandidate.totalAmount)) {
+    return false;
+  }
+
+  const receiptRatio = inflowCandidate.totalAmount.dividedBy(outflowCandidate.totalAmount);
+  if (receiptRatio.lessThan(CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO)) {
+    return false;
+  }
+
+  return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
+}
+
 function addCuePairMatch(
   matchesByIssueKey: Map<string, Set<string>>,
   leftIssueKey: string,
@@ -914,24 +981,27 @@ function addCuePairMatch(
   matchesByIssueKey.set(rightIssueKey, rightMatches);
 }
 
-function detectCrossChainMigrationCueIssueKeys(
+function detectUniqueCrossChainCueAnnotations(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
-  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
-): Map<string, GapCueKind> {
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  isPairMatch: (left: CrossChainMigrationCueCandidate, right: CrossChainMigrationCueCandidate) => boolean,
+  cue: GapCueKind
+): Map<string, GapCueAnnotation> {
   const transactionById = buildTransactionById(transactions);
   const candidates = buildCrossChainMigrationCueCandidates(issues, transactionById, accountContextById);
   if (candidates.length < 2) {
-    return new Map<string, GapCueKind>();
+    return new Map<string, GapCueAnnotation>();
   }
 
   const outflowCandidates = candidates.filter((candidate) => candidate.direction === 'outflow');
   const inflowCandidates = candidates.filter((candidate) => candidate.direction === 'inflow');
+  const candidateByIssueKey = new Map(candidates.map((candidate) => [candidate.issueKey, candidate]));
   const matchesByIssueKey = new Map<string, Set<string>>();
 
   for (const outflowCandidate of outflowCandidates) {
     for (const inflowCandidate of inflowCandidates) {
-      if (!isLikelyCrossChainMigrationCuePair(outflowCandidate, inflowCandidate)) {
+      if (!isPairMatch(outflowCandidate, inflowCandidate)) {
         continue;
       }
 
@@ -939,7 +1009,7 @@ function detectCrossChainMigrationCueIssueKeys(
     }
   }
 
-  const cueByIssueKey = new Map<string, GapCueKind>();
+  const cueByIssueKey = new Map<string, GapCueAnnotation>();
   for (const [issueKey, matches] of matchesByIssueKey.entries()) {
     if (matches.size !== 1) {
       continue;
@@ -951,15 +1021,52 @@ function detectCrossChainMigrationCueIssueKeys(
       continue;
     }
 
-    cueByIssueKey.set(issueKey, 'likely_cross_chain_migration');
-    cueByIssueKey.set(counterpartIssueKey, 'likely_cross_chain_migration');
+    const counterpartTxFingerprint = candidateByIssueKey.get(counterpartIssueKey)?.txFingerprint;
+    cueByIssueKey.set(issueKey, {
+      cue,
+      counterpartTxFingerprint,
+    });
+    cueByIssueKey.set(counterpartIssueKey, {
+      cue,
+      counterpartTxFingerprint: candidateByIssueKey.get(issueKey)?.txFingerprint,
+    });
   }
 
   return cueByIssueKey;
 }
 
-function mergeGapCueIssueKeys(...cueMaps: readonly ReadonlyMap<string, GapCueKind>[]): Map<string, GapCueKind> {
-  const merged = new Map<string, GapCueKind>();
+function detectCrossChainMigrationCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): Map<string, GapCueAnnotation> {
+  return detectUniqueCrossChainCueAnnotations(
+    issues,
+    transactions,
+    accountContextById,
+    isLikelyCrossChainMigrationCuePair,
+    'likely_cross_chain_migration'
+  );
+}
+
+function detectCrossChainBridgeCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): Map<string, GapCueAnnotation> {
+  return detectUniqueCrossChainCueAnnotations(
+    issues,
+    transactions,
+    accountContextById,
+    isLikelyCrossChainBridgeCuePair,
+    'likely_cross_chain_bridge'
+  );
+}
+
+function mergeGapCueIssueKeys(
+  ...cueMaps: readonly ReadonlyMap<string, GapCueAnnotation>[]
+): Map<string, GapCueAnnotation> {
+  const merged = new Map<string, GapCueAnnotation>();
 
   for (const cueMap of cueMaps) {
     for (const [issueKey, cue] of cueMap.entries()) {
@@ -976,10 +1083,16 @@ function detectGapCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
-): Map<string, GapCueKind> {
+): Map<string, GapCueAnnotation> {
+  const correlatedServiceSwapCues = detectCorrelatedServiceSwapCueIssueKeys(issues, transactions);
+  const correlatedServiceSwapAnnotations = new Map(
+    [...correlatedServiceSwapCues.entries()].map(([issueKey, cue]) => [issueKey, { cue } satisfies GapCueAnnotation])
+  );
+
   return mergeGapCueIssueKeys(
-    detectCorrelatedServiceSwapCueIssueKeys(issues, transactions),
-    detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById)
+    correlatedServiceSwapAnnotations,
+    detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
+    detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById)
   );
 }
 
@@ -1002,7 +1115,15 @@ function applyGapCues(
           assetId: issue.assetId,
           direction: issue.direction,
         })
-      ) ?? issue.gapCue,
+      )?.cue ?? issue.gapCue,
+    gapCueCounterpartTxFingerprint:
+      cueByIssueKey.get(
+        buildLinkGapIssueKey({
+          txFingerprint: issue.txFingerprint,
+          assetId: issue.assetId,
+          direction: issue.direction,
+        })
+      )?.counterpartTxFingerprint ?? issue.gapCueCounterpartTxFingerprint,
   }));
 }
 

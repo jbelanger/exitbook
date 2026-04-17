@@ -2,6 +2,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import { jsonSuccess, textSuccess, type CliCompletion } from '../../../../cli/command.js';
 import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.js';
+import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../../view/links-static-renderer.js';
 
@@ -99,6 +100,11 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     highestSuggestedConfidencePercent: item.gapIssue.highestSuggestedConfidencePercent,
     direction: item.gapIssue.direction,
     gapCue: item.gapIssue.gapCue,
+    gapCueCounterpartTxFingerprint: item.gapIssue.gapCueCounterpartTxFingerprint,
+    gapCueCounterpartTransactionRef:
+      item.gapIssue.gapCueCounterpartTxFingerprint !== undefined
+        ? formatTransactionFingerprintRef(item.gapIssue.gapCueCounterpartTxFingerprint)
+        : undefined,
     contextHint: item.gapIssue.contextHint,
   };
 }

@@ -209,4 +209,37 @@ describe('links static renderer', () => {
     expect(stripAnsi(output)).toContain('2 resolved gap exceptions hidden');
     expect(stripAnsi(output)).toContain('No open gaps. 2 resolved gap exceptions are hidden.');
   });
+
+  it('shows cue counterpart guidance for likely bridge gaps', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_cross_chain_bridge' as const,
+      gapCueCounterpartTxFingerprint: 'arb-bridge-counterpart',
+      suggestedCount: 0,
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+
+    expect(stripAnsi(detailOutput)).toContain('Cue: likely same-owner cross-chain bridge');
+    expect(stripAnsi(detailOutput)).toContain(
+      `Counterpart tx ref: ${formatTransactionFingerprintRef('arb-bridge-counterpart')}`
+    );
+    expect(stripAnsi(detailOutput)).toContain(
+      `Inspect counterpart: exitbook transactions view ${formatTransactionFingerprintRef('arb-bridge-counterpart')}`
+    );
+    expect(stripAnsi(detailOutput)).toContain(
+      `Next: exitbook transactions view ${formatTransactionFingerprintRef('arb-bridge-counterpart')}`
+    );
+  });
 });

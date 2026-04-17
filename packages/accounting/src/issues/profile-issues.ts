@@ -234,6 +234,8 @@ function formatGapCueLabel(cue: GapCueKind): string {
       return 'likely correlated service swap';
     case 'likely_cross_chain_migration':
       return 'likely cross-chain migration';
+    case 'likely_cross_chain_bridge':
+      return 'likely same-owner cross-chain bridge';
   }
 }
 

@@ -2,7 +2,10 @@
  * Link gap issue details.
  */
 export type LinkGapDirection = 'inflow' | 'outflow';
-export type GapCueKind = 'likely_correlated_service_swap' | 'likely_cross_chain_migration';
+export type GapCueKind =
+  | 'likely_correlated_service_swap'
+  | 'likely_cross_chain_migration'
+  | 'likely_cross_chain_bridge';
 
 export interface GapContextHint {
   kind: 'diagnostic' | 'movement_role';
@@ -34,6 +37,7 @@ export interface LinkGapIssue {
   highestSuggestedConfidencePercent?: string | undefined;
   direction: LinkGapDirection;
   gapCue?: GapCueKind | undefined;
+  gapCueCounterpartTxFingerprint?: string | undefined;
   contextHint?: GapContextHint | undefined;
 }
 

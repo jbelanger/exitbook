@@ -52,7 +52,13 @@ describe('links-gaps-browse-output', () => {
 
     const output = result.value.output as CliJsonOutput;
     const payload = output.data as {
-      data: [{ suggestedProposalRefs?: string[]; transactionContext?: { openSameHashGapRowCount?: number } }];
+      data: [
+        {
+          gapCueCounterpartTransactionRef?: string;
+          suggestedProposalRefs?: string[];
+          transactionContext?: { openSameHashGapRowCount?: number };
+        },
+      ];
       meta: {
         filters: {
           hiddenByResolutionOverrides: number;
@@ -63,5 +69,62 @@ describe('links-gaps-browse-output', () => {
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
     expect(payload.data[0]?.transactionContext?.openSameHashGapRowCount).toBe(2);
+  });
+
+  it('includes cue counterpart transaction refs in json detail', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_cross_chain_bridge' as const,
+      gapCueCounterpartTxFingerprint: 'arb-bridge-counterpart',
+    };
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [gapIssue],
+      },
+      {
+        hiddenResolvedIssueCount: 0,
+      }
+    );
+    const gap = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const result = buildLinksGapsBrowseCompletion(
+      {
+        gaps: [gap],
+        selectedGap: gap,
+        state,
+      },
+      'detail',
+      'json',
+      { selector: gap.transactionRef }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    const output = result.value.output as CliJsonOutput;
+    const payload = output.data as {
+      data: {
+        gapCueCounterpartTransactionRef?: string;
+        gapCueCounterpartTxFingerprint?: string;
+      };
+    };
+
+    expect(payload.data.gapCueCounterpartTxFingerprint).toBe('arb-bridge-counterpart');
+    expect(payload.data.gapCueCounterpartTransactionRef).toBe(
+      formatTransactionFingerprintRef('arb-bridge-counterpart')
+    );
   });
 });
