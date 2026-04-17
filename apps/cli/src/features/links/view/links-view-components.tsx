@@ -41,6 +41,7 @@ import {
   formatProposalProvenanceDetail,
   formatProposalRoute,
   formatResolvedGapExceptionCount,
+  gapCueSuggestsGapException,
   getConfidenceColor,
   getCoverageColor,
   getGapSuggestionColor,
@@ -862,13 +863,16 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
     issue.gapCueCounterpartTxFingerprint !== undefined
       ? formatTransactionFingerprintRef(issue.gapCueCounterpartTxFingerprint)
       : undefined;
+  const cueSuggestsGapException = gapCueSuggestsGapException(issue.gapCue);
 
   const actionText =
-    gapCueCounterpartTransactionRef !== undefined
-      ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\` before resolving this gap.`
-      : issue.direction === 'inflow'
-        ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
-        : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
+    cueSuggestsGapException && gapCueCounterpartTransactionRef !== undefined
+      ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\`, then resolve this gap if it reflects adjacent non-link activity.`
+      : gapCueCounterpartTransactionRef !== undefined
+        ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\` before resolving this gap.`
+        : issue.direction === 'inflow'
+          ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
+          : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
 
   return [
     <Text key="title">
@@ -1063,6 +1067,15 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
           </Text>,
         ]
       : []),
+    ...(cueSuggestsGapException
+      ? [
+          <Text key="likely-outcome">
+            {'  '}
+            <Text dimColor>Likely outcome: </Text>
+            <Text>No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.</Text>
+          </Text>,
+        ]
+      : []),
     ...(issue.contextHint
       ? [
           <Text key="context">
@@ -1091,8 +1104,15 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
         </Text>
       ) : gapCueCounterpartTransactionRef !== undefined ? (
         <Text>
-          inspect <Text dimColor>`exitbook transactions view ${gapCueCounterpartTransactionRef}`</Text>, then decide
-          whether this is a real bridge or an external route
+          inspect <Text dimColor>`exitbook transactions view ${gapCueCounterpartTransactionRef}`</Text>, then{' '}
+          {cueSuggestsGapException ? (
+            <Text>
+              use <Text dimColor>`exitbook links gaps resolve ${gap.gapRef}`</Text> if no direct internal transfer
+              exists
+            </Text>
+          ) : (
+            <Text>decide whether this is a real bridge or an external route</Text>
+          )}
         </Text>
       ) : (
         <Text>

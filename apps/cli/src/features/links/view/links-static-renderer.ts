@@ -23,6 +23,7 @@ import {
   formatProposalProvenanceDetail,
   formatProposalRoute,
   formatResolvedGapExceptionCount,
+  gapCueSuggestsGapException,
   getCoverageColor,
   getGapSuggestionColor,
   getProposalAmountDisplay,
@@ -308,14 +309,17 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     gapIssue.gapCueCounterpartTxFingerprint !== undefined
       ? formatTransactionFingerprintRef(gapIssue.gapCueCounterpartTxFingerprint)
       : undefined;
+  const cueSuggestsGapException = gapCueSuggestsGapException(gapIssue.gapCue);
   const nextStep =
     suggestedProposalRefs.length > 0
       ? `exitbook links confirm ${suggestedProposalRefs[0]!}`
-      : gapCueCounterpartTransactionRef !== undefined
-        ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
-        : gapIssue.suggestedCount > 0
-          ? 'exitbook links explore --status suggested'
-          : 'exitbook links run';
+      : cueSuggestsGapException
+        ? `exitbook links gaps resolve ${item.gapRef}`
+        : gapCueCounterpartTransactionRef !== undefined
+          ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
+          : gapIssue.suggestedCount > 0
+            ? 'exitbook links explore --status suggested'
+            : 'exitbook links run';
 
   const lines = [
     `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(`[${gapIssue.direction}]`)}`,
@@ -371,6 +375,14 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       ? [
           buildDetailLine('Counterpart tx ref', gapCueCounterpartTransactionRef),
           buildDetailLine('Inspect counterpart', `exitbook transactions view ${gapCueCounterpartTransactionRef}`),
+        ]
+      : []),
+    ...(cueSuggestsGapException
+      ? [
+          buildDetailLine(
+            'Likely outcome',
+            'No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.'
+          ),
         ]
       : []),
     ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),

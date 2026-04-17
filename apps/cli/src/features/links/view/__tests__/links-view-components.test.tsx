@@ -559,6 +559,7 @@ describe('LinksViewApp - gaps mode', () => {
     analysis.issues[0] = {
       ...analysis.issues[0]!,
       gapCue: 'likely_correlated_service_swap',
+      gapCueCounterpartTxFingerprint: 'solana-inflow-2',
       contextHint: {
         kind: 'diagnostic',
         code: 'classification_uncertain',
@@ -583,10 +584,11 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('Readiness:');
     expect(normalizedFrame).toContain('Cue:');
     expect(normalizedFrame).toContain('likely correlated service swap');
+    expect(normalizedFrame).toContain('Likely outcome:');
+    expect(normalizedFrame).toContain('No direct internal transfer; inspect the counterpart, then resolve this gap');
+    expect(normalizedFrame).toContain('Inspect counterpart:');
     expect(normalizedFrame).toContain('Context:');
     expect(normalizedFrame).toContain('wallet-scoped staking withdrawal of 10.524451 ADA');
-    expect(normalizedFrame).toContain('Next:');
-    expect(normalizedFrame).toContain('exitbook links run');
   });
 
   it('renders shared transaction investigation context in the gap detail panel', () => {

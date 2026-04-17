@@ -193,6 +193,9 @@ Behavior:
     known
   - inspect the paired transaction first when the gap carries a paired cue such
     as `likely same-owner cross-chain bridge`
+  - inspect the paired transaction, then resolve the gap when the cue suggests
+    adjacent non-link activity such as `likely correlated service swap` or
+    `likely receive then forward`
   - review suggested proposals with `links explore --status suggested` only
     when suggestions exist but no exact ref can be derived
   - use `links gaps resolve <gap-ref>` when the transaction intentionally has no internal link

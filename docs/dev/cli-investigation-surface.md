@@ -106,6 +106,11 @@ What shipped:
   instead of staying completely patternless
 - same-wallet paired inflow/outflow patterns can now surface a `likely receive
 then forward` cue with an exact counterpart transaction
+- near-equal same-profile cross-chain pairs can now surface a `likely
+cross-chain migration` cue instead of requiring exact amount equality
+- paired no-link cues such as `likely correlated service swap` and `likely
+receive then forward` now steer the operator toward counterpart inspection
+  plus `links gaps resolve`, instead of generic transfer review
 - exact proposal refs when they are derivable
 - immediate profile-issue refresh after profile-owned corrective actions
 
@@ -206,11 +211,11 @@ These ideas were considered and rejected for now:
 
 ### Next bounded model decision
 
-1. Use cross-profile ownership evidence to resolve the current repeated gap
-   cases through the CLI.
-   - a cross-profile route is enough to treat the wallet as not owned by the
-     active profile
-   - broader external-wallet modeling stays deferred unless gaps remain hard
+1. Decide whether the paired cues that now identify bridge-like and
+   migration-like activity should stay row-by-row, or gain a narrow pair-level
+   action under `links gaps`.
+   - current cues are strong enough to explain the pair
+   - current mutation flow is still two separate `resolve` decisions
 
 ### Discussion-heavy work after that
 

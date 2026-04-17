@@ -1595,6 +1595,89 @@ describe('analyzeLinkGaps', () => {
     ]);
   });
 
+  it('should cue near-equal same-profile cross-chain pairs as likely cross-chain migrations', () => {
+    const renderWithdrawal = createBlockchainWithdrawal({
+      id: 414,
+      accountId: 11,
+      txFingerprint: 'render-ethereum-withdrawal-near-equal',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:14:11.000Z',
+      timestamp: Date.parse('2024-07-30T22:14:11.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'render-ethereum-withdrawal-near-equal-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:render',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('80.617423'),
+            netAmount: parseDecimal('80.617423'),
+          },
+        ],
+      },
+    });
+
+    const renderDeposit = createBlockchainDeposit({
+      id: 415,
+      accountId: 15,
+      txFingerprint: 'render-solana-deposit-near-equal',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2024-07-30T22:53:40.000Z',
+      timestamp: Date.parse('2024-07-30T22:53:40.000Z'),
+      from: 'AYm4Knn6Sw1f52Eq42ujQ2ez5Xb7iBJeviprFCA7ADCy',
+      to: 'GRyBys8cE2rLiaqvAYEAWL3U3dkmifY8TKXWX2tdioj4',
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'render-solana-deposit-near-equal-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:render',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('80.61'),
+            netAmount: parseDecimal('80.61'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([renderWithdrawal, renderDeposit], [], {
+      accounts: [
+        createMockAccount({
+          id: 11,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+        createMockAccount({
+          id: 15,
+          identifier: 'GRyBys8cE2rLiaqvAYEAWL3U3dkmifY8TKXWX2tdioj4',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.map((issue) => issue.gapCue)).toStrictEqual([
+      'likely_cross_chain_migration',
+      'likely_cross_chain_migration',
+    ]);
+    expect(analysis.issues.map((issue) => issue.gapCueCounterpartTxFingerprint)).toStrictEqual([
+      'render-ethereum-withdrawal-near-equal',
+      'render-solana-deposit-near-equal',
+    ]);
+  });
+
   it('should cue same-owner native cross-chain pairs with partial receipt as likely cross-chain bridges', () => {
     const ethereumWithdrawal = createBlockchainWithdrawal({
       id: 410,
@@ -1994,8 +2077,8 @@ describe('analyzeLinkGaps', () => {
           {
             assetId: 'blockchain:solana:render',
             assetSymbol: 'RENDER' as Currency,
-            grossAmount: parseDecimal('80.610001'),
-            netAmount: parseDecimal('80.610001'),
+            grossAmount: parseDecimal('80.4'),
+            netAmount: parseDecimal('80.4'),
           },
         ],
         outflows: [],

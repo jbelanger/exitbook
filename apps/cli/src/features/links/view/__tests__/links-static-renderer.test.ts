@@ -288,6 +288,7 @@ describe('links static renderer', () => {
       ...analysis.issues[0]!,
       gapCue: 'likely_receive_then_forward' as const,
       suggestedCount: 0,
+      gapCueCounterpartTxFingerprint: 'eth-outflow-2',
     };
     const item = {
       gapRef: buildLinkGapRef({
@@ -303,5 +304,12 @@ describe('links static renderer', () => {
     const detailOutput = buildLinkGapStaticDetail(item);
 
     expect(stripAnsi(detailOutput)).toContain('Cue: likely receive then forward');
+    expect(stripAnsi(detailOutput)).toContain(
+      `Inspect counterpart: exitbook transactions view ${formatTransactionFingerprintRef('eth-outflow-2')}`
+    );
+    expect(stripAnsi(detailOutput)).toContain(
+      'Likely outcome: No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.'
+    );
+    expect(stripAnsi(detailOutput)).toContain(`Next: exitbook links gaps resolve ${item.gapRef}`);
   });
 });

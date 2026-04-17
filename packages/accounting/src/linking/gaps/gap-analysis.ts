@@ -25,7 +25,8 @@ const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const RECEIVE_THEN_FORWARD_CUE_WINDOW_MS = 4 * 60 * 60 * 1000;
 const RECEIVE_THEN_FORWARD_MIN_RATIO = parseDecimal('0.999');
-const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 30 * 60 * 1000;
+const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 60 * 60 * 1000;
+const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
@@ -788,6 +789,16 @@ function isBlockchainNativeAsset(assetId: string, blockchainName: string): boole
   );
 }
 
+function hasAmountSimilarity(leftAmount: Decimal, rightAmount: Decimal, minRatio: Decimal): boolean {
+  const largerAmount = leftAmount.greaterThan(rightAmount) ? leftAmount : rightAmount;
+  const smallerAmount = leftAmount.greaterThan(rightAmount) ? rightAmount : leftAmount;
+  if (largerAmount.isZero()) {
+    return false;
+  }
+
+  return smallerAmount.dividedBy(largerAmount).greaterThanOrEqualTo(minRatio);
+}
+
 function getCorrelatedServiceSwapCue(windowCandidates: readonly ServiceSwapCueCandidate[]): GapCueKind | undefined {
   if (windowCandidates.length < 2) {
     return undefined;
@@ -941,7 +952,10 @@ function isLikelyCrossChainMigrationCuePair(left: PairedGapCueCandidate, right: 
     return false;
   }
 
-  if (left.assetSymbol !== right.assetSymbol || !left.totalAmount.eq(right.totalAmount)) {
+  if (
+    left.assetSymbol !== right.assetSymbol ||
+    !hasAmountSimilarity(left.totalAmount, right.totalAmount, CROSS_CHAIN_MIGRATION_MIN_RATIO)
+  ) {
     return false;
   }
 
@@ -1030,17 +1044,7 @@ function isLikelyReceiveThenForwardCuePair(left: PairedGapCueCandidate, right: P
     return false;
   }
 
-  const largerAmount = inflowCandidate.totalAmount.greaterThan(outflowCandidate.totalAmount)
-    ? inflowCandidate.totalAmount
-    : outflowCandidate.totalAmount;
-  const smallerAmount = inflowCandidate.totalAmount.greaterThan(outflowCandidate.totalAmount)
-    ? outflowCandidate.totalAmount
-    : inflowCandidate.totalAmount;
-  if (largerAmount.isZero()) {
-    return false;
-  }
-
-  return smallerAmount.dividedBy(largerAmount).greaterThanOrEqualTo(RECEIVE_THEN_FORWARD_MIN_RATIO);
+  return hasAmountSimilarity(inflowCandidate.totalAmount, outflowCandidate.totalAmount, RECEIVE_THEN_FORWARD_MIN_RATIO);
 }
 
 function detectUniquePairedCueAnnotations(

@@ -210,6 +210,10 @@ export function formatGapCueLabel(cue: GapCueKind): string {
   }
 }
 
+export function gapCueSuggestsGapException(cue: GapCueKind | undefined): boolean {
+  return cue === 'likely_correlated_service_swap' || cue === 'likely_receive_then_forward';
+}
+
 export function formatGapSuggestionAvailability(issue: LinkGapIssue): string {
   if (issue.suggestedCount === 0) {
     return 'no suggestions yet';
