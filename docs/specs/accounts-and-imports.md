@@ -46,6 +46,10 @@ Rules:
 - `profiles add <profile>` creates the profile with `displayName === profileKey` initially
 - `profiles update <profile> --name <display-name>` changes only the display label
 - commands use the active profile unless `--profile <profile>` overrides it
+- keeping wallets that belong to a different owner or accounting boundary in a
+  separate profile can improve wallet-link investigation cues, because
+  cross-profile ownership is meaningful evidence that the wallet is not owned
+  by the active profile
 
 ### Account
 

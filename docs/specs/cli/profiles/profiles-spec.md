@@ -11,6 +11,12 @@ status: draft
 
 A profile represents an independent dataset and reporting context. Accounts, imports, derived projections, and reports all operate against the resolved active profile unless a command explicitly documents otherwise.
 
+Keeping related-but-not-owned wallets in separate profiles can also improve
+wallet-link investigation cues. When the same wallet/address is imported into a
+different local profile, investigation surfaces can treat that as
+cross-profile ownership evidence instead of assuming the wallet belongs to the
+active profile.
+
 Profiles use a static-only browse shape:
 
 - `profiles`
