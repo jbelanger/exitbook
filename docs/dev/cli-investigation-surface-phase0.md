@@ -53,12 +53,10 @@ It is now:
    row-shaped if the real workflow is grouped or paired.
 5. `transactions view` should become the deepest single-transaction inspection
    surface before we invent another inspection family.
-6. `accounts` should own wallet-boundary classification when the question is
-   "mine vs not mine", not `links`.
+6. Wallet-boundary classification should start from `accounts`, not `links`,
+   unless a later pass proves that boundary too narrow.
 7. Provider/source evidence must be viewable from the CLI for hard
    investigations.
-8. Do not keep permanent queue debt for cases the system can classify
-   mechanically or near-mechanically.
 
 ## Current Surface Map
 
@@ -275,10 +273,12 @@ Everything else should try to land inside existing surfaces first.
   - known external
   - unknown
 
-### Pass 3: Transaction Evidence Model
+### Pass 3: Transaction Evidence and Related-Context Model
 
 - decide how provider/source data should appear in `transactions view`
 - decide whether related-gap and related-transaction context also belongs there
+- decide where address/account search should live without creating a separate
+  search family
 
 ### Pass 4: Grouped Review Shape
 
@@ -293,6 +293,19 @@ Everything else should try to land inside existing surfaces first.
   - batch actions
   - stored classifications
   - linking-policy suppression
+- decide how the CLI should prevent permanent queue debt for cases that are:
+  - tiny one-way deposits
+  - repeated one-way receipts
+  - known external-wallet routes
+
+### Pass 6: Synthesis and Ranked Delivery Order
+
+- combine the Phase 0 decisions into one ranked implementation order
+- state which rewrites happen first inside:
+  - `accounts`
+  - `transactions view`
+  - `links gaps`
+- state explicitly which concerns still justify a new command, if any
 
 ## Acceptance Criteria
 
@@ -303,6 +316,8 @@ This Phase 0 is complete when:
 2. We have a decided home for provider/source data inspection.
 3. We know which grouped-review problems can be absorbed by rewriting existing
    surfaces and which ones truly require a new command.
-4. We have a ranked implementation order for the redesign.
-5. We can resume live issue resolution with less repetitive guesswork than the
+4. We have a clear decision on where search and related-context inspection
+   belongs.
+5. We have a ranked implementation order for the redesign.
+6. We can resume live issue resolution with less repetitive guesswork than the
    current workflow.
