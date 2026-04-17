@@ -102,6 +102,8 @@ What shipped:
 - clearer gap-specific language instead of generic queue language
 - better transaction snapshot and related context in static, JSON, and TUI
 - same-hash context and counterpart transaction cues for bridge-like patterns
+- low-value priced one-sided blockchain gaps now surface a `likely dust` cue
+  instead of staying completely patternless
 - exact proposal refs when they are derivable
 - immediate profile-issue refresh after profile-owned corrective actions
 

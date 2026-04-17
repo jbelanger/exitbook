@@ -258,4 +258,27 @@ describe('links static renderer', () => {
       `Next: exitbook transactions view ${formatTransactionFingerprintRef('arb-bridge-counterpart')}`
     );
   });
+
+  it('shows the likely dust cue label in gap detail', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      gapCue: 'likely_dust' as const,
+      suggestedCount: 0,
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+
+    expect(stripAnsi(detailOutput)).toContain('Cue: likely low-value dust');
+  });
 });

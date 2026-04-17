@@ -25,6 +25,7 @@ const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 30 * 60 * 1000;
 const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
+const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
@@ -289,6 +290,33 @@ function getOneSidedBlockchainActivity(
   }
 
   return undefined;
+}
+
+function calculateOneSidedActivityFiatValue(activity: OneSidedBlockchainActivity): Decimal | undefined {
+  const pricedMovements = filterTransferEligibleMovements(
+    activity.direction === 'inflow' ? activity.transaction.movements.inflows : activity.transaction.movements.outflows
+  ).filter((movement) => movement.assetId === activity.assetId);
+
+  if (pricedMovements.length === 0) {
+    return undefined;
+  }
+
+  let totalFiatValue = parseDecimal('0');
+  for (const movement of pricedMovements) {
+    const amount = movement.netAmount ?? movement.grossAmount;
+    if (!amount.greaterThan(0)) {
+      continue;
+    }
+
+    const priceAtTxTime = movement.priceAtTxTime?.price.amount;
+    if (priceAtTxTime === undefined) {
+      return undefined;
+    }
+
+    totalFiatValue = totalFiatValue.plus(amount.times(priceAtTxTime));
+  }
+
+  return totalFiatValue;
 }
 
 function getConfirmedCoverageLinks(
@@ -1063,6 +1091,52 @@ function detectCrossChainBridgeCueIssueKeys(
   );
 }
 
+function detectLikelyDustCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  excludedAssetIds?: ReadonlySet<string>
+): Map<string, GapCueAnnotation> {
+  const transactionById = buildTransactionById(transactions);
+  const cueByIssueKey = new Map<string, GapCueAnnotation>();
+
+  for (const issue of issues) {
+    if (issue.suggestedCount > 0) {
+      continue;
+    }
+
+    const transaction = transactionById.get(issue.transactionId);
+    if (transaction === undefined) {
+      continue;
+    }
+
+    const activity = getOneSidedBlockchainActivity(transaction, excludedAssetIds);
+    if (
+      activity === undefined ||
+      activity.assetId !== issue.assetId ||
+      activity.direction !== issue.direction ||
+      !activity.totalAmount.eq(parseDecimal(issue.totalAmount))
+    ) {
+      continue;
+    }
+
+    const fiatValue = calculateOneSidedActivityFiatValue(activity);
+    if (fiatValue === undefined || fiatValue.greaterThan(LIKELY_DUST_MAX_FIAT_VALUE)) {
+      continue;
+    }
+
+    cueByIssueKey.set(
+      buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      { cue: 'likely_dust' }
+    );
+  }
+
+  return cueByIssueKey;
+}
+
 function mergeGapCueIssueKeys(
   ...cueMaps: readonly ReadonlyMap<string, GapCueAnnotation>[]
 ): Map<string, GapCueAnnotation> {
@@ -1082,7 +1156,8 @@ function mergeGapCueIssueKeys(
 function detectGapCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
-  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
   const correlatedServiceSwapCues = detectCorrelatedServiceSwapCueIssueKeys(issues, transactions);
   const correlatedServiceSwapAnnotations = new Map(
@@ -1092,16 +1167,18 @@ function detectGapCueIssueKeys(
   return mergeGapCueIssueKeys(
     correlatedServiceSwapAnnotations,
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
-    detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById)
+    detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById),
+    detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)
   );
 }
 
 function applyGapCues(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
-  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
-  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions, accountContextById);
+  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions, accountContextById, excludedAssetIds);
   if (cueByIssueKey.size === 0) {
     return [...issues];
   }
@@ -1342,7 +1419,7 @@ export function analyzeLinkGaps(
   // This cue is intentionally local to the gaps lens. It complements, rather than
   // replaces, the existing suppression heuristics for explicit same-account swaps
   // and cross-account service-flow pairs.
-  const issues = applyGapCues(rawIssues, transactions, accountContextById);
+  const issues = applyGapCues(rawIssues, transactions, accountContextById, options.excludedAssetIds);
   return {
     issues,
     summary: buildLinkGapSummary(issues),

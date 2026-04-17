@@ -3,7 +3,7 @@ import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { materializeTestTransaction } from '../../../__tests__/test-utils.js';
+import { createPriceAtTxTime, materializeTestTransaction } from '../../../__tests__/test-utils.js';
 import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from '../gap-analysis.js';
 import { buildLinkGapIssueKey } from '../gap-model.js';
 
@@ -1291,6 +1291,81 @@ describe('analyzeLinkGaps', () => {
                 assetSymbol: 'USDT' as Currency,
                 grossAmount: parseDecimal('165.1695'),
                 netAmount: parseDecimal('165.1695'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.gapCue).toBeUndefined();
+  });
+
+  it('should cue very low-value one-sided blockchain flows as likely dust when tx-time pricing is available', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 114,
+          txFingerprint: 'likely-dust-solana-inflow',
+          platformKey: 'solana',
+          platformKind: 'blockchain',
+          datetime: '2026-03-13T00:02:43.000Z',
+          timestamp: Date.parse('2026-03-13T00:02:43.000Z'),
+          from: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+          to: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+          blockchain: {
+            name: 'solana',
+            transaction_hash: 'likely-dust-solana-inflow-hash',
+            is_confirmed: true,
+          },
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:solana:native',
+                assetSymbol: 'SOL' as Currency,
+                grossAmount: parseDecimal('0.05'),
+                netAmount: parseDecimal('0.05'),
+                priceAtTxTime: createPriceAtTxTime('120'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.gapCue).toBe('likely_dust');
+  });
+
+  it('should not cue likely dust when the one-sided blockchain flow has no tx-time price', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 115,
+          txFingerprint: 'likely-dust-solana-inflow-no-price',
+          platformKey: 'solana',
+          platformKind: 'blockchain',
+          datetime: '2026-03-13T00:05:43.000Z',
+          timestamp: Date.parse('2026-03-13T00:05:43.000Z'),
+          from: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5Nt7nQkbF',
+          to: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+          blockchain: {
+            name: 'solana',
+            transaction_hash: 'likely-dust-solana-inflow-no-price-hash',
+            is_confirmed: true,
+          },
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:solana:native',
+                assetSymbol: 'SOL' as Currency,
+                grossAmount: parseDecimal('0.05'),
+                netAmount: parseDecimal('0.05'),
               },
             ],
             outflows: [],

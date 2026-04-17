@@ -137,6 +137,7 @@ Behavior:
   - a likely heuristic cue (`gapCue`)
   - or deterministic diagnostic / movement-role context (`contextHint`)
 - Current cue labels include:
+  - `likely low-value dust`
   - `likely correlated service swap`
   - `likely cross-chain migration`
   - `likely same-owner cross-chain bridge`
