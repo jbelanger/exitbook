@@ -9,6 +9,7 @@ import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 export interface TransactionsCommandScope {
   database: DataSession;
+  dataDir: string;
   profile: Profile;
 }
 
@@ -36,6 +37,7 @@ export async function prepareTransactionsCommandScope(
 
   return ok({
     database,
+    dataDir: runtime.dataDir,
     profile,
   });
 }

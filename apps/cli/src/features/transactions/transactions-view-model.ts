@@ -27,6 +27,24 @@ export interface FeeDisplayItem {
   priceAtTxTime?: { price: string; source: string } | undefined;
 }
 
+export interface TransactionEndpointAccountMatch {
+  accountName?: string | undefined;
+  accountRef: string;
+  platformKey: string;
+}
+
+export interface TransactionRelatedContext {
+  fromAccount?: TransactionEndpointAccountMatch | undefined;
+  openGapRefs?: string[] | undefined;
+  sameHashSiblingTransactionCount?: number | undefined;
+  sameHashSiblingTransactionRefs?: string[] | undefined;
+  sharedFromTransactionCount?: number | undefined;
+  sharedFromTransactionRefs?: string[] | undefined;
+  sharedToTransactionCount?: number | undefined;
+  sharedToTransactionRefs?: string[] | undefined;
+  toAccount?: TransactionEndpointAccountMatch | undefined;
+}
+
 /**
  * Per-transaction display item
  */
@@ -63,6 +81,7 @@ export interface TransactionViewItem {
   diagnostics: { code: string; message: string; severity?: string | undefined }[];
   userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;
+  relatedContext?: TransactionRelatedContext | undefined;
   rawSources?: RawTransaction[] | undefined;
 }
 

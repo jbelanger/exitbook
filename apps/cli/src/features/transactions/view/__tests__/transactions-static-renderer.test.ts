@@ -175,4 +175,35 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('normalizedData:');
     expect(stripAnsi(output)).toContain('"normalized": true');
   });
+
+  it('renders related investigation context when present', () => {
+    const output = buildTransactionStaticDetail({
+      ...createTransactionViewItem(),
+      relatedContext: {
+        fromAccount: {
+          accountName: 'wallet-main',
+          accountRef: 'abc1234567',
+          platformKey: 'ethereum',
+        },
+        openGapRefs: ['gap1234567', 'gap7654321'],
+        sameHashSiblingTransactionCount: 3,
+        sameHashSiblingTransactionRefs: ['tx11111111', 'tx22222222', 'tx33333333'],
+        sharedFromTransactionCount: 6,
+        sharedFromTransactionRefs: ['from111111', 'from222222', 'from333333', 'from444444', 'from555555'],
+        toAccount: {
+          accountRef: 'def1234567',
+          platformKey: 'arbitrum',
+        },
+      },
+    });
+
+    expect(stripAnsi(output)).toContain('Related context');
+    expect(stripAnsi(output)).toContain('From account: wallet-main (abc1234567) ethereum');
+    expect(stripAnsi(output)).toContain('To account: (def1234567) arbitrum');
+    expect(stripAnsi(output)).toContain('Open gap refs: gap1234567, gap7654321');
+    expect(stripAnsi(output)).toContain('Same-hash sibling txs: tx11111111, tx22222222, tx33333333');
+    expect(stripAnsi(output)).toContain(
+      'Same from endpoint txs: from111111, from222222, from333333, from444444, from555555 (6 total)'
+    );
+  });
 });

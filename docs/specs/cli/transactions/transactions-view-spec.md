@@ -202,11 +202,12 @@ Body order:
 13. optional `From`
 14. optional `To`
 15. optional blockchain metadata block
-16. optional `Inflows`
-17. optional `Outflows`
-18. optional transaction-fee detail block
-19. optional `User notes`
-20. optional `Source data`
+16. optional `Related context`
+17. optional `Inflows`
+18. optional `Outflows`
+19. optional transaction-fee detail block
+20. optional `User notes`
+21. optional `Source data`
 
 Rules:
 
@@ -217,6 +218,14 @@ Rules:
 - when `From` or `To` is present and the endpoint belongs to a tracked account
   set for the active profile, the detail surface appends `[tracked]` or
   `[untracked]` inline
+- `Related context` is derived from persisted profile transactions, links, and
+  accounts only; it never calls providers
+- `Related context` may include:
+  - exact owned-account matches for `From` / `To`
+  - open link-gap refs affecting the selected transaction
+  - same-hash sibling transaction refs
+  - nearby transaction refs sharing the same `from` endpoint
+  - nearby transaction refs sharing the same `to` endpoint
 - asset movement detail lines must include:
   - transaction-scoped `MOVEMENT-REF`
   - the effective `movementRole` when it is non-principal
@@ -303,6 +312,16 @@ Rules:
 - blockchain detail JSON may include:
   - `fromOwnership`
   - `toOwnership`
+- detail JSON may include `relatedContext` with:
+  - `fromAccount`
+  - `toAccount`
+  - `openGapRefs`
+  - `sameHashSiblingTransactionRefs`
+  - `sameHashSiblingTransactionCount`
+  - `sharedFromTransactionRefs`
+  - `sharedFromTransactionCount`
+  - `sharedToTransactionRefs`
+  - `sharedToTransactionCount`
 - each inflow/outflow item in detail JSON must include:
   - `movementFingerprint`
   - `movementRole`

@@ -1,3 +1,4 @@
+import { buildProfileLinkGapSourceReader } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
@@ -5,6 +6,7 @@ import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/co
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
+import { buildTransactionRelatedContext } from '../transaction-investigation-context.js';
 import {
   buildTransactionSelectorFilters,
   getTransactionSelectorErrorExitCode,
@@ -62,7 +64,7 @@ export async function buildTransactionsBrowsePresentation(
     const accountFilter = yield* await resolveSelectedAccountFilter(scope.database, scope.profile.id, params.account);
 
     if (selector) {
-      return yield* await buildDetailPresentation(scope.database, scope.profile.id, selector, trackedIdentifiers, {
+      return yield* await buildDetailPresentation(scope, selector, trackedIdentifiers, {
         providerData: params.providerData,
       });
     }
@@ -140,8 +142,7 @@ async function resolveSelectedTransaction(
 }
 
 async function buildDetailPresentation(
-  database: DataSession,
-  profileId: number,
+  scope: TransactionsCommandScope,
   selector: ResolvedTransactionSelector,
   trackedIdentifiers: ReadonlySet<string>,
   options: {
@@ -152,12 +153,24 @@ async function buildDetailPresentation(
     const rawSources =
       options.providerData === true
         ? yield* toCliResult(
-            await database.transactions.findRawTransactionsByTransactionId(selector.transaction.id, profileId),
+            await scope.database.transactions.findRawTransactionsByTransactionId(
+              selector.transaction.id,
+              scope.profile.id
+            ),
             ExitCodes.GENERAL_ERROR
           )
         : undefined;
+    const profileLinkGapSourceReader = buildProfileLinkGapSourceReader(scope.database, scope.dataDir, {
+      profileId: scope.profile.id,
+      profileKey: scope.profile.profileKey,
+    });
+    const profileLinkGapSource = yield* toCliResult(
+      await profileLinkGapSourceReader.loadProfileLinkGapSourceData(),
+      ExitCodes.GENERAL_ERROR
+    );
     const selectedTransaction = {
       ...toTransactionViewItem(selector.transaction, trackedIdentifiers),
+      relatedContext: buildTransactionRelatedContext(profileLinkGapSource, selector.transaction),
       ...(rawSources !== undefined ? { rawSources } : {}),
     };
     const jsonFilters = buildDefinedFilters(buildTransactionSelectorFilters(selector));

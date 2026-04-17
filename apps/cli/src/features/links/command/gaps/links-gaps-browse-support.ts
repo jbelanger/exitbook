@@ -8,6 +8,7 @@ import type { Transaction } from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { resolveAddressOwnership } from '../../../shared/address-ownership.js';
+import { normalizeBlockchainTransactionHashForGrouping } from '../../../shared/blockchain-transaction-hash-grouping.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import {
   buildLinkGapRef,
@@ -177,7 +178,9 @@ function buildGapTransactionContextByFingerprint(
 
     const sameHashGroup =
       transaction.blockchain !== undefined
-        ? sameHashGroupByNormalizedHash.get(normalizeGapTransactionHash(transaction.blockchain.transaction_hash))
+        ? sameHashGroupByNormalizedHash.get(
+            normalizeBlockchainTransactionHashForGrouping(transaction.blockchain.transaction_hash)
+          )
         : undefined;
 
     contexts.set(issue.txFingerprint, buildGapTransactionContext(transaction, trackedIdentifiers, sameHashGroup));
@@ -235,7 +238,7 @@ function buildOpenSameHashGroupByNormalizedHash(
       continue;
     }
 
-    const normalizedHash = normalizeGapTransactionHash(blockchainHash);
+    const normalizedHash = normalizeBlockchainTransactionHashForGrouping(blockchainHash);
     const group = groupByNormalizedHash.get(normalizedHash) ?? {
       gapRowCount: 0,
       transactionRefs: new Set<string>(),
@@ -254,10 +257,6 @@ function buildOpenSameHashGroupByNormalizedHash(
       },
     ])
   );
-}
-
-function normalizeGapTransactionHash(hash: string): string {
-  return hash.replace(/-\d+$/, '');
 }
 
 function buildSuggestedProposalRefsByIssueKey(source: ProfileLinkGapSourceData): Result<Map<string, string[]>, Error> {

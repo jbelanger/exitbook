@@ -125,10 +125,15 @@ describe('transactions view command', () => {
             findAll: vi.fn().mockResolvedValue(ok([])),
           },
           transactions: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
             findByFingerprintRef: mockFindByFingerprintRef,
             findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
           },
+          transactionLinks: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
+          },
         },
+        dataDir: '/tmp/exitbook-cli-tests',
         profile: {
           id: 1,
           profileKey: 'default',
@@ -170,6 +175,7 @@ describe('transactions view command', () => {
       txFingerprint: createFingerprint('f'),
       platformKey: 'coinbase',
       platformKind: 'exchange',
+      from: 'bc1qtrackedwallet',
       operation: {
         category: 'transfer',
         type: 'withdrawal',
@@ -183,6 +189,49 @@ describe('transactions view command', () => {
     const fingerprintRef = transaction.txFingerprint.slice(0, 10);
 
     mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
+    mockPrepareTransactionsCommandScope.mockResolvedValue(
+      ok({
+        database: {
+          accounts: {
+            findAll: vi.fn().mockResolvedValue(
+              ok([
+                {
+                  id: 44,
+                  profileId: 1,
+                  name: 'btc-wallet',
+                  parentAccountId: undefined,
+                  accountType: 'blockchain',
+                  platformKey: 'bitcoin',
+                  identifier: 'bc1qtrackedwallet',
+                  accountFingerprint: 'accountfingerprint-1234567890',
+                  providerName: undefined,
+                  credentials: undefined,
+                  lastCursor: undefined,
+                  metadata: undefined,
+                  createdAt: new Date('2026-03-01T00:00:00.000Z'),
+                  updatedAt: undefined,
+                },
+              ])
+            ),
+          },
+          transactions: {
+            findAll: vi.fn().mockResolvedValue(ok([transaction])),
+            findByFingerprintRef: mockFindByFingerprintRef,
+            findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
+          },
+          transactionLinks: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
+          },
+        },
+        dataDir: '/tmp/exitbook-cli-tests',
+        profile: {
+          id: 1,
+          profileKey: 'default',
+          displayName: 'default',
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      })
+    );
 
     await program.parseAsync(['transactions', 'view', fingerprintRef, '--json'], { from: 'user' });
 
@@ -198,6 +247,12 @@ describe('transactions view command', () => {
             name: 'solana',
             transactionHash: transaction.blockchain?.transaction_hash,
             isConfirmed: true,
+          }),
+          relatedContext: expect.objectContaining({
+            fromAccount: expect.objectContaining({
+              accountName: 'btc-wallet',
+              platformKey: 'bitcoin',
+            }),
           }),
         }),
         meta: expect.objectContaining({
