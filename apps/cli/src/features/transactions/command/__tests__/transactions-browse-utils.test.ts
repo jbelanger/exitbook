@@ -386,6 +386,38 @@ describe('applyTransactionFilters', () => {
 
       expect(result.map((tx) => tx.id)).toEqual([2]);
     });
+
+    it('matches EVM endpoints case-insensitively', () => {
+      const transactions: Transaction[] = [
+        createTestTransaction({
+          id: 1,
+          from: '0xBA7DD2a5726a5A94b3556537E7212277e0E76CBf',
+          to: '0x15A2AA147781B08A0105D678386EA63E6CA06281',
+        }),
+      ];
+
+      expect(
+        unwrapOk(
+          applyTransactionFilters(transactions, {
+            address: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+          })
+        ).map((tx) => tx.id)
+      ).toEqual([1]);
+      expect(
+        unwrapOk(
+          applyTransactionFilters(transactions, {
+            from: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+          })
+        ).map((tx) => tx.id)
+      ).toEqual([1]);
+      expect(
+        unwrapOk(
+          applyTransactionFilters(transactions, {
+            to: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          })
+        ).map((tx) => tx.id)
+      ).toEqual([1]);
+    });
   });
 
   describe('operation type filtering', () => {

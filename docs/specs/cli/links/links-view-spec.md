@@ -170,6 +170,7 @@ Behavior:
   - blockchain transaction hash
   - raw `from` / `to` endpoint values from the processed transaction
   - endpoint ownership context such as `owned source -> other-profile destination`
+    with EVM-style `0x...` endpoints matched case-insensitively
   - shared transaction investigation context reused from `transactions view`,
     including:
     - exact owned-account matches for visible endpoints

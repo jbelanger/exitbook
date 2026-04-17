@@ -2,8 +2,16 @@
 import type { Account, AccountType, ExchangeCredentials } from '@exitbook/core';
 import { AccountSchema, AmbiguousAccountFingerprintRefError, ExchangeCredentialsSchema } from '@exitbook/core';
 import type { CursorState } from '@exitbook/foundation';
-import { CursorStateSchema } from '@exitbook/foundation';
-import { err, ok, resultDo, resultTryAsync, type Result } from '@exitbook/foundation';
+import {
+  CursorStateSchema,
+  err,
+  isCaseInsensitiveIdentifier,
+  normalizeIdentifierForMatching,
+  ok,
+  resultDo,
+  resultTryAsync,
+  type Result,
+} from '@exitbook/foundation';
 import { sql } from '@exitbook/sqlite';
 import type { Selectable, Updateable } from '@exitbook/sqlite';
 import { z } from 'zod';
@@ -195,16 +203,17 @@ export class AccountRepository extends BaseRepository {
   async findByIdentifier(profileId: number, identifier: string): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {
-        const normalizedIdentifier = identifier.trim();
+        const normalizedIdentifier = normalizeIdentifierForMatching(identifier);
         if (normalizedIdentifier.length === 0) {
           return yield* err(new Error('Account identifier must not be empty'));
         }
 
-        const row = await self
-          .baseAccountQuery()
-          .where('accounts.profile_id', '=', profileId)
-          .where('accounts.identifier', '=', normalizedIdentifier)
-          .executeTakeFirst();
+        const query = self.baseAccountQuery().where('accounts.profile_id', '=', profileId);
+        const row = await (
+          isCaseInsensitiveIdentifier(normalizedIdentifier)
+            ? query.where(sql`lower(accounts.identifier)`, '=', normalizedIdentifier)
+            : query.where('accounts.identifier', '=', normalizedIdentifier)
+        ).executeTakeFirst();
 
         if (!row) {
           return undefined;

@@ -4,7 +4,7 @@ import {
   formatAccountFingerprintRef,
   type Account,
 } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, normalizeIdentifierForMatching, ok, type Result } from '@exitbook/foundation';
 import { z } from 'zod';
 
 import { ExitCodes, type ExitCode } from '../../cli/exit-codes.js';
@@ -110,7 +110,7 @@ async function resolveAccountIdentifierSelector(
   profileId: number,
   identifier: string
 ): Promise<Result<ResolvedAccountSelector, Error>> {
-  const normalizedIdentifier = identifier.trim();
+  const normalizedIdentifier = normalizeIdentifierForMatching(identifier);
   const accountResult = await accountService.getByIdentifier(profileId, normalizedIdentifier);
   if (accountResult.isErr()) {
     return err(accountResult.error);

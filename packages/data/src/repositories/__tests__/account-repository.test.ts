@@ -406,6 +406,23 @@ describe('AccountRepository', () => {
 
       expect(found).toBeUndefined();
     });
+
+    it('matches EVM identifiers case-insensitively', async () => {
+      const created = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'evm-wallet',
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+        })
+      );
+
+      const found = assertOk(await repo.findByIdentifier(1, '0xBA7DD2a5726a5A94b3556537E7212277e0E76CBf'));
+
+      expect(found?.id).toBe(created.id);
+      expect(found?.identifier).toBe('0xba7dd2a5726a5a94b3556537e7212277e0e76cbf');
+    });
   });
 
   describe('findAll', () => {

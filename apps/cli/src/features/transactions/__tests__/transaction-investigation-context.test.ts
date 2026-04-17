@@ -169,4 +169,47 @@ describe('buildTransactionRelatedContext', () => {
     expect(context?.sharedToTransactionCount).toBe(1);
     expect(context?.sharedToTransactionRefs).toEqual(['dddddddddd']);
   });
+
+  it('matches EVM endpoints case-insensitively for account and shared-endpoint context', () => {
+    const selectedTransaction = createTransaction({
+      id: 1,
+      txFingerprint: createFingerprint('e'),
+      platformKey: 'ethereum',
+      from: '0xBA7DD2a5726a5A94b3556537E7212277e0E76CBf',
+      to: '0x15A2AA147781B08A0105D678386EA63E6CA06281',
+    });
+    const sharedFromTransaction = createTransaction({
+      id: 2,
+      txFingerprint: createFingerprint('f'),
+      platformKey: 'ethereum',
+      datetime: '2026-03-01T12:05:00.000Z',
+      timestamp: Date.parse('2026-03-01T12:05:00.000Z'),
+      from: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+      to: '0x0000000000000000000000000000000000000001',
+    });
+    const source: ProfileLinkGapSourceData = {
+      accounts: [
+        createAccount({
+          name: 'wallet-main',
+          platformKey: 'ethereum',
+          identifier: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
+          accountFingerprint: 'abcdef1234567890abcdef1234567890',
+        }),
+      ],
+      excludedAssetIds: new Set(),
+      links: [],
+      resolvedIssueKeys: new Set(),
+      transactions: [selectedTransaction, sharedFromTransaction],
+    };
+
+    const context = buildTransactionRelatedContext(source, selectedTransaction);
+
+    expect(context?.toAccount).toEqual({
+      accountName: 'wallet-main',
+      accountRef: 'abcdef1234',
+      platformKey: 'ethereum',
+    });
+    expect(context?.sharedFromTransactionCount).toBe(1);
+    expect(context?.sharedFromTransactionRefs).toEqual(['ffffffffff']);
+  });
 });

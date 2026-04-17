@@ -69,6 +69,7 @@ Refresh never prints the full account detail card. Users inspect refreshed data 
 
 1. exact account name
 2. unique account fingerprint prefix, shown in the list as `ACCT-REF`
+3. exact account identifier
 
 Rules:
 
@@ -76,6 +77,8 @@ Rules:
 - selectors cannot be combined with `--platform` or `--type`
 - selector misses fail with `Account selector '<value>' not found`
 - child-account selectors are valid and may resolve to a parent-owned balance scope for balance data
+- EVM-style `0x...` identifiers are matched case-insensitively; other
+  identifiers stay exact
 
 ### Browse options
 

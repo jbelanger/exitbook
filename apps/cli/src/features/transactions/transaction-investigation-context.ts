@@ -1,6 +1,7 @@
 import { buildVisibleProfileLinkGapAnalysis, type LinkGapIssue } from '@exitbook/accounting/linking';
 import type { ProfileLinkGapSourceData } from '@exitbook/accounting/ports';
 import { formatAccountFingerprintRef, type Account, type Transaction } from '@exitbook/core';
+import { identifiersMatch } from '@exitbook/foundation';
 
 import { buildLinkGapRef } from '../links/link-selector.js';
 import { normalizeBlockchainTransactionHashForGrouping } from '../shared/blockchain-transaction-hash-grouping.js';
@@ -121,7 +122,7 @@ function buildSharedEndpointTransactionRefs(
       }
 
       const candidateEndpoint = endpoint === 'from' ? candidate.from : candidate.to;
-      return candidateEndpoint === endpointValue;
+      return identifiersMatch(candidateEndpoint, endpointValue);
     })
     .sort((left, right) => compareTransactionsByCloseness(transaction, left, right));
 
@@ -141,7 +142,7 @@ function buildEndpointAccountMatch(
     return undefined;
   }
 
-  const account = accounts.find((candidate) => candidate.identifier === endpoint);
+  const account = accounts.find((candidate) => identifiersMatch(candidate.identifier, endpoint));
   if (account === undefined) {
     return undefined;
   }

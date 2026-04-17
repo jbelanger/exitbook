@@ -1,6 +1,6 @@
 import type { DataSession } from '@exitbook/data/session';
 import type { Result } from '@exitbook/foundation';
-import { resultDoAsync } from '@exitbook/foundation';
+import { normalizeIdentifierForMatching, resultDoAsync } from '@exitbook/foundation';
 
 export type AddressOwnership = 'owned' | 'other-profile' | 'unknown';
 
@@ -14,8 +14,12 @@ export function createAddressOwnershipLookup(params: {
   ownedIdentifiers?: Iterable<string> | undefined;
 }): AddressOwnershipLookup {
   return {
-    otherProfileIdentifiers: new Set(params.otherProfileIdentifiers ?? []),
-    ownedIdentifiers: new Set(params.ownedIdentifiers ?? []),
+    otherProfileIdentifiers: new Set(
+      [...(params.otherProfileIdentifiers ?? [])].map((identifier) => normalizeIdentifierForMatching(identifier))
+    ),
+    ownedIdentifiers: new Set(
+      [...(params.ownedIdentifiers ?? [])].map((identifier) => normalizeIdentifierForMatching(identifier))
+    ),
   };
 }
 
@@ -52,11 +56,13 @@ export function resolveAddressOwnership(
     return undefined;
   }
 
-  if (ownershipLookup.ownedIdentifiers.has(endpoint)) {
+  const normalizedEndpoint = normalizeIdentifierForMatching(endpoint);
+
+  if (ownershipLookup.ownedIdentifiers.has(normalizedEndpoint)) {
     return 'owned';
   }
 
-  if (ownershipLookup.otherProfileIdentifiers.has(endpoint)) {
+  if (ownershipLookup.otherProfileIdentifiers.has(normalizedEndpoint)) {
     return 'other-profile';
   }
 

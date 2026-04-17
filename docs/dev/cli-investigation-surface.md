@@ -164,6 +164,11 @@ What shipped:
   cues in transaction snapshots
 - the implementation uses local profile/account data only; it does not create a
   new counterparty registry or account-like external model
+- EVM-style `0x...` identifiers are now matched case-insensitively across:
+  - account selector lookup
+  - transaction endpoint filters
+  - ownership cues
+  - related-context grouping
 
 ## What This Work Unlocked
 
@@ -197,6 +202,13 @@ These conclusions are now strong enough to treat as real design input:
   route investigation is still not smooth enough
 - cross-profile ownership evidence is the cheapest route to prevent the
   family-wallet misclassification churn in the current database scenarios
+- the CLI can now spot checksum-only EVM address mismatches instead of quietly
+  downgrading owned routes to `unknown`
+- provider/source dumps exposed a real false-positive class: exchange-internal
+  balance moves such as Kraken `spotfromfutures` should not become transfer-gap
+  work
+- diagnostic-backed bridge deposits are resolvable today, but they still need
+  stronger first-class guidance than a plain diagnostic hint
 
 ## What Is Not Justified
 

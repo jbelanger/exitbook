@@ -1,7 +1,7 @@
 // Utilities and types for transactions browse filters
 
 import type { Transaction } from '@exitbook/core';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, identifiersMatch, ok, type Result } from '@exitbook/foundation';
 
 import { buildDefinedFilters, parseDate } from '../../shared/view-utils.js';
 import type { CommonViewFilters } from '../../shared/view-utils.js';
@@ -50,15 +50,17 @@ export function applyTransactionFilters(
   }
 
   if (params.address) {
-    filtered = filtered.filter((tx) => tx.from === params.address || tx.to === params.address);
+    filtered = filtered.filter(
+      (tx) => identifiersMatch(tx.from, params.address) || identifiersMatch(tx.to, params.address)
+    );
   }
 
   if (params.from) {
-    filtered = filtered.filter((tx) => tx.from === params.from);
+    filtered = filtered.filter((tx) => identifiersMatch(tx.from, params.from));
   }
 
   if (params.to) {
-    filtered = filtered.filter((tx) => tx.to === params.to);
+    filtered = filtered.filter((tx) => identifiersMatch(tx.to, params.to));
   }
 
   if (params.assetId) {

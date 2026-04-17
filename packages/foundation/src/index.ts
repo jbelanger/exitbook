@@ -38,4 +38,10 @@ export { tryParseDecimal, parseDecimal, isZeroDecimal } from './money/decimal-ut
 
 export { IntegerStringSchema } from './numbers/numbers.js';
 
+export {
+  identifiersMatch,
+  isCaseInsensitiveIdentifier,
+  normalizeIdentifierForMatching,
+} from './identifiers/identifier-matching.js';
+
 export { maskAddress } from './privacy/address-masking.js';

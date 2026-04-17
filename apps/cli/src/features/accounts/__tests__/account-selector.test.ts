@@ -114,6 +114,34 @@ describe('account-selector helpers', () => {
     expect(service.getByIdentifier).toHaveBeenCalledWith(1, 'bc1qwalletaddress');
   });
 
+  it('normalizes EVM identifiers before exact identifier lookup', async () => {
+    const account = createAccount({
+      accountType: 'blockchain',
+      identifier: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+      name: undefined,
+      platformKey: 'ethereum',
+    });
+    const service = {
+      getByIdentifier: vi.fn().mockResolvedValue(ok(account)),
+      getByName: vi.fn().mockResolvedValue(ok(undefined)),
+      getByFingerprintRef: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+
+    const result = await resolveOwnedAccountSelector(service, 1, '0xBA7DD2a5726a5A94b3556537E7212277e0E76CBf');
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toEqual({
+      account,
+      kind: 'identifier',
+      value: '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf',
+    });
+    expect(service.getByIdentifier).toHaveBeenCalledWith(1, '0xba7dd2a5726a5a94b3556537e7212277e0e76cbf');
+  });
+
   it('treats a missing bare selector as an omitted selection', async () => {
     const service = {
       getByIdentifier: vi.fn(),

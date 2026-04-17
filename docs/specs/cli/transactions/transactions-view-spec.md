@@ -136,6 +136,9 @@ Rules:
 
 - `--address` matches either `from` or `to`
 - `--from` and `--to` match their respective endpoint fields exactly
+- EVM-style `0x...` endpoints are matched case-insensitively in selectors,
+  filters, ownership cues, and related-context grouping; other endpoint formats
+  stay exact
 - asset filtering matches either inflows or outflows
 - `--no-price` includes `none` and `partial` price coverage
 - empty filtered results are valid browse outcomes and do not fail
