@@ -25,6 +25,7 @@ import {
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
+import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
 import {
@@ -38,11 +39,15 @@ import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../tra
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import { outputTransactionStaticDetail, outputTransactionsStaticList } from '../view/transactions-static-renderer.js';
 
+import {
+  resolveTransactionsAccountFilter,
+  type ResolvedTransactionsAccountFilter,
+} from './transactions-account-filter.js';
 import { registerTransactionsExploreOptions } from './transactions-browse-command.js';
 import { buildTransactionsBrowsePresentation, type TransactionsBrowseParams } from './transactions-browse-support.js';
 import type { TransactionsBrowseFilters } from './transactions-browse-utils.js';
 import {
-  buildTransactionsJsonFilters,
+  buildTransactionsJsonFiltersWithResolvedAccount,
   buildTransactionsViewFilters,
   generateDefaultPath,
   parseSinceToUnixSeconds,
@@ -76,6 +81,7 @@ export function registerTransactionsExploreCommand(transactionsCommand: Command)
 Examples:
   $ exitbook transactions explore
   $ exitbook transactions explore --limit 100
+  $ exitbook transactions explore --account wallet-main
   $ exitbook transactions explore --asset BTC
   $ exitbook transactions explore --asset-id blockchain:arbitrum:0xfd086...
   $ exitbook transactions explore --platform kraken
@@ -114,7 +120,7 @@ async function executeTransactionsExploreCommand(selector: string | undefined, r
         if (selector && hasExploreFiltersOrLimit(parsedOptions.options)) {
           return yield* cliErr(
             new Error(
-              'Transaction selector cannot be combined with --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit'
+              'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit'
             ),
             ExitCodes.INVALID_ARGS
           );
@@ -139,13 +145,19 @@ async function executeTransactionsExploreCommandResult(
 
     const format = prepared.presentation.mode === 'json' ? 'json' : 'text';
     const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
+    const accountFilter = yield* await resolveSelectedAccountFilter(
+      scope.database,
+      scope.profile.id,
+      prepared.params.account
+    );
 
     if (prepared.presentation.mode === 'tui') {
       return yield* await buildTransactionsExploreTuiCompletion(
         scope.database,
         scope.profile.id,
         since,
-        prepared.params
+        prepared.params,
+        accountFilter
       );
     }
 
@@ -178,6 +190,7 @@ async function executeTransactionsExploreCommandResult(
       await readTransactionsForCommand({
         db: scope.database,
         profileId: scope.profile.id,
+        accountIds: accountFilter?.accountIds,
         platformKey: prepared.params.platform,
         since,
         until: prepared.params.until,
@@ -197,7 +210,8 @@ async function executeTransactionsExploreCommandResult(
       trackedIdentifiers,
       transactions,
       prepared.params,
-      prepared.presentation.mode
+      prepared.presentation.mode,
+      accountFilter
     );
   });
 }
@@ -208,6 +222,7 @@ function buildExploreTransactionsParams(
 ): ExploreTransactionsParams {
   return {
     transactionSelector,
+    account: options.account,
     platform: options.platform,
     assetId: options.assetId,
     assetSymbol: options.asset,
@@ -227,6 +242,7 @@ function buildExploreSurfaceSpec(selector: string | undefined) {
 
 function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): boolean {
   return (
+    options.account !== undefined ||
     options.platform !== undefined ||
     options.asset !== undefined ||
     options.assetId !== undefined ||
@@ -242,12 +258,16 @@ function buildTransactionsExploreListCompletion(
   trackedIdentifiers: ReadonlySet<string>,
   transactions: Transaction[],
   params: ExploreTransactionsParams,
-  mode: 'json' | 'static'
+  mode: 'json' | 'static',
+  accountFilter: ResolvedTransactionsAccountFilter | undefined
 ): CliCompletion {
   const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
   const categoryCounts = computeCategoryCounts(allViewItems);
   const visibleItems = allViewItems.slice(0, params.limit);
-  const filters = buildTransactionsViewFilters(params);
+  const filters = buildTransactionsViewFilters({
+    ...params,
+    account: accountFilter?.selector.value ?? params.account,
+  });
   const initialState = createTransactionsViewState(visibleItems, filters, transactions.length, categoryCounts);
 
   if (mode === 'json') {
@@ -258,7 +278,7 @@ function buildTransactionsExploreListCompletion(
         0,
         params.limit,
         transactions.length,
-        buildTransactionsJsonFilters(params)
+        buildTransactionsJsonFiltersWithResolvedAccount(params, accountFilter)
       ),
     });
   }
@@ -272,7 +292,8 @@ async function buildTransactionsExploreTuiCompletion(
   database: DataSession,
   profileId: number,
   since: number | undefined,
-  params: ExploreTransactionsParams
+  params: ExploreTransactionsParams,
+  accountFilter: ResolvedTransactionsAccountFilter | undefined
 ): Promise<Result<CliCompletion, CliFailure>> {
   return resultDoAsync(async function* () {
     const selectedTransaction = yield* await resolveSelectedTransactionForExplore(
@@ -289,6 +310,7 @@ async function buildTransactionsExploreTuiCompletion(
       await readTransactionsForCommand({
         db: database,
         profileId,
+        accountIds: accountFilter?.accountIds,
         platformKey: params.platform,
         since,
         until: params.until,
@@ -302,7 +324,10 @@ async function buildTransactionsExploreTuiCompletion(
 
     const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
     const categoryCounts = computeCategoryCounts(allViewItems);
-    const viewFilters = buildTransactionsViewFilters(params);
+    const viewFilters = buildTransactionsViewFilters({
+      ...params,
+      account: accountFilter?.selector.value ?? params.account,
+    });
     const selectedIndex = resolveSelectedIndex(allViewItems, selectedTransaction);
     const visibleItems = selectedTransaction ? allViewItems : allViewItems.slice(0, params.limit);
     const initialState = createTransactionsViewState(
@@ -319,9 +344,10 @@ async function buildTransactionsExploreTuiCompletion(
 
       const onExport: OnExport = async (exportFormat, csvFormat) => {
         try {
-          const outputPath = generateDefaultPath(viewFilters, exportFormat);
+          const outputPath = generateDefaultPath(viewFilters, exportFormat, accountFilter);
           const result = await exportHandler.execute({
             profileId,
+            accountIds: accountFilter?.accountIds,
             platformKey: params.platform,
             format: exportFormat,
             csvFormat,
@@ -364,6 +390,21 @@ async function buildTransactionsExploreTuiCompletion(
     }
 
     return silentSuccess();
+  });
+}
+
+async function resolveSelectedAccountFilter(
+  database: DataSession,
+  profileId: number,
+  accountSelector: string | undefined
+): Promise<Result<ResolvedTransactionsAccountFilter | undefined, CliFailure>> {
+  return resultDoAsync(async function* () {
+    const accountFilterResult = await resolveTransactionsAccountFilter(database, profileId, accountSelector);
+    if (accountFilterResult.isErr()) {
+      return yield* cliErr(accountFilterResult.error, getAccountSelectorErrorExitCode(accountFilterResult.error));
+    }
+
+    return accountFilterResult.value;
   });
 }
 

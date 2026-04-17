@@ -42,6 +42,7 @@ export function registerTransactionsCommand(program: Command): void {
       `
 Examples:
   $ exitbook transactions
+  $ exitbook transactions --account wallet-main
   $ exitbook transactions list --platform kraken
   $ exitbook transactions view a1b2c3d4e5
   $ exitbook transactions explore --asset BTC

@@ -21,6 +21,7 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
 });
 
 const TransactionsFilterOptionsSchema = z.object({
+  account: z.string().optional(),
   platform: z.string().optional(),
   asset: z.string().optional(),
   assetId: z.string().optional(),

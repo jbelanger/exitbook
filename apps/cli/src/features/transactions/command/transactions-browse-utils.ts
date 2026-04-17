@@ -9,10 +9,17 @@ import { getTransactionPriceStatus } from '../transaction-view-projection.js';
 import type { ExportFormat } from '../transactions-export-model.js';
 import type { TransactionsViewFilters } from '../transactions-view-model.js';
 
+import {
+  buildAccountPathSegment,
+  buildTransactionsAccountFilters,
+  type ResolvedTransactionsAccountFilter,
+} from './transactions-account-filter.js';
+
 /**
  * Parameters shared across transactions browse surfaces.
  */
 export interface TransactionsBrowseFilters extends CommonViewFilters {
+  account?: string | undefined;
   platform?: string | undefined;
   assetSymbol?: string | undefined;
   assetId?: string | undefined;
@@ -99,9 +106,13 @@ export function validateUntilDate(until: string | undefined): Result<void, Error
 }
 
 export function buildTransactionsViewFilters(
-  params: Pick<TransactionsBrowseFilters, 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'>
+  params: Pick<
+    TransactionsBrowseFilters,
+    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform'
+  >
 ): TransactionsViewFilters {
   return {
+    accountFilter: params.account,
     platformFilter: params.platform,
     assetFilter: params.assetSymbol,
     assetIdFilter: params.assetId,
@@ -113,10 +124,11 @@ export function buildTransactionsViewFilters(
 export function buildTransactionsJsonFilters(
   params: Pick<
     TransactionsBrowseFilters,
-    'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
+    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
   >
 ): Record<string, unknown> | undefined {
   return buildDefinedFilters({
+    account: params.account,
     platform: params.platform,
     asset: params.assetSymbol,
     assetId: params.assetId,
@@ -130,14 +142,41 @@ export function buildTransactionsJsonFilters(
 /**
  * Generate a default output path for inline export based on active filters and format.
  */
-export function generateDefaultPath(filters: TransactionsViewFilters, format: ExportFormat): string {
+export function generateDefaultPath(
+  filters: TransactionsViewFilters,
+  format: ExportFormat,
+  accountFilter?: Pick<ResolvedTransactionsAccountFilter, 'selector'>  
+): string {
   const parts: string[] = [];
+  const accountPathSegment = buildAccountPathSegment(accountFilter);
+  if (accountPathSegment) {
+    parts.push(accountPathSegment);
+  }
   if (filters.platformFilter) parts.push(filters.platformFilter);
   if (filters.assetIdFilter) parts.push(sanitizePathSegment(filters.assetIdFilter));
   if (filters.assetFilter) parts.push(filters.assetFilter.toLowerCase());
   parts.push('transactions');
   const extension = format === 'json' ? '.json' : '.csv';
   return `data/${parts.join('-')}${extension}`;
+}
+
+export function buildTransactionsJsonFiltersWithResolvedAccount(
+  params: Pick<
+    TransactionsBrowseFilters,
+    'account' | 'assetId' | 'assetSymbol' | 'noPrice' | 'operationType' | 'platform' | 'since' | 'until'
+  >,
+  accountFilter: Pick<ResolvedTransactionsAccountFilter, 'selector'> | undefined
+): Record<string, unknown> | undefined {
+  return buildDefinedFilters({
+    ...buildTransactionsAccountFilters(accountFilter),
+    platform: params.platform,
+    asset: params.assetSymbol,
+    assetId: params.assetId,
+    since: params.since,
+    until: params.until,
+    operationType: params.operationType,
+    noPrice: params.noPrice ? true : undefined,
+  });
 }
 
 function sanitizePathSegment(value: string): string {

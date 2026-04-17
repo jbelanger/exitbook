@@ -4,7 +4,12 @@ import type { Result } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
-import { applyTransactionFilters, type TransactionsBrowseFilters } from '../transactions-browse-utils.js';
+import {
+  applyTransactionFilters,
+  buildTransactionsJsonFilters,
+  buildTransactionsViewFilters,
+  type TransactionsBrowseFilters,
+} from '../transactions-browse-utils.js';
 
 // Test data helper
 function createTestTransaction(
@@ -592,6 +597,34 @@ describe('applyTransactionFilters', () => {
 
       expect(result).toHaveLength(2);
       expect(result.map((tx) => tx.id)).toEqual([1, 3]);
+    });
+  });
+});
+
+describe('transaction browse filter metadata', () => {
+  it('includes the account selector in view and JSON filter metadata', () => {
+    const params: TransactionsBrowseFilters = {
+      account: 'wallet-main',
+      platform: 'bitcoin',
+      assetSymbol: 'BTC',
+      noPrice: true,
+      since: '2024-01-01',
+    };
+
+    expect(buildTransactionsViewFilters(params)).toEqual({
+      accountFilter: 'wallet-main',
+      platformFilter: 'bitcoin',
+      assetFilter: 'BTC',
+      assetIdFilter: undefined,
+      operationTypeFilter: undefined,
+      noPriceFilter: true,
+    });
+    expect(buildTransactionsJsonFilters(params)).toEqual({
+      account: 'wallet-main',
+      platform: 'bitcoin',
+      asset: 'BTC',
+      since: '2024-01-01',
+      noPrice: true,
     });
   });
 });

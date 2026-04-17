@@ -5,6 +5,7 @@ import { err, type Result } from '@exitbook/foundation';
 import { applyTransactionFilters, type TransactionsBrowseFilters } from './transactions-browse-utils.js';
 
 interface ReadTransactionsForCommandParams {
+  accountIds?: number[] | undefined;
   assetId?: string | undefined;
   assetSymbol?: string | undefined;
   db: DataSession;
@@ -24,6 +25,7 @@ export async function readTransactionsForCommand(
 ): Promise<Result<Transaction[], Error>> {
   const transactionsResult = await params.db.transactions.findAll({
     profileId: params.profileId,
+    ...(params.accountIds !== undefined ? { accountIds: params.accountIds } : {}),
     ...(params.platformKey ? { platformKey: params.platformKey } : {}),
     ...(params.since !== undefined ? { since: params.since } : {}),
     includeExcluded: true,

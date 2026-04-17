@@ -100,6 +100,14 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('—');
   });
 
+  it('shows the active account filter in the list header', () => {
+    const state = createTransactionsViewState([createTransactionViewItem()], { accountFilter: 'wallet-main' }, 1);
+
+    const output = buildTransactionsStaticList(state);
+
+    expect(stripAnsi(output)).toContain('Transactions (wallet-main)');
+  });
+
   it('labels the shortened selector in detail as Transaction ref', () => {
     const output = buildTransactionStaticDetail({
       ...createTransactionViewItem(),

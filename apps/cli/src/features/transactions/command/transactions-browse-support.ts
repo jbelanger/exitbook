@@ -2,6 +2,7 @@ import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
+import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import {
@@ -15,9 +16,13 @@ import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
 
+import {
+  resolveTransactionsAccountFilter,
+  type ResolvedTransactionsAccountFilter,
+} from './transactions-account-filter.js';
 import type { TransactionsBrowseFilters } from './transactions-browse-utils.js';
 import {
-  buildTransactionsJsonFilters,
+  buildTransactionsJsonFiltersWithResolvedAccount,
   buildTransactionsViewFilters,
   parseSinceToUnixSeconds,
   validateUntilDate,
@@ -53,6 +58,7 @@ export async function buildTransactionsBrowsePresentation(
       scope.profile.id,
       params.transactionSelector
     );
+    const accountFilter = yield* await resolveSelectedAccountFilter(scope.database, scope.profile.id, params.account);
 
     if (selector) {
       return buildDetailPresentation(selector, trackedIdentifiers);
@@ -65,6 +71,7 @@ export async function buildTransactionsBrowsePresentation(
       await readTransactionsForCommand({
         db: scope.database,
         profileId: scope.profile.id,
+        accountIds: accountFilter?.accountIds,
         platformKey: params.platform,
         since,
         until: params.until,
@@ -78,8 +85,24 @@ export async function buildTransactionsBrowsePresentation(
 
     return buildListPresentation(
       transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers)),
-      params
+      params,
+      accountFilter
     );
+  });
+}
+
+async function resolveSelectedAccountFilter(
+  database: DataSession,
+  profileId: number,
+  accountSelector: string | undefined
+): Promise<Result<ResolvedTransactionsAccountFilter | undefined, CliFailure>> {
+  return resultDoAsync(async function* () {
+    const accountFilterResult = await resolveTransactionsAccountFilter(database, profileId, accountSelector);
+    if (accountFilterResult.isErr()) {
+      return yield* cliErr(accountFilterResult.error, getAccountSelectorErrorExitCode(accountFilterResult.error));
+    }
+
+    return accountFilterResult.value;
   });
 }
 
@@ -133,16 +156,26 @@ function buildDetailPresentation(
 
 function buildListPresentation(
   transactions: TransactionViewItem[],
-  params: TransactionsBrowseParams
+  params: TransactionsBrowseParams,
+  accountFilter: ResolvedTransactionsAccountFilter | undefined
 ): TransactionsBrowsePresentation {
-  const filters = buildTransactionsViewFilters(params);
+  const filters = buildTransactionsViewFilters({
+    ...params,
+    account: accountFilter?.selector.value ?? params.account,
+  });
   const totalCount = transactions.length;
 
   return {
     initialState: createTransactionsViewState(transactions, filters, totalCount),
     listJsonResult: {
       data: transactions,
-      meta: buildViewMeta(totalCount, 0, totalCount, totalCount, buildTransactionsJsonFilters(params)),
+      meta: buildViewMeta(
+        totalCount,
+        0,
+        totalCount,
+        totalCount,
+        buildTransactionsJsonFiltersWithResolvedAccount(params, accountFilter)
+      ),
     },
   };
 }

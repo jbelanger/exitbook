@@ -193,6 +193,7 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
 
 function buildListHeader(state: TransactionsViewState): string {
   const activeFilters = [
+    state.filters.accountFilter,
     state.filters.platformFilter,
     state.filters.assetIdFilter,
     state.filters.assetFilter,
@@ -210,6 +211,7 @@ function buildListHeader(state: TransactionsViewState): string {
 
 function buildEmptyStateLines(state: TransactionsViewState): string[] {
   if (
+    state.filters.accountFilter === undefined &&
     state.filters.platformFilter === undefined &&
     state.filters.assetIdFilter === undefined &&
     state.filters.assetFilter === undefined &&

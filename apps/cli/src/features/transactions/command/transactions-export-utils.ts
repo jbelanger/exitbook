@@ -30,6 +30,9 @@ export interface ExportHandlerParams {
   /** Selected profile scope */
   profileId: number;
 
+  /** Optional explicit account scope, including descendant accounts when applicable */
+  accountIds?: number[] | undefined;
+
   /** Source name (exchange or blockchain) - optional, exports all if not provided */
   platformKey?: string | undefined;
 

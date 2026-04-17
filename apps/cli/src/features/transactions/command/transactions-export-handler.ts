@@ -48,6 +48,7 @@ export class TransactionsExportHandler {
       const transactionsResult = await readTransactionsForCommand({
         db: this.db,
         profileId: params.profileId,
+        accountIds: params.accountIds,
         platformKey: params.platformKey,
         since: params.since,
         until: params.until,

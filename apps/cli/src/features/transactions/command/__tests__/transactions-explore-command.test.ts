@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import type { ReactElement } from 'react';
@@ -11,6 +12,8 @@ import {
 
 const {
   mockComputeCategoryCounts,
+  mockFindAccountByName,
+  mockFindAllAccounts,
   mockCreateTransactionsViewState,
   mockCtx,
   mockExitCliFailure,
@@ -25,6 +28,8 @@ const {
   mockWriteFilesWithAtomicRenames,
 } = vi.hoisted(() => ({
   mockComputeCategoryCounts: vi.fn(),
+  mockFindAccountByName: vi.fn(),
+  mockFindAllAccounts: vi.fn(),
   mockCreateTransactionsViewState: vi.fn(),
   mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
@@ -66,8 +71,9 @@ vi.mock('../transactions-read-support.js', () => ({
 }));
 
 vi.mock('../transactions-browse-utils.js', () => ({
-  buildTransactionsJsonFilters: vi.fn(
+  buildTransactionsJsonFiltersWithResolvedAccount: vi.fn(
     (params: {
+      account?: string | undefined;
       assetId?: string | undefined;
       assetSymbol?: string | undefined;
       noPrice?: boolean | undefined;
@@ -78,6 +84,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
     }) => {
       const filters = Object.fromEntries(
         Object.entries({
+          account: params.account,
           platform: params.platform,
           asset: params.assetSymbol,
           assetId: params.assetId,
@@ -93,12 +100,14 @@ vi.mock('../transactions-browse-utils.js', () => ({
   ),
   buildTransactionsViewFilters: vi.fn(
     (params: {
+      account?: string | undefined;
       assetId?: string | undefined;
       assetSymbol?: string | undefined;
       noPrice?: boolean | undefined;
       operationType?: string | undefined;
       platform?: string | undefined;
     }) => ({
+      accountFilter: params.account,
       platformFilter: params.platform,
       assetIdFilter: params.assetId,
       assetFilter: params.assetSymbol,
@@ -175,6 +184,10 @@ describe('transactions explore command', () => {
       ok({
         database: {
           tag: 'db',
+          accounts: {
+            findAll: mockFindAllAccounts,
+            findByName: mockFindAccountByName,
+          },
           transactions: {
             findByFingerprintRef: mockFindByFingerprintRef,
           },
@@ -187,6 +200,8 @@ describe('transactions explore command', () => {
         },
       })
     );
+    mockFindAllAccounts.mockResolvedValue(ok([]));
+    mockFindAccountByName.mockResolvedValue(ok(undefined));
     mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }, { id: 2 }]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
     mockToTransactionViewItem.mockImplementation((transaction: { id: number; txFingerprint?: string | undefined }) => ({
@@ -220,11 +235,16 @@ describe('transactions explore command', () => {
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
       db: {
         tag: 'db',
+        accounts: {
+          findAll: mockFindAllAccounts,
+          findByName: mockFindAccountByName,
+        },
         transactions: {
           findByFingerprintRef: mockFindByFingerprintRef,
         },
       },
       profileId: 1,
+      accountIds: undefined,
       platformKey: 'kraken',
       since: undefined,
       until: undefined,
@@ -250,6 +270,78 @@ describe('transactions explore command', () => {
           },
         },
       },
+      undefined
+    );
+  });
+
+  it('resolves --account to the selected account subtree before reading transactions', async () => {
+    const program = createProgram();
+    const rootAccount = {
+      id: 7,
+      profileId: 1,
+      name: 'wallet-main',
+      parentAccountId: undefined,
+      accountType: 'blockchain',
+      platformKey: 'bitcoin',
+      identifier: 'bc1-root',
+      accountFingerprint: '7aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      updatedAt: undefined,
+    };
+    const childAccount = {
+      ...rootAccount,
+      id: 8,
+      name: undefined,
+      parentAccountId: 7,
+      identifier: 'bc1-child',
+      accountFingerprint: '8bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+
+    mockFindAccountByName.mockResolvedValue(ok(rootAccount));
+    mockFindAllAccounts.mockImplementation(async (filters?: { parentAccountId?: number | undefined }) => {
+      if (filters?.parentAccountId === rootAccount.id) {
+        return ok([childAccount]);
+      }
+
+      if (filters?.parentAccountId === childAccount.id) {
+        return ok([]);
+      }
+
+      return ok([rootAccount, childAccount]);
+    });
+
+    await program.parseAsync(['transactions', 'explore', '--account', 'wallet-main', '--json'], { from: 'user' });
+
+    expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
+      db: {
+        tag: 'db',
+        accounts: {
+          findAll: mockFindAllAccounts,
+          findByName: mockFindAccountByName,
+        },
+        transactions: {
+          findByFingerprintRef: mockFindByFingerprintRef,
+        },
+      },
+      profileId: 1,
+      accountIds: [7, 8],
+      platformKey: undefined,
+      since: undefined,
+      until: undefined,
+      assetId: undefined,
+      assetSymbol: undefined,
+      operationType: undefined,
+      noPrice: undefined,
+    });
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'transactions-explore',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          filters: {
+            account: 'wallet-main',
+          },
+        }),
+      }),
       undefined
     );
   });
@@ -286,6 +378,7 @@ describe('transactions explore command', () => {
     const exportResult = await appElement.props.onExport('json', undefined);
     expect(mockExportExecute).toHaveBeenCalledWith({
       profileId: 1,
+      accountIds: undefined,
       platformKey: 'kraken',
       format: 'json',
       csvFormat: undefined,
@@ -326,6 +419,7 @@ describe('transactions explore command', () => {
         { id: 2, platformKey: 'kraken', txFingerprint: 'bbbbbbbbbb-selected' },
       ],
       {
+        accountFilter: undefined,
         platformFilter: undefined,
         assetIdFilter: undefined,
         assetFilter: undefined,
@@ -345,7 +439,7 @@ describe('transactions explore command', () => {
     await expect(
       program.parseAsync(['transactions', 'explore', 'bbbbbbbbbb', '--limit', '100'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:transactions-explore:text:Transaction selector cannot be combined with --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit:2'
+      'CLI:transactions-explore:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, --no-price, or --limit:2'
     );
 
     expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();

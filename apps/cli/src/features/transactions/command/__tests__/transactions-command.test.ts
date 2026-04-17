@@ -10,6 +10,8 @@ import { createPersistedTransaction } from '../../../shared/__tests__/transactio
 const {
   mockCtx,
   mockExitCliFailure,
+  mockFindAccountByName,
+  mockFindAllAccounts,
   mockFindByFingerprintRef,
   mockOutputSuccess,
   mockOutputTransactionStaticDetail,
@@ -20,6 +22,8 @@ const {
 } = vi.hoisted(() => ({
   mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
+  mockFindAccountByName: vi.fn(),
+  mockFindAllAccounts: vi.fn(),
   mockFindByFingerprintRef: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockOutputTransactionStaticDetail: vi.fn(),
@@ -134,6 +138,10 @@ describe('transactions root command', () => {
     mockPrepareTransactionsCommandScope.mockResolvedValue(
       ok({
         database: {
+          accounts: {
+            findAll: mockFindAllAccounts,
+            findByName: mockFindAccountByName,
+          },
           transactions: {
             findByFingerprintRef: mockFindByFingerprintRef,
           },
@@ -146,6 +154,8 @@ describe('transactions root command', () => {
         },
       })
     );
+    mockFindAllAccounts.mockResolvedValue(ok([]));
+    mockFindAccountByName.mockResolvedValue(ok(undefined));
     mockReadTransactionsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
   });
@@ -162,11 +172,16 @@ describe('transactions root command', () => {
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
       db: expect.objectContaining({
+        accounts: expect.objectContaining({
+          findAll: mockFindAllAccounts,
+          findByName: mockFindAccountByName,
+        }),
         transactions: expect.objectContaining({
           findByFingerprintRef: mockFindByFingerprintRef,
         }),
       }),
       profileId: 1,
+      accountIds: undefined,
       platformKey: undefined,
       since: undefined,
       until: undefined,
@@ -216,6 +231,74 @@ describe('transactions root command', () => {
           limit: 2,
           hasMore: false,
           offset: 0,
+        }),
+      }),
+      undefined
+    );
+  });
+
+  it('routes --account through account selection before reading the static list', async () => {
+    const program = createProgram();
+    const rootAccount = {
+      id: 3,
+      profileId: 1,
+      name: 'wallet-main',
+      parentAccountId: undefined,
+      accountType: 'blockchain',
+      platformKey: 'bitcoin',
+      identifier: 'bc1-root',
+      accountFingerprint: '3aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      updatedAt: undefined,
+    };
+    const childAccount = {
+      ...rootAccount,
+      id: 4,
+      name: undefined,
+      parentAccountId: 3,
+      identifier: 'bc1-child',
+      accountFingerprint: '4bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+
+    mockFindAccountByName.mockResolvedValue(ok(rootAccount));
+    mockFindAllAccounts.mockImplementation(async (filters?: { parentAccountId?: number | undefined }) => {
+      if (filters?.parentAccountId === rootAccount.id) {
+        return ok([childAccount]);
+      }
+
+      if (filters?.parentAccountId === childAccount.id) {
+        return ok([]);
+      }
+
+      return ok([rootAccount, childAccount]);
+    });
+
+    await program.parseAsync(['transactions', 'list', '--account', 'wallet-main', '--json'], { from: 'user' });
+
+    expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
+      db: expect.objectContaining({
+        accounts: expect.objectContaining({
+          findAll: mockFindAllAccounts,
+          findByName: mockFindAccountByName,
+        }),
+      }),
+      profileId: 1,
+      accountIds: [3, 4],
+      platformKey: undefined,
+      since: undefined,
+      until: undefined,
+      assetId: undefined,
+      assetSymbol: undefined,
+      operationType: undefined,
+      noPrice: undefined,
+    });
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'transactions-list',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          filters: {
+            account: 'wallet-main',
+          },
         }),
       }),
       undefined

@@ -50,6 +50,10 @@ interface TransactionsBrowseOptionDefinition {
 
 const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
   {
+    flags: '--account <selector>',
+    description: 'Filter by account name or fingerprint prefix',
+  },
+  {
     flags: '--platform <name>',
     description: 'Filter by exchange or blockchain platform',
   },
@@ -124,7 +128,7 @@ export function prepareTransactionsBrowseCommand(
     return err(
       createCliFailure(
         new Error(
-          'Transaction selector cannot be combined with --platform, --asset, --asset-id, --since, --until, --operation-type, or --no-price'
+          'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --since, --until, --operation-type, or --no-price'
         ),
         ExitCodes.INVALID_ARGS
       )
@@ -134,6 +138,7 @@ export function prepareTransactionsBrowseCommand(
   return ok({
     params: {
       transactionSelector: input.transactionSelector,
+      account: options.account,
       platform: options.platform,
       assetId: options.assetId,
       assetSymbol: options.asset,
@@ -215,6 +220,7 @@ function buildTransactionsBrowseCompletion(
 
 function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
   return (
+    options.account !== undefined ||
     options.platform !== undefined ||
     options.asset !== undefined ||
     options.assetId !== undefined ||
