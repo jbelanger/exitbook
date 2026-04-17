@@ -15,6 +15,10 @@ Purpose:
 - surface command friction, missing affordances, ambiguous wording, and places
   where the CLI leaks implementation knowledge
 
+Current redesign follow-up:
+
+- [cli-investigation-surface-phase0.md](/Users/joel/Dev/exitbook/docs/dev/cli-investigation-surface-phase0.md)
+
 Scope rules:
 
 - use only `pnpm run dev ...` command flows
