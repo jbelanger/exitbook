@@ -81,6 +81,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     kind: 'gap',
     ref: item.gapRef,
     transactionRef: item.transactionRef,
+    relatedContext: item.relatedContext,
     transactionContext: item.transactionContext,
     transactionId: item.gapIssue.transactionId,
     transactionGapCount: item.transactionGapCount,

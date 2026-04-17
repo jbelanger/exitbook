@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 
+import { buildTransactionRelatedContextLines } from './transaction-related-context-static-renderer.js';
 import {
   buildCategoryParts,
   formatTransactionBalanceSummary,
@@ -155,7 +156,7 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
     lines.push(buildDetailLine('Confirmed', transaction.blockchain.isConfirmed ? 'yes' : 'no'));
   }
   if (transaction.relatedContext) {
-    lines.push('', ...buildRelatedContextLines(transaction.relatedContext));
+    lines.push('', ...buildTransactionRelatedContextLines(transaction.relatedContext));
   }
   if (transaction.inflows.length > 0) {
     lines.push('', ...buildMovementLines('Inflows', '+', transaction.inflows));
@@ -270,67 +271,6 @@ function buildPrimaryMovementSummary(transaction: TransactionViewItem): string {
 
   const direction = formatTransactionDirection(transaction.primaryMovementDirection);
   return `${transaction.primaryMovementAmount} ${transaction.primaryMovementAsset}${direction === '—' ? '' : ` ${direction}`}`;
-}
-
-function buildRelatedContextLines(relatedContext: NonNullable<TransactionViewItem['relatedContext']>): string[] {
-  const lines = [pc.dim('Related context')];
-
-  if (relatedContext.fromAccount) {
-    lines.push(`  From account: ${formatEndpointAccountMatch(relatedContext.fromAccount)}`);
-  }
-
-  if (relatedContext.toAccount) {
-    lines.push(`  To account: ${formatEndpointAccountMatch(relatedContext.toAccount)}`);
-  }
-
-  if (relatedContext.openGapRefs && relatedContext.openGapRefs.length > 0) {
-    lines.push(`  Open gap refs: ${relatedContext.openGapRefs.join(', ')}`);
-  }
-
-  if (relatedContext.sameHashSiblingTransactionRefs && relatedContext.sameHashSiblingTransactionCount) {
-    lines.push(
-      `  Same-hash sibling txs: ${formatRelatedTransactionRefs(
-        relatedContext.sameHashSiblingTransactionRefs,
-        relatedContext.sameHashSiblingTransactionCount
-      )}`
-    );
-  }
-
-  if (relatedContext.sharedFromTransactionRefs && relatedContext.sharedFromTransactionCount) {
-    lines.push(
-      `  Same from endpoint txs: ${formatRelatedTransactionRefs(
-        relatedContext.sharedFromTransactionRefs,
-        relatedContext.sharedFromTransactionCount
-      )}`
-    );
-  }
-
-  if (relatedContext.sharedToTransactionRefs && relatedContext.sharedToTransactionCount) {
-    lines.push(
-      `  Same to endpoint txs: ${formatRelatedTransactionRefs(
-        relatedContext.sharedToTransactionRefs,
-        relatedContext.sharedToTransactionCount
-      )}`
-    );
-  }
-
-  return lines;
-}
-
-function formatEndpointAccountMatch(
-  accountMatch: NonNullable<NonNullable<TransactionViewItem['relatedContext']>['fromAccount']>
-): string {
-  const name = accountMatch.accountName;
-  const namePrefix = name ? `${name} ` : '';
-  return `${namePrefix}${pc.dim(`(${accountMatch.accountRef})`)} ${pc.cyan(accountMatch.platformKey)}`.trimEnd();
-}
-
-function formatRelatedTransactionRefs(refs: string[], totalCount: number): string {
-  if (totalCount > refs.length) {
-    return `${refs.join(', ')} ${pc.dim(`(${totalCount} total)`)}`;
-  }
-
-  return refs.join(', ');
 }
 
 function buildRawSourceLines(rawSources: NonNullable<TransactionViewItem['rawSources']>): string[] {

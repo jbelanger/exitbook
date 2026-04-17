@@ -9,6 +9,7 @@ import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { resolveAddressOwnership } from '../../../shared/address-ownership.js';
 import { normalizeBlockchainTransactionHashForGrouping } from '../../../shared/blockchain-transaction-hash-grouping.js';
+import { buildTransactionRelatedContext } from '../../../transactions/transaction-investigation-context.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import {
   buildLinkGapRef,
@@ -46,6 +47,7 @@ export async function buildLinksGapsBrowsePresentation(
     const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
     const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
     const transactionContextByFingerprint = yield* buildGapTransactionContextByFingerprint(source, sortedAnalysis);
+    const relatedContextByFingerprint = buildRelatedContextByFingerprint(source, sortedAnalysis);
     const gaps = sortedAnalysis.issues.map((gapIssue) => ({
       gapRef: buildLinkGapRef({
         txFingerprint: gapIssue.txFingerprint,
@@ -60,6 +62,7 @@ export async function buildLinksGapsBrowsePresentation(
           direction: gapIssue.direction,
         })
       ),
+      relatedContext: relatedContextByFingerprint.get(gapIssue.txFingerprint),
       transactionContext: transactionContextByFingerprint.get(gapIssue.txFingerprint),
       transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
       transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
@@ -77,6 +80,32 @@ export async function buildLinksGapsBrowsePresentation(
       state,
     };
   });
+}
+
+function buildRelatedContextByFingerprint(
+  source: ProfileLinkGapSourceData,
+  analysis: LinkGapAnalysis
+): Map<string, NonNullable<LinkGapBrowseItem['relatedContext']>> {
+  const transactionByFingerprint = new Map(
+    source.transactions.map((transaction) => [transaction.txFingerprint, transaction])
+  );
+  const contexts = new Map<string, NonNullable<LinkGapBrowseItem['relatedContext']>>();
+
+  for (const issue of analysis.issues) {
+    const transaction = transactionByFingerprint.get(issue.txFingerprint);
+    if (transaction === undefined) {
+      continue;
+    }
+
+    const relatedContext = buildTransactionRelatedContext(source, transaction, {
+      visibleGapIssues: analysis.issues,
+    });
+    if (relatedContext !== undefined) {
+      contexts.set(issue.txFingerprint, relatedContext);
+    }
+  }
+
+  return contexts;
 }
 
 function toGapCandidates(gaps: LinkGapBrowseItem[]): { gapSelector: string; item: LinkGapBrowseItem }[] {

@@ -12,10 +12,13 @@ const MAX_RELATED_TRANSACTION_REFS = 5;
 
 export function buildTransactionRelatedContext(
   source: ProfileLinkGapSourceData,
-  transaction: Transaction
+  transaction: Transaction,
+  options?: {
+    visibleGapIssues?: readonly LinkGapIssue[] | undefined;
+  }
 ): TransactionRelatedContext | undefined {
-  const visibleGapAnalysis = buildVisibleProfileLinkGapAnalysis(source).analysis;
-  const openGapRefs = buildOpenGapRefs(visibleGapAnalysis.issues, transaction.txFingerprint);
+  const visibleGapIssues = options?.visibleGapIssues ?? buildVisibleProfileLinkGapAnalysis(source).analysis.issues;
+  const openGapRefs = buildOpenGapRefs(visibleGapIssues, transaction.txFingerprint);
   const sameHashSiblingRefs = buildSameHashSiblingTransactionRefs(source.transactions, transaction);
   const sharedFromRefs = buildSharedEndpointTransactionRefs(source.transactions, transaction, 'from');
   const sharedToRefs = buildSharedEndpointTransactionRefs(source.transactions, transaction, 'to');

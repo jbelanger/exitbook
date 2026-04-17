@@ -455,5 +455,17 @@ describe('links-gaps-browse-support', () => {
       to: '3J11externaldest',
       toOwnership: 'untracked',
     });
+    expect(result.value.gaps[0]?.relatedContext).toEqual({
+      fromAccount: {
+        accountName: undefined,
+        accountRef: 'acct-fp-1',
+        platformKey: 'bitcoin',
+      },
+      openGapRefs: [result.value.gaps[0]?.gapRef],
+      sameHashSiblingTransactionCount: 1,
+      sameHashSiblingTransactionRefs: ['btc-gap-2'],
+      sharedToTransactionCount: 1,
+      sharedToTransactionRefs: ['btc-gap-2'],
+    });
   });
 });

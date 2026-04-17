@@ -168,6 +168,13 @@ Behavior:
   - blockchain transaction hash
   - raw `from` / `to` endpoint values from the processed transaction
   - endpoint ownership context such as `tracked source -> untracked destination`
+  - shared transaction investigation context reused from `transactions view`,
+    including:
+    - exact owned-account matches for visible endpoints
+    - open gap refs affecting the transaction
+    - same-hash sibling transaction refs
+    - nearby transaction refs sharing the same `from` endpoint
+    - nearby transaction refs sharing the same `to` endpoint
   - a cue line describing the likely pattern behind the issue
   - a counterpart transaction ref when the cue is paired to another specific
     transaction
@@ -240,6 +247,16 @@ Behavior:
   - `to`, `toOwnership`
   - `openSameHashGapRowCount`
   - `openSameHashTransactionRefs`
+- Gap rows may include `relatedContext` with:
+  - `fromAccount`
+  - `toAccount`
+  - `openGapRefs`
+  - `sameHashSiblingTransactionRefs`
+  - `sameHashSiblingTransactionCount`
+  - `sharedFromTransactionRefs`
+  - `sharedFromTransactionCount`
+  - `sharedToTransactionRefs`
+  - `sharedToTransactionCount`
 
 ### Detail
 
@@ -248,6 +265,7 @@ Behavior:
 - Gap detail and summary rows may include `suggestedProposalRefs` when the CLI
   can map visible suggested proposals back onto that gap identity.
 - Gap detail uses the same `transactionContext` shape as gap summary rows.
+- Gap detail uses the same `relatedContext` shape as `transactions view`.
 - Detail metadata includes the selected ref.
 
 ## Review Commands

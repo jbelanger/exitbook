@@ -21,6 +21,13 @@ describe('links-gaps-browse-output', () => {
         direction: firstIssue.direction,
       }),
       gapIssue: firstIssue,
+      relatedContext: {
+        fromAccount: {
+          accountName: 'wallet-main',
+          accountRef: 'acctref1234',
+          platformKey: 'bitcoin',
+        },
+      },
       suggestedProposalRefs: ['abc123def0'],
       transactionContext: {
         blockchainTransactionHash: 'shared-hash',
@@ -55,6 +62,7 @@ describe('links-gaps-browse-output', () => {
       data: [
         {
           gapCueCounterpartTransactionRef?: string;
+          relatedContext?: { fromAccount?: { accountRef?: string } };
           suggestedProposalRefs?: string[];
           transactionContext?: { openSameHashGapRowCount?: number };
         },
@@ -68,6 +76,7 @@ describe('links-gaps-browse-output', () => {
 
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
+    expect(payload.data[0]?.relatedContext?.fromAccount?.accountRef).toBe('acctref1234');
     expect(payload.data[0]?.transactionContext?.openSameHashGapRowCount).toBe(2);
   });
 

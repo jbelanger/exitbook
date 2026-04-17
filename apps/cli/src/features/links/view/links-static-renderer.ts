@@ -2,6 +2,7 @@ import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
 import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
+import { buildTransactionRelatedContextLines } from '../../transactions/view/transaction-related-context-static-renderer.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import type { LinkGapBrowseItem, LinkGapEndpointOwnership } from '../links-gaps-browse-model.js';
 
@@ -352,6 +353,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     item.transactionContext.openSameHashTransactionRefs.length > 1
       ? [buildDetailLine('Open same-hash tx refs', item.transactionContext.openSameHashTransactionRefs.join(', '))]
       : []),
+    ...(item.relatedContext ? ['', ...buildTransactionRelatedContextLines(item.relatedContext)] : []),
     buildDetailLine('Asset ID', gapIssue.assetId),
     buildDetailLine('Missing', `${gapIssue.missingAmount} ${gapIssue.assetSymbol}`),
     buildDetailLine('Total', `${gapIssue.totalAmount} ${gapIssue.assetSymbol}`),
