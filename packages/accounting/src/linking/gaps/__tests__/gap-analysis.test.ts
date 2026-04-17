@@ -1682,6 +1682,84 @@ describe('analyzeLinkGaps', () => {
     ]);
   });
 
+  it('should cue same-wallet near-equal inflow then outflow pairs as likely receive then forward', () => {
+    const usdtDeposit = createBlockchainDeposit({
+      id: 412,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-receipt',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T19:09:23.000Z',
+      timestamp: Date.parse('2024-12-10T19:09:23.000Z'),
+      from: '0xd91efec7e42f80156d1d9f660a69847188950747',
+      to: '0x15a2000000000000000000000000000000000000',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-receipt-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.581546'),
+            netAmount: parseDecimal('344.581546'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const usdtForward = createBlockchainWithdrawal({
+      id: 413,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-forward',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T20:54:35.000Z',
+      timestamp: Date.parse('2024-12-10T20:54:35.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-forward-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.5815'),
+            netAmount: parseDecimal('344.5815'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([usdtDeposit, usdtForward], [], {
+      accounts: [
+        createMockAccount({
+          id: 30,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.map((issue) => issue.gapCue)).toStrictEqual([
+      'likely_receive_then_forward',
+      'likely_receive_then_forward',
+    ]);
+    expect(analysis.issues.map((issue) => issue.gapCueCounterpartTxFingerprint)).toStrictEqual([
+      'eth-usdt-forward',
+      'eth-usdt-receipt',
+    ]);
+  });
+
   it('should not cue same-asset cross-chain pairs across different profiles', () => {
     const renderWithdrawal = createBlockchainWithdrawal({
       id: 403,

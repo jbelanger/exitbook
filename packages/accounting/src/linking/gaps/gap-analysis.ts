@@ -23,6 +23,8 @@ import {
 
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
+const RECEIVE_THEN_FORWARD_CUE_WINDOW_MS = 4 * 60 * 60 * 1000;
+const RECEIVE_THEN_FORWARD_MIN_RATIO = parseDecimal('0.999');
 const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 30 * 60 * 1000;
 const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
@@ -91,7 +93,7 @@ interface ServiceSwapCueCandidate {
   timestampMs: number;
 }
 
-interface CrossChainMigrationCueCandidate {
+interface PairedGapCueCandidate {
   accountId: number;
   assetId: string;
   assetSymbol: string;
@@ -870,12 +872,12 @@ function detectCorrelatedServiceSwapCueIssueKeys(
   return cueByIssueKey;
 }
 
-function buildCrossChainMigrationCueCandidates(
+function buildPairedGapCueCandidates(
   issues: readonly LinkGapIssue[],
   transactionById: ReadonlyMap<number, Transaction>,
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
-): CrossChainMigrationCueCandidate[] {
-  const candidates: CrossChainMigrationCueCandidate[] = [];
+): PairedGapCueCandidate[] {
+  const candidates: PairedGapCueCandidate[] = [];
 
   for (const issue of issues) {
     const tx = transactionById.get(issue.transactionId);
@@ -926,10 +928,7 @@ function buildCrossChainMigrationCueCandidates(
   return candidates;
 }
 
-function isLikelyCrossChainMigrationCuePair(
-  left: CrossChainMigrationCueCandidate,
-  right: CrossChainMigrationCueCandidate
-): boolean {
+function isLikelyCrossChainMigrationCuePair(left: PairedGapCueCandidate, right: PairedGapCueCandidate): boolean {
   if (left.direction === right.direction) {
     return false;
   }
@@ -949,10 +948,7 @@ function isLikelyCrossChainMigrationCuePair(
   return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
 }
 
-function isLikelyCrossChainBridgeCuePair(
-  left: CrossChainMigrationCueCandidate,
-  right: CrossChainMigrationCueCandidate
-): boolean {
+function isLikelyCrossChainBridgeCuePair(left: PairedGapCueCandidate, right: PairedGapCueCandidate): boolean {
   if (left.direction === right.direction) {
     return false;
   }
@@ -1009,15 +1005,53 @@ function addCuePairMatch(
   matchesByIssueKey.set(rightIssueKey, rightMatches);
 }
 
-function detectUniqueCrossChainCueAnnotations(
+function isLikelyReceiveThenForwardCuePair(left: PairedGapCueCandidate, right: PairedGapCueCandidate): boolean {
+  if (left.direction === right.direction) {
+    return false;
+  }
+
+  const inflowCandidate = left.direction === 'inflow' ? left : right;
+  const outflowCandidate = left.direction === 'outflow' ? left : right;
+
+  if (
+    inflowCandidate.profileId !== outflowCandidate.profileId ||
+    inflowCandidate.accountId !== outflowCandidate.accountId ||
+    inflowCandidate.blockchainName !== outflowCandidate.blockchainName ||
+    inflowCandidate.assetId !== outflowCandidate.assetId ||
+    inflowCandidate.selfAddress !== outflowCandidate.selfAddress
+  ) {
+    return false;
+  }
+
+  if (
+    outflowCandidate.timestampMs < inflowCandidate.timestampMs ||
+    outflowCandidate.timestampMs - inflowCandidate.timestampMs > RECEIVE_THEN_FORWARD_CUE_WINDOW_MS
+  ) {
+    return false;
+  }
+
+  const largerAmount = inflowCandidate.totalAmount.greaterThan(outflowCandidate.totalAmount)
+    ? inflowCandidate.totalAmount
+    : outflowCandidate.totalAmount;
+  const smallerAmount = inflowCandidate.totalAmount.greaterThan(outflowCandidate.totalAmount)
+    ? outflowCandidate.totalAmount
+    : inflowCandidate.totalAmount;
+  if (largerAmount.isZero()) {
+    return false;
+  }
+
+  return smallerAmount.dividedBy(largerAmount).greaterThanOrEqualTo(RECEIVE_THEN_FORWARD_MIN_RATIO);
+}
+
+function detectUniquePairedCueAnnotations(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
-  isPairMatch: (left: CrossChainMigrationCueCandidate, right: CrossChainMigrationCueCandidate) => boolean,
+  isPairMatch: (left: PairedGapCueCandidate, right: PairedGapCueCandidate) => boolean,
   cue: GapCueKind
 ): Map<string, GapCueAnnotation> {
   const transactionById = buildTransactionById(transactions);
-  const candidates = buildCrossChainMigrationCueCandidates(issues, transactionById, accountContextById);
+  const candidates = buildPairedGapCueCandidates(issues, transactionById, accountContextById);
   if (candidates.length < 2) {
     return new Map<string, GapCueAnnotation>();
   }
@@ -1068,7 +1102,7 @@ function detectCrossChainMigrationCueIssueKeys(
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
 ): Map<string, GapCueAnnotation> {
-  return detectUniqueCrossChainCueAnnotations(
+  return detectUniquePairedCueAnnotations(
     issues,
     transactions,
     accountContextById,
@@ -1082,12 +1116,26 @@ function detectCrossChainBridgeCueIssueKeys(
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
 ): Map<string, GapCueAnnotation> {
-  return detectUniqueCrossChainCueAnnotations(
+  return detectUniquePairedCueAnnotations(
     issues,
     transactions,
     accountContextById,
     isLikelyCrossChainBridgeCuePair,
     'likely_cross_chain_bridge'
+  );
+}
+
+function detectReceiveThenForwardCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+): Map<string, GapCueAnnotation> {
+  return detectUniquePairedCueAnnotations(
+    issues,
+    transactions,
+    accountContextById,
+    isLikelyReceiveThenForwardCuePair,
+    'likely_receive_then_forward'
   );
 }
 
@@ -1166,6 +1214,7 @@ function detectGapCueIssueKeys(
 
   return mergeGapCueIssueKeys(
     correlatedServiceSwapAnnotations,
+    detectReceiveThenForwardCueIssueKeys(issues, transactions, accountContextById),
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
     detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById),
     detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)

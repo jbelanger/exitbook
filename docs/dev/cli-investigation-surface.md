@@ -104,6 +104,8 @@ What shipped:
 - same-hash context and counterpart transaction cues for bridge-like patterns
 - low-value priced one-sided blockchain gaps now surface a `likely dust` cue
   instead of staying completely patternless
+- same-wallet paired inflow/outflow patterns can now surface a `likely receive
+then forward` cue with an exact counterpart transaction
 - exact proposal refs when they are derivable
 - immediate profile-issue refresh after profile-owned corrective actions
 

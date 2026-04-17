@@ -139,6 +139,7 @@ Behavior:
 - Current cue labels include:
   - `likely low-value dust`
   - `likely correlated service swap`
+  - `likely receive then forward`
   - `likely cross-chain migration`
   - `likely same-owner cross-chain bridge`
 
