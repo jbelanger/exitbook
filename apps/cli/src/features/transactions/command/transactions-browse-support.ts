@@ -62,7 +62,6 @@ export async function buildTransactionsBrowsePresentation(
       scope.profile.id,
       params.transactionSelector
     );
-    const accountFilter = yield* await resolveSelectedAccountFilter(scope.database, scope.profile.id, params.account);
 
     if (selector) {
       return yield* await buildDetailPresentation(scope, selector, trackedIdentifiers, {
@@ -70,6 +69,7 @@ export async function buildTransactionsBrowsePresentation(
       });
     }
 
+    const accountFilter = yield* await resolveSelectedAccountFilter(scope.database, scope.profile.id, params.account);
     const since = yield* toCliResult(parseSinceToUnixSeconds(params.since), ExitCodes.INVALID_ARGS);
     yield* toCliResult(validateUntilDate(params.until), ExitCodes.INVALID_ARGS);
 

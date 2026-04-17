@@ -54,6 +54,7 @@ import {
   parseSinceToUnixSeconds,
   validateUntilDate,
 } from './transactions-browse-utils.js';
+import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsExploreCommandOptionsSchema } from './transactions-option-schemas.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
@@ -149,42 +150,21 @@ async function executeTransactionsExploreCommandResult(
   prepared: PreparedTransactionsExploreCommand
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
+    const format = prepared.presentation.mode === 'json' ? 'json' : 'text';
+
+    if (shouldRenderExploreSelectorDetail(prepared)) {
+      const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
+      return yield* await buildExploreSelectorDetailCompletion(scope, prepared);
+    }
+
     const since = yield* toCliResult(parseSinceToUnixSeconds(prepared.params.since), ExitCodes.INVALID_ARGS);
     yield* toCliResult(validateUntilDate(prepared.params.until), ExitCodes.INVALID_ARGS);
-
-    const format = prepared.presentation.mode === 'json' ? 'json' : 'text';
     const scope = yield* toCliResult(await prepareTransactionsCommandScope(ctx, { format }), ExitCodes.GENERAL_ERROR);
     const accountFilter = yield* await resolveSelectedAccountFilter(
       scope.database,
       scope.profile.id,
       prepared.params.account
     );
-
-    if (prepared.params.transactionSelector && prepared.params.sourceData === true) {
-      const detailPresentation = yield* await buildTransactionsBrowsePresentation(scope, {
-        transactionSelector: prepared.params.transactionSelector,
-        sourceData: true,
-      } satisfies TransactionsBrowseParams);
-
-      if (prepared.presentation.mode === 'json') {
-        const detailJsonResult = yield* toCliValue(
-          detailPresentation.detailJsonResult,
-          new Error('Expected a selected transaction for detail presentation'),
-          ExitCodes.GENERAL_ERROR
-        );
-        return jsonSuccess(detailJsonResult);
-      }
-
-      const selectedTransaction = yield* toCliValue(
-        detailPresentation.selectedTransaction,
-        new Error('Expected a selected transaction for detail presentation'),
-        ExitCodes.GENERAL_ERROR
-      );
-
-      return textSuccess(() => {
-        outputTransactionStaticDetail(selectedTransaction);
-      });
-    }
 
     if (prepared.presentation.mode === 'tui') {
       return yield* await buildTransactionsExploreTuiCompletion(
@@ -194,31 +174,6 @@ async function executeTransactionsExploreCommandResult(
         prepared.params,
         accountFilter
       );
-    }
-
-    if (prepared.params.transactionSelector) {
-      const detailPresentation = yield* await buildTransactionsBrowsePresentation(scope, {
-        transactionSelector: prepared.params.transactionSelector,
-      } satisfies TransactionsBrowseParams);
-
-      if (prepared.presentation.mode === 'json') {
-        const detailJsonResult = yield* toCliValue(
-          detailPresentation.detailJsonResult,
-          new Error('Expected a selected transaction for detail presentation'),
-          ExitCodes.GENERAL_ERROR
-        );
-        return jsonSuccess(detailJsonResult);
-      }
-
-      const selectedTransaction = yield* toCliValue(
-        detailPresentation.selectedTransaction,
-        new Error('Expected a selected transaction for detail presentation'),
-        ExitCodes.GENERAL_ERROR
-      );
-
-      return textSuccess(() => {
-        outputTransactionStaticDetail(selectedTransaction);
-      });
     }
 
     const transactions = yield* toCliResult(
@@ -251,6 +206,49 @@ async function executeTransactionsExploreCommandResult(
       prepared.presentation.mode,
       accountFilter
     );
+  });
+}
+
+function shouldRenderExploreSelectorDetail(prepared: PreparedTransactionsExploreCommand): boolean {
+  return (
+    prepared.params.transactionSelector !== undefined &&
+    (prepared.params.sourceData === true || prepared.presentation.mode !== 'tui')
+  );
+}
+
+async function buildExploreSelectorDetailCompletion(
+  scope: TransactionsCommandScope,
+  prepared: PreparedTransactionsExploreCommand
+): Promise<Result<CliCompletion, CliFailure>> {
+  return resultDoAsync(async function* () {
+    const transactionSelector = yield* toCliValue(
+      prepared.params.transactionSelector,
+      new Error('Expected a transaction selector for detail presentation'),
+      ExitCodes.GENERAL_ERROR
+    );
+    const detailPresentation = yield* await buildTransactionsBrowsePresentation(scope, {
+      transactionSelector,
+      sourceData: prepared.params.sourceData,
+    } satisfies TransactionsBrowseParams);
+
+    if (prepared.presentation.mode === 'json') {
+      const detailJsonResult = yield* toCliValue(
+        detailPresentation.detailJsonResult,
+        new Error('Expected a selected transaction for detail presentation'),
+        ExitCodes.GENERAL_ERROR
+      );
+      return jsonSuccess(detailJsonResult);
+    }
+
+    const selectedTransaction = yield* toCliValue(
+      detailPresentation.selectedTransaction,
+      new Error('Expected a selected transaction for detail presentation'),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    return textSuccess(() => {
+      outputTransactionStaticDetail(selectedTransaction);
+    });
   });
 }
 
