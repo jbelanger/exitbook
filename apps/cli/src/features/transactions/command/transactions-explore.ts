@@ -33,6 +33,7 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
+import { toTransactionSourceLineageItem } from '../transaction-source-data.js';
 import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
@@ -62,6 +63,7 @@ const TRANSACTIONS_EXPLORE_COMMAND_ID = 'transactions-explore';
 type TransactionsExploreCommandOptions = z.infer<typeof TransactionsExploreCommandOptionsSchema>;
 type ExploreTransactionsParams = TransactionsBrowseFilters & {
   limit: number;
+  sourceData?: boolean | undefined;
   transactionSelector?: string | undefined;
 };
 
@@ -91,6 +93,7 @@ Examples:
   $ exitbook transactions explore --operation-type trade
   $ exitbook transactions explore --no-price
   $ exitbook transactions explore a1b2c3d4e5
+  $ exitbook transactions explore a1b2c3d4e5 --source-data
 
 Common Usage:
   - Review recent trading activity across all exchanges
@@ -128,6 +131,10 @@ async function executeTransactionsExploreCommand(selector: string | undefined, r
           );
         }
 
+        if (!selector && parsedOptions.options.sourceData === true) {
+          return yield* cliErr(new Error('--source-data requires a transaction selector'), ExitCodes.INVALID_ARGS);
+        }
+
         return {
           params: buildExploreTransactionsParams(parsedOptions.options, selector),
           presentation: parsedOptions.presentation,
@@ -152,6 +159,32 @@ async function executeTransactionsExploreCommandResult(
       scope.profile.id,
       prepared.params.account
     );
+
+    if (prepared.params.transactionSelector && prepared.params.sourceData === true) {
+      const detailPresentation = yield* await buildTransactionsBrowsePresentation(scope, {
+        transactionSelector: prepared.params.transactionSelector,
+        sourceData: true,
+      } satisfies TransactionsBrowseParams);
+
+      if (prepared.presentation.mode === 'json') {
+        const detailJsonResult = yield* toCliValue(
+          detailPresentation.detailJsonResult,
+          new Error('Expected a selected transaction for detail presentation'),
+          ExitCodes.GENERAL_ERROR
+        );
+        return jsonSuccess(detailJsonResult);
+      }
+
+      const selectedTransaction = yield* toCliValue(
+        detailPresentation.selectedTransaction,
+        new Error('Expected a selected transaction for detail presentation'),
+        ExitCodes.GENERAL_ERROR
+      );
+
+      return textSuccess(() => {
+        outputTransactionStaticDetail(selectedTransaction);
+      });
+    }
 
     if (prepared.presentation.mode === 'tui') {
       return yield* await buildTransactionsExploreTuiCompletion(
@@ -239,6 +272,7 @@ function buildExploreTransactionsParams(
     operationType: options.operationType,
     noPrice: options.noPrice,
     limit: options.limit ?? 50,
+    sourceData: options.sourceData,
   };
 }
 
@@ -340,7 +374,9 @@ async function buildTransactionsExploreTuiCompletion(
       account: accountFilter?.selector.value ?? params.account,
     });
     const selectedIndex = resolveSelectedIndex(allViewItems, selectedTransaction);
-    const visibleItems = selectedTransaction ? allViewItems : allViewItems.slice(0, params.limit);
+    const visibleItems = selectedTransaction
+      ? yield* await enrichSelectedExploreTransaction(database, profileId, allViewItems, selectedTransaction)
+      : allViewItems.slice(0, params.limit);
     const initialState = createTransactionsViewState(
       visibleItems,
       viewFilters,
@@ -401,6 +437,29 @@ async function buildTransactionsExploreTuiCompletion(
     }
 
     return silentSuccess();
+  });
+}
+
+async function enrichSelectedExploreTransaction(
+  database: DataSession,
+  profileId: number,
+  transactions: TransactionViewItem[],
+  selectedTransaction: ResolvedTransactionSelector
+): Promise<Result<TransactionViewItem[], CliFailure>> {
+  return resultDoAsync(async function* () {
+    const rawSourceRows = yield* toCliResult(
+      await database.transactions.findRawTransactionsByTransactionId(selectedTransaction.transaction.id, profileId),
+      ExitCodes.GENERAL_ERROR
+    );
+
+    return transactions.map((transaction) =>
+      transaction.txFingerprint === selectedTransaction.transaction.txFingerprint
+        ? {
+            ...transaction,
+            ...(rawSourceRows.length > 0 ? { sourceLineage: rawSourceRows.map(toTransactionSourceLineageItem) } : {}),
+          }
+        : transaction
+    );
   });
 }
 

@@ -326,6 +326,15 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
         value={selected.feeSummary}
       />
     </Text>,
+    ...(selected.sourceLineage && selected.sourceLineage.length > 0
+      ? [
+          <Text key="source-lineage">
+            {'  '}
+            <Text dimColor>Source: </Text>
+            {buildSourceLineageSummary(selected)}
+          </Text>,
+        ]
+      : []),
   ];
 
   if (selected.inflows.length > 0) {
@@ -411,6 +420,22 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
 
   rows.push(<Text key="blank-blockchain"> </Text>, ...buildBlockchainRows(selected));
   return rows;
+}
+
+function buildSourceLineageSummary(selected: TransactionViewItem): ReactElement {
+  const sourceLineage = selected.sourceLineage ?? [];
+  const providerNames = [...new Set(sourceLineage.map((item) => item.providerName))];
+  const eventIds = sourceLineage.slice(0, 2).map((item) => item.eventId);
+  const extraCount = sourceLineage.length - eventIds.length;
+
+  return (
+    <Text>
+      {sourceLineage.length} raw row{sourceLineage.length === 1 ? '' : 's'}
+      {providerNames.length > 0 ? <Text dimColor>{` · ${providerNames.join(', ')}`}</Text> : null}
+      {eventIds.length > 0 ? <Text dimColor>{` · ${eventIds.join(', ')}`}</Text> : null}
+      {extraCount > 0 ? <Text dimColor>{` (+${extraCount} more)`}</Text> : null}
+    </Text>
+  );
 }
 
 function buildDiagnosticRows(selected: TransactionViewItem): ReactElement[] {

@@ -140,16 +140,16 @@ Current lean:
 
 ### 2. Provider Data Visibility
 
-The CLI currently makes hard investigations too inference-heavy.
-
-We need a way to inspect provider/source data for one transaction.
+Processed-to-raw lineage is now persisted and trustworthy. The remaining
+question is surface shape, not provenance correctness.
 
 Working bias:
 
-- add this to `transactions view`
-- likely as an explicit option such as:
-  - `transactions view <TX-REF> --provider-data`
-  - or `transactions view <TX-REF> --source`
+- keep this in `transactions view`
+- show lightweight source lineage by default on selector detail
+- keep full raw payload dumps behind an explicit flag:
+  - `transactions view <TX-REF> --source-data`
+- do not parse provider payloads; dump them fully or not at all
 
 Do not create a separate provider-data screen unless the current transaction
 view cannot hold it cleanly.
@@ -385,7 +385,6 @@ Implementation consequence:
 Findings:
 
 - `transactions view` is already the best single-transaction inspection surface
-- the easy wins are related-context and search, not raw provider payloads
 - current transaction querying is still weak for investigation because it lacks
   address-centered lookup
 - current transaction detail still makes the user hop to other commands to
@@ -393,25 +392,26 @@ Findings:
   - where else did this address appear?
   - which other gaps involve this route?
   - what same-hash siblings exist?
-- provider/source data is desirable, but it is not yet a trivial read-path
-  addition:
-  - the current processed transaction schema does not carry a direct
-    `raw_transaction_id`
-  - the `transactions` family spec currently says browse reads processed
-    transactions only
+- processed-to-raw lineage is now persisted and trustworthy
+- the remaining provider/source problem is surface shape:
+  - lightweight lineage should be available by default on selector detail
+  - full payloads must stay explicitly opt-in
+  - provider payloads must not be parsed into ad-hoc CLI summaries
 
 Decision:
 
 - related-context inspection belongs in `transactions`
 - address/account search also belongs in `transactions`, not in a separate
   search family
-- provider/source data should still land in `transactions view`, but only after
-  we add a trustworthy processed-to-raw provenance binding
+- provider/source data belongs in `transactions view`, not in a separate screen
 
 Implementation consequence:
 
-- address-centered filters and related-context blocks are ready now
-- raw/provider evidence is a second-step design item, not the first rewrite
+- address-centered filters, related-context blocks, and source evidence all fit
+  as rewrites of the existing `transactions` surfaces
+- the main design rule is now:
+  - show lineage by default
+  - dump full source payloads only behind an explicit flag
 
 ### Pass 4: Grouped Review Shape
 
@@ -490,6 +490,8 @@ Conclusion:
    - done: same-hash siblings
    - done: other recent transactions involving the same endpoints
    - done: owned account matches for visible identifiers
+   - done: lightweight source lineage on selector detail
+   - done: full source payload dump behind `--source-data`
 3. Rewrite `links gaps view/explore` to consume the same related-context model
    more consistently.
    - done: static, JSON, and TUI gap detail now reuse the same related-context
@@ -512,14 +514,12 @@ Conclusion:
 
 ### Discussion-Heavy Work After The Above
 
-7. Add provider/source data inspection to `transactions view`.
-   - requires a trustworthy processed-to-raw provenance binding first
-   - should not ship as fuzzy raw lookup
-8. Decide whether bridge pairs and receive-then-forward groups need explicit
+7. Decide whether bridge pairs and receive-then-forward groups need explicit
    pair/group actions under `links gaps`.
    - keep this inside `links gaps` if possible
+   - likely requires grouped evidence, not just better wording
    - only add a new subcommand if the rewrite becomes awkward
-9. Move tiny dust and similar mechanical one-way receipts out of permanent
+8. Move tiny dust and similar mechanical one-way receipts out of permanent
    operator debt.
    - likely linking-policy work, not just CLI work
 
@@ -529,8 +529,8 @@ These are the items that still deserve explicit discussion before
 implementation starts on them:
 
 1. exact command shape for `accounts`-owned wallet classification
-2. provenance-binding design for trustworthy provider/source evidence
-3. mutation semantics for bridge-pair and receive-then-forward review
+2. mutation semantics for bridge-pair and receive-then-forward review
+3. suppression policy for tiny dust and similar mechanical one-way receipts
 
 ## Phase 0 Recommendation
 

@@ -191,8 +191,11 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
       })
     );
   }
-  if (transaction.rawSources && transaction.rawSources.length > 0) {
-    lines.push('', ...buildRawSourceLines(transaction.rawSources));
+  if (transaction.sourceLineage && transaction.sourceLineage.length > 0) {
+    lines.push('', ...buildSourceLineageLines(transaction.sourceLineage));
+  }
+  if (transaction.sourceData && transaction.sourceData.length > 0) {
+    lines.push('', ...buildSourceDataLines(transaction.sourceData));
   }
 
   return `${lines.join('\n')}\n`;
@@ -273,22 +276,35 @@ function buildPrimaryMovementSummary(transaction: TransactionViewItem): string {
   return `${transaction.primaryMovementAmount} ${transaction.primaryMovementAsset}${direction === '—' ? '' : ` ${direction}`}`;
 }
 
-function buildRawSourceLines(rawSources: NonNullable<TransactionViewItem['rawSources']>): string[] {
-  const lines = [pc.dim(`Source data (${rawSources.length})`)];
+function buildSourceLineageLines(sourceLineage: NonNullable<TransactionViewItem['sourceLineage']>): string[] {
+  const lines = [pc.dim(`Source lineage (${sourceLineage.length})`)];
 
-  for (const rawSource of rawSources) {
+  for (const rawSource of sourceLineage) {
     const metadata = [
       `provider=${rawSource.providerName}`,
       `event=${rawSource.eventId}`,
-      `at=${formatTransactionTimestamp(new Date(rawSource.timestamp).toISOString())}`,
+      `at=${formatTransactionTimestamp(rawSource.timestamp)}`,
+      `status=${rawSource.processingStatus}`,
       rawSource.transactionTypeHint ? `hint=${rawSource.transactionTypeHint}` : undefined,
       rawSource.blockchainTransactionHash ? `hash=${rawSource.blockchainTransactionHash}` : undefined,
       rawSource.sourceAddress ? `source=${rawSource.sourceAddress}` : undefined,
     ].filter((value): value is string => value !== undefined);
 
-    lines.push(`  Raw #${rawSource.id} ${pc.dim(metadata.join(' · '))}`);
-    lines.push(...indentJsonBlock('providerData', rawSource.providerData));
-    lines.push(...indentJsonBlock('normalizedData', rawSource.normalizedData));
+    lines.push(`  Raw #${rawSource.rawTransactionId} ${pc.dim(metadata.join(' · '))}`);
+  }
+
+  return lines;
+}
+
+function buildSourceDataLines(sourceData: NonNullable<TransactionViewItem['sourceData']>): string[] {
+  const lines = [pc.dim(`Source data (${sourceData.length})`)];
+
+  for (const rawSource of sourceData) {
+    lines.push(
+      `  Raw #${rawSource.rawTransactionId} ${pc.dim(`provider=${rawSource.providerName} · event=${rawSource.eventId}`)}`
+    );
+    lines.push(...indentJsonBlock('providerPayload', rawSource.providerPayload));
+    lines.push(...indentJsonBlock('normalizedPayload', rawSource.normalizedPayload));
   }
 
   return lines;

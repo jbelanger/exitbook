@@ -1,4 +1,4 @@
-import type { MovementRole, RawTransaction } from '@exitbook/core';
+import type { MovementRole } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 import type { AddressOwnership } from '../shared/address-ownership.js';
@@ -45,6 +45,22 @@ export interface TransactionRelatedContext {
   toAccount?: TransactionEndpointAccountMatch | undefined;
 }
 
+export interface TransactionSourceLineageItem {
+  rawTransactionId: number;
+  providerName: string;
+  eventId: string;
+  timestamp: string;
+  processingStatus: 'pending' | 'processed';
+  transactionTypeHint?: string | undefined;
+  blockchainTransactionHash?: string | undefined;
+  sourceAddress?: string | undefined;
+}
+
+export interface TransactionSourceDataItem extends TransactionSourceLineageItem {
+  providerPayload: unknown;
+  normalizedPayload: unknown;
+}
+
 /**
  * Per-transaction display item
  */
@@ -82,7 +98,8 @@ export interface TransactionViewItem {
   userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;
   relatedContext?: TransactionRelatedContext | undefined;
-  rawSources?: RawTransaction[] | undefined;
+  sourceLineage?: TransactionSourceLineageItem[] | undefined;
+  sourceData?: TransactionSourceDataItem[] | undefined;
 }
 
 /**

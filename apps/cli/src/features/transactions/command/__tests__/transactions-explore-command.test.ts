@@ -14,12 +14,15 @@ const {
   mockComputeCategoryCounts,
   mockFindAccountByName,
   mockFindAllAccounts,
+  mockFindRawTransactionsByTransactionId,
   mockCreateTransactionsViewState,
   mockCtx,
   mockExitCliFailure,
   mockExportExecute,
   mockFindByFingerprintRef,
   mockOutputSuccess,
+  mockOutputTransactionStaticDetail,
+  mockOutputTransactionsStaticList,
   mockPrepareTransactionsCommandScope,
   mockReadTransactionsForCommand,
   mockRenderApp,
@@ -30,12 +33,15 @@ const {
   mockComputeCategoryCounts: vi.fn(),
   mockFindAccountByName: vi.fn(),
   mockFindAllAccounts: vi.fn(),
+  mockFindRawTransactionsByTransactionId: vi.fn(),
   mockCreateTransactionsViewState: vi.fn(),
   mockCtx: { tag: 'command-runtime' },
   mockExitCliFailure: vi.fn(),
   mockExportExecute: vi.fn(),
   mockFindByFingerprintRef: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockOutputTransactionStaticDetail: vi.fn(),
+  mockOutputTransactionsStaticList: vi.fn(),
   mockPrepareTransactionsCommandScope: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
   mockRenderApp: vi.fn(),
@@ -60,6 +66,11 @@ vi.mock('../../../../cli/output.js', () => ({
 
 vi.mock('../../../shared/file-utils.js', () => ({
   writeFilesWithAtomicRenames: mockWriteFilesWithAtomicRenames,
+}));
+
+vi.mock('../../view/transactions-static-renderer.js', () => ({
+  outputTransactionStaticDetail: mockOutputTransactionStaticDetail,
+  outputTransactionsStaticList: mockOutputTransactionsStaticList,
 }));
 
 vi.mock('../transactions-command-scope.js', () => ({
@@ -201,9 +212,15 @@ describe('transactions explore command', () => {
             findByName: mockFindAccountByName,
           },
           transactions: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
             findByFingerprintRef: mockFindByFingerprintRef,
+            findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
+          },
+          transactionLinks: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
           },
         },
+        dataDir: '/tmp/exitbook-cli-tests',
         profile: {
           id: 1,
           profileKey: 'default',
@@ -216,6 +233,7 @@ describe('transactions explore command', () => {
     mockFindAccountByName.mockResolvedValue(ok(undefined));
     mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }, { id: 2 }]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
+    mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
     mockToTransactionViewItem.mockImplementation((transaction: { id: number; txFingerprint?: string | undefined }) => ({
       id: transaction.id,
       platformKey: 'kraken',
@@ -245,16 +263,17 @@ describe('transactions explore command', () => {
 
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
-      db: {
+      db: expect.objectContaining({
         tag: 'db',
         accounts: {
           findAll: mockFindAllAccounts,
           findByName: mockFindAccountByName,
         },
-        transactions: {
+        transactions: expect.objectContaining({
           findByFingerprintRef: mockFindByFingerprintRef,
-        },
-      },
+          findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
+        }),
+      }),
       profileId: 1,
       accountIds: undefined,
       platformKey: 'kraken',
@@ -328,19 +347,23 @@ describe('transactions explore command', () => {
     await program.parseAsync(['transactions', 'explore', '--account', 'wallet-main', '--json'], { from: 'user' });
 
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
-      db: {
+      db: expect.objectContaining({
         tag: 'db',
         accounts: {
           findAll: mockFindAllAccounts,
           findByName: mockFindAccountByName,
         },
-        transactions: {
+        transactions: expect.objectContaining({
           findByFingerprintRef: mockFindByFingerprintRef,
-        },
-      },
+          findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
+        }),
+      }),
       profileId: 1,
       accountIds: [7, 8],
       platformKey: undefined,
+      address: undefined,
+      from: undefined,
+      to: undefined,
       since: undefined,
       until: undefined,
       assetId: undefined,
@@ -459,5 +482,87 @@ describe('transactions explore command', () => {
 
     expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
     expect(mockReadTransactionsForCommand).not.toHaveBeenCalled();
+  });
+
+  it('rejects --source-data without a selector', async () => {
+    const program = createProgram();
+
+    await expect(program.parseAsync(['transactions', 'explore', '--source-data'], { from: 'user' })).rejects.toThrow(
+      'CLI:transactions-explore:text:--source-data requires a transaction selector:2'
+    );
+
+    expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();
+  });
+
+  it('renders selector detail as JSON with full source data when --source-data is requested', async () => {
+    const program = createProgram();
+    const selected = { id: 2, txFingerprint: 'bbbbbbbbbb-selected' };
+
+    mockFindByFingerprintRef.mockResolvedValue(ok(selected));
+    mockFindRawTransactionsByTransactionId.mockResolvedValue(
+      ok([
+        {
+          accountId: 1,
+          blockchainTransactionHash: undefined,
+          createdAt: new Date('2026-03-02T00:00:00.000Z'),
+          eventId: 'evt-1',
+          id: 301,
+          normalizedData: { normalized: true },
+          processedAt: new Date('2026-03-02T00:00:00.000Z'),
+          processingStatus: 'processed',
+          providerData: { amount: '1.25' },
+          providerName: 'kraken',
+          sourceAddress: undefined,
+          timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+          transactionTypeHint: 'trade',
+        },
+      ])
+    );
+
+    await program.parseAsync(['transactions', 'explore', 'bbbbbbbbbb', '--source-data', '--json'], { from: 'user' });
+
+    expect(mockFindRawTransactionsByTransactionId).toHaveBeenCalledWith(selected.id, 1);
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'transactions-explore',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceLineage: [
+            expect.objectContaining({
+              rawTransactionId: 301,
+              providerName: 'kraken',
+              eventId: 'evt-1',
+            }),
+          ],
+          sourceData: [
+            expect.objectContaining({
+              rawTransactionId: 301,
+              providerName: 'kraken',
+              eventId: 'evt-1',
+              providerPayload: { amount: '1.25' },
+              normalizedPayload: { normalized: true },
+            }),
+          ],
+        }),
+      }),
+      undefined
+    );
+  });
+
+  it('falls back to static detail for selector source dumps on interactive terminals', async () => {
+    const program = createProgram();
+    const selected = { id: 2, txFingerprint: 'bbbbbbbbbb-selected' };
+
+    mockFindByFingerprintRef.mockResolvedValue(ok(selected));
+    mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
+
+    await program.parseAsync(['transactions', 'explore', 'bbbbbbbbbb', '--source-data'], { from: 'user' });
+
+    expect(mockRenderApp).not.toHaveBeenCalled();
+    expect(mockOutputTransactionStaticDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: selected.id,
+        txFingerprint: selected.txFingerprint,
+      })
+    );
   });
 });

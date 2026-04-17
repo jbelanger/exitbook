@@ -97,6 +97,10 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition
     flags: '--json',
     description: 'Output JSON format',
   },
+  {
+    flags: '--source-data',
+    description: 'Include linked raw source rows and full payload dumps in detail output',
+  },
 ];
 
 const TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
@@ -147,8 +151,8 @@ export function prepareTransactionsBrowseCommand(
     );
   }
 
-  if (!input.transactionSelector && options.providerData === true) {
-    return err(createCliFailure(new Error('--provider-data requires a transaction selector'), ExitCodes.INVALID_ARGS));
+  if (!input.transactionSelector && options.sourceData === true) {
+    return err(createCliFailure(new Error('--source-data requires a transaction selector'), ExitCodes.INVALID_ARGS));
   }
 
   return ok({
@@ -165,7 +169,7 @@ export function prepareTransactionsBrowseCommand(
       until: options.until,
       operationType: options.operationType,
       noPrice: options.noPrice,
-      providerData: options.providerData,
+      sourceData: options.sourceData,
     },
     surfaceKind: input.transactionSelector ? 'detail' : 'list',
   });

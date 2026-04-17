@@ -13,6 +13,7 @@ import {
   resolveOwnedTransactionSelector,
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
+import { toTransactionSourceDataItem, toTransactionSourceLineageItem } from '../transaction-source-data.js';
 import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
@@ -33,7 +34,7 @@ import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { readTransactionsForCommand } from './transactions-read-support.js';
 
 export interface TransactionsBrowseParams extends TransactionsBrowseFilters {
-  providerData?: boolean | undefined;
+  sourceData?: boolean | undefined;
   transactionSelector?: string | undefined;
 }
 
@@ -65,7 +66,7 @@ export async function buildTransactionsBrowsePresentation(
 
     if (selector) {
       return yield* await buildDetailPresentation(scope, selector, trackedIdentifiers, {
-        providerData: params.providerData,
+        sourceData: params.sourceData,
       });
     }
 
@@ -146,20 +147,14 @@ async function buildDetailPresentation(
   selector: ResolvedTransactionSelector,
   trackedIdentifiers: ReadonlySet<string>,
   options: {
-    providerData?: boolean | undefined;
+    sourceData?: boolean | undefined;
   }
 ): Promise<Result<TransactionsBrowsePresentation, CliFailure>> {
   return resultDoAsync(async function* () {
-    const rawSources =
-      options.providerData === true
-        ? yield* toCliResult(
-            await scope.database.transactions.findRawTransactionsByTransactionId(
-              selector.transaction.id,
-              scope.profile.id
-            ),
-            ExitCodes.GENERAL_ERROR
-          )
-        : undefined;
+    const rawSourceRows = yield* toCliResult(
+      await scope.database.transactions.findRawTransactionsByTransactionId(selector.transaction.id, scope.profile.id),
+      ExitCodes.GENERAL_ERROR
+    );
     const profileLinkGapSourceReader = buildProfileLinkGapSourceReader(scope.database, scope.dataDir, {
       profileId: scope.profile.id,
       profileKey: scope.profile.profileKey,
@@ -171,7 +166,12 @@ async function buildDetailPresentation(
     const selectedTransaction = {
       ...toTransactionViewItem(selector.transaction, trackedIdentifiers),
       relatedContext: buildTransactionRelatedContext(profileLinkGapSource, selector.transaction),
-      ...(rawSources !== undefined ? { rawSources } : {}),
+      ...(rawSourceRows.length > 0
+        ? {
+            sourceLineage: rawSourceRows.map(toTransactionSourceLineageItem),
+            ...(options.sourceData === true ? { sourceData: rawSourceRows.map(toTransactionSourceDataItem) } : {}),
+          }
+        : {}),
     };
     const jsonFilters = buildDefinedFilters(buildTransactionSelectorFilters(selector));
 
@@ -185,7 +185,7 @@ async function buildDetailPresentation(
           0,
           1,
           1,
-          options.providerData === true ? { ...jsonFilters, providerData: true } : jsonFilters
+          options.sourceData === true ? { ...jsonFilters, sourceData: true } : jsonFilters
         ),
       },
       detailJsonResult: {
@@ -195,7 +195,7 @@ async function buildDetailPresentation(
           0,
           1,
           1,
-          options.providerData === true ? { ...jsonFilters, providerData: true } : jsonFilters
+          options.sourceData === true ? { ...jsonFilters, sourceData: true } : jsonFilters
         ),
       },
     };

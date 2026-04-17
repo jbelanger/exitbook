@@ -144,35 +144,45 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('+ 10.5 ADA [staking_reward] · fedcba0987:2');
   });
 
-  it('renders linked raw source data when present', () => {
+  it('renders source lineage and full source data when present', () => {
     const output = buildTransactionStaticDetail({
       ...createTransactionViewItem(),
-      rawSources: [
+      sourceLineage: [
         {
-          accountId: 1,
-          blockchainTransactionHash: undefined,
-          createdAt: new Date('2026-03-01T12:10:00.000Z'),
-          eventId: 'evt-123',
-          id: 700,
-          normalizedData: { normalized: true },
-          processedAt: new Date('2026-03-01T12:10:01.000Z'),
-          processingStatus: 'processed',
-          providerData: { amount: '1.25' },
+          rawTransactionId: 700,
           providerName: 'kraken',
-          sourceAddress: undefined,
-          timestamp: Date.parse('2026-03-01T12:00:00.000Z'),
+          eventId: 'evt-123',
+          timestamp: '2026-03-01T12:00:00.000Z',
+          processingStatus: 'processed',
           transactionTypeHint: 'trade',
+          blockchainTransactionHash: undefined,
+          sourceAddress: undefined,
+        },
+      ],
+      sourceData: [
+        {
+          rawTransactionId: 700,
+          providerName: 'kraken',
+          eventId: 'evt-123',
+          timestamp: '2026-03-01T12:00:00.000Z',
+          processingStatus: 'processed',
+          transactionTypeHint: 'trade',
+          blockchainTransactionHash: undefined,
+          sourceAddress: undefined,
+          providerPayload: { amount: '1.25' },
+          normalizedPayload: { normalized: true },
         },
       ],
     });
 
+    expect(stripAnsi(output)).toContain('Source lineage (1)');
     expect(stripAnsi(output)).toContain('Source data (1)');
     expect(stripAnsi(output)).toContain('Raw #700');
     expect(stripAnsi(output)).toContain('provider=kraken');
     expect(stripAnsi(output)).toContain('event=evt-123');
-    expect(stripAnsi(output)).toContain('providerData:');
+    expect(stripAnsi(output)).toContain('providerPayload:');
     expect(stripAnsi(output)).toContain('"amount": "1.25"');
-    expect(stripAnsi(output)).toContain('normalizedData:');
+    expect(stripAnsi(output)).toContain('normalizedPayload:');
     expect(stripAnsi(output)).toContain('"normalized": true');
   });
 

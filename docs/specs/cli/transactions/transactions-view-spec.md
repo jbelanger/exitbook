@@ -26,8 +26,8 @@ Rules:
 
 - browse commands are read-only
 - browse commands read processed transactions by default
-- `transactions view <selector> --provider-data` may additionally read linked raw
-  source rows for that selected transaction
+- selector detail surfaces may additionally read linked raw source rows for
+  that selected transaction
 - browse commands never call live providers
 - browse commands may include excluded transactions because the family is an operator surface, not an accounting filter
 - transaction identity is the persisted `txFingerprint`; numeric `id` is display metadata only
@@ -86,7 +86,7 @@ Shared browse options:
 
 Detail-only option:
 
-- `--provider-data`: include linked raw source rows, original `provider_data`, and stored `normalized_data`
+- `--source-data`: include linked raw source rows and full stored payload dumps
 
 Explorer-only option:
 
@@ -96,7 +96,7 @@ Rules:
 
 - `transactions` and `transactions list` do not accept `--limit`
 - `--address` cannot be combined with `--from` or `--to`
-- `--provider-data` requires a transaction selector
+- `--source-data` requires a transaction selector
 - `transactions view <selector>` is always detail-shaped, even with `--json`
 - `transactions explore <selector>` is always selector-shaped, even when it falls back to static detail off-TTY
 
@@ -112,8 +112,11 @@ Rules:
 - missing or invalid filter dates fail fast before loading the browse surface
 - list and detail projection use the same processed-transaction source by
   default
-- `transactions view <selector> --provider-data` enriches the detail projection
-  with linked raw source rows from persisted lineage bindings
+- selector detail projection always includes lightweight source lineage when
+  persisted raw bindings exist
+- `--source-data` additionally includes full stored payload dumps for those raw
+  rows
+- browse surfaces never parse or reinterpret stored provider payloads
 - only presentation changes between static, JSON, and TUI outputs unless an
   explicit detail-only enrichment flag is requested
 
@@ -207,7 +210,8 @@ Body order:
 18. optional `Outflows`
 19. optional transaction-fee detail block
 20. optional `User notes`
-21. optional `Source data`
+21. optional `Source lineage`
+22. optional `Source data`
 
 Rules:
 
@@ -226,13 +230,24 @@ Rules:
   - same-hash sibling transaction refs
   - nearby transaction refs sharing the same `from` endpoint
   - nearby transaction refs sharing the same `to` endpoint
+- `Source lineage` renders whenever persisted raw bindings exist for the
+  selected transaction
+- each lineage row includes identifying metadata only:
+  - raw row id
+  - provider name
+  - event id
+  - timestamp
+  - processing status
+  - optional type hint
+  - optional blockchain hash
+  - optional source address
 - asset movement detail lines must include:
   - transaction-scoped `MOVEMENT-REF`
   - the effective `movementRole` when it is non-principal
 - user notes render in full and are not artificially capped
-- `Source data` renders only when `--provider-data` is requested
-- each source row includes identifying metadata plus the linked `provider_data`
-  and `normalized_data` payloads
+- `Source data` renders only when `--source-data` is requested
+- each source row includes identifying metadata plus the full stored
+  `providerPayload` and `normalizedPayload` dumps
 
 ### Explorer
 
@@ -253,6 +268,10 @@ Rules:
 - the explorer list uses the same debit/credit/fee summaries as the static list, but without list headers
 - selector-based explorer opens on the full unfiltered list with the requested transaction pre-selected
 - non-selector explorer honors browse filters and `--limit`
+- selector-based explorer detail may show `Source lineage` in the TUI detail
+  panel
+- `transactions explore <selector> --source-data` bypasses the TUI and renders
+  selector detail directly so full source dumps are not truncated
 - inline export remains explorer-only and is triggered from inside the TUI
 - export writes the full filtered dataset, not just the visible window
 
@@ -322,6 +341,9 @@ Rules:
   - `sharedFromTransactionCount`
   - `sharedToTransactionRefs`
   - `sharedToTransactionCount`
+- detail JSON may include:
+  - `sourceLineage`
+  - `sourceData`
 - each inflow/outflow item in detail JSON must include:
   - `movementFingerprint`
   - `movementRole`

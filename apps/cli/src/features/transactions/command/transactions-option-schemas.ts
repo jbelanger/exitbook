@@ -61,7 +61,7 @@ function addAddressFilterExclusivityRule<
 
 export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   json: z.boolean().optional(),
-  providerData: z.boolean().optional(),
+  sourceData: z.boolean().optional(),
 })
   .superRefine(addAssetFilterExclusivityRule)
   .superRefine(addAddressFilterExclusivityRule);
@@ -69,6 +69,7 @@ export const TransactionsBrowseCommandOptionsSchema = TransactionsFilterOptionsS
 export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptionsSchema.extend({
   limit: z.number().int().positive().optional(),
   json: z.boolean().optional(),
+  sourceData: z.boolean().optional(),
 })
   .superRefine(addAssetFilterExclusivityRule)
   .superRefine(addAddressFilterExclusivityRule);

@@ -269,7 +269,7 @@ describe('transactions view command', () => {
     );
   });
 
-  it('loads linked raw source rows when --provider-data is requested', async () => {
+  it('loads source lineage by default and full source data when --source-data is requested', async () => {
     const program = createProgram();
     const transaction = createTransaction({ id: 17, txFingerprint: createFingerprint('d') });
     const rawSource: RawTransaction = {
@@ -292,12 +292,27 @@ describe('transactions view command', () => {
     mockFindByFingerprintRef.mockResolvedValue(ok(transaction));
     mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([rawSource]));
 
-    await program.parseAsync(['transactions', 'view', fingerprintRef, '--provider-data'], { from: 'user' });
+    await program.parseAsync(['transactions', 'view', fingerprintRef, '--source-data'], { from: 'user' });
 
     expect(mockFindRawTransactionsByTransactionId).toHaveBeenCalledWith(transaction.id, 1);
     expect(mockOutputTransactionStaticDetail).toHaveBeenCalledWith(
       expect.objectContaining({
-        rawSources: [rawSource],
+        sourceLineage: [
+          expect.objectContaining({
+            rawTransactionId: rawSource.id,
+            providerName: rawSource.providerName,
+            eventId: rawSource.eventId,
+          }),
+        ],
+        sourceData: [
+          expect.objectContaining({
+            rawTransactionId: rawSource.id,
+            providerName: rawSource.providerName,
+            eventId: rawSource.eventId,
+            providerPayload: rawSource.providerData,
+            normalizedPayload: rawSource.normalizedData,
+          }),
+        ],
       })
     );
   });
