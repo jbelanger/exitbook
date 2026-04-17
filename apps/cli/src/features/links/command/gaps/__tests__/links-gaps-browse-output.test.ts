@@ -32,11 +32,11 @@ describe('links-gaps-browse-output', () => {
       transactionSnapshot: {
         blockchainTransactionHash: 'shared-hash',
         from: 'bc1qtracked',
-        fromOwnership: 'tracked' as const,
+        fromOwnership: 'owned' as const,
         openSameHashGapRowCount: 2,
         openSameHashTransactionRefs: ['abc123def0', 'def456abc1'],
         to: '3J11external',
-        toOwnership: 'untracked' as const,
+        toOwnership: 'unknown' as const,
       },
       transactionGapCount: 1,
       transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),

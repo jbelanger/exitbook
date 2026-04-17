@@ -144,6 +144,18 @@ Decision:
 - defer any broader `known external wallet` feature unless real pain remains
   after cross-profile evidence lands
 
+What shipped:
+
+- `transactions view` and `transactions explore` now project endpoint ownership
+  as:
+  - `owned`
+  - `other-profile`
+  - `unknown`
+- `links gaps view` and `links gaps explore` now project the same ownership
+  cues in transaction snapshots
+- the implementation uses local profile/account data only; it does not create a
+  new counterparty registry or account-like external model
+
 ## What This Work Unlocked
 
 The shipped rewrites already improved real CLI-only investigation materially:
@@ -190,30 +202,20 @@ These ideas were considered and rejected for now:
 
 ### Next bounded model decision
 
-1. Add cross-profile ownership evidence.
-   - when an address/account belongs to another local profile, treat that as a
-     first-class investigation signal
-   - do not add a new CLI family for this
-
-2. Project that evidence into investigation surfaces.
-   - replace the current binary `tracked` / `untracked` story with:
-     - `owned`
-     - `other profile`
-     - `unknown`
-
-3. Use that evidence to resolve current repeated gap cases through the CLI.
+1. Use cross-profile ownership evidence to resolve the current repeated gap
+   cases through the CLI.
    - a cross-profile route is enough to treat the wallet as not owned by the
      active profile
    - broader external-wallet modeling stays deferred unless gaps remain hard
 
 ### Discussion-heavy work after that
 
-4. Decide whether bridge pairs and receive-then-forward groups need explicit
+2. Decide whether bridge pairs and receive-then-forward groups need explicit
    pair/group actions under `links gaps`.
    - keep this inside `links gaps` if possible
    - only add a new subcommand if the rewrite becomes awkward
 
-5. Move tiny dust and similar mechanical one-way receipts out of permanent
+3. Move tiny dust and similar mechanical one-way receipts out of permanent
    operator debt.
    - likely linking-policy work, not just CLI work
 
@@ -222,7 +224,5 @@ These ideas were considered and rejected for now:
 These are the remaining decisions that still deserve explicit discussion before
 implementation:
 
-1. How cross-profile ownership should be surfaced in `transactions` and
-   `links gaps`
-2. Mutation semantics for bridge-pair and receive-then-forward review
-3. Suppression policy for tiny dust and similar mechanical one-way receipts
+1. Mutation semantics for bridge-pair and receive-then-forward review
+2. Suppression policy for tiny dust and similar mechanical one-way receipts

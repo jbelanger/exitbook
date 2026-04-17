@@ -20,6 +20,7 @@ import {
 } from '../../../../cli/presentation.js';
 import { renderApp, type CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
+import { loadAddressOwnershipLookup } from '../../../shared/address-ownership.js';
 import { getLinkSelectorErrorExitCode } from '../../link-selector.js';
 import { LinksViewApp } from '../../view/index.js';
 import { LinksGapsBrowseCommandOptionsSchema } from '../links-option-schemas.js';
@@ -82,8 +83,14 @@ export async function executePreparedLinksGapsBrowseCommand(
       profileId: profile.id,
       profileKey: profile.profileKey,
     });
+    const addressOwnershipLookup = yield* toCliResult(
+      await loadAddressOwnershipLookup(database, profile.id),
+      ExitCodes.GENERAL_ERROR
+    );
 
-    const browsePresentationResult = await buildLinksGapsBrowsePresentation(sourceReader, prepared.params);
+    const browsePresentationResult = await buildLinksGapsBrowsePresentation(sourceReader, prepared.params, {
+      addressOwnershipLookup,
+    });
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(
           createCliFailure(browsePresentationResult.error, getLinkSelectorErrorExitCode(browsePresentationResult.error))

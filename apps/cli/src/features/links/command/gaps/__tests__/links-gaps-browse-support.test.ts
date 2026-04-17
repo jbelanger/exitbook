@@ -20,6 +20,7 @@ vi.mock('@exitbook/accounting/linking', async (importOriginal) => {
 
 import { createConfirmableTransferFixture, createMockGapAnalysis } from '../../../__tests__/test-utils.js';
 import { createPersistedTransaction } from '../../../../shared/__tests__/transaction-test-utils.js';
+import { createAddressOwnershipLookup } from '../../../../shared/address-ownership.js';
 import { buildLinkGapRef, buildLinkProposalRef } from '../../../link-selector.js';
 import { buildTransferProposalItems } from '../../../transfer-proposals.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
@@ -290,7 +291,7 @@ describe('links-gaps-browse-support', () => {
     expect(result.value.gaps.map((gap) => gap.suggestedProposalRefs)).toEqual([[proposalRef], [proposalRef]]);
   });
 
-  it('derives tracked endpoint ownership and same-hash sibling refs from the profile gap source data', async () => {
+  it('derives owned endpoint ownership and same-hash sibling refs from the profile gap source data', async () => {
     const txOne = createPersistedTransaction({
       id: 10,
       accountId: 1,
@@ -449,11 +450,11 @@ describe('links-gaps-browse-support', () => {
     expect(result.value.gaps[0]?.transactionSnapshot).toEqual({
       blockchainTransactionHash: 'shared-hash',
       from: 'bc1qtrackedsource',
-      fromOwnership: 'tracked',
+      fromOwnership: 'owned',
       openSameHashGapRowCount: 2,
       openSameHashTransactionRefs: ['btc-gap-1', 'btc-gap-2'],
       to: '3J11externaldest',
-      toOwnership: 'untracked',
+      toOwnership: 'unknown',
     });
     expect(result.value.gaps[0]?.relatedContext).toEqual({
       fromAccount: {
@@ -466,6 +467,119 @@ describe('links-gaps-browse-support', () => {
       sameHashSiblingTransactionRefs: ['btc-gap-2'],
       sharedToTransactionCount: 1,
       sharedToTransactionRefs: ['btc-gap-2'],
+    });
+  });
+
+  it('marks endpoints owned by another profile as other-profile when a shared ownership lookup is provided', async () => {
+    const tx = createPersistedTransaction({
+      id: 10,
+      accountId: 1,
+      txFingerprint: 'btc-gap-1',
+      platformKey: 'bitcoin',
+      platformKind: 'blockchain',
+      datetime: '2024-07-05T11:37:19.000Z',
+      timestamp: Date.parse('2024-07-05T11:37:19.000Z'),
+      status: 'success',
+      from: 'bc1qactiveprofile',
+      to: 'bc1qotherprofile',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:bitcoin:native',
+            assetSymbol: 'BTC' as Currency,
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+          },
+        ],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+      blockchain: {
+        name: 'bitcoin',
+        transaction_hash: 'shared-hash',
+        is_confirmed: true,
+      },
+    });
+    const analysis = {
+      issues: [
+        {
+          transactionId: tx.id,
+          txFingerprint: tx.txFingerprint,
+          platformKey: tx.platformKey,
+          blockchainName: 'bitcoin',
+          timestamp: tx.datetime,
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC',
+          missingAmount: '0.5',
+          totalAmount: '0.5',
+          confirmedCoveragePercent: '0',
+          operationCategory: tx.operation.category,
+          operationType: tx.operation.type,
+          suggestedCount: 0,
+          direction: 'outflow' as const,
+        },
+      ],
+      summary: {
+        total_issues: 1,
+        uncovered_inflows: 0,
+        unmatched_outflows: 1,
+        affected_assets: 1,
+        assets: [
+          {
+            assetSymbol: 'BTC',
+            inflowOccurrences: 0,
+            inflowMissingAmount: '0',
+            outflowOccurrences: 1,
+            outflowMissingAmount: '0.5',
+          },
+        ],
+      },
+    };
+    mockBuildVisibleProfileLinkGapAnalysis.mockReturnValue({
+      analysis,
+      hiddenResolvedIssueCount: 0,
+    });
+    const sourceReader = createCustomLinksGapSourceReader({
+      accounts: [
+        {
+          id: 1,
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1qactiveprofile',
+          accountFingerprint: 'acct-fp-1',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+      ],
+      excludedAssetIds: new Set<string>(),
+      links: [],
+      resolvedIssueKeys: new Set<string>(),
+      transactions: [tx],
+    });
+
+    const result = await buildLinksGapsBrowsePresentation(
+      sourceReader.sourceReader,
+      {},
+      {
+        addressOwnershipLookup: createAddressOwnershipLookup({
+          ownedIdentifiers: ['bc1qactiveprofile'],
+          otherProfileIdentifiers: ['bc1qotherprofile'],
+        }),
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.gaps[0]?.transactionSnapshot).toMatchObject({
+      fromOwnership: 'owned',
+      toOwnership: 'other-profile',
     });
   });
 });

@@ -20,11 +20,11 @@ export function buildGapOwnershipRouteLabel(
 }
 
 export function getGapOwnershipRouteColor(value: string): 'dim' | 'green' | 'yellow' {
-  if (value === 'tracked source -> untracked destination') {
+  if (value === 'owned source -> unknown destination' || value === 'owned source -> other-profile destination') {
     return 'yellow';
   }
 
-  if (value === 'untracked source -> tracked destination') {
+  if (value === 'unknown source -> owned destination' || value === 'other-profile source -> owned destination') {
     return 'green';
   }
 

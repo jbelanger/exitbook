@@ -219,9 +219,11 @@ Rules:
 - `Debit`, `Credit`, and `Fees` use the same balance-summary semantics as the browse list
 - `Primary movement` is supplementary detail only and may render `—` when no primary movement can be derived
 - blockchain metadata appears only when present on the processed transaction
-- when `From` or `To` is present and the endpoint belongs to a tracked account
-  set for the active profile, the detail surface appends `[tracked]` or
-  `[untracked]` inline
+- when `From` or `To` is present, the detail surface appends inline ownership
+  evidence:
+  - `[owned]` when the endpoint belongs to the active profile
+  - `[other-profile]` when the endpoint belongs to another local profile
+  - `[unknown]` otherwise
 - `Related context` is derived from persisted profile transactions, links, and
   accounts only; it never calls providers
 - `Related context` may include:

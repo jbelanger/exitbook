@@ -26,6 +26,7 @@ import {
 } from '../../../cli/presentation.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
+import { loadAddressOwnershipLookup, type AddressOwnershipLookup } from '../../shared/address-ownership.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 import { buildViewMeta } from '../../shared/view-utils.js';
 import {
@@ -34,7 +35,6 @@ import {
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
 import { toTransactionSourceLineageItem } from '../transaction-source-data.js';
-import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
@@ -194,13 +194,13 @@ async function executeTransactionsExploreCommandResult(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const trackedIdentifiers = yield* toCliResult(
-      await loadTrackedTransactionIdentifiers(scope.database, scope.profile.id),
+    const addressOwnershipLookup = yield* toCliResult(
+      await loadAddressOwnershipLookup(scope.database, scope.profile.id),
       ExitCodes.GENERAL_ERROR
     );
 
     return buildTransactionsExploreListCompletion(
-      trackedIdentifiers,
+      addressOwnershipLookup,
       transactions,
       prepared.params,
       prepared.presentation.mode,
@@ -298,13 +298,13 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
 }
 
 function buildTransactionsExploreListCompletion(
-  trackedIdentifiers: ReadonlySet<string>,
+  addressOwnershipLookup: AddressOwnershipLookup,
   transactions: Transaction[],
   params: ExploreTransactionsParams,
   mode: 'json' | 'static',
   accountFilter: ResolvedTransactionsAccountFilter | undefined
 ): CliCompletion {
-  const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
+  const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup));
   const categoryCounts = computeCategoryCounts(allViewItems);
   const visibleItems = allViewItems.slice(0, params.limit);
   const filters = buildTransactionsViewFilters({
@@ -344,8 +344,8 @@ async function buildTransactionsExploreTuiCompletion(
       profileId,
       params.transactionSelector
     );
-    const trackedIdentifiers = yield* toCliResult(
-      await loadTrackedTransactionIdentifiers(database, profileId),
+    const addressOwnershipLookup = yield* toCliResult(
+      await loadAddressOwnershipLookup(database, profileId),
       ExitCodes.GENERAL_ERROR
     );
 
@@ -365,7 +365,7 @@ async function buildTransactionsExploreTuiCompletion(
       ExitCodes.GENERAL_ERROR
     );
 
-    const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers));
+    const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup));
     const categoryCounts = computeCategoryCounts(allViewItems);
     const viewFilters = buildTransactionsViewFilters({
       ...params,
@@ -450,10 +450,15 @@ async function enrichSelectedExploreTransaction(
       ExitCodes.GENERAL_ERROR
     );
 
+    const addressOwnershipLookup = yield* toCliResult(
+      await loadAddressOwnershipLookup(database, profileId),
+      ExitCodes.GENERAL_ERROR
+    );
+
     return transactions.map((transaction) =>
       transaction.txFingerprint === selectedTransaction.transaction.txFingerprint
         ? {
-            ...transaction,
+            ...toTransactionViewItem(selectedTransaction.transaction, addressOwnershipLookup),
             ...(rawSourceRows.length > 0 ? { sourceLineage: rawSourceRows.map(toTransactionSourceLineageItem) } : {}),
           }
         : transaction

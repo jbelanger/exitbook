@@ -4,6 +4,7 @@ import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
+import { loadAddressOwnershipLookup, type AddressOwnershipLookup } from '../../shared/address-ownership.js';
 import type { ViewCommandResult } from '../../shared/view-utils.js';
 import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import { buildTransactionRelatedContext } from '../transaction-investigation-context.js';
@@ -14,7 +15,6 @@ import {
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
 import { toTransactionSourceDataItem, toTransactionSourceLineageItem } from '../transaction-source-data.js';
-import { loadTrackedTransactionIdentifiers } from '../transaction-tracked-identifiers.js';
 import { toTransactionViewItem } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
@@ -53,8 +53,8 @@ export async function buildTransactionsBrowsePresentation(
   params: TransactionsBrowseParams
 ): Promise<Result<TransactionsBrowsePresentation, CliFailure>> {
   return resultDoAsync(async function* () {
-    const trackedIdentifiers = yield* toCliResult(
-      await loadTrackedTransactionIdentifiers(scope.database, scope.profile.id),
+    const addressOwnershipLookup = yield* toCliResult(
+      await loadAddressOwnershipLookup(scope.database, scope.profile.id),
       ExitCodes.GENERAL_ERROR
     );
     const selector = yield* await resolveSelectedTransaction(
@@ -64,7 +64,7 @@ export async function buildTransactionsBrowsePresentation(
     );
 
     if (selector) {
-      return yield* await buildDetailPresentation(scope, selector, trackedIdentifiers, {
+      return yield* await buildDetailPresentation(scope, selector, addressOwnershipLookup, {
         sourceData: params.sourceData,
       });
     }
@@ -93,7 +93,7 @@ export async function buildTransactionsBrowsePresentation(
     );
 
     return buildListPresentation(
-      transactions.map((transaction) => toTransactionViewItem(transaction, trackedIdentifiers)),
+      transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup)),
       params,
       accountFilter
     );
@@ -145,7 +145,7 @@ async function resolveSelectedTransaction(
 async function buildDetailPresentation(
   scope: TransactionsCommandScope,
   selector: ResolvedTransactionSelector,
-  trackedIdentifiers: ReadonlySet<string>,
+  addressOwnershipLookup: AddressOwnershipLookup,
   options: {
     sourceData?: boolean | undefined;
   }
@@ -164,7 +164,7 @@ async function buildDetailPresentation(
       ExitCodes.GENERAL_ERROR
     );
     const selectedTransaction = {
-      ...toTransactionViewItem(selector.transaction, trackedIdentifiers),
+      ...toTransactionViewItem(selector.transaction, addressOwnershipLookup),
       relatedContext: buildTransactionRelatedContext(profileLinkGapSource, selector.transaction),
       ...(rawSourceRows.length > 0
         ? {

@@ -113,9 +113,9 @@ describe('transactions static renderer', () => {
       ...createTransactionViewItem(),
       platformKind: 'blockchain',
       from: '0x15a2aa147781b08a0105d678386ea63e6ca06281',
-      fromOwnership: 'tracked',
+      fromOwnership: 'owned',
       to: '0x99361540189079095a96f7145b6db3b6bf0104ac',
-      toOwnership: 'untracked',
+      toOwnership: 'unknown',
       inflows: [
         {
           movementFingerprint: 'movement:1234567890abcdef1234567890abcdef:1',
@@ -138,10 +138,23 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('Credit: 1.25 BTC');
     expect(stripAnsi(output)).toContain('Fees: 12.5 USD');
     expect(stripAnsi(output)).toContain('Primary movement: 1.25000000 BTC IN');
-    expect(stripAnsi(output)).toContain('From: 0x15a2aa147781b08a0105d678386ea63e6ca06281 [tracked]');
-    expect(stripAnsi(output)).toContain('To: 0x99361540189079095a96f7145b6db3b6bf0104ac [untracked]');
+    expect(stripAnsi(output)).toContain('From: 0x15a2aa147781b08a0105d678386ea63e6ca06281 [owned]');
+    expect(stripAnsi(output)).toContain('To: 0x99361540189079095a96f7145b6db3b6bf0104ac [unknown]');
     expect(stripAnsi(output)).toContain('+ 1.25 BTC · 1234567890:1');
     expect(stripAnsi(output)).toContain('+ 10.5 ADA [staking_reward] · fedcba0987:2');
+  });
+
+  it('renders cross-profile ownership inline when the endpoint belongs to another profile', () => {
+    const output = buildTransactionStaticDetail({
+      ...createTransactionViewItem(),
+      from: '0xactiveprofilewallet',
+      fromOwnership: 'owned',
+      to: '0xotherprofilewallet',
+      toOwnership: 'other-profile',
+    });
+
+    expect(stripAnsi(output)).toContain('From: 0xactiveprofilewallet [owned]');
+    expect(stripAnsi(output)).toContain('To: 0xotherprofilewallet [other-profile]');
   });
 
   it('renders source lineage and full source data when present', () => {

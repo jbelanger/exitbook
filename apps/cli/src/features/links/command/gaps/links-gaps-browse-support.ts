@@ -7,7 +7,11 @@ import type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from '@exi
 import type { Transaction } from '@exitbook/core';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
-import { resolveAddressOwnership } from '../../../shared/address-ownership.js';
+import {
+  createAddressOwnershipLookup,
+  resolveAddressOwnership,
+  type AddressOwnershipLookup,
+} from '../../../shared/address-ownership.js';
 import { normalizeBlockchainTransactionHashForGrouping } from '../../../shared/blockchain-transaction-hash-grouping.js';
 import { buildTransactionRelatedContext } from '../../../transactions/transaction-investigation-context.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
@@ -35,7 +39,10 @@ export interface LinksGapsBrowsePresentation {
 
 export async function buildLinksGapsBrowsePresentation(
   sourceReader: IProfileLinkGapSourceReader,
-  params: LinksGapsBrowseParams
+  params: LinksGapsBrowseParams,
+  options?: {
+    addressOwnershipLookup?: AddressOwnershipLookup | undefined;
+  }
 ): Promise<Result<LinksGapsBrowsePresentation, Error>> {
   return resultDoAsync(async function* () {
     const source = yield* await sourceReader.loadProfileLinkGapSourceData();
@@ -43,7 +50,16 @@ export async function buildLinksGapsBrowsePresentation(
     const sortedAnalysis = sortLinkGapAnalysisByTimestamp(visibility.analysis);
     const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
     const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
-    const transactionSnapshotByFingerprint = yield* buildGapTransactionSnapshotByFingerprint(source, sortedAnalysis);
+    const addressOwnershipLookup =
+      options?.addressOwnershipLookup ??
+      createAddressOwnershipLookup({
+        ownedIdentifiers: source.accounts.map((account) => account.identifier),
+      });
+    const transactionSnapshotByFingerprint = yield* buildGapTransactionSnapshotByFingerprint(
+      source,
+      sortedAnalysis,
+      addressOwnershipLookup
+    );
     const relatedContextByFingerprint = yield* buildRelatedContextByFingerprint(source, sortedAnalysis);
     const gaps = sortedAnalysis.issues.map((gapIssue) => ({
       gapRef: buildLinkGapRef({
@@ -194,12 +210,12 @@ function compareLinkGapIssuesByTimestamp(
 
 function buildGapTransactionSnapshotByFingerprint(
   source: ProfileLinkGapSourceData,
-  analysis: LinkGapAnalysis
+  analysis: LinkGapAnalysis,
+  addressOwnershipLookup: AddressOwnershipLookup
 ): Result<Map<string, LinkGapBrowseTransactionSnapshot>, Error> {
   const transactionByFingerprint = new Map(
     source.transactions.map((transaction) => [transaction.txFingerprint, transaction])
   );
-  const trackedIdentifiers = new Set(source.accounts.map((account) => account.identifier));
   const sameHashGroupByNormalizedHash = buildOpenSameHashGroupByNormalizedHash(source.transactions, analysis);
   const snapshots = new Map<string, LinkGapBrowseTransactionSnapshot>();
 
@@ -216,7 +232,7 @@ function buildGapTransactionSnapshotByFingerprint(
           )
         : undefined;
 
-    snapshots.set(issue.txFingerprint, buildGapTransactionSnapshot(transaction, trackedIdentifiers, sameHashGroup));
+    snapshots.set(issue.txFingerprint, buildGapTransactionSnapshot(transaction, addressOwnershipLookup, sameHashGroup));
   }
 
   return ok(snapshots);
@@ -224,7 +240,7 @@ function buildGapTransactionSnapshotByFingerprint(
 
 function buildGapTransactionSnapshot(
   transaction: Transaction,
-  trackedIdentifiers: ReadonlySet<string>,
+  addressOwnershipLookup: AddressOwnershipLookup,
   sameHashGroup?: {
     openSameHashGapRowCount: number;
     openSameHashTransactionRefs: string[];
@@ -233,7 +249,7 @@ function buildGapTransactionSnapshot(
   return {
     blockchainTransactionHash: transaction.blockchain?.transaction_hash,
     from: transaction.from,
-    fromOwnership: resolveAddressOwnership(transaction.from, trackedIdentifiers),
+    fromOwnership: resolveAddressOwnership(transaction.from, addressOwnershipLookup),
     ...(sameHashGroup !== undefined && sameHashGroup.openSameHashTransactionRefs.length > 1
       ? {
           openSameHashGapRowCount: sameHashGroup.openSameHashGapRowCount,
@@ -241,7 +257,7 @@ function buildGapTransactionSnapshot(
         }
       : {}),
     to: transaction.to,
-    toOwnership: resolveAddressOwnership(transaction.to, trackedIdentifiers),
+    toOwnership: resolveAddressOwnership(transaction.to, addressOwnershipLookup),
   };
 }
 

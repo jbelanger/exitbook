@@ -2,11 +2,15 @@ import type { AssetMovement, FeeMovement, Transaction, TransactionBalanceImpactA
 import { buildTransactionBalanceImpact, computePrimaryMovement } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
 
-import { resolveAddressOwnership } from '../shared/address-ownership.js';
+import {
+  createAddressOwnershipLookup,
+  resolveAddressOwnership,
+  type AddressOwnershipLookup,
+} from '../shared/address-ownership.js';
 
 import type { FeeDisplayItem, MovementDisplayItem, TransactionViewItem } from './transactions-view-model.js';
 
-const EMPTY_TRACKED_IDENTIFIERS = new Set<string>();
+const EMPTY_ADDRESS_OWNERSHIP_LOOKUP = createAddressOwnershipLookup({});
 
 function isFiatAsset(assetSymbol: string): boolean {
   return isFiat(assetSymbol as Currency);
@@ -113,8 +117,11 @@ export function getTransactionPriceStatus(tx: Transaction): TransactionViewItem[
   return 'partial';
 }
 
-export function toTransactionViewItem(tx: Transaction, trackedIdentifiers?: ReadonlySet<string>): TransactionViewItem {
-  const resolvedTrackedIdentifiers = trackedIdentifiers ?? EMPTY_TRACKED_IDENTIFIERS;
+export function toTransactionViewItem(
+  tx: Transaction,
+  addressOwnershipLookup?: AddressOwnershipLookup
+): TransactionViewItem {
+  const resolvedAddressOwnershipLookup = addressOwnershipLookup ?? EMPTY_ADDRESS_OWNERSHIP_LOOKUP;
   const primaryMovement = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
   const balanceImpact = buildTransactionBalanceImpact(tx);
   const balanceImpactAssetsById = new Map(
@@ -170,9 +177,9 @@ export function toTransactionViewItem(tx: Transaction, trackedIdentifiers?: Read
         }
       : undefined,
     from: tx.from ?? undefined,
-    fromOwnership: resolveAddressOwnership(tx.from ?? undefined, resolvedTrackedIdentifiers),
+    fromOwnership: resolveAddressOwnership(tx.from ?? undefined, resolvedAddressOwnershipLookup),
     to: tx.to ?? undefined,
-    toOwnership: resolveAddressOwnership(tx.to ?? undefined, resolvedTrackedIdentifiers),
+    toOwnership: resolveAddressOwnership(tx.to ?? undefined, resolvedAddressOwnershipLookup),
     diagnostics: (tx.diagnostics ?? []).map((diagnostic) => ({
       code: diagnostic.code,
       message: diagnostic.message,

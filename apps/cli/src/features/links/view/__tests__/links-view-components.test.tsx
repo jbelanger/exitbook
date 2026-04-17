@@ -618,9 +618,9 @@ describe('LinksViewApp - gaps mode', () => {
           transactionSnapshot: {
             blockchainTransactionHash: 'shared-hash',
             from: '0xsource',
-            fromOwnership: 'tracked',
+            fromOwnership: 'owned',
             to: '0xtarget',
-            toOwnership: 'untracked',
+            toOwnership: 'unknown',
           },
           transactionGapCount: 1,
           transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),

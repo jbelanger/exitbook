@@ -167,7 +167,7 @@ Behavior:
 - When present, detail also shows:
   - blockchain transaction hash
   - raw `from` / `to` endpoint values from the processed transaction
-  - endpoint ownership context such as `tracked source -> untracked destination`
+  - endpoint ownership context such as `owned source -> other-profile destination`
   - shared transaction investigation context reused from `transactions view`,
     including:
     - exact owned-account matches for visible endpoints
