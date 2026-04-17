@@ -37,6 +37,7 @@ describe('account-selector helpers', () => {
   it('resolves a named account selector', async () => {
     const account = createAccount();
     const service = {
+      getByIdentifier: vi.fn(),
       getByName: vi.fn().mockResolvedValue(ok(account)),
       getByFingerprintRef: vi.fn(),
     };
@@ -63,6 +64,7 @@ describe('account-selector helpers', () => {
   it('falls back from a bare selector name lookup to fingerprint ref lookup', async () => {
     const account = createAccount({ name: undefined });
     const service = {
+      getByIdentifier: vi.fn(),
       getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi.fn().mockResolvedValue(ok(account)),
     };
@@ -81,10 +83,40 @@ describe('account-selector helpers', () => {
     });
     expect(service.getByName).toHaveBeenCalledWith(1, '1aaaaaaaaa');
     expect(service.getByFingerprintRef).toHaveBeenCalledWith(1, '1aaaaaaaaa');
+    expect(service.getByIdentifier).not.toHaveBeenCalled();
+  });
+
+  it('falls back from selector lookup to exact identifier lookup', async () => {
+    const account = createAccount({
+      accountType: 'blockchain',
+      identifier: 'bc1qwalletaddress',
+      name: undefined,
+      platformKey: 'bitcoin',
+    });
+    const service = {
+      getByIdentifier: vi.fn().mockResolvedValue(ok(account)),
+      getByName: vi.fn().mockResolvedValue(ok(undefined)),
+      getByFingerprintRef: vi.fn().mockResolvedValue(ok(undefined)),
+    };
+
+    const result = await resolveOwnedAccountSelector(service, 1, 'bc1qwalletaddress');
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toEqual({
+      account,
+      kind: 'identifier',
+      value: 'bc1qwalletaddress',
+    });
+    expect(service.getByIdentifier).toHaveBeenCalledWith(1, 'bc1qwalletaddress');
   });
 
   it('treats a missing bare selector as an omitted selection', async () => {
     const service = {
+      getByIdentifier: vi.fn(),
       getByName: vi.fn(),
       getByFingerprintRef: vi.fn(),
     };
@@ -101,10 +133,12 @@ describe('account-selector helpers', () => {
     expect(hasAccountSelectorArgument({ selector: 'kraken-main' })).toBe(true);
     expect(service.getByName).not.toHaveBeenCalled();
     expect(service.getByFingerprintRef).not.toHaveBeenCalled();
+    expect(service.getByIdentifier).not.toHaveBeenCalled();
   });
 
   it('rewrites a bare selector miss into selector-specific not-found copy', async () => {
     const service = {
+      getByIdentifier: vi.fn().mockResolvedValue(ok(undefined)),
       getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi.fn().mockResolvedValue(ok(undefined)),
     };
@@ -121,6 +155,7 @@ describe('account-selector helpers', () => {
 
   it('treats missing required selectors as invalid arguments', async () => {
     const service = {
+      getByIdentifier: vi.fn(),
       getByName: vi.fn(),
       getByFingerprintRef: vi.fn(),
     };
@@ -142,6 +177,7 @@ describe('account-selector helpers', () => {
 
   it('maps ambiguous selectors to invalid-args semantics when the fingerprint prefix is ambiguous', async () => {
     const service = {
+      getByIdentifier: vi.fn(),
       getByName: vi.fn().mockResolvedValue(ok(undefined)),
       getByFingerprintRef: vi
         .fn()

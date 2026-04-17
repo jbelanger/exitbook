@@ -14,6 +14,7 @@ interface AccountLifecycleStore {
   }): Promise<Result<Account, Error>>;
   findById(accountId: number): Promise<Result<Account | undefined, Error>>;
   findByFingerprintRef(profileId: number, fingerprintRef: string): Promise<Result<Account | undefined, Error>>;
+  findByIdentifier(profileId: number, identifier: string): Promise<Result<Account | undefined, Error>>;
   findByIdentity(input: {
     accountType: AccountType;
     identifier: string;
@@ -177,6 +178,10 @@ export class AccountLifecycleService {
 
   getByFingerprintRef(profileId: number, fingerprintRef: string): Promise<Result<Account | undefined, Error>> {
     return this.store.findByFingerprintRef(profileId, fingerprintRef);
+  }
+
+  getByIdentifier(profileId: number, identifier: string): Promise<Result<Account | undefined, Error>> {
+    return this.store.findByIdentifier(profileId, identifier);
   }
 
   async requireOwned(profileId: number, accountId: number): Promise<Result<Account, Error>> {

@@ -363,6 +363,51 @@ describe('AccountRepository', () => {
     });
   });
 
+  describe('findByIdentifier', () => {
+    it('finds an account by exact identifier within a profile', async () => {
+      const created = assertOk(
+        await repo.create({
+          profileId: 1,
+          name: 'wallet-main',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-wallet-main',
+        })
+      );
+
+      const found = assertOk(await repo.findByIdentifier(1, 'bc1q-wallet-main'));
+
+      expect(found?.id).toBe(created.id);
+      expect(found?.identifier).toBe('bc1q-wallet-main');
+    });
+
+    it('does not cross profile boundaries when finding by exact identifier', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'secondary',
+          display_name: 'secondary',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      assertOk(
+        await repo.create({
+          profileId: 2,
+          name: 'wallet-main',
+          accountType: 'blockchain',
+          platformKey: 'bitcoin',
+          identifier: 'bc1q-shared-identifier',
+        })
+      );
+
+      const found = assertOk(await repo.findByIdentifier(1, 'bc1q-shared-identifier'));
+
+      expect(found).toBeUndefined();
+    });
+  });
+
   describe('findAll', () => {
     it('returns all accounts for a profile', async () => {
       assertOk(

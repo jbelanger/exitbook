@@ -18,6 +18,7 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
+  mockGetByIdentifier,
   mockFindById,
   mockGetByName,
   mockList,
@@ -39,6 +40,7 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
+  mockGetByIdentifier: vi.fn(),
   mockFindById: vi.fn(),
   mockGetByName: vi.fn(),
   mockList: vi.fn(),
@@ -256,6 +258,7 @@ beforeEach(() => {
   mockcreateCliAccountLifecycleService.mockReturnValue({
     findById: mockFindById,
     getByFingerprintRef: mockGetByFingerprintRef,
+    getByIdentifier: mockGetByIdentifier,
     getByName: mockGetByName,
   });
   mockBuildAccountDetailViewItem.mockImplementation(async ({ summary }: { summary: AccountViewItem }) =>
@@ -284,6 +287,7 @@ beforeEach(() => {
     )
   );
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+  mockGetByIdentifier.mockResolvedValue(ok(undefined));
   mockGetByName.mockImplementation(async (_profileId: number, name: string) =>
     ok(
       name === 'kraken-main'
@@ -1048,6 +1052,60 @@ describe('accounts browse commands', () => {
     expect(payload).toBeDefined();
     expect((payload as { meta?: { filters?: Record<string, unknown> } }).meta?.filters).toEqual({
       account: 'kraken-main',
+    });
+  });
+
+  it('resolves an account identifier before querying when name and ref miss', async () => {
+    const program = createAccountsProgram();
+    const account = createAccountSummary({
+      accountType: 'blockchain',
+      id: 7,
+      identifier: 'bc1qwalletmainaddress',
+      name: 'wallet-main',
+      platformKey: 'bitcoin',
+    });
+
+    mockGetByName.mockResolvedValue(ok(undefined));
+    mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+    mockGetByIdentifier.mockResolvedValue(
+      ok({
+        id: 7,
+        profileId: 1,
+        name: 'wallet-main',
+        parentAccountId: undefined,
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'bc1qwalletmainaddress',
+        accountFingerprint: createAccountFingerprint(7),
+        providerName: undefined,
+        credentials: undefined,
+        lastCursor: undefined,
+        metadata: undefined,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: undefined,
+      })
+    );
+    mockList.mockResolvedValue(
+      ok({
+        accounts: [account],
+        count: 1,
+        sessions: undefined,
+      })
+    );
+
+    await program.parseAsync(['accounts', 'view', 'bc1qwalletmainaddress', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockGetByName).toHaveBeenCalledWith(1, 'bc1qwalletmainaddress');
+    expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, 'bc1qwalletmainaddress');
+    expect(mockGetByIdentifier).toHaveBeenCalledWith(1, 'bc1qwalletmainaddress');
+    expect(mockList).toHaveBeenCalledWith({
+      profileId: 1,
+      accountId: 7,
+      accountType: undefined,
+      platformKey: undefined,
+      showSessions: undefined,
     });
   });
 

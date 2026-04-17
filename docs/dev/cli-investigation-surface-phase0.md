@@ -478,23 +478,24 @@ Conclusion:
 
 ## Ranked Implementation Order
 
-### Ready Now: High-Confidence Rewrites
+### Completed Quick Wins
 
 1. Strengthen address-centered search inside existing families.
-   - add address filters to `transactions`
-   - make `accounts` lookup/search usable by identifier/address, not just owned
-     account name/ref
+   - done: address / from / to filters in `transactions`
+   - done: `accounts view <selector>` and `accounts explore <selector>` now
+     resolve exact owned account identifiers, not just account name/fingerprint
 2. Rewrite `transactions view` to carry richer related context from existing
    processed data.
-   - related gaps
-   - same-hash siblings
-   - other recent transactions involving the same endpoints
-   - owned account matches for visible identifiers
+   - done: related gaps
+   - done: same-hash siblings
+   - done: other recent transactions involving the same endpoints
+   - done: owned account matches for visible identifiers
 3. Rewrite `links gaps view/explore` to consume the same related-context model
    more consistently.
-   - repeated counterparty/address context
-   - clearer grouped impact preview
-   - stronger next-step guidance for repeated patterns
+   - done: static, JSON, and TUI gap detail now reuse the same related-context
+     investigation model
+   - still open: clearer grouped impact preview for bridge-like and
+     receive-then-forward patterns
 
 ### After One Bounded Model Decision
 

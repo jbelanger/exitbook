@@ -192,6 +192,31 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
+  async findByIdentifier(profileId: number, identifier: string): Promise<Result<Account | undefined, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        const normalizedIdentifier = identifier.trim();
+        if (normalizedIdentifier.length === 0) {
+          return yield* err(new Error('Account identifier must not be empty'));
+        }
+
+        const row = await self
+          .baseAccountQuery()
+          .where('accounts.profile_id', '=', profileId)
+          .where('accounts.identifier', '=', normalizedIdentifier)
+          .executeTakeFirst();
+
+        if (!row) {
+          return undefined;
+        }
+
+        return yield* toAccount(row);
+      },
+      this,
+      'Failed to find account by identifier'
+    );
+  }
+
   async findByIdentity(params: AccountIdentityParams): Promise<Result<Account | undefined, Error>> {
     return resultTryAsync(
       async function* (self) {

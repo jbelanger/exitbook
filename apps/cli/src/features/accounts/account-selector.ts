@@ -20,12 +20,13 @@ export type OptionalBareAccountSelector = z.infer<typeof OptionalBareAccountSele
 
 interface AccountSelectorService {
   getByFingerprintRef(profileId: number, fingerprintRef: string): Promise<Result<Account | undefined, Error>>;
+  getByIdentifier(profileId: number, identifier: string): Promise<Result<Account | undefined, Error>>;
   getByName(profileId: number, name: string): Promise<Result<Account | undefined, Error>>;
 }
 
 export interface ResolvedAccountSelector {
   account: Account;
-  kind: 'name' | 'ref';
+  kind: 'identifier' | 'name' | 'ref';
   value: string;
 }
 
@@ -104,6 +105,25 @@ async function resolveAccountRefSelector(
   return ok(buildResolvedAccountSelector(accountResult.value, 'ref', normalizedRef));
 }
 
+async function resolveAccountIdentifierSelector(
+  accountService: AccountSelectorService,
+  profileId: number,
+  identifier: string
+): Promise<Result<ResolvedAccountSelector, Error>> {
+  const normalizedIdentifier = identifier.trim();
+  const accountResult = await accountService.getByIdentifier(profileId, normalizedIdentifier);
+  if (accountResult.isErr()) {
+    return err(accountResult.error);
+  }
+  if (!accountResult.value) {
+    return err(
+      new AccountSelectorResolutionError('not-found', `Account identifier '${normalizedIdentifier}' not found`)
+    );
+  }
+
+  return ok(buildResolvedAccountSelector(accountResult.value, 'identifier', normalizedIdentifier));
+}
+
 export function hasAccountSelectorArgument(selector: OptionalBareAccountSelector): boolean {
   return selector.selector !== undefined;
 }
@@ -141,11 +161,23 @@ export async function resolveOwnedAccountSelector(
   }
 
   const accountByRefResult = await resolveAccountRefSelector(accountService, profileId, normalizedSelector);
-  if (accountByRefResult.isErr() && isSelectorResolutionErrorKind(accountByRefResult.error, 'not-found')) {
+  if (accountByRefResult.isOk()) {
+    return accountByRefResult;
+  }
+
+  if (!isSelectorResolutionErrorKind(accountByRefResult.error, 'not-found')) {
+    return err(accountByRefResult.error);
+  }
+
+  const accountByIdentifierResult = await resolveAccountIdentifierSelector(accountService, profileId, selector);
+  if (
+    accountByIdentifierResult.isErr() &&
+    isSelectorResolutionErrorKind(accountByIdentifierResult.error, 'not-found')
+  ) {
     return err(new AccountSelectorResolutionError('not-found', `Account selector '${normalizedSelector}' not found`));
   }
 
-  return accountByRefResult;
+  return accountByIdentifierResult;
 }
 
 export async function resolveOwnedOptionalAccountSelector(

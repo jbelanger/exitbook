@@ -90,6 +90,9 @@ function createStore(initialAccounts: Account[] = []) {
           )
         );
       },
+      async findByIdentifier(profileId: number, identifier: string) {
+        return ok(accounts.find((account) => account.profileId === profileId && account.identifier === identifier));
+      },
       async findByIdentity(input: {
         accountType: Account['accountType'];
         identifier: string;
