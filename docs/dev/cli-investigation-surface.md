@@ -113,6 +113,8 @@ receive then forward` now steer the operator toward counterpart inspection
   plus `links gaps resolve`, instead of generic transfer review
 - exact proposal refs when they are derivable
 - immediate profile-issue refresh after profile-owned corrective actions
+- deterministic `bridge_transfer` diagnostics now steer gap detail toward
+  `links gaps resolve` instead of generic transfer review
 
 Decision:
 
@@ -207,8 +209,8 @@ These conclusions are now strong enough to treat as real design input:
 - provider/source dumps exposed a real false-positive class: exchange-internal
   balance moves such as Kraken `spotfromfutures` should not become transfer-gap
   work
-- diagnostic-backed bridge deposits are resolvable today, but they still need
-  stronger first-class guidance than a plain diagnostic hint
+- diagnostic-backed bridge deposits now have explicit no-link guidance, but
+  still remain row-by-row review rather than pair/group review
 
 ## What Is Not Justified
 

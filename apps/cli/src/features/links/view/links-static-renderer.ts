@@ -9,6 +9,7 @@ import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import {
   countGapSuggestionBuckets,
+  formatGapLikelyOutcome,
   formatCompactAmount,
   formatCoverage,
   formatGapCueLabel,
@@ -23,7 +24,7 @@ import {
   formatProposalProvenanceDetail,
   formatProposalRoute,
   formatResolvedGapExceptionCount,
-  gapCueSuggestsGapException,
+  gapIssueSuggestsGapException,
   getCoverageColor,
   getGapSuggestionColor,
   getProposalAmountDisplay,
@@ -309,11 +310,12 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     gapIssue.gapCueCounterpartTxFingerprint !== undefined
       ? formatTransactionFingerprintRef(gapIssue.gapCueCounterpartTxFingerprint)
       : undefined;
-  const cueSuggestsGapException = gapCueSuggestsGapException(gapIssue.gapCue);
+  const issueSuggestsGapException = gapIssueSuggestsGapException(gapIssue);
+  const likelyOutcome = formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef);
   const nextStep =
     suggestedProposalRefs.length > 0
       ? `exitbook links confirm ${suggestedProposalRefs[0]!}`
-      : cueSuggestsGapException
+      : issueSuggestsGapException
         ? `exitbook links gaps resolve ${item.gapRef}`
         : gapCueCounterpartTransactionRef !== undefined
           ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
@@ -377,14 +379,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
           buildDetailLine('Inspect counterpart', `exitbook transactions view ${gapCueCounterpartTransactionRef}`),
         ]
       : []),
-    ...(cueSuggestsGapException
-      ? [
-          buildDetailLine(
-            'Likely outcome',
-            'No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.'
-          ),
-        ]
-      : []),
+    ...(likelyOutcome ? [buildDetailLine('Likely outcome', likelyOutcome)] : []),
     ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),

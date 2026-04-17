@@ -259,6 +259,39 @@ describe('links static renderer', () => {
     );
   });
 
+  it('treats bridge-transfer diagnostics as no-link guidance when no counterpart is known', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      suggestedCount: 0,
+      contextHint: {
+        kind: 'diagnostic' as const,
+        code: 'bridge_transfer',
+        label: 'bridge transfer',
+        message: 'Processed transaction carries bridge_transfer diagnostics and likely reflects bridge activity.',
+      },
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+
+    expect(stripAnsi(detailOutput)).toContain(
+      'Likely outcome: Likely bridge or adjacent non-link activity; resolve this gap if no direct internal transfer exists.'
+    );
+    expect(stripAnsi(detailOutput)).toContain('Context: Processed transaction carries bridge_transfer diagnostics');
+    expect(stripAnsi(detailOutput)).toContain(`Next: exitbook links gaps resolve ${item.gapRef}`);
+    expect(stripAnsi(detailOutput)).not.toContain('Inspect counterpart:');
+  });
+
   it('shows the likely dust cue label in gap detail', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {

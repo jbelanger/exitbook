@@ -197,6 +197,9 @@ Behavior:
   - inspect the paired transaction, then resolve the gap when the cue suggests
     adjacent non-link activity such as `likely correlated service swap` or
     `likely receive then forward`
+  - resolve the gap directly when deterministic diagnostic context identifies
+    non-link bridge activity such as `bridge_transfer` and no direct internal
+    transfer is expected
   - review suggested proposals with `links explore --status suggested` only
     when suggestions exist but no exact ref can be derived
   - use `links gaps resolve <gap-ref>` when the transaction intentionally has no internal link

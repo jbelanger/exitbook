@@ -214,6 +214,33 @@ export function gapCueSuggestsGapException(cue: GapCueKind | undefined): boolean
   return cue === 'likely_correlated_service_swap' || cue === 'likely_receive_then_forward';
 }
 
+export function gapContextHintSuggestsGapException(contextHint: LinkGapIssue['contextHint']): boolean {
+  return contextHint?.kind === 'diagnostic' && contextHint.code === 'bridge_transfer';
+}
+
+export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
+  return gapCueSuggestsGapException(issue.gapCue) || gapContextHintSuggestsGapException(issue.contextHint);
+}
+
+export function formatGapLikelyOutcome(
+  issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>,
+  counterpartTransactionRef?: string  
+): string | undefined {
+  if (!gapIssueSuggestsGapException(issue)) {
+    return undefined;
+  }
+
+  if (counterpartTransactionRef !== undefined) {
+    return 'No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.';
+  }
+
+  if (gapContextHintSuggestsGapException(issue.contextHint)) {
+    return 'Likely bridge or adjacent non-link activity; resolve this gap if no direct internal transfer exists.';
+  }
+
+  return 'No direct internal transfer; resolve this gap if confirmed.';
+}
+
 export function formatGapSuggestionAvailability(issue: LinkGapIssue): string {
   if (issue.suggestedCount === 0) {
     return 'no suggestions yet';
