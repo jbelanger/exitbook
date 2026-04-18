@@ -80,6 +80,15 @@ describe('reprocess runner helpers', () => {
     expect(mockProcessingWorkflow.prepareReprocess).toHaveBeenCalledWith({ accountId: 123 });
   });
 
+  test('should pass profileId to prepareReprocess', async () => {
+    mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok({ accountIds: [77] }));
+    mockProcessingWorkflow.processImportedSessions.mockResolvedValue(ok({ processed: 2, errors: [], failed: 0 }));
+
+    await executeReprocessWithRuntime(runtime, { profileId: 9 });
+
+    expect(mockProcessingWorkflow.prepareReprocess).toHaveBeenCalledWith({ profileId: 9 });
+  });
+
   test('should return processed: 0 when plan is empty', async () => {
     mockProcessingWorkflow.prepareReprocess.mockResolvedValue(ok(undefined));
 

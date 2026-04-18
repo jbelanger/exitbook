@@ -94,7 +94,9 @@ describe('buildProcessedTransactionsResetPorts', () => {
     }
 
     // Verify projection state is marked stale
-    const ptState = assertOk(await ctx.projectionState.find('processed-transactions'));
+    const ptState = assertOk(
+      await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(1))
+    );
     expect(ptState!.status).toBe('stale');
     expect(ptState!.invalidatedBy).toBe('reset');
 
@@ -134,5 +136,30 @@ describe('buildProcessedTransactionsResetPorts', () => {
 
     const childBalanceState = assertOk(await ctx.projectionState.find('balances', 'balance:2'));
     expect(childBalanceState).toBeUndefined();
+  });
+
+  it('keeps processed-transactions reset state scoped to the affected profile', async () => {
+    await db
+      .insertInto('profiles')
+      .values({ id: 2, profile_key: 'secondary', display_name: 'secondary', created_at: new Date().toISOString() })
+      .execute();
+    await seedAccount(db, 2, 'blockchain', 'ethereum', { profileId: 2 });
+    await seedImportSession(db, 2, 2);
+    await seedRawTransaction(1, 'processed');
+    await seedRawTransaction(2, 'processed');
+    await seedTransaction(1);
+    await seedTransaction(2);
+
+    const reset = buildProcessedTransactionsResetPorts(ctx);
+    assertOk(await reset.reset([1]));
+
+    const activeProfileState = assertOk(
+      await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(1))
+    );
+    expect(activeProfileState?.status).toBe('stale');
+    expect(activeProfileState?.invalidatedBy).toBe('reset');
+    expect(
+      assertOk(await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(2)))
+    ).toBeUndefined();
   });
 });

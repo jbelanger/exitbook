@@ -3,6 +3,7 @@ import type { IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 
+import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from './profile-scope-key.js';
 import { markDownstreamProjectionsStale } from './projection-invalidation.js';
 
 /**
@@ -41,7 +42,14 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
           }
 
           // Mark this projection and all downstream projections stale
-          yield* await tx.projectionState.markStale('processed-transactions', 'reset');
+          const profileIds = yield* await resolveAffectedProfileIds(tx, accountIds);
+          for (const profileId of profileIds) {
+            yield* await tx.projectionState.markStale(
+              'processed-transactions',
+              'reset',
+              buildProfileProjectionScopeKey(profileId)
+            );
+          }
           yield* await markDownstreamProjectionsStale({
             accountIds,
             db: tx,

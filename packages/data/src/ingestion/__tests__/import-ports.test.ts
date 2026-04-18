@@ -47,7 +47,7 @@ describe('buildImportPorts', () => {
       assertOk(await ports.invalidateProjections([1], 'new-import'));
 
       const repo = new ProjectionStateRepository(db);
-      const ptState = assertOk(await repo.find('processed-transactions'));
+      const ptState = assertOk(await repo.find('processed-transactions', buildProfileProjectionScopeKey(1)));
       expect(ptState?.status).toBe('stale');
       expect(ptState?.invalidatedBy).toBe('new-import');
 
@@ -61,6 +61,23 @@ describe('buildImportPorts', () => {
       const balancesState = assertOk(await repo.find('balances', 'balance:1'));
       expect(balancesState?.status).toBe('stale');
       expect(balancesState?.invalidatedBy).toBe('upstream-import:processed-transactions');
+    });
+
+    it('keeps processed-transactions invalidation scoped to the affected profile', async () => {
+      await seedAccount(db, 1, 'blockchain', 'bitcoin');
+      await db
+        .insertInto('profiles')
+        .values({ id: 2, profile_key: 'secondary', display_name: 'secondary', created_at: new Date().toISOString() })
+        .execute();
+      await seedAccount(db, 2, 'blockchain', 'ethereum', { profileId: 2 });
+
+      const ports = buildImportPorts(ctx);
+      assertOk(await ports.invalidateProjections([1], 'new-import'));
+
+      const repo = new ProjectionStateRepository(db);
+      const activeProfileState = assertOk(await repo.find('processed-transactions', buildProfileProjectionScopeKey(1)));
+      expect(activeProfileState?.status).toBe('stale');
+      expect(assertOk(await repo.find('processed-transactions', buildProfileProjectionScopeKey(2)))).toBeUndefined();
     });
 
     it('marks the root balance scope stale when importing a child account', async () => {

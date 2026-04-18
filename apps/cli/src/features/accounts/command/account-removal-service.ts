@@ -56,7 +56,10 @@ export function flattenAccountRemovePreview(preview: AccountRemovePreview): Acco
 }
 
 export class AccountRemovalService {
-  constructor(private readonly db: DataSession) {}
+  constructor(
+    private readonly db: DataSession,
+    private readonly profileId: number
+  ) {}
 
   async preview(accountIds: number[]): Promise<Result<AccountRemovePreview, Error>> {
     if (accountIds.length === 0) {
@@ -65,7 +68,7 @@ export class AccountRemovalService {
 
     const [projectionImpactResult, costBasisResult, purgeResult] = await Promise.all([
       countProjectionResetImpact(this.db, 'processed-transactions', accountIds),
-      buildCostBasisResetPorts(this.db).countResetImpact(),
+      buildCostBasisResetPorts(this.db).countResetImpact([this.profileId]),
       buildIngestionPurgePorts(this.db).countPurgeImpact(accountIds),
     ]);
 
@@ -110,7 +113,7 @@ export class AccountRemovalService {
         return wrapError(projectionResetResult.error, 'Failed to reset projections for account removal');
       }
 
-      const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset();
+      const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset([this.profileId]);
       if (costBasisResetResult.isErr()) {
         return wrapError(costBasisResetResult.error, 'Failed to reset cost-basis snapshots for account removal');
       }

@@ -65,7 +65,7 @@ export class ProcessingWorkflow {
     const startTime = Date.now();
     try {
       // Mark projection as building — fail-fast
-      const buildingResult = await this.ports.markProcessedTransactionsBuilding();
+      const buildingResult = await this.ports.markProcessedTransactionsBuilding(accountIds);
       if (buildingResult.isErr()) return err(buildingResult.error);
 
       // Count total raw data to process and collect transaction counts by stream type
@@ -137,7 +137,7 @@ export class ProcessingWorkflow {
           return err(new Error(errorMessage));
         }
       } else {
-        const failedResult = await this.ports.markProcessedTransactionsFailed();
+        const failedResult = await this.ports.markProcessedTransactionsFailed(accountIds);
         if (failedResult.isErr()) {
           this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
         }
@@ -161,7 +161,7 @@ export class ProcessingWorkflow {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`Unexpected error processing imported sessions: ${errorMessage}`);
 
-      const failedResult = await this.ports.markProcessedTransactionsFailed();
+      const failedResult = await this.ports.markProcessedTransactionsFailed(accountIds);
       if (failedResult.isErr()) {
         this.logger.warn({ error: failedResult.error }, 'Failed to mark processed-transactions as failed');
       }
@@ -188,15 +188,16 @@ export class ProcessingWorkflow {
    */
   async prepareReprocess(params: {
     accountId?: number | undefined;
+    profileId?: number | undefined;
   }): Promise<Result<ReprocessPlan | undefined, Error>> {
-    const { accountId } = params;
+    const { accountId, profileId } = params;
 
     // 1. Resolve all accounts with raw data
     let accountIds: number[];
     if (accountId) {
       accountIds = [accountId];
     } else {
-      const accountIdsResult = await this.ports.batchSource.findAccountsWithRawData();
+      const accountIdsResult = await this.ports.batchSource.findAccountsWithRawData(profileId);
       if (accountIdsResult.isErr()) return err(accountIdsResult.error);
       accountIds = accountIdsResult.value;
 

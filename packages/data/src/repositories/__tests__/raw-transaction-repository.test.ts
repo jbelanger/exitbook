@@ -158,6 +158,52 @@ describe('RawTransactionRepository', () => {
     });
   });
 
+  describe('findDistinctAccountIds', () => {
+    it('filters distinct account ids by profile', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'Business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 3, 'exchange-api', 'coinbase', { profileId: 2 });
+      await seedImportSession(db, 3, 3);
+      await db
+        .insertInto('raw_transactions')
+        .values({
+          account_id: 3,
+          provider_name: 'coinbase',
+          event_id: 'business-ext-1',
+          blockchain_transaction_hash: null,
+          source_address: null,
+          transaction_type_hint: null,
+          provider_data: JSON.stringify({ id: 'business-ext-1', amount: '100.00' }),
+          normalized_data: '{}',
+          processing_status: 'pending',
+          processed_at: undefined,
+          created_at: new Date().toISOString(),
+          timestamp: Date.now(),
+        })
+        .execute();
+
+      expect(assertOk(await repo.findDistinctAccountIds({ profileId: 1 })).sort((a, b) => a - b)).toEqual([1, 2]);
+      expect(assertOk(await repo.findDistinctAccountIds({ profileId: 2 }))).toEqual([3]);
+    });
+
+    it('combines profile and processing-status filters', async () => {
+      expect(assertOk(await repo.findDistinctAccountIds({ profileId: 1, processingStatus: 'processed' }))).toEqual([
+        1, 2,
+      ]);
+      expect(
+        assertOk(await repo.findDistinctAccountIds({ profileId: 1, processingStatus: 'pending' })).sort((a, b) => a - b)
+      ).toEqual([1, 2]);
+      expect(assertOk(await repo.findDistinctAccountIds({ profileId: 999 }))).toEqual([]);
+    });
+  });
+
   describe('findByHashes', () => {
     beforeEach(async () => {
       await db.deleteFrom('raw_transactions').execute();

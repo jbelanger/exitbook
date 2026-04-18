@@ -5,11 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildProcessedTransactionsFreshnessPorts } from '../../projections/processed-transactions-freshness.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
 import { seedProfile, seedAccount, seedImportSession } from '../../repositories/__tests__/helpers.js';
 import { ProjectionStateRepository } from '../../repositories/projection-state-repository.js';
+import { computeScopedAccountHash } from '../../utils/account-hash.js';
 import { createTestDatabase } from '../../utils/test-utils.js';
 
 describe('buildProcessedTransactionsFreshnessPorts', () => {
+  const profileId = 1;
   let db: KyselyDB;
   let ctx: DataSession;
 
@@ -39,7 +42,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
   }
 
   it('returns fresh when no raw data exists', async () => {
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('fresh');
     expect(result.reason).toBeUndefined();
@@ -50,7 +53,7 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('raw data has never been processed');
@@ -61,22 +64,15 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
-    // Compute the account hash the adapter will use
-    const accounts = assertOk(await ctx.accounts.findAll());
-    const sorted = accounts.map((a) => `${a.id}:${a.identifier}`).sort();
-    const raw = sorted.join('|');
-    let hash = 0;
-    for (let i = 0; i < raw.length; i++) {
-      const char = raw.charCodeAt(i);
-      hash = ((hash << 5) - hash + char) | 0;
-    }
-    const expectedHash = hash.toString(36);
+    const expectedHash = assertOk(await computeScopedAccountHash(ctx, profileId));
 
     // Mark fresh with correct hash and a recent build time
     const repo = new ProjectionStateRepository(db);
-    assertOk(await repo.markFresh('processed-transactions', { accountHash: expectedHash }));
+    assertOk(
+      await repo.markFresh('processed-transactions', { accountHash: expectedHash }, buildProfileProjectionScopeKey(1))
+    );
 
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('fresh');
   });
@@ -87,9 +83,11 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
     await seedRawTransaction(1);
 
     const repo = new ProjectionStateRepository(db);
-    assertOk(await repo.markFresh('processed-transactions', { accountHash: 'old-hash' }));
+    assertOk(
+      await repo.markFresh('processed-transactions', { accountHash: 'old-hash' }, buildProfileProjectionScopeKey(1))
+    );
 
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('account graph changed');
@@ -101,9 +99,9 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
     await seedRawTransaction(1);
 
     const repo = new ProjectionStateRepository(db);
-    assertOk(await repo.markStale('processed-transactions', 'import-completed'));
+    assertOk(await repo.markStale('processed-transactions', 'import-completed', buildProfileProjectionScopeKey(1)));
 
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('import-completed');
@@ -114,23 +112,14 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
     await seedAccount(db, 1, 'blockchain', 'bitcoin');
     await seedRawTransaction(1);
 
-    // Compute hash
-    const accounts = assertOk(await ctx.accounts.findAll());
-    const sorted = accounts.map((a) => `${a.id}:${a.identifier}`).sort();
-    const raw = sorted.join('|');
-    let hash = 0;
-    for (let i = 0; i < raw.length; i++) {
-      const char = raw.charCodeAt(i);
-      hash = ((hash << 5) - hash + char) | 0;
-    }
-    const expectedHash = hash.toString(36);
+    const expectedHash = assertOk(await computeScopedAccountHash(ctx, profileId));
 
     // Mark fresh with old build time
     const repo = new ProjectionStateRepository(db);
     assertOk(
       await repo.upsert({
         projectionId: 'processed-transactions',
-        scopeKey: '__global__',
+        scopeKey: buildProfileProjectionScopeKey(1),
         status: 'fresh',
         lastBuiltAt: new Date('2025-01-01T00:00:00.000Z'),
         lastInvalidatedAt: null,
@@ -147,9 +136,28 @@ describe('buildProcessedTransactionsFreshnessPorts', () => {
       .where('id', '=', 1)
       .execute();
 
-    const freshness = buildProcessedTransactionsFreshnessPorts(ctx);
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, profileId);
     const result = assertOk(await freshness.checkFreshness());
     expect(result.status).toBe('stale');
     expect(result.reason).toBe('new import completed since last build');
+  });
+
+  it('ignores raw data and projection state from other profiles', async () => {
+    await seedProfile(db);
+    await db
+      .insertInto('profiles')
+      .values({ id: 2, profile_key: 'secondary', display_name: 'secondary', created_at: new Date().toISOString() })
+      .execute();
+    await seedAccount(db, 1, 'blockchain', 'bitcoin');
+    await seedAccount(db, 2, 'blockchain', 'ethereum', { profileId: 2 });
+    await seedRawTransaction(2);
+
+    const repo = new ProjectionStateRepository(db);
+    assertOk(await repo.markStale('processed-transactions', 'other-profile', buildProfileProjectionScopeKey(2)));
+
+    const freshness = buildProcessedTransactionsFreshnessPorts(ctx, 1);
+    const result = assertOk(await freshness.checkFreshness());
+    expect(result.status).toBe('fresh');
+    expect(result.reason).toBeUndefined();
   });
 });

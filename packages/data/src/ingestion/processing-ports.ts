@@ -5,8 +5,9 @@ import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 import type { DataSession } from '../data-session.js';
 import type { OverrideStore } from '../overrides/override-store.js';
 import { materializeStoredTransactionOverrides } from '../overrides/transaction-override-materialization.js';
+import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from '../projections/profile-scope-key.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
-import { computeAccountHash } from '../utils/account-hash.js';
+import { computeScopedAccountHash } from '../utils/account-hash.js';
 
 async function materializeProfileScopedTransactionOverrides(
   db: DataSession,
@@ -75,9 +76,10 @@ export function buildProcessingPorts(
 ): ProcessingPorts {
   return {
     batchSource: {
-      findAccountsWithRawData: () => db.rawTransactions.findDistinctAccountIds({}),
+      findAccountsWithRawData: (profileId) => db.rawTransactions.findDistinctAccountIds({ profileId }),
 
-      findAccountsWithPendingData: () => db.rawTransactions.findDistinctAccountIds({ processingStatus: 'pending' }),
+      findAccountsWithPendingData: (profileId) =>
+        db.rawTransactions.findDistinctAccountIds({ profileId, processingStatus: 'pending' }),
 
       countPending: (accountId) => db.rawTransactions.count({ accountIds: [accountId], processingStatus: 'pending' }),
 
@@ -142,12 +144,28 @@ export function buildProcessingPorts(
         }),
     },
 
-    markProcessedTransactionsBuilding: () => db.projectionState.markBuilding('processed-transactions'),
+    markProcessedTransactionsBuilding: (accountIds) =>
+      resultDoAsync(async function* () {
+        const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
+        for (const profileId of profileIds) {
+          yield* await db.projectionState.markBuilding(
+            'processed-transactions',
+            buildProfileProjectionScopeKey(profileId)
+          );
+        }
+      }),
 
     markProcessedTransactionsFresh: (accountIds) =>
       resultDoAsync(async function* () {
-        const accountHash = yield* await computeAccountHash(db);
-        yield* await db.projectionState.markFresh('processed-transactions', { accountHash });
+        const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
+        for (const profileId of profileIds) {
+          const accountHash = yield* await computeScopedAccountHash(db, profileId);
+          yield* await db.projectionState.markFresh(
+            'processed-transactions',
+            { accountHash },
+            buildProfileProjectionScopeKey(profileId)
+          );
+        }
         yield* await markDownstreamProjectionsStale({
           accountIds,
           db,
@@ -156,7 +174,16 @@ export function buildProcessingPorts(
         });
       }),
 
-    markProcessedTransactionsFailed: () => db.projectionState.markFailed('processed-transactions'),
+    markProcessedTransactionsFailed: (accountIds) =>
+      resultDoAsync(async function* () {
+        const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
+        for (const profileId of profileIds) {
+          yield* await db.projectionState.markFailed(
+            'processed-transactions',
+            buildProfileProjectionScopeKey(profileId)
+          );
+        }
+      }),
 
     rebuildAssetReviewProjection: (accountIds) => options.rebuildAssetReviewProjection(accountIds),
 

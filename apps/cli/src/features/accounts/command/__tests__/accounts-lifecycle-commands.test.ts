@@ -14,6 +14,7 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
+  mockGetByIdentifier,
   mockGetByName,
   mockOutputSuccess,
   mockPrepareAccountRemoval,
@@ -33,6 +34,7 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
+  mockGetByIdentifier: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPrepareAccountRemoval: vi.fn(),
@@ -122,11 +124,13 @@ beforeEach(() => {
   mockcreateCliAccountLifecycleService.mockReturnValue({
     create: mockCreate,
     getByFingerprintRef: mockGetByFingerprintRef,
+    getByIdentifier: mockGetByIdentifier,
     getByName: mockGetByName,
     updateOwned: mockUpdateOwned,
   });
   mockGetByName.mockResolvedValue(ok(undefined));
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+  mockGetByIdentifier.mockResolvedValue(ok(undefined));
   mockWithAccountsRemoveCommandScope.mockImplementation(
     async (
       _ctx: unknown,

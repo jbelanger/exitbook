@@ -9,6 +9,7 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
+  mockGetByIdentifier,
   mockGetByName,
   mockOutputSuccess,
   mockResolveCommandProfile,
@@ -21,6 +22,7 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
+  mockGetByIdentifier: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
@@ -84,9 +86,11 @@ beforeEach(() => {
   );
   mockCreateCliAccountLifecycleService.mockReturnValue({
     getByFingerprintRef: mockGetByFingerprintRef,
+    getByIdentifier: mockGetByIdentifier,
     getByName: mockGetByName,
   });
   mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
+  mockGetByIdentifier.mockResolvedValue(ok(undefined));
   mockGetByName.mockResolvedValue(ok(undefined));
   mockExitCliFailure.mockImplementation(
     (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
@@ -108,7 +112,7 @@ describe('reprocess command', () => {
 
     await program.parseAsync(['reprocess', '--json'], { from: 'user' });
 
-    expect(mockRunReprocess).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { accountId: undefined });
+    expect(mockRunReprocess).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { profileId: 1 });
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
 
     const [, payload] = mockOutputSuccess.mock.calls[0] as [
@@ -145,7 +149,7 @@ describe('reprocess command', () => {
     await program.parseAsync(['reprocess', 'kraken-main', '--json'], { from: 'user' });
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockRunReprocess).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { accountId: 7 });
+    expect(mockRunReprocess).toHaveBeenCalledWith(mockCtx, { format: 'json' }, { accountId: 7, profileId: 1 });
   });
 
   it('surfaces selector misses as not-found failures', async () => {

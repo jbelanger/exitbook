@@ -20,7 +20,20 @@ export interface ImportResult {
   sessions: ImportSession[];
 }
 
+type XpubMetadata = NonNullable<NonNullable<Account['metadata']>['xpub']>;
+
 const logger = getLogger('ImportWorkflow');
+
+function hasCompletedXpubMaterialization(
+  metadata: XpubMetadata | undefined,
+  existingChildCount: number
+): metadata is XpubMetadata {
+  return metadata !== undefined && metadata.lastDerivedAt > 0 && metadata.derivedCount === existingChildCount;
+}
+
+function isXpubRederivation(metadata: XpubMetadata | undefined, existingChildCount: number): boolean {
+  return existingChildCount > 0 || (metadata?.lastDerivedAt ?? 0) > 0 || (metadata?.derivedCount ?? 0) > 0;
+}
 
 /**
  * Owns the full import lifecycle:
@@ -95,7 +108,7 @@ export class ImportWorkflow {
     blockchainAdapter: UtxoBlockchainAdapter
   ): Promise<Result<ImportResult, Error>> {
     const startTime = Date.now();
-    const requestedGap = parentAccount.metadata?.xpub?.gapLimit ?? 20;
+    const configuredGapLimit = parentAccount.metadata?.xpub?.gapLimit ?? 20;
     const blockchain = parentAccount.platformKey;
     const xpub = parentAccount.identifier;
     const providerName = parentAccount.providerName;
@@ -114,28 +127,31 @@ export class ImportWorkflow {
     const parentAlreadyExists = hasExistingChildren || hasExistingMetadata;
 
     const existingMetadata = parentAccount.metadata?.xpub;
-    const shouldRederive =
-      !hasExistingChildren || existingMetadata === undefined || requestedGap > existingMetadata.gapLimit;
+    const completedDerivedCount = hasCompletedXpubMaterialization(existingMetadata, existingChildren.length)
+      ? existingMetadata.derivedCount
+      : undefined;
+    const hasCompletedMaterialization = completedDerivedCount !== undefined;
+    const shouldRederive = !hasCompletedMaterialization;
+    const isRederivation = isXpubRederivation(existingMetadata, existingChildren.length);
 
     let childAccounts: Account[];
-    let newlyDerivedCount = 0;
 
     if (shouldRederive) {
       this.emit({
         type: 'xpub.derivation.started',
         parentAccountId: parentAccount.id,
         blockchain,
-        gapLimit: requestedGap,
-        isRederivation: Boolean(existingMetadata),
+        gapLimit: configuredGapLimit,
+        isRederivation,
         parentIsNew: !parentAlreadyExists,
-        previousGap: existingMetadata?.gapLimit,
+        previousGap: isRederivation ? existingMetadata?.gapLimit : undefined,
       });
 
       const derivedAddressesResult = await blockchainAdapter.deriveAddressesFromXpub(
         xpub,
         this.providerRuntime,
         blockchain,
-        requestedGap
+        configuredGapLimit
       );
       if (derivedAddressesResult.isErr()) {
         const durationMs = Date.now() - startTime;
@@ -165,63 +181,75 @@ export class ImportWorkflow {
         return ok({ sessions: [] });
       }
 
-      childAccounts = [];
+      const normalizedDerivedAddresses: string[] = [];
       for (const derived of derivedAddresses) {
         const normalizedResult = blockchainAdapter.normalizeAddress(derived.address);
         if (normalizedResult.isErr()) {
           logger.warn(`Skipping invalid derived address: ${derived.address}`);
           continue;
         }
+        normalizedDerivedAddresses.push(normalizedResult.value);
+      }
 
-        const existingChild = existingChildrenByIdentifier.get(normalizedResult.value);
-        if (existingChild) {
-          childAccounts.push(existingChild);
-          continue;
+      const materializationResult = await this.ports.withTransaction(async (tx) => {
+        const childAccountsInOrder: Account[] = [];
+        const nextChildrenByIdentifier = new Map(existingChildrenByIdentifier);
+
+        for (const identifier of normalizedDerivedAddresses) {
+          const existingChild = nextChildrenByIdentifier.get(identifier);
+          if (existingChild) {
+            childAccountsInOrder.push(existingChild);
+            continue;
+          }
+
+          const childResult = await tx.createAccount({
+            profileId: parentAccount.profileId,
+            parentAccountId: parentAccount.id,
+            accountType: 'blockchain',
+            platformKey: blockchain,
+            identifier,
+            providerName,
+          });
+          if (childResult.isErr()) return err(childResult.error);
+
+          nextChildrenByIdentifier.set(identifier, childResult.value);
+          childAccountsInOrder.push(childResult.value);
         }
 
-        const childResult = await this.ports.createAccount({
-          profileId: parentAccount.profileId,
-          parentAccountId: parentAccount.id,
-          accountType: 'blockchain',
-          platformKey: blockchain,
-          identifier: normalizedResult.value,
-          providerName,
+        const nextNewlyDerivedCount = hasCompletedMaterialization
+          ? childAccountsInOrder.length - completedDerivedCount
+          : hasExistingChildren
+            ? childAccountsInOrder.length - existingChildren.length
+            : 0;
+
+        const metadataResult = await tx.updateAccount(parentAccount.id, {
+          metadata: {
+            xpub: {
+              gapLimit: configuredGapLimit,
+              lastDerivedAt: Date.now(),
+              derivedCount: childAccountsInOrder.length,
+            },
+          },
         });
-        if (childResult.isErr()) return err(childResult.error);
+        if (metadataResult.isErr()) return err(metadataResult.error);
 
-        existingChildrenByIdentifier.set(normalizedResult.value, childResult.value);
-        childAccounts.push(childResult.value);
-      }
+        return ok({
+          childAccounts: childAccountsInOrder,
+          newlyDerivedCount: nextNewlyDerivedCount,
+        });
+      });
+      if (materializationResult.isErr()) return err(materializationResult.error);
 
-      if (existingMetadata) {
-        newlyDerivedCount = childAccounts.length - (existingMetadata.derivedCount ?? 0);
-      } else if (hasExistingChildren) {
-        newlyDerivedCount = childAccounts.length - existingChildren.length;
-      }
+      childAccounts = materializationResult.value.childAccounts;
+      const newlyDerivedCount = materializationResult.value.newlyDerivedCount;
 
       this.emit({
         type: 'xpub.derivation.completed',
         parentAccountId: parentAccount.id,
         derivedCount: childAccounts.length,
-        newCount: existingMetadata || hasExistingChildren ? newlyDerivedCount : undefined,
+        newCount: isRederivation ? newlyDerivedCount : undefined,
         durationMs: derivationDuration,
       });
-
-      const metadataResult = await this.ports.updateAccount(parentAccount.id, {
-        metadata: {
-          xpub: {
-            gapLimit: requestedGap,
-            lastDerivedAt: Date.now(),
-            derivedCount: childAccounts.length,
-          },
-        },
-      });
-      if (metadataResult.isErr()) {
-        logger.warn(
-          { accountId: parentAccount.id, error: metadataResult.error },
-          'Failed to persist xpub metadata; re-derivation may occur on next import'
-        );
-      }
 
       logger.info(
         `Derived ${childAccounts.length} addresses` + (newlyDerivedCount > 0 ? ` (${newlyDerivedCount} new)` : '')

@@ -2,6 +2,7 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { ImportPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
+import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from '../projections/profile-scope-key.js';
 import { markDownstreamProjectionsStale } from '../projections/projection-invalidation.js';
 
 /**
@@ -34,7 +35,14 @@ export function buildImportPorts(db: DataSession): ImportPorts {
 
     invalidateProjections: (accountIds, reason) =>
       resultDoAsync(async function* () {
-        yield* await db.projectionState.markStale('processed-transactions', reason);
+        const profileIds = yield* await resolveAffectedProfileIds(db, accountIds);
+        for (const profileId of profileIds) {
+          yield* await db.projectionState.markStale(
+            'processed-transactions',
+            reason,
+            buildProfileProjectionScopeKey(profileId)
+          );
+        }
         yield* await markDownstreamProjectionsStale({
           accountIds,
           db,

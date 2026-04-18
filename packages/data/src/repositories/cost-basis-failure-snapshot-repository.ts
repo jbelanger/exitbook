@@ -112,17 +112,36 @@ export class CostBasisFailureSnapshotRepository extends BaseRepository {
     }
   }
 
-  async count(consumers?: CostBasisFailureConsumer[]): Promise<Result<number, Error>> {
+  async count(scopeKeys?: string[], consumers?: CostBasisFailureConsumer[]): Promise<Result<number, Error>> {
     try {
-      let query = this.db.selectFrom('cost_basis_failure_snapshots');
-      if (consumers) {
-        query = query.where('consumer', 'in', consumers);
+      if ((scopeKeys && scopeKeys.length === 0) || (consumers && consumers.length === 0)) {
+        return ok(0);
       }
 
-      const row = await query.select(({ fn }) => [fn.count<number>('scope_key').as('count')]).executeTakeFirst();
-      return ok(row?.count ?? 0);
+      if (!scopeKeys) {
+        let query = this.db.selectFrom('cost_basis_failure_snapshots');
+        if (consumers) {
+          query = query.where('consumer', 'in', consumers);
+        }
+
+        const row = await query.select(({ fn }) => [fn.count<number>('scope_key').as('count')]).executeTakeFirst();
+        return ok(row?.count ?? 0);
+      }
+
+      let count = 0;
+      for (const scopeKeyBatch of chunkItems(scopeKeys, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        let query = this.db.selectFrom('cost_basis_failure_snapshots').where('scope_key', 'in', scopeKeyBatch);
+        if (consumers) {
+          query = query.where('consumer', 'in', consumers);
+        }
+
+        const row = await query.select(({ fn }) => [fn.count<number>('scope_key').as('count')]).executeTakeFirst();
+        count += row?.count ?? 0;
+      }
+
+      return ok(count);
     } catch (error) {
-      this.logger.error({ error, consumers }, 'Failed to count cost-basis failure snapshots');
+      this.logger.error({ error, scopeKeys, consumers }, 'Failed to count cost-basis failure snapshots');
       return wrapError(error, 'Failed to count cost-basis failure snapshots');
     }
   }

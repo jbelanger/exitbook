@@ -10,8 +10,12 @@ import type { DataSession } from '../data-session.js';
  * processing ports adapter (to record what hash a fresh build corresponds to).
  */
 export function computeAccountHash(db: DataSession) {
+  return computeScopedAccountHash(db);
+}
+
+export function computeScopedAccountHash(db: DataSession, profileId?: number) {
   return resultDoAsync(async function* () {
-    const accounts = yield* await db.accounts.findAll();
+    const accounts = yield* await db.accounts.findAll(profileId !== undefined ? { profileId } : undefined);
     const sorted = accounts.map((a) => `${a.id}:${a.identifier}`).sort();
     const raw = sorted.join('|');
     let hash = 0;

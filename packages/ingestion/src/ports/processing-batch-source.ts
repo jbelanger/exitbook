@@ -7,10 +7,10 @@ import type { Result } from '@exitbook/foundation';
  */
 export interface IProcessingBatchSource {
   /** Find all accounts that have any raw data (regardless of processing status). */
-  findAccountsWithRawData(): Promise<Result<number[], Error>>;
+  findAccountsWithRawData(profileId?: number): Promise<Result<number[], Error>>;
 
   /** Find all accounts that have unprocessed raw data. */
-  findAccountsWithPendingData(): Promise<Result<number[], Error>>;
+  findAccountsWithPendingData(profileId?: number): Promise<Result<number[], Error>>;
 
   /** Count unprocessed items for a single account. */
   countPending(accountId: number): Promise<Result<number, Error>>;

@@ -204,4 +204,49 @@ describe('buildUpdateAccountInput', () => {
       },
     });
   });
+
+  it('resets xpub materialization state when the configured gap limit changes', () => {
+    const result = buildUpdateAccountInput(
+      createAccount({
+        accountType: 'blockchain',
+        platformKey: 'bitcoin',
+        identifier: 'xpub6C...',
+        credentials: undefined,
+        metadata: {
+          xpub: {
+            gapLimit: 20,
+            lastDerivedAt: 123456789,
+            derivedCount: 4,
+          },
+        },
+      }),
+      {
+        xpubGap: 40,
+      },
+      createRegistry({
+        getBlockchain: vi.fn().mockReturnValue(
+          ok({
+            blockchain: 'bitcoin',
+            chainModel: 'utxo',
+            isExtendedPublicKey: vi.fn().mockReturnValue(true),
+          })
+        ),
+      })
+    );
+
+    expect(result.isErr()).toBe(false);
+    if (result.isErr()) {
+      return;
+    }
+
+    expect(result.value).toEqual({
+      metadata: {
+        xpub: {
+          gapLimit: 40,
+          lastDerivedAt: 0,
+          derivedCount: 4,
+        },
+      },
+    });
+  });
 });

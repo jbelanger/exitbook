@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { computeTestAccountFingerprint, seedAccount, seedProfile } from '../../repositories/__tests__/helpers.js';
-import { computeAccountHash } from '../account-hash.js';
+import { computeAccountHash, computeScopedAccountHash } from '../account-hash.js';
 import { createTestDatabase } from '../test-utils.js';
 
 describe('computeAccountHash', () => {
@@ -66,5 +66,42 @@ describe('computeAccountHash', () => {
 
     const hash2 = assertOk(await computeAccountHash(ctx));
     expect(hash1).not.toBe(hash2);
+  });
+
+  it('only changes the scoped hash for the affected profile', async () => {
+    await db
+      .insertInto('profiles')
+      .values({
+        id: 2,
+        profile_key: 'business',
+        display_name: 'Business',
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+    await seedAccount(db, 1, 'blockchain', 'bitcoin', { profileId: 1 });
+    await seedAccount(db, 2, 'exchange-api', 'kraken', { profileId: 2 });
+
+    const defaultHash1 = assertOk(await computeScopedAccountHash(ctx, 1));
+    const businessHash1 = assertOk(await computeScopedAccountHash(ctx, 2));
+
+    await db
+      .updateTable('accounts')
+      .set({
+        identifier: 'different-business-identifier',
+        account_fingerprint: await computeTestAccountFingerprint(db, {
+          profileId: 2,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'different-business-identifier',
+        }),
+      })
+      .where('id', '=', 2)
+      .execute();
+
+    const defaultHash2 = assertOk(await computeScopedAccountHash(ctx, 1));
+    const businessHash2 = assertOk(await computeScopedAccountHash(ctx, 2));
+
+    expect(defaultHash2).toBe(defaultHash1);
+    expect(businessHash2).not.toBe(businessHash1);
   });
 });

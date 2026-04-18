@@ -59,6 +59,29 @@ describe('extractTradeMovements', () => {
 
     expect(result).toBeUndefined();
   });
+
+  it('should return undefined for same-asset self-transfer or refund pairs', () => {
+    const inflows: AssetMovementDraft[] = [
+      {
+        assetId: 'blockchain:near:native',
+        assetSymbol: 'NEAR' as Currency,
+        grossAmount: parseDecimal('0.0000125248430625'),
+      },
+    ];
+
+    const outflows: AssetMovementDraft[] = [
+      {
+        assetId: 'blockchain:near:native',
+        assetSymbol: 'NEAR' as Currency,
+        grossAmount: parseDecimal('43.7085663396118156'),
+      },
+    ];
+
+    const timestamp = 1731299571499;
+    const result = extractTradeMovements(inflows, outflows, timestamp);
+
+    expect(result).toBeUndefined();
+  });
 });
 
 describe('calculatePriceFromTrade', () => {

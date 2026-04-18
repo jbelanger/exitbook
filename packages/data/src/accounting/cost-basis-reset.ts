@@ -1,25 +1,36 @@
 import { resultDoAsync } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
+import { buildProfileProjectionScopeKey } from '../projections/profile-scope-key.js';
 
 export function buildCostBasisResetPorts(db: DataSession): {
-  countResetImpact(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
-  reset(): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
+  countResetImpact(profileIds?: number[]): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
+  reset(profileIds?: number[]): Promise<import('@exitbook/foundation').Result<{ snapshots: number }, Error>>;
 } {
+  function toScopeKeys(profileIds?: number[]): string[] | undefined {
+    if (!profileIds) {
+      return undefined;
+    }
+
+    return [...new Set(profileIds)].map((profileId) => buildProfileProjectionScopeKey(profileId));
+  }
+
   return {
-    async countResetImpact() {
+    async countResetImpact(profileIds) {
       return resultDoAsync(async function* () {
-        const snapshots = yield* await db.costBasisSnapshots.count();
-        const failureSnapshots = yield* await db.costBasisFailureSnapshots.count();
+        const scopeKeys = toScopeKeys(profileIds);
+        const snapshots = yield* await db.costBasisSnapshots.count(scopeKeys);
+        const failureSnapshots = yield* await db.costBasisFailureSnapshots.count(scopeKeys);
         return { snapshots: snapshots + failureSnapshots };
       });
     },
 
-    async reset() {
+    async reset(profileIds) {
       return db.executeInTransaction(async (tx) =>
         resultDoAsync(async function* () {
-          const snapshots = yield* await tx.costBasisSnapshots.deleteLatest();
-          const failureSnapshots = yield* await tx.costBasisFailureSnapshots.deleteLatest();
+          const scopeKeys = toScopeKeys(profileIds);
+          const snapshots = yield* await tx.costBasisSnapshots.deleteLatest(scopeKeys);
+          const failureSnapshots = yield* await tx.costBasisFailureSnapshots.deleteLatest(scopeKeys);
           return { snapshots: snapshots + failureSnapshots };
         })
       );

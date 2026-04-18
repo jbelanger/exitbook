@@ -20,7 +20,8 @@ export function extractTradeMovements(
   outflows: AssetMovementDraft[],
   timestamp: number
 ): TradeMovements | undefined {
-  // Simple trade: exactly 1 inflow and 1 outflow
+  // Simple trade: exactly 1 inflow and 1 outflow of different assets.
+  // Same-asset pairs are transfer/refund-like shapes, not execution-price inputs.
   // (fees are tracked separately, not as movements)
   if (inflows.length !== 1 || outflows.length !== 1) {
     return undefined;
@@ -30,6 +31,10 @@ export function extractTradeMovements(
   const outflow = outflows[0];
 
   if (!inflow || !outflow) {
+    return undefined;
+  }
+
+  if (inflow.assetId === outflow.assetId || inflow.assetSymbol === outflow.assetSymbol) {
     return undefined;
   }
 

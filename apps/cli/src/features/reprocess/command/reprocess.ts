@@ -1,4 +1,4 @@
-import { ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -101,16 +101,13 @@ async function executeReprocessCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const selectedAccountIdResult = await resolveSelectedReprocessAccountId(ctx, options);
-    if (selectedAccountIdResult.isErr()) {
-      return yield* cliErr(
-        selectedAccountIdResult.error,
-        getAccountSelectorErrorExitCode(selectedAccountIdResult.error)
-      );
+    const targetScopeResult = await resolveReprocessTargetScope(ctx, options);
+    if (targetScopeResult.isErr()) {
+      return yield* cliErr(targetScopeResult.error, getAccountSelectorErrorExitCode(targetScopeResult.error));
     }
 
     const result = yield* toCliResult(
-      await runReprocess(ctx, { format }, { accountId: selectedAccountIdResult.value }),
+      await runReprocess(ctx, { format }, targetScopeResult.value),
       ExitCodes.GENERAL_ERROR
     );
 
@@ -118,17 +115,18 @@ async function executeReprocessCommandResult(
   });
 }
 
-async function resolveSelectedReprocessAccountId(
+async function resolveReprocessTargetScope(
   ctx: CommandRuntime,
   options: ReprocessCommandOptions
-): Promise<Result<number | undefined, Error>> {
-  if (!hasAccountSelectorArgument(options)) {
-    return ok(undefined);
-  }
-
+): Promise<Result<{ accountId?: number | undefined; profileId: number }, Error>> {
   return resultDoAsync(async function* () {
     const database = await ctx.database();
     const profile = yield* await resolveCommandProfile(ctx, database);
+
+    if (!hasAccountSelectorArgument(options)) {
+      return { profileId: profile.id };
+    }
+
     const selection = yield* await resolveRequiredOwnedAccountSelector(
       createCliAccountLifecycleService(database),
       profile.id,
@@ -136,7 +134,10 @@ async function resolveSelectedReprocessAccountId(
       'Reprocess requires an account selector'
     );
 
-    return selection.account.id;
+    return {
+      accountId: selection.account.id,
+      profileId: profile.id,
+    };
   });
 }
 

@@ -118,16 +118,34 @@ export class CostBasisSnapshotRepository extends BaseRepository {
     }
   }
 
-  async count(): Promise<Result<number, Error>> {
+  async count(scopeKeys?: string[]): Promise<Result<number, Error>> {
     try {
-      const row = await this.db
-        .selectFrom('cost_basis_snapshots')
-        .select(({ fn }) => [fn.count<number>('scope_key').as('count')])
-        .executeTakeFirst();
+      if (scopeKeys && scopeKeys.length === 0) {
+        return ok(0);
+      }
 
-      return ok(row?.count ?? 0);
+      if (!scopeKeys) {
+        const row = await this.db
+          .selectFrom('cost_basis_snapshots')
+          .select(({ fn }) => [fn.count<number>('scope_key').as('count')])
+          .executeTakeFirst();
+
+        return ok(row?.count ?? 0);
+      }
+
+      let count = 0;
+      for (const scopeKeyBatch of chunkItems(scopeKeys, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const row = await this.db
+          .selectFrom('cost_basis_snapshots')
+          .where('scope_key', 'in', scopeKeyBatch)
+          .select(({ fn }) => [fn.count<number>('scope_key').as('count')])
+          .executeTakeFirst();
+        count += row?.count ?? 0;
+      }
+
+      return ok(count);
     } catch (error) {
-      this.logger.error({ error }, 'Failed to count cost-basis snapshots');
+      this.logger.error({ error, scopeKeys }, 'Failed to count cost-basis snapshots');
       return wrapError(error, 'Failed to count cost-basis snapshots');
     }
   }

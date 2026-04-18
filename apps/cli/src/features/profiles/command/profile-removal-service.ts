@@ -58,14 +58,14 @@ export function flattenProfileRemovePreview(preview: ProfileRemovePreview): Prof
   };
 }
 
-function createEmptyProfileRemovePreview(accountIds: number[]): ProfileRemovePreview {
+function createEmptyProfileRemovePreview(accountIds: number[], costBasisSnapshots: number): ProfileRemovePreview {
   return {
     accountIds,
     deleted: {
       profiles: 1,
       assetReview: { assets: 0 },
       balances: { scopes: 0, assetRows: 0 },
-      costBasisSnapshots: { snapshots: 0 },
+      costBasisSnapshots: { snapshots: costBasisSnapshots },
       links: { links: 0 },
       processedTransactions: { transactions: 0 },
       purge: {
@@ -78,16 +78,24 @@ function createEmptyProfileRemovePreview(accountIds: number[]): ProfileRemovePre
 }
 
 export class ProfileRemovalService {
-  constructor(private readonly db: DataSession) {}
+  constructor(
+    private readonly db: DataSession,
+    private readonly profileId: number
+  ) {}
 
   async preview(accountIds: number[]): Promise<Result<ProfileRemovePreview, Error>> {
     if (accountIds.length === 0) {
-      return ok(createEmptyProfileRemovePreview(accountIds));
+      const costBasisResult = await buildCostBasisResetPorts(this.db).countResetImpact([this.profileId]);
+      if (costBasisResult.isErr()) {
+        return wrapError(costBasisResult.error, 'Failed to count profile removal cost-basis impact');
+      }
+
+      return ok(createEmptyProfileRemovePreview(accountIds, costBasisResult.value.snapshots));
     }
 
     const [projectionImpactResult, costBasisResult, purgeResult] = await Promise.all([
       countProjectionResetImpact(this.db, 'processed-transactions', accountIds),
-      buildCostBasisResetPorts(this.db).countResetImpact(),
+      buildCostBasisResetPorts(this.db).countResetImpact([this.profileId]),
       buildIngestionPurgePorts(this.db).countPurgeImpact(accountIds),
     ]);
 
@@ -122,15 +130,15 @@ export class ProfileRemovalService {
     }
 
     const removalResult = await this.db.executeInTransaction(async (txDb) => {
+      const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset([this.profileId]);
+      if (costBasisResetResult.isErr()) {
+        return wrapError(costBasisResetResult.error, 'Failed to reset cost-basis snapshots for profile removal');
+      }
+
       if (accountIds.length > 0) {
         const projectionResetResult = await resetProjections(txDb, 'processed-transactions', accountIds);
         if (projectionResetResult.isErr()) {
           return wrapError(projectionResetResult.error, 'Failed to reset projections for profile removal');
-        }
-
-        const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset();
-        if (costBasisResetResult.isErr()) {
-          return wrapError(costBasisResetResult.error, 'Failed to reset cost-basis snapshots for profile removal');
         }
 
         const purgeResult = await buildIngestionPurgePorts(txDb).purgeImportedData(accountIds);

@@ -1,6 +1,7 @@
 import { type ProjectionId, type ProjectionStatus } from '@exitbook/core';
 import {
   buildAssetReviewFreshnessPorts,
+  buildProfileProjectionScopeKey,
   buildProcessedTransactionsFreshnessPorts,
   buildLinksFreshnessPorts,
 } from '@exitbook/data/projections';
@@ -105,14 +106,22 @@ export async function ensureProcessedTransactionsReady(
   scope: CommandRuntime,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
+  const profileScopeResult = await resolvePrereqProfileScope(scope, options);
+  if (profileScopeResult.isErr()) {
+    return err(profileScopeResult.error);
+  }
+
   const db = await scope.database();
 
   return rebuildIfStale(
     'processed-transactions',
-    () => buildProcessedTransactionsFreshnessPorts(db).checkFreshness(),
+    () => buildProcessedTransactionsFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
     async (freshness) => {
       if (options.format !== 'json') {
-        const stateResult = await db.projectionState.find('processed-transactions');
+        const stateResult = await db.projectionState.find(
+          'processed-transactions',
+          buildProfileProjectionScopeKey(profileScopeResult.value.profileId)
+        );
         if (stateResult.isErr()) {
           return err(stateResult.error);
         }
@@ -124,7 +133,9 @@ export async function ensureProcessedTransactionsReady(
       }
 
       return withIngestionRuntime(scope, db, { presentation: 'headless' }, async (ingestionRuntime) => {
-        const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({});
+        const planResult = await ingestionRuntime.processingWorkflow.prepareReprocess({
+          profileId: profileScopeResult.value.profileId,
+        });
         if (planResult.isErr()) return err(planResult.error);
 
         if (!planResult.value) {

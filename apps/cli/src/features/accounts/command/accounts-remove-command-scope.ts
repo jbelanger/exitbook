@@ -26,7 +26,7 @@ export async function withAccountsRemoveCommandScope<T>(
 
     const value = yield* await operation({
       accountService: createCliAccountLifecycleService(database),
-      accountRemovalService: new AccountRemovalService(database),
+      accountRemovalService: new AccountRemovalService(database, profileResult.value.id),
       profile: profileResult.value,
     });
     return value;

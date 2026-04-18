@@ -72,4 +72,13 @@ describe('CostBasisSnapshotRepository', () => {
     expect(assertOk(await repo.findLatest('scope-a'))).toBeUndefined();
     expect(assertOk(await repo.findLatest('scope-b'))?.snapshotId).toBe('snapshot-2');
   });
+
+  it('counts latest snapshots for the requested scopes only', async () => {
+    assertOk(await repo.replaceLatest(createSnapshot('scope-a', 'snapshot-1')));
+    assertOk(await repo.replaceLatest(createSnapshot('scope-b', 'snapshot-2')));
+
+    expect(assertOk(await repo.count(['scope-a']))).toBe(1);
+    expect(assertOk(await repo.count(['scope-a', 'scope-b']))).toBe(2);
+    expect(assertOk(await repo.count(['scope-missing']))).toBe(0);
+  });
 });

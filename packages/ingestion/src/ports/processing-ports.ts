@@ -24,14 +24,14 @@ export interface ProcessingPorts {
   importSessionLookup: IImportSessionLookup;
   transactionOverrides: ITransactionOverrideProjection;
 
-  /** Mark processed-transactions projection as building. */
-  markProcessedTransactionsBuilding(): Promise<Result<void, Error>>;
+  /** Mark processed-transactions projection as building for the affected profile scopes. */
+  markProcessedTransactionsBuilding(accountIds: number[]): Promise<Result<void, Error>>;
 
   /** Mark processed-transactions projection as fresh. Computes account hash and cascades downstream invalidation. */
   markProcessedTransactionsFresh(accountIds: number[]): Promise<Result<void, Error>>;
 
-  /** Mark processed-transactions projection as failed. */
-  markProcessedTransactionsFailed(): Promise<Result<void, Error>>;
+  /** Mark processed-transactions projection as failed for the affected profile scopes. */
+  markProcessedTransactionsFailed(accountIds: number[]): Promise<Result<void, Error>>;
 
   /** Rebuild the dependent asset-review projection for the processed account scope. */
   rebuildAssetReviewProjection(accountIds: number[]): Promise<Result<void, Error>>;

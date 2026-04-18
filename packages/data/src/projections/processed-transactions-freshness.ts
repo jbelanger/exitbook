@@ -2,7 +2,9 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { IProcessedTransactionsFreshness } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
-import { computeAccountHash } from '../utils/account-hash.js';
+import { computeScopedAccountHash } from '../utils/account-hash.js';
+
+import { buildProfileProjectionScopeKey } from './profile-scope-key.js';
 
 /**
  * Bridges DataSession to ingestion's IProcessedTransactionsFreshness port.
@@ -13,17 +15,22 @@ import { computeAccountHash } from '../utils/account-hash.js';
  * - New import completed since last build
  * - Projection state explicitly marked stale/failed/building
  */
-export function buildProcessedTransactionsFreshnessPorts(db: DataSession): IProcessedTransactionsFreshness {
+export function buildProcessedTransactionsFreshnessPorts(
+  db: DataSession,
+  profileId: number
+): IProcessedTransactionsFreshness {
+  const scopeKey = buildProfileProjectionScopeKey(profileId);
+
   return {
     async checkFreshness() {
       return resultDoAsync(async function* () {
         // No raw data => nothing to process, consider fresh
-        const rawAccountIds = yield* await db.rawTransactions.findDistinctAccountIds({});
+        const rawAccountIds = yield* await db.rawTransactions.findDistinctAccountIds({ profileId });
         if (rawAccountIds.length === 0) {
           return { status: 'fresh' as const, reason: undefined };
         }
 
-        const state = yield* await db.projectionState.find('processed-transactions');
+        const state = yield* await db.projectionState.find('processed-transactions', scopeKey);
 
         if (!state) {
           return { status: 'stale' as const, reason: 'raw data has never been processed' };
@@ -34,7 +41,7 @@ export function buildProcessedTransactionsFreshnessPorts(db: DataSession): IProc
         }
 
         // Check account hash
-        const currentHash = yield* await computeAccountHash(db);
+        const currentHash = yield* await computeScopedAccountHash(db, profileId);
         const storedHash = state.metadata?.['accountHash'] as string | undefined;
         if (storedHash !== currentHash) {
           return { status: 'stale' as const, reason: 'account graph changed' };
@@ -42,7 +49,7 @@ export function buildProcessedTransactionsFreshnessPorts(db: DataSession): IProc
 
         // Check if any import completed after last build
         if (state.lastBuiltAt) {
-          const latestImport = yield* await db.importSessions.findLatestCompletedAt();
+          const latestImport = yield* await db.importSessions.findLatestCompletedAt({ profileId });
           if (latestImport && latestImport > state.lastBuiltAt) {
             return { status: 'stale' as const, reason: 'new import completed since last build' };
           }

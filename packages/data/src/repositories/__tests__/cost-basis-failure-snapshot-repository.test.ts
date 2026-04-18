@@ -103,4 +103,13 @@ describe('CostBasisFailureSnapshotRepository', () => {
     expect(await loadSnapshotRow(db, 'scope-a', 'cost-basis')).toBeUndefined();
     expect((await loadSnapshotRow(db, 'scope-b', 'portfolio'))?.snapshot_id).toBe('snapshot-2');
   });
+
+  it('counts latest failure snapshots for the requested scopes only', async () => {
+    assertOk(await repo.replaceLatest(createSnapshot('scope-a', 'cost-basis', 'snapshot-1')));
+    assertOk(await repo.replaceLatest(createSnapshot('scope-b', 'portfolio', 'snapshot-2')));
+
+    expect(assertOk(await repo.count(['scope-a']))).toBe(1);
+    expect(assertOk(await repo.count(['scope-a', 'scope-b']))).toBe(2);
+    expect(assertOk(await repo.count(['scope-missing']))).toBe(0);
+  });
 });

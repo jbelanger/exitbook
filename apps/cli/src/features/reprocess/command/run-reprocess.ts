@@ -18,6 +18,8 @@ export interface ReprocessResultWithMetrics {
 }
 
 interface ReprocessParams {
+  /** Reprocess accounts within a specific profile scope */
+  profileId?: number | undefined;
   /** Reprocess only a specific account ID */
   accountId?: number | undefined;
 }

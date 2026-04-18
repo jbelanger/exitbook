@@ -282,8 +282,24 @@ export class ImportSessionRepository extends BaseRepository {
     }
   }
 
-  async findLatestCompletedAt(): Promise<Result<Date | null, Error>> {
+  async findLatestCompletedAt(filters?: { profileId?: number | undefined }): Promise<Result<Date | null, Error>> {
     try {
+      if (filters?.profileId !== undefined) {
+        const result = await this.db
+          .selectFrom('import_sessions')
+          .innerJoin('accounts', 'accounts.id', 'import_sessions.account_id')
+          .select(({ fn }) => [fn.max<string>('import_sessions.completed_at').as('latest')])
+          .where('import_sessions.status', '=', 'completed')
+          .where('accounts.profile_id', '=', filters.profileId)
+          .executeTakeFirst();
+
+        if (!result?.latest) {
+          return ok(null);
+        }
+
+        return ok(new Date(result.latest));
+      }
+
       const result = await this.db
         .selectFrom('import_sessions')
         .select(({ fn }) => [fn.max<string>('completed_at').as('latest')])

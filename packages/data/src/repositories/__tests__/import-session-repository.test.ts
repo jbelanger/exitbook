@@ -301,6 +301,62 @@ describe('ImportSessionRepository', () => {
     });
   });
 
+  describe('findLatestCompletedAt', () => {
+    it('returns the latest completed import across all profiles by default', async () => {
+      await insertSession(db, {
+        accountId: 1,
+        status: 'completed',
+        completedAt: '2024-01-01T10:00:00.000Z',
+      });
+      await insertSession(db, {
+        accountId: 2,
+        status: 'completed',
+        completedAt: '2024-01-01T12:00:00.000Z',
+      });
+
+      const latestCompletedAt = assertOk(await repo.findLatestCompletedAt());
+
+      expect(latestCompletedAt?.toISOString()).toBe('2024-01-01T12:00:00.000Z');
+    });
+
+    it('filters latest completed import by profile', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'Business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 3, 'exchange-api', 'coinbase', { profileId: 2 });
+
+      await insertSession(db, {
+        accountId: 1,
+        status: 'completed',
+        completedAt: '2024-01-01T10:00:00.000Z',
+      });
+      await insertSession(db, {
+        accountId: 2,
+        status: 'completed',
+        completedAt: '2024-01-01T11:00:00.000Z',
+      });
+      await insertSession(db, {
+        accountId: 3,
+        status: 'completed',
+        completedAt: '2024-01-01T12:00:00.000Z',
+      });
+
+      expect(assertOk(await repo.findLatestCompletedAt({ profileId: 1 }))?.toISOString()).toBe(
+        '2024-01-01T11:00:00.000Z'
+      );
+      expect(assertOk(await repo.findLatestCompletedAt({ profileId: 2 }))?.toISOString()).toBe(
+        '2024-01-01T12:00:00.000Z'
+      );
+      expect(assertOk(await repo.findLatestCompletedAt({ profileId: 999 }))).toBeNull();
+    });
+  });
+
   describe('update', () => {
     it('updates status, counters, and error fields', async () => {
       const sessionId = await insertSession(db, {

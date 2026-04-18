@@ -161,7 +161,11 @@ const DerivationSection: FC<{ derivation: DerivationOperation }> = ({ derivation
 
   const actionText = derivation.isRederivation ? 'Re-deriving addresses' : 'Deriving addresses';
   let gapText = '';
-  if (derivation.isRederivation) {
+  if (
+    derivation.isRederivation &&
+    derivation.previousGap !== undefined &&
+    derivation.previousGap !== derivation.gapLimit
+  ) {
     gapText = ` (gap increased: ${derivation.previousGap ?? '—'} → ${derivation.gapLimit})`;
   }
 

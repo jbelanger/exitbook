@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataSession } from '../../data-session.js';
 import type { KyselyDB } from '../../database.js';
 import { buildProcessingPorts } from '../../ingestion/processing-ports.js';
+import { buildProfileProjectionScopeKey } from '../../projections/profile-scope-key.js';
 import {
   seedAccount,
   seedImportSession,
@@ -157,5 +158,81 @@ describe('buildProcessingPorts', () => {
     assertOk(await ports.rebuildAssetReviewProjection([1]));
 
     expect(rebuildAssetReviewProjection).toHaveBeenCalledWith([1]);
+  });
+
+  it('filters raw-data account discovery by profile', async () => {
+    await db
+      .insertInto('profiles')
+      .values({ id: 2, profile_key: 'secondary', display_name: 'secondary', created_at: new Date().toISOString() })
+      .execute();
+    await seedAccount(db, 2, 'exchange-api', 'coinbase', { profileId: 2 });
+
+    await db
+      .insertInto('raw_transactions')
+      .values([
+        {
+          account_id: 1,
+          provider_name: 'test',
+          event_id: 'event-profile-1',
+          timestamp: Date.now(),
+          provider_data: '{}',
+          normalized_data: '{}',
+          processing_status: 'pending',
+          created_at: new Date().toISOString(),
+        },
+        {
+          account_id: 2,
+          provider_name: 'test',
+          event_id: 'event-profile-2',
+          timestamp: Date.now(),
+          provider_data: '{}',
+          normalized_data: '{}',
+          processing_status: 'pending',
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .execute();
+
+    const ports = buildProcessingPorts(ctx, {
+      rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+      overrideStore: {
+        exists: vi.fn().mockReturnValue(false),
+        readByScopes: vi.fn().mockResolvedValue(ok([])),
+      },
+    });
+
+    expect(assertOk(await ports.batchSource.findAccountsWithRawData(1))).toEqual([1]);
+    expect(assertOk(await ports.batchSource.findAccountsWithRawData(2))).toEqual([2]);
+  });
+
+  it('marks processed-transactions state per affected profile', async () => {
+    await db
+      .insertInto('profiles')
+      .values({ id: 2, profile_key: 'secondary', display_name: 'secondary', created_at: new Date().toISOString() })
+      .execute();
+    await seedAccount(db, 2, 'exchange-api', 'coinbase', { profileId: 2 });
+
+    const ports = buildProcessingPorts(ctx, {
+      rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+      overrideStore: {
+        exists: vi.fn().mockReturnValue(false),
+        readByScopes: vi.fn().mockResolvedValue(ok([])),
+      },
+    });
+
+    assertOk(await ports.markProcessedTransactionsBuilding([1]));
+    const profileOneBuilding = assertOk(
+      await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(1))
+    );
+    expect(profileOneBuilding?.status).toBe('building');
+    expect(
+      assertOk(await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(2)))
+    ).toBeUndefined();
+
+    assertOk(await ports.markProcessedTransactionsFailed([2]));
+    const profileTwoFailed = assertOk(
+      await ctx.projectionState.find('processed-transactions', buildProfileProjectionScopeKey(2))
+    );
+    expect(profileTwoFailed?.status).toBe('failed');
   });
 });

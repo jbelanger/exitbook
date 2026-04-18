@@ -293,10 +293,13 @@ export function buildUpdateAccountInput(
           return err(new Error('--xpub-gap cannot be decreased once an xpub account has been configured'));
         }
 
+        const nextGapLimit = options.xpubGap;
+        const shouldInvalidateDerivedChildren = nextGapLimit !== existingXpubMetadata?.gapLimit;
+
         updates.metadata = {
           xpub: {
-            gapLimit: options.xpubGap,
-            lastDerivedAt: existingXpubMetadata?.lastDerivedAt ?? 0,
+            gapLimit: nextGapLimit,
+            lastDerivedAt: shouldInvalidateDerivedChildren ? 0 : (existingXpubMetadata?.lastDerivedAt ?? 0),
             derivedCount: existingXpubMetadata?.derivedCount ?? 0,
           },
         };

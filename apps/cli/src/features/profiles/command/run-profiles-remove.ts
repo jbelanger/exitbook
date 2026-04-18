@@ -37,7 +37,7 @@ export async function prepareProfileRemoval(
   }
 
   const accountIds = buildAccountDeletionOrder(accountsResult.value);
-  const previewResult = await new ProfileRemovalService(db).preview(accountIds);
+  const previewResult = await new ProfileRemovalService(db, profileResult.value.id).preview(accountIds);
   if (previewResult.isErr()) {
     return err(previewResult.error);
   }
@@ -54,7 +54,15 @@ export async function runProfileRemoval(
   profileKey: string,
   accountIds: number[]
 ): Promise<Result<ProfileRemovalResult, Error>> {
-  return new ProfileRemovalService(db).execute(profileKey, accountIds);
+  const profileResult = await db.profiles.findByKey(profileKey);
+  if (profileResult.isErr()) {
+    return err(profileResult.error);
+  }
+  if (!profileResult.value) {
+    return err(new Error(`Profile '${profileKey}' not found`));
+  }
+
+  return new ProfileRemovalService(db, profileResult.value.id).execute(profileKey, accountIds);
 }
 
 function buildAccountDeletionOrder(accounts: Account[]): number[] {

@@ -57,4 +57,42 @@ describe('ClearService', () => {
         flat.costBasisSnapshots
     );
   });
+
+  it('scopes cost-basis preview to the selected profile when clearing a single account', async () => {
+    const costBasisCount = vi.fn().mockResolvedValue(ok(2));
+    const costBasisFailureCount = vi.fn().mockResolvedValue(ok(1));
+    const db = {
+      costBasisSnapshots: {
+        count: costBasisCount,
+      },
+      costBasisFailureSnapshots: {
+        count: costBasisFailureCount,
+      },
+      profiles: { findOrCreateDefault: vi.fn() },
+      accounts: {
+        findAll: vi.fn().mockResolvedValue(
+          ok([
+            {
+              id: 12,
+              profileId: 1,
+            },
+          ])
+        ),
+      },
+      executeInTransaction: vi.fn(),
+    } as unknown as DataSession;
+
+    const clearService = new ClearService(db);
+
+    const previewResult = await clearService.preview({ profileId: 1, accountId: 12, includeRaw: false });
+
+    expect(previewResult.isOk()).toBe(true);
+    if (previewResult.isErr()) {
+      throw previewResult.error;
+    }
+
+    expect(previewResult.value.costBasisSnapshots.snapshots).toBe(3);
+    expect(costBasisCount).toHaveBeenCalledWith(['profile:1']);
+    expect(costBasisFailureCount).toHaveBeenCalledWith(['profile:1']);
+  });
 });

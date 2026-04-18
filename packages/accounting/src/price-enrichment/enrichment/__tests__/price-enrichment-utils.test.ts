@@ -143,6 +143,38 @@ describe('inferMultiPass', () => {
       expect(inflow?.priceAtTxTime?.price.amount.toFixed()).toBe('30');
     });
 
+    it('should not derive price for same-asset NEAR transfer refund dust', () => {
+      const tx = createTransactionFromMovements(
+        1,
+        '2024-11-11T04:32:51.499Z',
+        {
+          inflows: [
+            {
+              assetId: 'blockchain:near:native',
+              assetSymbol: 'NEAR' as Currency,
+              grossAmount: parseDecimal('0.0000125248430625'),
+            },
+          ],
+          outflows: [
+            {
+              assetId: 'blockchain:near:native',
+              assetSymbol: 'NEAR' as Currency,
+              grossAmount: parseDecimal('43.7085663396118156'),
+              priceAtTxTime: createPriceAtTxTime('5.34'),
+            },
+          ],
+        },
+        [],
+        { category: 'transfer', type: 'transfer' }
+      );
+
+      const result = inferMultiPass([tx]);
+
+      const inflow = result.transactions[0]?.movements.inflows?.[0];
+      expect(inflow?.priceAtTxTime).toBeUndefined();
+      expect(result.modifiedIds.has(1)).toBe(false);
+    });
+
     it('should recalculate crypto-crypto swap when both have prices (Pass N+2 behavior)', () => {
       const tx = createTransaction(
         1,

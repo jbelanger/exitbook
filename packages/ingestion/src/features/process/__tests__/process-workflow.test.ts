@@ -1,6 +1,7 @@
 import { ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ProcessingPorts } from '../../../ports/processing-ports.js';
 import { ProcessingWorkflow } from '../process-workflow.js';
 
 function createWorkflow(params?: {
@@ -11,8 +12,11 @@ function createWorkflow(params?: {
   const accountFingerprint = params?.accountFingerprint ?? '1234567890abcdef1234567890abcdef';
   const accountName = params?.accountName;
   const importStatus = params?.importStatus ?? 'failed';
+  const findAccountsWithPendingData = vi.fn().mockResolvedValue(ok([]));
+  const findAccountsWithRawData = vi.fn().mockResolvedValue(ok([]));
+  const findLatestSessionPerAccount = vi.fn().mockResolvedValue(ok([{ accountId: 14, status: importStatus }]));
 
-  const ports = {
+  const ports: ProcessingPorts = {
     accountLookup: {
       getAccountInfo: vi.fn().mockResolvedValue(
         ok({
@@ -29,23 +33,26 @@ function createWorkflow(params?: {
     batchSource: {
       countPending: vi.fn().mockResolvedValue(ok(0)),
       countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
-      findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
-      findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),
+      fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+      fetchPendingByTransactionHash: vi.fn().mockResolvedValue(ok([])),
+      findAccountsWithPendingData,
+      findAccountsWithRawData,
+      markProcessed: vi.fn().mockResolvedValue(ok(undefined)),
     },
     importSessionLookup: {
-      findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([{ accountId: 14, status: importStatus }])),
+      findLatestSessionPerAccount,
     },
     markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
     markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
     markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
     nearBatchSource: {} as never,
     rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
-    transactionNotes: {
-      materializeStoredNotes: vi.fn().mockResolvedValue(ok(0)),
+    transactionOverrides: {
+      materializeStoredOverrides: vi.fn().mockResolvedValue(ok(0)),
     },
     transactionSink: {} as never,
     withTransaction: vi.fn(),
-  } as never;
+  };
 
   const workflow = new ProcessingWorkflow(
     ports,
@@ -65,7 +72,14 @@ function createWorkflow(params?: {
     } as never
   );
 
-  return { ports, workflow };
+  return {
+    ports,
+    workflow,
+    mocks: {
+      findAccountsWithRawData,
+      findLatestSessionPerAccount,
+    },
+  };
 }
 
 describe('ProcessingWorkflow', () => {
@@ -99,6 +113,19 @@ describe('ProcessingWorkflow', () => {
         expect(result.value.errors[0]).not.toContain('account 14');
         expect(result.value.errors[0]).not.toContain('14(failed)');
       }
+    });
+  });
+
+  describe('prepareReprocess', () => {
+    it('uses the provided profile scope for raw-data account discovery', async () => {
+      const { workflow, mocks } = createWorkflow();
+      mocks.findLatestSessionPerAccount.mockResolvedValue(ok([]));
+      mocks.findAccountsWithRawData.mockResolvedValue(ok([11, 12]));
+
+      const result = await workflow.prepareReprocess({ profileId: 7 });
+
+      expect(result.isOk()).toBe(true);
+      expect(mocks.findAccountsWithRawData).toHaveBeenCalledWith(7);
     });
   });
 });

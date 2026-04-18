@@ -100,6 +100,14 @@ function describeFilters(params: ClearParams): string {
   return parts.join(', ');
 }
 
+function resolveCostBasisProfileIds(params: ClearParams): number[] | undefined {
+  if (params.accountId !== undefined || params.platformKey !== undefined) {
+    return [params.profileId];
+  }
+
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -118,11 +126,12 @@ export class ClearService {
     const accountIdsResult = await this.resolveAccountIds(params);
     if (accountIdsResult.isErr()) return wrapError(accountIdsResult.error, 'Failed to resolve accounts');
     const accountIds = accountIdsResult.value;
+    const costBasisProfileIds = resolveCostBasisProfileIds(params);
 
     const costBasisReset = buildCostBasisResetPorts(this.db);
     const [projectionImpactResult, costBasisResult] = await Promise.all([
       countProjectionResetImpact(this.db, 'processed-transactions', accountIds),
-      costBasisReset.countResetImpact(),
+      costBasisReset.countResetImpact(costBasisProfileIds),
     ]);
     if (projectionImpactResult.isErr()) {
       return wrapError(projectionImpactResult.error, 'Failed to count projection reset impact');
@@ -156,6 +165,7 @@ export class ClearService {
     const accountIdsResult = await this.resolveAccountIds(params);
     if (accountIdsResult.isErr()) return wrapError(accountIdsResult.error, 'Failed to resolve accounts');
     const accountIds = accountIdsResult.value;
+    const costBasisProfileIds = resolveCostBasisProfileIds(params);
 
     logger.debug(
       { includeRaw: params.includeRaw, platformKey: params.platformKey, accountId: params.accountId },
@@ -172,7 +182,7 @@ export class ClearService {
       }
 
       // Cost-basis latest snapshots are derived artifacts outside the projection graph.
-      const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset();
+      const costBasisResetResult = await buildCostBasisResetPorts(txDb).reset(costBasisProfileIds);
       if (costBasisResetResult.isErr()) {
         return wrapError(costBasisResetResult.error, 'Failed to reset cost-basis snapshots');
       }

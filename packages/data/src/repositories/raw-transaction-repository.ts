@@ -312,15 +312,36 @@ export class RawTransactionRepository extends BaseRepository {
 
   async findDistinctAccountIds(filters?: {
     processingStatus?: ProcessingStatus | undefined;
+    profileId?: number | undefined;
   }): Promise<Result<number[], Error>> {
     try {
-      let query = this.db.selectFrom('raw_transactions').select('account_id').distinct();
+      if (filters?.profileId !== undefined) {
+        let distinctAccountQuery = this.db
+          .selectFrom('raw_transactions')
+          .innerJoin('accounts', 'accounts.id', 'raw_transactions.account_id')
+          .select('raw_transactions.account_id')
+          .distinct()
+          .where('accounts.profile_id', '=', filters.profileId);
 
-      if (filters?.processingStatus !== undefined) {
-        query = query.where('processing_status', '=', filters.processingStatus);
+        if (filters.processingStatus !== undefined) {
+          distinctAccountQuery = distinctAccountQuery.where(
+            'raw_transactions.processing_status',
+            '=',
+            filters.processingStatus
+          );
+        }
+
+        const rows = await distinctAccountQuery.execute();
+        return ok(rows.map((row) => row.account_id));
       }
 
-      const rows = await query.execute();
+      let distinctAccountQuery = this.db.selectFrom('raw_transactions').select('account_id').distinct();
+
+      if (filters?.processingStatus !== undefined) {
+        distinctAccountQuery = distinctAccountQuery.where('processing_status', '=', filters.processingStatus);
+      }
+
+      const rows = await distinctAccountQuery.execute();
       return ok(rows.map((row) => row.account_id));
     } catch (error) {
       return wrapError(error, 'Failed to find distinct account IDs');
