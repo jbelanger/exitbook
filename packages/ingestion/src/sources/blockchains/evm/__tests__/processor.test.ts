@@ -768,6 +768,44 @@ describe('EvmProcessor - Fund Flow Direction', () => {
     // Check structured fields
     expect(transaction.operation.type).toBe('withdrawal');
   });
+
+  test('emits bridge diagnostics for sendToInjective token withdrawals', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      createTransaction({
+        amount: '6039611920000000000',
+        currency: 'INJ',
+        feeAmount: '100000000000000',
+        from: USER_ADDRESS,
+        functionName: 'sendToInjective(address,string,uint256)',
+        id: '0xinj-bridge-out',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenAddress: '0xe28b3b32b6c345a34ff64674606124dd5aceca30',
+        tokenDecimals: 18,
+        tokenSymbol: 'INJ',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation.type).toBe('withdrawal');
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Injective');
+  });
 });
 
 describe('EvmProcessor - Transaction Type Classification', () => {

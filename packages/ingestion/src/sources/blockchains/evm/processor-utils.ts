@@ -1,5 +1,5 @@
 import { type EvmTransaction } from '@exitbook/blockchain-providers/evm';
-import type { MovementRole, OperationClassification } from '@exitbook/core';
+import type { MovementRole, OperationClassification, TransactionDiagnostic } from '@exitbook/core';
 import { fromBaseUnitsToDecimalString, isZeroDecimal, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -11,6 +11,22 @@ import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-sw
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
+const EVM_BRIDGE_WITHDRAWAL_HINTS: Record<
+  string,
+  {
+    bridgeFamily: string;
+    message: string;
+  }
+> = {
+  sendtoinjective: {
+    bridgeFamily: 'injective_peggy',
+    message: 'Bridge withdrawal via Injective sendToInjective.',
+  },
+  transfertokenswithpayload: {
+    bridgeFamily: 'wormhole',
+    message: 'Bridge withdrawal via Wormhole transferTokensWithPayload.',
+  },
+};
 
 export interface AccountBasedNativeCurrencyConfig {
   nativeCurrency: Currency;
@@ -151,7 +167,52 @@ export function determineEvmOperationFromFundFlow(
     };
   }
 
-  return determineAccountBasedOperationFromFundFlow(fundFlow);
+  const bridgeWithdrawalDiagnostic = detectEvmBridgeWithdrawalDiagnostic(txGroup, fundFlow);
+  const classification = determineAccountBasedOperationFromFundFlow(fundFlow);
+  if (!bridgeWithdrawalDiagnostic) {
+    return classification;
+  }
+
+  return {
+    ...classification,
+    diagnostics: classification.diagnostics
+      ? [bridgeWithdrawalDiagnostic, ...classification.diagnostics]
+      : [bridgeWithdrawalDiagnostic],
+  };
+}
+
+function detectEvmBridgeWithdrawalDiagnostic(
+  txGroup: readonly EvmTransaction[],
+  fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
+): TransactionDiagnostic | undefined {
+  if (fundFlow.outflows.length === 0 || fundFlow.inflows.length > 0) {
+    return undefined;
+  }
+
+  for (const tx of txGroup) {
+    const normalizedFunctionName = tx.functionName?.toLowerCase().replace(/\(.*\)/, '');
+    if (!normalizedFunctionName) {
+      continue;
+    }
+
+    const bridgeHint = EVM_BRIDGE_WITHDRAWAL_HINTS[normalizedFunctionName];
+    if (!bridgeHint) {
+      continue;
+    }
+
+    return {
+      code: 'bridge_transfer',
+      message: bridgeHint.message,
+      metadata: {
+        bridgeFamily: bridgeHint.bridgeFamily,
+        detectionSource: 'function_name',
+        functionName: tx.functionName,
+      },
+      severity: 'info',
+    };
+  }
+
+  return undefined;
 }
 
 export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {

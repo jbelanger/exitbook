@@ -29,8 +29,11 @@ import {
   formatAmount,
   formatCompactAmount,
   formatConfidenceScore,
+  formatCrossProfileProfileLabel,
   formatCoverage,
   formatGapCounterpartTimeDelta,
+  formatGapCrossProfileCueLabel,
+  formatGapCrossProfileLikelyOutcome,
   formatGapCueLabel,
   formatGapLikelyOutcome,
   formatGapRowTimestamp,
@@ -45,6 +48,7 @@ import {
   formatProposalRoute,
   formatResolvedGapExceptionCount,
   gapIssueSuggestsGapException,
+  getExactOtherProfileCounterpart,
   getConfidenceColor,
   getCoverageColor,
   getGapSuggestionColor,
@@ -816,6 +820,7 @@ const GapRow: FC<{
   const dirColor = issue.direction === 'inflow' ? 'green' : 'yellow';
   const coverage = parseFloat(issue.confirmedCoveragePercent);
   const hasPartialCoverage = coverage > 0 && coverage < 100;
+  const crossProfileCueLabel = formatGapCrossProfileCueLabel(gap);
 
   return (
     <SelectableRow isSelected={isSelected}>
@@ -841,10 +846,10 @@ const GapRow: FC<{
           <Text color="yellow">{issue.contextHint.label}</Text>
         </>
       )}
-      {gap.crossProfileCandidates !== undefined && gap.crossProfileCandidates.length > 0 && (
+      {crossProfileCueLabel && (
         <>
           <Text dimColor> · </Text>
-          <Text color="yellow">other-profile counterpart</Text>
+          <Text color="yellow">{crossProfileCueLabel}</Text>
         </>
       )}
       <Text dimColor> · </Text>
@@ -882,8 +887,11 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
     issue.gapCueCounterpartTxFingerprint !== undefined
       ? formatTransactionFingerprintRef(issue.gapCueCounterpartTxFingerprint)
       : undefined;
+  const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(gap);
+  const crossProfileCueLabel = formatGapCrossProfileCueLabel(gap);
   const issueSuggestsGapException = gapIssueSuggestsGapException(issue);
-  const likelyOutcome = formatGapLikelyOutcome(issue, gapCueCounterpartTransactionRef);
+  const likelyOutcome =
+    formatGapLikelyOutcome(issue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(gap);
 
   const actionText =
     issueSuggestsGapException && gapCueCounterpartTransactionRef !== undefined
@@ -892,9 +900,14 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
         ? `Resolve this gap with \`exitbook links gaps resolve ${gap.gapRef}\` if no direct internal transfer exists.`
         : gapCueCounterpartTransactionRef !== undefined
           ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\` before resolving this gap.`
-          : issue.direction === 'inflow'
-            ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
-            : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
+          : exactOtherProfileCounterpart !== undefined
+            ? `Inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
+                exactOtherProfileCounterpart.profileDisplayName,
+                exactOtherProfileCounterpart.profileKey
+              )} before treating this as a generic same-profile gap.`
+            : issue.direction === 'inflow'
+              ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
+              : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
 
   return [
     <Text key="title">
@@ -1066,12 +1079,14 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
           </Text>,
         ]
       : []),
-    ...(issue.gapCue
+    ...(issue.gapCue || crossProfileCueLabel
       ? [
           <Text key="cue">
             {'  '}
             <Text dimColor>Cue: </Text>
-            <Text color="cyan">{formatGapCueLabel(issue.gapCue)}</Text>
+            <Text color={issue.gapCue ? 'cyan' : 'yellow'}>
+              {issue.gapCue ? formatGapCueLabel(issue.gapCue) : crossProfileCueLabel}
+            </Text>
           </Text>,
         ]
       : []),
@@ -1148,6 +1163,15 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
           inspect <Text dimColor>`exitbook transactions view ${gapCueCounterpartTransactionRef}`</Text>, then{' '}
           <Text>decide whether this is a real bridge or an external route</Text>
         </Text>
+      ) : exactOtherProfileCounterpart !== undefined ? (
+        <Text>
+          inspect {exactOtherProfileCounterpart.transactionRef} on profile{' '}
+          {formatCrossProfileProfileLabel(
+            exactOtherProfileCounterpart.profileDisplayName,
+            exactOtherProfileCounterpart.profileKey
+          )}{' '}
+          first; this may be a cross-profile transfer
+        </Text>
       ) : (
         <Text>
           capture the counterparty first, then re-run <Text dimColor>`exitbook links run`</Text>
@@ -1166,10 +1190,6 @@ function formatGapAccountMatch(
       <Text dimColor>({accountMatch.accountRef})</Text> <Text color="cyan">{accountMatch.platformKey}</Text>
     </Text>
   );
-}
-
-function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
-  return profileDisplayName === profileKey ? profileDisplayName : `${profileDisplayName} (${profileKey})`;
 }
 
 function formatGapRelatedTransactionRefs(refs: string[], totalCount: number): ReactElement {

@@ -703,6 +703,96 @@ describe('determineEvmOperationFromFundFlow', () => {
       expect(result.diagnostics).toBeUndefined();
     });
 
+    it('adds bridge diagnostics for Injective bridge contract withdrawals', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [],
+        outflows: [{ asset: 'INJ' as Currency, amount: '6.03961192' }],
+        primary: { asset: 'INJ' as Currency, amount: '6.03961192' },
+        feeAmount: '0.001',
+        feeCurrency: 'ETH' as Currency,
+        fromAddress: '0x123',
+        toAddress: '0x456',
+        transactionCount: 1,
+        hasContractInteraction: true,
+        hasInternalTransactions: false,
+        hasTokenTransfers: true,
+      };
+      const txGroup: EvmTransaction[] = [
+        {
+          amount: '6039611920000000000',
+          currency: 'INJ',
+          eventId: 'bridge-withdrawal-evt',
+          feeAmount: '1000000000000000',
+          feeCurrency: 'ETH' as Currency,
+          from: '0x123',
+          functionName: 'sendToInjective(address,string,uint256)',
+          id: '0xbridge-withdrawal',
+          providerName: 'etherscan',
+          status: 'success',
+          timestamp: 1,
+          to: '0xbridge',
+          tokenAddress: '0xe28b3b32b6c345a34ff64674606124dd5aceca30',
+          tokenDecimals: 18,
+          tokenSymbol: 'INJ',
+          tokenType: 'erc20',
+          type: 'token_transfer',
+        },
+      ];
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, txGroup);
+
+      expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+      expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.message).toContain('Injective');
+      expect(result.diagnostics?.[0]?.metadata?.['functionName']).toBe('sendToInjective(address,string,uint256)');
+    });
+
+    it('adds bridge diagnostics for Wormhole transferTokensWithPayload withdrawals', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [],
+        outflows: [{ asset: 'RENDER' as Currency, amount: '80.61' }],
+        primary: { asset: 'RENDER' as Currency, amount: '80.61' },
+        feeAmount: '0.001',
+        feeCurrency: 'ETH' as Currency,
+        fromAddress: '0x123',
+        toAddress: '0x456',
+        transactionCount: 1,
+        hasContractInteraction: true,
+        hasInternalTransactions: false,
+        hasTokenTransfers: true,
+      };
+      const txGroup: EvmTransaction[] = [
+        {
+          amount: '8061000000',
+          currency: 'RENDER',
+          eventId: 'wormhole-withdrawal-evt',
+          feeAmount: '1000000000000000',
+          feeCurrency: 'ETH' as Currency,
+          from: '0x123',
+          functionName: 'transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)',
+          id: '0xwormhole-withdrawal',
+          providerName: 'etherscan',
+          status: 'success',
+          timestamp: 1,
+          to: '0xbridge',
+          tokenAddress: '0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+          tokenDecimals: 8,
+          tokenSymbol: 'RENDER',
+          tokenType: 'erc20',
+          type: 'token_transfer',
+        },
+      ];
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, txGroup);
+
+      expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+      expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.message).toContain('Wormhole');
+      expect(result.diagnostics?.[0]?.metadata?.['functionName']).toBe(
+        'transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)'
+      );
+    });
+
     it('classifies multi-asset withdrawal when multiple outflows present', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],

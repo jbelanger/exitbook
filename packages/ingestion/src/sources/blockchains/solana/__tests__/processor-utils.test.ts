@@ -450,6 +450,7 @@ describe('Solana Processor Utils', () => {
           feeAbsorbedByMovement: false,
           fromAddress: 'reward-program',
           toAddress: 'user123',
+          hasBridgeTransfer: false,
           hasMultipleInstructions: true,
           hasRewardDistribution: true,
           hasStaking: false,
@@ -466,6 +467,35 @@ describe('Solana Processor Utils', () => {
 
         expect(result.operation).toEqual({ category: 'defi', type: 'reward' });
         expect(result.diagnostics?.[0]?.code).toBe('reward_distribution');
+      });
+
+      it('should classify ReceiveRenderV2 receipts as bridge-backed deposits', () => {
+        const fundFlow: SolanaFundFlow = {
+          computeUnitsUsed: 1000,
+          feeAmount: '0',
+          feeCurrency: 'SOL' as Currency,
+          feePaidByUser: false,
+          feeAbsorbedByMovement: false,
+          fromAddress: 'bridge-program',
+          toAddress: 'user123',
+          hasBridgeTransfer: true,
+          hasMultipleInstructions: true,
+          hasRewardDistribution: false,
+          hasStaking: false,
+          hasSwaps: false,
+          hasTokenTransfers: true,
+          instructionCount: 2,
+          transactionCount: 1,
+          inflows: [{ amount: '80.61', asset: 'RENDER' as Currency }],
+          outflows: [],
+          primary: { amount: '80.61', asset: 'RENDER' as Currency },
+        };
+
+        const result = classifySolanaOperationFromFundFlow(fundFlow, []);
+
+        expect(result.operation).toEqual({ category: 'transfer', type: 'deposit' });
+        expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+        expect(result.diagnostics?.[0]?.message).toContain('bridge or migration receipt');
       });
 
       it('should classify fee-only transactions', () => {

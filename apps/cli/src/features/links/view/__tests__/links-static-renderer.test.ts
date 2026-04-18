@@ -303,7 +303,12 @@ describe('links static renderer', () => {
     const detailOutput = buildLinkGapStaticDetail(item);
 
     expect(stripAnsi(listOutput)).toContain('1 with other-profile counterpart');
-    expect(stripAnsi(listOutput)).toContain('no suggestions yet · other-profile counterpart');
+    expect(stripAnsi(listOutput)).toContain('no suggestions yet · exact other-profile counterpart');
+    expect(stripAnsi(detailOutput)).toContain('Cue: exact other-profile counterpart');
+    expect(stripAnsi(detailOutput)).toContain(
+      'Likely outcome: Tracked counterpart exists on profile maely; inspect it before treating this as a generic same-profile gap.'
+    );
+    expect(stripAnsi(detailOutput)).toContain(`Next: inspect ${counterpartRef} on profile maely`);
     expect(stripAnsi(detailOutput)).toContain(
       `Other-profile counterpart: maely · solana · OUT 1.5 ETH · ${counterpartRef} · 15s earlier`
     );

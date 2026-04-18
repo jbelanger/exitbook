@@ -5,7 +5,10 @@ import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.j
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../../view/links-static-renderer.js';
-import { countGapItemsWithCrossProfileCandidates } from '../../view/links-view-formatters.js';
+import {
+  countGapItemsWithCrossProfileCandidates,
+  getExactOtherProfileCounterpart,
+} from '../../view/links-view-formatters.js';
 
 import type { LinksGapsBrowseParams, LinksGapsBrowsePresentation } from './links-gaps-browse-support.js';
 
@@ -79,6 +82,8 @@ function buildLinksGapsBrowseJsonCompletion(
 }
 
 function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
+  const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(item);
+
   return {
     kind: 'gap',
     ref: item.gapRef,
@@ -97,6 +102,16 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     totalAmount: item.gapIssue.totalAmount,
     confirmedCoveragePercent: item.gapIssue.confirmedCoveragePercent,
     crossProfileCandidates: item.crossProfileCandidates,
+    crossProfileCue:
+      item.crossProfileCandidates === undefined || item.crossProfileCandidates.length === 0
+        ? undefined
+        : exactOtherProfileCounterpart !== undefined
+          ? 'exact_other_profile_counterpart'
+          : 'other_profile_counterpart',
+    exactOtherProfileCounterpartTxFingerprint: exactOtherProfileCounterpart?.txFingerprint,
+    exactOtherProfileCounterpartTransactionRef: exactOtherProfileCounterpart?.transactionRef,
+    exactOtherProfileCounterpartProfileDisplayName: exactOtherProfileCounterpart?.profileDisplayName,
+    exactOtherProfileCounterpartProfileKey: exactOtherProfileCounterpart?.profileKey,
     operationCategory: item.gapIssue.operationCategory,
     operationType: item.gapIssue.operationType,
     suggestedCount: item.gapIssue.suggestedCount,

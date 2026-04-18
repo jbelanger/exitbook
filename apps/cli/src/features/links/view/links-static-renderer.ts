@@ -10,10 +10,13 @@ import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-g
 import {
   countGapItemsWithCrossProfileCandidates,
   countGapSuggestionBuckets,
+  formatCrossProfileProfileLabel,
   formatGapLikelyOutcome,
   formatCompactAmount,
   formatGapCounterpartTimeDelta,
   formatCoverage,
+  formatGapCrossProfileCueLabel,
+  formatGapCrossProfileLikelyOutcome,
   formatGapCueLabel,
   formatGapRowTimestamp,
   formatGapSuggestionAvailability,
@@ -27,6 +30,7 @@ import {
   formatProposalRoute,
   formatResolvedGapExceptionCount,
   gapIssueSuggestsGapException,
+  getExactOtherProfileCounterpart,
   getCoverageColor,
   getGapSuggestionColor,
   getProposalAmountDisplay,
@@ -406,8 +410,11 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
     gapIssue.gapCueCounterpartTxFingerprint !== undefined
       ? formatTransactionFingerprintRef(gapIssue.gapCueCounterpartTxFingerprint)
       : undefined;
+  const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(item);
+  const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);
   const issueSuggestsGapException = gapIssueSuggestsGapException(gapIssue);
-  const likelyOutcome = formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef);
+  const likelyOutcome =
+    formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(item);
   const nextStep =
     suggestedProposalRefs.length > 0
       ? `exitbook links confirm ${suggestedProposalRefs[0]!}`
@@ -415,9 +422,14 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
         ? `exitbook links gaps resolve ${item.gapRef}`
         : gapCueCounterpartTransactionRef !== undefined
           ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
-          : gapIssue.suggestedCount > 0
-            ? 'exitbook links explore --status suggested'
-            : 'exitbook links run';
+          : exactOtherProfileCounterpart !== undefined
+            ? `inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
+                exactOtherProfileCounterpart.profileDisplayName,
+                exactOtherProfileCounterpart.profileKey
+              )}`
+            : gapIssue.suggestedCount > 0
+              ? 'exitbook links explore --status suggested'
+              : 'exitbook links run';
 
   const lines = [
     `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(`[${gapIssue.direction}]`)}`,
@@ -468,7 +480,17 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       colorizeText(getCoverageColor(coverageNum), `${gapIssue.confirmedCoveragePercent}% confirmed`)
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
-    ...(gapIssue.gapCue ? [buildDetailLine('Cue', colorizeText('cyan', formatGapCueLabel(gapIssue.gapCue)))] : []),
+    ...(gapIssue.gapCue || crossProfileCueLabel
+      ? [
+          buildDetailLine(
+            'Cue',
+            colorizeText(
+              gapIssue.gapCue ? 'cyan' : 'yellow',
+              gapIssue.gapCue ? formatGapCueLabel(gapIssue.gapCue) : crossProfileCueLabel
+            )
+          ),
+        ]
+      : []),
     ...(gapCueCounterpartTransactionRef !== undefined
       ? [
           buildDetailLine('Counterpart tx ref', gapCueCounterpartTransactionRef),
@@ -747,10 +769,8 @@ function formatGapReadiness(item: LinkGapBrowseItem): string {
   const readiness = formatGapSuggestionAvailability(item.gapIssue);
   const cueSuffix = item.gapIssue.gapCue ? ` · ${formatGapCueLabel(item.gapIssue.gapCue)}` : '';
   const contextSuffix = item.gapIssue.contextHint ? ` · ${item.gapIssue.contextHint.label}` : '';
-  const crossProfileSuffix =
-    item.crossProfileCandidates !== undefined && item.crossProfileCandidates.length > 0
-      ? ' · other-profile counterpart'
-      : '';
+  const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);
+  const crossProfileSuffix = crossProfileCueLabel ? ` · ${crossProfileCueLabel}` : '';
 
   return `${readiness}${cueSuffix}${contextSuffix}${crossProfileSuffix}`;
 }
@@ -770,8 +790,4 @@ function buildCrossProfileCounterpartDetailLines(item: LinkGapBrowseItem): strin
       )}`
     )
   );
-}
-
-function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
-  return profileDisplayName === profileKey ? profileDisplayName : `${profileDisplayName} (${profileKey})`;
 }

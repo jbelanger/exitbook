@@ -9,7 +9,7 @@ import {
 } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
-import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
+import type { LinkGapBrowseCrossProfileCandidate, LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import type {
   LinkProposalProvenanceSummary,
   LinkWithTransactions,
@@ -164,6 +164,44 @@ export function countGapItemsWithCrossProfileCandidates(
   items: readonly Pick<LinkGapBrowseItem, 'crossProfileCandidates'>[]
 ): number {
   return items.reduce((count, item) => (item.crossProfileCandidates?.length ? count + 1 : count), 0);
+}
+
+export function getExactOtherProfileCounterpart(
+  item: Pick<LinkGapBrowseItem, 'crossProfileCandidates'>
+): LinkGapBrowseCrossProfileCandidate | undefined {
+  return item.crossProfileCandidates?.length === 1 ? item.crossProfileCandidates[0] : undefined;
+}
+
+export function hasOtherProfileCounterparts(item: Pick<LinkGapBrowseItem, 'crossProfileCandidates'>): boolean {
+  return (item.crossProfileCandidates?.length ?? 0) > 0;
+}
+
+export function formatGapCrossProfileCueLabel(
+  item: Pick<LinkGapBrowseItem, 'crossProfileCandidates'>
+): string | undefined {
+  if (!hasOtherProfileCounterparts(item)) {
+    return undefined;
+  }
+
+  return getExactOtherProfileCounterpart(item) ? 'exact other-profile counterpart' : 'other-profile counterpart';
+}
+
+export function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
+  return profileDisplayName === profileKey ? profileDisplayName : `${profileDisplayName} (${profileKey})`;
+}
+
+export function formatGapCrossProfileLikelyOutcome(
+  item: Pick<LinkGapBrowseItem, 'crossProfileCandidates'>
+): string | undefined {
+  const counterpart = getExactOtherProfileCounterpart(item);
+  if (!counterpart) {
+    return undefined;
+  }
+
+  return `Tracked counterpart exists on profile ${formatCrossProfileProfileLabel(
+    counterpart.profileDisplayName,
+    counterpart.profileKey
+  )}; inspect it before treating this as a generic same-profile gap.`;
 }
 
 export function formatResolvedGapExceptionCount(count: number): string {

@@ -672,6 +672,10 @@ describe('LinksViewApp - gaps mode', () => {
     );
     const normalizedFrame = lastFrame()?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
+    expect(normalizedFrame).toContain('Cue:');
+    expect(normalizedFrame).toContain('exact other-profile counterpart');
+    expect(normalizedFrame).toContain('Likely outcome:');
+    expect(normalizedFrame).toContain('Tracked counterpart exists on profile maely');
     expect(normalizedFrame).toContain('Other-profile counterpart:');
     expect(normalizedFrame).toContain('maely');
     expect(normalizedFrame).toContain('solana');

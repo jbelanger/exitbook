@@ -889,6 +889,58 @@ describe('SolanaProcessor - Staking Detection', () => {
     expect(transaction.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('0.08480349');
     expect(transaction.diagnostics?.[0]?.code).toBe('reward_distribution');
   });
+
+  test('classifies ReceiveRenderV2 receipts as bridge-backed deposits', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigRenderBridge1',
+      eventId: '0xrenderbridge1',
+      slot: 286028900,
+      accountChanges: [],
+      feeAmount: '0',
+      feePayer: EXTERNAL_ADDRESS,
+      instructions: [
+        {
+          programId: 'brdgGYmhGdaAJmqLN9oSp4381Ywc51vUfzn9NaSZC1d',
+        },
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+      ],
+      logMessages: ['Program log: Instruction: ReceiveRenderV2'],
+      tokenChanges: [
+        {
+          account: TOKEN_ACCOUNT,
+          decimals: 8,
+          mint: 'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof',
+          owner: USER_ADDRESS,
+          preAmount: '0',
+          postAmount: '8061000000',
+          symbol: 'RENDER',
+        },
+      ],
+      timestamp: Date.parse('2024-07-30T22:53:40.000Z'),
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'transfer', type: 'deposit' });
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('RENDER');
+    expect(transaction.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(transaction.diagnostics?.[0]?.message).toContain('bridge or migration receipt');
+  });
 });
 
 describe('SolanaProcessor - Multi-Asset Tracking', () => {

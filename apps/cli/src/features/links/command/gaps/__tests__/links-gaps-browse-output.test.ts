@@ -75,6 +75,9 @@ describe('links-gaps-browse-output', () => {
       data: [
         {
           crossProfileCandidates?: { profileKey?: string }[];
+          crossProfileCue?: string;
+          exactOtherProfileCounterpartProfileKey?: string;
+          exactOtherProfileCounterpartTransactionRef?: string;
           gapCueCounterpartTransactionRef?: string;
           relatedContext?: { fromAccount?: { accountRef?: string } };
           suggestedProposalRefs?: string[];
@@ -94,7 +97,10 @@ describe('links-gaps-browse-output', () => {
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
     expect(payload.data[0]?.relatedContext?.fromAccount?.accountRef).toBe('acctref1234');
     expect(payload.data[0]?.transactionSnapshot?.openSameHashGapRowCount).toBe(2);
+    expect(payload.data[0]?.crossProfileCue).toBe('exact_other_profile_counterpart');
     expect(payload.data[0]?.crossProfileCandidates?.[0]?.profileKey).toBe('maely');
+    expect(payload.data[0]?.exactOtherProfileCounterpartProfileKey).toBe('maely');
+    expect(payload.data[0]?.exactOtherProfileCounterpartTransactionRef).toBe('other-prof');
   });
 
   it('includes cue counterpart transaction refs in json detail', () => {

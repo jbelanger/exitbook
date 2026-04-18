@@ -132,6 +132,14 @@ function detectSolanaRewardDistribution(logMessages: readonly string[] | undefin
   return normalizedMessages.some((message) => message.includes('claiming') && message.includes('upgrade rewards'));
 }
 
+function detectSolanaBridgeReceipt(logMessages: readonly string[] | undefined): boolean {
+  if (!logMessages || logMessages.length === 0) {
+    return false;
+  }
+
+  return logMessages.some((message) => message.toLowerCase().includes('instruction: receiverenderv2'));
+}
+
 /**
  * Identify unsolicited SOL dust sprays that do not represent a user-initiated transaction.
  *
@@ -329,6 +337,26 @@ export function classifySolanaOperationFromFundFlow(
       operation: {
         category: 'defi',
         type: 'reward',
+      },
+    });
+  }
+
+  if (fundFlow.hasBridgeTransfer && inflows.length > 0 && outflows.length === 0) {
+    return addInferenceFailureNote({
+      diagnostics: [
+        {
+          message: 'Provider log messages indicate a bridge or migration receipt.',
+          metadata: {
+            detectionSource: 'log_messages',
+            inflows: inflows.map((inflow) => ({ amount: inflow.amount, asset: inflow.asset })),
+          },
+          severity: 'info',
+          code: 'bridge_transfer',
+        },
+      ],
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
       },
     });
   }
@@ -1058,6 +1086,7 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
   const hasMultipleInstructions = instructionCount > 1;
 
   // Detect transaction types based on instructions
+  const hasBridgeTransfer = detectSolanaBridgeReceipt(tx.logMessages);
   const hasRewardDistribution = detectSolanaRewardDistribution(tx.logMessages);
   const hasStaking = detectSolanaStakingInstructions(tx.instructions);
   const hasSwaps = detectSolanaSwapInstructions(tx.instructions);
@@ -1088,6 +1117,7 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
     feeAbsorbedByMovement: flowAnalysis.feeAbsorbedByMovement,
     fromAddress: flowAnalysis.fromAddress,
     toAddress: flowAnalysis.toAddress,
+    hasBridgeTransfer,
     hasMultipleInstructions,
     hasRewardDistribution,
     hasStaking,
