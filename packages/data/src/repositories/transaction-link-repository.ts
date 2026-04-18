@@ -122,6 +122,11 @@ export class TransactionLinkRepository extends BaseRepository {
 
   async create(link: NewTransactionLink): Promise<Result<number, Error>> {
     try {
+      const profileValidationResult = await this.validateLinkProfiles([link]);
+      if (profileValidationResult.isErr()) {
+        return err(profileValidationResult.error);
+      }
+
       const matchCriteriaValidation = MatchCriteriaSchema.safeParse(link.matchCriteria);
       if (!matchCriteriaValidation.success) {
         return err(new Error(`Invalid match criteria: ${matchCriteriaValidation.error.message}`));
@@ -185,6 +190,11 @@ export class TransactionLinkRepository extends BaseRepository {
     try {
       if (links.length === 0) {
         return ok(0);
+      }
+
+      const profileValidationResult = await this.validateLinkProfiles(links);
+      if (profileValidationResult.isErr()) {
+        return err(profileValidationResult.error);
       }
 
       for (const [i, link] of links.entries()) {
@@ -624,5 +634,70 @@ export class TransactionLinkRepository extends BaseRepository {
     }
 
     return query;
+  }
+
+  private async validateLinkProfiles(
+    links: readonly Pick<NewTransactionLink, 'sourceTransactionId' | 'targetTransactionId'>[]
+  ): Promise<Result<void, Error>> {
+    const uniqueTransactionIds = [
+      ...new Set(links.flatMap((link) => [link.sourceTransactionId, link.targetTransactionId])),
+    ];
+    const transactionProfileMapResult = await this.loadTransactionProfileMap(uniqueTransactionIds);
+    if (transactionProfileMapResult.isErr()) {
+      return err(transactionProfileMapResult.error);
+    }
+
+    const transactionProfileMap = transactionProfileMapResult.value;
+    for (const link of links) {
+      const sourceProfileId = transactionProfileMap.get(link.sourceTransactionId);
+      if (sourceProfileId === undefined) {
+        return err(
+          new Error(`Cannot create transaction link: source transaction ${link.sourceTransactionId} not found`)
+        );
+      }
+
+      const targetProfileId = transactionProfileMap.get(link.targetTransactionId);
+      if (targetProfileId === undefined) {
+        return err(
+          new Error(`Cannot create transaction link: target transaction ${link.targetTransactionId} not found`)
+        );
+      }
+
+      if (sourceProfileId !== targetProfileId) {
+        return err(
+          new Error(
+            `Cannot create transaction link across profiles: source transaction ${link.sourceTransactionId} belongs to profile ${sourceProfileId}, target transaction ${link.targetTransactionId} belongs to profile ${targetProfileId}`
+          )
+        );
+      }
+    }
+
+    return ok(undefined);
+  }
+
+  private async loadTransactionProfileMap(
+    transactionIds: readonly number[]
+  ): Promise<Result<Map<number, number>, Error>> {
+    try {
+      const transactionProfileMap = new Map<number, number>();
+
+      for (const transactionIdBatch of chunkItems(transactionIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const rows = await this.db
+          .selectFrom('transactions')
+          .innerJoin('accounts', 'accounts.id', 'transactions.account_id')
+          .select(['transactions.id as transaction_id', 'accounts.profile_id as profile_id'])
+          .where('transactions.id', 'in', transactionIdBatch)
+          .execute();
+
+        for (const row of rows) {
+          transactionProfileMap.set(row.transaction_id, row.profile_id);
+        }
+      }
+
+      return ok(transactionProfileMap);
+    } catch (error) {
+      this.logger.error({ error, transactionIds }, 'Failed to load transaction profiles for link validation');
+      return wrapError(error, 'Failed to validate transaction link profiles');
+    }
   }
 }

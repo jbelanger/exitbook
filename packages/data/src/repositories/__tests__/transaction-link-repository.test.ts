@@ -363,6 +363,179 @@ describe('TransactionLinkRepository', () => {
       expect(assertOk(await repo.findById(defaultLinkId, 2))).toBeUndefined();
       expect(assertOk(await repo.findById(businessLinkId, 1))).toBeUndefined();
     });
+
+    it('rejects creating a cross-profile link', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      await db
+        .insertInto('transactions')
+        .values({
+          id: 11,
+          account_id: 2,
+          platform_key: 'business',
+          platform_kind: 'exchange',
+          tx_fingerprint: seedTxFingerprint('business', 2, 'business-tx-11'),
+          transaction_status: 'success',
+          transaction_datetime: new Date().toISOString(),
+          excluded_from_accounting: false,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const result = await repo.create(makeBtcLink(1, 11));
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Cannot create transaction link across profiles');
+      }
+      expect(assertOk(await repo.findAll())).toHaveLength(0);
+    });
+
+    it('rejects bulk creation when any link crosses profiles', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      for (const id of [11, 12]) {
+        const identityReference = `business-tx-${id}`;
+        await db
+          .insertInto('transactions')
+          .values({
+            id,
+            account_id: 2,
+            platform_key: 'business',
+            platform_kind: 'exchange',
+            tx_fingerprint: seedTxFingerprint('business', 2, identityReference),
+            transaction_status: 'success',
+            transaction_datetime: new Date().toISOString(),
+            excluded_from_accounting: false,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      }
+
+      const result = await repo.createBatch([makeBtcLink(1, 2), makeBtcLink(11, 2)]);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Cannot create transaction link across profiles');
+      }
+      expect(assertOk(await repo.findAll())).toHaveLength(0);
+    });
+
+    it('blocks cross-profile link rows at the database layer', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      await db
+        .insertInto('transactions')
+        .values({
+          id: 11,
+          account_id: 2,
+          platform_key: 'business',
+          platform_kind: 'exchange',
+          tx_fingerprint: seedTxFingerprint('business', 2, 'business-tx-11'),
+          transaction_status: 'success',
+          transaction_datetime: new Date().toISOString(),
+          excluded_from_accounting: false,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      await expect(
+        db
+          .insertInto('transaction_links')
+          .values({
+            source_transaction_id: 1,
+            target_transaction_id: 11,
+            asset: 'BTC',
+            source_asset_id: 'exchange:kraken:btc',
+            target_asset_id: 'exchange:business:btc',
+            source_amount: '1',
+            target_amount: '1',
+            implied_fee_amount: null,
+            source_movement_fingerprint: 'movement:exchange:kraken:1:outflow:0',
+            target_movement_fingerprint: 'movement:exchange:business:11:inflow:0',
+            link_type: 'exchange_to_exchange',
+            confidence_score: '1',
+            match_criteria_json: JSON.stringify({
+              assetMatch: true,
+              amountSimilarity: '1',
+              timingValid: true,
+              timingHours: 0,
+            }),
+            status: 'confirmed',
+            reviewed_by: 'db-test',
+            reviewed_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            metadata_json: null,
+          })
+          .executeTakeFirstOrThrow()
+      ).rejects.toThrow('Transaction link profile must match');
+    });
+
+    it('blocks updating a link to point across profiles at the database layer', async () => {
+      await db
+        .insertInto('profiles')
+        .values({
+          id: 2,
+          profile_key: 'business',
+          display_name: 'business',
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+      await seedAccount(db, 2, 'exchange-api', 'business', { profileId: 2 });
+
+      await db
+        .insertInto('transactions')
+        .values({
+          id: 11,
+          account_id: 2,
+          platform_key: 'business',
+          platform_kind: 'exchange',
+          tx_fingerprint: seedTxFingerprint('business', 2, 'business-tx-11'),
+          transaction_status: 'success',
+          transaction_datetime: new Date().toISOString(),
+          excluded_from_accounting: false,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const linkId = assertOk(await repo.create(makeBtcLink(1, 2)));
+
+      await expect(
+        db
+          .updateTable('transaction_links')
+          .set({ target_transaction_id: 11 })
+          .where('id', '=', linkId)
+          .executeTakeFirstOrThrow()
+      ).rejects.toThrow('Transaction link profile must match');
+    });
   });
 
   describe('updateStatuses', () => {

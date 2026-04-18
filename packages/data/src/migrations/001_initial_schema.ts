@@ -430,6 +430,58 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .execute();
 
+  await sql`
+    CREATE TRIGGER trg_transaction_links_profile_match_insert
+    BEFORE INSERT ON transaction_links
+    FOR EACH ROW
+    BEGIN
+      SELECT RAISE(ABORT, 'Transaction link profile must match')
+      WHERE COALESCE(
+        (
+          SELECT accounts.profile_id
+          FROM transactions
+          INNER JOIN accounts ON accounts.id = transactions.account_id
+          WHERE transactions.id = NEW.source_transaction_id
+        ),
+        0
+      ) != COALESCE(
+        (
+          SELECT accounts.profile_id
+          FROM transactions
+          INNER JOIN accounts ON accounts.id = transactions.account_id
+          WHERE transactions.id = NEW.target_transaction_id
+        ),
+        0
+      );
+    END
+  `.execute(db);
+
+  await sql`
+    CREATE TRIGGER trg_transaction_links_profile_match_update
+    BEFORE UPDATE OF source_transaction_id, target_transaction_id ON transaction_links
+    FOR EACH ROW
+    BEGIN
+      SELECT RAISE(ABORT, 'Transaction link profile must match')
+      WHERE COALESCE(
+        (
+          SELECT accounts.profile_id
+          FROM transactions
+          INNER JOIN accounts ON accounts.id = transactions.account_id
+          WHERE transactions.id = NEW.source_transaction_id
+        ),
+        0
+      ) != COALESCE(
+        (
+          SELECT accounts.profile_id
+          FROM transactions
+          INNER JOIN accounts ON accounts.id = transactions.account_id
+          WHERE transactions.id = NEW.target_transaction_id
+        ),
+        0
+      );
+    END
+  `.execute(db);
+
   // Create indexes for transaction_links
   await db.schema
     .createIndex('idx_tx_links_platform_key')
