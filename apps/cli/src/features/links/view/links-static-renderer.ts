@@ -4,7 +4,7 @@ import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../..
 import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import { buildTransactionRelatedContextLines } from '../../transactions/view/transaction-related-context-static-renderer.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
-import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
+import type { LinkGapBrowseItem, ResolvedLinkGapBrowseItem } from '../links-gaps-browse-model.js';
 
 import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import {
@@ -46,6 +46,15 @@ const GAP_LIST_COLUMN_ORDER = [
   'missing',
   'coverage',
   'readiness',
+] as const;
+const RESOLVED_GAP_LIST_COLUMN_ORDER = [
+  'ref',
+  'resolved',
+  'txRef',
+  'platform',
+  'direction',
+  'asset',
+  'reason',
 ] as const;
 
 export function outputLinksStaticList(state: LinksViewLinksState, items: LinkProposalBrowseItem[]): void {
@@ -302,6 +311,91 @@ export function outputLinkGapStaticDetail(item: LinkGapBrowseItem): void {
   process.stdout.write(buildLinkGapStaticDetail(item));
 }
 
+export function outputResolvedLinkGapsStaticList(items: ResolvedLinkGapBrowseItem[]): void {
+  process.stdout.write(buildResolvedLinkGapsStaticList(items));
+}
+
+export function buildResolvedLinkGapsStaticList(items: ResolvedLinkGapBrowseItem[]): string {
+  const lines: string[] = [buildResolvedGapListHeader(items.length), ''];
+
+  if (items.length === 0) {
+    lines.push(...buildResolvedLinkGapsEmptyStateLines());
+    return `${lines.join('\n')}\n`;
+  }
+
+  const columns = createColumns(items, {
+    ref: { format: (item) => item.gapRef, minWidth: GAP_REF_COLUMN_LABEL.length },
+    resolved: {
+      format: (item) => formatGapRowTimestamp(item.resolvedAt),
+      minWidth: 'RESOLVED'.length,
+    },
+    txRef: {
+      format: (item) => item.transactionRef,
+      minWidth: 'TX-REF'.length,
+    },
+    platform: {
+      format: (item) => item.gapIssue.platformKey,
+      minWidth: 'PLATFORM'.length,
+    },
+    direction: {
+      format: (item) => (item.gapIssue.direction === 'inflow' ? 'IN' : 'OUT'),
+      minWidth: 'DIR'.length,
+    },
+    asset: {
+      format: (item) => item.gapIssue.assetSymbol,
+      minWidth: 'ASSET'.length,
+    },
+    reason: {
+      format: (item) => item.reason ?? '-',
+      maxWidth: 56,
+      minWidth: 'REASON'.length,
+    },
+  });
+
+  lines.push(
+    pc.dim(
+      buildTextTableHeader(
+        columns.widths,
+        {
+          ref: GAP_REF_COLUMN_LABEL,
+          resolved: 'RESOLVED',
+          txRef: 'TX-REF',
+          platform: 'PLATFORM',
+          direction: 'DIR',
+          asset: 'ASSET',
+          reason: 'REASON',
+        },
+        RESOLVED_GAP_LIST_COLUMN_ORDER,
+        { alignments: columns.alignments, gap: STATIC_LIST_COLUMN_GAP }
+      )
+    )
+  );
+
+  for (const item of items) {
+    const formatted = columns.format(item);
+
+    lines.push(
+      buildTextTableRow(
+        {
+          ...formatted,
+          ref: pc.bold(formatted.ref),
+          resolved: pc.dim(formatted.resolved),
+          txRef: pc.dim(formatted.txRef),
+          platform: pc.cyan(formatted.platform),
+          direction:
+            item.gapIssue.direction === 'inflow' ? pc.green(formatted.direction) : pc.yellow(formatted.direction),
+          asset: pc.cyan(formatted.asset),
+          reason: item.reason ? formatted.reason : pc.dim(formatted.reason),
+        },
+        RESOLVED_GAP_LIST_COLUMN_ORDER,
+        { gap: STATIC_LIST_COLUMN_GAP }
+      )
+    );
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
 export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const { gapIssue } = item;
   const coverageNum = parseFloat(gapIssue.confirmedCoveragePercent);
@@ -460,6 +554,16 @@ function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): st
   ];
 
   return `${pc.bold('Link Gaps')} ${pc.dim(metadata.join(' · '))}`;
+}
+
+function buildResolvedGapListHeader(visibleCount: number): string {
+  return `${pc.bold('Resolved Link Gaps')} ${pc.dim(
+    `${visibleCount} resolved gap exception${visibleCount === 1 ? '' : 's'}`
+  )}`;
+}
+
+function buildResolvedLinkGapsEmptyStateLines(): string[] {
+  return ['No resolved gap exceptions.'];
 }
 
 function buildDetailLine(label: string, value: string): string {

@@ -27,7 +27,7 @@ The `links` family now follows the standard browse contract:
 
 ### Gap Selectors
 
-`links gaps view <gap-ref>`, `links gaps explore <gap-ref>`, `links gaps resolve <gap-ref>`, and `links gaps reopen <gap-ref>` target one gap issue inside the gaps workflow.
+`links gaps resolved`, `links gaps view <gap-ref>`, `links gaps explore <gap-ref>`, `links gaps resolve <gap-ref>`, and `links gaps reopen <gap-ref>` target the gaps workflow, with `view` / `explore` / `resolve` / `reopen` operating on one gap issue.
 
 - The selector is a short `GAP-REF` derived from `txFingerprint + assetId + direction`.
 - The displayed `GAP-REF` column uses the first 10 hex chars of the SHA-256 digest of that issue identity.
@@ -153,6 +153,33 @@ List columns:
 - `MISSING`
 - `COVERAGE`
 - `READINESS`
+
+### Resolved List
+
+Commands:
+
+```text
+exitbook links gaps resolved
+exitbook links gaps resolved --json
+```
+
+Behavior:
+
+- Shows only currently-resolved gap exceptions that still correspond to a gap issue in the latest analysis.
+- Rows are ordered by most recent resolve event first.
+- Stored resolve reasons are shown when present.
+- JSON output includes both the transaction timestamp and the resolve-event timestamp.
+- The list is intended to support `links gaps reopen <gap-ref>` when a prior exception should be undone.
+
+List columns:
+
+- `GAP-REF`
+- `RESOLVED`
+- `TX-REF`
+- `PLATFORM`
+- `DIR`
+- `ASSET`
+- `REASON`
 
 ### Static Detail
 

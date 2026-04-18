@@ -8,6 +8,7 @@ const {
   mockPrepareLinksGapsBrowseCommand,
   mockRegisterLinksGapReopenCommand,
   mockRegisterLinksGapResolveCommand,
+  mockRegisterLinksGapsResolvedCommand,
   mockRunCommand,
   mockRunLinksGapsBrowseCommand,
 } = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const {
   mockPrepareLinksGapsBrowseCommand: vi.fn(),
   mockRegisterLinksGapReopenCommand: vi.fn(),
   mockRegisterLinksGapResolveCommand: vi.fn(),
+  mockRegisterLinksGapsResolvedCommand: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLinksGapsBrowseCommand: vi.fn(),
 }));
@@ -42,6 +44,10 @@ vi.mock('../links-gaps-browse-command.js', () => ({
 vi.mock('../links-gap-resolution-command.js', () => ({
   registerLinksGapReopenCommand: mockRegisterLinksGapReopenCommand,
   registerLinksGapResolveCommand: mockRegisterLinksGapResolveCommand,
+}));
+
+vi.mock('../links-gaps-resolved-command.js', () => ({
+  registerLinksGapsResolvedCommand: mockRegisterLinksGapsResolvedCommand,
 }));
 
 import { registerLinksGapsCommand } from '../links-gaps.js';
@@ -81,6 +87,12 @@ describe('links gaps command', () => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
     );
+  });
+
+  it('registers the resolved gaps subcommand', () => {
+    createProgram();
+
+    expect(mockRegisterLinksGapsResolvedCommand).toHaveBeenCalledTimes(1);
   });
 
   it('routes bare links gaps through the static browse preparation path', async () => {

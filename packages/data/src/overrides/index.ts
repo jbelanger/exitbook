@@ -1,6 +1,12 @@
 export { readExcludedAssetIds, replayAssetExclusionEvents } from './asset-exclusion-replay.js';
 export { readAssetReviewDecisions, replayAssetReviewEvents, type AssetReviewDecision } from './asset-review-replay.js';
-export { readResolvedLinkGapIssueKeys, replayResolvedLinkGapIssues } from './link-gap-resolution-replay.js';
+export {
+  readResolvedLinkGapExceptions,
+  readResolvedLinkGapIssueKeys,
+  replayResolvedLinkGapExceptions,
+  replayResolvedLinkGapIssues,
+  type ResolvedLinkGapException,
+} from './link-gap-resolution-replay.js';
 export { materializeStoredTransactionOverrides } from './transaction-override-materialization.js';
 export {
   materializeStoredTransactionMovementRoleOverrides,

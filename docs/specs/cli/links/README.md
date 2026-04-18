@@ -10,6 +10,7 @@
 - `links create <source-ref> <target-ref> --asset <symbol>` creates a confirmed manual link when no suggestion exists
 - `links create-grouped --source ... --target ... --asset <symbol>` creates confirmed grouped manual links for exact many-to-one or one-to-many transfers
 - `links gaps` renders the static gap list
+- `links gaps resolved` renders the current resolved-gap exception list
 - `links gaps view <gap-ref>` renders one static gap detail card
 - `links gaps explore [gap-ref]` opens the interactive gaps explorer
 - `links gaps resolve <gap-ref>` records a resolved gap exception
@@ -25,6 +26,7 @@
 | `links create <src> <dst>`     | [links-create-spec.md](./links-create-spec.md)                 | Confirm an exact manual transfer link between two known transactions       |
 | `links create-grouped`         | [links-create-grouped-spec.md](./links-create-grouped-spec.md) | Confirm exact grouped manual transfer links for many-to-one or one-to-many |
 | `links gaps`                   | [links-view-spec.md](./links-view-spec.md)                     | Static browse list for unresolved gap rows with `GAP-REF` selectors        |
+| `links gaps resolved`          | [links-view-spec.md](./links-view-spec.md)                     | Static list of currently-resolved gap exceptions with stored reasons       |
 | `links gaps view <gap-ref>`    | [links-view-spec.md](./links-view-spec.md)                     | Static detail for one selected `GAP-REF` in the gaps workflow              |
 | `links gaps explore [gap-ref]` | [links-view-spec.md](./links-view-spec.md)                     | Interactive gaps explorer                                                  |
 | `links gaps resolve <gap-ref>` | [links-view-spec.md](./links-view-spec.md)                     | Record a resolved gap exception without creating a link                    |

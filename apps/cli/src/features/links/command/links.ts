@@ -56,6 +56,7 @@ Examples:
   $ exitbook links create e96a8b7baa b7c08af224 --asset RENDER
   $ exitbook links create-grouped --source 78a82e8482 --source d0c794045d --target 38adc7a548 --asset ADA
   $ exitbook links gaps
+  $ exitbook links gaps resolved
   $ exitbook links gaps view a1b2c3d4e5
   $ exitbook links gaps explore
   $ exitbook links run

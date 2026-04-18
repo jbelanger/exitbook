@@ -25,6 +25,14 @@ export interface LinkGapBrowseItem {
   transactionRef: string;
 }
 
+export interface ResolvedLinkGapBrowseItem {
+  gapRef: string;
+  gapIssue: LinkGapIssue;
+  reason?: string | undefined;
+  resolvedAt: string;
+  transactionRef: string;
+}
+
 export interface LinksGapBrowseHiddenCounts {
   hiddenResolvedIssueCount: number;
 }

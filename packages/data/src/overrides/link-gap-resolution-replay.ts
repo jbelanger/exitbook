@@ -5,6 +5,10 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { OverrideStore } from './override-store.js';
 
 export type ResolvedLinkGapIssue = LinkGapIssueIdentity;
+export interface ResolvedLinkGapException extends ResolvedLinkGapIssue {
+  reason?: string | undefined;
+  resolvedAt: string;
+}
 
 function buildResolvedLinkGapIssueFromOverride(
   payload: Extract<OverrideEvent['payload'], { type: 'link_gap_resolve' | 'link_gap_reopen' }>
@@ -20,7 +24,18 @@ function buildResolvedLinkGapIssueFromOverride(
  * Replay link-gap resolution overrides with latest-event-wins semantics.
  */
 export function replayResolvedLinkGapIssues(overrides: OverrideEvent[]): Result<Set<string>, Error> {
-  const resolvedByIssueKey = new Map<string, boolean>();
+  const resolvedExceptionsResult = replayResolvedLinkGapExceptions(overrides);
+  if (resolvedExceptionsResult.isErr()) {
+    return err(resolvedExceptionsResult.error);
+  }
+
+  return ok(new Set(resolvedExceptionsResult.value.keys()));
+}
+
+export function replayResolvedLinkGapExceptions(
+  overrides: OverrideEvent[]
+): Result<Map<string, ResolvedLinkGapException>, Error> {
+  const resolvedByIssueKey = new Map<string, ResolvedLinkGapException>();
 
   for (const override of overrides) {
     switch (override.scope) {
@@ -33,7 +48,12 @@ export function replayResolvedLinkGapIssues(overrides: OverrideEvent[]): Result<
           );
         }
 
-        resolvedByIssueKey.set(buildLinkGapIssueKey(buildResolvedLinkGapIssueFromOverride(override.payload)), true);
+        const resolvedIssue = buildResolvedLinkGapIssueFromOverride(override.payload);
+        resolvedByIssueKey.set(buildLinkGapIssueKey(resolvedIssue), {
+          ...resolvedIssue,
+          reason: override.reason,
+          resolvedAt: override.created_at,
+        });
         break;
       }
 
@@ -46,7 +66,7 @@ export function replayResolvedLinkGapIssues(overrides: OverrideEvent[]): Result<
           );
         }
 
-        resolvedByIssueKey.set(buildLinkGapIssueKey(buildResolvedLinkGapIssueFromOverride(override.payload)), false);
+        resolvedByIssueKey.delete(buildLinkGapIssueKey(buildResolvedLinkGapIssueFromOverride(override.payload)));
         break;
       }
 
@@ -59,14 +79,7 @@ export function replayResolvedLinkGapIssues(overrides: OverrideEvent[]): Result<
     }
   }
 
-  const resolvedIssueKeys = new Set<string>();
-  for (const [issueKey, isResolved] of resolvedByIssueKey) {
-    if (isResolved) {
-      resolvedIssueKeys.add(issueKey);
-    }
-  }
-
-  return ok(resolvedIssueKeys);
+  return ok(resolvedByIssueKey);
 }
 
 /**
@@ -76,8 +89,20 @@ export async function readResolvedLinkGapIssueKeys(
   overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
   profileKey: string
 ): Promise<Result<Set<string>, Error>> {
+  const resolvedExceptionsResult = await readResolvedLinkGapExceptions(overrideStore, profileKey);
+  if (resolvedExceptionsResult.isErr()) {
+    return err(resolvedExceptionsResult.error);
+  }
+
+  return ok(new Set(resolvedExceptionsResult.value.keys()));
+}
+
+export async function readResolvedLinkGapExceptions(
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  profileKey: string
+): Promise<Result<Map<string, ResolvedLinkGapException>, Error>> {
   if (!overrideStore.exists()) {
-    return ok(new Set<string>());
+    return ok(new Map<string, ResolvedLinkGapException>());
   }
 
   const overridesResult = await overrideStore.readByScopes(profileKey, ['link-gap-resolve', 'link-gap-reopen']);
@@ -85,5 +110,5 @@ export async function readResolvedLinkGapIssueKeys(
     return err(new Error(`Failed to read link gap resolution override events: ${overridesResult.error.message}`));
   }
 
-  return replayResolvedLinkGapIssues(overridesResult.value);
+  return replayResolvedLinkGapExceptions(overridesResult.value);
 }

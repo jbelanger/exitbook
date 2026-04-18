@@ -4,7 +4,12 @@ import { ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { readResolvedLinkGapIssueKeys, replayResolvedLinkGapIssues } from '../link-gap-resolution-replay.js';
+import {
+  readResolvedLinkGapExceptions,
+  readResolvedLinkGapIssueKeys,
+  replayResolvedLinkGapExceptions,
+  replayResolvedLinkGapIssues,
+} from '../link-gap-resolution-replay.js';
 
 function createLinkGapResolutionEvent(
   txFingerprint: string,
@@ -105,6 +110,78 @@ describe('link gap resolution replay', () => {
     ).toBe(true);
   });
 
+  it('keeps the latest resolve reason for currently resolved exceptions', () => {
+    const txFingerprint = 'e'.repeat(64);
+
+    const result = replayResolvedLinkGapExceptions([
+      createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow', {
+        created_at: '2026-04-09T12:00:00.000Z',
+        reason: 'Initial reason',
+      }),
+      createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow', {
+        payload: {
+          type: 'link_gap_reopen',
+          tx_fingerprint: txFingerprint,
+          asset_id: 'test:btc',
+          direction: 'inflow',
+        },
+        scope: 'link-gap-reopen',
+      }),
+      createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow', {
+        created_at: '2026-04-10T15:30:00.000Z',
+        reason: 'BullBitcoin purchase sent directly to wallet',
+      }),
+    ]);
+
+    const exceptions = assertOk(result);
+    expect(exceptions).toEqual(
+      new Map([
+        [
+          buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }),
+          {
+            txFingerprint,
+            assetId: 'test:btc',
+            direction: 'inflow',
+            resolvedAt: '2026-04-10T15:30:00.000Z',
+            reason: 'BullBitcoin purchase sent directly to wallet',
+          },
+        ],
+      ])
+    );
+  });
+
+  it('reads resolved link-gap exceptions with reasons from the store', async () => {
+    const txFingerprint = 'f'.repeat(64);
+    const overrideStore = {
+      exists: vi.fn().mockReturnValue(true),
+      readByScopes: vi.fn().mockResolvedValue(
+        ok([
+          createLinkGapResolutionEvent(txFingerprint, 'test:btc', 'inflow', {
+            created_at: '2026-04-18T14:00:00.000Z',
+            reason: 'BullBitcoin purchase sent directly to wallet',
+          }),
+        ])
+      ),
+    };
+
+    const result = await readResolvedLinkGapExceptions(overrideStore, 'default');
+
+    expect(assertOk(result)).toEqual(
+      new Map([
+        [
+          buildLinkGapIssueKey({ txFingerprint, assetId: 'test:btc', direction: 'inflow' }),
+          {
+            txFingerprint,
+            assetId: 'test:btc',
+            direction: 'inflow',
+            resolvedAt: '2026-04-18T14:00:00.000Z',
+            reason: 'BullBitcoin purchase sent directly to wallet',
+          },
+        ],
+      ])
+    );
+  });
+
   it('returns an empty set when the override store is missing', async () => {
     const overrideStore = {
       exists: vi.fn().mockReturnValue(false),
@@ -112,6 +189,18 @@ describe('link gap resolution replay', () => {
     };
 
     const result = await readResolvedLinkGapIssueKeys(overrideStore, 'default');
+
+    expect(assertOk(result).size).toBe(0);
+    expect(overrideStore.readByScopes).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty map of exceptions when the override store is missing', async () => {
+    const overrideStore = {
+      exists: vi.fn().mockReturnValue(false),
+      readByScopes: vi.fn(),
+    };
+
+    const result = await readResolvedLinkGapExceptions(overrideStore, 'default');
 
     expect(assertOk(result).size).toBe(0);
     expect(overrideStore.readByScopes).not.toHaveBeenCalled();

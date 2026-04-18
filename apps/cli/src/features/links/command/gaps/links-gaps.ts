@@ -17,6 +17,7 @@ import {
   registerLinksGapsBrowseOptions,
   runLinksGapsBrowseCommand,
 } from './links-gaps-browse-command.js';
+import { registerLinksGapsResolvedCommand } from './links-gaps-resolved-command.js';
 
 export function registerLinksGapsCommand(linksCommand: Command): void {
   const gaps = linksCommand
@@ -30,6 +31,7 @@ export function registerLinksGapsCommand(linksCommand: Command): void {
       `
 Examples:
   $ exitbook links gaps
+  $ exitbook links gaps resolved
   $ exitbook links gaps view a1b2c3d4e5
   $ exitbook links gaps explore
   $ exitbook links gaps resolve a1b2c3d4e5 --reason "BullBitcoin purchase sent directly to wallet"
@@ -70,6 +72,8 @@ Notes:
         action: async (context) => executePreparedLinksGapsBrowseCommand(context.runtime, context.prepared),
       });
     });
+
+  registerLinksGapsResolvedCommand(gaps);
 
   registerLinksGapsBrowseOptions(
     gaps
