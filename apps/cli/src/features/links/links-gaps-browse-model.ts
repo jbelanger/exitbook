@@ -1,9 +1,21 @@
-import type { LinkGapIssue } from '@exitbook/accounting/linking';
+import type { LinkGapDirection, LinkGapIssue } from '@exitbook/accounting/linking';
 
 import type { AddressOwnership } from '../shared/address-ownership.js';
 import type { TransactionRelatedContext } from '../transactions/transactions-view-model.js';
 
 export type LinkGapEndpointOwnership = AddressOwnership;
+
+export interface LinkGapBrowseCrossProfileCandidate {
+  amount: string;
+  direction: LinkGapDirection;
+  platformKey: string;
+  profileDisplayName: string;
+  profileKey: string;
+  secondsDeltaFromGap: number;
+  timestamp: string;
+  transactionRef: string;
+  txFingerprint: string;
+}
 
 export interface LinkGapBrowseTransactionSnapshot {
   blockchainTransactionHash?: string | undefined;
@@ -16,6 +28,7 @@ export interface LinkGapBrowseTransactionSnapshot {
 }
 
 export interface LinkGapBrowseItem {
+  crossProfileCandidates?: LinkGapBrowseCrossProfileCandidate[] | undefined;
   gapRef: string;
   gapIssue: LinkGapIssue;
   relatedContext?: TransactionRelatedContext | undefined;

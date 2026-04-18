@@ -21,6 +21,7 @@ vi.mock('@exitbook/accounting/linking', async (importOriginal) => {
 import { createConfirmableTransferFixture, createMockGapAnalysis } from '../../../__tests__/test-utils.js';
 import { createPersistedTransaction } from '../../../../shared/__tests__/transaction-test-utils.js';
 import { createAddressOwnershipLookup } from '../../../../shared/address-ownership.js';
+import { formatTransactionFingerprintRef } from '../../../../transactions/transaction-selector.js';
 import { buildLinkGapRef, buildLinkProposalRef } from '../../../link-selector.js';
 import { buildTransferProposalItems } from '../../../transfer-proposals.js';
 import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.js';
@@ -289,6 +290,159 @@ describe('links-gaps-browse-support', () => {
     }
 
     expect(result.value.gaps.map((gap) => gap.suggestedProposalRefs)).toEqual([[proposalRef], [proposalRef]]);
+  });
+
+  it('attaches exact opposite-direction transfer matches from other profiles as gap counterparts', async () => {
+    const gapTx = createPersistedTransaction({
+      id: 10,
+      accountId: 1,
+      txFingerprint: 'kraken-gap-1',
+      platformKey: 'kraken',
+      platformKind: 'exchange',
+      datetime: '2024-05-19T11:31:53.000Z',
+      timestamp: Date.parse('2024-05-19T11:31:53.000Z'),
+      status: 'success',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'exchange:kraken:usdc',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('99'),
+            netAmount: parseDecimal('99'),
+          },
+        ],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
+    });
+    const counterpartTx = createPersistedTransaction({
+      id: 20,
+      accountId: 2,
+      txFingerprint: 'other-profile-inflow-1',
+      platformKey: 'solana',
+      platformKind: 'blockchain',
+      datetime: '2024-05-19T11:32:08.000Z',
+      timestamp: Date.parse('2024-05-19T11:32:08.000Z'),
+      status: 'success',
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:solana:usdc',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('99'),
+            netAmount: parseDecimal('99'),
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+      blockchain: {
+        name: 'solana',
+        transaction_hash: 'sol-hash-1',
+        is_confirmed: true,
+      },
+    });
+    const analysis = {
+      issues: [
+        {
+          transactionId: gapTx.id,
+          txFingerprint: gapTx.txFingerprint,
+          platformKey: gapTx.platformKey,
+          timestamp: gapTx.datetime,
+          assetId: 'exchange:kraken:usdc',
+          assetSymbol: 'USDC',
+          missingAmount: '99',
+          totalAmount: '99',
+          confirmedCoveragePercent: '0',
+          operationCategory: gapTx.operation.category,
+          operationType: gapTx.operation.type,
+          suggestedCount: 0,
+          direction: 'outflow' as const,
+        },
+      ],
+      summary: {
+        total_issues: 1,
+        uncovered_inflows: 0,
+        unmatched_outflows: 1,
+        affected_assets: 1,
+        assets: [
+          {
+            assetSymbol: 'USDC',
+            inflowOccurrences: 0,
+            inflowMissingAmount: '0',
+            outflowOccurrences: 1,
+            outflowMissingAmount: '99',
+          },
+        ],
+      },
+    };
+    mockBuildVisibleProfileLinkGapAnalysis.mockReturnValue({
+      analysis,
+      hiddenResolvedIssueCount: 0,
+    });
+    const sourceReader = createCustomLinksGapSourceReader({
+      accounts: [
+        {
+          id: 1,
+          profileId: 1,
+          accountType: 'exchange-api',
+          platformKey: 'kraken',
+          identifier: 'kraken-account',
+          accountFingerprint: 'acct-fp-1',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+      ],
+      excludedAssetIds: new Set<string>(),
+      links: [],
+      resolvedIssueKeys: new Set<string>(),
+      transactions: [gapTx],
+    });
+
+    const result = await buildLinksGapsBrowsePresentation(
+      sourceReader.sourceReader,
+      {},
+      {
+        crossProfileGapCounterpartSource: {
+          accounts: [
+            { id: 1, profileId: 1 },
+            { id: 2, profileId: 2 },
+          ],
+          activeProfileId: 1,
+          profiles: [
+            { id: 1, profileKey: 'default', displayName: 'default' },
+            { id: 2, profileKey: 'maely', displayName: 'maely' },
+          ],
+          transactions: [gapTx, counterpartTx],
+        },
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.gaps[0]?.crossProfileCandidates).toEqual([
+      {
+        amount: '99',
+        direction: 'inflow',
+        platformKey: 'solana',
+        profileDisplayName: 'maely',
+        profileKey: 'maely',
+        secondsDeltaFromGap: 15,
+        timestamp: counterpartTx.datetime,
+        transactionRef: formatTransactionFingerprintRef(counterpartTx.txFingerprint),
+        txFingerprint: counterpartTx.txFingerprint,
+      },
+    ]);
   });
 
   it('derives owned endpoint ownership and same-hash sibling refs from the profile gap source data', async () => {

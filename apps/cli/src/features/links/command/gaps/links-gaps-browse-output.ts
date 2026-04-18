@@ -5,6 +5,7 @@ import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.j
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../../view/links-static-renderer.js';
+import { countGapItemsWithCrossProfileCandidates } from '../../view/links-view-formatters.js';
 
 import type { LinksGapsBrowseParams, LinksGapsBrowsePresentation } from './links-gaps-browse-support.js';
 
@@ -69,6 +70,7 @@ function buildLinksGapsBrowseJsonCompletion(
           uncoveredInflows: browsePresentation.state.linkAnalysis.summary.uncovered_inflows,
           unmatchedOutflows: browsePresentation.state.linkAnalysis.summary.unmatched_outflows,
           hiddenByResolutionOverrides: browsePresentation.state.hiddenResolvedIssueCount,
+          gapsWithOtherProfileCounterparts: countGapItemsWithCrossProfileCandidates(browsePresentation.gaps),
         })
       ),
     },
@@ -94,6 +96,7 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     missingAmount: item.gapIssue.missingAmount,
     totalAmount: item.gapIssue.totalAmount,
     confirmedCoveragePercent: item.gapIssue.confirmedCoveragePercent,
+    crossProfileCandidates: item.crossProfileCandidates,
     operationCategory: item.gapIssue.operationCategory,
     operationType: item.gapIssue.operationType,
     suggestedCount: item.gapIssue.suggestedCount,

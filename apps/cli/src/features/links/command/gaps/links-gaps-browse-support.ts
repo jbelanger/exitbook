@@ -2,10 +2,11 @@ import {
   buildLinkGapIssueKey,
   buildVisibleProfileLinkGapAnalysis,
   type LinkGapAnalysis,
+  type LinkGapIssue,
 } from '@exitbook/accounting/linking';
 import type { IProfileLinkGapSourceReader, ProfileLinkGapSourceData } from '@exitbook/accounting/ports';
-import type { Transaction } from '@exitbook/core';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import type { Account, Profile, Transaction } from '@exitbook/core';
+import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import {
   createAddressOwnershipLookup,
@@ -21,10 +22,17 @@ import {
   buildLinkProposalRef,
   resolveLinkGapSelector,
 } from '../../link-selector.js';
-import type { LinkGapBrowseItem, LinkGapBrowseTransactionSnapshot } from '../../links-gaps-browse-model.js';
+import type {
+  LinkGapBrowseCrossProfileCandidate,
+  LinkGapBrowseItem,
+  LinkGapBrowseTransactionSnapshot,
+} from '../../links-gaps-browse-model.js';
 import { buildTransferProposalItems } from '../../transfer-proposals.js';
 import { createGapsViewState } from '../../view/index.js';
 import type { LinksViewGapsState } from '../../view/links-view-state.js';
+
+const CROSS_PROFILE_GAP_COUNTERPART_WINDOW_SECONDS = 60 * 60;
+const MAX_CROSS_PROFILE_GAP_COUNTERPARTS = 3;
 
 export interface LinksGapsBrowseParams {
   preselectInExplorer?: boolean | undefined;
@@ -37,11 +45,23 @@ export interface LinksGapsBrowsePresentation {
   state: LinksViewGapsState;
 }
 
+interface CrossProfileGapCounterpartSource {
+  accounts: readonly Pick<Account, 'id' | 'profileId'>[];
+  activeProfileId: number;
+  profiles: readonly Pick<Profile, 'displayName' | 'id' | 'profileKey'>[];
+  transactions: readonly Transaction[];
+}
+
+interface IndexedCrossProfileGapCounterpart extends Omit<LinkGapBrowseCrossProfileCandidate, 'secondsDeltaFromGap'> {
+  timestampMs: number;
+}
+
 export async function buildLinksGapsBrowsePresentation(
   sourceReader: IProfileLinkGapSourceReader,
   params: LinksGapsBrowseParams,
   options?: {
     addressOwnershipLookup?: AddressOwnershipLookup | undefined;
+    crossProfileGapCounterpartSource?: CrossProfileGapCounterpartSource | undefined;
   }
 ): Promise<Result<LinksGapsBrowsePresentation, Error>> {
   return resultDoAsync(async function* () {
@@ -50,6 +70,10 @@ export async function buildLinksGapsBrowsePresentation(
     const sortedAnalysis = sortLinkGapAnalysisByTimestamp(visibility.analysis);
     const gapCountsByTransactionFingerprint = countGapIssuesByTransactionFingerprint(sortedAnalysis);
     const suggestedProposalRefsByIssueKey = yield* buildSuggestedProposalRefsByIssueKey(source);
+    const crossProfileCandidatesByIssueKey = buildCrossProfileGapCounterpartsByIssueKey(
+      sortedAnalysis.issues,
+      options?.crossProfileGapCounterpartSource
+    );
     const addressOwnershipLookup =
       options?.addressOwnershipLookup ??
       createAddressOwnershipLookup({
@@ -61,25 +85,28 @@ export async function buildLinksGapsBrowsePresentation(
       addressOwnershipLookup
     );
     const relatedContextByFingerprint = yield* buildRelatedContextByFingerprint(source, sortedAnalysis);
-    const gaps = sortedAnalysis.issues.map((gapIssue) => ({
-      gapRef: buildLinkGapRef({
+    const gaps = sortedAnalysis.issues.map((gapIssue) => {
+      const issueKey = buildLinkGapIssueKey({
         txFingerprint: gapIssue.txFingerprint,
         assetId: gapIssue.assetId,
         direction: gapIssue.direction,
-      }),
-      gapIssue,
-      suggestedProposalRefs: suggestedProposalRefsByIssueKey.get(
-        buildLinkGapIssueKey({
+      });
+
+      return {
+        crossProfileCandidates: crossProfileCandidatesByIssueKey.get(issueKey),
+        gapRef: buildLinkGapRef({
           txFingerprint: gapIssue.txFingerprint,
           assetId: gapIssue.assetId,
           direction: gapIssue.direction,
-        })
-      ),
-      relatedContext: relatedContextByFingerprint.get(gapIssue.txFingerprint),
-      transactionSnapshot: transactionSnapshotByFingerprint.get(gapIssue.txFingerprint),
-      transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
-      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
-    }));
+        }),
+        gapIssue,
+        suggestedProposalRefs: suggestedProposalRefsByIssueKey.get(issueKey),
+        relatedContext: relatedContextByFingerprint.get(gapIssue.txFingerprint),
+        transactionSnapshot: transactionSnapshotByFingerprint.get(gapIssue.txFingerprint),
+        transactionGapCount: gapCountsByTransactionFingerprint.get(gapIssue.txFingerprint) ?? 1,
+        transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+      };
+    });
     const state = createGapsViewState(
       sortedAnalysis,
       {
@@ -371,4 +398,178 @@ function appendSuggestedProposalRef(
   const refs = proposalRefsByIssueKey.get(issueKey) ?? new Set<string>();
   refs.add(proposalRef);
   proposalRefsByIssueKey.set(issueKey, refs);
+}
+
+function buildCrossProfileGapCounterpartsByIssueKey(
+  issues: readonly LinkGapIssue[],
+  source?: CrossProfileGapCounterpartSource
+): Map<string, LinkGapBrowseCrossProfileCandidate[]> {
+  if (source === undefined || issues.length === 0 || source.profiles.length < 2) {
+    return new Map();
+  }
+
+  const counterpartLookup = buildCrossProfileCounterpartLookup(source);
+  const candidatesByIssueKey = new Map<string, LinkGapBrowseCrossProfileCandidate[]>();
+
+  for (const issue of issues) {
+    const issueTimestampMs = Date.parse(issue.timestamp);
+    if (Number.isNaN(issueTimestampMs)) {
+      continue;
+    }
+
+    const oppositeDirection = issue.direction === 'inflow' ? 'outflow' : 'inflow';
+    const lookupKey = buildCrossProfileCounterpartLookupKey(oppositeDirection, issue.assetSymbol, issue.missingAmount);
+    const counterpartCandidates = counterpartLookup.get(lookupKey);
+
+    if (counterpartCandidates === undefined || counterpartCandidates.length === 0) {
+      continue;
+    }
+
+    const matchingCandidates = counterpartCandidates
+      .filter(
+        (candidate) =>
+          Math.abs(candidate.timestampMs - issueTimestampMs) / 1000 <= CROSS_PROFILE_GAP_COUNTERPART_WINDOW_SECONDS
+      )
+      .map((candidate) => ({
+        amount: candidate.amount,
+        direction: candidate.direction,
+        platformKey: candidate.platformKey,
+        profileDisplayName: candidate.profileDisplayName,
+        profileKey: candidate.profileKey,
+        secondsDeltaFromGap: Math.round((candidate.timestampMs - issueTimestampMs) / 1000),
+        timestamp: candidate.timestamp,
+        transactionRef: candidate.transactionRef,
+        txFingerprint: candidate.txFingerprint,
+      }))
+      .sort(compareCrossProfileGapCounterparts)
+      .slice(0, MAX_CROSS_PROFILE_GAP_COUNTERPARTS);
+
+    if (matchingCandidates.length === 0) {
+      continue;
+    }
+
+    candidatesByIssueKey.set(
+      buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      matchingCandidates
+    );
+  }
+
+  return candidatesByIssueKey;
+}
+
+function buildCrossProfileCounterpartLookup(
+  source: CrossProfileGapCounterpartSource
+): Map<string, IndexedCrossProfileGapCounterpart[]> {
+  const profileIdByAccountId = new Map(source.accounts.map((account) => [account.id, account.profileId]));
+  const profileById = new Map(source.profiles.map((profile) => [profile.id, profile]));
+  const counterpartLookup = new Map<string, IndexedCrossProfileGapCounterpart[]>();
+
+  for (const transaction of source.transactions) {
+    const profileId = profileIdByAccountId.get(transaction.accountId);
+    if (
+      profileId === undefined ||
+      profileId === source.activeProfileId ||
+      transaction.operation.category !== 'transfer'
+    ) {
+      continue;
+    }
+
+    const profile = profileById.get(profileId);
+    if (profile === undefined) {
+      continue;
+    }
+
+    const timestampMs = Date.parse(transaction.datetime);
+    if (Number.isNaN(timestampMs)) {
+      continue;
+    }
+
+    const seenLookupKeys = new Set<string>();
+    for (const movement of listCrossProfileCounterpartMovements(transaction)) {
+      const lookupKey = buildCrossProfileCounterpartLookupKey(
+        movement.direction,
+        movement.assetSymbol,
+        movement.amount
+      );
+      const dedupeKey = `${lookupKey}|${transaction.txFingerprint}`;
+      if (seenLookupKeys.has(dedupeKey)) {
+        continue;
+      }
+
+      seenLookupKeys.add(dedupeKey);
+      const counterparts = counterpartLookup.get(lookupKey) ?? [];
+      counterparts.push({
+        amount: movement.amount,
+        direction: movement.direction,
+        platformKey: transaction.platformKey,
+        profileDisplayName: profile.displayName,
+        profileKey: profile.profileKey,
+        timestamp: transaction.datetime,
+        timestampMs,
+        transactionRef: formatTransactionFingerprintRef(transaction.txFingerprint),
+        txFingerprint: transaction.txFingerprint,
+      });
+      counterpartLookup.set(lookupKey, counterparts);
+    }
+  }
+
+  return counterpartLookup;
+}
+
+function listCrossProfileCounterpartMovements(
+  transaction: Transaction
+): { amount: string; assetSymbol: string; direction: 'inflow' | 'outflow' }[] {
+  const movements: { amount: string; assetSymbol: string; direction: 'inflow' | 'outflow' }[] = [];
+
+  for (const inflow of transaction.movements.inflows ?? []) {
+    movements.push({
+      amount: inflow.grossAmount.toFixed(),
+      assetSymbol: inflow.assetSymbol,
+      direction: 'inflow',
+    });
+  }
+
+  for (const outflow of transaction.movements.outflows ?? []) {
+    movements.push({
+      amount: outflow.grossAmount.toFixed(),
+      assetSymbol: outflow.assetSymbol,
+      direction: 'outflow',
+    });
+  }
+
+  return movements;
+}
+
+function buildCrossProfileCounterpartLookupKey(
+  direction: 'inflow' | 'outflow',
+  assetSymbol: string,
+  amount: string
+): string {
+  return `${direction}|${assetSymbol.trim().toUpperCase()}|${parseDecimal(amount).toFixed()}`;
+}
+
+function compareCrossProfileGapCounterparts(
+  left: LinkGapBrowseCrossProfileCandidate,
+  right: LinkGapBrowseCrossProfileCandidate
+): number {
+  const deltaDifference = Math.abs(left.secondsDeltaFromGap) - Math.abs(right.secondsDeltaFromGap);
+  if (deltaDifference !== 0) {
+    return deltaDifference;
+  }
+
+  const timestampCompare = left.timestamp.localeCompare(right.timestamp);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+
+  const profileCompare = left.profileDisplayName.localeCompare(right.profileDisplayName);
+  if (profileCompare !== 0) {
+    return profileCompare;
+  }
+
+  return left.txFingerprint.localeCompare(right.txFingerprint);
 }

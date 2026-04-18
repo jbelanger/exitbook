@@ -15,6 +15,19 @@ describe('links-gaps-browse-output', () => {
     });
     const firstIssue = analysis.issues[0]!;
     const gap = {
+      crossProfileCandidates: [
+        {
+          amount: '1.5',
+          direction: 'outflow' as const,
+          platformKey: 'solana',
+          profileDisplayName: 'maely',
+          profileKey: 'maely',
+          secondsDeltaFromGap: -15,
+          timestamp: '2024-03-18T09:12:19Z',
+          transactionRef: 'other-prof',
+          txFingerprint: 'other-profile-inflow-1',
+        },
+      ],
       gapRef: buildLinkGapRef({
         txFingerprint: firstIssue.txFingerprint,
         assetId: firstIssue.assetId,
@@ -61,6 +74,7 @@ describe('links-gaps-browse-output', () => {
     const payload = output.data as {
       data: [
         {
+          crossProfileCandidates?: { profileKey?: string }[];
           gapCueCounterpartTransactionRef?: string;
           relatedContext?: { fromAccount?: { accountRef?: string } };
           suggestedProposalRefs?: string[];
@@ -69,15 +83,18 @@ describe('links-gaps-browse-output', () => {
       ];
       meta: {
         filters: {
+          gapsWithOtherProfileCounterparts: number;
           hiddenByResolutionOverrides: number;
         };
       };
     };
 
     expect(payload.meta.filters.hiddenByResolutionOverrides).toBe(2);
+    expect(payload.meta.filters.gapsWithOtherProfileCounterparts).toBe(1);
     expect(payload.data[0]?.suggestedProposalRefs).toEqual(['abc123def0']);
     expect(payload.data[0]?.relatedContext?.fromAccount?.accountRef).toBe('acctref1234');
     expect(payload.data[0]?.transactionSnapshot?.openSameHashGapRowCount).toBe(2);
+    expect(payload.data[0]?.crossProfileCandidates?.[0]?.profileKey).toBe('maely');
   });
 
   it('includes cue counterpart transaction refs in json detail', () => {

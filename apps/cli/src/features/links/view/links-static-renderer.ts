@@ -8,9 +8,11 @@ import type { LinkGapBrowseItem, ResolvedLinkGapBrowseItem } from '../links-gaps
 
 import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import {
+  countGapItemsWithCrossProfileCandidates,
   countGapSuggestionBuckets,
   formatGapLikelyOutcome,
   formatCompactAmount,
+  formatGapCounterpartTimeDelta,
   formatCoverage,
   formatGapCueLabel,
   formatGapRowTimestamp,
@@ -219,7 +221,7 @@ export function outputLinkGapsStaticList(state: LinksViewGapsState, items: LinkG
 }
 
 export function buildLinkGapsStaticList(state: LinksViewGapsState, items: LinkGapBrowseItem[]): string {
-  const lines: string[] = [buildGapListHeader(state, items.length), ''];
+  const lines: string[] = [buildGapListHeader(state, items), ''];
 
   if (items.length === 0) {
     lines.push(...buildLinkGapsEmptyStateLines(state));
@@ -475,6 +477,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       : []),
     ...(likelyOutcome ? [buildDetailLine('Likely outcome', likelyOutcome)] : []),
     ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),
+    ...buildCrossProfileCounterpartDetailLines(item),
     buildDetailLine('Explore', `exitbook links gaps explore ${item.gapRef}`),
     buildDetailLine('Resolve', `exitbook links gaps resolve ${item.gapRef}`),
     ...buildGapSuggestionDetailLines(suggestedProposalRefs),
@@ -537,11 +540,12 @@ function buildLinkGapsEmptyStateLines(state: LinksViewGapsState): string[] {
   return [formatNoOpenGapsMessage(state.hiddenResolvedIssueCount)];
 }
 
-function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): string {
+function buildGapListHeader(state: LinksViewGapsState, items: readonly LinkGapBrowseItem[]): string {
   const { linkAnalysis } = state;
   const { withSuggestions, withoutSuggestions } = countGapSuggestionBuckets(linkAnalysis.issues);
+  const withOtherProfileCounterparts = countGapItemsWithCrossProfileCandidates(items);
   const metadata = [
-    `${visibleCount} shown`,
+    `${items.length} shown`,
     ...(state.hiddenResolvedIssueCount > 0 ? [formatResolvedGapExceptionCount(state.hiddenResolvedIssueCount)] : []),
     `${linkAnalysis.summary.uncovered_inflows} uncovered inflow${
       linkAnalysis.summary.uncovered_inflows === 1 ? '' : 's'
@@ -551,6 +555,13 @@ function buildGapListHeader(state: LinksViewGapsState, visibleCount: number): st
     }`,
     `${withSuggestions} with suggestions`,
     `${withoutSuggestions} without suggestions`,
+    ...(withOtherProfileCounterparts > 0
+      ? [
+          `${withOtherProfileCounterparts} with other-profile counterpart${
+            withOtherProfileCounterparts === 1 ? '' : 's'
+          }`,
+        ]
+      : []),
   ];
 
   return `${pc.bold('Link Gaps')} ${pc.dim(metadata.join(' · '))}`;
@@ -736,6 +747,31 @@ function formatGapReadiness(item: LinkGapBrowseItem): string {
   const readiness = formatGapSuggestionAvailability(item.gapIssue);
   const cueSuffix = item.gapIssue.gapCue ? ` · ${formatGapCueLabel(item.gapIssue.gapCue)}` : '';
   const contextSuffix = item.gapIssue.contextHint ? ` · ${item.gapIssue.contextHint.label}` : '';
+  const crossProfileSuffix =
+    item.crossProfileCandidates !== undefined && item.crossProfileCandidates.length > 0
+      ? ' · other-profile counterpart'
+      : '';
 
-  return `${readiness}${cueSuffix}${contextSuffix}`;
+  return `${readiness}${cueSuffix}${contextSuffix}${crossProfileSuffix}`;
+}
+
+function buildCrossProfileCounterpartDetailLines(item: LinkGapBrowseItem): string[] {
+  if (item.crossProfileCandidates === undefined || item.crossProfileCandidates.length === 0) {
+    return [];
+  }
+
+  return item.crossProfileCandidates.map((candidate, index) =>
+    buildDetailLine(
+      index === 0 ? 'Other-profile counterpart' : 'Other-profile alt',
+      `${formatCrossProfileProfileLabel(candidate.profileDisplayName, candidate.profileKey)} · ${candidate.platformKey} · ${
+        candidate.direction === 'inflow' ? 'IN' : 'OUT'
+      } ${candidate.amount} ${item.gapIssue.assetSymbol} · ${candidate.transactionRef} · ${formatGapCounterpartTimeDelta(
+        candidate.secondsDeltaFromGap
+      )}`
+    )
+  );
+}
+
+function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
+  return profileDisplayName === profileKey ? profileDisplayName : `${profileDisplayName} (${profileKey})`;
 }

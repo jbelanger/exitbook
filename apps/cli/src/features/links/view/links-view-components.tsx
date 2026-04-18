@@ -24,11 +24,13 @@ import type { LinkWithTransactions, TransferProposalWithTransactions } from '../
 import { buildGapOwnershipRouteLabel, getGapOwnershipRouteColor } from './link-gap-ownership-route.js';
 import { handleLinksKeyboardInput, linksViewReducer } from './links-view-controller.js';
 import {
+  countGapItemsWithCrossProfileCandidates,
   countGapSuggestionBuckets,
   formatAmount,
   formatCompactAmount,
   formatConfidenceScore,
   formatCoverage,
+  formatGapCounterpartTimeDelta,
   formatGapCueLabel,
   formatGapLikelyOutcome,
   formatGapRowTimestamp,
@@ -676,6 +678,7 @@ const GapsView: FC<{
 const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
   const { summary } = state.linkAnalysis;
   const { withSuggestions, withoutSuggestions } = countGapSuggestionBuckets(state.linkAnalysis.issues);
+  const withOtherProfileCounterparts = countGapItemsWithCrossProfileCandidates(state.gaps);
 
   return (
     <Box flexDirection="column">
@@ -700,6 +703,15 @@ const GapsHeader: FC<{ state: LinksViewGapsState }> = ({ state }) => {
         <Text color={withSuggestions > 0 ? 'green' : 'dim'}>{withSuggestions} with suggestions</Text>
         <Text dimColor> · </Text>
         <Text color={withoutSuggestions > 0 ? 'yellow' : 'dim'}>{withoutSuggestions} without suggestions</Text>
+        {withOtherProfileCounterparts > 0 && (
+          <>
+            <Text dimColor> · </Text>
+            <Text color="yellow">
+              {withOtherProfileCounterparts} with other-profile counterpart
+              {withOtherProfileCounterparts === 1 ? '' : 's'}
+            </Text>
+          </>
+        )}
         <Text dimColor> · </Text>
         <Text dimColor>
           {summary.affected_assets} asset{summary.affected_assets !== 1 ? 's' : ''}
@@ -827,6 +839,12 @@ const GapRow: FC<{
         <>
           <Text dimColor> · </Text>
           <Text color="yellow">{issue.contextHint.label}</Text>
+        </>
+      )}
+      {gap.crossProfileCandidates !== undefined && gap.crossProfileCandidates.length > 0 && (
+        <>
+          <Text dimColor> · </Text>
+          <Text color="yellow">other-profile counterpart</Text>
         </>
       )}
       <Text dimColor> · </Text>
@@ -1089,6 +1107,21 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
           </Text>,
         ]
       : []),
+    ...(gap.crossProfileCandidates?.map((candidate, index) => (
+      <Text key={`other-profile-${candidate.txFingerprint}`}>
+        {'  '}
+        <Text dimColor>{index === 0 ? 'Other-profile counterpart: ' : 'Other-profile alt: '}</Text>
+        {formatCrossProfileProfileLabel(candidate.profileDisplayName, candidate.profileKey)}
+        <Text dimColor> · </Text>
+        {candidate.platformKey}
+        <Text dimColor> · </Text>
+        {candidate.direction === 'inflow' ? 'IN' : 'OUT'} {candidate.amount} {issue.assetSymbol}
+        <Text dimColor> · </Text>
+        {candidate.transactionRef}
+        <Text dimColor> · </Text>
+        {formatGapCounterpartTimeDelta(candidate.secondsDeltaFromGap)}
+      </Text>
+    )) ?? []),
     <Text key="external">
       {'  '}
       <Text dimColor>Reference: </Text>
@@ -1133,6 +1166,10 @@ function formatGapAccountMatch(
       <Text dimColor>({accountMatch.accountRef})</Text> <Text color="cyan">{accountMatch.platformKey}</Text>
     </Text>
   );
+}
+
+function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
+  return profileDisplayName === profileKey ? profileDisplayName : `${profileDisplayName} (${profileKey})`;
 }
 
 function formatGapRelatedTransactionRefs(refs: string[], totalCount: number): ReactElement {

@@ -9,6 +9,7 @@ import {
 } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
+import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';
 import type {
   LinkProposalProvenanceSummary,
   LinkWithTransactions,
@@ -159,6 +160,12 @@ export function countGapSuggestionBuckets(issues: readonly LinkGapIssue[]): {
   };
 }
 
+export function countGapItemsWithCrossProfileCandidates(
+  items: readonly Pick<LinkGapBrowseItem, 'crossProfileCandidates'>[]
+): number {
+  return items.reduce((count, item) => (item.crossProfileCandidates?.length ? count + 1 : count), 0);
+}
+
 export function formatResolvedGapExceptionCount(count: number): string {
   return `${count} resolved gap exception${count === 1 ? '' : 's'} hidden`;
 }
@@ -224,7 +231,7 @@ export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' 
 
 export function formatGapLikelyOutcome(
   issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>,
-  counterpartTransactionRef?: string  
+  counterpartTransactionRef?: string
 ): string | undefined {
   if (!gapIssueSuggestsGapException(issue)) {
     return undefined;
@@ -249,6 +256,32 @@ export function formatGapSuggestionAvailability(issue: LinkGapIssue): string {
   return `${issue.suggestedCount} suggested${
     issue.highestSuggestedConfidencePercent ? ` (${issue.highestSuggestedConfidencePercent}%)` : ''
   }`;
+}
+
+export function formatGapCounterpartTimeDelta(secondsDeltaFromGap: number): string {
+  if (secondsDeltaFromGap === 0) {
+    return 'same time';
+  }
+
+  const absoluteSeconds = Math.abs(secondsDeltaFromGap);
+  const direction = secondsDeltaFromGap > 0 ? 'later' : 'earlier';
+
+  if (absoluteSeconds < 60) {
+    return `${absoluteSeconds}s ${direction}`;
+  }
+
+  const absoluteMinutes = Math.round(absoluteSeconds / 60);
+  if (absoluteMinutes < 60) {
+    return `${absoluteMinutes}m ${direction}`;
+  }
+
+  const absoluteHours = Math.round(absoluteMinutes / 60);
+  if (absoluteHours < 24) {
+    return `${absoluteHours}h ${direction}`;
+  }
+
+  const absoluteDays = Math.round(absoluteHours / 24);
+  return `${absoluteDays}d ${direction}`;
 }
 
 export function formatLinkTypeDisplay(

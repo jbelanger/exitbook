@@ -467,7 +467,40 @@ describe('LinksViewApp - gaps mode', () => {
   };
 
   it('renders gaps header with inflow/outflow counts', () => {
-    const state = createGapsViewState(createMockGapAnalysis());
+    const analysis = createMockGapAnalysis();
+    const firstIssue = analysis.issues[0]!;
+    const state = createGapsViewState(
+      analysis,
+      {
+        hiddenResolvedIssueCount: 0,
+      },
+      analysis.issues.map((gapIssue) => ({
+        crossProfileCandidates:
+          gapIssue.txFingerprint === firstIssue.txFingerprint
+            ? [
+                {
+                  amount: '1.5',
+                  direction: 'outflow' as const,
+                  platformKey: 'solana',
+                  profileDisplayName: 'maely',
+                  profileKey: 'maely',
+                  secondsDeltaFromGap: -15,
+                  timestamp: '2024-03-18T09:12:19Z',
+                  transactionRef: formatTransactionFingerprintRef('other-profile-inflow-1'),
+                  txFingerprint: 'other-profile-inflow-1',
+                },
+              ]
+            : undefined,
+        gapRef: buildLinkGapRef({
+          txFingerprint: gapIssue.txFingerprint,
+          assetId: gapIssue.assetId,
+          direction: gapIssue.direction,
+        }),
+        gapIssue,
+        transactionGapCount: 1,
+        transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+      }))
+    );
     const { lastFrame } = render(
       <LinksViewApp
         initialState={state}
@@ -475,13 +508,15 @@ describe('LinksViewApp - gaps mode', () => {
       />
     );
     const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    expect(frame).toContain('Transaction Links (gaps)');
-    expect(frame).toContain('3 gaps');
-    expect(frame).toContain('2 uncovered inflows');
-    expect(frame).toContain('1 unmatched outflow');
-    expect(frame).toContain('2 with suggestions');
-    expect(frame).toContain('1 without suggestions');
+    expect(normalizedFrame).toContain('Transaction Links (gaps)');
+    expect(normalizedFrame).toContain('3 gaps');
+    expect(normalizedFrame).toContain('2 uncovered inflows');
+    expect(normalizedFrame).toContain('1 unmatched outflow');
+    expect(normalizedFrame).toContain('2 with suggestions');
+    expect(normalizedFrame).toContain('1 without suggestions');
+    expect(normalizedFrame).toContain('1 with other-profile counterpart');
   });
 
   it('renders top assets summary', () => {
@@ -589,6 +624,58 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('Inspect counterpart:');
     expect(normalizedFrame).toContain('Context:');
     expect(normalizedFrame).toContain('wallet-scoped staking withdrawal of 10.524451 ADA');
+  });
+
+  it('renders other-profile counterparts in the selected gap detail panel', () => {
+    const analysis = createMockGapAnalysis();
+    const firstIssue = analysis.issues[0]!;
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [firstIssue],
+      },
+      {
+        hiddenResolvedIssueCount: 0,
+      },
+      [
+        {
+          crossProfileCandidates: [
+            {
+              amount: '1.5',
+              direction: 'outflow',
+              platformKey: 'solana',
+              profileDisplayName: 'maely',
+              profileKey: 'maely',
+              secondsDeltaFromGap: -15,
+              timestamp: '2024-03-18T09:12:19Z',
+              transactionRef: formatTransactionFingerprintRef('other-profile-inflow-1'),
+              txFingerprint: 'other-profile-inflow-1',
+            },
+          ],
+          gapRef: buildLinkGapRef({
+            txFingerprint: firstIssue.txFingerprint,
+            assetId: firstIssue.assetId,
+            direction: firstIssue.direction,
+          }),
+          gapIssue: firstIssue,
+          transactionGapCount: 1,
+          transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),
+        },
+      ]
+    );
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const normalizedFrame = lastFrame()?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('Other-profile counterpart:');
+    expect(normalizedFrame).toContain('maely');
+    expect(normalizedFrame).toContain('solana');
+    expect(normalizedFrame).toContain('15s earlier');
   });
 
   it('renders shared transaction investigation context in the gap detail panel', () => {
