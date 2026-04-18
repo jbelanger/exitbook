@@ -391,6 +391,29 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
     };
   }
 
+  if (sharedSubtype === 'spotfromfutures') {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'internal_balance_move',
+        'warning',
+        'Kraken spotfromfutures rows represent an internal balance move and were skipped instead of materialized as an external transfer.',
+        {
+          inflows: consolidatedInflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          outflows: consolidatedOutflows.map((movement) => ({
+            assetId: movement.assetId,
+            amount: movement.grossAmount,
+          })),
+          providerSubtype: sharedSubtype,
+        }
+      ),
+    };
+  }
+
   if (consolidatedInflows.length > 0 && consolidatedOutflows.length === 0) {
     return {
       kind: 'confirmed',

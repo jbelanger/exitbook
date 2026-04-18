@@ -50,6 +50,21 @@ const dustSweepingRows: KrakenLedgerEntry[] = [
   },
 ];
 
+const spotFromFuturesRows: KrakenLedgerEntry[] = [
+  {
+    id: 'L7VTO3-NOLKA-FYOGLE',
+    refid: 'FTdKhdH-enbSfxp0lc676Z4aLTJnDB',
+    time: 1723743994.970638,
+    type: 'transfer',
+    subtype: 'spotfromfutures',
+    aclass: 'currency',
+    asset: 'RNDR',
+    amount: '-64.9875728700',
+    fee: '0.0000000000',
+    balance: '0.0000000000',
+  },
+];
+
 function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLedgerEntry>[] {
   return rows.map((row) => ({
     raw: row,
@@ -174,5 +189,45 @@ describe('KrakenProcessor', () => {
     expect(transaction.diagnostics?.[0]?.message).toContain('exact per-asset proceeds allocation');
     expect(transaction.fees[0]?.assetSymbol).toBe('CAD');
     expect(transaction.fees[0]?.amount.toFixed()).toBe('0.008');
+  });
+
+  test('skips spotfromfutures internal balance moves', () => {
+    const normalized = spotFromFuturesRows.map((row) => {
+      const result = normalizeKrakenProviderEvent(row, row.id);
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+      return result.value;
+    });
+
+    const [group] = buildKrakenCorrelationGroups(normalized);
+    expect(group).toBeDefined();
+    if (!group) {
+      return;
+    }
+
+    const interpretation = interpretKrakenGroup(group);
+    expect(interpretation.kind).toBe('unsupported');
+    if (interpretation.kind !== 'unsupported') {
+      return;
+    }
+
+    expect(interpretation.diagnostic.code).toBe('internal_balance_move');
+    expect(interpretation.diagnostic.severity).toBe('warning');
+    expect(interpretation.diagnostic.evidence['providerSubtype']).toBe('spotfromfutures');
+  });
+
+  test('does not materialize spotfromfutures rows into gapable transfers', async () => {
+    const processor = new KrakenProcessor();
+
+    const result = await processor.process(toInputs(spotFromFuturesRows));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    expect(result.value).toEqual([]);
   });
 });

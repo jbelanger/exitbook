@@ -1,3 +1,4 @@
+import type { TransactionDiagnostic } from '@exitbook/core';
 import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 
@@ -148,6 +149,25 @@ function hasExplicitTransferEvidence(group: ExchangeCorrelationGroup, events: In
   return events.some((event) => event.metadata.correlationKey !== event.event.providerEventId);
 }
 
+function buildCoinbaseTransactionDiagnostic(params: {
+  code: string;
+  entryType: string;
+  group: ExchangeCorrelationGroup;
+  message: string;
+  metadata?: Record<string, unknown> | undefined;
+}): TransactionDiagnostic {
+  return {
+    code: params.code,
+    severity: 'info',
+    message: params.message,
+    metadata: {
+      entryType: params.entryType,
+      providerEventIds: params.group.events.map((event) => event.providerEventId),
+      ...(params.metadata ?? {}),
+    },
+  };
+}
+
 function buildDraft(
   group: ExchangeCorrelationGroup,
   operation: ConfirmedExchangeTransactionDraft['operation'],
@@ -265,8 +285,9 @@ export function interpretCoinbaseGroup(group: ExchangeCorrelationGroup): Exchang
   const consolidatedOutflows = consolidateMovements(outflows);
   const consolidatedFees = consolidateFees(fees);
   const entryTypes = new Set(interpretedEvents.map((event) => event.metadata.entryType));
+  const sharedEntryType = entryTypes.size === 1 ? [...entryTypes][0] : undefined;
 
-  if (entryTypes.size === 1 && entryTypes.has('interest')) {
+  if (sharedEntryType === 'interest') {
     return {
       kind: 'confirmed',
       draft: buildDraft(
@@ -276,6 +297,37 @@ export function interpretCoinbaseGroup(group: ExchangeCorrelationGroup): Exchang
         consolidatedOutflows,
         consolidatedFees
       ),
+    };
+  }
+
+  if (sharedEntryType === 'subscription' && consolidatedInflows.length === 0 && consolidatedOutflows.length > 0) {
+    return {
+      kind: 'confirmed',
+      draft: buildDraft(group, { category: 'fee', type: 'fee' }, [], consolidatedOutflows, consolidatedFees),
+    };
+  }
+
+  if (sharedEntryType === 'retail_simple_dust' && consolidatedInflows.length === 0 && consolidatedOutflows.length > 0) {
+    return {
+      kind: 'confirmed',
+      draft: buildDraft(group, { category: 'trade', type: 'sell' }, [], consolidatedOutflows, consolidatedFees),
+    };
+  }
+
+  if (sharedEntryType === 'fiat_withdrawal' && consolidatedInflows.length === 0 && consolidatedOutflows.length > 0) {
+    return {
+      kind: 'confirmed',
+      draft: {
+        ...buildDraft(group, { category: 'transfer', type: 'withdrawal' }, [], consolidatedOutflows, consolidatedFees),
+        diagnostics: [
+          buildCoinbaseTransactionDiagnostic({
+            group,
+            code: 'off_platform_cash_movement',
+            entryType: sharedEntryType,
+            message: 'Coinbase fiat withdrawal was classified as an off-platform cash movement.',
+          }),
+        ],
+      },
     };
   }
 

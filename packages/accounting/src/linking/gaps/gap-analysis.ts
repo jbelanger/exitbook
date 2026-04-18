@@ -1,6 +1,7 @@
 import {
   filterTransferEligibleMovements,
   getExplainedTargetResidual,
+  hasAnyDiagnosticCode,
   getTransactionScamAssessment,
   getMovementRole,
   type Account,
@@ -30,6 +31,7 @@ const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
+const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
   'bridge_transfer',
@@ -1259,6 +1261,10 @@ function applyGapCues(
 
 function shouldSuppressGapByPolicy(tx: Transaction): boolean {
   if (tx.excludedFromAccounting === true) {
+    return true;
+  }
+
+  if (hasAnyDiagnosticCode(tx.diagnostics, GAP_SUPPRESSION_DIAGNOSTIC_CODES)) {
     return true;
   }
 

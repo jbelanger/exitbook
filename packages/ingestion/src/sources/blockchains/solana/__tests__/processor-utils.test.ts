@@ -441,6 +441,33 @@ describe('Solana Processor Utils', () => {
     });
 
     describe('Pattern 2: Fee-only transactions', () => {
+      it('should classify provider-backed reward distributions as rewards', () => {
+        const fundFlow: SolanaFundFlow = {
+          computeUnitsUsed: 1000,
+          feeAmount: '0',
+          feeCurrency: 'SOL' as Currency,
+          feePaidByUser: false,
+          feeAbsorbedByMovement: false,
+          fromAddress: 'reward-program',
+          toAddress: 'user123',
+          hasMultipleInstructions: true,
+          hasRewardDistribution: true,
+          hasStaking: false,
+          hasSwaps: false,
+          hasTokenTransfers: true,
+          instructionCount: 2,
+          transactionCount: 1,
+          inflows: [{ amount: '0.08480349', asset: 'RENDER' as Currency }],
+          outflows: [],
+          primary: { amount: '0.08480349', asset: 'RENDER' as Currency },
+        };
+
+        const result = classifySolanaOperationFromFundFlow(fundFlow, []);
+
+        expect(result.operation).toEqual({ category: 'defi', type: 'reward' });
+        expect(result.diagnostics?.[0]?.code).toBe('reward_distribution');
+      });
+
       it('should classify fee-only transactions', () => {
         const fundFlow: SolanaFundFlow = {
           computeUnitsUsed: 1000,

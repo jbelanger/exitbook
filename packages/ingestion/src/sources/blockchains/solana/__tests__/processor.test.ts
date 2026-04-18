@@ -834,6 +834,61 @@ describe('SolanaProcessor - Staking Detection', () => {
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
   });
+
+  test('classifies reward distributions from provider log evidence', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigRenderReward1',
+      eventId: '0xrenderreward1',
+      slot: 286028807,
+      accountChanges: [],
+      feeAmount: '0',
+      feePayer: EXTERNAL_ADDRESS,
+      instructions: [
+        {
+          programId: 'brdgGYmhGdaAJmqLN9oSp4381Ywc51vUfzn9NaSZC1d',
+        },
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+      ],
+      logMessages: [
+        'Program log: Instruction: DistributeUpgradeRewardsV1',
+        'Program log: GRyBys8cE2rLiaqvAYEAWL3U3dkmifY8TKXWX2tdioj4 claiming 8480349 RNDR upgrade rewards.',
+      ],
+      tokenChanges: [
+        {
+          account: TOKEN_ACCOUNT,
+          decimals: 8,
+          mint: 'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof',
+          owner: USER_ADDRESS,
+          preAmount: '8061000000',
+          postAmount: '8069480349',
+          symbol: 'RENDER',
+        },
+      ],
+      timestamp: Date.parse('2024-08-26T22:48:52.000Z'),
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'defi', type: 'reward' });
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows?.[0]?.assetSymbol).toBe('RENDER');
+    expect(transaction.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('0.08480349');
+    expect(transaction.diagnostics?.[0]?.code).toBe('reward_distribution');
+  });
 });
 
 describe('SolanaProcessor - Multi-Asset Tracking', () => {

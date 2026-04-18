@@ -490,6 +490,41 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.unmatched_outflows).toBe(0);
   });
 
+  it('should suppress gap issues for off-platform cash movements', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createExchangeWithdrawal({
+          id: 26,
+          txFingerprint: 'coinbase-fiat-withdrawal-gap',
+          platformKey: 'coinbase',
+          diagnostics: [
+            {
+              code: 'off_platform_cash_movement',
+              message: 'Coinbase fiat withdrawal was classified as an off-platform cash movement.',
+              severity: 'info',
+            },
+          ],
+          movements: {
+            inflows: [],
+            outflows: [
+              {
+                assetId: 'exchange:coinbase:cad',
+                assetSymbol: 'CAD' as Currency,
+                grossAmount: parseDecimal('500'),
+                netAmount: parseDecimal('500'),
+              },
+            ],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
   it('should suppress gap issues for scam-marked transactions', () => {
     const analysis = analyzeLinkGaps(
       [

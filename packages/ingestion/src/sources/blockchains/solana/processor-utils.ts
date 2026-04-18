@@ -116,6 +116,22 @@ export function detectSolanaNFTInstructions(instructions: SolanaTransaction['ins
   return hasMatchingProgram(instructions, NFT_PROGRAMS);
 }
 
+function detectSolanaRewardDistribution(logMessages: readonly string[] | undefined): boolean {
+  if (!logMessages || logMessages.length === 0) {
+    return false;
+  }
+
+  const normalizedMessages = logMessages.map((message) => message.toLowerCase());
+  const hasRewardInstruction = normalizedMessages.some((message) =>
+    message.includes('instruction: distributeupgraderewardsv1')
+  );
+  if (!hasRewardInstruction) {
+    return false;
+  }
+
+  return normalizedMessages.some((message) => message.includes('claiming') && message.includes('upgrade rewards'));
+}
+
 /**
  * Identify unsolicited SOL dust sprays that do not represent a user-initiated transaction.
  *
@@ -293,6 +309,26 @@ export function classifySolanaOperationFromFundFlow(
       operation: {
         category: 'staking',
         type: 'stake',
+      },
+    });
+  }
+
+  if (fundFlow.hasRewardDistribution && inflows.length > 0 && outflows.length === 0) {
+    return addInferenceFailureNote({
+      diagnostics: [
+        {
+          message: 'Provider log messages indicate a reward distribution payout.',
+          metadata: {
+            detectionSource: 'log_messages',
+            inflows: inflows.map((inflow) => ({ amount: inflow.amount, asset: inflow.asset })),
+          },
+          severity: 'info',
+          code: 'reward_distribution',
+        },
+      ],
+      operation: {
+        category: 'defi',
+        type: 'reward',
       },
     });
   }
@@ -1022,6 +1058,7 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
   const hasMultipleInstructions = instructionCount > 1;
 
   // Detect transaction types based on instructions
+  const hasRewardDistribution = detectSolanaRewardDistribution(tx.logMessages);
   const hasStaking = detectSolanaStakingInstructions(tx.instructions);
   const hasSwaps = detectSolanaSwapInstructions(tx.instructions);
   const hasTokenTransfers = detectSolanaTokenTransferInstructions(tx.instructions);
@@ -1052,6 +1089,7 @@ export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressCon
     fromAddress: flowAnalysis.fromAddress,
     toAddress: flowAnalysis.toAddress,
     hasMultipleInstructions,
+    hasRewardDistribution,
     hasStaking,
     hasSwaps,
     hasTokenTransfers,

@@ -310,7 +310,7 @@ describe('CoinbaseProcessor - Regular Deposits', () => {
 });
 
 describe('CoinbaseProcessor - Withdrawals', () => {
-  test('classifies fiat withdrawals correctly', async () => {
+  test('classifies fiat withdrawals as off-platform cash movements', async () => {
     const processor = createProcessor();
 
     const withdrawalEntry = buildEntry({
@@ -337,6 +337,7 @@ describe('CoinbaseProcessor - Withdrawals', () => {
     const outflow = transaction.movements.outflows![0];
     expect(outflow?.assetSymbol).toBe('USD');
     expect(outflow?.grossAmount.toFixed()).toBe('50');
+    expect(transaction.diagnostics?.[0]?.code).toBe('off_platform_cash_movement');
   });
 
   test('classifies crypto withdrawals correctly', async () => {
@@ -364,6 +365,56 @@ describe('CoinbaseProcessor - Withdrawals', () => {
     const outflow = transaction.movements.outflows![0];
     expect(outflow?.assetSymbol).toBe('ETH');
     expect(outflow?.grossAmount.toFixed()).toBe('1.5');
+  });
+
+  test('classifies subscriptions as fees instead of transfers', async () => {
+    const processor = createProcessor();
+
+    const subscriptionEntry = buildEntry({
+      id: 'subscription-1',
+      type: 'subscription',
+      amount: { amount: '-14.99', currency: 'CAD' },
+    });
+
+    const result = await processor.process([subscriptionEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'fee', type: 'fee' });
+    expect(transaction.movements.inflows).toHaveLength(0);
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('CAD');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('14.99');
+  });
+
+  test('classifies retail_simple_dust as a disposal instead of a transfer', async () => {
+    const processor = createProcessor();
+
+    const dustConversionEntry = buildEntry({
+      id: 'dust-conversion-1',
+      type: 'retail_simple_dust',
+      amount: { amount: '-0.005213665', currency: 'RLC' },
+    });
+
+    const result = await processor.process([dustConversionEntry]);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.operation).toEqual({ category: 'trade', type: 'sell' });
+    expect(transaction.movements.inflows).toHaveLength(0);
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows?.[0]?.assetSymbol).toBe('RLC');
+    expect(transaction.movements.outflows?.[0]?.grossAmount.toFixed()).toBe('0.005213665');
   });
 });
 

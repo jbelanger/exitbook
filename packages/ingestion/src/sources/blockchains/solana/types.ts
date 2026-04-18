@@ -49,6 +49,7 @@ export interface SolanaFundFlow {
   toAddress?: string | undefined;
 
   hasMultipleInstructions: boolean;
+  hasRewardDistribution?: boolean | undefined;
   hasStaking: boolean;
   hasSwaps: boolean;
   hasTokenTransfers: boolean;
