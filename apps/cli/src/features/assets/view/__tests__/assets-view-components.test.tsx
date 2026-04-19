@@ -1,7 +1,7 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 
-import type { AssetViewItem } from '../../command/assets-types.js';
+import type { AssetReviewOverrideResult, AssetViewItem } from '../../command/assets-types.js';
 import { AssetsViewApp } from '../assets-view-components.jsx';
 import { createAssetsViewState } from '../assets-view-state.js';
 
@@ -36,6 +36,28 @@ const noop = async () => ({
   assetSymbols: [],
   changed: false,
 });
+
+function createReviewOverrideResult(
+  action: AssetReviewOverrideResult['action'],
+  overrides: Partial<AssetReviewOverrideResult> = {}
+): AssetReviewOverrideResult {
+  return {
+    action,
+    assetId: 'ignored',
+    assetSymbols: [],
+    changed: false,
+    accountingBlocked: false,
+    confirmationIsStale: false,
+    evidence: [],
+    evidenceFingerprint: 'asset-review:v1:ignored',
+    referenceStatus: 'unknown',
+    reviewStatus: 'clear',
+    reviewSummarySource: 'current',
+    warnings: [],
+    warningSummary: undefined,
+    ...overrides,
+  };
+}
 
 describe('AssetsViewApp', () => {
   it('shows a minimal default asset view and hides clear zero-balance history', () => {
@@ -78,32 +100,8 @@ describe('AssetsViewApp', () => {
           /* noop */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
+        onConfirmReview={async () => createReviewOverrideResult('confirm')}
+        onClearReview={async () => createReviewOverrideResult('clear-review')}
       />
     );
 
@@ -140,32 +138,8 @@ describe('AssetsViewApp', () => {
           /* empty */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
+        onConfirmReview={async () => createReviewOverrideResult('confirm')}
+        onClearReview={async () => createReviewOverrideResult('clear-review')}
       />
     );
 
@@ -207,32 +181,8 @@ describe('AssetsViewApp', () => {
           /* noop */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
+        onConfirmReview={async () => createReviewOverrideResult('confirm')}
+        onClearReview={async () => createReviewOverrideResult('clear-review')}
       />
     );
 
@@ -258,38 +208,35 @@ describe('AssetsViewApp', () => {
           /* noop */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'blockchain:ethereum:0xscam',
-          assetSymbols: ['SCAM'],
-          changed: true,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
-          referenceStatus: 'matched',
-          reviewStatus: 'reviewed',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'blockchain:ethereum:0xscam',
-          assetSymbols: ['SCAM'],
-          changed: true,
-          accountingBlocked: true,
-          confirmationIsStale: false,
-          evidence: [
-            {
-              kind: 'scam-diagnostic',
-              severity: 'error',
-              message: 'Provider flagged this token as spam',
-            },
-          ],
-          evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
-          referenceStatus: 'matched',
-          reviewStatus: 'needs-review',
-          warningSummary: 'Provider flagged this token as spam',
-        })}
+        onConfirmReview={async () =>
+          createReviewOverrideResult('confirm', {
+            assetId: 'blockchain:ethereum:0xscam',
+            assetSymbols: ['SCAM'],
+            changed: true,
+            evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+            referenceStatus: 'matched',
+            reviewStatus: 'reviewed',
+          })
+        }
+        onClearReview={async () =>
+          createReviewOverrideResult('clear-review', {
+            assetId: 'blockchain:ethereum:0xscam',
+            assetSymbols: ['SCAM'],
+            changed: true,
+            accountingBlocked: true,
+            evidence: [
+              {
+                kind: 'scam-diagnostic',
+                severity: 'error',
+                message: 'Provider flagged this token as spam',
+              },
+            ],
+            evidenceFingerprint: 'asset-review:v1:blockchain:ethereum:0xscam',
+            referenceStatus: 'matched',
+            reviewStatus: 'needs-review',
+            warningSummary: 'Provider flagged this token as spam',
+          })
+        }
       />
     );
 
@@ -335,32 +282,8 @@ describe('AssetsViewApp', () => {
           /* noop */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
+        onConfirmReview={async () => createReviewOverrideResult('confirm')}
+        onClearReview={async () => createReviewOverrideResult('clear-review')}
       />
     );
 
@@ -405,32 +328,8 @@ describe('AssetsViewApp', () => {
           /* noop */
         }}
         onToggleExclusion={noop}
-        onConfirmReview={async () => ({
-          action: 'confirm',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
-        onClearReview={async () => ({
-          action: 'clear-review',
-          assetId: 'ignored',
-          assetSymbols: [],
-          changed: false,
-          accountingBlocked: false,
-          confirmationIsStale: false,
-          evidence: [],
-          evidenceFingerprint: 'asset-review:v1:ignored',
-          referenceStatus: 'unknown',
-          reviewStatus: 'clear',
-          warningSummary: undefined,
-        })}
+        onConfirmReview={async () => createReviewOverrideResult('confirm')}
+        onClearReview={async () => createReviewOverrideResult('clear-review')}
       />
     );
 

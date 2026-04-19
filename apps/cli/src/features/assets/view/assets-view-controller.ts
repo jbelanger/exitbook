@@ -24,8 +24,18 @@ export type AssetsViewAction =
   | { type: 'CONFIRM_REVIEW' }
   | { type: 'CLEAR_REVIEW' }
   | { assetId: string; excluded: boolean; type: 'TOGGLE_EXCLUSION_SUCCESS' }
-  | { assetId: string; review: AssetReviewViewMutation; type: 'CONFIRM_REVIEW_SUCCESS' }
-  | { assetId: string; review: AssetReviewViewMutation; type: 'CLEAR_REVIEW_SUCCESS' }
+  | {
+      assetId: string;
+      review: AssetReviewViewMutation;
+      statusMessage?: string | undefined;
+      type: 'CONFIRM_REVIEW_SUCCESS';
+    }
+  | {
+      assetId: string;
+      review: AssetReviewViewMutation;
+      statusMessage?: string | undefined;
+      type: 'CLEAR_REVIEW_SUCCESS';
+    }
   | { error: string; type: 'SET_ERROR' };
 
 export function assetsViewReducer(state: AssetsViewState, action: AssetsViewAction): AssetsViewState {
@@ -133,9 +143,11 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         review: action.review,
       });
-      const message = action.review.accountingBlocked
-        ? 'Marked as reviewed — exclude a conflicting asset to unblock'
-        : 'Marked as reviewed';
+      const message =
+        action.statusMessage ??
+        (action.review.accountingBlocked
+          ? 'Marked as reviewed — exclude a conflicting asset to unblock'
+          : 'Marked as reviewed');
       return rebuildStateAfterMutation(state, assets, message, action.assetId);
     }
 
@@ -145,7 +157,7 @@ export function assetsViewReducer(state: AssetsViewState, action: AssetsViewActi
         assetId: action.assetId,
         review: action.review,
       });
-      return rebuildStateAfterMutation(state, assets, 'Review reopened', action.assetId);
+      return rebuildStateAfterMutation(state, assets, action.statusMessage ?? 'Review reopened', action.assetId);
     }
 
     case 'SET_ERROR':
