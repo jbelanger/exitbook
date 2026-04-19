@@ -1,17 +1,11 @@
-import pc from 'picocolors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockConfirm, MockExitPromptError } = vi.hoisted(() => ({
-  mockConfirm: vi.fn(),
-  MockExitPromptError: class MockExitPromptError extends Error {},
+const { mockRender } = vi.hoisted(() => ({
+  mockRender: vi.fn(),
 }));
 
-vi.mock('@inquirer/confirm', () => ({
-  default: mockConfirm,
-}));
-
-vi.mock('@inquirer/core', () => ({
-  ExitPromptError: MockExitPromptError,
+vi.mock('ink', () => ({
+  render: mockRender,
 }));
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint, promptConfirmDecision } from '../prompts.js';
@@ -22,25 +16,26 @@ describe('prompts utilities', () => {
   });
 
   describe('promptConfirmDecision', () => {
-    it('passes a neutral prompt theme to inquirer confirm', async () => {
-      mockConfirm.mockResolvedValue(true);
+    it('maps submitted true values to confirmed', async () => {
+      mockRender.mockImplementation((element: { props: { onSubmit: (value: boolean) => void } }) => {
+        const result = { unmount: vi.fn() };
+        queueMicrotask(() => {
+          element.props.onSubmit(true);
+        });
+        return result;
+      });
 
       await expect(promptConfirmDecision('Delete account foo?', false)).resolves.toBe('confirmed');
-
-      expect(mockConfirm).toHaveBeenCalledWith({
-        message: 'Delete account foo?',
-        default: false,
-        theme: {
-          prefix: {
-            idle: pc.dim('›'),
-            done: pc.dim('›'),
-          },
-        },
-      });
     });
 
-    it('maps interrupted prompts to cancelled', async () => {
-      mockConfirm.mockRejectedValue(new MockExitPromptError('cancelled'));
+    it('maps cancelled prompts to cancelled', async () => {
+      mockRender.mockImplementation((element: { props: { onCancel: () => void } }) => {
+        const result = { unmount: vi.fn() };
+        queueMicrotask(() => {
+          element.props.onCancel();
+        });
+        return result;
+      });
 
       await expect(promptConfirmDecision('Delete account foo?', false)).resolves.toBe('cancelled');
     });

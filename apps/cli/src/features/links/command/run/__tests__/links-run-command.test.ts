@@ -4,15 +4,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../../runtime/app-runtime.js';
 
-const { mockExitCliFailure, mockOutputSuccess, mockRender, mockResolveCommandProfile, mockRunCommand, mockRunLinks } =
-  vi.hoisted(() => ({
-    mockExitCliFailure: vi.fn(),
-    mockOutputSuccess: vi.fn(),
-    mockRender: vi.fn(),
-    mockResolveCommandProfile: vi.fn(),
-    mockRunCommand: vi.fn(),
-    mockRunLinks: vi.fn(),
-  }));
+const {
+  mockExitCliFailure,
+  mockOutputSuccess,
+  mockPromptFlowAnswers,
+  mockResolveCommandProfile,
+  mockRunCommand,
+  mockRunLinks,
+} = vi.hoisted(() => ({
+  mockExitCliFailure: vi.fn(),
+  mockOutputSuccess: vi.fn(),
+  mockPromptFlowAnswers: vi.fn(),
+  mockResolveCommandProfile: vi.fn(),
+  mockRunCommand: vi.fn(),
+  mockRunLinks: vi.fn(),
+}));
 
 vi.mock('../../../../../runtime/command-runtime.js', () => ({
   runCommand: mockRunCommand,
@@ -35,11 +41,7 @@ vi.mock('../run-links.js', () => ({
 }));
 
 vi.mock('../../../../../cli/prompts.js', () => ({
-  PromptFlow: 'PromptFlow',
-}));
-
-vi.mock('ink', () => ({
-  render: mockRender,
+  promptFlowAnswers: mockPromptFlowAnswers,
 }));
 
 import { registerLinksRunCommand } from '../links-run.js';
@@ -99,7 +101,7 @@ describe('links run command', () => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
     );
-    mockRender.mockReturnValue({ unmount: vi.fn() });
+    mockPromptFlowAnswers.mockResolvedValue(['0.7', '0.95', true]);
     consoleLogSpy.mockClear();
   });
 
@@ -141,13 +143,7 @@ describe('links run command', () => {
   it('prints a cancellation message when the interactive prompt is cancelled', async () => {
     const program = createProgram();
 
-    mockRender.mockImplementation((element: { props: { onCancel: () => void } }) => {
-      const result = { unmount: vi.fn() };
-      queueMicrotask(() => {
-        element.props.onCancel();
-      });
-      return result;
-    });
+    mockPromptFlowAnswers.mockResolvedValue(undefined);
 
     await program.parseAsync(['links', 'run'], { from: 'user' });
 
@@ -158,15 +154,7 @@ describe('links run command', () => {
   it('routes invalid prompted thresholds through the CLI error boundary', async () => {
     const program = createProgram();
 
-    mockRender.mockImplementation(
-      (element: { props: { onComplete: (answers: [string, string, boolean]) => void } }) => {
-        const result = { unmount: vi.fn() };
-        queueMicrotask(() => {
-          element.props.onComplete(['0.9', '0.8', true]);
-        });
-        return result;
-      }
-    );
+    mockPromptFlowAnswers.mockResolvedValue(['0.9', '0.8', true]);
 
     await expect(program.parseAsync(['links', 'run'], { from: 'user' })).rejects.toThrow(
       'CLI:links-run:text:Auto-confirm threshold must be >= minimum confidence score:2'
