@@ -1,8 +1,17 @@
-import type { Account, Transaction, TransactionLink } from '@exitbook/core';
+import type { Account, AssetReviewSummary, Profile, Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+
+export interface ProfileLinkGapCrossProfileContext {
+  accounts: readonly Pick<Account, 'id' | 'profileId'>[];
+  activeProfileId: number;
+  profiles: readonly Pick<Profile, 'displayName' | 'id' | 'profileKey'>[];
+  transactions: readonly Transaction[];
+}
 
 export interface ProfileLinkGapSourceData {
   accounts: readonly Account[];
+  assetReviewSummaries?: readonly AssetReviewSummary[] | undefined;
+  crossProfileContext?: ProfileLinkGapCrossProfileContext | undefined;
   excludedAssetIds: ReadonlySet<string>;
   links: readonly TransactionLink[];
   resolvedIssueKeys: ReadonlySet<string>;

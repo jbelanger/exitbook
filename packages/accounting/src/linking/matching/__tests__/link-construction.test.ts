@@ -163,6 +163,45 @@ describe('link-construction', () => {
       );
     });
 
+    it('should allow larger source-target variance when a custom threshold is provided', () => {
+      const match: PotentialMatch = {
+        sourceMovement: createLinkableMovement({
+          id: 1,
+          amount: parseDecimal('0.003'),
+          direction: 'out',
+        }),
+        targetMovement: createLinkableMovement({
+          id: 2,
+          platformKey: 'arbitrum',
+          platformKind: 'blockchain',
+          timestamp: new Date('2024-05-20T19:09:53.000Z'),
+          amount: parseDecimal('0.00221'),
+          direction: 'in',
+        }),
+        confidenceScore: parseDecimal('1'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('0.7366666667'),
+          timingValid: true,
+          timingHours: 0.25,
+        },
+        linkType: 'blockchain_to_blockchain',
+      };
+
+      const link = assertOk(
+        createTransactionLink(match, 'confirmed', new Date(), {
+          amountValidationConfig: {
+            maxSourceToTargetVariancePct: parseDecimal('50'),
+          },
+        })
+      );
+
+      expect(link.sourceAmount.toFixed()).toBe('0.003');
+      expect(link.targetAmount.toFixed()).toBe('0.00221');
+      expect(link.impliedFeeAmount?.toFixed()).toBe('0.00079');
+      expect(link.metadata?.['variancePct']).toBe('26.33');
+    });
+
     it('should include variance metadata', () => {
       const match: PotentialMatch = {
         sourceMovement: createLinkableMovement({ id: 1 }),

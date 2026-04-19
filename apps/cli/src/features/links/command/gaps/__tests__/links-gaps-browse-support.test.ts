@@ -400,30 +400,25 @@ describe('links-gaps-browse-support', () => {
           createdAt: new Date('2024-01-01T00:00:00Z'),
         },
       ],
+      crossProfileContext: {
+        accounts: [
+          { id: 1, profileId: 1 },
+          { id: 2, profileId: 2 },
+        ],
+        activeProfileId: 1,
+        profiles: [
+          { id: 1, profileKey: 'default', displayName: 'default' },
+          { id: 2, profileKey: 'maely', displayName: 'maely' },
+        ],
+        transactions: [gapTx, counterpartTx],
+      },
       excludedAssetIds: new Set<string>(),
       links: [],
       resolvedIssueKeys: new Set<string>(),
       transactions: [gapTx],
     });
 
-    const result = await buildLinksGapsBrowsePresentation(
-      sourceReader.sourceReader,
-      {},
-      {
-        crossProfileGapCounterpartSource: {
-          accounts: [
-            { id: 1, profileId: 1 },
-            { id: 2, profileId: 2 },
-          ],
-          activeProfileId: 1,
-          profiles: [
-            { id: 1, profileKey: 'default', displayName: 'default' },
-            { id: 2, profileKey: 'maely', displayName: 'maely' },
-          ],
-          transactions: [gapTx, counterpartTx],
-        },
-      }
-    );
+    const result = await buildLinksGapsBrowsePresentation(sourceReader.sourceReader, {});
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) {

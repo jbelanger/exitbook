@@ -7,7 +7,8 @@ export type GapCueKind =
   | 'likely_correlated_service_swap'
   | 'likely_receive_then_forward'
   | 'likely_cross_chain_migration'
-  | 'likely_cross_chain_bridge';
+  | 'likely_cross_chain_bridge'
+  | 'unmatched_reference';
 
 export interface GapContextHint {
   kind: 'diagnostic' | 'movement_role';

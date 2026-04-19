@@ -412,6 +412,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       : undefined;
   const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(item);
   const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);
+  const cueLabel = gapIssue.gapCue ? formatGapCueLabel(gapIssue.gapCue) : crossProfileCueLabel;
   const issueSuggestsGapException = gapIssueSuggestsGapException(gapIssue);
   const likelyOutcome =
     formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(item);
@@ -480,16 +481,8 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       colorizeText(getCoverageColor(coverageNum), `${gapIssue.confirmedCoveragePercent}% confirmed`)
     ),
     buildDetailLine('Readiness', colorizeText(getGapSuggestionColor(gapIssue), formatGapReadiness(item))),
-    ...(gapIssue.gapCue || crossProfileCueLabel
-      ? [
-          buildDetailLine(
-            'Cue',
-            colorizeText(
-              gapIssue.gapCue ? 'cyan' : 'yellow',
-              gapIssue.gapCue ? formatGapCueLabel(gapIssue.gapCue) : crossProfileCueLabel
-            )
-          ),
-        ]
+    ...(cueLabel !== undefined
+      ? [buildDetailLine('Cue', colorizeText(gapIssue.gapCue ? 'cyan' : 'yellow', cueLabel))]
       : []),
     ...(gapCueCounterpartTransactionRef !== undefined
       ? [

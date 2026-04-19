@@ -79,28 +79,24 @@ export async function executePreparedLinksGapsBrowseCommand(
   return resultDoAsync(async function* () {
     const database = await runtime.database();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
-    const sourceReader = buildProfileLinkGapSourceReader(database, runtime.dataDir, {
-      profileId: profile.id,
-      profileKey: profile.profileKey,
-    });
+    const sourceReader = buildProfileLinkGapSourceReader(
+      database,
+      runtime.dataDir,
+      {
+        profileId: profile.id,
+        profileKey: profile.profileKey,
+      },
+      {
+        includeCrossProfileContext: true,
+      }
+    );
     const addressOwnershipLookup = yield* toCliResult(
       await loadAddressOwnershipLookup(database, profile.id),
       ExitCodes.GENERAL_ERROR
     );
-    const profiles = yield* toCliResult(await database.profiles.list(), ExitCodes.GENERAL_ERROR);
-    const crossProfileGapCounterpartSource =
-      profiles.length > 1
-        ? {
-            accounts: yield* toCliResult(await database.accounts.findAll(), ExitCodes.GENERAL_ERROR),
-            activeProfileId: profile.id,
-            profiles,
-            transactions: yield* toCliResult(await database.transactions.findAll(), ExitCodes.GENERAL_ERROR),
-          }
-        : undefined;
 
     const browsePresentationResult = await buildLinksGapsBrowsePresentation(sourceReader, prepared.params, {
       addressOwnershipLookup,
-      crossProfileGapCounterpartSource,
     });
     const browsePresentation = browsePresentationResult.isErr()
       ? yield* err(

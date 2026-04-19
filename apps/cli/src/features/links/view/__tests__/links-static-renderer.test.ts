@@ -259,6 +259,33 @@ describe('links static renderer', () => {
     );
   });
 
+  it('shows unmatched CoinGecko reference guidance for review-heavy token gaps', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      gapCue: 'unmatched_reference' as const,
+      suggestedCount: 0,
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+    const normalizedOutput = stripAnsi(detailOutput);
+
+    expect(normalizedOutput).toContain('Cue: unmatched CoinGecko reference');
+    expect(normalizedOutput).toContain(
+      'Likely outcome: CoinGecko could not match this token to a canonical asset; inspect asset review before treating this as a normal transfer gap.'
+    );
+  });
+
   it('shows other-profile counterpart cues in the list header, readiness, and detail', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {
@@ -303,8 +330,8 @@ describe('links static renderer', () => {
     const detailOutput = buildLinkGapStaticDetail(item);
 
     expect(stripAnsi(listOutput)).toContain('1 with other-profile counterpart');
-    expect(stripAnsi(listOutput)).toContain('no suggestions yet · exact other-profile counterpart');
-    expect(stripAnsi(detailOutput)).toContain('Cue: exact other-profile counterpart');
+    expect(stripAnsi(listOutput)).toContain('no suggestions yet · exact other-profile counterpart (maely)');
+    expect(stripAnsi(detailOutput)).toContain('Cue: exact other-profile counterpart (maely)');
     expect(stripAnsi(detailOutput)).toContain(
       'Likely outcome: Tracked counterpart exists on profile maely; inspect it before treating this as a generic same-profile gap.'
     );
@@ -312,6 +339,63 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain(
       `Other-profile counterpart: maely · solana · OUT 1.5 ETH · ${counterpartRef} · 15s earlier`
     );
+  });
+
+  it('shows profile names in the generic other-profile counterpart cue label', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      suggestedCount: 0,
+    };
+    const item = {
+      crossProfileCandidates: [
+        {
+          amount: '1.5',
+          direction: 'outflow' as const,
+          platformKey: 'solana',
+          profileDisplayName: 'maely',
+          profileKey: 'maely',
+          secondsDeltaFromGap: -15,
+          timestamp: '2024-03-18T09:12:19Z',
+          transactionRef: formatTransactionFingerprintRef('other-profile-inflow-1'),
+          txFingerprint: 'other-profile-inflow-1',
+        },
+        {
+          amount: '1.5',
+          direction: 'outflow' as const,
+          platformKey: 'ethereum',
+          profileDisplayName: 'main',
+          profileKey: 'main',
+          secondsDeltaFromGap: -21,
+          timestamp: '2024-03-18T09:12:13Z',
+          transactionRef: formatTransactionFingerprintRef('other-profile-inflow-2'),
+          txFingerprint: 'other-profile-inflow-2',
+        },
+      ],
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [gapIssue],
+      },
+      {
+        hiddenResolvedIssueCount: 0,
+      }
+    );
+
+    const listOutput = buildLinkGapsStaticList(state, [item]);
+    const detailOutput = buildLinkGapStaticDetail(item);
+
+    expect(stripAnsi(listOutput)).toContain('no suggestions yet · other-profile counterpart (maely, main)');
+    expect(stripAnsi(detailOutput)).toContain('Cue: other-profile counterpart (maely, main)');
   });
 
   it('treats bridge-transfer diagnostics as no-link guidance when no counterpart is known', () => {

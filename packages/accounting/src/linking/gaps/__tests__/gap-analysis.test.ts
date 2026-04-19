@@ -1,10 +1,10 @@
-import type { Account, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
+import type { Account, AssetReviewSummary, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
 import { createPriceAtTxTime, materializeTestTransaction } from '../../../__tests__/test-utils.js';
-import { analyzeLinkGaps, applyResolvedLinkGapVisibility } from '../gap-analysis.js';
+import { analyzeLinkGaps, applyAssetReviewGapCues, applyResolvedLinkGapVisibility } from '../gap-analysis.js';
 import { buildLinkGapIssueKey } from '../gap-model.js';
 
 describe('analyzeLinkGaps', () => {
@@ -222,6 +222,24 @@ describe('analyzeLinkGaps', () => {
     ...(params.metadata === undefined ? {} : { metadata: params.metadata }),
   });
 
+  const createAssetReviewSummary = (overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary => ({
+    assetId: overrides.assetId ?? 'test:btc',
+    reviewStatus: overrides.reviewStatus ?? 'needs-review',
+    referenceStatus: overrides.referenceStatus ?? 'unmatched',
+    evidenceFingerprint: overrides.evidenceFingerprint ?? 'asset-review-evidence',
+    confirmationIsStale: overrides.confirmationIsStale ?? false,
+    accountingBlocked: overrides.accountingBlocked ?? false,
+    confirmedEvidenceFingerprint: overrides.confirmedEvidenceFingerprint,
+    warningSummary: overrides.warningSummary,
+    evidence: overrides.evidence ?? [
+      {
+        kind: 'unmatched-reference',
+        severity: 'warning',
+        message: "Provider 'coingecko' could not match this token to a canonical asset",
+      },
+    ],
+  });
+
   it('should flag deposits without confirmed links', () => {
     const transactions: Transaction[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [];
@@ -243,6 +261,43 @@ describe('analyzeLinkGaps', () => {
       outflowOccurrences: 0,
       outflowMissingAmount: '0',
     });
+  });
+
+  it('should add an unmatched-reference cue when asset review still flags the asset', () => {
+    const analysis = analyzeLinkGaps([createBlockchainDeposit()], []);
+    const issue = analysis.issues[0]!;
+
+    const cuedAnalysis = applyAssetReviewGapCues(analysis, [
+      createAssetReviewSummary({
+        assetId: issue.assetId,
+      }),
+    ]);
+
+    expect(cuedAnalysis.issues[0]?.gapCue).toBe('unmatched_reference');
+  });
+
+  it('should preserve stronger gap cues when adding unmatched-reference asset review context', () => {
+    const analysis = analyzeLinkGaps([createBlockchainDeposit()], []);
+    const issue = analysis.issues[0]!;
+
+    const cuedAnalysis = applyAssetReviewGapCues(
+      {
+        ...analysis,
+        issues: [
+          {
+            ...issue,
+            gapCue: 'likely_dust',
+          },
+        ],
+      },
+      [
+        createAssetReviewSummary({
+          assetId: issue.assetId,
+        }),
+      ]
+    );
+
+    expect(cuedAnalysis.issues[0]?.gapCue).toBe('likely_dust');
   });
 
   it('should ignore staking-reward inflows for transfer gap detection', () => {

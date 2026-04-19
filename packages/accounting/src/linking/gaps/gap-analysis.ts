@@ -5,6 +5,7 @@ import {
   getTransactionScamAssessment,
   getMovementRole,
   type Account,
+  type AssetReviewSummary,
   type MovementRole,
   type Transaction,
   type TransactionLink,
@@ -1498,4 +1499,48 @@ export function applyResolvedLinkGapVisibility(
     },
     hiddenResolvedIssueCount: resolvedIssueState.hiddenIssueCount,
   };
+}
+
+export function applyAssetReviewGapCues(
+  analysis: LinkGapAnalysis,
+  assetReviewSummaries: readonly AssetReviewSummary[] | undefined
+): LinkGapAnalysis {
+  if (!assetReviewSummaries || assetReviewSummaries.length === 0) {
+    return analysis;
+  }
+
+  const unmatchedReferenceAssetIds = new Set(
+    assetReviewSummaries.filter(shouldCueUnmatchedReferenceAssetReview).map((summary) => summary.assetId)
+  );
+
+  if (unmatchedReferenceAssetIds.size === 0) {
+    return analysis;
+  }
+
+  let changed = false;
+  const issues = analysis.issues.map((issue) => {
+    if (issue.gapCue !== undefined || !unmatchedReferenceAssetIds.has(issue.assetId)) {
+      return issue;
+    }
+
+    changed = true;
+    return {
+      ...issue,
+      gapCue: 'unmatched_reference' as const,
+    };
+  });
+
+  return changed ? { ...analysis, issues } : analysis;
+}
+
+function shouldCueUnmatchedReferenceAssetReview(summary: AssetReviewSummary): boolean {
+  if (summary.referenceStatus !== 'unmatched') {
+    return false;
+  }
+
+  if (!summary.evidence.some((item) => item.kind === 'unmatched-reference')) {
+    return false;
+  }
+
+  return summary.reviewStatus === 'needs-review' || summary.confirmationIsStale;
 }

@@ -5,6 +5,7 @@ import { Decimal } from 'decimal.js';
 
 import type { PotentialMatch } from '../shared/types.js';
 
+const DEFAULT_MAX_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('10');
 const MAX_HASH_MATCH_TARGET_EXCESS_PCT = parseDecimal('1'); // Allow up to 1% target excess for hash matches (UTXO partial inputs)
 
 interface LinkAmountValidationInfo {
@@ -14,6 +15,14 @@ interface LinkAmountValidationInfo {
         excessPct: Decimal;
       }
     | undefined;
+}
+
+export interface LinkAmountValidationConfig {
+  maxSourceToTargetVariancePct?: Decimal | undefined;
+}
+
+export interface CreateTransactionLinkOptions {
+  amountValidationConfig?: LinkAmountValidationConfig | undefined;
 }
 
 /**
@@ -27,7 +36,11 @@ interface LinkAmountValidationInfo {
  * @param targetAmount - Net received amount at target transaction
  * @returns Result indicating validation success or error
  */
-function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal): Result<void, Error> {
+function validateLinkAmounts(
+  sourceAmount: Decimal,
+  targetAmount: Decimal,
+  config?: LinkAmountValidationConfig  
+): Result<void, Error> {
   // Reject zero or negative source amounts (invalid/legacy data)
   if (sourceAmount.lte(0)) {
     return err(
@@ -60,12 +73,13 @@ function validateLinkAmounts(sourceAmount: Decimal, targetAmount: Decimal): Resu
   // Calculate variance percentage
   const variance = sourceAmount.minus(targetAmount);
   const variancePct = variance.div(sourceAmount).times(100);
+  const maxVariancePct = config?.maxSourceToTargetVariancePct ?? DEFAULT_MAX_SOURCE_TO_TARGET_VARIANCE_PCT;
 
-  // Reject excessive variance (>10%)
-  if (variancePct.gt(10)) {
+  // Reject excessive variance unless the caller explicitly allows more.
+  if (variancePct.gt(maxVariancePct)) {
     return err(
       new Error(
-        `Variance (${variancePct.toFixed(2)}%) exceeds 10% threshold. ` +
+        `Variance (${variancePct.toFixed(2)}%) exceeds ${maxVariancePct.toFixed()}% threshold. ` +
           `Source: ${sourceAmount.toFixed()}, Target: ${targetAmount.toFixed()}. ` +
           `Verify amounts are correct or adjust link.`
       )
@@ -113,12 +127,15 @@ function calculateImpliedFeeAmount(sourceAmount: Decimal, targetAmount: Decimal)
  *
  * Allows small target>source variance when hashMatch is true (UTXO per-address data gaps).
  */
-export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkAmountValidationInfo, Error> {
+export function validateLinkAmountsForMatch(
+  match: PotentialMatch,
+  config?: LinkAmountValidationConfig  
+): Result<LinkAmountValidationInfo, Error> {
   // Use consumed amount if present (partial match), otherwise original amounts
   const sourceAmount = match.consumedAmount ?? match.sourceMovement.amount;
   const targetAmount = match.consumedAmount ?? match.targetMovement.amount;
 
-  const baseValidation = validateLinkAmounts(sourceAmount, targetAmount);
+  const baseValidation = validateLinkAmounts(sourceAmount, targetAmount, config);
   if (baseValidation.isOk()) {
     return ok({});
   }
@@ -164,7 +181,8 @@ export function validateLinkAmountsForMatch(match: PotentialMatch): Result<LinkA
 export function createTransactionLink(
   match: PotentialMatch,
   status: 'suggested' | 'confirmed',
-  now: Date
+  now: Date,
+  options?: CreateTransactionLinkOptions  
 ): Result<NewTransactionLink, Error> {
   const assetSymbol = match.sourceMovement.assetSymbol;
 
@@ -175,7 +193,7 @@ export function createTransactionLink(
   const targetAmount = isPartialMatch ? match.consumedAmount! : match.targetMovement.amount;
 
   // Validate amounts
-  const validationResult = validateLinkAmountsForMatch(match);
+  const validationResult = validateLinkAmountsForMatch(match, options?.amountValidationConfig);
   if (validationResult.isErr()) {
     return err(validationResult.error);
   }

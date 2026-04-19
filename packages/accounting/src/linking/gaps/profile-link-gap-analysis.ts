@@ -7,16 +7,20 @@ import type {
 
 import {
   analyzeLinkGaps,
+  applyAssetReviewGapCues,
   applyResolvedLinkGapVisibility,
   type ResolvedLinkGapVisibilityResult,
 } from './gap-analysis.js';
 import type { LinkGapAnalysis } from './gap-model.js';
 
 export function buildProfileLinkGapAnalysis(source: ProfileLinkGapSourceData): LinkGapAnalysis {
-  return analyzeLinkGaps([...source.transactions], [...source.links], {
-    accounts: source.accounts,
-    excludedAssetIds: source.excludedAssetIds,
-  });
+  return applyAssetReviewGapCues(
+    analyzeLinkGaps([...source.transactions], [...source.links], {
+      accounts: source.accounts,
+      excludedAssetIds: source.excludedAssetIds,
+    }),
+    source.assetReviewSummaries
+  );
 }
 
 export function buildVisibleProfileLinkGapAnalysis(source: ProfileLinkGapSourceData): ResolvedLinkGapVisibilityResult {

@@ -240,6 +240,8 @@ function formatGapCueLabel(cue: GapCueKind): string {
       return 'likely cross-chain migration';
     case 'likely_cross_chain_bridge':
       return 'likely same-owner cross-chain bridge';
+    case 'unmatched_reference':
+      return 'unmatched CoinGecko reference';
   }
 }
 

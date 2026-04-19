@@ -104,6 +104,48 @@ describe('manual-link-utils', () => {
     expect(error.message).toContain('manual links require exactly one');
   });
 
+  it('prepares a confirmed manual link for a high-variance bridge-style transfer', () => {
+    const sourceTransaction = createTransaction({
+      id: 1,
+      source: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-05-20T18:55:35.000Z',
+      outflows: [{ assetSymbol: 'ETH', amount: '0.003', assetId: 'blockchain:ethereum:native' }],
+    });
+    const targetTransaction = createTransaction({
+      id: 2,
+      source: 'arbitrum',
+      platformKind: 'blockchain',
+      datetime: '2024-05-20T19:09:53.000Z',
+      inflows: [{ assetSymbol: 'ETH', amount: '0.00221', assetId: 'blockchain:arbitrum:native' }],
+    });
+
+    const prepared = assertOk(
+      prepareManualLinkFromTransactions(
+        {
+          transactions: [sourceTransaction, targetTransaction],
+          sourceTransactionId: sourceTransaction.id,
+          targetTransactionId: targetTransaction.id,
+          assetSymbol: 'ETH' as Currency,
+          reviewedAt: new Date('2026-04-19T00:00:00.000Z'),
+          reviewedBy: 'cli-user',
+          metadata: buildManualLinkOverrideMetadata('override-bridge', 'transfer'),
+        },
+        noopLogger
+      )
+    );
+
+    expect(prepared.link.linkType).toBe('blockchain_to_blockchain');
+    expect(prepared.link.sourceAmount.toFixed()).toBe('0.003');
+    expect(prepared.link.targetAmount.toFixed()).toBe('0.00221');
+    expect(prepared.link.impliedFeeAmount?.toFixed()).toBe('0.00079');
+    expect(prepared.link.metadata).toMatchObject({
+      overrideId: 'override-bridge',
+      variance: '0.00079',
+      variancePct: '26.33',
+    });
+  });
+
   it('prepares grouped many-to-one manual links with partial metadata', () => {
     const firstSourceTransaction = createTransaction({
       id: 1,

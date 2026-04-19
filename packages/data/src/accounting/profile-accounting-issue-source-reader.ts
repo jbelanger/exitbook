@@ -19,11 +19,10 @@ export function buildProfileAccountingIssueSourceReader(
     loadProfileAccountingIssueSourceData: () =>
       resultDoAsync(async function* () {
         const linkGapSource = yield* await linkGapSourceReader.loadProfileLinkGapSourceData();
-        const assetReviewSummaries = yield* await db.assetReview.listAll(profile.profileId);
 
         return {
-          assetReviewSummaries,
           ...linkGapSource,
+          assetReviewSummaries: linkGapSource.assetReviewSummaries ?? [],
         };
       }),
   };

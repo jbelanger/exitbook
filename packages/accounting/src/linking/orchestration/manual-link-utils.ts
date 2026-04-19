@@ -16,6 +16,8 @@ import { buildLinkableMovements } from '../pre-linking/build-linkable-movements.
 import type { PotentialMatch } from '../shared/types.js';
 import { determineLinkType } from '../strategies/amount-timing-utils.js';
 
+const MAX_MANUAL_LINK_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('50');
+
 export interface BuildConfirmedLinkFromExactMovementsParams {
   consumedAmount?: Decimal | undefined;
   metadata?: TransactionLinkMetadata | undefined;
@@ -79,7 +81,11 @@ export function buildConfirmedLinkFromExactMovements(
       linkType: determineLinkType(params.sourceTransaction.platformKind, params.targetTransaction.platformKind),
     };
 
-    const link = yield* createTransactionLink(match, 'confirmed', params.reviewedAt);
+    const link = yield* createTransactionLink(match, 'confirmed', params.reviewedAt, {
+      amountValidationConfig: {
+        maxSourceToTargetVariancePct: MAX_MANUAL_LINK_SOURCE_TO_TARGET_VARIANCE_PCT,
+      },
+    });
 
     return {
       ...link,

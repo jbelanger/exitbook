@@ -673,13 +673,73 @@ describe('LinksViewApp - gaps mode', () => {
     const normalizedFrame = lastFrame()?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
     expect(normalizedFrame).toContain('Cue:');
-    expect(normalizedFrame).toContain('exact other-profile counterpart');
+    expect(normalizedFrame).toContain('exact other-profile counterpart (maely)');
     expect(normalizedFrame).toContain('Likely outcome:');
     expect(normalizedFrame).toContain('Tracked counterpart exists on profile maely');
     expect(normalizedFrame).toContain('Other-profile counterpart:');
     expect(normalizedFrame).toContain('maely');
     expect(normalizedFrame).toContain('solana');
     expect(normalizedFrame).toContain('15s earlier');
+  });
+
+  it('renders profile names in the generic other-profile counterpart cue label', () => {
+    const analysis = createMockGapAnalysis();
+    const firstIssue = analysis.issues[0]!;
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [firstIssue],
+      },
+      {
+        hiddenResolvedIssueCount: 0,
+      },
+      [
+        {
+          crossProfileCandidates: [
+            {
+              amount: '1.5',
+              direction: 'outflow',
+              platformKey: 'solana',
+              profileDisplayName: 'maely',
+              profileKey: 'maely',
+              secondsDeltaFromGap: -15,
+              timestamp: '2024-03-18T09:12:19Z',
+              transactionRef: formatTransactionFingerprintRef('other-profile-inflow-1'),
+              txFingerprint: 'other-profile-inflow-1',
+            },
+            {
+              amount: '1.5',
+              direction: 'outflow',
+              platformKey: 'ethereum',
+              profileDisplayName: 'main',
+              profileKey: 'main',
+              secondsDeltaFromGap: -21,
+              timestamp: '2024-03-18T09:12:13Z',
+              transactionRef: formatTransactionFingerprintRef('other-profile-inflow-2'),
+              txFingerprint: 'other-profile-inflow-2',
+            },
+          ],
+          gapRef: buildLinkGapRef({
+            txFingerprint: firstIssue.txFingerprint,
+            assetId: firstIssue.assetId,
+            direction: firstIssue.direction,
+          }),
+          gapIssue: firstIssue,
+          transactionGapCount: 1,
+          transactionRef: formatTransactionFingerprintRef(firstIssue.txFingerprint),
+        },
+      ]
+    );
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const normalizedFrame = lastFrame()?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('other-profile counterpart (maely, main)');
   });
 
   it('renders shared transaction investigation context in the gap detail panel', () => {

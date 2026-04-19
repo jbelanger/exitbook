@@ -26,6 +26,7 @@ export {
   buildVisibleProfileLinkGapAnalysis,
   loadVisibleProfileLinkGapAnalysis,
 } from './linking/gaps/profile-link-gap-analysis.js';
+export { buildLinkGapCrossProfileCounterpartsByIssueKey } from './linking/gaps/cross-profile-gap-counterparts.js';
 export { buildLinkGapIssueKey } from './linking/gaps/gap-model.js';
 export type {
   GapCueKind,
@@ -35,3 +36,4 @@ export type {
   LinkGapIssue,
   LinkGapIssueIdentity,
 } from './linking/gaps/gap-model.js';
+export type { LinkGapCrossProfileCounterpart } from './linking/gaps/cross-profile-gap-counterparts.js';

@@ -183,7 +183,31 @@ export function formatGapCrossProfileCueLabel(
     return undefined;
   }
 
-  return getExactOtherProfileCounterpart(item) ? 'exact other-profile counterpart' : 'other-profile counterpart';
+  const exactCounterpart = getExactOtherProfileCounterpart(item);
+  if (exactCounterpart) {
+    return `exact other-profile counterpart (${exactCounterpart.profileDisplayName})`;
+  }
+
+  const profileLabel = formatGapCrossProfileCueProfileLabel(item);
+  return profileLabel ? `other-profile counterpart (${profileLabel})` : 'other-profile counterpart';
+}
+
+function formatGapCrossProfileCueProfileLabel(
+  item: Pick<LinkGapBrowseItem, 'crossProfileCandidates'>
+): string | undefined {
+  const uniqueProfileDisplayNames = [
+    ...new Set((item.crossProfileCandidates ?? []).map((candidate) => candidate.profileDisplayName)),
+  ];
+
+  if (uniqueProfileDisplayNames.length === 0) {
+    return undefined;
+  }
+
+  if (uniqueProfileDisplayNames.length <= 2) {
+    return uniqueProfileDisplayNames.join(', ');
+  }
+
+  return `${uniqueProfileDisplayNames.slice(0, 2).join(', ')}, +${uniqueProfileDisplayNames.length - 2}`;
 }
 
 export function formatCrossProfileProfileLabel(profileDisplayName: string, profileKey: string): string {
@@ -252,6 +276,8 @@ export function formatGapCueLabel(cue: GapCueKind): string {
       return 'likely cross-chain migration';
     case 'likely_cross_chain_bridge':
       return 'likely same-owner cross-chain bridge';
+    case 'unmatched_reference':
+      return 'unmatched CoinGecko reference';
   }
 }
 
@@ -271,6 +297,10 @@ export function formatGapLikelyOutcome(
   issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>,
   counterpartTransactionRef?: string
 ): string | undefined {
+  if (issue.gapCue === 'unmatched_reference') {
+    return 'CoinGecko could not match this token to a canonical asset; inspect asset review before treating this as a normal transfer gap.';
+  }
+
   if (!gapIssueSuggestsGapException(issue)) {
     return undefined;
   }
