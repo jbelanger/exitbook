@@ -5,6 +5,7 @@ import type { MovementRole } from './movement.js';
 import type { TransactionDiagnostic } from './transaction.js';
 
 export const UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE = 'unattributed_staking_reward_component';
+export const POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE = 'possible_asset_migration';
 export type TransactionScamAssessment = 'confirmed' | 'suspected';
 interface TransactionDiagnosticCodeCarrier {
   diagnostics?: readonly Pick<TransactionDiagnostic, 'code'>[] | undefined;
@@ -40,6 +41,28 @@ export function transactionHasAnyDiagnosticCode(
   codes: ReadonlySet<string>
 ): boolean {
   return hasAnyDiagnosticCode(transaction.diagnostics, codes);
+}
+
+export function getPossibleAssetMigrationGroupKey(
+  diagnostics: readonly TransactionDiagnostic[] | undefined
+): string | undefined {
+  for (const diagnostic of diagnostics ?? []) {
+    if (diagnostic.code !== POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE) {
+      continue;
+    }
+
+    const migrationGroupKey = diagnostic.metadata?.['migrationGroupKey'];
+    if (typeof migrationGroupKey !== 'string') {
+      continue;
+    }
+
+    const normalized = migrationGroupKey.trim();
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return undefined;
 }
 
 export function getDiagnosticScamAssessment(

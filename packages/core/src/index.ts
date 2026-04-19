@@ -184,10 +184,12 @@ export {
 export { applyAssetExclusionsToReviewSummary } from './asset-review/asset-review-summary-overlays.js';
 
 export {
+  getPossibleAssetMigrationGroupKey,
   hasAnyDiagnosticCode,
   hasDiagnosticCode,
   getUnattributedStakingRewardComponents,
   isTransactionMarkedSpam,
+  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   sumUniqueUnattributedStakingRewardComponents,
   transactionHasAnyDiagnosticCode,
   transactionHasDiagnosticCode,

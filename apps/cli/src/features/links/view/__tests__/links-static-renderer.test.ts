@@ -259,6 +259,94 @@ describe('links static renderer', () => {
     );
   });
 
+  it('shows cue counterpart guidance for likely asset migration gaps', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      direction: 'outflow' as const,
+      assetId: 'exchange:kraken:rndr',
+      assetSymbol: 'RNDR',
+      gapCue: 'likely_asset_migration' as const,
+      gapCueCounterpartTxFingerprint: 'kraken-render-counterpart',
+      suggestedCount: 0,
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const state = createGapsViewState(
+      {
+        ...analysis,
+        issues: [gapIssue],
+      },
+      {
+        hiddenResolvedIssueCount: 0,
+      },
+      [item]
+    );
+    const listOutput = buildLinkGapsStaticList(state, [item]);
+    const detailOutput = buildLinkGapStaticDetail(item);
+    const normalizedOutput = stripAnsi(detailOutput);
+
+    expect(stripAnsi(listOutput)).toContain(
+      `no suggestions yet · likely internal asset migration · counterpart ${formatTransactionFingerprintRef('kraken-render-counterpart')}`
+    );
+    expect(stripAnsi(listOutput)).not.toContain('possible asset migration');
+    expect(normalizedOutput).toContain('Cue: likely internal asset migration');
+    expect(normalizedOutput).toContain(
+      `Counterpart tx ref: ${formatTransactionFingerprintRef('kraken-render-counterpart')}`
+    );
+    expect(normalizedOutput).toContain(
+      `Create manual link: exitbook links create ${item.transactionRef} ${formatTransactionFingerprintRef('kraken-render-counterpart')} --asset ${gapIssue.assetSymbol}`
+    );
+    expect(normalizedOutput).toContain(
+      'Likely outcome: Likely internal asset migration; inspect the counterpart, then create a manual link if basis should carry between the old and new asset.'
+    );
+    expect(normalizedOutput).toContain(
+      `Next: exitbook links create ${item.transactionRef} ${formatTransactionFingerprintRef('kraken-render-counterpart')} --asset ${gapIssue.assetSymbol}`
+    );
+  });
+
+  it('builds the manual-link command from the counterpart when viewing the inflow side of a migration gap', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      direction: 'inflow' as const,
+      assetId: 'exchange:kraken:render',
+      assetSymbol: 'RENDER',
+      gapCue: 'likely_asset_migration' as const,
+      gapCueCounterpartTxFingerprint: 'kraken-rndr-counterpart',
+      suggestedCount: 0,
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+    const normalizedOutput = stripAnsi(detailOutput);
+
+    expect(normalizedOutput).toContain(
+      `Create manual link: exitbook links create ${formatTransactionFingerprintRef('kraken-rndr-counterpart')} ${item.transactionRef} --asset ${gapIssue.assetSymbol}`
+    );
+    expect(normalizedOutput).toContain(
+      `Next: exitbook links create ${formatTransactionFingerprintRef('kraken-rndr-counterpart')} ${item.transactionRef} --asset ${gapIssue.assetSymbol}`
+    );
+  });
+
   it('shows unmatched CoinGecko reference guidance for review-heavy token gaps', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {

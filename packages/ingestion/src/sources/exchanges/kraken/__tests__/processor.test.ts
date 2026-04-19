@@ -52,6 +52,18 @@ const dustSweepingRows: KrakenLedgerEntry[] = [
 
 const spotFromFuturesRows: KrakenLedgerEntry[] = [
   {
+    id: 'L25WNO-RENDER-CREDIT',
+    refid: 'FTdKhdH-enbSfxp0lc676Z4aLTJnDB',
+    time: 1722931200,
+    type: 'transfer',
+    subtype: 'spotfromfutures',
+    aclass: 'currency',
+    asset: 'RENDER',
+    amount: '64.987572',
+    fee: '0.0000000000',
+    balance: '64.987572',
+  },
+  {
     id: 'L7VTO3-NOLKA-FYOGLE',
     refid: 'FTdKhdH-enbSfxp0lc676Z4aLTJnDB',
     time: 1723743994.970638,
@@ -191,7 +203,7 @@ describe('KrakenProcessor', () => {
     expect(transaction.fees[0]?.amount.toFixed()).toBe('0.008');
   });
 
-  test('skips spotfromfutures internal balance moves', () => {
+  test('correlates spotfromfutures rows by event id while keeping shared migration evidence', () => {
     const normalized = spotFromFuturesRows.map((row) => {
       const result = normalizeKrakenProviderEvent(row, row.id);
       expect(result.isOk()).toBe(true);
@@ -201,24 +213,29 @@ describe('KrakenProcessor', () => {
       return result.value;
     });
 
-    const [group] = buildKrakenCorrelationGroups(normalized);
-    expect(group).toBeDefined();
-    if (!group) {
-      return;
-    }
+    const groups = buildKrakenCorrelationGroups(normalized);
 
-    const interpretation = interpretKrakenGroup(group);
-    expect(interpretation.kind).toBe('unsupported');
-    if (interpretation.kind !== 'unsupported') {
-      return;
-    }
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.correlationKey)).toEqual(['L25WNO-RENDER-CREDIT', 'L7VTO3-NOLKA-FYOGLE']);
 
-    expect(interpretation.diagnostic.code).toBe('internal_balance_move');
-    expect(interpretation.diagnostic.severity).toBe('warning');
-    expect(interpretation.diagnostic.evidence['providerSubtype']).toBe('spotfromfutures');
+    for (const group of groups) {
+      expect(group.evidence.sharedKeys).toContain('FTdKhdH-enbSfxp0lc676Z4aLTJnDB');
+
+      const interpretation = interpretKrakenGroup(group);
+      expect(interpretation.kind).toBe('confirmed');
+      if (interpretation.kind !== 'confirmed') {
+        continue;
+      }
+
+      expect(interpretation.draft.diagnostics?.[0]?.code).toBe('possible_asset_migration');
+      expect(interpretation.draft.diagnostics?.[0]?.metadata?.['migrationGroupKey']).toBe(
+        'FTdKhdH-enbSfxp0lc676Z4aLTJnDB'
+      );
+      expect(interpretation.draft.diagnostics?.[0]?.metadata?.['providerSubtype']).toBe('spotfromfutures');
+    }
   });
 
-  test('does not materialize spotfromfutures rows into gapable transfers', async () => {
+  test('materializes spotfromfutures rows into migration-marked transfer legs', async () => {
     const processor = new KrakenProcessor();
 
     const result = await processor.process(toInputs(spotFromFuturesRows));
@@ -228,6 +245,25 @@ describe('KrakenProcessor', () => {
       return;
     }
 
-    expect(result.value).toEqual([]);
+    expect(result.value).toHaveLength(2);
+
+    const renderCredit = result.value.find(
+      (transaction) =>
+        transaction.movements.inflows?.[0]?.assetSymbol === 'RENDER' &&
+        (transaction.movements.outflows?.length ?? 0) === 0
+    );
+    const rndrDebit = result.value.find(
+      (transaction) =>
+        transaction.movements.outflows?.[0]?.assetSymbol === 'RNDR' &&
+        (transaction.movements.inflows?.length ?? 0) === 0
+    );
+
+    expect(renderCredit?.diagnostics?.[0]?.code).toBe('possible_asset_migration');
+    expect(renderCredit?.operation).toEqual({ category: 'transfer', type: 'deposit' });
+    expect(renderCredit?.diagnostics?.[0]?.metadata?.['migrationGroupKey']).toBe('FTdKhdH-enbSfxp0lc676Z4aLTJnDB');
+
+    expect(rndrDebit?.diagnostics?.[0]?.code).toBe('possible_asset_migration');
+    expect(rndrDebit?.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+    expect(rndrDebit?.diagnostics?.[0]?.metadata?.['migrationGroupKey']).toBe('FTdKhdH-enbSfxp0lc676Z4aLTJnDB');
   });
 });

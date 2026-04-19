@@ -1,9 +1,10 @@
-import type {
-  ExplainedTargetResidual,
-  NewTransactionLink,
-  OverrideLinkType,
-  Transaction,
-  TransactionLinkMetadata,
+import {
+  getPossibleAssetMigrationGroupKey,
+  type ExplainedTargetResidual,
+  type NewTransactionLink,
+  type OverrideLinkType,
+  type Transaction,
+  type TransactionLinkMetadata,
 } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, resultDo, type Result } from '@exitbook/foundation';
@@ -15,8 +16,11 @@ import type { LinkableMovement } from '../matching/linkable-movement.js';
 import { buildLinkableMovements } from '../pre-linking/build-linkable-movements.js';
 import type { PotentialMatch } from '../shared/types.js';
 import { determineLinkType } from '../strategies/amount-timing-utils.js';
+import { areLinkingAssetsEquivalent } from '../strategies/asset-equivalence-utils.js';
 
 const MAX_MANUAL_LINK_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('50');
+const POSSIBLE_ASSET_MIGRATION_MATCH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const POSSIBLE_ASSET_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 
 export interface BuildConfirmedLinkFromExactMovementsParams {
   consumedAmount?: Decimal | undefined;
@@ -24,9 +28,9 @@ export interface BuildConfirmedLinkFromExactMovementsParams {
   reviewedAt: Date;
   reviewedBy: string;
   sourceMovement: LinkableMovement;
-  sourceTransaction: Pick<Transaction, 'platformKind'>;
+  sourceTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>;
   targetMovement: LinkableMovement;
-  targetTransaction: Pick<Transaction, 'platformKind'>;
+  targetTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>;
 }
 
 export interface PrepareManualLinkFromTransactionsParams {
@@ -67,16 +71,35 @@ export function buildConfirmedLinkFromExactMovements(
   params: BuildConfirmedLinkFromExactMovementsParams
 ): Result<NewTransactionLink, Error> {
   return resultDo(function* () {
+    const assetMatch = areLinkingAssetsEquivalent(params.sourceMovement, params.targetMovement);
+    const suspectedMigration =
+      !assetMatch &&
+      isPossibleAssetMigrationPair(
+        params.sourceTransaction,
+        params.targetTransaction,
+        params.sourceMovement,
+        params.targetMovement
+      );
+
+    if (!assetMatch && !suspectedMigration) {
+      return yield* err(
+        new Error(
+          'Cross-asset manual links require matching migration diagnostics or a unique migration-marked counterpart on the same account and platform'
+        )
+      );
+    }
+
     const match: PotentialMatch = {
       sourceMovement: params.sourceMovement,
       targetMovement: params.targetMovement,
       consumedAmount: params.consumedAmount,
       confidenceScore: parseDecimal('1'),
       matchCriteria: {
-        assetMatch: true,
+        assetMatch,
         amountSimilarity: parseDecimal('0'),
         timingValid: true,
         timingHours: 0,
+        ...(suspectedMigration ? { suspectedMigration: true } : {}),
       },
       linkType: determineLinkType(params.sourceTransaction.platformKind, params.targetTransaction.platformKind),
     };
@@ -300,6 +323,48 @@ function findTransactionById(
   return ok(transaction);
 }
 
+function isPossibleAssetMigrationPair(
+  sourceTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>,
+  targetTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>,
+  sourceMovement: Pick<LinkableMovement, 'amount' | 'timestamp'>,
+  targetMovement: Pick<LinkableMovement, 'amount' | 'timestamp'>
+): boolean {
+  const sourceMigrationGroupKey = getPossibleAssetMigrationGroupKey(sourceTransaction.diagnostics);
+  const targetMigrationGroupKey = getPossibleAssetMigrationGroupKey(targetTransaction.diagnostics);
+
+  if (
+    sourceMigrationGroupKey === undefined ||
+    targetMigrationGroupKey === undefined ||
+    sourceTransaction.accountId !== targetTransaction.accountId ||
+    sourceTransaction.platformKey !== targetTransaction.platformKey ||
+    sourceTransaction.platformKind !== targetTransaction.platformKind
+  ) {
+    return false;
+  }
+
+  if (sourceMigrationGroupKey === targetMigrationGroupKey) {
+    return true;
+  }
+
+  const timeDifferenceMs = Math.abs(sourceMovement.timestamp.getTime() - targetMovement.timestamp.getTime());
+  if (timeDifferenceMs > POSSIBLE_ASSET_MIGRATION_MATCH_WINDOW_MS) {
+    return false;
+  }
+
+  const largerAmount = sourceMovement.amount.greaterThan(targetMovement.amount)
+    ? sourceMovement.amount
+    : targetMovement.amount;
+  const smallerAmount = sourceMovement.amount.greaterThan(targetMovement.amount)
+    ? targetMovement.amount
+    : sourceMovement.amount;
+
+  if (largerAmount.isZero()) {
+    return false;
+  }
+
+  return smallerAmount.dividedBy(largerAmount).greaterThanOrEqualTo(POSSIBLE_ASSET_MIGRATION_MIN_RATIO);
+}
+
 function resolveManualLinkMovement(
   linkableMovements: LinkableMovement[],
   transaction: Transaction,
@@ -313,14 +378,6 @@ function resolveManualLinkMovement(
       movement.assetSymbol === assetSymbol
   );
 
-  if (candidates.length === 0) {
-    return err(
-      new Error(
-        `Transaction ${transaction.txFingerprint} does not have a ${direction === 'out' ? 'send' : 'receive'} movement for ${assetSymbol}`
-      )
-    );
-  }
-
   if (candidates.length > 1) {
     return err(
       new Error(
@@ -329,16 +386,42 @@ function resolveManualLinkMovement(
     );
   }
 
-  const movement = candidates[0]!;
-  if (movement.excluded) {
-    return err(
-      new Error(
-        `Transaction ${transaction.txFingerprint} ${direction === 'out' ? 'outflow' : 'inflow'} for ${assetSymbol} is excluded from linking`
-      )
-    );
+  if (candidates.length === 1) {
+    const movement = candidates[0]!;
+    if (movement.excluded) {
+      return err(
+        new Error(
+          `Transaction ${transaction.txFingerprint} ${direction === 'out' ? 'outflow' : 'inflow'} for ${assetSymbol} is excluded from linking`
+        )
+      );
+    }
+
+    return ok(movement);
   }
 
-  return ok(movement);
+  if (getPossibleAssetMigrationGroupKey(transaction.diagnostics) !== undefined) {
+    const fallbackCandidates = linkableMovements.filter(
+      (movement) => movement.transactionId === transaction.id && movement.direction === direction && !movement.excluded
+    );
+
+    if (fallbackCandidates.length === 1) {
+      return ok(fallbackCandidates[0]!);
+    }
+
+    if (fallbackCandidates.length > 1) {
+      return err(
+        new Error(
+          `Transaction ${transaction.txFingerprint} does not have a ${direction === 'out' ? 'send' : 'receive'} movement for ${assetSymbol}, and its migration-marked ${direction === 'out' ? 'outflow' : 'inflow'} side is ambiguous`
+        )
+      );
+    }
+  }
+
+  return err(
+    new Error(
+      `Transaction ${transaction.txFingerprint} does not have a ${direction === 'out' ? 'send' : 'receive'} movement for ${assetSymbol}`
+    )
+  );
 }
 
 function mergeLinkMetadata(

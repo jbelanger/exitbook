@@ -1,4 +1,12 @@
-import type { Account, AssetReviewSummary, Transaction, TransactionDraft, TransactionLink } from '@exitbook/core';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
+import {
+  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+  type Account,
+  type AssetReviewSummary,
+  type Transaction,
+  type TransactionDraft,
+  type TransactionLink,
+} from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
@@ -46,6 +54,21 @@ describe('analyzeLinkGaps', () => {
       },
       ...overrides,
     });
+
+  const withPossibleAssetMigrationDiagnostic = (transaction: Transaction, migrationGroupKey: string): Transaction => ({
+    ...transaction,
+    diagnostics: [
+      {
+        code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+        severity: 'info',
+        message: 'possible migration',
+        metadata: {
+          migrationGroupKey,
+          providerSubtype: 'spotfromfutures',
+        },
+      },
+    ],
+  });
 
   const createBlockchainDeposit = (
     overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
@@ -2741,6 +2764,150 @@ describe('analyzeLinkGaps', () => {
       outflowOccurrences: 1,
       outflowMissingAmount: '5',
     });
+  });
+
+  it('adds a likely asset migration cue when a migration-marked exchange counterpart exists', () => {
+    const withdrawal = withPossibleAssetMigrationDiagnostic(
+      createExchangeWithdrawal({
+        id: 32,
+        txFingerprint: 'kraken-rndr-outflow',
+        movements: {
+          inflows: [],
+          outflows: [
+            {
+              assetId: 'exchange:kraken:rndr',
+              assetSymbol: 'RNDR' as Currency,
+              grossAmount: parseDecimal('64.98757287'),
+              netAmount: parseDecimal('64.98757287'),
+            },
+          ],
+        },
+      }),
+      'migration-group-rndr'
+    );
+    const deposit = withPossibleAssetMigrationDiagnostic(
+      createMockTransaction({
+        id: 33,
+        txFingerprint: 'kraken-render-inflow',
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        operation: {
+          category: 'transfer',
+          type: 'deposit',
+        },
+        movements: {
+          inflows: [
+            {
+              assetId: 'exchange:kraken:render',
+              assetSymbol: 'RENDER' as Currency,
+              grossAmount: parseDecimal('64.987572'),
+              netAmount: parseDecimal('64.987572'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+      'migration-group-render'
+    );
+
+    const analysis = analyzeLinkGaps([withdrawal, deposit], []);
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.summary.unmatched_outflows).toBe(1);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.issues).toContainEqual(
+      expect.objectContaining({
+        assetId: 'exchange:kraken:rndr',
+        contextHint: expect.objectContaining({
+          code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+        }),
+        gapCue: 'likely_asset_migration',
+        gapCueCounterpartTxFingerprint: 'kraken-render-inflow',
+      })
+    );
+    expect(analysis.issues).toContainEqual(
+      expect.objectContaining({
+        assetId: 'exchange:kraken:render',
+        direction: 'inflow',
+        contextHint: expect.objectContaining({
+          code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+        }),
+        gapCue: 'likely_asset_migration',
+        gapCueCounterpartTxFingerprint: 'kraken-rndr-outflow',
+      })
+    );
+  });
+
+  it('flags exchange inflows without blockchain metadata when they are unresolved acquisitions', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createMockTransaction({
+          id: 34,
+          txFingerprint: 'kraken-render-credit',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+          movements: {
+            inflows: [
+              {
+                assetId: 'exchange:kraken:render',
+                assetSymbol: 'RENDER' as Currency,
+                grossAmount: parseDecimal('64.987572'),
+                netAmount: parseDecimal('64.987572'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.issues[0]).toMatchObject({
+      direction: 'inflow',
+      assetId: 'exchange:kraken:render',
+      platformKey: 'kraken',
+    });
+  });
+
+  it('suppresses one-sided fiat exchange inflows from gaps', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createMockTransaction({
+          id: 35,
+          txFingerprint: 'kraken-cad-credit',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+          movements: {
+            inflows: [
+              {
+                assetId: 'exchange:kraken:cad',
+                assetSymbol: 'CAD' as Currency,
+                grossAmount: parseDecimal('1000'),
+                netAmount: parseDecimal('1000'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+    expect(analysis.issues).toHaveLength(0);
   });
 
   it('should ignore withdrawals for excluded assets', () => {

@@ -1,16 +1,18 @@
 import {
   filterTransferEligibleMovements,
+  getPossibleAssetMigrationGroupKey,
   getExplainedTargetResidual,
   hasAnyDiagnosticCode,
   getTransactionScamAssessment,
   getMovementRole,
+  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   type Account,
   type AssetReviewSummary,
   type MovementRole,
   type Transaction,
   type TransactionLink,
 } from '@exitbook/core';
-import { parseAssetId, parseDecimal } from '@exitbook/foundation';
+import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
 import {
@@ -26,6 +28,7 @@ import {
 const LIKELY_SERVICE_FLOW_WINDOW_MS = 60 * 60 * 1000;
 const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 60 * 60 * 1000;
+const POSSIBLE_ASSET_MIGRATION_CUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
@@ -35,6 +38,7 @@ const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement'])
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
   'bridge_transfer',
+  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   'unsolicited_dust_fanout',
   'allocation_uncertain',
   'classification_uncertain',
@@ -71,6 +75,15 @@ interface OneSidedBlockchainActivity {
   blockchainName: string;
   direction: LinkGapDirection;
   selfAddress: string | undefined;
+  timestampMs: number;
+  totalAmount: Decimal;
+  transaction: Transaction;
+}
+
+interface OneSidedTransferActivity {
+  assetId: string;
+  assetSymbol: string;
+  direction: LinkGapDirection;
   timestampMs: number;
   totalAmount: Decimal;
   transaction: Transaction;
@@ -128,6 +141,10 @@ function isTransferSendTransaction(tx: Transaction): boolean {
   return (
     tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer')
   );
+}
+
+function isTransferReceiveTransaction(tx: Transaction): boolean {
+  return tx.operation.category === 'transfer' && (tx.operation.type === 'deposit' || tx.operation.type === 'transfer');
 }
 
 function isExcludedInflowGapTransaction(tx: Transaction): boolean {
@@ -241,14 +258,10 @@ function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverage
   return index;
 }
 
-function getOneSidedBlockchainActivity(
+function getOneSidedTransferActivity(
   tx: Transaction,
   excludedAssetIds?: ReadonlySet<string>
-): OneSidedBlockchainActivity | undefined {
-  if (!tx.blockchain) {
-    return undefined;
-  }
-
+): OneSidedTransferActivity | undefined {
   const inflowTotals = buildPositiveAssetTotalsByAssetId(
     filterTransferEligibleMovements(tx.movements.inflows),
     excludedAssetIds
@@ -258,7 +271,7 @@ function getOneSidedBlockchainActivity(
     excludedAssetIds
   );
 
-  if (outflowTotals.size === 0 && inflowTotals.size > 0 && !isExcludedInflowGapTransaction(tx)) {
+  if (outflowTotals.size === 0 && inflowTotals.size > 0 && isTransferReceiveTransaction(tx)) {
     const entry = getSingleAssetEntryById(inflowTotals);
     if (!entry) {
       return undefined;
@@ -268,9 +281,7 @@ function getOneSidedBlockchainActivity(
     return {
       assetId,
       assetSymbol,
-      blockchainName: tx.blockchain.name,
       direction: 'inflow',
-      selfAddress: normalizeAddress(tx.to),
       timestampMs: tx.timestamp,
       totalAmount,
       transaction: tx,
@@ -287,9 +298,7 @@ function getOneSidedBlockchainActivity(
     return {
       assetId,
       assetSymbol,
-      blockchainName: tx.blockchain.name,
       direction: 'outflow',
-      selfAddress: normalizeAddress(tx.from),
       timestampMs: tx.timestamp,
       totalAmount,
       transaction: tx,
@@ -297,6 +306,30 @@ function getOneSidedBlockchainActivity(
   }
 
   return undefined;
+}
+
+function getOneSidedBlockchainActivity(
+  tx: Transaction,
+  excludedAssetIds?: ReadonlySet<string>
+): OneSidedBlockchainActivity | undefined {
+  if (!tx.blockchain) {
+    return undefined;
+  }
+
+  const activity = getOneSidedTransferActivity(tx, excludedAssetIds);
+  if (activity === undefined) {
+    return undefined;
+  }
+
+  if (activity.direction === 'inflow' && isExcludedInflowGapTransaction(tx)) {
+    return undefined;
+  }
+
+  return {
+    ...activity,
+    blockchainName: tx.blockchain.name,
+    selfAddress: normalizeAddress(activity.direction === 'inflow' ? tx.to : tx.from),
+  };
 }
 
 function calculateOneSidedActivityFiatValue(activity: OneSidedBlockchainActivity): Decimal | undefined {
@@ -683,6 +716,10 @@ function formatGapDiagnosticContextLabel(code: string, message: string): string 
 
   if (code === 'bridge_transfer') {
     return 'bridge transfer';
+  }
+
+  if (code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE) {
+    return 'possible asset migration';
   }
 
   if (code === 'unsolicited_dust_fanout') {
@@ -1127,6 +1164,129 @@ function detectCrossChainBridgeCueIssueKeys(
   );
 }
 
+interface PossibleAssetMigrationCueCandidate {
+  accountId: number;
+  assetId: string;
+  direction: LinkGapDirection;
+  migrationGroupKey: string;
+  platformKey: string;
+  platformKind: Transaction['platformKind'];
+  timestampMs: number;
+  totalAmount: Decimal;
+  transactionId: number;
+  txFingerprint: string;
+}
+
+function buildPossibleAssetMigrationCueCandidates(
+  transactions: readonly Transaction[],
+  excludedAssetIds?: ReadonlySet<string>
+): PossibleAssetMigrationCueCandidate[] {
+  const candidates: PossibleAssetMigrationCueCandidate[] = [];
+
+  for (const tx of transactions) {
+    if (tx.id === undefined) {
+      continue;
+    }
+
+    const migrationGroupKey = getPossibleAssetMigrationGroupKey(tx.diagnostics);
+    if (migrationGroupKey === undefined) {
+      continue;
+    }
+
+    const activity = getOneSidedTransferActivity(tx, excludedAssetIds);
+    if (activity === undefined) {
+      continue;
+    }
+
+    candidates.push({
+      accountId: tx.accountId,
+      assetId: activity.assetId,
+      direction: activity.direction,
+      migrationGroupKey,
+      platformKey: tx.platformKey,
+      platformKind: tx.platformKind,
+      timestampMs: activity.timestampMs,
+      totalAmount: activity.totalAmount,
+      transactionId: tx.id,
+      txFingerprint: tx.txFingerprint,
+    });
+  }
+
+  return candidates;
+}
+
+function findPossibleAssetMigrationCueCounterparts(
+  candidate: PossibleAssetMigrationCueCandidate,
+  candidates: readonly PossibleAssetMigrationCueCandidate[]
+): PossibleAssetMigrationCueCandidate[] {
+  const baseMatches = candidates.filter(
+    (other) =>
+      other.transactionId !== candidate.transactionId &&
+      other.accountId === candidate.accountId &&
+      other.platformKey === candidate.platformKey &&
+      other.platformKind === candidate.platformKind &&
+      other.direction !== candidate.direction &&
+      other.assetId !== candidate.assetId &&
+      hasAmountSimilarity(candidate.totalAmount, other.totalAmount, CROSS_CHAIN_MIGRATION_MIN_RATIO)
+  );
+
+  const sameGroupMatches = baseMatches.filter((other) => other.migrationGroupKey === candidate.migrationGroupKey);
+  if (sameGroupMatches.length === 1) {
+    return sameGroupMatches;
+  }
+
+  return baseMatches.filter(
+    (other) => Math.abs(other.timestampMs - candidate.timestampMs) <= POSSIBLE_ASSET_MIGRATION_CUE_WINDOW_MS
+  );
+}
+
+function detectPossibleAssetMigrationCueIssueKeys(
+  issues: readonly LinkGapIssue[],
+  transactions: readonly Transaction[],
+  excludedAssetIds?: ReadonlySet<string>
+): Map<string, GapCueAnnotation> {
+  const candidates = buildPossibleAssetMigrationCueCandidates(transactions, excludedAssetIds);
+  if (candidates.length === 0) {
+    return new Map<string, GapCueAnnotation>();
+  }
+
+  const candidateByTransactionId = new Map(candidates.map((candidate) => [candidate.transactionId, candidate]));
+  const cueByIssueKey = new Map<string, GapCueAnnotation>();
+
+  for (const issue of issues) {
+    const candidate = candidateByTransactionId.get(issue.transactionId);
+    if (
+      candidate === undefined ||
+      candidate.assetId !== issue.assetId ||
+      candidate.direction !== issue.direction ||
+      !candidate.totalAmount.eq(parseDecimal(issue.totalAmount))
+    ) {
+      continue;
+    }
+
+    const counterparts = findPossibleAssetMigrationCueCounterparts(candidate, candidates);
+
+    if (counterparts.length !== 1) {
+      continue;
+    }
+
+    const counterpart = counterparts[0]!;
+    cueByIssueKey.set(
+      buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      {
+        cue: 'likely_asset_migration',
+        counterpartTxFingerprint: counterpart.txFingerprint,
+      }
+    );
+  }
+
+  return cueByIssueKey;
+}
+
 function isLikelyServiceSwapFundingReceiptPair(
   fundingCandidate: PairedGapCueCandidate,
   receiptCandidate: PairedGapCueCandidate
@@ -1276,6 +1436,7 @@ function detectGapCueIssueKeys(
   return mergeGapCueIssueKeys(
     serviceSwapCues,
     correlatedServiceSwapAnnotations,
+    detectPossibleAssetMigrationCueIssueKeys(issues, transactions, excludedAssetIds),
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
     detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById),
     detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)
@@ -1338,6 +1499,10 @@ function isFullyExplainedTargetResidualGap(
   return explainedResidual?.role === 'staking_reward' && explainedResidual.amount.eq(uncoveredAmount);
 }
 
+function shouldSuppressExchangeFiatInflowGap(tx: Transaction, assetSymbol: string): boolean {
+  return tx.platformKind === 'exchange' && isFiat(assetSymbol as Currency);
+}
+
 function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
@@ -1357,12 +1522,21 @@ function collectInflowGapIssues(
 
     const inflows = filterTransferEligibleMovements(tx.movements.inflows);
     const outflows = filterTransferEligibleMovements(tx.movements.outflows);
-    if (!tx.blockchain || inflows.length === 0 || outflows.length > 0 || isExcludedInflowGapTransaction(tx)) {
+    if (
+      inflows.length === 0 ||
+      outflows.length > 0 ||
+      !isTransferReceiveTransaction(tx) ||
+      isExcludedInflowGapTransaction(tx)
+    ) {
       continue;
     }
 
     const inflowTotals = buildPositiveAssetTotalsByAssetId(inflows, excludedAssetIds);
     for (const [assetId, { amount: totalAmount, assetSymbol }] of inflowTotals.entries()) {
+      if (shouldSuppressExchangeFiatInflowGap(tx, assetSymbol)) {
+        continue;
+      }
+
       const confirmedLinks = (tx.id !== undefined ? coverageIndex.confirmedByTargetTxId.get(tx.id) : undefined) ?? [];
       const confirmedForAsset = confirmedLinks.filter((link) => link.targetAssetId === assetId);
       const confirmedAmount = confirmedForAsset.reduce((sum, link) => sum.plus(link.targetAmount), parseDecimal('0'));

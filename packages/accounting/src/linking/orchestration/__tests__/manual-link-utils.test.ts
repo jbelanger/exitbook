@@ -1,3 +1,4 @@
+import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE, type Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
@@ -19,6 +20,23 @@ const noopLogger = {
   trace: vi.fn(),
   warn: vi.fn(),
 } as unknown as Logger;
+
+function withPossibleAssetMigrationDiagnostic(transaction: Transaction, migrationGroupKey: string): Transaction {
+  return {
+    ...transaction,
+    diagnostics: [
+      {
+        code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+        severity: 'info',
+        message: 'possible migration',
+        metadata: {
+          migrationGroupKey,
+          providerSubtype: 'spotfromfutures',
+        },
+      },
+    ],
+  };
+}
 
 describe('manual-link-utils', () => {
   it('prepares a confirmed manual link from an exact outflow/inflow pair', () => {
@@ -144,6 +162,89 @@ describe('manual-link-utils', () => {
       variance: '0.00079',
       variancePct: '26.33',
     });
+  });
+
+  it('prepares a cross-asset manual link when both transactions are unique migration-marked counterparts', () => {
+    const sourceTransaction = withPossibleAssetMigrationDiagnostic(
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        platformKind: 'exchange',
+        datetime: '2024-08-15T12:00:00.000Z',
+        outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
+      }),
+      'migration-group-rndr'
+    );
+    const targetTransaction = withPossibleAssetMigrationDiagnostic(
+      createTransaction({
+        id: 2,
+        source: 'kraken',
+        platformKind: 'exchange',
+        datetime: '2024-08-06T12:00:00.000Z',
+        inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:kraken:render' }],
+      }),
+      'migration-group-render'
+    );
+
+    const prepared = assertOk(
+      prepareManualLinkFromTransactions(
+        {
+          transactions: [sourceTransaction, targetTransaction],
+          sourceTransactionId: sourceTransaction.id,
+          targetTransactionId: targetTransaction.id,
+          assetSymbol: 'RNDR' as Currency,
+          reviewedAt: new Date('2026-04-19T00:00:00.000Z'),
+          reviewedBy: 'cli-user',
+          metadata: buildManualLinkOverrideMetadata('override-migration', 'transfer'),
+        },
+        noopLogger
+      )
+    );
+
+    expect(prepared.link.linkType).toBe('exchange_to_exchange');
+    expect(prepared.link.sourceAssetId).toBe('exchange:kraken:rndr');
+    expect(prepared.link.targetAssetId).toBe('exchange:kraken:render');
+    expect(prepared.link.matchCriteria.assetMatch).toBe(false);
+    expect(prepared.link.matchCriteria.suspectedMigration).toBe(true);
+  });
+
+  it('rejects cross-asset manual links without matching migration diagnostics', () => {
+    const sourceTransaction = withPossibleAssetMigrationDiagnostic(
+      createTransaction({
+        id: 1,
+        source: 'kraken',
+        platformKind: 'exchange',
+        datetime: '2024-08-15T12:00:00.000Z',
+        outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
+      }),
+      'migration-group-1'
+    );
+    const targetTransaction = withPossibleAssetMigrationDiagnostic(
+      createTransaction({
+        id: 2,
+        source: 'coinbase',
+        platformKind: 'exchange',
+        datetime: '2024-08-06T12:00:00.000Z',
+        inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:coinbase:render' }],
+      }),
+      'migration-group-2'
+    );
+
+    const error = assertErr(
+      prepareManualLinkFromTransactions(
+        {
+          transactions: [sourceTransaction, targetTransaction],
+          sourceTransactionId: sourceTransaction.id,
+          targetTransactionId: targetTransaction.id,
+          assetSymbol: 'RNDR' as Currency,
+          reviewedAt: new Date('2026-04-19T00:00:00.000Z'),
+          reviewedBy: 'cli-user',
+        },
+        noopLogger
+      )
+    );
+
+    expect(error.message).toContain('matching migration diagnostics or a unique migration-marked counterpart');
   });
 
   it('prepares grouped many-to-one manual links with partial metadata', () => {

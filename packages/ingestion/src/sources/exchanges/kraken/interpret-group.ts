@@ -1,4 +1,4 @@
-import type { TransactionDiagnostic } from '@exitbook/core';
+import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE, type TransactionDiagnostic } from '@exitbook/core';
 import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 
@@ -197,6 +197,45 @@ function buildDustSweepingDiagnostics(
   ];
 }
 
+function buildPossibleAssetMigrationDiagnostics(
+  group: ExchangeCorrelationGroup,
+  inflows: ExchangeMovementDraft[],
+  outflows: ExchangeMovementDraft[]
+): TransactionDiagnostic[] {
+  const migrationGroupKey = group.events
+    .map((event) => event.providerMetadata['refid'])
+    .find((refid): refid is string => typeof refid === 'string' && refid.trim().length > 0);
+
+  return [
+    {
+      code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+      severity: 'info',
+      message:
+        'Kraken spotfromfutures rows may reflect an internal asset migration. Inspect the paired ledger rows before creating a manual link.',
+      metadata: {
+        inflows: inflows.map((movement) => ({
+          assetId: movement.assetId,
+          amount: movement.grossAmount,
+        })),
+        outflows: outflows.map((movement) => ({
+          assetId: movement.assetId,
+          amount: movement.grossAmount,
+        })),
+        migrationGroupKey: migrationGroupKey ?? group.correlationKey,
+        providerEventIds: group.events.map((event) => event.providerEventId),
+        providerSubtype: 'spotfromfutures',
+      },
+    },
+  ];
+}
+
+function combineDiagnostics(
+  ...diagnosticGroups: (TransactionDiagnostic[] | undefined)[]
+): TransactionDiagnostic[] | undefined {
+  const diagnostics = diagnosticGroups.flatMap((group) => group ?? []);
+  return diagnostics.length > 0 ? diagnostics : undefined;
+}
+
 export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
   const interpretedEvents: InterpretedKrakenEvent[] = [];
 
@@ -262,6 +301,10 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
   const consolidatedOutflows = consolidateMovements(outflows);
   const consolidatedFees = consolidateFees(fees);
   const sharedSubtype = getSharedKrakenSubtype(interpretedEvents);
+  const migrationDiagnostics =
+    sharedSubtype === 'spotfromfutures'
+      ? buildPossibleAssetMigrationDiagnostics(group, consolidatedInflows, consolidatedOutflows)
+      : undefined;
 
   const overlappingAssetIds = consolidatedInflows
     .map((movement) => movement.assetId)
@@ -391,33 +434,17 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
     };
   }
 
-  if (sharedSubtype === 'spotfromfutures') {
-    return {
-      kind: 'unsupported',
-      diagnostic: diagnostic(
-        group,
-        'internal_balance_move',
-        'warning',
-        'Kraken spotfromfutures rows represent an internal balance move and were skipped instead of materialized as an external transfer.',
-        {
-          inflows: consolidatedInflows.map((movement) => ({
-            assetId: movement.assetId,
-            amount: movement.grossAmount,
-          })),
-          outflows: consolidatedOutflows.map((movement) => ({
-            assetId: movement.assetId,
-            amount: movement.grossAmount,
-          })),
-          providerSubtype: sharedSubtype,
-        }
-      ),
-    };
-  }
-
   if (consolidatedInflows.length > 0 && consolidatedOutflows.length === 0) {
     return {
       kind: 'confirmed',
-      draft: buildDraft(group, { category: 'transfer', type: 'deposit' }, consolidatedInflows, [], consolidatedFees),
+      draft: buildDraft(
+        group,
+        { category: 'transfer', type: 'deposit' },
+        consolidatedInflows,
+        [],
+        consolidatedFees,
+        migrationDiagnostics
+      ),
     };
   }
 
@@ -429,7 +456,8 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
         { category: 'transfer', type: 'withdrawal' },
         [],
         consolidatedOutflows,
-        consolidatedFees
+        consolidatedFees,
+        migrationDiagnostics
       ),
     };
   }
@@ -442,7 +470,8 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
         { category: 'trade', type: 'swap' },
         consolidatedInflows,
         consolidatedOutflows,
-        consolidatedFees
+        consolidatedFees,
+        migrationDiagnostics
       ),
     };
   }
@@ -472,7 +501,7 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
       consolidatedInflows,
       consolidatedOutflows,
       consolidatedFees,
-      [uncertaintyNote]
+      combineDiagnostics([uncertaintyNote], migrationDiagnostics)
     ),
   };
 }

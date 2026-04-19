@@ -1,3 +1,4 @@
+import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE } from '@exitbook/core';
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
@@ -418,9 +419,12 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const issueSuggestsGapException = gapIssueSuggestsGapException(gapIssue);
   const likelyOutcome =
     formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(item);
+  const createManualLinkCommand = buildManualLinkCreateCommand(item, gapCueCounterpartTransactionRef);
   let nextStep: string;
   if (suggestedProposalRefs.length > 0) {
     nextStep = `exitbook links confirm ${suggestedProposalRefs[0]!}`;
+  } else if (createManualLinkCommand !== undefined) {
+    nextStep = createManualLinkCommand;
   } else if (issueSuggestsManualLink && gapCueCounterpartTransactionRef !== undefined) {
     nextStep = `exitbook transactions view ${gapCueCounterpartTransactionRef}`;
   } else if (issueSuggestsManualLink) {
@@ -498,6 +502,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
           buildDetailLine('Inspect counterpart', `exitbook transactions view ${gapCueCounterpartTransactionRef}`),
         ]
       : []),
+    ...(createManualLinkCommand !== undefined ? [buildDetailLine('Create manual link', createManualLinkCommand)] : []),
     ...(likelyOutcome ? [buildDetailLine('Likely outcome', likelyOutcome)] : []),
     ...(gapIssue.contextHint ? [buildDetailLine('Context', colorizeText('yellow', gapIssue.contextHint.message))] : []),
     ...buildCrossProfileCounterpartDetailLines(item),
@@ -769,11 +774,33 @@ function formatProposalKindCount(
 function formatGapReadiness(item: LinkGapBrowseItem): string {
   const readiness = formatGapSuggestionAvailability(item.gapIssue);
   const cueSuffix = item.gapIssue.gapCue ? ` · ${formatGapCueLabel(item.gapIssue.gapCue)}` : '';
-  const contextSuffix = item.gapIssue.contextHint ? ` · ${item.gapIssue.contextHint.label}` : '';
+  const cueCounterpartSuffix =
+    item.gapIssue.gapCueCounterpartTxFingerprint !== undefined
+      ? ` · counterpart ${formatTransactionFingerprintRef(item.gapIssue.gapCueCounterpartTxFingerprint)}`
+      : '';
+  const suppressMigrationContextSuffix =
+    item.gapIssue.gapCue === 'likely_asset_migration' &&
+    item.gapIssue.contextHint?.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE;
+  const contextSuffix =
+    item.gapIssue.contextHint && !suppressMigrationContextSuffix ? ` · ${item.gapIssue.contextHint.label}` : '';
   const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);
   const crossProfileSuffix = crossProfileCueLabel ? ` · ${crossProfileCueLabel}` : '';
 
-  return `${readiness}${cueSuffix}${contextSuffix}${crossProfileSuffix}`;
+  return `${readiness}${cueSuffix}${cueCounterpartSuffix}${contextSuffix}${crossProfileSuffix}`;
+}
+
+function buildManualLinkCreateCommand(
+  item: LinkGapBrowseItem,
+  counterpartTransactionRef: string | undefined
+): string | undefined {
+  if (item.gapIssue.gapCue !== 'likely_asset_migration' || counterpartTransactionRef === undefined) {
+    return undefined;
+  }
+
+  const sourceTransactionRef = item.gapIssue.direction === 'outflow' ? item.transactionRef : counterpartTransactionRef;
+  const targetTransactionRef = item.gapIssue.direction === 'outflow' ? counterpartTransactionRef : item.transactionRef;
+
+  return `exitbook links create ${sourceTransactionRef} ${targetTransactionRef} --asset ${item.gapIssue.assetSymbol}`;
 }
 
 function buildCrossProfileCounterpartDetailLines(item: LinkGapBrowseItem): string[] {

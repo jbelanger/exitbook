@@ -3,6 +3,7 @@ import {
   hasImpliedFeeAmount,
   isPartialMatchLinkMetadata,
   isSameHashExternalLinkMetadata,
+  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   type LinkStatus,
   type MatchCriteria,
   type TransactionLink,
@@ -268,6 +269,8 @@ export function formatGapCueLabel(cue: GapCueKind): string {
   switch (cue) {
     case 'likely_dust':
       return 'likely low-value dust';
+    case 'likely_asset_migration':
+      return 'likely internal asset migration';
     case 'likely_correlated_service_swap':
       return 'likely correlated service swap';
     case 'likely_cross_chain_migration':
@@ -288,11 +291,16 @@ export function gapContextHintSuggestsGapException(_contextHint: LinkGapIssue['c
 }
 
 export function gapCueSuggestsManualLink(cue: GapCueKind | undefined): boolean {
-  return cue === 'likely_cross_chain_bridge' || cue === 'likely_cross_chain_migration';
+  return (
+    cue === 'likely_asset_migration' || cue === 'likely_cross_chain_bridge' || cue === 'likely_cross_chain_migration'
+  );
 }
 
 export function gapContextHintSuggestsManualLink(contextHint: LinkGapIssue['contextHint']): boolean {
-  return contextHint?.kind === 'diagnostic' && contextHint.code === 'bridge_transfer';
+  return (
+    contextHint?.kind === 'diagnostic' &&
+    (contextHint.code === 'bridge_transfer' || contextHint.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE)
+  );
 }
 
 export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
@@ -313,6 +321,14 @@ export function formatGapLikelyOutcome(
 
   if (issue.contextHint?.kind === 'diagnostic' && issue.contextHint.code === 'exchange_deposit_address_credit') {
     return 'Exchange export only proves a credit into the platform deposit address; inspect the raw chain source before linking or resolving this gap.';
+  }
+
+  if (issue.gapCue === 'likely_asset_migration') {
+    if (counterpartTransactionRef !== undefined) {
+      return 'Likely internal asset migration; inspect the counterpart, then create a manual link if basis should carry between the old and new asset.';
+    }
+
+    return 'Migration evidence exists; inspect the counterpart and create a manual link if this reflects a same-owner asset migration.';
   }
 
   if (gapIssueSuggestsManualLink(issue)) {

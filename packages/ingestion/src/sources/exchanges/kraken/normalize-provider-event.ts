@@ -5,6 +5,17 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';
 
+function getKrakenCorrelationKeys(raw: KrakenLedgerEntry, eventId: string): string[] {
+  const normalizedSubtype = raw.subtype?.trim().toLowerCase();
+  const trimmedRefId = raw.refid?.trim() ?? '';
+
+  if (normalizedSubtype === 'spotfromfutures') {
+    return trimmedRefId.length > 0 ? [eventId, trimmedRefId] : [eventId];
+  }
+
+  return trimmedRefId.length > 0 ? [trimmedRefId] : [eventId];
+}
+
 export function normalizeKrakenProviderEvent(
   raw: KrakenLedgerEntry,
   eventId: string
@@ -21,7 +32,6 @@ export function normalizeKrakenProviderEvent(
   }
 
   const occurredAt = Math.floor(raw.time * 1000);
-  const correlationKey = raw.refid.trim() || eventId;
 
   return ok({
     providerEventId: eventId,
@@ -34,7 +44,7 @@ export function normalizeKrakenProviderEvent(
     rawFee: raw.fee,
     rawFeeCurrency: currencyResult.value,
     providerHints: {
-      correlationKeys: [correlationKey],
+      correlationKeys: getKrakenCorrelationKeys(raw, eventId),
       directionHint: getDirectionHint(raw.amount),
     },
     providerMetadata: {
