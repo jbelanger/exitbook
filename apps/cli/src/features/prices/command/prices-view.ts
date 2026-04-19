@@ -16,10 +16,10 @@ import {
   type CliFailure,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { ViewCommandResult } from '../../../cli/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../cli/view-utils.js';
 import { type CommandRuntime, renderApp, withCommandPriceProviderRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import type {
   AssetBreakdownEntry,
   PriceCoverageInfo,

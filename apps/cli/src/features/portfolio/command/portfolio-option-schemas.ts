@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { validateAccountingMethodJurisdictionOptions } from '../../shared/option-schema-primitives.js';
+import { validateAccountingMethodJurisdictionOptions } from '../../../cli/option-schema-primitives.js';
 
 export const PortfolioCommandOptionsSchema = z
   .object({

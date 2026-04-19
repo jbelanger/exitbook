@@ -6,7 +6,7 @@ import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
 
-import { getAllMovements } from '../../shared/view-utils.js';
+import { getAllMovements } from '../../../cli/view-utils.js';
 import type {
   AssetBreakdownEntry,
   MissingPriceMovement,

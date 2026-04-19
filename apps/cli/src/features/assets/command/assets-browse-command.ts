@@ -20,8 +20,8 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
+import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { outputAssetStaticDetail, outputAssetsStaticList } from '../view/assets-static-renderer.js';
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
 import { createAssetsViewState, type AssetsViewFilter } from '../view/assets-view-state.js';

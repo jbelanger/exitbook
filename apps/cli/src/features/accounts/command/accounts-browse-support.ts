@@ -2,10 +2,10 @@ import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
+import type { ViewCommandResult } from '../../../cli/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../cli/view-utils.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import {
   buildAccountSelectorFilters,
   formatResolvedAccountSelectorInput,

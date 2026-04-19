@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import { jsonSuccess, textSuccess, type CliCompletion } from '../../../../cli/command.js';
-import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../../cli/view-utils.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import type { LinkGapBrowseItem } from '../../links-gaps-browse-model.js';
 import { outputLinkGapStaticDetail, outputLinkGapsStaticList } from '../../view/links-static-renderer.js';

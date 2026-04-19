@@ -3,7 +3,7 @@ import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildViewMeta, getAllMovements, parseDate } from '../view-utils.js';
+import { buildViewMeta, getAllMovements, parseDate } from '../../../cli/view-utils.js';
 
 describe('parseDate', () => {
   it('should parse valid ISO date string', () => {

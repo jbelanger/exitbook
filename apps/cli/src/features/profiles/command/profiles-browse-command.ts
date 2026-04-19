@@ -11,13 +11,13 @@ import {
   toCliResult,
   type CliFailure,
 } from '../../../cli/command.js';
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 import {
   detectCliOutputFormat,
   parseCliBrowseRootInvocationResult,
   parseCliCommandOptionsResult,
 } from '../../../cli/options.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { withProfileKeyHint } from '../profile-display.js';
 import { buildCliProfileService } from '../profile-service.js';
 import type { ProfileDetailViewItem, ProfileListViewItem } from '../view/profiles-static-renderer.js';

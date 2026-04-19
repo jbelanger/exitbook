@@ -20,9 +20,9 @@ import { render } from 'ink';
 import type React from 'react';
 
 import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
-import { getDataDir } from '../features/shared/data-dir.js';
 
 import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from './app-runtime.js';
+import { getDataDir } from './data-dir.js';
 import { createNonInteractiveTuiError, isInteractiveTerminal } from './interactive-terminal.js';
 
 const logger = getLogger('command-runtime');

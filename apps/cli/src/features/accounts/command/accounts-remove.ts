@@ -10,10 +10,10 @@ import {
   textSuccess,
   toCliResult,
 } from '../../../cli/command.js';
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { promptConfirmDecision } from '../../../cli/prompts.js';
 import { formatSuccessLine } from '../../../cli/success.js';
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { getAccountSelectorErrorExitCode } from '../account-selector.js';
 
 import type { AccountRemovalImpactCounts } from './account-removal-service.js';

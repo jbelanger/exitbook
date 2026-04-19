@@ -47,7 +47,7 @@ The app runtime is created once at startup and holds immutable host config:
 - data directory / DB path
 - adapter registry
 - normalized provider config
-- optional explorer config
+- explorer-config path plus any explicit injected explorer config for tests or provider-only callers
 
 It does not own live command resources.
 
@@ -111,27 +111,42 @@ cli/
   command.ts       - public CLI boundary helpers and command result modeling
   error.ts         - CLI failure rendering and process-boundary exit
   exit-codes.ts    - semantic CLI exit codes
+  option-schema-primitives.ts - shared CLI-facing Zod fragments and accounting option refinements
   options.ts       - output-format detection and result-returning option parsing
   output.ts        - JSON success output writing
   presentation.ts  - browse surface resolution
   prompts.ts       - prompt decision helpers and small CLI-facing display utilities
   response.ts      - structured JSON response shapes and error-code mapping
+  view-utils.ts    - shared browse/view metadata and date-filter helpers
 
 runtime/
   app-runtime.ts
   command-runtime.ts
+  consumer-input-readiness.ts
+  data-dir.ts
+  price-readiness.ts
+  projection-readiness.ts
+  projection-reset.ts
 
 features/<feature>/command/
   <feature>.ts               - Commander registration, option parsing, JSON/TUI dispatch, rendering
   <feature>-command-scope.ts - feature-owned preparation of profile/prereqs/runtime wiring
   run-<feature>.ts           - feature execution against the prepared feature scope
 
-features/shared/
-  consumer-input-readiness.ts
-  projection-readiness.ts
-  projection-reset.ts
-  price-readiness.ts
+features/assets/command/
   asset-review-projection-runtime.ts
+
+features/import/command/
+  import-processing-workflow-runtime.ts
+
+features/links/command/run/
+  links-runtime.ts
+
+features/prices/command/
+  prices-enrich-runtime.ts
+
+features/providers/shared/
+  provider-summary.ts
 ```
 
 Existing `*-handler.ts` files may remain as internal execution objects when they
@@ -191,10 +206,10 @@ Prefer explicit functions such as:
 
 The current CLI files for this are:
 
-- `apps/cli/src/features/shared/consumer-input-readiness.ts`
-- `apps/cli/src/features/shared/projection-readiness.ts`
-- `apps/cli/src/features/shared/projection-reset.ts`
-- `apps/cli/src/features/shared/price-readiness.ts`
+- `apps/cli/src/runtime/consumer-input-readiness.ts`
+- `apps/cli/src/runtime/projection-readiness.ts`
+- `apps/cli/src/runtime/projection-reset.ts`
+- `apps/cli/src/runtime/price-readiness.ts`
 
 Keep those modules flat and explicit. Do not reintroduce a registry or strategy map for prereq execution.
 

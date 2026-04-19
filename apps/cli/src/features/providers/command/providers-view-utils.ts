@@ -6,13 +6,13 @@ import {
 import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
-import { providerToSummary } from '../../shared/provider-summary.js';
 import type {
   HealthStatus,
   ProviderAggregateStats,
   ProviderBlockchainItem,
   ProviderViewItem,
 } from '../providers-view-model.js';
+import { providerToSummary } from '../shared/provider-summary.js';
 
 /**
  * Valid health filter values.

@@ -5,7 +5,7 @@ import { ok, type Result } from '@exitbook/foundation';
 import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion/adapters';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
-import { getDataDir } from '../features/shared/data-dir.js';
+import { getDataDir } from './data-dir.js';
 
 export interface CliAppRuntime {
   dataDir: string;

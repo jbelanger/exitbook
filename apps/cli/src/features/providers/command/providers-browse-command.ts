@@ -18,9 +18,9 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
+import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { buildDefinedFilters } from '../../shared/view-utils.js';
 import type { ProviderViewItem } from '../providers-view-model.js';
 import { ProvidersViewApp, computeHealthCounts, createProvidersViewState } from '../view/index.js';
 import { outputProviderStaticDetail, outputProvidersStaticList } from '../view/providers-static-renderer.js';

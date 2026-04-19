@@ -13,9 +13,9 @@ import {
   type CliCommandResult,
 } from '../../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../../cli/view-utils.js';
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
-import { buildDefinedFilters, buildViewMeta } from '../../../shared/view-utils.js';
 import { formatTransactionFingerprintRef } from '../../../transactions/transaction-selector.js';
 import { buildLinkGapRef } from '../../link-selector.js';
 import type { ResolvedLinkGapBrowseItem } from '../../links-gaps-browse-model.js';
