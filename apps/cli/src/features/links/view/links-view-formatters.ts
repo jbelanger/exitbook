@@ -270,8 +270,6 @@ export function formatGapCueLabel(cue: GapCueKind): string {
       return 'likely low-value dust';
     case 'likely_correlated_service_swap':
       return 'likely correlated service swap';
-    case 'likely_receive_then_forward':
-      return 'likely receive then forward';
     case 'likely_cross_chain_migration':
       return 'likely cross-chain migration';
     case 'likely_cross_chain_bridge':
@@ -282,7 +280,7 @@ export function formatGapCueLabel(cue: GapCueKind): string {
 }
 
 export function gapCueSuggestsGapException(cue: GapCueKind | undefined): boolean {
-  return cue === 'likely_correlated_service_swap' || cue === 'likely_receive_then_forward';
+  return cue === 'likely_correlated_service_swap';
 }
 
 export function gapContextHintSuggestsGapException(_contextHint: LinkGapIssue['contextHint']): boolean {

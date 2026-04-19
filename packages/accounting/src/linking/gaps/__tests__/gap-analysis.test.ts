@@ -1948,7 +1948,7 @@ describe('analyzeLinkGaps', () => {
     ]);
   });
 
-  it('should cue same-wallet near-equal inflow then outflow pairs as likely receive then forward', () => {
+  it('should leave same-wallet near-equal inflow then outflow pairs uncued without stronger evidence', () => {
     const usdtDeposit = createBlockchainDeposit({
       id: 412,
       accountId: 30,
@@ -2016,14 +2016,8 @@ describe('analyzeLinkGaps', () => {
     });
 
     expect(analysis.summary.total_issues).toBe(2);
-    expect(analysis.issues.map((issue) => issue.gapCue)).toStrictEqual([
-      'likely_receive_then_forward',
-      'likely_receive_then_forward',
-    ]);
-    expect(analysis.issues.map((issue) => issue.gapCueCounterpartTxFingerprint)).toStrictEqual([
-      'eth-usdt-forward',
-      'eth-usdt-receipt',
-    ]);
+    expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
+    expect(analysis.issues.every((issue) => issue.gapCueCounterpartTxFingerprint === undefined)).toBe(true);
   });
 
   it('should cue a unique native funding plus token receipt pair as a likely correlated service swap and leave the later token withdrawal uncued', () => {
@@ -2148,7 +2142,7 @@ describe('analyzeLinkGaps', () => {
     });
   });
 
-  it('should fall back to receive-then-forward when multiple native fundings could explain the same token receipt', () => {
+  it('should leave token receipt and later withdrawal uncued when multiple native fundings could explain the same token receipt', () => {
     const firstFunding = createBlockchainWithdrawal({
       id: 417,
       accountId: 30,
@@ -2275,8 +2269,8 @@ describe('analyzeLinkGaps', () => {
     expect(Object.fromEntries(analysis.issues.map((issue) => [issue.txFingerprint, issue.gapCue]))).toStrictEqual({
       'eth-service-funding-first': undefined,
       'eth-service-funding-second': undefined,
-      'eth-usdt-service-forward-ambiguous': 'likely_receive_then_forward',
-      'eth-usdt-service-receipt-ambiguous': 'likely_receive_then_forward',
+      'eth-usdt-service-forward-ambiguous': undefined,
+      'eth-usdt-service-receipt-ambiguous': undefined,
     });
   });
 

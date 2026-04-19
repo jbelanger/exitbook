@@ -490,35 +490,4 @@ describe('links static renderer', () => {
 
     expect(stripAnsi(detailOutput)).toContain('Cue: likely low-value dust');
   });
-
-  it('shows the likely receive then forward cue label in gap detail', () => {
-    const analysis = createMockGapAnalysis();
-    const gapIssue = {
-      ...analysis.issues[0]!,
-      gapCue: 'likely_receive_then_forward' as const,
-      suggestedCount: 0,
-      gapCueCounterpartTxFingerprint: 'eth-outflow-2',
-    };
-    const item = {
-      gapRef: buildLinkGapRef({
-        txFingerprint: gapIssue.txFingerprint,
-        assetId: gapIssue.assetId,
-        direction: gapIssue.direction,
-      }),
-      gapIssue,
-      transactionGapCount: 1,
-      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
-    };
-
-    const detailOutput = buildLinkGapStaticDetail(item);
-
-    expect(stripAnsi(detailOutput)).toContain('Cue: likely receive then forward');
-    expect(stripAnsi(detailOutput)).toContain(
-      `Inspect counterpart: exitbook transactions view ${formatTransactionFingerprintRef('eth-outflow-2')}`
-    );
-    expect(stripAnsi(detailOutput)).toContain(
-      'Likely outcome: No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.'
-    );
-    expect(stripAnsi(detailOutput)).toContain(`Next: exitbook links gaps resolve ${item.gapRef}`);
-  });
 });

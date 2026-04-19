@@ -5,7 +5,6 @@ export type LinkGapDirection = 'inflow' | 'outflow';
 export type GapCueKind =
   | 'likely_dust'
   | 'likely_correlated_service_swap'
-  | 'likely_receive_then_forward'
   | 'likely_cross_chain_migration'
   | 'likely_cross_chain_bridge'
   | 'unmatched_reference';
