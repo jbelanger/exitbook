@@ -2,12 +2,9 @@ import { type PricesEnrichOptions, type PricesEnrichResult } from '@exitbook/acc
 import { resultTryAsync, type Result } from '@exitbook/foundation';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
-import {
-  executeCliPriceEnrichmentRuntime,
-  withCliPriceEnrichmentRuntime,
-} from '../../../runtime/price-enrichment-runtime.js';
 
 import type { PricesEnrichCommandScope } from './prices-enrich-command-scope.js';
+import { executeCliPriceEnrichmentRuntime, withCliPriceEnrichmentRuntime } from './prices-enrich-runtime.js';
 
 export async function runPricesEnrich(
   scope: PricesEnrichCommandScope,

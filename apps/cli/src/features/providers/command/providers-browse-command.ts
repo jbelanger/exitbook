@@ -18,7 +18,7 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
-import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
 import { buildDefinedFilters } from '../../shared/view-utils.js';
 import type { ProviderViewItem } from '../providers-view-model.js';
@@ -173,8 +173,13 @@ async function buildProvidersBrowsePresentation(
     return err(validatedHealthResult.error);
   }
 
+  const explorerConfigResult = loadCliBlockchainExplorersConfig(appRuntime);
+  if (explorerConfigResult.isErr()) {
+    return err(createCliFailure(explorerConfigResult.error, ExitCodes.GENERAL_ERROR));
+  }
+
   try {
-    const handler = new ProvidersViewHandler(appRuntime.dataDir, appRuntime.blockchainExplorersConfig);
+    const handler = new ProvidersViewHandler(appRuntime.dataDir, explorerConfigResult.value);
     const viewItems = await handler.execute({
       blockchain: params.blockchain,
       health: validatedHealthResult.value,

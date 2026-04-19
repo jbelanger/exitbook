@@ -4,8 +4,12 @@ import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import {
+  executeCliPriceEnrichmentRuntime,
+  withCliPriceEnrichmentRuntime,
+} from '../features/prices/command/prices-enrich-runtime.js';
+
 import type { CommandRuntime } from './command-runtime.js';
-import { executeCliPriceEnrichmentRuntime, withCliPriceEnrichmentRuntime } from './price-enrichment-runtime.js';
 import type { PrereqExecutionOptions } from './projection-readiness.js';
 
 const logger = getLogger('price-readiness');

@@ -582,7 +582,13 @@ export class AlchemyApiClient extends BaseApiClient {
         toAddress: address,
       };
 
-      const { from: fromPageKey, to: toPageKey } = parseDualPageToken(ctx.pageToken);
+      const parsedPageToken = parseDualPageToken(ctx.pageToken);
+      if (parsedPageToken.isErr()) {
+        this.logger.error(`Invalid Alchemy page token - Error: ${getErrorMessage(parsedPageToken.error)}`);
+        return err(parsedPageToken.error);
+      }
+
+      const { from: fromPageKey, to: toPageKey } = parsedPageToken.value;
       if (fromPageKey) {
         fromParams.pageKey = fromPageKey;
       }

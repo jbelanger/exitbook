@@ -68,11 +68,7 @@ function configureCliLogger(): void {
 
 function createProgram(): Command {
   const program = new Command();
-  const appRuntimeResult = createCliAppRuntime();
-  if (appRuntimeResult.isErr()) {
-    throw appRuntimeResult.error;
-  }
-  const appRuntime = appRuntimeResult.value;
+  const appRuntime = createCliAppRuntime();
 
   program
     .name('exitbook')

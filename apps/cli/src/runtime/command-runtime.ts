@@ -22,7 +22,7 @@ import type React from 'react';
 import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
 import { getDataDir } from '../features/shared/data-dir.js';
 
-import type { CliAppRuntime } from './app-runtime.js';
+import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from './app-runtime.js';
 import { createNonInteractiveTuiError, isInteractiveTerminal } from './interactive-terminal.js';
 
 const logger = getLogger('command-runtime');
@@ -131,9 +131,10 @@ export class CommandRuntime {
   async openBlockchainProviderRuntime(
     options?: BlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
   ): Promise<IBlockchainProviderRuntime> {
+    const explorerConfig = options?.explorerConfig ?? this.resolveBlockchainExplorerConfig();
     const runtimeResult = await createBlockchainProviderRuntime({
       dataDir: options?.dataDir ?? this.dataDir,
-      explorerConfig: options?.explorerConfig ?? this.app?.blockchainExplorersConfig,
+      explorerConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
     });
@@ -251,6 +252,16 @@ export class CommandRuntime {
     } else if (errors.length > 1) {
       throw new AggregateError(errors, 'Multiple cleanup failures');
     }
+  }
+
+  private resolveBlockchainExplorerConfig(): BlockchainExplorersConfig | undefined {
+    const appRuntime = this.requireAppRuntime();
+    const explorerConfigResult = loadCliBlockchainExplorersConfig(appRuntime);
+    if (explorerConfigResult.isErr()) {
+      throw explorerConfigResult.error;
+    }
+
+    return explorerConfigResult.value;
   }
 }
 

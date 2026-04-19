@@ -5,12 +5,12 @@ import { readAssetReviewDecisions, readExcludedAssetIds } from '@exitbook/data/o
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 
-import { createCliAssetReviewProjectionRuntime } from '../../../runtime/asset-review-projection-runtime.js';
 import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
+import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type {
   AssetsBrowseResult,
   AssetExclusionsResult,

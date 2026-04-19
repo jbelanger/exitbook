@@ -638,23 +638,13 @@ export class RoutescanApiClient extends BaseApiClient {
   }
 
   private parseStartBlockFromPageToken(pageToken?: string): number | undefined {
-    if (!pageToken) return undefined;
-
-    if (pageToken.startsWith(ROUTESCAN_BLOCK_CURSOR_PREFIX)) {
-      const rawValue = pageToken.slice(ROUTESCAN_BLOCK_CURSOR_PREFIX.length);
-      const parsed = Number(rawValue);
-      return Number.isFinite(parsed) ? parsed : undefined;
+    if (!pageToken || !pageToken.startsWith(ROUTESCAN_BLOCK_CURSOR_PREFIX)) {
+      return undefined;
     }
 
-    // Legacy numeric page tokens are no longer supported due to API limits.
-    // We fall back to block-based cursors to avoid overlapping pages.
-    if (/^\d+$/.test(pageToken)) {
-      this.logger.warn(
-        `Ignoring legacy numeric page token for Routescan pagination; falling back to block-based cursor. Token: ${pageToken}`
-      );
-    }
-
-    return undefined;
+    const rawValue = pageToken.slice(ROUTESCAN_BLOCK_CURSOR_PREFIX.length);
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   private getStartBlock(ctx: StreamingPageContext): number {

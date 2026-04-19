@@ -9,12 +9,12 @@ import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CliOutputFormat } from '../cli/options.js';
+import { createCliAssetReviewProjectionRuntime } from '../features/assets/command/asset-review-projection-runtime.js';
+import { executeCliLinkingRuntime, withCliLinkingRuntime } from '../features/links/command/run/links-runtime.js';
 import { resolveCommandProfile } from '../features/profiles/profile-resolution.js';
 
-import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type { CommandRuntime } from './command-runtime.js';
 import { withIngestionRuntime } from './ingestion-runtime.js';
-import { executeCliLinkingRuntime, withCliLinkingRuntime } from './linking-runtime.js';
 import { resetProjections } from './projection-reset.js';
 
 const logger = getLogger('projection-readiness');

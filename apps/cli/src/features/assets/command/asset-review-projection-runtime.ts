@@ -10,7 +10,7 @@ import {
   type AssetReviewProjectionRuntime,
 } from '@exitbook/ingestion/asset-review';
 
-import { buildPriceProviderConfigFromEnv } from './app-runtime.js';
+import { buildPriceProviderConfigFromEnv } from '../../../runtime/app-runtime.js';
 
 export function createCliAssetReviewProjectionRuntime(
   db: DataSession,

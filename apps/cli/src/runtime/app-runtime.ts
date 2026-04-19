@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
-import { err, ok, type Result } from '@exitbook/foundation';
+import { ok, type Result } from '@exitbook/foundation';
 import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion/adapters';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
@@ -12,6 +12,7 @@ export interface CliAppRuntime {
   databasePath: string;
   adapterRegistry: AdapterRegistry;
   priceProviderConfig: PriceProviderConfig;
+  blockchainExplorerConfigPath?: string | undefined;
   blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
 }
 
@@ -36,19 +37,27 @@ function resolveCliBlockchainExplorerConfigPath(): string {
   return path.join(process.cwd(), 'config/blockchain-explorers.json');
 }
 
-export function createCliAppRuntime(): Result<CliAppRuntime, Error> {
-  const explorerConfigResult = loadBlockchainExplorerConfig(resolveCliBlockchainExplorerConfigPath());
-  if (explorerConfigResult.isErr()) {
-    return err(explorerConfigResult.error);
+export function loadCliBlockchainExplorersConfig(
+  appRuntime: Pick<CliAppRuntime, 'blockchainExplorerConfigPath' | 'blockchainExplorersConfig'>
+): Result<BlockchainExplorersConfig | undefined, Error> {
+  const configuredExplorers = appRuntime.blockchainExplorersConfig;
+  if (configuredExplorers !== undefined) {
+    return ok(configuredExplorers as BlockchainExplorersConfig | undefined);
   }
 
+  return loadBlockchainExplorerConfig(
+    appRuntime.blockchainExplorerConfigPath ?? resolveCliBlockchainExplorerConfigPath()
+  );
+}
+
+export function createCliAppRuntime(): CliAppRuntime {
   const dataDir = getDataDir();
 
-  return ok({
+  return {
     dataDir,
     databasePath: path.join(dataDir, 'transactions.db'),
     adapterRegistry: new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters),
     priceProviderConfig: buildPriceProviderConfigFromEnv(),
-    blockchainExplorersConfig: explorerConfigResult.value,
-  });
+    blockchainExplorerConfigPath: resolveCliBlockchainExplorerConfigPath(),
+  };
 }

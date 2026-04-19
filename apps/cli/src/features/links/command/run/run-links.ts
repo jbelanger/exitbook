@@ -4,7 +4,8 @@ import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 import type { CliOutputFormat } from '../../../../cli/options.js';
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
 import { ensureConsumerInputsReady } from '../../../../runtime/consumer-input-readiness.js';
-import { executeCliLinkingRuntime, withCliLinkingRuntime } from '../../../../runtime/linking-runtime.js';
+
+import { executeCliLinkingRuntime, withCliLinkingRuntime } from './links-runtime.js';
 
 export async function runLinks(
   ctx: CommandRuntime,

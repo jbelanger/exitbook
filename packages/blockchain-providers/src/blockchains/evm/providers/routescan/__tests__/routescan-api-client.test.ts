@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- acceptable for tests */
+import type { CursorState } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -326,6 +327,34 @@ describe('RoutescanApiClient', () => {
       }
 
       expect(gotError).toBe(true);
+    });
+
+    it('should ignore legacy numeric page tokens and resume from the supported block cursor format', async () => {
+      const tx = buildNormalTx();
+      mockGet.mockResolvedValue(ok({ message: 'OK', result: [tx], status: '1' }));
+
+      const resumeCursor: CursorState = {
+        primary: { type: 'pageToken', value: '12345', providerName: 'routescan' },
+        lastTransactionId: tx.hash,
+        metadata: { providerName: 'routescan', updatedAt: Date.now() },
+        totalFetched: 1,
+      };
+
+      const batches = [];
+      for await (const result of client.executeStreaming<EvmTransaction>(
+        {
+          type: 'getAddressTransactions',
+          address: TEST_ADDRESS,
+        },
+        resumeCursor
+      )) {
+        batches.push(result);
+      }
+
+      expect(batches).toHaveLength(1);
+      expect(mockGet).toHaveBeenCalledTimes(1);
+      expect(mockGet.mock.calls[0]?.[0]).toContain('startblock=0');
+      expect(mockGet.mock.calls[0]?.[0]).not.toContain('startblock=12345');
     });
   });
 
