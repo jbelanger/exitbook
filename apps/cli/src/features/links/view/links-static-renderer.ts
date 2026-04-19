@@ -29,6 +29,7 @@ import {
   formatProposalProvenanceDetail,
   formatProposalRoute,
   formatResolvedGapExceptionCount,
+  gapIssueSuggestsManualLink,
   gapIssueSuggestsGapException,
   getExactOtherProfileCounterpart,
   getCoverageColor,
@@ -413,24 +414,31 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
   const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(item);
   const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);
   const cueLabel = gapIssue.gapCue ? formatGapCueLabel(gapIssue.gapCue) : crossProfileCueLabel;
+  const issueSuggestsManualLink = gapIssueSuggestsManualLink(gapIssue);
   const issueSuggestsGapException = gapIssueSuggestsGapException(gapIssue);
   const likelyOutcome =
     formatGapLikelyOutcome(gapIssue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(item);
-  const nextStep =
-    suggestedProposalRefs.length > 0
-      ? `exitbook links confirm ${suggestedProposalRefs[0]!}`
-      : issueSuggestsGapException
-        ? `exitbook links gaps resolve ${item.gapRef}`
-        : gapCueCounterpartTransactionRef !== undefined
-          ? `exitbook transactions view ${gapCueCounterpartTransactionRef}`
-          : exactOtherProfileCounterpart !== undefined
-            ? `inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
-                exactOtherProfileCounterpart.profileDisplayName,
-                exactOtherProfileCounterpart.profileKey
-              )}`
-            : gapIssue.suggestedCount > 0
-              ? 'exitbook links explore --status suggested'
-              : 'exitbook links run';
+  let nextStep: string;
+  if (suggestedProposalRefs.length > 0) {
+    nextStep = `exitbook links confirm ${suggestedProposalRefs[0]!}`;
+  } else if (issueSuggestsManualLink && gapCueCounterpartTransactionRef !== undefined) {
+    nextStep = `exitbook transactions view ${gapCueCounterpartTransactionRef}`;
+  } else if (issueSuggestsManualLink) {
+    nextStep = 'inspect the bridge counterpart, then create or confirm a transfer link';
+  } else if (issueSuggestsGapException) {
+    nextStep = `exitbook links gaps resolve ${item.gapRef}`;
+  } else if (gapCueCounterpartTransactionRef !== undefined) {
+    nextStep = `exitbook transactions view ${gapCueCounterpartTransactionRef}`;
+  } else if (exactOtherProfileCounterpart !== undefined) {
+    nextStep = `inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
+      exactOtherProfileCounterpart.profileDisplayName,
+      exactOtherProfileCounterpart.profileKey
+    )}`;
+  } else if (gapIssue.suggestedCount > 0) {
+    nextStep = 'exitbook links explore --status suggested';
+  } else {
+    nextStep = 'exitbook links run';
+  }
 
   const lines = [
     `${pc.bold(`Link gap ${item.gapRef}`)} ${pc.cyan(gapIssue.assetSymbol)} ${pc.yellow(`[${gapIssue.direction}]`)}`,

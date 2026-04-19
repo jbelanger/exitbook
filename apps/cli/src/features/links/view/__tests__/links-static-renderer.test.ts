@@ -398,7 +398,7 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).toContain('Cue: other-profile counterpart (maely, main)');
   });
 
-  it('treats bridge-transfer diagnostics as no-link guidance when no counterpart is known', () => {
+  it('treats bridge-transfer diagnostics as link-first guidance when no counterpart is known', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {
       ...analysis.issues[0]!,
@@ -424,10 +424,12 @@ describe('links static renderer', () => {
     const detailOutput = buildLinkGapStaticDetail(item);
 
     expect(stripAnsi(detailOutput)).toContain(
-      'Likely outcome: Likely bridge or adjacent non-link activity; resolve this gap if no direct internal transfer exists.'
+      'Likely outcome: Bridge or migration evidence exists; inspect the counterpart and create or confirm a transfer link if this is same-owner movement.'
     );
     expect(stripAnsi(detailOutput)).toContain('Context: Processed transaction carries bridge_transfer diagnostics');
-    expect(stripAnsi(detailOutput)).toContain(`Next: exitbook links gaps resolve ${item.gapRef}`);
+    expect(stripAnsi(detailOutput)).toContain(
+      'Next: inspect the bridge counterpart, then create or confirm a transfer link'
+    );
     expect(stripAnsi(detailOutput)).not.toContain('Inspect counterpart:');
   });
 

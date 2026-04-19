@@ -285,12 +285,24 @@ export function gapCueSuggestsGapException(cue: GapCueKind | undefined): boolean
   return cue === 'likely_correlated_service_swap' || cue === 'likely_receive_then_forward';
 }
 
-export function gapContextHintSuggestsGapException(contextHint: LinkGapIssue['contextHint']): boolean {
+export function gapContextHintSuggestsGapException(_contextHint: LinkGapIssue['contextHint']): boolean {
+  return false;
+}
+
+export function gapCueSuggestsManualLink(cue: GapCueKind | undefined): boolean {
+  return cue === 'likely_cross_chain_bridge' || cue === 'likely_cross_chain_migration';
+}
+
+export function gapContextHintSuggestsManualLink(contextHint: LinkGapIssue['contextHint']): boolean {
   return contextHint?.kind === 'diagnostic' && contextHint.code === 'bridge_transfer';
 }
 
 export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
   return gapCueSuggestsGapException(issue.gapCue) || gapContextHintSuggestsGapException(issue.contextHint);
+}
+
+export function gapIssueSuggestsManualLink(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
+  return gapCueSuggestsManualLink(issue.gapCue) || gapContextHintSuggestsManualLink(issue.contextHint);
 }
 
 export function formatGapLikelyOutcome(
@@ -301,16 +313,20 @@ export function formatGapLikelyOutcome(
     return 'CoinGecko could not match this token to a canonical asset; inspect asset review before treating this as a normal transfer gap.';
   }
 
+  if (gapIssueSuggestsManualLink(issue)) {
+    if (counterpartTransactionRef !== undefined) {
+      return 'Likely same-owner bridge or migration; inspect the counterpart, then create or confirm a transfer link if basis should carry.';
+    }
+
+    return 'Bridge or migration evidence exists; inspect the counterpart and create or confirm a transfer link if this is same-owner movement.';
+  }
+
   if (!gapIssueSuggestsGapException(issue)) {
     return undefined;
   }
 
   if (counterpartTransactionRef !== undefined) {
     return 'No direct internal transfer; inspect the counterpart, then resolve this gap if confirmed.';
-  }
-
-  if (gapContextHintSuggestsGapException(issue.contextHint)) {
-    return 'Likely bridge or adjacent non-link activity; resolve this gap if no direct internal transfer exists.';
   }
 
   return 'No direct internal transfer; resolve this gap if confirmed.';

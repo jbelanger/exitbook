@@ -894,10 +894,10 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('Counterpart tx ref:');
     expect(normalizedFrame).toContain(counterpartRef);
     expect(normalizedFrame).toContain('exitbook transactions view');
-    expect(normalizedFrame).toContain('before resolving this gap');
+    expect(normalizedFrame).toContain('Likely same-owner bridge or migration');
   });
 
-  it('renders bridge-transfer diagnostics as resolve guidance when no counterpart is known', () => {
+  it('renders bridge-transfer diagnostics as link-first guidance when no counterpart is known', () => {
     const analysis = createMockGapAnalysis();
     analysis.issues[0] = {
       ...analysis.issues[0]!,
@@ -921,13 +921,13 @@ describe('LinksViewApp - gaps mode', () => {
     const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
     expect(normalizedFrame).toContain('Likely outcome:');
-    expect(normalizedFrame).toContain('Likely bridge or adjacent non-link activity; resolve this gap');
+    expect(normalizedFrame).toContain('Bridge or migration evidence exists; inspect the counterpart');
     expect(normalizedFrame).toContain('Context:');
     expect(normalizedFrame).toContain('bridge_transfer diagnostics');
     expect(normalizedFrame).toContain('Next:');
-    expect(normalizedFrame).toContain('exitbook links gaps resolve');
+    expect(normalizedFrame).toContain('create or confirm a transfer link');
     expect(normalizedFrame).toContain('Review queue:');
-    expect(normalizedFrame).toContain('if no direct internal transfer exists');
+    expect(normalizedFrame).toContain('Inspect the bridge or migration counterpart');
   });
 
   it('renders resolution override empty state when all open gaps are hidden', () => {

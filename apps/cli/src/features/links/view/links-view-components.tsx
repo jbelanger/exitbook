@@ -47,6 +47,7 @@ import {
   formatProposalProvenanceDetail,
   formatProposalRoute,
   formatResolvedGapExceptionCount,
+  gapIssueSuggestsManualLink,
   gapIssueSuggestsGapException,
   getExactOtherProfileCounterpart,
   getConfidenceColor,
@@ -889,25 +890,32 @@ function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
       : undefined;
   const exactOtherProfileCounterpart = getExactOtherProfileCounterpart(gap);
   const crossProfileCueLabel = formatGapCrossProfileCueLabel(gap);
+  const issueSuggestsManualLink = gapIssueSuggestsManualLink(issue);
   const issueSuggestsGapException = gapIssueSuggestsGapException(issue);
   const likelyOutcome =
     formatGapLikelyOutcome(issue, gapCueCounterpartTransactionRef) ?? formatGapCrossProfileLikelyOutcome(gap);
-
-  const actionText =
-    issueSuggestsGapException && gapCueCounterpartTransactionRef !== undefined
-      ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\`, then resolve this gap if it reflects adjacent non-link activity.`
-      : issueSuggestsGapException
-        ? `Resolve this gap with \`exitbook links gaps resolve ${gap.gapRef}\` if no direct internal transfer exists.`
-        : gapCueCounterpartTransactionRef !== undefined
-          ? `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\` before resolving this gap.`
-          : exactOtherProfileCounterpart !== undefined
-            ? `Inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
-                exactOtherProfileCounterpart.profileDisplayName,
-                exactOtherProfileCounterpart.profileKey
-              )} before treating this as a generic same-profile gap.`
-            : issue.direction === 'inflow'
-              ? 'Run `exitbook links run` then confirm matches to bridge this gap.'
-              : 'This may be treated as a gift; identify the destination wallet or confirm a link.';
+  let actionText: string;
+  if (issueSuggestsManualLink && gapCueCounterpartTransactionRef !== undefined) {
+    actionText = `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\`, then create or confirm a transfer link if this is same-owner movement.`;
+  } else if (issueSuggestsManualLink) {
+    actionText =
+      'Inspect the bridge or migration counterpart, then create or confirm a transfer link if basis should carry.';
+  } else if (issueSuggestsGapException && gapCueCounterpartTransactionRef !== undefined) {
+    actionText = `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\`, then resolve this gap if it reflects adjacent non-link activity.`;
+  } else if (issueSuggestsGapException) {
+    actionText = `Resolve this gap with \`exitbook links gaps resolve ${gap.gapRef}\` if no direct internal transfer exists.`;
+  } else if (gapCueCounterpartTransactionRef !== undefined) {
+    actionText = `Inspect \`exitbook transactions view ${gapCueCounterpartTransactionRef}\` before resolving this gap.`;
+  } else if (exactOtherProfileCounterpart !== undefined) {
+    actionText = `Inspect ${exactOtherProfileCounterpart.transactionRef} on profile ${formatCrossProfileProfileLabel(
+      exactOtherProfileCounterpart.profileDisplayName,
+      exactOtherProfileCounterpart.profileKey
+    )} before treating this as a generic same-profile gap.`;
+  } else if (issue.direction === 'inflow') {
+    actionText = 'Run `exitbook links run` then confirm matches to bridge this gap.';
+  } else {
+    actionText = 'This may be treated as a gift; identify the destination wallet or confirm a link.';
+  }
 
   return [
     <Text key="title">
