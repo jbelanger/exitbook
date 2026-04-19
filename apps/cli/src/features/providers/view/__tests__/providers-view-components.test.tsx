@@ -6,9 +6,9 @@ import type { ProviderViewItem } from '../../providers-view-model.js';
 import { ProvidersViewApp } from '../providers-view-components.jsx';
 import { createProvidersViewState } from '../providers-view-state.js';
 
-vi.mock('../../../../ui/shared/index.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../../ui/shared/index.js')>(
-    '../../../../ui/shared/index.js'
+vi.mock('../../../../ui/shared/layout.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/shared/layout.js')>(
+    '../../../../ui/shared/layout.js'
   );
 
   return {

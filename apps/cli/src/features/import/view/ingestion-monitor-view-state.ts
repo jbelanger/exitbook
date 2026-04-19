@@ -1,5 +1,9 @@
-import type { OperationStatus, ProviderApiStats, ApiCallStats } from '../../../ui/shared/index.js';
-import { createProviderStats } from '../../../ui/shared/index.js';
+import {
+  createProviderStats,
+  type ApiCallStats,
+  type OperationStatus,
+  type ProviderApiStats,
+} from '../../../ui/shared/monitoring.js';
 
 export type { OperationStatus, ApiCallStats };
 

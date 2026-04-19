@@ -13,7 +13,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 
 import { costBasisViewReducer, handleCostBasisKeyboardInput } from './cost-basis-view-controller.js';
 import type {

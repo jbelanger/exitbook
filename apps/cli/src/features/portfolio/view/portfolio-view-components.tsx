@@ -15,7 +15,7 @@ import {
   conditionalLines,
   Divider,
   getSelectionCursor,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import { formatCryptoQuantity } from '../../shared/crypto-format.js';
 import type { PortfolioTransactionItem } from '../shared/portfolio-history-types.js';
 

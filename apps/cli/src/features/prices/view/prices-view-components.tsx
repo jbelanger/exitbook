@@ -13,7 +13,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import type { AssetBreakdownEntry, MissingPriceMovement, PriceCoverageDetail } from '../prices-view-model.js';
 import { formatCoveragePercentage } from '../prices-view-model.js';
 

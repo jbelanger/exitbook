@@ -13,7 +13,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import { StoredBalanceAssetsView } from '../../shared/stored-balance-assets-view.js';
 import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 import type {

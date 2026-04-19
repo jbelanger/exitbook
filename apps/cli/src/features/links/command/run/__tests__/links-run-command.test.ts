@@ -34,7 +34,7 @@ vi.mock('../run-links.js', () => ({
   runLinks: mockRunLinks,
 }));
 
-vi.mock('../../../../../ui/shared/prompt-flow.jsx', () => ({
+vi.mock('../../../../../cli/prompts.js', () => ({
   PromptFlow: 'PromptFlow',
 }));
 

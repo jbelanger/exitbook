@@ -16,7 +16,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import type { FeeDisplayItem, MovementDisplayItem, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 
 import {

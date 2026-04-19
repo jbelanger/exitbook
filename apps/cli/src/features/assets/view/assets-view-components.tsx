@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
-import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/index.js';
+import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/layout.js';
 import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-types.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';

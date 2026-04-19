@@ -13,7 +13,7 @@ import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CliOutputFormat } from '../../../../cli/options.js';
-import { createEventDrivenController, type EventDrivenController } from '../../../../ui/shared/index.js';
+import { createEventDrivenController, type EventDrivenController } from '../../../../ui/shared/controllers.js';
 import { LinksRunMonitor } from '../../view/links-run-components.jsx';
 
 const logger = getLogger('cli-linking-runtime');

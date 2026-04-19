@@ -2,7 +2,7 @@
  * Links run operation tree state
  */
 
-import type { OperationStatus } from '../../../ui/shared/index.js';
+import type { OperationStatus } from '../../../ui/shared/monitoring.js';
 
 /**
  * Phase 1: Load transactions

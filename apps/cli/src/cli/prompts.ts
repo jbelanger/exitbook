@@ -2,6 +2,8 @@ import confirm from '@inquirer/confirm';
 import { ExitPromptError } from '@inquirer/core';
 import pc from 'picocolors';
 
+export { PromptFlow, type PromptStep, SelectPrompt, type SelectOption, TextPrompt } from '../ui/shared/prompts.js';
+
 export type ConfirmationPromptDecision = 'cancelled' | 'confirmed' | 'declined';
 
 const confirmationPromptTheme = {

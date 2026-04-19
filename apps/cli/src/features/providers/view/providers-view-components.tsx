@@ -13,7 +13,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import type { ProviderBlockchainItem, ProviderViewItem } from '../providers-view-model.js';
 
 import { handleProvidersKeyboardInput, providersViewReducer } from './providers-view-controller.js';

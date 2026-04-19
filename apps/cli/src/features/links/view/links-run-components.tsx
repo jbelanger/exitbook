@@ -8,13 +8,9 @@ import type { LinkingEvent } from '@exitbook/accounting/linking';
 import { Box, Text } from 'ink';
 import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import {
-  type EventRelay,
-  formatDuration,
-  type LifecycleBridge,
-  statusIcon,
-  TreeChars,
-} from '../../../ui/shared/index.js';
+import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
+import { TreeChars } from '../../../ui/shared/layout.js';
+import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
 
 import type { LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
 import { createLinksRunState } from './links-run-state.js';

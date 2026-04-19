@@ -12,7 +12,7 @@ import type { InstrumentationCollector, MetricsSummary } from '@exitbook/observa
 import type { CliOutputFormat } from '../../../cli/options.js';
 import type { ConfirmationPromptDecision } from '../../../cli/prompts.js';
 import { type CliEvent, type IngestionRuntime, withIngestionRuntime } from '../../../runtime/ingestion-runtime.js';
-import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/index.js';
+import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/controllers.js';
 import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
 import {
   BatchImportMonitor,

@@ -1,4 +1,4 @@
-import { calculateChromeLines, calculateVisibleRows } from '../../../ui/shared/index.js';
+import { calculateChromeLines, calculateVisibleRows } from '../../../ui/shared/layout.js';
 
 export const ASSET_DETAIL_LINES = 13;
 

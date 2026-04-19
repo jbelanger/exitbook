@@ -13,7 +13,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import type { BlockchainViewItem, ProviderViewItem } from '../blockchains-view-model.js';
 
 import { handleBlockchainsKeyboardInput, blockchainsViewReducer } from './blockchains-view-controller.js';
