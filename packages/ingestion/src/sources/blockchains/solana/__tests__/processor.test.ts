@@ -89,7 +89,7 @@ describe('SolanaProcessor - Fund Flow Direction', () => {
     expect(transaction.operation.type).toBe('deposit');
   });
 
-  test('drops unsolicited SOL dust fan-out deposits', async () => {
+  test('materializes unsolicited SOL dust fan-out deposits with a diagnostic instead of dropping them', async () => {
     const processor = createProcessor();
 
     const normalizedData = createTransaction({
@@ -124,7 +124,70 @@ describe('SolanaProcessor - Fund Flow Direction', () => {
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    expect(result.value).toEqual([]);
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.operation.type).toBe('deposit');
+    expect(result.value[0]?.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('0.0000001');
+    expect(result.value[0]?.diagnostics?.[0]?.code).toBe('unsolicited_dust_fanout');
+  });
+
+  test('flags one-lamport-above-threshold fan-out dust sprays with the same diagnostic', async () => {
+    const processor = createProcessor();
+
+    const normalizedData = createTransaction({
+      id: 'sigDustFanout10001',
+      eventId: '0xeventDustFanout10001',
+      slot: 100051,
+      feeAmount: '0.00003',
+      feeCurrency: 'SOL',
+      feePayer: EXTERNAL_ADDRESS,
+      accountChanges: [
+        {
+          account: EXTERNAL_ADDRESS,
+          preBalance: '3027470142',
+          postBalance: '3027390137',
+        },
+        {
+          account: 'fanout-a',
+          preBalance: '0',
+          postBalance: '10001',
+        },
+        {
+          account: 'fanout-b',
+          preBalance: '0',
+          postBalance: '10001',
+        },
+        {
+          account: 'fanout-c',
+          preBalance: '0',
+          postBalance: '10001',
+        },
+        {
+          account: 'fanout-d',
+          preBalance: '0',
+          postBalance: '10001',
+        },
+        {
+          account: USER_ADDRESS,
+          preBalance: '409439593',
+          postBalance: '409449594',
+        },
+      ],
+      instructions: Array.from({ length: 15 }, () => ({
+        programId: '11111111111111111111111111111111',
+      })),
+    });
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.movements.inflows?.[0]?.netAmount?.toFixed()).toBe('0.000010001');
+    expect(result.value[0]?.diagnostics?.[0]?.code).toBe('unsolicited_dust_fanout');
   });
 
   test('keeps tiny direct SOL deposits when fan-out evidence is absent', async () => {

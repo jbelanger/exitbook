@@ -433,6 +433,41 @@ describe('links static renderer', () => {
     expect(stripAnsi(detailOutput)).not.toContain('Inspect counterpart:');
   });
 
+  it('shows exchange deposit address credit diagnostics as review guidance', () => {
+    const analysis = createMockGapAnalysis();
+    const gapIssue = {
+      ...analysis.issues[0]!,
+      suggestedCount: 0,
+      contextHint: {
+        kind: 'diagnostic' as const,
+        code: 'exchange_deposit_address_credit',
+        label: 'credit into exchange deposit address',
+        message:
+          'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+      },
+    };
+    const item = {
+      gapRef: buildLinkGapRef({
+        txFingerprint: gapIssue.txFingerprint,
+        assetId: gapIssue.assetId,
+        direction: gapIssue.direction,
+      }),
+      gapIssue,
+      transactionGapCount: 1,
+      transactionRef: formatTransactionFingerprintRef(gapIssue.txFingerprint),
+    };
+
+    const detailOutput = buildLinkGapStaticDetail(item);
+
+    expect(stripAnsi(detailOutput)).toContain(
+      'Likely outcome: Exchange export only proves a credit into the platform deposit address; inspect the raw chain source before linking or resolving this gap.'
+    );
+    expect(stripAnsi(detailOutput)).toContain(
+      'Context: KuCoin export records an on-chain credit into the platform deposit address'
+    );
+    expect(stripAnsi(detailOutput)).not.toContain('Next: inspect the bridge counterpart');
+  });
+
   it('shows the likely dust cue label in gap detail', () => {
     const analysis = createMockGapAnalysis();
     const gapIssue = {

@@ -1459,6 +1459,29 @@ describe('Solana Processor Utils', () => {
       expect(isSolanaUnsolicitedDustFanout(tx, createFundFlow())).toBe(true);
     });
 
+    it('returns true for one-lamport-above-threshold fan-outs that still match the spray pattern', () => {
+      const tx = createTx({
+        accountChanges: Array.from({ length: 6 }, (_, index) => ({
+          account: `acct-${index}`,
+          preBalance: '1000',
+          postBalance: '11001',
+        })),
+        instructions: Array.from({ length: 15 }, () => ({
+          programId: '11111111111111111111111111111111',
+        })),
+      });
+
+      expect(
+        isSolanaUnsolicitedDustFanout(
+          tx,
+          createFundFlow({
+            inflows: [{ amount: '0.000010001', asset: 'SOL' as Currency }],
+            primary: { amount: '0.000010001', asset: 'SOL' as Currency },
+          })
+        )
+      ).toBe(true);
+    });
+
     it('returns false for direct tiny deposits without fan-out evidence', () => {
       const tx = createTx({
         accountChanges: [

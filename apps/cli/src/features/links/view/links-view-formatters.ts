@@ -313,6 +313,10 @@ export function formatGapLikelyOutcome(
     return 'CoinGecko could not match this token to a canonical asset; inspect asset review before treating this as a normal transfer gap.';
   }
 
+  if (issue.contextHint?.kind === 'diagnostic' && issue.contextHint.code === 'exchange_deposit_address_credit') {
+    return 'Exchange export only proves a credit into the platform deposit address; inspect the raw chain source before linking or resolving this gap.';
+  }
+
   if (gapIssueSuggestsManualLink(issue)) {
     if (counterpartTransactionRef !== undefined) {
       return 'Likely same-owner bridge or migration; inspect the counterpart, then create or confirm a transfer link if basis should carry.';

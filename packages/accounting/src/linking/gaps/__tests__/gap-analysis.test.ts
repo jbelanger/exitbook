@@ -695,6 +695,53 @@ describe('analyzeLinkGaps', () => {
     });
   });
 
+  it('should attach a context hint for exchange deposit address credits', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 33,
+          txFingerprint: 'kucoin-exchange-deposit-credit-gap',
+          platformKey: 'kucoin',
+          platformKind: 'exchange',
+          blockchain: {
+            name: 'SOL',
+            transaction_hash: 'kucoin-exchange-deposit-credit-gap',
+            is_confirmed: true,
+          },
+          diagnostics: [
+            {
+              code: 'exchange_deposit_address_credit',
+              message:
+                'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+              severity: 'info',
+            },
+          ],
+          movements: {
+            inflows: [
+              {
+                assetId: 'exchange:kucoin:ray',
+                assetSymbol: 'RAY' as Currency,
+                grossAmount: parseDecimal('68.9027'),
+                netAmount: parseDecimal('68.9027'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.contextHint).toStrictEqual({
+      kind: 'diagnostic',
+      code: 'exchange_deposit_address_credit',
+      label: 'credit into exchange deposit address',
+      message:
+        'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+    });
+  });
+
   it('should attach a movement-role context hint when the transaction includes staking rewards', () => {
     const analysis = analyzeLinkGaps(
       [
@@ -1469,6 +1516,52 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.issues[0]?.gapCue).toBeUndefined();
   });
 
+  it('should cue explicit unsolicited dust fan-outs as likely dust even without tx-time pricing', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createBlockchainDeposit({
+          id: 116,
+          txFingerprint: 'solana-unsolicited-dust-fanout',
+          platformKey: 'solana',
+          platformKind: 'blockchain',
+          datetime: '2026-04-13T16:22:38.000Z',
+          timestamp: Date.parse('2026-04-13T16:22:38.000Z'),
+          from: 'QVtWcAX3R7Cr51VhAxFSYntoCAmTQzK8Hf4R1TrKNQ4',
+          to: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+          blockchain: {
+            name: 'solana',
+            transaction_hash: 'solana-unsolicited-dust-fanout-hash',
+            is_confirmed: true,
+          },
+          diagnostics: [
+            {
+              code: 'unsolicited_dust_fanout',
+              message:
+                'Tiny inbound SOL transfer appears in a multi-recipient system-program fan-out; likely unsolicited dust.',
+              severity: 'info',
+            },
+          ],
+          movements: {
+            inflows: [
+              {
+                assetId: 'blockchain:solana:native',
+                assetSymbol: 'SOL' as Currency,
+                grossAmount: parseDecimal('0.000010001'),
+                netAmount: parseDecimal('0.000010001'),
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.gapCue).toBe('likely_dust');
+    expect(analysis.issues[0]?.contextHint?.code).toBe('unsolicited_dust_fanout');
+  });
+
   it('should not cue same-window uncovered flows when they use the same asset id', () => {
     const solanaSelfAddress = 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm';
     const solWithdrawal = createBlockchainWithdrawal({
@@ -1931,6 +2024,260 @@ describe('analyzeLinkGaps', () => {
       'eth-usdt-forward',
       'eth-usdt-receipt',
     ]);
+  });
+
+  it('should cue a unique native funding plus token receipt pair as a likely correlated service swap and leave the later token withdrawal uncued', () => {
+    const ethFunding = createBlockchainWithdrawal({
+      id: 414,
+      accountId: 30,
+      txFingerprint: 'eth-service-funding',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T19:00:59.000Z',
+      timestamp: Date.parse('2024-12-10T19:00:59.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-service-funding-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.1'),
+            netAmount: parseDecimal('0.1'),
+          },
+        ],
+      },
+    });
+
+    const usdtDeposit = createBlockchainDeposit({
+      id: 415,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-service-receipt',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T19:09:23.000Z',
+      timestamp: Date.parse('2024-12-10T19:09:23.000Z'),
+      from: '0xd91efec7e42f80156d1d9f660a69847188950747',
+      to: '0x15a2000000000000000000000000000000000000',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-service-receipt-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.581546'),
+            netAmount: parseDecimal('344.581546'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const usdtForward = createBlockchainWithdrawal({
+      id: 416,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-service-forward',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T20:54:35.000Z',
+      timestamp: Date.parse('2024-12-10T20:54:35.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-service-forward-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.5815'),
+            netAmount: parseDecimal('344.5815'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([ethFunding, usdtDeposit, usdtForward], [], {
+      accounts: [
+        createMockAccount({
+          id: 30,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(3);
+    expect(
+      Object.fromEntries(
+        analysis.issues.map((issue) => [
+          issue.txFingerprint,
+          {
+            gapCue: issue.gapCue,
+            gapCueCounterpartTxFingerprint: issue.gapCueCounterpartTxFingerprint,
+          },
+        ])
+      )
+    ).toStrictEqual({
+      'eth-service-funding': {
+        gapCue: 'likely_correlated_service_swap',
+        gapCueCounterpartTxFingerprint: 'eth-usdt-service-receipt',
+      },
+      'eth-usdt-service-forward': {
+        gapCue: undefined,
+        gapCueCounterpartTxFingerprint: undefined,
+      },
+      'eth-usdt-service-receipt': {
+        gapCue: 'likely_correlated_service_swap',
+        gapCueCounterpartTxFingerprint: 'eth-service-funding',
+      },
+    });
+  });
+
+  it('should fall back to receive-then-forward when multiple native fundings could explain the same token receipt', () => {
+    const firstFunding = createBlockchainWithdrawal({
+      id: 417,
+      accountId: 30,
+      txFingerprint: 'eth-service-funding-first',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T18:58:00.000Z',
+      timestamp: Date.parse('2024-12-10T18:58:00.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-service-funding-first-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.05'),
+            netAmount: parseDecimal('0.05'),
+          },
+        ],
+      },
+    });
+
+    const secondFunding = createBlockchainWithdrawal({
+      id: 418,
+      accountId: 30,
+      txFingerprint: 'eth-service-funding-second',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T19:00:59.000Z',
+      timestamp: Date.parse('2024-12-10T19:00:59.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-service-funding-second-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.1'),
+            netAmount: parseDecimal('0.1'),
+          },
+        ],
+      },
+    });
+
+    const usdtDeposit = createBlockchainDeposit({
+      id: 419,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-service-receipt-ambiguous',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T19:09:23.000Z',
+      timestamp: Date.parse('2024-12-10T19:09:23.000Z'),
+      from: '0xd91efec7e42f80156d1d9f660a69847188950747',
+      to: '0x15a2000000000000000000000000000000000000',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-service-receipt-ambiguous-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.581546'),
+            netAmount: parseDecimal('344.581546'),
+          },
+        ],
+        outflows: [],
+      },
+    });
+
+    const usdtForward = createBlockchainWithdrawal({
+      id: 420,
+      accountId: 30,
+      txFingerprint: 'eth-usdt-service-forward-ambiguous',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-12-10T20:54:35.000Z',
+      timestamp: Date.parse('2024-12-10T20:54:35.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xf43f737b917e883773762e84619e35ea74e320e8',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-usdt-service-forward-ambiguous-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:usdt',
+            assetSymbol: 'USDT' as Currency,
+            grossAmount: parseDecimal('344.5815'),
+            netAmount: parseDecimal('344.5815'),
+          },
+        ],
+      },
+    });
+
+    const analysis = analyzeLinkGaps([firstFunding, secondFunding, usdtDeposit, usdtForward], [], {
+      accounts: [
+        createMockAccount({
+          id: 30,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(4);
+    expect(Object.fromEntries(analysis.issues.map((issue) => [issue.txFingerprint, issue.gapCue]))).toStrictEqual({
+      'eth-service-funding-first': undefined,
+      'eth-service-funding-second': undefined,
+      'eth-usdt-service-forward-ambiguous': 'likely_receive_then_forward',
+      'eth-usdt-service-receipt-ambiguous': 'likely_receive_then_forward',
+    });
   });
 
   it('should not cue same-asset cross-chain pairs across different profiles', () => {

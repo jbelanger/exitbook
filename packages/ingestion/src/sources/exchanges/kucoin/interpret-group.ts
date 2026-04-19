@@ -1,4 +1,4 @@
-import type { TransactionStatus } from '@exitbook/core';
+import type { TransactionDiagnostic, TransactionStatus } from '@exitbook/core';
 import { buildExchangeAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 
@@ -67,6 +67,7 @@ function buildDraft(
           transactionHash: string;
         }
       | undefined;
+    diagnostics?: TransactionDiagnostic[] | undefined;
     to?: string | undefined;
   }
 ): ConfirmedExchangeTransactionDraft {
@@ -85,6 +86,7 @@ function buildDraft(
       outflows,
     },
     fees,
+    ...(options?.diagnostics && options.diagnostics.length > 0 ? { diagnostics: options.diagnostics } : {}),
     ...(options?.to ? { to: options.to } : {}),
     ...(options?.blockchain ? { blockchain: options.blockchain } : {}),
     evidence: {
@@ -287,6 +289,128 @@ function interpretTransferGroup(
       {
         ...(transferEvent.metadata.address ? { to: transferEvent.metadata.address } : {}),
         ...(blockchain ? { blockchain } : {}),
+        diagnostics: buildExchangeDepositAddressCreditDiagnostics(transferEvent),
+      }
+    ),
+  };
+}
+
+function buildExchangeDepositAddressCreditDiagnostics(transferEvent: {
+  event: ExchangeProviderEvent;
+  metadata: KucoinTransferProviderMetadata;
+}): TransactionDiagnostic[] | undefined {
+  if (transferEvent.metadata.rowKind !== 'deposit') {
+    return undefined;
+  }
+
+  if (!transferEvent.metadata.address || !transferEvent.metadata.hash) {
+    return undefined;
+  }
+
+  return [
+    {
+      code: 'exchange_deposit_address_credit',
+      severity: 'info',
+      message:
+        'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+      metadata: {
+        targetScope: 'transaction',
+        depositAddress: transferEvent.metadata.address,
+        providerName: 'kucoin',
+        providerRowKind: transferEvent.metadata.rowKind,
+        transactionHash: transferEvent.metadata.hash,
+        transferNetwork: transferEvent.metadata.transferNetwork,
+      },
+    },
+  ];
+}
+
+function getSharedAccountHistoryType(
+  historyEvents: readonly { metadata: KucoinAccountHistoryProviderMetadata }[]
+): string | undefined {
+  const types = new Set(historyEvents.map(({ metadata }) => metadata.type));
+  if (types.size !== 1) {
+    return undefined;
+  }
+
+  return [...types][0];
+}
+
+function interpretInternalTransferAccountHistoryGroup(
+  group: ExchangeCorrelationGroup,
+  historyEvents: { event: ExchangeProviderEvent; metadata: KucoinAccountHistoryProviderMetadata }[]
+): ExchangeGroupInterpretation {
+  if (historyEvents.length !== 2) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'unsupported_multi_leg_pattern',
+        'warning',
+        'KuCoin transfer account-history rows did not contain exactly one debit and one credit row, so they were skipped.',
+        {
+          count: historyEvents.length,
+          providerEventIds: historyEvents.map(({ event }) => event.providerEventId),
+          sides: historyEvents.map(({ metadata }) => metadata.side),
+          remarks: historyEvents.map(({ metadata }) => metadata.remark),
+        }
+      ),
+    };
+  }
+
+  const creditEvent = historyEvents.find(({ metadata }) => metadata.side === 'credit');
+  const debitEvent = historyEvents.find(({ metadata }) => metadata.side === 'debit');
+
+  if (!creditEvent || !debitEvent) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'unsupported_multi_leg_pattern',
+        'warning',
+        'KuCoin transfer account-history rows were missing a debit/credit pairing and were skipped.',
+        {
+          directions: historyEvents.map(({ metadata }) => metadata.side),
+          providerEventIds: historyEvents.map(({ event }) => event.providerEventId),
+        }
+      ),
+    };
+  }
+
+  if (
+    creditEvent.event.assetSymbol !== debitEvent.event.assetSymbol ||
+    !parseDecimal(creditEvent.event.rawAmount).abs().eq(parseDecimal(debitEvent.event.rawAmount).abs())
+  ) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'unsupported_multi_leg_pattern',
+        'warning',
+        'KuCoin transfer account-history rows did not agree on asset or amount, so they were skipped.',
+        {
+          creditAssetSymbol: creditEvent.event.assetSymbol,
+          creditAmount: parseDecimal(creditEvent.event.rawAmount).abs().toFixed(),
+          debitAssetSymbol: debitEvent.event.assetSymbol,
+          debitAmount: parseDecimal(debitEvent.event.rawAmount).abs().toFixed(),
+          providerEventIds: [debitEvent.event.providerEventId, creditEvent.event.providerEventId],
+        }
+      ),
+    };
+  }
+
+  return {
+    kind: 'unsupported',
+    diagnostic: diagnostic(
+      group,
+      'internal_balance_move',
+      'warning',
+      'KuCoin transfer account-history rows represent an internal balance move and were skipped instead of materialized as an external transfer.',
+      {
+        amount: parseDecimal(creditEvent.event.rawAmount).abs().toFixed(),
+        assetSymbol: creditEvent.event.assetSymbol,
+        providerEventIds: [debitEvent.event.providerEventId, creditEvent.event.providerEventId],
+        remark: creditEvent.metadata.remark ?? debitEvent.metadata.remark,
       }
     ),
   };
@@ -296,7 +420,28 @@ function interpretAccountHistoryGroup(
   group: ExchangeCorrelationGroup,
   historyEvents: { event: ExchangeProviderEvent; metadata: KucoinAccountHistoryProviderMetadata }[]
 ): ExchangeGroupInterpretation {
-  if (historyEvents.some(({ metadata }) => metadata.type !== 'convert market')) {
+  const sharedType = getSharedAccountHistoryType(historyEvents);
+  if (!sharedType) {
+    return {
+      kind: 'unsupported',
+      diagnostic: diagnostic(
+        group,
+        'unsupported_multi_leg_pattern',
+        'warning',
+        'KuCoin account history row type is not supported by the v2 exchange processor and was skipped.',
+        {
+          types: historyEvents.map(({ metadata }) => metadata.type),
+          providerEventIds: historyEvents.map(({ event }) => event.providerEventId),
+        }
+      ),
+    };
+  }
+
+  if (sharedType === 'transfer') {
+    return interpretInternalTransferAccountHistoryGroup(group, historyEvents);
+  }
+
+  if (sharedType !== 'convert market') {
     return {
       kind: 'unsupported',
       diagnostic: diagnostic(

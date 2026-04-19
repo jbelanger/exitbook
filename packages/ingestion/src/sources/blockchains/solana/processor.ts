@@ -16,8 +16,8 @@ import type { AddressContext } from '../../../shared/types/processors.js';
 
 import {
   analyzeSolanaFundFlow,
+  buildSolanaUnsolicitedDustFanoutDiagnostic,
   classifySolanaOperationFromFundFlow,
-  isSolanaUnsolicitedDustFanout,
 } from './processor-utils.js';
 
 /**
@@ -66,24 +66,13 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
 
         const fundFlow = fundFlowResult.value;
 
-        if (isSolanaUnsolicitedDustFanout(normalizedTx, fundFlow)) {
-          this.logger.warn(
-            {
-              txId: normalizedTx.id,
-              eventId: normalizedTx.eventId,
-              fromAddress: fundFlow.fromAddress,
-              toAddress: fundFlow.toAddress,
-              feeAmount: fundFlow.feeAmount,
-              instructionCount: fundFlow.instructionCount,
-              primaryAmount: fundFlow.inflows[0]?.amount,
-            },
-            'Dropping unsolicited Solana dust fan-out deposit'
-          );
-          continue;
-        }
-
         // Determine transaction type and operation classification based on fund flow
         const classification = classifySolanaOperationFromFundFlow(fundFlow, normalizedTx.instructions);
+        const unsolicitedDustFanoutDiagnostic = buildSolanaUnsolicitedDustFanoutDiagnostic(normalizedTx, fundFlow);
+        const diagnostics =
+          unsolicitedDustFanoutDiagnostic === undefined
+            ? classification.diagnostics
+            : [...(classification.diagnostics ?? []), unsolicitedDustFanoutDiagnostic];
 
         // Determine when to record an explicit fee entry.
         // When feeAbsorbedByMovement is true, the fee was deducted from movements to prevent double-counting.
@@ -173,7 +162,7 @@ export class SolanaProcessor extends BaseTransactionProcessor<SolanaTransaction>
 
           operation: classification.operation,
 
-          diagnostics: classification.diagnostics,
+          diagnostics,
 
           blockchain: {
             name: 'solana',

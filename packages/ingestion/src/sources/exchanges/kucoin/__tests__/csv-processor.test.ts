@@ -123,6 +123,22 @@ describe('KucoinCsvProcessor', () => {
     expect(transaction.movements.inflows?.[0]?.grossAmount.toFixed()).toBe('1');
     expect(transaction.fees[0]?.amount.toFixed()).toBe('0.0005');
     expect(transaction.to).toBe('bc1qkucoinfixture0001');
+    expect(transaction.diagnostics).toEqual([
+      {
+        code: 'exchange_deposit_address_credit',
+        severity: 'info',
+        message:
+          'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+        metadata: {
+          targetScope: 'transaction',
+          depositAddress: 'bc1qkucoinfixture0001',
+          providerName: 'kucoin',
+          providerRowKind: 'deposit',
+          transactionHash: 'KUCOIN_DEPOSIT_HASH_001',
+          transferNetwork: 'BTC',
+        },
+      },
+    ]);
   });
 
   test('processes fixture withdrawals', async () => {
@@ -185,6 +201,99 @@ describe('KucoinCsvProcessor', () => {
     }
 
     expect(result.value).toHaveLength(0);
+  });
+
+  test('skips paired account history transfer rows as internal balance moves without failing the batch', async () => {
+    const processor = new KucoinCsvProcessor();
+    const transferRows: KucoinCsvRow[] = [
+      {
+        _rowType: 'account_history',
+        UID: 'kucoin-user-003',
+        'Account Type': 'mainAccount',
+        'Time(UTC)': '2024-12-10 21:03:34',
+        Type: 'Transfer',
+        Currency: 'RAY',
+        Amount: '73.3541',
+        Fee: '0',
+        Side: 'Withdrawal',
+        Remark: 'Funding Account',
+      },
+      {
+        _rowType: 'account_history',
+        UID: 'kucoin-user-003',
+        'Account Type': 'mainAccount',
+        'Time(UTC)': '2024-12-10 21:03:35',
+        Type: 'Transfer',
+        Currency: 'RAY',
+        Amount: '73.3541',
+        Fee: '0',
+        Side: 'Deposit',
+        Remark: 'Funding Account',
+      },
+    ];
+
+    const result = await processor.process(toInputs(transferRows));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    expect(result.value).toHaveLength(0);
+  });
+
+  test('interprets paired account history transfer rows as internal balance moves', () => {
+    const transferRows: KucoinCsvRow[] = [
+      {
+        _rowType: 'account_history',
+        UID: 'kucoin-user-003',
+        'Account Type': 'mainAccount',
+        'Time(UTC)': '2024-12-10 21:03:34',
+        Type: 'Transfer',
+        Currency: 'RAY',
+        Amount: '73.3541',
+        Fee: '0',
+        Side: 'Withdrawal',
+        Remark: 'Funding Account',
+      },
+      {
+        _rowType: 'account_history',
+        UID: 'kucoin-user-003',
+        'Account Type': 'mainAccount',
+        'Time(UTC)': '2024-12-10 21:03:35',
+        Type: 'Transfer',
+        Currency: 'RAY',
+        Amount: '73.3541',
+        Fee: '0',
+        Side: 'Deposit',
+        Remark: 'Funding Account',
+      },
+    ];
+
+    const normalized = transferRows.map((row, index) => {
+      const result = normalizeKucoinProviderEvent(row, `KUCOIN_TRANSFER_${index + 1}`);
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+
+      return result.value;
+    });
+
+    const [group] = buildKucoinCorrelationGroups(normalized);
+    expect(group).toBeDefined();
+    if (!group) {
+      return;
+    }
+
+    const interpretation = interpretKucoinGroup(group);
+    expect(interpretation.kind).toBe('unsupported');
+    if (interpretation.kind !== 'unsupported') {
+      return;
+    }
+
+    expect(interpretation.diagnostic.code).toBe('internal_balance_move');
+    expect(interpretation.diagnostic.severity).toBe('warning');
   });
 
   test('fails malformed rows instead of inventing transactions', async () => {

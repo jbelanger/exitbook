@@ -84,7 +84,8 @@ const NFT_PROGRAMS: string[] = [
 const SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM_ID = 'ComputeBudget111111111111111111111111111111';
 const ASSOCIATED_TOKEN_PROGRAM_ID = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
-const MAX_UNSOLICITED_SOL_DUST_AMOUNT = parseDecimal('0.00001');
+// Fan-out dust sprays frequently vary by a single lamport per recipient.
+const MAX_UNSOLICITED_SOL_DUST_AMOUNT = parseDecimal('0.000010001');
 const MIN_DUST_FANOUT_SYSTEM_INSTRUCTIONS = 10;
 const MIN_DUST_FANOUT_ACCOUNT_CHANGES = 10;
 
@@ -194,6 +195,28 @@ export function isSolanaUnsolicitedDustFanout(tx: SolanaTransaction, fundFlow: S
     systemInstructionCount >= MIN_DUST_FANOUT_SYSTEM_INSTRUCTIONS ||
     accountChangeCount >= MIN_DUST_FANOUT_ACCOUNT_CHANGES
   );
+}
+
+export function buildSolanaUnsolicitedDustFanoutDiagnostic(
+  tx: SolanaTransaction,
+  fundFlow: SolanaFundFlow
+): TransactionDiagnostic | undefined {
+  if (!isSolanaUnsolicitedDustFanout(tx, fundFlow)) {
+    return undefined;
+  }
+
+  return {
+    code: 'unsolicited_dust_fanout',
+    message: 'Tiny inbound SOL transfer appears in a multi-recipient system-program fan-out; likely unsolicited dust.',
+    metadata: {
+      accountChangeCount: tx.accountChanges?.length ?? 0,
+      detectionSource: 'system_program_fanout',
+      inflowAmount: fundFlow.inflows[0]?.amount,
+      instructionCount: fundFlow.instructionCount,
+      toAddress: fundFlow.toAddress,
+    },
+    severity: 'info',
+  };
 }
 
 /**

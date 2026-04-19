@@ -930,6 +930,39 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('Inspect the bridge or migration counterpart');
   });
 
+  it('renders exchange deposit address credit diagnostics as review guidance', () => {
+    const analysis = createMockGapAnalysis();
+    analysis.issues[0] = {
+      ...analysis.issues[0]!,
+      suggestedCount: 0,
+      contextHint: {
+        kind: 'diagnostic',
+        code: 'exchange_deposit_address_credit',
+        label: 'credit into exchange deposit address',
+        message:
+          'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+      },
+    };
+    const state = createGapsViewState(analysis);
+
+    const { lastFrame } = render(
+      <LinksViewApp
+        initialState={state}
+        onQuit={mockOnQuit}
+      />
+    );
+    const frame = lastFrame();
+    const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    expect(normalizedFrame).toContain('Likely outcome:');
+    expect(normalizedFrame).toContain('Exchange export only proves a credit into the platform deposit address');
+    expect(normalizedFrame).toContain('inspect t');
+    expect(normalizedFrame).toContain('Context:');
+    expect(normalizedFrame).toContain('credit into exchange deposit address');
+    expect(normalizedFrame).toContain('platform deposit address');
+    expect(normalizedFrame).not.toContain('Inspect the bridge or migration counterpart');
+  });
+
   it('renders resolution override empty state when all open gaps are hidden', () => {
     const state = createGapsViewState(
       {
