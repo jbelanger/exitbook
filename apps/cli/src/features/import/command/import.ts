@@ -1,5 +1,5 @@
 import type { Account, ImportSession } from '@exitbook/core';
-import { resultDoAsync } from '@exitbook/foundation';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
 
@@ -25,7 +25,7 @@ import {
   resolveRequiredOwnedAccountSelector,
 } from '../../accounts/account-selector.js';
 
-import { withImportCommandScope } from './import-command-scope.js';
+import { withImportCommandScope, type ImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import type { BatchImportExecuteResult, ImportExecuteResult } from './run-import.js';
 import { runImport, runImportAll } from './run-import.js';
@@ -154,43 +154,68 @@ async function executeImportCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const executionResult = await withImportCommandScope(ctx, async (scope) =>
-      resultDoAsync(async function* () {
-        if (options.all) {
-          const result = yield* await runImportAll(scope, { format });
-          return {
-            kind: 'batch' as const,
-            result,
-          };
-        }
-
-        const accountSelection = yield* await resolveRequiredOwnedAccountSelector(
-          scope.accountService,
-          scope.profile.id,
-          options.selector,
-          'Import requires an account selector or --all'
-        );
-        const account = accountSelection.account;
-        const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
-        if (outcome.kind === 'cancelled') {
-          return {
-            kind: 'single-cancelled' as const,
-          };
-        }
-
-        return {
-          kind: 'single-completed' as const,
-          account,
-          result: outcome.result,
-        };
-      })
-    );
+    const executionResult = await loadImportCommandExecution(ctx, options, format);
 
     if (executionResult.isErr()) {
       return yield* cliErr(executionResult.error, getAccountSelectorErrorExitCode(executionResult.error));
     }
 
     return buildImportCompletion(executionResult.value, format);
+  });
+}
+
+async function loadImportCommandExecution(
+  ctx: CommandRuntime,
+  options: ImportCommandOptions,
+  format: CliOutputFormat
+): Promise<Result<ImportCommandExecution, Error>> {
+  return withImportCommandScope(ctx, async (scope) => {
+    if (options.all) {
+      return loadBatchImportExecution(scope, format);
+    }
+
+    return loadSingleImportExecution(scope, options, format);
+  });
+}
+
+async function loadBatchImportExecution(
+  scope: ImportCommandScope,
+  format: CliOutputFormat
+): Promise<Result<ImportCommandExecution, Error>> {
+  return resultDoAsync(async function* () {
+    const result = yield* await runImportAll(scope, { format });
+    return {
+      kind: 'batch' as const,
+      result,
+    };
+  });
+}
+
+async function loadSingleImportExecution(
+  scope: ImportCommandScope,
+  options: ImportCommandOptions,
+  format: CliOutputFormat
+): Promise<Result<ImportCommandExecution, Error>> {
+  return resultDoAsync(async function* () {
+    const accountSelection = yield* await resolveRequiredOwnedAccountSelector(
+      scope.accountService,
+      scope.profile.id,
+      options.selector,
+      'Import requires an account selector or --all'
+    );
+    const account = accountSelection.account;
+    const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+    if (outcome.kind === 'cancelled') {
+      return {
+        kind: 'single-cancelled' as const,
+      };
+    }
+
+    return {
+      kind: 'single-completed' as const,
+      account,
+      result: outcome.result,
+    };
   });
 }
 

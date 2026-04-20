@@ -73,7 +73,7 @@ describe('LinksConfirmHandler', () => {
       expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user', expect.any(Map));
     });
 
-    it('should write link_override event after successful confirm', async () => {
+    it('should write link_override event batch before confirming statuses', async () => {
       const params: LinksReviewParams = {
         linkId: 123,
       };
@@ -96,29 +96,34 @@ describe('LinksConfirmHandler', () => {
 
       await handler.execute(params, 'confirm');
 
-      const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
+      const appendCall = mockOverrideStore.appendMany.mock.calls[0] as [unknown] | undefined;
       expect(appendCall).toBeDefined();
-      expect(appendCall?.[0]).toMatchObject({
-        scope: 'link',
-        payload: {
-          type: 'link_override',
-          action: 'confirm',
-          link_type: 'transfer',
-          source_fingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
-          target_fingerprint: 'txfp:bitcoin:2:abc123',
-          asset: 'BTC',
-          resolved_link_fingerprint: expectedResolvedLinkFingerprint,
-          source_asset_id: 'exchange:source:btc',
-          target_asset_id: 'blockchain:target:btc',
-          source_movement_fingerprint: suggestedLink.sourceMovementFingerprint,
-          target_movement_fingerprint: suggestedLink.targetMovementFingerprint,
-          source_amount: '1',
-          target_amount: '1',
-        },
-      });
+      expect(appendCall?.[0]).toEqual([
+        expect.objectContaining({
+          scope: 'link',
+          payload: {
+            type: 'link_override',
+            action: 'confirm',
+            link_type: 'transfer',
+            source_fingerprint: 'txfp:kraken:1:WITHDRAWAL-123',
+            target_fingerprint: 'txfp:bitcoin:2:abc123',
+            asset: 'BTC',
+            resolved_link_fingerprint: expectedResolvedLinkFingerprint,
+            source_asset_id: 'exchange:source:btc',
+            target_asset_id: 'blockchain:target:btc',
+            source_movement_fingerprint: suggestedLink.sourceMovementFingerprint,
+            target_movement_fingerprint: suggestedLink.targetMovementFingerprint,
+            source_amount: '1',
+            target_amount: '1',
+          },
+        }),
+      ]);
+      expect(mockLinkRepository.updateStatuses.mock.invocationCallOrder[0]).toBeGreaterThan(
+        mockOverrideStore.appendMany.mock.invocationCallOrder[0] ?? 0
+      );
     });
 
-    it('should not fail if override store write fails', async () => {
+    it('should fail before updating statuses when override batch write fails', async () => {
       const params: LinksReviewParams = {
         linkId: 123,
       };
@@ -135,11 +140,15 @@ describe('LinksConfirmHandler', () => {
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
       });
-      mockOverrideStore.append.mockResolvedValue(err(new Error('Write failed')));
+      mockOverrideStore.appendMany.mockResolvedValue(err(new Error('Write failed')));
 
       const result = await handler.execute(params, 'confirm');
 
-      expect(result.isOk()).toBe(true);
+      const error = assertErr(result);
+      expect(error.message).toContain(
+        'Failed to write transfer proposal override events before updating reviewed statuses'
+      );
+      expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should handle already confirmed link (idempotent)', async () => {
@@ -279,7 +288,7 @@ describe('LinksConfirmHandler', () => {
       expect(confirmResult.affectedLinkIds).toEqual([124]);
       expect(confirmResult.affectedLinkCount).toBe(1);
       expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([124], 'confirmed', 'cli-user', expect.any(Map));
-      expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
+      expect(mockOverrideStore.appendMany).toHaveBeenCalledTimes(1);
     });
 
     it('should return error if link not found', async () => {
@@ -322,11 +331,17 @@ describe('LinksConfirmHandler', () => {
       mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkRepository.updateStatuses.mockResolvedValue(err(new Error('Update failed')));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params, 'confirm');
 
       const error = assertErr(result);
-      expect(error.message).toBe('Update failed');
+      expect(error.message).toContain('Update failed');
+      expect(error.message).toContain('rerun "links run" to rematerialize the reviewed transfer proposal state');
     });
 
     it('should return error if updateStatus returns false', async () => {
@@ -341,11 +356,17 @@ describe('LinksConfirmHandler', () => {
       mockLinkRepository.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkRepository.updateStatuses.mockResolvedValue(ok(0));
       mockTransactionRepository.findAll.mockResolvedValue(ok(fixture.transactions));
+      mockTransactionRepository.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params, 'confirm');
 
       const error = assertErr(result);
       expect(error.message).toContain('Failed to update transfer proposal');
+      expect(error.message).toContain('rerun "links run" to rematerialize the reviewed transfer proposal state');
     });
 
     it('should handle exceptions gracefully', async () => {
@@ -478,7 +499,7 @@ describe('LinksConfirmHandler', () => {
         'cli-user',
         expect.any(Map)
       );
-      expect(mockOverrideStore.append).toHaveBeenCalledTimes(2);
+      expect(mockOverrideStore.appendMany).toHaveBeenCalledTimes(1);
     });
   });
 });

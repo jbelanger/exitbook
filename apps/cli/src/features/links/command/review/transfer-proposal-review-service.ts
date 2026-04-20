@@ -9,7 +9,7 @@ import { resolveTransferProposal } from '../../transfer-proposals.js';
 import { validateConfirmedManualLinkSet } from '../link-confirmation-shared.js';
 
 import { getDefaultReviewer } from './link-review-policy.js';
-import { writeLinkOverrideEvent, writeUnlinkOverrideEvent } from './links-override-utils.js';
+import { appendTransferProposalOverrideEvents } from './links-override-utils.js';
 
 const logger = getLogger('TransferProposalReviewService');
 
@@ -107,28 +107,19 @@ export class TransferProposalReviewService {
         });
       }
 
-      const updateResult = await this.db.executeInTransaction(async (tx) => {
-        const metadataById = buildReviewedMetadataMap(actionableLinks);
-        const updatedRowsResult = await tx.transactionLinks.updateStatuses(
-          actionableIds,
-          targetStatus,
-          reviewedBy,
-          metadataById
-        );
-        if (updatedRowsResult.isErr()) {
-          return err(updatedRowsResult.error);
-        }
+      const metadataByIdResult = await this.buildReviewedMetadataMap(actionableLinks, targetStatus);
+      if (metadataByIdResult.isErr()) {
+        return err(metadataByIdResult.error);
+      }
 
-        if (updatedRowsResult.value !== actionableIds.length) {
-          return err(
-            new Error(
-              `Failed to update transfer proposal for link ${linkId}: expected ${actionableIds.length} rows, updated ${updatedRowsResult.value}`
-            )
-          );
-        }
-
-        return ok(undefined);
-      });
+      const updateResult = await this.persistReviewedStatuses(
+        linkId,
+        actionableIds,
+        targetStatus,
+        reviewedBy,
+        metadataByIdResult.value,
+        this.overrideStore !== undefined
+      );
       if (updateResult.isErr()) {
         return err(updateResult.error);
       }
@@ -142,8 +133,6 @@ export class TransferProposalReviewService {
         },
         'Transfer proposal reviewed successfully'
       );
-
-      await this.writeOverrideEvents(actionableLinks, targetStatus);
 
       const transactionDetailResult = await this.loadTransactionDetails(selectedLink);
       if (transactionDetailResult.isErr()) {
@@ -179,24 +168,79 @@ export class TransferProposalReviewService {
     return validateConfirmedManualLinkSet(transactionsResult.value, allLinks, proposalLinks, [...proposalLinkIds]);
   }
 
-  private async writeOverrideEvents(
+  private async buildReviewedMetadataMap(
     proposalLinks: TransactionLink[],
     targetStatus: 'confirmed' | 'rejected'
-  ): Promise<void> {
+  ): Promise<Result<ReadonlyMap<number, TransactionLinkMetadata>, Error>> {
     if (!this.overrideStore) {
-      return;
+      return buildReviewedMetadataMap(proposalLinks);
     }
 
-    for (const proposalLink of proposalLinks) {
-      const scopedTransactions = {
+    const overrideEventsResult = await appendTransferProposalOverrideEvents(
+      {
         findById: (transactionId: number) => this.db.transactions.findById(transactionId, this.profileId),
-      };
-      if (targetStatus === 'confirmed') {
-        await writeLinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
-      } else {
-        await writeUnlinkOverrideEvent(scopedTransactions, this.overrideStore, this.profileKey, proposalLink);
-      }
+      },
+      this.overrideStore,
+      this.profileKey,
+      proposalLinks,
+      targetStatus
+    );
+    if (overrideEventsResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to write transfer proposal override events before updating reviewed statuses: ${overrideEventsResult.error.message}`
+        )
+      );
     }
+
+    return buildReviewedMetadataMap(
+      proposalLinks,
+      overrideEventsResult.value.map((overrideEvent) => overrideEvent.id)
+    );
+  }
+
+  private async persistReviewedStatuses(
+    linkId: number,
+    actionableIds: number[],
+    targetStatus: 'confirmed' | 'rejected',
+    reviewedBy: string,
+    metadataById: ReadonlyMap<number, TransactionLinkMetadata>,
+    overridesAlreadyPersisted: boolean
+  ): Promise<Result<void, Error>> {
+    const updateResult = await this.db.executeInTransaction(async (tx) => {
+      const updatedRowsResult = await tx.transactionLinks.updateStatuses(
+        actionableIds,
+        targetStatus,
+        reviewedBy,
+        metadataById
+      );
+      if (updatedRowsResult.isErr()) {
+        return err(updatedRowsResult.error);
+      }
+
+      if (updatedRowsResult.value !== actionableIds.length) {
+        return err(
+          new Error(
+            `Failed to update transfer proposal for link ${linkId}: expected ${actionableIds.length} rows, updated ${updatedRowsResult.value}`
+          )
+        );
+      }
+
+      return ok(undefined);
+    });
+    if (updateResult.isErr()) {
+      if (!overridesAlreadyPersisted) {
+        return err(updateResult.error);
+      }
+
+      return err(
+        new Error(
+          `${updateResult.error.message}. The override events were written successfully; rerun "links run" to rematerialize the reviewed transfer proposal state.`
+        )
+      );
+    }
+
+    return ok(undefined);
   }
 
   private async loadTransactionDetails(selectedLink: TransactionLink): Promise<
@@ -246,14 +290,33 @@ export class TransferProposalReviewService {
   }
 }
 
-function buildReviewedMetadataMap(links: TransactionLink[]): ReadonlyMap<number, TransactionLinkMetadata> {
-  return new Map(
-    links.map((link) => [
-      link.id,
-      {
-        ...(link.metadata ?? {}),
-        linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',
-      },
-    ])
+function buildReviewedMetadataMap(
+  links: TransactionLink[],
+  overrideIds: readonly string[] = []
+): Result<ReadonlyMap<number, TransactionLinkMetadata>, Error> {
+  if (overrideIds.length !== 0 && overrideIds.length !== links.length) {
+    return err(
+      new Error(
+        `Expected ${links.length} override events for reviewed transfer proposal, received ${overrideIds.length}`
+      )
+    );
+  }
+
+  return ok(
+    new Map(
+      links.map((link, index) => [
+        link.id,
+        {
+          ...(link.metadata ?? {}),
+          ...(overrideIds[index]
+            ? {
+                overrideId: overrideIds[index],
+                overrideLinkType: 'transfer' as const,
+              }
+            : {}),
+          linkProvenance: resolveTransactionLinkProvenance(link) === 'manual' ? 'manual' : 'user',
+        },
+      ])
+    )
   );
 }

@@ -353,11 +353,17 @@ export function createMockTransactionRepository(): {
  */
 export function createMockOverrideStore(): {
   append: Mock;
+  appendMany: Mock;
   exists: Mock;
   readAll: Mock;
 } {
   return {
     append: vi.fn().mockResolvedValue(ok({ id: 'test-event-id' })),
+    appendMany: vi
+      .fn()
+      .mockImplementation(async (optionsList: unknown[]) =>
+        ok(optionsList.map((_, index) => ({ id: `test-event-id-${index + 1}` })))
+      ),
     exists: vi.fn(),
     readAll: vi.fn(),
   };
