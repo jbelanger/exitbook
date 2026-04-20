@@ -1,5 +1,6 @@
-import { resultTryAsync, type Result } from '@exitbook/foundation';
+import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
+import { loadCliBlockchainExplorersConfig } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { ProviderBenchmarkHandler } from './providers-benchmark-handler.js';
@@ -13,7 +14,12 @@ export async function withProviderBenchmarkCommandScope<T>(
   operation: (scope: ProviderBenchmarkCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return resultTryAsync<T>(async function* () {
-    const handler = new ProviderBenchmarkHandler(runtime.requireAppRuntime().blockchainExplorersConfig);
+    const explorerConfigResult = loadCliBlockchainExplorersConfig(runtime.requireAppRuntime());
+    if (explorerConfigResult.isErr()) {
+      return yield* err(explorerConfigResult.error);
+    }
+
+    const handler = new ProviderBenchmarkHandler(explorerConfigResult.value);
     runtime.onCleanup(async () => handler.destroy());
     const value = yield* await operation({ handler });
     return value;

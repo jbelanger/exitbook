@@ -67,8 +67,17 @@ function buildAssetsConfirmCompletion(format: CliOutputFormat, result: AssetRevi
     console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
     console.log(`   Review Status: ${result.reviewStatus}`);
     console.log(`   Accounting: ${result.accountingBlocked ? 'blocked' : 'allowed'}`);
+    if (result.reviewSummarySource !== 'refreshed') {
+      console.log(`   Summary Source: ${result.reviewSummarySource}`);
+    }
     if (result.reason) {
       console.log(`   Reason: ${result.reason}`);
+    }
+    if (result.warnings.length > 0) {
+      console.log('');
+      for (const warning of result.warnings) {
+        console.log(`Warning: ${warning}`);
+      }
     }
 
     if (result.accountingBlocked) {

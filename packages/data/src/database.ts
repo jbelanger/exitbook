@@ -24,7 +24,7 @@ export function createDatabase(dbPath: string): Result<KyselyDB, Error> {
   return createSqliteDatabase<DatabaseSchema>(dbPath);
 }
 
-export async function closeDatabase(db: KyselyDB): Promise<Result<void, Error>> {
+export function closeDatabase(db: KyselyDB): Promise<Result<void, Error>> {
   return closeSqliteDatabase(db);
 }
 

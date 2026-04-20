@@ -2,9 +2,9 @@ import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
 
 import { ExitCodes, jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { buildCliProfileService } from '../profile-service.js';
 
 const PROFILES_ADD_COMMAND_ID = 'profiles-add';

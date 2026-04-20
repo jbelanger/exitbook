@@ -11,39 +11,39 @@ import {
   type RawExchangeProcessorInput,
 } from '../shared/index.js';
 
-import { buildKucoinCorrelationGroups } from './build-correlation-groups.js';
-import { interpretKucoinGroup } from './interpret-group.js';
-import { normalizeKucoinProviderEvent } from './normalize-provider-event.js';
-import type { KucoinCsvRow } from './types.js';
+import { buildKuCoinCorrelationGroups } from './build-correlation-groups.js';
+import { interpretKuCoinGroup } from './interpret-group.js';
+import { normalizeKuCoinProviderEvent } from './normalize-provider-event.js';
+import type { KuCoinCsvRow } from './types.js';
 
 /**
  * KuCoin CSV processor built on provider-event normalization and explicit
  * provider-owned interpretation rules.
  */
-export class KucoinCsvProcessor extends BaseTransactionProcessor<RawExchangeProcessorInput<KucoinCsvRow>> {
+export class KuCoinCsvProcessor extends BaseTransactionProcessor<RawExchangeProcessorInput<KuCoinCsvRow>> {
   constructor() {
     super('kucoin');
   }
 
-  protected get inputSchema(): z.ZodType<RawExchangeProcessorInput<KucoinCsvRow>> {
-    return RawExchangeProcessorInputSchema as z.ZodType<RawExchangeProcessorInput<KucoinCsvRow>>;
+  protected get inputSchema(): z.ZodType<RawExchangeProcessorInput<KuCoinCsvRow>> {
+    return RawExchangeProcessorInputSchema as z.ZodType<RawExchangeProcessorInput<KuCoinCsvRow>>;
   }
 
   protected async transformNormalizedData(
-    rawInputs: RawExchangeProcessorInput<KucoinCsvRow>[]
+    rawInputs: RawExchangeProcessorInput<KuCoinCsvRow>[]
   ): Promise<Result<TransactionDraft[], Error>> {
     const providerEvents = [];
 
     for (const input of rawInputs) {
-      const normalizedResult = normalizeKucoinProviderEvent(input.raw, input.eventId);
+      const normalizedResult = normalizeKuCoinProviderEvent(input.raw, input.eventId);
       if (normalizedResult.isErr()) {
         return err(normalizedResult.error);
       }
       providerEvents.push(normalizedResult.value);
     }
 
-    const groups = buildKucoinCorrelationGroups(providerEvents);
-    const batchResult = collectExchangeProcessingBatchResult(groups, interpretKucoinGroup);
+    const groups = buildKuCoinCorrelationGroups(providerEvents);
+    const batchResult = collectExchangeProcessingBatchResult(groups, interpretKuCoinGroup);
     logExchangeProcessingDiagnostics(this.logger, batchResult.diagnostics);
 
     const failure = buildExchangeProcessingFailureError('KuCoin', groups.length, batchResult.diagnostics);

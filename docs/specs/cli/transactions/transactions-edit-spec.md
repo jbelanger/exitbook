@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-14
+last_verified: 2026-04-19
 status: canonical
 ---
 
@@ -134,11 +134,30 @@ Movement summary:
 }
 ```
 
+Projection sync summary:
+
+```ts
+{
+  projectionSyncStatus: 'synchronized' | 'reprocess-required';
+  repairCommand?: string;
+  warnings: string[];
+}
+```
+
 Rules:
 
 - `txRef` and `movementRef` are user-facing selectors
 - `txFingerprint` and `movementFingerprint` remain the canonical durable identities
 - public mutation output must keep the selector and canonical identity meanings distinct
+- `warnings` is always present:
+  - `[]` when the selected transaction and downstream projections are synchronized
+  - one or more operator-facing warnings when durable override state is ahead of projections
+- `repairCommand` is present only when `projectionSyncStatus` is `reprocess-required`
+- failures before a durable append is confirmed remain hard command errors
+- failures after a durable append is confirmed return success output with:
+  - `projectionSyncStatus: 'reprocess-required'`
+  - `warnings`
+  - `repairCommand: "exitbook reprocess"`
 
 ## JSON Output
 
@@ -149,12 +168,14 @@ Rules:
   "action": "set",
   "changed": true,
   "note": "Moved to Ledger",
+  "projectionSyncStatus": "synchronized",
   "reason": "manual reminder",
   "transaction": {
     "platformKey": "kraken",
     "txFingerprint": "1234...",
     "txRef": "1234abcd56"
-  }
+  },
+  "warnings": []
 }
 ```
 
@@ -172,12 +193,32 @@ Rules:
   },
   "previousEffectiveRole": "staking_reward",
   "nextEffectiveRole": "principal",
+  "projectionSyncStatus": "synchronized",
   "reason": "cleanup",
   "transaction": {
     "platformKey": "coinbase",
     "txFingerprint": "1234...",
     "txRef": "1234abcd56"
-  }
+  },
+  "warnings": []
+}
+```
+
+### Partial-success result
+
+```json
+{
+  "action": "set",
+  "changed": true,
+  "note": "Moved to Ledger",
+  "projectionSyncStatus": "reprocess-required",
+  "repairCommand": "exitbook reprocess",
+  "transaction": {
+    "platformKey": "kraken",
+    "txFingerprint": "1234...",
+    "txRef": "1234abcd56"
+  },
+  "warnings": ["Override state is current, but transaction note projection refresh failed: ..."]
 }
 ```
 
@@ -196,11 +237,19 @@ Movement-role text output also includes:
 - `Movement: <MOVEMENT-REF> (<direction amount asset [role]>)`
 - `Role: <previous> -> <next>`
 
+When `warnings` is non-empty, text output also includes:
+
+- one `Warning: ...` line per warning
+- `Repair: exitbook reprocess`
+
 ## Replay / Materialization Rules
 
-- note mutation appends a `transaction_user_note_override` event, then materializes note projection
+- note mutation reads stored note overrides, then always attempts to synchronize the selected transaction note projection
+  - if the requested durable note already matches stored override state, the command remains idempotent and reports `changed: false`
+  - if note projection synchronization still fails, the command reports `projectionSyncStatus: 'reprocess-required'`
 - movement-role mutation appends a `transaction_movement_role_override` event, then materializes movement-role projection
 - movement-role mutation also marks downstream processed-transaction-derived projections stale for the owning account
+- when append succeeds but later synchronization work fails, the current operator repair path is `exitbook reprocess`
 
 ## Related Specs
 

@@ -50,8 +50,10 @@ export interface AssetReviewOverrideResult {
   evidence: AssetReviewEvidence[];
   evidenceFingerprint: string;
   referenceStatus: AssetReferenceStatus;
+  reviewSummarySource: 'current' | 'derived' | 'refreshed';
   reason?: string | undefined;
   reviewStatus: AssetReviewStatus;
+  warnings: string[];
   warningSummary?: string | undefined;
 }
 

@@ -1,7 +1,7 @@
 import { MovementRoleSchema } from '@exitbook/core';
 import { z } from 'zod';
 
-import { OptionalSourceSelectionSchema } from '../../shared/option-schema-primitives.js';
+import { OptionalSourceSelectionSchema } from '../../../cli/option-schema-primitives.js';
 
 export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
   z.object({

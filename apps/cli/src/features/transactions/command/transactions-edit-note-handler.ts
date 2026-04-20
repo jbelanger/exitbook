@@ -12,6 +12,11 @@ import {
   type TransactionEditTarget,
   type TransactionEditTransactionSummary,
 } from './transaction-edit-target.js';
+import {
+  buildReprocessRequiredTransactionEditState,
+  buildSynchronizedTransactionEditState,
+  type TransactionEditProjectionSyncState,
+} from './transactions-edit-result.js';
 
 type TransactionEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type TransactionEditMaterializationDatabase = Pick<DataSession, 'transactions'>;
@@ -29,7 +34,7 @@ interface TransactionUserNoteClearParams {
   target: TransactionEditTarget;
 }
 
-export interface TransactionUserNoteEditResult {
+export interface TransactionUserNoteEditResult extends TransactionEditProjectionSyncState {
   action: 'set' | 'clear';
   changed: boolean;
   note?: string | undefined;
@@ -51,12 +56,18 @@ export class TransactionsEditNoteHandler {
 
     const existingUserNote = userNoteOverridesResult.value.get(params.target.txFingerprint);
     if (existingUserNote?.message === params.message) {
+      const syncState = await this.synchronizeUserNoteProjection(params.profileKey, params.target.transactionId);
+      if (syncState.isErr()) {
+        return err(syncState.error);
+      }
+
       return ok({
         action: 'set',
         changed: false,
         note: params.message,
         reason: params.reason,
         transaction: toTransactionEditTransactionSummary(params.target),
+        ...syncState.value,
       });
     }
 
@@ -75,9 +86,9 @@ export class TransactionsEditNoteHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.target.transactionId);
-    if (materializeResult.isErr()) {
-      return err(materializeResult.error);
+    const syncState = await this.synchronizeUserNoteProjection(params.profileKey, params.target.transactionId);
+    if (syncState.isErr()) {
+      return err(syncState.error);
     }
 
     return ok({
@@ -86,6 +97,7 @@ export class TransactionsEditNoteHandler {
       note: params.message,
       reason: params.reason,
       transaction: toTransactionEditTransactionSummary(params.target),
+      ...syncState.value,
     });
   }
 
@@ -96,11 +108,17 @@ export class TransactionsEditNoteHandler {
     }
 
     if (!userNoteOverridesResult.value.has(params.target.txFingerprint)) {
+      const syncState = await this.synchronizeUserNoteProjection(params.profileKey, params.target.transactionId);
+      if (syncState.isErr()) {
+        return err(syncState.error);
+      }
+
       return ok({
         action: 'clear',
         changed: false,
         reason: params.reason,
         transaction: toTransactionEditTransactionSummary(params.target),
+        ...syncState.value,
       });
     }
 
@@ -118,9 +136,9 @@ export class TransactionsEditNoteHandler {
       return err(appendResult.error);
     }
 
-    const materializeResult = await this.materializeTransactionUserNote(params.profileKey, params.target.transactionId);
-    if (materializeResult.isErr()) {
-      return err(materializeResult.error);
+    const syncState = await this.synchronizeUserNoteProjection(params.profileKey, params.target.transactionId);
+    if (syncState.isErr()) {
+      return err(syncState.error);
     }
 
     return ok({
@@ -128,6 +146,7 @@ export class TransactionsEditNoteHandler {
       changed: true,
       reason: params.reason,
       transaction: toTransactionEditTransactionSummary(params.target),
+      ...syncState.value,
     });
   }
 
@@ -157,5 +176,21 @@ export class TransactionsEditNoteHandler {
     }
 
     return ok(undefined);
+  }
+
+  private async synchronizeUserNoteProjection(
+    profileKey: string,
+    transactionId: number
+  ): Promise<Result<TransactionEditProjectionSyncState, Error>> {
+    const materializeResult = await this.materializeTransactionUserNote(profileKey, transactionId);
+    if (materializeResult.isErr()) {
+      return ok(
+        buildReprocessRequiredTransactionEditState([
+          `Override state is current, but transaction note projection refresh failed: ${materializeResult.error.message}`,
+        ])
+      );
+    }
+
+    return ok(buildSynchronizedTransactionEditState());
   }
 }

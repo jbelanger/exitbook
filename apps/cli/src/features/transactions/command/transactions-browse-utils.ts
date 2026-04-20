@@ -3,8 +3,8 @@
 import type { Transaction } from '@exitbook/core';
 import { err, identifiersMatch, ok, type Result } from '@exitbook/foundation';
 
-import { buildDefinedFilters, parseDate } from '../../shared/view-utils.js';
-import type { CommonViewFilters } from '../../shared/view-utils.js';
+import { buildDefinedFilters, parseDate } from '../../../cli/view-utils.js';
+import type { CommonViewFilters } from '../../../cli/view-utils.js';
 import { getTransactionPriceStatus } from '../transaction-view-projection.js';
 import type { ExportFormat } from '../transactions-export-model.js';
 import type { TransactionsViewFilters } from '../transactions-view-model.js';

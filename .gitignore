@@ -170,6 +170,8 @@ commands.txt
 
 environment.toml
 
-.desloppify
+.desloppify/
 
 *tax-package/
+
+*-competitive-analysis.md

@@ -5,14 +5,9 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import {
-  ApiFooter,
-  type EventRelay,
-  formatDuration,
-  type LifecycleBridge,
-  statusIcon,
-  TreeChars,
-} from '../../../ui/shared/index.js';
+import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
+import { ApiFooter, TreeChars } from '../../../ui/shared/layout.js';
+import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
 
 import { createPricesEnrichState, type PricesEnrichState } from './prices-enrich-state.js';
 import { computeApiCallStats, pricesEnrichReducer } from './prices-enrich-updater.js';

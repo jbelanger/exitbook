@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 import { OptionalBareAccountSelectorSchema } from '../../accounts/account-selector.js';
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 
 export const ImportCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend({
   all: z.boolean().optional(),

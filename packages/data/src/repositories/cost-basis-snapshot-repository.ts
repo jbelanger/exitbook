@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- db nulls */
+import type { CostBasisJurisdiction, CostBasisMethod, FiatCurrency } from '@exitbook/accounting/cost-basis';
 import type { CostBasisSnapshotRecord } from '@exitbook/accounting/ports';
 import { ok, wrapError, type Result } from '@exitbook/foundation';
 
@@ -183,10 +184,10 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       ...(row.prices_last_mutated_at ? { pricesLastMutatedAt: new Date(row.prices_last_mutated_at) } : {}),
       exclusionFingerprint: row.exclusion_fingerprint,
       calculationId: row.calculation_id,
-      jurisdiction: row.jurisdiction,
-      method: row.method,
+      jurisdiction: parseCostBasisJurisdiction(row.jurisdiction),
+      method: parseCostBasisMethod(row.method),
       taxYear: row.tax_year,
-      displayCurrency: row.display_currency,
+      displayCurrency: parseFiatCurrency(row.display_currency),
       startDate: row.start_date,
       endDate: row.end_date,
       artifactJson: row.artifact_json as string,
@@ -194,5 +195,41 @@ export class CostBasisSnapshotRepository extends BaseRepository {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
+  }
+}
+
+function parseCostBasisJurisdiction(value: string): CostBasisJurisdiction {
+  switch (value) {
+    case 'CA':
+    case 'EU':
+    case 'UK':
+    case 'US':
+      return value;
+    default:
+      throw new Error(`Invalid stored cost-basis jurisdiction: ${value}`);
+  }
+}
+
+function parseCostBasisMethod(value: string): CostBasisMethod {
+  switch (value) {
+    case 'average-cost':
+    case 'fifo':
+    case 'lifo':
+    case 'specific-id':
+      return value;
+    default:
+      throw new Error(`Invalid stored cost-basis method: ${value}`);
+  }
+}
+
+function parseFiatCurrency(value: string): FiatCurrency {
+  switch (value) {
+    case 'CAD':
+    case 'EUR':
+    case 'GBP':
+    case 'USD':
+      return value;
+    default:
+      throw new Error(`Invalid stored cost-basis display currency: ${value}`);
   }
 }

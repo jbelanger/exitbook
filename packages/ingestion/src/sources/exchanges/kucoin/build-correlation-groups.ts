@@ -2,12 +2,12 @@ import { parseDecimal } from '@exitbook/foundation';
 
 import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from '../shared/index.js';
 
-import type { KucoinProviderMetadata } from './normalize-provider-event.js';
+import type { KuCoinProviderMetadata } from './normalize-provider-event.js';
 
 const ACCOUNT_HISTORY_TRANSFER_PAIRING_WINDOW_MS = 5_000;
 
-function getMetadata(event: ExchangeProviderEvent): KucoinProviderMetadata {
-  return event.providerMetadata as KucoinProviderMetadata;
+function getMetadata(event: ExchangeProviderEvent): KuCoinProviderMetadata {
+  return event.providerMetadata as KuCoinProviderMetadata;
 }
 
 function getEvidenceAssetSymbols(event: ExchangeProviderEvent): string[] {
@@ -170,7 +170,7 @@ function sortCorrelationGroups(groups: readonly ExchangeCorrelationGroup[]): Exc
   });
 }
 
-export function buildKucoinCorrelationGroups(events: ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
+export function buildKuCoinCorrelationGroups(events: ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
   const transferAccountHistoryEvents = events.filter(isTransferAccountHistoryEvent);
   const regularEvents = events.filter((event) => !isTransferAccountHistoryEvent(event));
 

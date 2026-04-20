@@ -3,10 +3,10 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 
 import { formatBlockchainName, getAddressPlaceholder, getBlockchainHint } from '../../../cli/prompts.js';
-import { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
+import { providerToSummary, type ProviderSummary } from '../../providers/shared/provider-summary.js';
 import type { BlockchainDisplayCategory } from '../blockchains-view-model.js';
 
-export { providerToSummary, type ProviderSummary } from '../../shared/provider-summary.js';
+export { providerToSummary, type ProviderSummary } from '../../providers/shared/provider-summary.js';
 
 /**
  * Blockchain categories surfaced in browse data.

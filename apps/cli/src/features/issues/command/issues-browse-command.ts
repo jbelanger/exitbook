@@ -9,12 +9,12 @@ import {
   textSuccess,
   type CliFailure,
 } from '../../../cli/command.js';
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 import {
   detectCliOutputFormat,
   parseCliBrowseRootInvocationResult,
   parseCliCommandOptionsResult,
 } from '../../../cli/options.js';
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
 import { type IssuesStaticDetailState, type IssuesStaticOverviewState } from '../view/issues-static-renderer.js';
 import { outputIssuesStaticDetail, outputIssuesStaticOverview } from '../view/issues-static-renderer.js';
 

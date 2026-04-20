@@ -1,7 +1,9 @@
 import { ProfileService } from '@exitbook/accounts';
-import { buildProfileLifecycleStore } from '@exitbook/data/accounts';
 import type { DataSession } from '@exitbook/data/session';
 
+type ProfileLifecycleStore = ConstructorParameters<typeof ProfileService>[0];
+
 export function buildCliProfileService(db: DataSession): ProfileService {
-  return new ProfileService(buildProfileLifecycleStore(db));
+  const store: ProfileLifecycleStore = db.profiles;
+  return new ProfileService(store);
 }

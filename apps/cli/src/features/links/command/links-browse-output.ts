@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import { jsonSuccess, textSuccess, type CliCompletion } from '../../../cli/command.js';
-import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../cli/view-utils.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import { outputLinkProposalStaticDetail, outputLinksStaticList } from '../view/links-static-renderer.js';
 import {

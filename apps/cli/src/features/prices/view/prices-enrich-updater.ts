@@ -3,8 +3,7 @@ import { performance } from 'node:perf_hooks';
 import type { PricingEvent } from '@exitbook/accounting/price-enrichment';
 import type { RequestMetric } from '@exitbook/observability';
 
-import { createProviderStats } from '../../../ui/shared/index.js';
-import type { ApiCallStats } from '../../../ui/shared/index.js';
+import { createProviderStats, type ApiCallStats } from '../../../ui/shared/monitoring.js';
 
 import type { PricesEnrichState } from './prices-enrich-state.js';
 

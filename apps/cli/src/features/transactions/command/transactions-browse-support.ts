@@ -3,10 +3,10 @@ import type { DataSession } from '@exitbook/data/session';
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 
 import { cliErr, ExitCodes, toCliResult, type CliFailure } from '../../../cli/command.js';
+import type { ViewCommandResult } from '../../../cli/view-utils.js';
+import { buildDefinedFilters, buildViewMeta } from '../../../cli/view-utils.js';
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import { loadAddressOwnershipLookup, type AddressOwnershipLookup } from '../../shared/address-ownership.js';
-import type { ViewCommandResult } from '../../shared/view-utils.js';
-import { buildDefinedFilters, buildViewMeta } from '../../shared/view-utils.js';
 import { buildTransactionRelatedContext } from '../transaction-investigation-context.js';
 import {
   buildTransactionSelectorFilters,

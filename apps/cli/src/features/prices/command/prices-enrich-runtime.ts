@@ -13,11 +13,10 @@ import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
-import type { CliOutputFormat } from '../cli/options.js';
-import { PricesEnrichMonitor } from '../features/prices/view/prices-enrich-components.jsx';
-import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
-
-import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
+import type { CliOutputFormat } from '../../../cli/options.js';
+import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/controllers.js';
+import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
 const logger = getLogger('cli-price-enrichment-runtime');
 

@@ -2,8 +2,6 @@
 import type { LinkingRunParams } from '@exitbook/accounting/linking';
 import { ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import { render } from 'ink';
-import React from 'react';
 import type { z } from 'zod';
 
 import {
@@ -19,9 +17,9 @@ import {
 } from '../../../../cli/command.js';
 import { ExitCodes } from '../../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../../cli/options.js';
+import { promptFlowAnswers, type PromptStep } from '../../../../cli/prompts.js';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../../runtime/command-runtime.js';
-import { PromptFlow, type PromptStep } from '../../../../ui/shared/prompt-flow.jsx';
 import { resolveCommandProfile } from '../../../profiles/profile-resolution.js';
 import { LinksRunCommandOptionsSchema } from '../links-option-schemas.js';
 
@@ -54,88 +52,79 @@ function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingR
 }
 
 async function promptForLinksRunParams(): Promise<LinksRunPromptOutcome> {
-  return new Promise<LinksRunPromptOutcome>((resolve) => {
-    const steps: PromptStep[] = [
-      {
-        type: 'text',
-        props: {
-          message: 'Minimum confidence score (0-1):',
-          placeholder: '0.7',
-          validate: (value) => {
-            if (!value) return;
-            const num = Number(value);
-            if (Number.isNaN(num) || num < 0 || num > 1) {
-              return 'Must be a number between 0 and 1';
-            }
-          },
-        },
-      },
-      {
-        type: 'text',
-        props: {
-          message: 'Auto-confirm threshold (0-1):',
-          placeholder: '0.95',
-          validate: (value) => {
-            if (!value) return;
-            const num = Number(value);
-            if (Number.isNaN(num) || num < 0 || num > 1) {
-              return 'Must be a number between 0 and 1';
-            }
-          },
-        },
-      },
-      {
-        type: 'confirm',
-        props: {
-          message: 'Start transaction linking?',
-          initialValue: true,
-        },
-      },
-    ];
-
-    const { unmount } = render(
-      React.createElement(PromptFlow, {
-        title: 'exitbook links-run',
-        steps,
-        onComplete: (answers) => {
-          unmount();
-
-          const minConfidenceInput = answers[0] as string;
-          const autoConfirmInput = answers[1] as string;
-          const shouldProceed = answers[2] as boolean;
-
-          if (!shouldProceed) {
-            resolve({ kind: 'cancelled' });
-            return;
+  const steps: PromptStep[] = [
+    {
+      type: 'text',
+      props: {
+        message: 'Minimum confidence score (0-1):',
+        placeholder: '0.7',
+        validate: (value) => {
+          if (!value) return;
+          const num = Number(value);
+          if (Number.isNaN(num) || num < 0 || num > 1) {
+            return 'Must be a number between 0 and 1';
           }
-
-          const normalizedMinConfidence = normalizeThresholdInput(minConfidenceInput, '0.7');
-          const normalizedAutoConfirm = normalizeThresholdInput(autoConfirmInput, '0.95');
-          const minConfidence = Number(normalizedMinConfidence);
-          const autoConfirm = Number(normalizedAutoConfirm);
-          if (autoConfirm < minConfidence) {
-            resolve({
-              kind: 'invalid',
-              message: 'Auto-confirm threshold must be >= minimum confidence score',
-            });
-            return;
+        },
+      },
+    },
+    {
+      type: 'text',
+      props: {
+        message: 'Auto-confirm threshold (0-1):',
+        placeholder: '0.95',
+        validate: (value) => {
+          if (!value) return;
+          const num = Number(value);
+          if (Number.isNaN(num) || num < 0 || num > 1) {
+            return 'Must be a number between 0 and 1';
           }
+        },
+      },
+    },
+    {
+      type: 'confirm',
+      props: {
+        message: 'Start transaction linking?',
+        initialValue: true,
+      },
+    },
+  ];
 
-          resolve({
-            kind: 'submitted',
-            params: {
-              minConfidenceScore: parseDecimal(normalizedMinConfidence),
-              autoConfirmThreshold: parseDecimal(normalizedAutoConfirm),
-            },
-          });
-        },
-        onCancel: () => {
-          unmount();
-          resolve({ kind: 'cancelled' });
-        },
-      })
-    );
+  const answers = await promptFlowAnswers({
+    steps,
+    title: 'exitbook links-run',
   });
+
+  if (answers === undefined) {
+    return { kind: 'cancelled' };
+  }
+
+  const minConfidenceInput = answers[0] as string;
+  const autoConfirmInput = answers[1] as string;
+  const shouldProceed = answers[2] as boolean;
+
+  if (!shouldProceed) {
+    return { kind: 'cancelled' };
+  }
+
+  const normalizedMinConfidence = normalizeThresholdInput(minConfidenceInput, '0.7');
+  const normalizedAutoConfirm = normalizeThresholdInput(autoConfirmInput, '0.95');
+  const minConfidence = Number(normalizedMinConfidence);
+  const autoConfirm = Number(normalizedAutoConfirm);
+  if (autoConfirm < minConfidence) {
+    return {
+      kind: 'invalid',
+      message: 'Auto-confirm threshold must be >= minimum confidence score',
+    };
+  }
+
+  return {
+    kind: 'submitted',
+    params: {
+      minConfidenceScore: parseDecimal(normalizedMinConfidence),
+      autoConfirmThreshold: parseDecimal(normalizedAutoConfirm),
+    },
+  };
 }
 
 export function registerLinksRunCommand(linksCommand: Command, appRuntime: CliAppRuntime): void {

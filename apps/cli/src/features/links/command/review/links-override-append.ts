@@ -63,19 +63,31 @@ export async function appendUnlinkOverrideEvent(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   profileKey: string,
-  link: LinkOverrideIdentity
+  link: LinkOverrideIdentity,
+  reason?: string
 ): Promise<Result<OverrideEvent, Error>> {
   return resultDoAsync(async function* () {
-    const fingerprints = yield* await resolveFingerprints(txRepo, link);
+    const options = yield* await buildUnlinkOverrideEventOptions(txRepo, profileKey, link, reason);
+    return yield* await overrideStore.append(options);
+  });
+}
 
-    return yield* await overrideStore.append({
-      profileKey,
-      scope: 'unlink',
-      payload: {
-        type: 'unlink_override',
-        resolved_link_fingerprint: fingerprints.resolvedLinkFp,
-      },
-    } satisfies CreateOverrideEventOptions);
+export async function appendUnlinkOverrideEvents(
+  txRepo: TransactionFingerprintReader,
+  overrideStore: OverrideStore,
+  profileKey: string,
+  links: LinkOverrideIdentity[],
+  reason?: string
+): Promise<Result<OverrideEvent[], Error>> {
+  return resultDoAsync(async function* () {
+    const options: CreateOverrideEventOptions[] = [];
+
+    for (const link of links) {
+      const eventOptions = yield* await buildUnlinkOverrideEventOptions(txRepo, profileKey, link, reason);
+      options.push(eventOptions);
+    }
+
+    return yield* await overrideStore.appendMany(options);
   });
 }
 
@@ -111,7 +123,7 @@ async function resolveFingerprints(
   }, 'Unexpected error resolving fingerprints for override event');
 }
 
-async function buildLinkOverrideEventOptions(
+export async function buildLinkOverrideEventOptions(
   txRepo: TransactionFingerprintReader,
   profileKey: string,
   link: LinkOverrideIdentity,
@@ -145,6 +157,27 @@ async function buildLinkOverrideEventOptions(
               explained_target_residual_role: explainedTargetResidual.role,
             }
           : {}),
+      },
+    } satisfies CreateOverrideEventOptions;
+  });
+}
+
+export async function buildUnlinkOverrideEventOptions(
+  txRepo: TransactionFingerprintReader,
+  profileKey: string,
+  link: LinkOverrideIdentity,
+  reason?: string
+): Promise<Result<CreateOverrideEventOptions, Error>> {
+  return resultDoAsync(async function* () {
+    const fingerprints = yield* await resolveFingerprints(txRepo, link);
+
+    return {
+      profileKey,
+      scope: 'unlink',
+      reason,
+      payload: {
+        type: 'unlink_override',
+        resolved_link_fingerprint: fingerprints.resolvedLinkFp,
       },
     } satisfies CreateOverrideEventOptions;
   });

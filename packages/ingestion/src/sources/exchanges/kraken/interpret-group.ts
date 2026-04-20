@@ -39,7 +39,20 @@ function getSharedKrakenSubtype(interpretedEvents: readonly InterpretedKrakenEve
   return [...subtypes][0];
 }
 
-function buildMovementDraft(assetSymbol: Currency, amount: string): Result<ExchangeMovementDraft, Error> {
+function getSharedProviderType(interpretedEvents: readonly InterpretedKrakenEvent[]): string | undefined {
+  const providerTypes = new Set(interpretedEvents.map((event) => event.event.providerType.trim().toLowerCase()));
+  if (providerTypes.size !== 1) {
+    return undefined;
+  }
+
+  return [...providerTypes][0];
+}
+
+function buildMovementDraft(
+  assetSymbol: Currency,
+  amount: string,
+  movementRole?: ExchangeMovementDraft['movementRole']
+): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kraken', assetSymbol);
   if (assetIdResult.isErr()) {
     return err(assetIdResult.error);
@@ -50,6 +63,7 @@ function buildMovementDraft(assetSymbol: Currency, amount: string): Result<Excha
     assetSymbol,
     grossAmount: amount,
     netAmount: amount,
+    ...(movementRole ? { movementRole } : {}),
   });
 }
 
@@ -236,6 +250,30 @@ function combineDiagnostics(
   return diagnostics.length > 0 ? diagnostics : undefined;
 }
 
+function buildOneSidedTradeResidualDiagnostic(params: {
+  group: ExchangeCorrelationGroup;
+  inferredTradeType: 'buy' | 'sell';
+  providerSubtype?: string | undefined;
+}): TransactionDiagnostic {
+  const subtypeLabel = params.providerSubtype ? `/${params.providerSubtype}` : '';
+  const residualDirection = params.inferredTradeType === 'buy' ? 'credit' : 'debit';
+
+  return {
+    code: 'classification_uncertain',
+    severity: 'info',
+    message:
+      `Kraken group ${params.group.correlationKey} contains only a ${residualDirection} leg from a ` +
+      `one-sided ${`trade${subtypeLabel}`} provider row, so it was materialized as a non-transfer trade residual.`,
+    metadata: {
+      inferredTradeType: params.inferredTradeType,
+      providerEventIds: params.group.events.map((event) => event.providerEventId),
+      providerSubtype: params.providerSubtype,
+      providerType: 'trade',
+      residualRole: 'refund_rebate',
+    },
+  };
+}
+
 export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
   const interpretedEvents: InterpretedKrakenEvent[] = [];
 
@@ -301,6 +339,7 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
   const consolidatedOutflows = consolidateMovements(outflows);
   const consolidatedFees = consolidateFees(fees);
   const sharedSubtype = getSharedKrakenSubtype(interpretedEvents);
+  const sharedProviderType = getSharedProviderType(interpretedEvents);
   const migrationDiagnostics =
     sharedSubtype === 'spotfromfutures'
       ? buildPossibleAssetMigrationDiagnostics(group, consolidatedInflows, consolidatedOutflows)
@@ -430,6 +469,62 @@ export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeG
         consolidatedOutflows,
         consolidatedFees,
         buildDustSweepingDiagnostics(group, consolidatedInflows, consolidatedOutflows)
+      ),
+    };
+  }
+
+  if (sharedProviderType === 'trade' && consolidatedInflows.length > 0 && consolidatedOutflows.length === 0) {
+    const residualInflows = consolidatedInflows.map((movement) => ({
+      ...movement,
+      movementRole: 'refund_rebate' as const,
+    }));
+
+    return {
+      kind: 'confirmed',
+      draft: buildDraft(
+        group,
+        { category: 'trade', type: 'buy' },
+        residualInflows,
+        [],
+        consolidatedFees,
+        combineDiagnostics(
+          [
+            buildOneSidedTradeResidualDiagnostic({
+              group,
+              inferredTradeType: 'buy',
+              providerSubtype: sharedSubtype,
+            }),
+          ],
+          migrationDiagnostics
+        )
+      ),
+    };
+  }
+
+  if (sharedProviderType === 'trade' && consolidatedInflows.length === 0 && consolidatedOutflows.length > 0) {
+    const residualOutflows = consolidatedOutflows.map((movement) => ({
+      ...movement,
+      movementRole: 'refund_rebate' as const,
+    }));
+
+    return {
+      kind: 'confirmed',
+      draft: buildDraft(
+        group,
+        { category: 'trade', type: 'sell' },
+        [],
+        residualOutflows,
+        consolidatedFees,
+        combineDiagnostics(
+          [
+            buildOneSidedTradeResidualDiagnostic({
+              group,
+              inferredTradeType: 'sell',
+              providerSubtype: sharedSubtype,
+            }),
+          ],
+          migrationDiagnostics
+        )
       ),
     };
   }

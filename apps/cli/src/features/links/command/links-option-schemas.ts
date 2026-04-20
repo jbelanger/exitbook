@@ -2,7 +2,7 @@ import { NonPrincipalMovementRoleSchema } from '@exitbook/core';
 import { CurrencySchema } from '@exitbook/foundation';
 import { z } from 'zod';
 
-import { JsonFlagSchema } from '../../shared/option-schema-primitives.js';
+import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
 
 export const LinksBrowseCommandOptionsSchema = z
   .object({

@@ -7,11 +7,11 @@ import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
 
+import { createCliProcessingWorkflowRuntime } from '../features/import/command/import-processing-workflow-runtime.js';
 import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view-components.jsx';
-import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
+import { createEventDrivenController, type EventDrivenController } from '../ui/shared/controllers.js';
 
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
-import { createCliProcessingWorkflowRuntime } from './processing-workflow-runtime.js';
 
 const logger = getLogger('ingestion-runtime');
 

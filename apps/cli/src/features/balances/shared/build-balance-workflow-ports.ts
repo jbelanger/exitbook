@@ -1,23 +1,17 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
+import { toBalanceScopeKey } from '@exitbook/data/balances';
+import type { DataSession } from '@exitbook/data/session';
 import type { BalancePorts } from '@exitbook/ingestion/ports';
 
-import type { DataSession } from '../data-session.js';
-
-import { toBalanceScopeKey } from './balance-scope.js';
-
-/**
- * Bridges DataSession repositories to ingestion's BalancePorts.
- * This is the only place where the concrete data layer meets the balance workflow's ports.
- */
-export function buildBalancePorts(db: DataSession): BalancePorts {
+export function buildBalanceWorkflowPorts(db: DataSession): BalancePorts {
   return {
-    findById: (id) => db.accounts.findById(id),
+    findById: db.accounts.findById.bind(db.accounts),
     findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
-    replaceSnapshot: ({ snapshot, assets }) => db.balanceSnapshots.replaceSnapshot({ snapshot, assets }),
+    replaceSnapshot: db.balanceSnapshots.replaceSnapshot.bind(db.balanceSnapshots),
     markBuilding: (scopeAccountId) => db.projectionState.markBuilding('balances', toBalanceScopeKey(scopeAccountId)),
     markFailed: (scopeAccountId) => db.projectionState.markFailed('balances', toBalanceScopeKey(scopeAccountId)),
     markFresh: (scopeAccountId) => db.projectionState.markFresh('balances', null, toBalanceScopeKey(scopeAccountId)),
     findByAccountIds: (accountIds) => db.importSessions.findAll({ accountIds }),
-    findTransactionsByAccountIds: (params) => db.transactions.findAll(params),
+    findTransactionsByAccountIds: db.transactions.findAll.bind(db.transactions),
   };
 }

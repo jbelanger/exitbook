@@ -20,9 +20,9 @@ import { render } from 'ink';
 import type React from 'react';
 
 import { resolveCliProfileSelection } from '../features/profiles/profile-state.js';
-import { getDataDir } from '../features/shared/data-dir.js';
 
-import type { CliAppRuntime } from './app-runtime.js';
+import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from './app-runtime.js';
+import { getDataDir, wrapDataDirCompatibilityError } from './data-dir.js';
 import { createNonInteractiveTuiError, isInteractiveTerminal } from './interactive-terminal.js';
 
 const logger = getLogger('command-runtime');
@@ -98,11 +98,23 @@ export class CommandRuntime {
     }
     if (!this._database) {
       const databasePath = this.app?.databasePath ?? path.join(this.dataDir, 'transactions.db');
-      const initResult = await DataSession.initialize(databasePath);
-      if (initResult.isErr()) {
-        throw initResult.error;
+      try {
+        const initResult = await DataSession.initialize(databasePath);
+        if (initResult.isErr()) {
+          throw wrapDataDirCompatibilityError(initResult.error, {
+            configuredDataDir: process.env['EXITBOOK_DATA_DIR'],
+            dataDir: this.dataDir,
+            databasePath,
+          });
+        }
+        this._database = initResult.value;
+      } catch (error) {
+        throw wrapDataDirCompatibilityError(error instanceof Error ? error : new Error(String(error)), {
+          configuredDataDir: process.env['EXITBOOK_DATA_DIR'],
+          dataDir: this.dataDir,
+          databasePath,
+        });
       }
-      this._database = initResult.value;
     }
     return this._database;
   }
@@ -131,9 +143,10 @@ export class CommandRuntime {
   async openBlockchainProviderRuntime(
     options?: BlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
   ): Promise<IBlockchainProviderRuntime> {
+    const explorerConfig = options?.explorerConfig ?? this.resolveBlockchainExplorerConfig();
     const runtimeResult = await createBlockchainProviderRuntime({
       dataDir: options?.dataDir ?? this.dataDir,
-      explorerConfig: options?.explorerConfig ?? this.app?.blockchainExplorersConfig,
+      explorerConfig,
       instrumentation: options?.instrumentation,
       eventBus: options?.eventBus,
     });
@@ -251,6 +264,16 @@ export class CommandRuntime {
     } else if (errors.length > 1) {
       throw new AggregateError(errors, 'Multiple cleanup failures');
     }
+  }
+
+  private resolveBlockchainExplorerConfig(): BlockchainExplorersConfig | undefined {
+    const appRuntime = this.requireAppRuntime();
+    const explorerConfigResult = loadCliBlockchainExplorersConfig(appRuntime);
+    if (explorerConfigResult.isErr()) {
+      throw explorerConfigResult.error;
+    }
+
+    return explorerConfigResult.value;
   }
 }
 

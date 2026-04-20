@@ -1,7 +1,7 @@
 import type { BalanceSnapshot } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
-import { getVerificationStatus, maskIdentifier, toAccountSummary } from '../account-query-utils.js';
+import { maskIdentifier, toAccountSummary, toAccountVerificationStatus } from '../account-query-utils.js';
 
 import { createMockAccount } from './account-test-utils.js';
 
@@ -35,7 +35,7 @@ describe('account-query-utils', () => {
     });
   });
 
-  describe('getVerificationStatus', () => {
+  describe('toAccountVerificationStatus', () => {
     function createSnapshot(overrides: Partial<BalanceSnapshot> = {}): BalanceSnapshot {
       return {
         scopeAccountId: 1,
@@ -48,18 +48,18 @@ describe('account-query-utils', () => {
     }
 
     it('returns never-checked when no snapshot exists', () => {
-      expect(getVerificationStatus()).toBe('never-checked');
+      expect(toAccountVerificationStatus()).toBe('never-checked');
     });
 
     it('returns never-checked when the snapshot has never run', () => {
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'never-run' }))).toBe('never-checked');
+      expect(toAccountVerificationStatus(createSnapshot({ verificationStatus: 'never-run' }))).toBe('never-checked');
     });
 
     it('returns match, warning, mismatch, or unavailable from snapshot status', () => {
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'match' }))).toBe('match');
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'warning' }))).toBe('warning');
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'mismatch' }))).toBe('mismatch');
-      expect(getVerificationStatus(createSnapshot({ verificationStatus: 'unavailable' }))).toBe('unavailable');
+      expect(toAccountVerificationStatus(createSnapshot({ verificationStatus: 'match' }))).toBe('match');
+      expect(toAccountVerificationStatus(createSnapshot({ verificationStatus: 'warning' }))).toBe('warning');
+      expect(toAccountVerificationStatus(createSnapshot({ verificationStatus: 'mismatch' }))).toBe('mismatch');
+      expect(toAccountVerificationStatus(createSnapshot({ verificationStatus: 'unavailable' }))).toBe('unavailable');
     });
   });
 

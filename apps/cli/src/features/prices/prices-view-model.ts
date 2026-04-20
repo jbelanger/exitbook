@@ -1,4 +1,4 @@
-import type { CommonViewFilters } from '../shared/view-utils.js';
+import type { CommonViewFilters } from '../../cli/view-utils.js';
 
 /**
  * Parameters for view prices command.

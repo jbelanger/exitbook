@@ -22,7 +22,12 @@ export {
   shouldBlockDueToCircuit,
   updateHealthMetrics,
 } from './provider-health/index.js';
-export type { IProvider, ProviderHealth, ProviderHealthWithCircuit } from './provider-health/index.js';
+export type {
+  CircuitBlockReason,
+  IProvider,
+  ProviderHealth,
+  ProviderHealthWithCircuit,
+} from './provider-health/index.js';
 export { scoreProviderHealth } from './provider-scoring/index.js';
 export { buildProviderSelectionDebugInfo, selectProviders } from './provider-selection/index.js';
 export type { ScoredProvider, SelectProvidersOptions } from './provider-selection/index.js';

@@ -135,6 +135,8 @@ export class AssetOverrideService {
         assetSymbols,
         changed: false,
         reason: params.reason,
+        reviewSummarySource: 'current',
+        warnings: [],
       });
     }
 
@@ -152,36 +154,16 @@ export class AssetOverrideService {
       return err(appendResult.error);
     }
 
-    const invalidateResult = await invalidateAssetReviewProjection(
-      this.db,
-      params.profileId,
-      'override:asset-review-confirm'
-    );
-    if (invalidateResult.isErr()) {
-      return err(invalidateResult.error);
-    }
-
-    const refreshedSummaryResult = await this.snapshotReader.readFreshReviewSummaries(
-      params.profileId,
-      params.profileKey,
-      [assetId]
-    );
-    if (refreshedSummaryResult.isErr()) {
-      return err(refreshedSummaryResult.error);
-    }
-
-    const refreshedSummary = refreshedSummaryResult.value.get(assetId);
-    if (!refreshedSummary) {
-      return err(new Error(`Asset review summary not found after confirmation rebuild: ${assetId}`));
-    }
-
-    return ok({
+    return await this.buildReviewOverrideResult({
       action: 'confirm',
-      ...toAssetReviewOverrideSnapshot(refreshedSummary),
       assetId,
       assetSymbols,
       changed: true,
+      fallbackSummary: buildConfirmedReviewSummary(reviewSummary),
+      profileId: params.profileId,
+      profileKey: params.profileKey,
       reason: params.reason,
+      staleReason: 'override:asset-review-confirm',
     });
   }
 
@@ -212,6 +194,8 @@ export class AssetOverrideService {
         assetSymbols,
         changed: false,
         reason: params.reason,
+        reviewSummarySource: 'current',
+        warnings: [],
       });
     }
 
@@ -228,36 +212,16 @@ export class AssetOverrideService {
       return err(appendResult.error);
     }
 
-    const invalidateResult = await invalidateAssetReviewProjection(
-      this.db,
-      params.profileId,
-      'override:asset-review-clear'
-    );
-    if (invalidateResult.isErr()) {
-      return err(invalidateResult.error);
-    }
-
-    const refreshedSummaryResult = await this.snapshotReader.readFreshReviewSummaries(
-      params.profileId,
-      params.profileKey,
-      [assetId]
-    );
-    if (refreshedSummaryResult.isErr()) {
-      return err(refreshedSummaryResult.error);
-    }
-
-    const refreshedSummary = refreshedSummaryResult.value.get(assetId);
-    if (!refreshedSummary) {
-      return err(new Error(`Asset review summary not found after clear-review rebuild: ${assetId}`));
-    }
-
-    return ok({
+    return await this.buildReviewOverrideResult({
       action: 'clear-review',
-      ...toAssetReviewOverrideSnapshot(refreshedSummary),
       assetId,
       assetSymbols,
       changed: true,
+      fallbackSummary: buildClearedReviewSummary(reviewSummary),
+      profileId: params.profileId,
+      profileKey: params.profileKey,
       reason: params.reason,
+      staleReason: 'override:asset-review-clear',
     });
   }
 
@@ -269,6 +233,98 @@ export class AssetOverrideService {
 
     return ok(undefined);
   }
+
+  private async buildReviewOverrideResult(input: {
+    action: AssetReviewOverrideResult['action'];
+    assetId: string;
+    assetSymbols: string[];
+    changed: boolean;
+    fallbackSummary: import('@exitbook/core').AssetReviewSummary;
+    profileId: number;
+    profileKey: string;
+    reason?: string | undefined;
+    staleReason: string;
+  }): Promise<Result<AssetReviewOverrideResult, Error>> {
+    const warnings: string[] = [];
+
+    const invalidateResult = await invalidateAssetReviewProjection(this.db, input.profileId, input.staleReason);
+    if (invalidateResult.isErr()) {
+      warnings.push(
+        `Override persisted, but the asset review projection could not be marked stale: ${invalidateResult.error.message}`
+      );
+    }
+
+    const refreshedSummaryResult = await this.snapshotReader.readFreshReviewSummaries(
+      input.profileId,
+      input.profileKey,
+      [input.assetId]
+    );
+    if (refreshedSummaryResult.isOk()) {
+      const refreshedSummary = refreshedSummaryResult.value.get(input.assetId);
+      if (refreshedSummary) {
+        return ok({
+          action: input.action,
+          ...toAssetReviewOverrideSnapshot(refreshedSummary),
+          assetId: input.assetId,
+          assetSymbols: input.assetSymbols,
+          changed: input.changed,
+          reason: input.reason,
+          reviewSummarySource: 'refreshed',
+          warnings,
+        });
+      }
+
+      warnings.push(`Override persisted, but the refreshed asset review summary was missing for ${input.assetId}.`);
+    } else {
+      warnings.push(
+        `Override persisted, but the asset review projection refresh failed: ${refreshedSummaryResult.error.message}`
+      );
+    }
+
+    return ok({
+      action: input.action,
+      ...toAssetReviewOverrideSnapshot(input.fallbackSummary),
+      assetId: input.assetId,
+      assetSymbols: input.assetSymbols,
+      changed: input.changed,
+      reason: input.reason,
+      reviewSummarySource: 'derived',
+      warnings,
+    });
+  }
+}
+
+function buildConfirmedReviewSummary(
+  reviewSummary: import('@exitbook/core').AssetReviewSummary
+): import('@exitbook/core').AssetReviewSummary {
+  return {
+    ...reviewSummary,
+    accountingBlocked: hasSameSymbolAmbiguity(reviewSummary),
+    confirmationIsStale: false,
+    reviewStatus: 'reviewed',
+  };
+}
+
+function buildClearedReviewSummary(
+  reviewSummary: import('@exitbook/core').AssetReviewSummary
+): import('@exitbook/core').AssetReviewSummary {
+  const reviewStatus = reviewSummary.evidence.length > 0 ? 'needs-review' : 'clear';
+
+  return {
+    ...reviewSummary,
+    accountingBlocked:
+      hasSameSymbolAmbiguity(reviewSummary) || (reviewStatus === 'needs-review' && hasErrorEvidence(reviewSummary)),
+    confirmationIsStale: false,
+    reviewStatus,
+  };
+}
+
+function hasSameSymbolAmbiguity(reviewSummary: import('@exitbook/core').AssetReviewSummary): boolean {
+  return reviewSummary.evidence.some((item) => item.kind === 'same-symbol-ambiguity');
+}
+
+function hasErrorEvidence(reviewSummary: import('@exitbook/core').AssetReviewSummary): boolean {
+  return reviewSummary.evidence.some((item) => item.severity === 'error');
 }
 
 function toAssetReviewOverrideSnapshot(

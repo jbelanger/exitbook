@@ -16,7 +16,6 @@
     "blockchain-providers:validate": "pnpm -F @exitbook/blockchain-providers blockchain-providers:validate",
     "build": "pnpm -r build",
     "clean": "pnpm -r run clean",
-    "db:repair:accounting-issues": "pnpm exec tsx tools/repair-accounting-issue-schema.ts",
     "dev": "pnpm -F exitbook-cli dev",
     "lint": "pnpm -r run lint",
     "prepare": "husky",

@@ -6,7 +6,7 @@ import {
   CsvImportSchema,
   JsonFlagSchema,
   SourceSelectionSchema,
-} from '../../shared/option-schema-primitives.js';
+} from '../../../cli/option-schema-primitives.js';
 import { OptionalBareAccountSelectorSchema } from '../account-selector.js';
 
 export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({

@@ -2,7 +2,7 @@
  * Shared layout budgeting for links view dashboards.
  */
 
-import { calculateChromeLines } from '../../../ui/shared/index.js';
+import { calculateChromeLines } from '../../../ui/shared/layout.js';
 
 export const GAP_TOP_ASSET_LIMIT = 5;
 

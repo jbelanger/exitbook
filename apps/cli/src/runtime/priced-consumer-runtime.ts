@@ -1,4 +1,5 @@
 import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
+import type { PricedConsumerTarget } from '@exitbook/accounting/ports';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
@@ -8,8 +9,6 @@ import { loadAccountingExclusionPolicy } from './accounting-exclusion-policy.js'
 import type { CommandRuntime } from './command-runtime.js';
 import { ensureConsumerInputsReady } from './consumer-input-readiness.js';
 import type { PricePrereqConfig } from './price-readiness.js';
-
-type PricedConsumerTarget = 'cost-basis' | 'portfolio';
 
 interface PreparedPricedConsumerRuntime {
   accountingExclusionPolicy: AccountingExclusionPolicy;

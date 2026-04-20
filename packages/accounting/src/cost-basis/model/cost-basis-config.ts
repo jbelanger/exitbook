@@ -3,19 +3,22 @@
  * These align with major tax jurisdictions
  */
 export type FiatCurrency = 'USD' | 'CAD' | 'EUR' | 'GBP';
+export type CostBasisMethod = 'fifo' | 'lifo' | 'specific-id' | 'average-cost';
+export type CostBasisJurisdiction = 'CA' | 'US' | 'UK' | 'EU';
+export type SpecificLotSelectionStrategy = 'minimize-gain' | 'maximize-loss';
 
 /**
  * Cost basis calculation configuration
  */
 export interface CostBasisConfig {
   /** Calculation method */
-  method: 'fifo' | 'lifo' | 'specific-id' | 'average-cost';
+  method: CostBasisMethod;
 
   /** Currency for cost basis (fiat currency code) */
   currency: FiatCurrency;
 
   /** Tax jurisdiction */
-  jurisdiction: 'CA' | 'US' | 'UK' | 'EU';
+  jurisdiction: CostBasisJurisdiction;
 
   /** Tax year for the calculation */
   taxYear: number;
@@ -27,7 +30,7 @@ export interface CostBasisConfig {
   endDate?: Date | undefined;
 
   /** Strategy for specific-id lot selection */
-  specificLotSelectionStrategy?: 'minimize-gain' | 'maximize-loss' | undefined;
+  specificLotSelectionStrategy?: SpecificLotSelectionStrategy | undefined;
 }
 
 /**
@@ -35,7 +38,7 @@ export interface CostBasisConfig {
  */
 export function getDefaultDateRange(
   taxYear: number,
-  jurisdiction: CostBasisConfig['jurisdiction']
+  jurisdiction: CostBasisJurisdiction
 ): { endDate: Date; startDate: Date } {
   switch (jurisdiction) {
     case 'CA': // Canada: January 1 - December 31

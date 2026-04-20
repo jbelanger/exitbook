@@ -1,6 +1,6 @@
 import { PortfolioHandler } from '@exitbook/accounting/portfolio';
 import type { Profile } from '@exitbook/core';
-import { buildCostBasisFailureSnapshotStore, buildCostBasisPorts } from '@exitbook/data/accounting';
+import { buildCostBasisPorts } from '@exitbook/data/accounting';
 import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
@@ -45,7 +45,7 @@ export async function withPortfolioCommandScope<T>(
       handler: new PortfolioHandler({
         accountingExclusionPolicy: pricedRuntimeResult.value.accountingExclusionPolicy,
         costBasisStore: buildCostBasisPorts(database, profileResult.value.id),
-        failureSnapshotStore: buildCostBasisFailureSnapshotStore(database),
+        failureSnapshotStore: database.costBasisFailureSnapshots,
         priceRuntime: pricedRuntimeResult.value.priceRuntime,
         profileId: profileResult.value.id,
         readAssetReviewSummaries: () => readAssetReviewProjectionSummaries(database, profileResult.value.id),

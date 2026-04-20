@@ -12,9 +12,9 @@ import { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { CliOutputFormat } from '../cli/options.js';
-import { LinksRunMonitor } from '../features/links/view/links-run-components.jsx';
-import { createEventDrivenController, type EventDrivenController } from '../ui/shared/index.js';
+import type { CliOutputFormat } from '../../../../cli/options.js';
+import { createEventDrivenController, type EventDrivenController } from '../../../../ui/shared/controllers.js';
+import { LinksRunMonitor } from '../../view/links-run-components.jsx';
 
 const logger = getLogger('cli-linking-runtime');
 

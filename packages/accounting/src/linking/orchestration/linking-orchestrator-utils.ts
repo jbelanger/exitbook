@@ -101,7 +101,11 @@ export function buildLinkFromOrphanedOverride(
 }
 
 /** Count links by category after override replay. */
-export function categorizeFinalLinks(links: NewTransactionLink[]) {
+export function categorizeFinalLinks(links: NewTransactionLink[]): {
+  confirmedCount: number;
+  internalCount: number;
+  suggestedCount: number;
+} {
   let internalCount = 0;
   let confirmedCount = 0;
   let suggestedCount = 0;

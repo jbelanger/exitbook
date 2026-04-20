@@ -1,34 +1,20 @@
-// Best-effort override writers for review flows.
-// The primary DB mutation already succeeded, so failures here are only logged.
-
+import type { OverrideEvent } from '@exitbook/core';
 import type { OverrideStore } from '@exitbook/data/overrides';
-import { getLogger } from '@exitbook/logger';
+import { type Result } from '@exitbook/foundation';
 
-import { appendLinkOverrideEvent, appendUnlinkOverrideEvent } from './links-override-append.js';
+import { appendLinkOverrideEvents, appendUnlinkOverrideEvents } from './links-override-append.js';
 import type { LinkOverrideIdentity, TransactionFingerprintReader } from './links-override-append.js';
 
-const logger = getLogger('LinkOverrideUtils');
-
-export async function writeLinkOverrideEvent(
+export async function appendTransferProposalOverrideEvents(
   txRepo: TransactionFingerprintReader,
   overrideStore: OverrideStore,
   profileKey: string,
-  link: LinkOverrideIdentity
-): Promise<void> {
-  const appendResult = await appendLinkOverrideEvent(txRepo, overrideStore, profileKey, link);
-  if (appendResult.isErr()) {
-    logger.warn({ error: appendResult.error }, 'Failed to write link override event');
+  links: LinkOverrideIdentity[],
+  targetStatus: 'confirmed' | 'rejected'
+): Promise<Result<OverrideEvent[], Error>> {
+  if (targetStatus === 'confirmed') {
+    return appendLinkOverrideEvents(txRepo, overrideStore, profileKey, links);
   }
-}
 
-export async function writeUnlinkOverrideEvent(
-  txRepo: TransactionFingerprintReader,
-  overrideStore: OverrideStore,
-  profileKey: string,
-  link: LinkOverrideIdentity
-): Promise<void> {
-  const appendResult = await appendUnlinkOverrideEvent(txRepo, overrideStore, profileKey, link);
-  if (appendResult.isErr()) {
-    logger.warn({ error: appendResult.error }, 'Failed to write unlink override event');
-  }
+  return appendUnlinkOverrideEvents(txRepo, overrideStore, profileKey, links);
 }

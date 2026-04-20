@@ -29,4 +29,34 @@ describe('materializeProcessedTransaction', () => {
 
     expect(transaction.identityMaterial?.componentEventIds).toEqual(['evt-a', 'evt-b', 'evt-b']);
   });
+
+  it('preserves optional movement roles on exchange asset movements', () => {
+    const transaction = materializeProcessedTransaction({
+      source: 'kraken',
+      timestamp: 1_700_000_000_000,
+      status: 'success',
+      operation: {
+        category: 'trade',
+        type: 'buy',
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:fet',
+            assetSymbol: 'FET' as Currency,
+            grossAmount: '0.00000488',
+            movementRole: 'refund_rebate',
+          },
+        ],
+        outflows: [],
+      },
+      fees: [],
+      evidence: {
+        interpretationRule: 'kraken:buy',
+        providerEventIds: ['evt-a'],
+      },
+    });
+
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBe('refund_rebate');
+  });
 });

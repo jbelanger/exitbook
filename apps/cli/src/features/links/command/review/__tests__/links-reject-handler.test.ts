@@ -70,7 +70,7 @@ describe('LinksRejectHandler', () => {
       expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123], 'rejected', 'cli-user', expect.any(Map));
     });
 
-    it('should write unlink_override event after successful reject', async () => {
+    it('should write unlink_override event batch before rejecting statuses', async () => {
       const params: LinksReviewParams = {
         linkId: 123,
       };
@@ -88,20 +88,25 @@ describe('LinksRejectHandler', () => {
 
       await handler.execute(params, 'reject');
 
-      const appendCall = mockOverrideStore.append.mock.calls[0] as [unknown] | undefined;
+      const appendCall = mockOverrideStore.appendMany.mock.calls[0] as [unknown] | undefined;
       expect(appendCall).toBeDefined();
 
-      expect(appendCall?.[0]).toMatchObject({
-        scope: 'unlink',
-        payload: {
-          type: 'unlink_override',
-          resolved_link_fingerprint:
-            'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
-        },
-      });
+      expect(appendCall?.[0]).toEqual([
+        expect.objectContaining({
+          scope: 'unlink',
+          payload: {
+            type: 'unlink_override',
+            resolved_link_fingerprint:
+              'resolved-link:v1:movement:exchange:source:1:btc:outflow:0:movement:blockchain:target:2:btc:inflow:0:exchange:source:btc:blockchain:target:btc',
+          },
+        }),
+      ]);
+      expect(mockLinkQueries.updateStatuses.mock.invocationCallOrder[0]).toBeGreaterThan(
+        mockOverrideStore.appendMany.mock.invocationCallOrder[0] ?? 0
+      );
     });
 
-    it('should not fail if override store write fails', async () => {
+    it('should fail before updating statuses when override batch write fails', async () => {
       const params: LinksReviewParams = {
         linkId: 123,
       };
@@ -116,11 +121,15 @@ describe('LinksRejectHandler', () => {
         if (id === 2) return Promise.resolve(ok(mockTargetTx));
         return Promise.resolve(ok(undefined));
       });
-      mockOverrideStore.append.mockResolvedValue(err(new Error('Write failed')));
+      mockOverrideStore.appendMany.mockResolvedValue(err(new Error('Write failed')));
 
       const result = await handler.execute(params, 'reject');
 
-      expect(result.isOk()).toBe(true);
+      const error = assertErr(result);
+      expect(error.message).toContain(
+        'Failed to write transfer proposal override events before updating reviewed statuses'
+      );
+      expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
     });
 
     it('should handle already rejected link (idempotent)', async () => {
@@ -201,7 +210,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.affectedLinkIds).toEqual([124]);
       expect(rejectResult.affectedLinkCount).toBe(1);
       expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([124], 'rejected', 'cli-user', expect.any(Map));
-      expect(mockOverrideStore.append).toHaveBeenCalledTimes(1);
+      expect(mockOverrideStore.appendMany).toHaveBeenCalledTimes(1);
     });
 
     it('should successfully reject a confirmed link (override auto-confirmation)', async () => {
@@ -271,11 +280,17 @@ describe('LinksRejectHandler', () => {
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkQueries.updateStatuses.mockResolvedValue(err(new Error('Update failed')));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
-      expect(error.message).toBe('Update failed');
+      expect(error.message).toContain('Update failed');
+      expect(error.message).toContain('rerun "links run" to rematerialize the reviewed transfer proposal state');
     });
 
     it('should return error if updateStatus returns false', async () => {
@@ -288,11 +303,17 @@ describe('LinksRejectHandler', () => {
       mockLinkQueries.findById.mockResolvedValue(ok(suggestedLink));
       mockLinkQueries.findAll.mockResolvedValue(ok([suggestedLink]));
       mockLinkQueries.updateStatuses.mockResolvedValue(ok(0));
+      mockTransactionQueries.findById.mockImplementation((id: number) => {
+        if (id === 1) return Promise.resolve(ok(mockSourceTx));
+        if (id === 2) return Promise.resolve(ok(mockTargetTx));
+        return Promise.resolve(ok(undefined));
+      });
 
       const result = await handler.execute(params, 'reject');
 
       const error = assertErr(result);
       expect(error.message).toContain('Failed to update transfer proposal');
+      expect(error.message).toContain('rerun "links run" to rematerialize the reviewed transfer proposal state');
     });
 
     it('should handle exceptions gracefully', async () => {
@@ -359,7 +380,7 @@ describe('LinksRejectHandler', () => {
       expect(rejectResult.affectedLinkIds).toEqual([123, 124]);
       expect(rejectResult.affectedLinkCount).toBe(2);
       expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([123, 124], 'rejected', 'cli-user', expect.any(Map));
-      expect(mockOverrideStore.append).toHaveBeenCalledTimes(2);
+      expect(mockOverrideStore.appendMany).toHaveBeenCalledTimes(1);
     });
   });
 });

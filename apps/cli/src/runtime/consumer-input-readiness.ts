@@ -1,4 +1,5 @@
 import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
+import type { PricedConsumerTarget } from '@exitbook/accounting/ports';
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { CommandRuntime } from './command-runtime.js';
@@ -10,7 +11,7 @@ import {
   type PrereqExecutionOptions,
 } from './projection-readiness.js';
 
-type ConsumerTarget = 'links-run' | 'cost-basis' | 'portfolio';
+type ConsumerTarget = 'links-run' | PricedConsumerTarget;
 
 interface EnsureConsumerInputsReadyOptions extends PrereqExecutionOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;

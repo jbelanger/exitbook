@@ -2,6 +2,8 @@ import type { Account, TransactionLink, Transaction } from '@exitbook/core';
 import type { ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
+import type { CostBasisJurisdiction, CostBasisMethod, FiatCurrency } from '../cost-basis/model/cost-basis-config.js';
+
 /**
  * All data needed to run a cost basis calculation.
  */
@@ -27,7 +29,8 @@ export interface CostBasisDependencyWatermark {
 }
 
 export type CostBasisArtifactKind = 'standard' | 'canada';
-export type CostBasisFailureConsumer = 'cost-basis' | 'portfolio';
+export type PricedConsumerTarget = 'cost-basis' | 'portfolio';
+export type CostBasisFailureConsumer = PricedConsumerTarget;
 
 export interface CostBasisSnapshotRecord {
   scopeKey: string;
@@ -40,10 +43,10 @@ export interface CostBasisSnapshotRecord {
   pricesLastMutatedAt?: Date | undefined;
   exclusionFingerprint: string;
   calculationId: string;
-  jurisdiction: string;
-  method: string;
+  jurisdiction: CostBasisJurisdiction;
+  method: CostBasisMethod;
   taxYear: number;
-  displayCurrency: string;
+  displayCurrency: FiatCurrency;
   startDate: string;
   endDate: string;
   artifactJson: string;
@@ -62,10 +65,10 @@ export interface CostBasisFailureSnapshotRecord {
   assetReviewBuiltAt?: Date | undefined;
   pricesLastMutatedAt?: Date | undefined;
   exclusionFingerprint: string;
-  jurisdiction: string;
-  method: string;
+  jurisdiction: CostBasisJurisdiction;
+  method: CostBasisMethod;
   taxYear: number;
-  displayCurrency: string;
+  displayCurrency: FiatCurrency;
   startDate: string;
   endDate: string;
   errorName: string;

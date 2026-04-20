@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { assertOk, consumeImportStream } from '../../../../shared/test-utils/importer-test-utils.js';
 import type { ImportBatchResult, StreamingImportParams } from '../../../../shared/types/importers.js';
-import { KucoinCsvImporter } from '../importer.js';
+import { KuCoinCsvImporter } from '../importer.js';
 
 vi.mock('node:fs/promises');
 
@@ -28,13 +28,13 @@ function createMockDirent(name: string, isFile = true): Dirent {
   } as unknown as Dirent;
 }
 
-describe('KucoinCsvImporter - Streaming Import', () => {
-  let importer: KucoinCsvImporter;
+describe('KuCoinCsvImporter - Streaming Import', () => {
+  let importer: KuCoinCsvImporter;
   const mockReaddir = vi.mocked(fs.readdir);
   const mockReadFile = vi.mocked(fs.readFile);
 
   beforeEach(() => {
-    importer = new KucoinCsvImporter();
+    importer = new KuCoinCsvImporter();
   });
 
   afterEach(() => {
@@ -195,13 +195,13 @@ user123,mainAccount,2024-01-01 09:00:00,BTC,1.0,0.001,hash123,bc1q...,Bitcoin,su
   });
 });
 
-describe('KucoinCsvImporter - Transaction Type Metadata', () => {
-  let importer: KucoinCsvImporter;
+describe('KuCoinCsvImporter - Transaction Type Metadata', () => {
+  let importer: KuCoinCsvImporter;
   const mockReaddir = vi.mocked(fs.readdir);
   const mockReadFile = vi.mocked(fs.readFile);
 
   beforeEach(() => {
-    importer = new KucoinCsvImporter();
+    importer = new KuCoinCsvImporter();
   });
 
   afterEach(() => {
@@ -274,13 +274,13 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
   });
 });
 
-describe('KucoinCsvImporter - Row Type Marking', () => {
-  let importer: KucoinCsvImporter;
+describe('KuCoinCsvImporter - Row Type Marking', () => {
+  let importer: KuCoinCsvImporter;
   const mockReaddir = vi.mocked(fs.readdir);
   const mockReadFile = vi.mocked(fs.readFile);
 
   beforeEach(() => {
-    importer = new KucoinCsvImporter();
+    importer = new KuCoinCsvImporter();
   });
 
   afterEach(() => {
@@ -348,13 +348,13 @@ user123,mainAccount,2024-01-02 10:00:00,BTC,0.5,0.0005,hash456,bc1q...,Bitcoin,s
   });
 });
 
-describe('KucoinCsvImporter - Error Handling', () => {
-  let importer: KucoinCsvImporter;
+describe('KuCoinCsvImporter - Error Handling', () => {
+  let importer: KuCoinCsvImporter;
   const mockReaddir = vi.mocked(fs.readdir);
   const mockReadFile = vi.mocked(fs.readFile);
 
   beforeEach(() => {
-    importer = new KucoinCsvImporter();
+    importer = new KuCoinCsvImporter();
   });
 
   afterEach(() => {

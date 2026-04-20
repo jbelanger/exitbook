@@ -8,7 +8,7 @@
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '../circuit-breaker/circuit-breaker.js';
 import type { CircuitState } from '../circuit-breaker/types.js';
 
-import type { ProviderHealth, ProviderHealthWithCircuit } from './types.js';
+import type { CircuitBlockReason, ProviderHealth, ProviderHealthWithCircuit } from './types.js';
 
 /**
  * Create initial health state for a new provider
@@ -75,7 +75,7 @@ export function shouldBlockDueToCircuit(
   circuitState: CircuitState,
   hasOtherProviders: boolean,
   now: number
-): string | undefined {
+): CircuitBlockReason | undefined {
   const isOpen = isCircuitOpen(circuitState, now);
   const isHalfOpen = isCircuitHalfOpen(circuitState, now);
 

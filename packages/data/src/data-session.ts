@@ -90,7 +90,7 @@ export class DataSession {
     );
   }
 
-  async close(): Promise<Result<void, Error>> {
+  close(): Promise<Result<void, Error>> {
     return closeDatabase(this.connection);
   }
 }

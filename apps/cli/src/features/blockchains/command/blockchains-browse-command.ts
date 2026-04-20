@@ -19,9 +19,9 @@ import {
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
+import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
-import { buildDefinedFilters } from '../../shared/view-utils.js';
 import { toBlockchainViewItem } from '../blockchain-view-projection.js';
 import type { BlockchainViewItem } from '../blockchains-view-model.js';
 import { outputBlockchainStaticDetail, outputBlockchainsStaticList } from '../view/blockchains-static-renderer.js';

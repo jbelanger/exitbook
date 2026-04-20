@@ -4,12 +4,13 @@ import type { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal } from '@exitbook/foundation';
-import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import type { TransactionEditTarget } from '../transaction-edit-target.js';
 import { TransactionsEditNoteHandler } from '../transactions-edit-note-handler.js';
+import { TRANSACTION_EDIT_REPAIR_COMMAND } from '../transactions-edit-result.js';
 
 const PROFILE_KEY = 'default';
 
@@ -118,12 +119,14 @@ describe('TransactionsEditNoteHandler', () => {
       action: 'set',
       changed: true,
       note: 'Moved to hardware wallet',
+      projectionSyncStatus: 'synchronized',
       reason: 'manual reminder',
       transaction: {
         platformKey: 'kraken',
         txFingerprint: 'tx:v2:kraken:1:trade-42',
         txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
       },
+      warnings: [],
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,
@@ -174,12 +177,26 @@ describe('TransactionsEditNoteHandler', () => {
       action: 'set',
       changed: false,
       note: 'Moved to hardware wallet',
+      projectionSyncStatus: 'synchronized',
       transaction: {
         txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
       },
+      warnings: [],
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
-    expect(materializeTransactionUserNoteOverrides).not.toHaveBeenCalled();
+    expect(materializeTransactionUserNoteOverrides).toHaveBeenCalledWith({
+      transactionIds: [42],
+      userNoteByFingerprint: new Map([
+        [
+          'tx:v2:kraken:1:trade-42',
+          {
+            message: 'Moved to hardware wallet',
+            createdAt: '2026-03-15T12:00:00.000Z',
+            author: 'user',
+          },
+        ],
+      ]),
+    });
   });
 
   it('appends a clear event when clearing an existing note', async () => {
@@ -204,10 +221,12 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'clear',
       changed: true,
+      projectionSyncStatus: 'synchronized',
       reason: 'no longer needed',
       transaction: {
         txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
       },
+      warnings: [],
     });
     expect(mockOverrideStore.append).toHaveBeenCalledWith({
       profileKey: PROFILE_KEY,
@@ -244,15 +263,20 @@ describe('TransactionsEditNoteHandler', () => {
     expect(assertOk(result)).toMatchObject({
       action: 'clear',
       changed: false,
+      projectionSyncStatus: 'synchronized',
       transaction: {
         txRef: formatTransactionFingerprintRef('tx:v2:kraken:1:trade-42'),
       },
+      warnings: [],
     });
     expect(mockOverrideStore.append).not.toHaveBeenCalled();
-    expect(materializeTransactionUserNoteOverrides).not.toHaveBeenCalled();
+    expect(materializeTransactionUserNoteOverrides).toHaveBeenCalledWith({
+      transactionIds: [42],
+      userNoteByFingerprint: new Map(),
+    });
   });
 
-  it('returns an error when note materialization fails', async () => {
+  it('returns partial success when note materialization fails after append', async () => {
     const transaction = createTransaction(42, 'trade-42');
     const mockDb = {
       transactions: {
@@ -268,6 +292,60 @@ describe('TransactionsEditNoteHandler', () => {
       message: 'Missing',
     });
 
-    expect(assertErr(result).message).toContain('Failed to materialize transaction user note override');
+    expect(assertOk(result)).toMatchObject({
+      action: 'set',
+      changed: true,
+      note: 'Missing',
+      projectionSyncStatus: 'reprocess-required',
+      repairCommand: TRANSACTION_EDIT_REPAIR_COMMAND,
+      warnings: [
+        'Override state is current, but transaction note projection refresh failed: Failed to materialize transaction user note override: materialize failed',
+      ],
+    });
+  });
+
+  it('returns partial success when an unchanged note cannot refresh its projection', async () => {
+    const transaction = createTransaction(42, 'trade-42');
+    const materializeTransactionUserNoteOverrides = vi.fn().mockResolvedValue(err(new Error('materialize failed')));
+    const mockDb = {
+      transactions: {
+        materializeTransactionUserNoteOverrides,
+      },
+    } as unknown as Pick<DataSession, 'transactions'>;
+    const mockOverrideStore = createMockOverrideStore([
+      createTransactionNoteEvent('tx:v2:kraken:1:trade-42', 'Moved to hardware wallet'),
+    ]);
+
+    const handler = new TransactionsEditNoteHandler(mockDb, mockOverrideStore);
+    const result = await handler.setNote({
+      profileKey: PROFILE_KEY,
+      target: toEditTarget(transaction),
+      message: 'Moved to hardware wallet',
+    });
+
+    expect(assertOk(result)).toMatchObject({
+      action: 'set',
+      changed: false,
+      note: 'Moved to hardware wallet',
+      projectionSyncStatus: 'reprocess-required',
+      repairCommand: TRANSACTION_EDIT_REPAIR_COMMAND,
+      warnings: [
+        'Override state is current, but transaction note projection refresh failed: Failed to materialize transaction user note override: materialize failed',
+      ],
+    });
+    expect(mockOverrideStore.append).not.toHaveBeenCalled();
+    expect(materializeTransactionUserNoteOverrides).toHaveBeenCalledWith({
+      transactionIds: [42],
+      userNoteByFingerprint: new Map([
+        [
+          'tx:v2:kraken:1:trade-42',
+          {
+            message: 'Moved to hardware wallet',
+            createdAt: '2026-03-15T12:00:00.000Z',
+            author: 'user',
+          },
+        ],
+      ]),
+    });
   });
 });

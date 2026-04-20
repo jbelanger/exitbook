@@ -45,10 +45,18 @@ export interface ProviderStatsInput {
   totalFailures: number;
 }
 
+export interface ProviderStatsQueries {
+  clear(): Promise<Result<void, Error>>;
+  get(blockchain: string, providerName: string): Promise<Result<ProviderStatsRow | undefined, Error>>;
+  getAll(): Promise<Result<ProviderStatsRow[], Error>>;
+  getByBlockchain(blockchain: string): Promise<Result<ProviderStatsRow[], Error>>;
+  upsert(input: ProviderStatsInput): Promise<Result<void, Error>>;
+}
+
 /**
  * Queries for managing provider stats persistence
  */
-export function createProviderStatsQueries(db: ProviderStatsDB) {
+export function createProviderStatsQueries(db: ProviderStatsDB): ProviderStatsQueries {
   /**
    * Upsert a single provider's stats (insert or update on conflict)
    */
@@ -169,5 +177,3 @@ export function createProviderStatsQueries(db: ProviderStatsDB) {
     clear,
   };
 }
-
-export type ProviderStatsQueries = ReturnType<typeof createProviderStatsQueries>;

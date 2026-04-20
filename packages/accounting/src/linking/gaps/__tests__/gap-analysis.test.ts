@@ -672,6 +672,51 @@ describe('analyzeLinkGaps', () => {
     expect(analysis.summary.unmatched_outflows).toBe(0);
   });
 
+  it('should suppress gap issues for one-sided trade residuals classified as refund rebates', () => {
+    const analysis = analyzeLinkGaps(
+      [
+        createMockTransaction({
+          id: 29_1,
+          txFingerprint: 'kraken-one-sided-trade-residual',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          operation: {
+            category: 'trade',
+            type: 'buy',
+          },
+          diagnostics: [
+            {
+              code: 'classification_uncertain',
+              message: 'Kraken one-sided trade residual was classified as a non-transfer trade residual.',
+              severity: 'info',
+              metadata: {
+                providerSubtype: 'tradespot',
+                residualRole: 'refund_rebate',
+              },
+            },
+          ],
+          movements: {
+            inflows: [
+              {
+                assetId: 'exchange:kraken:fet',
+                assetSymbol: 'FET' as Currency,
+                grossAmount: parseDecimal('0.00000488'),
+                netAmount: parseDecimal('0.00000488'),
+                movementRole: 'refund_rebate',
+              },
+            ],
+            outflows: [],
+          },
+        }),
+      ],
+      []
+    );
+
+    expect(analysis.summary.total_issues).toBe(0);
+    expect(analysis.summary.uncovered_inflows).toBe(0);
+    expect(analysis.summary.unmatched_outflows).toBe(0);
+  });
+
   it('should attach a context hint for materially explanatory diagnostics', () => {
     const analysis = analyzeLinkGaps(
       [

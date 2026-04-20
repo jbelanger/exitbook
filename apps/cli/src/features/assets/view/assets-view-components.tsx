@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useEffect, useReducer, type FC, type ReactElement } from 'react';
 
-import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/index.js';
+import { type Columns, createColumns, Divider, FixedHeightDetail, SelectableRow } from '../../../ui/shared/layout.js';
 import type { AssetReviewOverrideResult, AssetOverrideResult, AssetViewItem } from '../command/assets-types.js';
 
 import { assetsViewReducer, handleAssetsKeyboardInput } from './assets-view-controller.js';
@@ -78,6 +78,12 @@ export const AssetsViewApp: FC<{
               reviewStatus: result.reviewStatus,
               warningSummary: result.warningSummary,
             },
+            statusMessage: buildAssetReviewStatusMessage(
+              result,
+              result.accountingBlocked
+                ? 'Marked as reviewed — exclude a conflicting asset to unblock'
+                : 'Marked as reviewed'
+            ),
           });
         })
         .catch((error: unknown) => {
@@ -100,6 +106,7 @@ export const AssetsViewApp: FC<{
             reviewStatus: result.reviewStatus,
             warningSummary: result.warningSummary,
           },
+          statusMessage: buildAssetReviewStatusMessage(result, 'Review reopened'),
         });
       })
       .catch((error: unknown) => {
@@ -139,6 +146,14 @@ export const AssetsViewApp: FC<{
     </Box>
   );
 };
+
+function buildAssetReviewStatusMessage(result: AssetReviewOverrideResult, successMessage: string): string {
+  if (result.warnings.length === 0) {
+    return successMessage;
+  }
+
+  return `${successMessage}. Warning: ${result.warnings[0]}`;
+}
 
 const AssetsHeader: FC<{ state: AssetsViewState }> = ({ state }) => {
   const flaggedLabel = `${state.actionRequiredCount} flagged`;

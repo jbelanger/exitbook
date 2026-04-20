@@ -9,15 +9,9 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import {
-  ApiFooter,
-  type EventRelay,
-  formatDuration,
-  formatWaitTime,
-  type LifecycleBridge,
-  type OperationStatus,
-  statusIcon,
-} from '../../../ui/shared/index.js';
+import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
+import { ApiFooter } from '../../../ui/shared/layout.js';
+import { formatDuration, formatWaitTime, type OperationStatus, statusIcon } from '../../../ui/shared/monitoring.js';
 
 import { type CliEvent, ingestionMonitorReducer } from './ingestion-monitor-view-controller.js';
 import {

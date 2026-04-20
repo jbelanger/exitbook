@@ -7,7 +7,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./accounts": "./src/accounts.ts",
     "./accounting": "./src/accounting.ts",
     "./balances": "./src/balances.ts",
     "./session": "./src/data-session.ts",
@@ -28,7 +27,6 @@
   },
   "dependencies": {
     "@exitbook/accounting": "workspace:*",
-    "@exitbook/accounts": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/foundation": "workspace:*",
     "@exitbook/ingestion": "workspace:*",

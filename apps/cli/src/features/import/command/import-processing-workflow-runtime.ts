@@ -8,7 +8,7 @@ import { AdapterRegistry, allExchangeAdapters, createBlockchainAdapters } from '
 import type { IngestionEvent } from '@exitbook/ingestion/events';
 import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 
-import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
+import { createCliAssetReviewProjectionRuntime } from '../../assets/command/asset-review-projection-runtime.js';
 interface CliProcessingWorkflowRuntime {
   processingWorkflow: ProcessingWorkflow;
 }

@@ -5,30 +5,49 @@
  * into a single opaque token for the streaming adapter.
  */
 
+import { err, ok, type Result } from '@exitbook/foundation';
+
+interface DualPageToken {
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
 /**
  * Decode combined pageToken used to track independent FROM/TO pagination.
- * Supports both the JSON-encoded format introduced for streaming and the
- * legacy single-token format (treated as FROM-only).
+ * Only the JSON-encoded dual-token format is supported.
  */
-export function parseDualPageToken(token?: string): { from?: string; to?: string } {
-  if (!token) return {};
-
-  try {
-    const parsed = JSON.parse(token) as { from?: string | null; to?: string | null };
-    const result: { from?: string; to?: string } = {};
-    if (parsed.from) result.from = parsed.from;
-    if (parsed.to) result.to = parsed.to;
-    return result;
-  } catch {
-    const parts = token.split(':::');
-    if (parts.length === 2) {
-      const result: { from?: string; to?: string } = {};
-      if (parts[0]) result.from = parts[0];
-      if (parts[1]) result.to = parts[1];
-      return result;
-    }
-    return { from: token };
+export function parseDualPageToken(token?: string): Result<DualPageToken, Error> {
+  if (!token) {
+    return ok({});
   }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(token);
+  } catch {
+    return err(new Error('Alchemy dual page token must be a JSON-encoded object.'));
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return err(new Error('Alchemy dual page token must decode to an object.'));
+  }
+
+  const rawToken = parsed as { from?: unknown; to?: unknown };
+  if (rawToken.from !== undefined && rawToken.from !== null && typeof rawToken.from !== 'string') {
+    return err(new Error('Alchemy dual page token "from" cursor must be a string when present.'));
+  }
+  if (rawToken.to !== undefined && rawToken.to !== null && typeof rawToken.to !== 'string') {
+    return err(new Error('Alchemy dual page token "to" cursor must be a string when present.'));
+  }
+
+  const result: DualPageToken = {};
+  if (typeof rawToken.from === 'string' && rawToken.from.length > 0) {
+    result.from = rawToken.from;
+  }
+  if (typeof rawToken.to === 'string' && rawToken.to.length > 0) {
+    result.to = rawToken.to;
+  }
+  return ok(result);
 }
 
 /**

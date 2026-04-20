@@ -1,18 +1,18 @@
 import { describe, expect, test } from 'vitest';
 
 import type { RawExchangeProcessorInput } from '../../shared/index.js';
-import { buildKucoinCorrelationGroups } from '../build-correlation-groups.js';
-import { interpretKucoinGroup } from '../interpret-group.js';
-import { normalizeKucoinProviderEvent } from '../normalize-provider-event.js';
-import { KucoinCsvProcessor } from '../processor.js';
-import type { CsvSpotOrderRow, KucoinCsvRow } from '../types.js';
+import { buildKuCoinCorrelationGroups } from '../build-correlation-groups.js';
+import { interpretKuCoinGroup } from '../interpret-group.js';
+import { normalizeKuCoinProviderEvent } from '../normalize-provider-event.js';
+import { KuCoinCsvProcessor } from '../processor.js';
+import type { CsvSpotOrderRow, KuCoinCsvRow } from '../types.js';
 
 import convertMarketFixture from './fixtures/csv-convert-market.json' with { type: 'json' };
 import depositFixture from './fixtures/csv-deposit.json' with { type: 'json' };
 import withdrawalFixture from './fixtures/csv-withdrawal.json' with { type: 'json' };
 import unsupportedAccountHistoryFixture from './fixtures/unsupported-account-history-transfer.json' with { type: 'json' };
 
-function buildEventId(row: KucoinCsvRow, index: number): string {
+function buildEventId(row: KuCoinCsvRow, index: number): string {
   if ('Hash' in row && row.Hash.trim().length > 0) {
     return row.Hash.trim();
   }
@@ -24,14 +24,14 @@ function buildEventId(row: KucoinCsvRow, index: number): string {
   return `KUCOIN_EVT_${index}`;
 }
 
-function toInputs(rows: KucoinCsvRow[]): RawExchangeProcessorInput<KucoinCsvRow>[] {
+function toInputs(rows: KuCoinCsvRow[]): RawExchangeProcessorInput<KuCoinCsvRow>[] {
   return rows.map((row, index) => ({
     raw: row,
     eventId: buildEventId(row, index + 1),
   }));
 }
 
-describe('KucoinCsvProcessor', () => {
+describe('KuCoinCsvProcessor', () => {
   test('normalizes spot order rows into provider-native trade events', () => {
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
@@ -54,7 +54,7 @@ describe('KucoinCsvProcessor', () => {
       Status: 'deal',
     };
 
-    const result = normalizeKucoinProviderEvent(spotOrder, 'KUCOIN_SPOT_001');
+    const result = normalizeKuCoinProviderEvent(spotOrder, 'KUCOIN_SPOT_001');
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -71,8 +71,8 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('interprets convert market account history groups as swaps', () => {
-    const normalized = (convertMarketFixture as KucoinCsvRow[]).map((row, index) => {
-      const result = normalizeKucoinProviderEvent(row, `KUCOIN_CONVERT_${index + 1}`);
+    const normalized = (convertMarketFixture as KuCoinCsvRow[]).map((row, index) => {
+      const result = normalizeKuCoinProviderEvent(row, `KUCOIN_CONVERT_${index + 1}`);
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) {
         throw result.error;
@@ -80,13 +80,13 @@ describe('KucoinCsvProcessor', () => {
       return result.value;
     });
 
-    const [group] = buildKucoinCorrelationGroups(normalized);
+    const [group] = buildKuCoinCorrelationGroups(normalized);
     expect(group).toBeDefined();
     if (!group) {
       return;
     }
 
-    const interpretation = interpretKucoinGroup(group);
+    const interpretation = interpretKuCoinGroup(group);
     expect(interpretation.kind).toBe('confirmed');
     if (interpretation.kind !== 'confirmed') {
       return;
@@ -101,9 +101,9 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('processes fixture deposits', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
 
-    const result = await processor.process(toInputs(depositFixture as KucoinCsvRow[]));
+    const result = await processor.process(toInputs(depositFixture as KuCoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -142,9 +142,9 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('processes fixture withdrawals', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
 
-    const result = await processor.process(toInputs(withdrawalFixture as KucoinCsvRow[]));
+    const result = await processor.process(toInputs(withdrawalFixture as KuCoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -167,9 +167,9 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('processes fixture convert market pairs', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
 
-    const result = await processor.process(toInputs(convertMarketFixture as KucoinCsvRow[]));
+    const result = await processor.process(toInputs(convertMarketFixture as KuCoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -191,9 +191,9 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('skips unsupported account history transfer rows without failing the batch', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
 
-    const result = await processor.process(toInputs(unsupportedAccountHistoryFixture as KucoinCsvRow[]));
+    const result = await processor.process(toInputs(unsupportedAccountHistoryFixture as KuCoinCsvRow[]));
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) {
@@ -204,8 +204,8 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('skips paired account history transfer rows as internal balance moves without failing the batch', async () => {
-    const processor = new KucoinCsvProcessor();
-    const transferRows: KucoinCsvRow[] = [
+    const processor = new KuCoinCsvProcessor();
+    const transferRows: KuCoinCsvRow[] = [
       {
         _rowType: 'account_history',
         UID: 'kucoin-user-003',
@@ -243,7 +243,7 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('interprets paired account history transfer rows as internal balance moves', () => {
-    const transferRows: KucoinCsvRow[] = [
+    const transferRows: KuCoinCsvRow[] = [
       {
         _rowType: 'account_history',
         UID: 'kucoin-user-003',
@@ -271,7 +271,7 @@ describe('KucoinCsvProcessor', () => {
     ];
 
     const normalized = transferRows.map((row, index) => {
-      const result = normalizeKucoinProviderEvent(row, `KUCOIN_TRANSFER_${index + 1}`);
+      const result = normalizeKuCoinProviderEvent(row, `KUCOIN_TRANSFER_${index + 1}`);
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) {
         throw result.error;
@@ -280,13 +280,13 @@ describe('KucoinCsvProcessor', () => {
       return result.value;
     });
 
-    const [group] = buildKucoinCorrelationGroups(normalized);
+    const [group] = buildKuCoinCorrelationGroups(normalized);
     expect(group).toBeDefined();
     if (!group) {
       return;
     }
 
-    const interpretation = interpretKucoinGroup(group);
+    const interpretation = interpretKuCoinGroup(group);
     expect(interpretation.kind).toBe('unsupported');
     if (interpretation.kind !== 'unsupported') {
       return;
@@ -297,11 +297,11 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('fails malformed rows instead of inventing transactions', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
     const malformedRow = {
       _rowType: 'spot_order',
       Symbol: 'BTC-USDT',
-    } as unknown as KucoinCsvRow;
+    } as unknown as KuCoinCsvRow;
 
     const result = await processor.process([{ raw: malformedRow, eventId: 'MALFORMED_001' }]);
 
@@ -314,11 +314,11 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('fails unknown row types explicitly', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
     const unknownRow = {
       _rowType: 'unknown_type',
       data: 'test',
-    } as unknown as KucoinCsvRow;
+    } as unknown as KuCoinCsvRow;
 
     const result = await processor.process([{ raw: unknownRow, eventId: 'UNKNOWN_001' }]);
 
@@ -331,7 +331,7 @@ describe('KucoinCsvProcessor', () => {
   });
 
   test('processes mixed deposit and trade rows in one batch', async () => {
-    const processor = new KucoinCsvProcessor();
+    const processor = new KuCoinCsvProcessor();
     const spotOrder: CsvSpotOrderRow & { _rowType: 'spot_order' } = {
       _rowType: 'spot_order',
       UID: 'user123',
@@ -353,7 +353,7 @@ describe('KucoinCsvProcessor', () => {
       Status: 'deal',
     };
 
-    const rows: KucoinCsvRow[] = [...(depositFixture as KucoinCsvRow[]), spotOrder];
+    const rows: KuCoinCsvRow[] = [...(depositFixture as KuCoinCsvRow[]), spotOrder];
 
     const result = await processor.process(toInputs(rows));
 

@@ -3,7 +3,8 @@ import type { InstrumentationCollector } from '@exitbook/observability';
 import { Box, Text } from 'ink';
 import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
-import { type EventRelay, formatDuration, type LifecycleBridge, statusIcon } from '../../../ui/shared/index.js';
+import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
+import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
 
 import { batchImportMonitorReducer } from './batch-import-monitor-controller.js';
 import type { BatchImportMonitorEvent, BatchImportMonitorState, BatchImportRow } from './batch-import-monitor-state.js';

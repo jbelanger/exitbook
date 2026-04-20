@@ -7,11 +7,11 @@ const { mockCreateCliAssetReviewProjectionRuntime, mockRebuild } = vi.hoisted(()
   mockRebuild: vi.fn(),
 }));
 
-vi.mock('../asset-review-projection-runtime.js', () => ({
+vi.mock('../../features/assets/command/asset-review-projection-runtime.js', () => ({
   createCliAssetReviewProjectionRuntime: mockCreateCliAssetReviewProjectionRuntime,
 }));
 
-import { rebuildCliAssetReviewProjectionsForAccounts } from '../processing-workflow-runtime.js';
+import { rebuildCliAssetReviewProjectionsForAccounts } from '../../features/import/command/import-processing-workflow-runtime.js';
 
 describe('rebuildCliAssetReviewProjectionsForAccounts', () => {
   beforeEach(() => {

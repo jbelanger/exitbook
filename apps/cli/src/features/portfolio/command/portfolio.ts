@@ -125,18 +125,8 @@ async function loadPortfolioResult(
   normalized: NormalizedPortfolioOptions,
   format: 'json' | 'text'
 ): Promise<Result<PortfolioResult, Error>> {
-  if (format === 'json') {
-    return withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format }, (scope) =>
-      runPortfolio(scope, {
-        method: normalized.method,
-        jurisdiction: normalized.jurisdiction,
-        displayCurrency: normalized.displayCurrency,
-        asOf: normalized.asOf,
-      })
-    );
-  }
+  const spinner = format === 'json' ? undefined : createSpinner('Calculating portfolio...', false);
 
-  const spinner = createSpinner('Calculating portfolio...', false);
   try {
     return await withPortfolioCommandScope(ctx, { asOf: normalized.asOf, format }, (scope) =>
       runPortfolio(scope, {
@@ -147,7 +137,9 @@ async function loadPortfolioResult(
       })
     );
   } finally {
-    stopSpinner(spinner);
+    if (spinner) {
+      stopSpinner(spinner);
+    }
   }
 }
 

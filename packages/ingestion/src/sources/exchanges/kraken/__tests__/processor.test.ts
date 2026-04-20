@@ -77,6 +77,21 @@ const spotFromFuturesRows: KrakenLedgerEntry[] = [
   },
 ];
 
+const oneSidedTradeResidualRows: KrakenLedgerEntry[] = [
+  {
+    id: 'LWIIMJ-TWQFF-UHERBZ',
+    refid: 'TQD4TY-AIRGW-GLNGLX',
+    time: 1724424470.402445,
+    type: 'trade',
+    subtype: 'tradespot',
+    aclass: 'currency',
+    asset: 'FET',
+    amount: '0.0000048800',
+    fee: '0.0000000000',
+    balance: '136.6244648800',
+  },
+];
+
 function toInputs(rows: KrakenLedgerEntry[]): RawExchangeProcessorInput<KrakenLedgerEntry>[] {
   return rows.map((row) => ({
     raw: row,
@@ -265,5 +280,31 @@ describe('KrakenProcessor', () => {
     expect(rndrDebit?.diagnostics?.[0]?.code).toBe('possible_asset_migration');
     expect(rndrDebit?.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
     expect(rndrDebit?.diagnostics?.[0]?.metadata?.['migrationGroupKey']).toBe('FTdKhdH-enbSfxp0lc676Z4aLTJnDB');
+  });
+
+  test('classifies one-sided trade rows as non-transfer trade residuals with refund/rebate context', async () => {
+    const processor = new KrakenProcessor();
+
+    const result = await processor.process(toInputs(oneSidedTradeResidualRows));
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) {
+      return;
+    }
+
+    expect(transaction.operation).toEqual({ category: 'trade', type: 'buy' });
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.outflows).toHaveLength(0);
+    expect(transaction.movements.inflows?.[0]?.movementRole).toBe('refund_rebate');
+    expect(transaction.diagnostics?.[0]?.code).toBe('classification_uncertain');
+    expect(transaction.diagnostics?.[0]?.message).toContain('non-transfer trade residual');
+    expect(transaction.diagnostics?.[0]?.metadata?.['providerSubtype']).toBe('tradespot');
+    expect(transaction.diagnostics?.[0]?.metadata?.['residualRole']).toBe('refund_rebate');
   });
 });

@@ -11,12 +11,13 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockGetByFingerprintRef,
+  mockGetByIdentifier,
   mockGetByName,
   mockOutputSuccess,
   mockPromptConfirmDecision,
   mockRunCommand,
-  mockRunImport,
-  mockRunImportAll,
+  mockRunBatchImport,
+  mockRunSingleAccountImport,
   mockWithImportCommandScope,
 } = vi.hoisted(() => ({
   mockCtx: {
@@ -24,12 +25,13 @@ const {
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
+  mockGetByIdentifier: vi.fn(),
   mockGetByName: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockPromptConfirmDecision: vi.fn(),
   mockRunCommand: vi.fn(),
-  mockRunImport: vi.fn(),
-  mockRunImportAll: vi.fn(),
+  mockRunBatchImport: vi.fn(),
+  mockRunSingleAccountImport: vi.fn(),
   mockWithImportCommandScope: vi.fn(),
 }));
 
@@ -56,8 +58,8 @@ vi.mock('../run-import.js', async () => {
 
   return {
     ...actual,
-    runImport: mockRunImport,
-    runImportAll: mockRunImportAll,
+    runBatchImport: mockRunBatchImport,
+    runSingleAccountImport: mockRunSingleAccountImport,
   };
 });
 
@@ -134,6 +136,7 @@ beforeEach(() => {
     operation({
       accountService: {
         getByFingerprintRef: mockGetByFingerprintRef,
+        getByIdentifier: mockGetByIdentifier,
         getByName: mockGetByName,
       },
       database: { tag: 'db' },
@@ -143,8 +146,9 @@ beforeEach(() => {
     })
   );
   mockGetByName.mockResolvedValue(ok(makeAccount()));
+  mockGetByIdentifier.mockResolvedValue(ok(undefined));
   mockGetByFingerprintRef.mockResolvedValue(ok(makeAccount()));
-  mockRunImport.mockResolvedValue(
+  mockRunSingleAccountImport.mockResolvedValue(
     ok({
       kind: 'completed',
       result: {
@@ -153,7 +157,7 @@ beforeEach(() => {
       },
     })
   );
-  mockRunImportAll.mockResolvedValue(
+  mockRunBatchImport.mockResolvedValue(
     ok({
       accounts: [],
       failedCount: 0,
@@ -213,7 +217,7 @@ describe('import command', () => {
     await program.parseAsync(['import', 'kraken-main', '--json'], { from: 'user' });
 
     expect(mockGetByName).toHaveBeenCalledWith(1, 'kraken-main');
-    expect(mockRunImport).toHaveBeenCalledWith(
+    expect(mockRunSingleAccountImport).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
@@ -256,13 +260,14 @@ describe('import command', () => {
   it('rejects an account ref that the command runner cannot resolve', async () => {
     const program = createImportProgram();
     mockGetByName.mockResolvedValue(ok(undefined));
+    mockGetByIdentifier.mockResolvedValue(ok(undefined));
     mockGetByFingerprintRef.mockResolvedValue(ok(undefined));
 
     await expect(program.parseAsync(['import', '42deadbeef', '--json'], { from: 'user' })).rejects.toThrow(
       "CLI:import:json:Account selector '42deadbeef' not found:4"
     );
 
-    expect(mockRunImport).not.toHaveBeenCalled();
+    expect(mockRunSingleAccountImport).not.toHaveBeenCalled();
   });
 
   it('resolves an account ref and runs a single import', async () => {
@@ -273,7 +278,7 @@ describe('import command', () => {
 
     expect(mockGetByFingerprintRef).toHaveBeenCalledWith(1, '6f4c0d1a2b');
 
-    expect(mockRunImport).toHaveBeenCalledWith(
+    expect(mockRunSingleAccountImport).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 1 }),
       }),
@@ -292,7 +297,7 @@ describe('import command', () => {
         runtime: mockCtx,
       })
     );
-    mockRunImportAll.mockResolvedValue(
+    mockRunBatchImport.mockResolvedValue(
       ok({
         accounts: [
           {
@@ -334,13 +339,13 @@ describe('import command', () => {
 
     await program.parseAsync(['import', '--all', '--json'], { from: 'user' });
 
-    expect(mockRunImportAll).toHaveBeenCalledWith(
+    expect(mockRunBatchImport).toHaveBeenCalledWith(
       expect.objectContaining({
         profile: expect.objectContaining({ id: 3, displayName: 'business' }),
       }),
       { format: 'json' }
     );
-    expect(mockRunImport).not.toHaveBeenCalled();
+    expect(mockRunSingleAccountImport).not.toHaveBeenCalled();
     expect(mockGetByName).not.toHaveBeenCalled();
     expect(mockGetByFingerprintRef).not.toHaveBeenCalled();
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
@@ -413,7 +418,7 @@ describe('import command', () => {
     const program = createImportProgram();
 
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mockRunImport.mockResolvedValue(ok({ kind: 'cancelled' }));
+    mockRunSingleAccountImport.mockResolvedValue(ok({ kind: 'cancelled' }));
 
     await program.parseAsync(['import', 'kraken-main'], { from: 'user' });
 

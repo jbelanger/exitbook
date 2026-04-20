@@ -24,11 +24,11 @@ import {
   explorerListSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
+import { buildViewMeta } from '../../../cli/view-utils.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import { loadAddressOwnershipLookup, type AddressOwnershipLookup } from '../../shared/address-ownership.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
-import { buildViewMeta } from '../../shared/view-utils.js';
 import {
   getTransactionSelectorErrorExitCode,
   resolveOwnedTransactionSelector,

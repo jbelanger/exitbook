@@ -6,9 +6,9 @@ import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view
 import { AccountsViewApp } from '../accounts-view-components.jsx';
 import { createAccountsAssetsViewState, createAccountsViewState } from '../accounts-view-state.js';
 
-vi.mock('../../../../ui/shared/index.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../../ui/shared/index.js')>(
-    '../../../../ui/shared/index.js'
+vi.mock('../../../../ui/shared/layout.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/shared/layout.js')>(
+    '../../../../ui/shared/layout.js'
   );
 
   return {

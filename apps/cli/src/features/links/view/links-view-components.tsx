@@ -15,7 +15,7 @@ import {
   Divider,
   FixedHeightDetail,
   SelectableRow,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
 import { formatTransactionFingerprintRef } from '../../transactions/transaction-selector.js';
 import { buildLinkProposalRef } from '../link-selector.js';
 import type { LinkGapBrowseItem } from '../links-gaps-browse-model.js';

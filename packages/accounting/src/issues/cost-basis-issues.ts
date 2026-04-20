@@ -284,7 +284,7 @@ function buildTaxReadinessNextActions(issue: TaxPackageIssue, txRef: string | un
     case 'UNRESOLVED_ASSET_REVIEW':
       return [
         {
-          kind: 'review_assets',
+          kind: 'review_asset',
           label: 'Review in assets',
           mode: 'routed',
           routeTarget: {

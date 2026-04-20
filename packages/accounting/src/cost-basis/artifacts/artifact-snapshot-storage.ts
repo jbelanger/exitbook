@@ -7,6 +7,7 @@ import {
   buildCanadaArtifactSnapshotParts,
   fromStoredCanadaArtifact,
 } from '../jurisdictions/canada/artifacts/canada-artifact-codec.js';
+import type { CostBasisJurisdiction, CostBasisMethod, FiatCurrency } from '../model/cost-basis-config.js';
 import type { CostBasisWorkflowResult } from '../workflow/cost-basis-workflow.js';
 
 import { StoredCostBasisArtifactEnvelopeSchema, type StoredArtifactEnvelope } from './artifact-storage-schemas.js';
@@ -109,10 +110,10 @@ export function buildCostBasisSnapshotRecord(
   const createdAt = new Date();
   let debug: CostBasisArtifactDebugPayload;
   let envelope: StoredArtifactEnvelope;
-  let displayCurrency: string;
+  let displayCurrency: FiatCurrency;
   let endDate: string;
-  let jurisdiction: string;
-  let method: string;
+  let jurisdiction: CostBasisJurisdiction;
+  let method: CostBasisMethod;
   let startDate: string;
   let taxYear: number;
 

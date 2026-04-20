@@ -65,8 +65,17 @@ function buildAssetsClearReviewCompletion(format: CliOutputFormat, result: Asset
     console.log(`   Asset ID: ${result.assetId}`);
     console.log(`   Symbols: ${result.assetSymbols.length > 0 ? result.assetSymbols.join(', ') : '(unknown)'}`);
     console.log(`   Review Status: ${result.reviewStatus}`);
+    if (result.reviewSummarySource !== 'refreshed') {
+      console.log(`   Summary Source: ${result.reviewSummarySource}`);
+    }
     if (result.reason) {
       console.log(`   Reason: ${result.reason}`);
+    }
+    if (result.warnings.length > 0) {
+      console.log('');
+      for (const warning of result.warnings) {
+        console.log(`Warning: ${warning}`);
+      }
     }
   });
 }

@@ -1,32 +1,93 @@
-import confirm from '@inquirer/confirm';
-import { ExitPromptError } from '@inquirer/core';
-import pc from 'picocolors';
+import { render } from 'ink';
+import React from 'react';
+
+import {
+  ConfirmPrompt,
+  PromptFlow,
+  type PromptStep,
+  SelectPrompt,
+  type SelectOption,
+  TextPrompt,
+} from '../ui/shared/prompts.js';
 
 export type ConfirmationPromptDecision = 'cancelled' | 'confirmed' | 'declined';
 
-const confirmationPromptTheme = {
-  prefix: {
-    idle: pc.dim('›'),
-    done: pc.dim('›'),
-  },
-} as const;
+export { SelectPrompt, type SelectOption, TextPrompt };
+export type { PromptStep };
 
-export async function promptConfirmDecision(message: string, initialValue = true): Promise<ConfirmationPromptDecision> {
-  try {
-    const confirmed = await confirm({
-      message,
-      default: initialValue,
-      theme: confirmationPromptTheme,
+interface PromptFlowOptions {
+  steps: PromptStep[];
+  title?: string | undefined;
+}
+
+type PromptResult<T> = { kind: 'cancelled' } | { kind: 'submitted'; value: T };
+
+function runPromptSession<T>(
+  buildPrompt: (handlers: { onCancel: () => void; onSubmit: (value: T) => void }) => React.ReactElement
+): Promise<PromptResult<T>> {
+  return new Promise<PromptResult<T>>((resolve) => {
+    let isSettled = false;
+    let unmount: (error?: number | Error | null) => void = () => void 0;
+
+    const settle = (result: PromptResult<T>): void => {
+      if (isSettled) {
+        return;
+      }
+
+      isSettled = true;
+      unmount();
+      resolve(result);
+    };
+
+    const prompt = buildPrompt({
+      onCancel: () => settle({ kind: 'cancelled' }),
+      onSubmit: (value) => settle({ kind: 'submitted', value }),
     });
 
-    return confirmed ? 'confirmed' : 'declined';
-  } catch (error) {
-    if (error instanceof ExitPromptError) {
-      return 'cancelled';
-    }
+    ({ unmount } = render(prompt));
+  });
+}
 
-    throw error;
+export async function promptConfirmDecision(message: string, initialValue = true): Promise<ConfirmationPromptDecision> {
+  const result = await runPromptSession<boolean>(({ onCancel, onSubmit }) =>
+    React.createElement(ConfirmPrompt, {
+      initialValue,
+      message,
+      onCancel,
+      onSubmit,
+    })
+  );
+
+  if (result.kind === 'cancelled') {
+    return 'cancelled';
   }
+
+  return result.value ? 'confirmed' : 'declined';
+}
+
+export async function promptFlowAnswers({
+  title,
+  steps,
+}: PromptFlowOptions): Promise<(boolean | string)[] | undefined> {
+  const result = await runPromptSession<(boolean | string)[]>(({ onCancel, onSubmit }) =>
+    React.createElement(
+      PromptFlow,
+      title === undefined
+        ? {
+            onCancel,
+            onComplete: onSubmit,
+            steps,
+          }
+        : {
+            onCancel,
+            onComplete: onSubmit,
+            steps,
+            title,
+          }
+    )
+  );
+
+  return result.kind === 'cancelled' ? undefined : result.value;
 }
 
 export function formatBlockchainName(name: string): string {

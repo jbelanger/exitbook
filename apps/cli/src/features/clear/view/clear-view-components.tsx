@@ -13,8 +13,8 @@ import {
   Divider,
   FixedHeightDetail,
   getSelectionCursor,
-  StatusIcon,
-} from '../../../ui/shared/index.js';
+} from '../../../ui/shared/layout.js';
+import { StatusIcon } from '../../../ui/shared/monitoring.js';
 import { flattenPreview, type ClearParams, ClearService } from '../command/clear-service.js';
 
 import { clearViewReducer, handleClearKeyboardInput } from './clear-view-controller.js';
