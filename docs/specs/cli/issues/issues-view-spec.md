@@ -1,4 +1,4 @@
-last_verified: 2026-04-14
+last_verified: 2026-04-19
 status: canonical
 
 ---
@@ -26,7 +26,7 @@ It covers:
 Out of scope:
 
 - domain corrective actions
-- routed domain workflows such as `assets confirm` or future transfer corrections
+- routed domain workflows such as `assets confirm` or `links create-grouped`
 - TUI/explorer behavior
 - issue-local acknowledgement or reopen state
 
@@ -44,8 +44,8 @@ The `issues` family is the operator-facing accounting issue workflow.
 Rules:
 
 - `issues` is overview-first, not filter-first
-- the `issues` family is browse-first; corrective actions stay in owning
-  workflows
+- the `issues` family is browse-and-route only; corrective actions stay in
+  owning workflows
 - issue identity is derived; numeric row ids are storage details only
 - the family may route users into owning workflows, but does not absorb those workflows by default
 - the family must make remaining work and next actions clear without requiring the user to infer command ownership
@@ -116,7 +116,7 @@ Rules:
 - selector resolution is prefix-based
 - ambiguous ref prefixes must fail and tell the user to provide a longer ref
 - `issues view <selector>` resolves only against current surfaced issue rows
-- closed historical rows are out of scope for the Phase 1A / 1B read surface
+- closed historical rows are out of scope for the current read surface
 - operator-facing list and detail surfaces use `ISSUE-REF`, not raw `issueKey`
 
 Implementation contract:
@@ -161,8 +161,8 @@ Rules:
   - `review_only`
 - a routed action includes a semantic route target
 - CLI may derive renderer-specific command hints from structured action data
-- direct actions are reserved for real domain corrections that change the
-  underlying source state and therefore the derived issue projection
+- the shipped `issues` CLI uses `routed` and `review_only` actions; domain
+  writes remain outside this browse surface
 
 ### Action rendering rules
 
@@ -173,12 +173,8 @@ Rules:
 - issue detail must render the full action list
 - routed actions must clearly indicate the owning workflow
 - review-only actions must render as informational next steps, not as fake mutations
-- direct actions may appear only when the underlying write path is implemented
-- the same action slot must later support real corrective actions such as:
-  - grouped transfer confirmation
-  - grouped transfer confirmation with one exact explained target residual
-  - movement-role override
-  - pricing correction flows when those are modeled as issue actions
+- routed actions may include concrete command hints when the target selector is
+  exact and the owning workflow is unambiguous
 
 ## Overview Surface
 
@@ -199,9 +195,9 @@ Sections:
 
 Rules:
 
-- Phase 1A may render only `Current Issues`
-- Phase 1B renders `Scoped Accounting Lenses` when scoped issue scopes have
-  already been materialized for the active profile
+- the overview may render only `Current Issues` when no scoped issue scopes have
+  been materialized for the active profile
+- `Scoped Accounting Lenses` renders only when scoped issue scopes are known
 - when there are no current issues, the overview still shows readiness clearly
 - overview ordering should prefer:
   1. blocking work
@@ -534,10 +530,6 @@ Shape:
 
 These mockups illustrate the intended screen shape.
 
-- The first examples show Phase 1A-style routed and review-only actions because those are the first actions expected to exist.
-- They do **not** imply that the final `issues` surface is limited to routed actions.
-- Later phases should render real direct corrective actions in the same `Possible next actions` section.
-
 ### Overview Mockup
 
 ```text
@@ -614,24 +606,6 @@ Owning workflow examples
   Exclude from accounting · assets exclude --asset-id blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8
 ```
 
-### Future Direct-Action Detail Mockup
-
-```text
-Issue 6f2e4c91ab [BLOCKED] Transfer gap
-
-Scope: profile (profile:1)
-Summary
-  Three source movements and one target movement likely form one grouped transfer
-
-Possible next actions
-  1. Confirm grouped transfer
-     Direct action
-  2. Review in links gaps
-     Routed action · links gaps view 4cb3180f2d
-  3. Inspect transaction
-     Review only · transactions view a19c42d177
-```
-
 ### Scoped Cost-Basis Mockup
 
 ```text
@@ -650,4 +624,5 @@ ISSUE-REF   SEV      TYPE           SUMMARY                                     
 - overview entries and issue rows are different objects
 - routed actions must not pretend to be direct actions
 - review-only actions must not imply that accounting state will change
-- direct actions are part of the intended final shape and appear once their write path exists
+- owning-workflow command examples are guidance only; they do not turn `issues`
+  into a mutation host

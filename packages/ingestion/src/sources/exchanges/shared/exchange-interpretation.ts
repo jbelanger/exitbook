@@ -8,6 +8,7 @@ export interface ExchangeMovementDraft {
   assetSymbol: Currency;
   grossAmount: string;
   netAmount?: string | undefined;
+  movementRole?: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate' | undefined;
 }
 
 export interface ExchangeFeeDraft {

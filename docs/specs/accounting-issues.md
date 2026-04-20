@@ -1,4 +1,4 @@
-last_verified: 2026-04-14
+last_verified: 2026-04-19
 status: canonical
 
 ---
@@ -25,11 +25,9 @@ surface.
 ## Non-Goals
 
 - Making persisted issue rows the source of accounting truth.
-- Shipping write actions in Phase 1A.
+- Turning `issues` into a domain mutation host.
 - Treating free-form notes as machine state.
 - Pretending bare `issues` knows unmaterialized cost-basis scopes.
-- Pulling execution failures or missing-price rows into Phase 1A before their
-  read seams exist.
 
 ## Ownership And Boundaries
 
@@ -66,15 +64,13 @@ Accounting issues are always read inside an explicit accounting scope.
   `buildCostBasisScopeKey(profileId, config)`.
 - Config-only fingerprint rule: reuse `buildCostBasisConfigScopeKey(config)` as
   the stable config component when that narrower identity is needed.
-- Materialization rule in Phase 1B: scoped issue rows are created only when the
-  user explicitly enters or refreshes that cost-basis scope.
+- Materialization rule: scoped issue rows are created only when the user
+  explicitly enters or refreshes that cost-basis scope.
 
 ### Scope-entry rules
 
-- Bare `issues` is honest only when it shows the profile-global queue in
-  Phase 1A.
-- Scoped cost-basis issue browsing stays explicit under `issues cost-basis ...`
-  in Phase 1B.
+- Bare `issues` is honest only when it shows the profile-global queue.
+- Scoped cost-basis issue browsing stays explicit under `issues cost-basis ...`.
 - The overview may list previously materialized scoped lenses, but it must not
   imply coverage for scopes the system has never materialized.
 
@@ -98,9 +94,9 @@ Rules:
 - If the underlying evidence changes enough to produce a different canonical
   issue, a new `issueKey` is correct.
 
-### Phase 1A `issueKey` shapes
+### Profile `issueKey` shapes
 
-Phase 1A commits the following canonical key recipes:
+The profile scope uses the following canonical key recipes:
 
 | Family                 | Canonical `issueKey`                                      | Notes                                                                                     |
 | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -134,7 +130,7 @@ Rules:
 This intentionally aligns `ISSUE-REF` with the existing hashed selector pattern
 already used by `LINK-REF` and `GAP-REF`.
 
-## Phase 1A Read Contract
+## Read Contract
 
 ### Shared enums
 
@@ -200,9 +196,10 @@ Rules:
   convenience field.
 - Routed actions must point to the owning workflow semantically, not as baked
   shell command strings.
-- Phase 1A is dominated by `routed` and `review_only` actions.
-- Direct actions may appear only when they change owning domain state and cause
-  the issue projection to disappear or change on rematerialization.
+- The shipped `issues` workflow is browse-and-route only and uses `routed` and
+  `review_only` actions.
+- The shared mode enum retains `direct` for host compatibility, but the `issues`
+  browse surfaces do not own domain writes.
 
 ### Summary and detail contracts
 
@@ -245,7 +242,7 @@ interface AccountingIssueScopeSummary {
 }
 ```
 
-## Phase 1A Family Mapping
+## Profile Family Mapping
 
 ### `transfer_gap`
 
@@ -275,7 +272,7 @@ interface AccountingIssueScopeSummary {
 - Scope kind: `profile`.
 - Code: `ASSET_REVIEW_BLOCKER`.
 - Inclusion rule:
-  - only rows with `accountingBlocked === true` become issue rows in Phase 1A
+  - only rows with `accountingBlocked === true` become issue rows
   - assets excluded by the current profile exclusion policy do not become
     `asset_review_blocker` issue rows
   - same-symbol ambiguity is evaluated against the current exclusion policy at
@@ -287,8 +284,8 @@ interface AccountingIssueScopeSummary {
 - Evidence refs:
   - one `asset` selector using the canonical asset selector / asset id
 - Severity mapping:
-  - always `blocked` in Phase 1A because this family exists specifically to
-    surface accounting blockers
+  - always `blocked` because this family exists specifically to surface
+    accounting blockers
 - Primary next action:
   - `kind: 'review_asset'`
   - `label: 'Review in assets'`
@@ -297,7 +294,7 @@ interface AccountingIssueScopeSummary {
   - `routeTarget.selectorKind: 'asset-selector'`
   - `routeTarget.selectorValue: <asset selector>`
 
-## Phase 1B Family Mapping
+## Cost-Basis Family Mapping
 
 ### `missing_price`
 
@@ -392,7 +389,7 @@ interface AccountingIssueScopeSummary {
 
 ## Persistence Model
 
-Phase 1A persists:
+The current issue projection persists:
 
 - one `accounting_issue_scopes` table
 - one `accounting_issue_rows` lifecycle table containing both open and closed
@@ -449,11 +446,11 @@ Rules:
 
 ## Materialization Rules
 
-### Phase 1A materializer split
+### Materializer split
 
-- Phase 1A needs one materializer for profile-global issue scopes.
-- Phase 1B adds a second materializer for cost-basis-scoped issue lenses on the
-  same storage model.
+- One materializer handles profile-global issue scopes.
+- A second materializer handles cost-basis-scoped issue lenses on the same
+  storage model.
 
 ### Scope reconciliation
 
@@ -500,11 +497,11 @@ The first accounting-owned service seam should stay scope-oriented:
 Repositories stay responsible for persistence and reconciliation. CLI must not
 assemble issue persistence ad hoc.
 
-## Phase Boundaries
+## Shipped Surface
 
-### Phase 1A
+### Profile scope
 
-- Profile-global scope materialization only.
+- Profile-global scope materialization.
 - Families:
   - `transfer_gap`
   - `asset_review_blocker`
@@ -513,17 +510,16 @@ assemble issue persistence ad hoc.
   - `issues list`
   - `issues view <ISSUE-REF>`
 - JSON parity for overview and detail.
-- No write actions.
+- No write actions in `issues`.
 
-### Phase 1B
+### Cost-basis scope
 
-- Add explicit `cost-basis` scoped issue browsing on the same issue model.
-- Use the full profile-qualified cost-basis scope key:
+- Explicit `cost-basis` scoped issue browsing on the same issue model.
+- Uses the full profile-qualified cost-basis scope key:
   `buildCostBasisScopeKey(profileId, config)`.
-- Add scoped lenses to the overview only after they have been materialized
+- Scoped lenses appear in the overview only after they have been materialized
   explicitly.
-
-### Later phases
-
-- direct corrective actions such as grouped transfer confirmation
-- `missing_price`
+- Families:
+  - `missing_price`
+  - `tax_readiness`
+  - `execution_failure`

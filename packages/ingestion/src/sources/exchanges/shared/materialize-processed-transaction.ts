@@ -20,12 +20,14 @@ export function materializeProcessedTransaction(draft: ConfirmedExchangeTransact
         assetSymbol: movement.assetSymbol,
         grossAmount: parseDecimal(movement.grossAmount),
         ...(movement.netAmount ? { netAmount: parseDecimal(movement.netAmount) } : {}),
+        ...(movement.movementRole ? { movementRole: movement.movementRole } : {}),
       })),
       outflows: draft.movements.outflows.map((movement) => ({
         assetId: movement.assetId,
         assetSymbol: movement.assetSymbol,
         grossAmount: parseDecimal(movement.grossAmount),
         ...(movement.netAmount ? { netAmount: parseDecimal(movement.netAmount) } : {}),
+        ...(movement.movementRole ? { movementRole: movement.movementRole } : {}),
       })),
     },
     fees: draft.fees.map((fee) => ({

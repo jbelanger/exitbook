@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-11
+last_verified: 2026-04-19
 status: canonical
 ---
 
@@ -422,6 +422,7 @@ graph TD
 - confirm/reject command success does not guarantee override durability if the append fails afterward
 - `unlink` without a prior resolvable `link` event creates placeholder reject state; that placeholder never becomes a persisted link by itself
 - transaction movement-role and note writes persist override truth in `overrides.db` before same-process materialization; a later materialization failure can therefore leave durable override intent ahead of the current processed projection
+- active follow-up: [override-materialization-partial-success.md](/Users/joel/Dev/exitbook/docs/dev/override-materialization-partial-success.md)
 - transaction-user-note replay projects a single latest user note per `tx_fingerprint`; historical note versions remain only in the append log
 
 ## Known Limitations (Current Implementation)
