@@ -293,9 +293,6 @@ importers:
       '@exitbook/accounting':
         specifier: workspace:*
         version: link:../accounting
-      '@exitbook/accounts':
-        specifier: workspace:*
-        version: link:../accounts
       '@exitbook/core':
         specifier: workspace:*
         version: link:../core
