@@ -40,7 +40,11 @@ export async function buildLinksBrowsePresentation(
     return err(linksResult.error);
   }
 
-  const linksWithTransactions = await fetchTransactionsForLinks(linksResult.value, database.transactions, profileId);
+  const linksWithTransactions = await hydrateLinksWithBestEffortTransactions(
+    linksResult.value,
+    database.transactions,
+    profileId
+  );
   const totalProposalCount = countTransferProposals(linksWithTransactions);
   const state = createLinksViewState(
     linksWithTransactions,
@@ -74,7 +78,7 @@ export async function buildLinksBrowsePresentation(
   });
 }
 
-async function fetchTransactionsForLinks(
+async function hydrateLinksWithBestEffortTransactions(
   links: readonly TransactionLink[],
   txRepo: LinksCommandDatabase['transactions'],
   profileId: number

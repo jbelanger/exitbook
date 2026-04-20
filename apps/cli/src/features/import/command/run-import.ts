@@ -150,7 +150,7 @@ export function abortImportRuntime(runtime: ImportExecutionRuntime): void {
   });
 }
 
-export async function runImport(
+export async function runSingleAccountImport(
   scope: ImportCommandScope,
   options: { format: CliOutputFormat },
   params: ImportParams & { onSingleAddressWarning?: (() => Promise<ConfirmationPromptDecision>) | undefined }
@@ -179,7 +179,7 @@ export async function runImport(
   }, 'Failed to run import');
 }
 
-export async function runImportAll(
+export async function runBatchImport(
   scope: ImportCommandScope,
   options: { format: CliOutputFormat }
 ): Promise<Result<BatchImportExecuteResult, Error>> {

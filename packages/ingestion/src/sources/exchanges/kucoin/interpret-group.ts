@@ -13,14 +13,14 @@ import type {
 import { consolidateFees, consolidateMovements, diagnostic } from '../shared/interpret-group-utils.js';
 
 import type {
-  KucoinAccountHistoryProviderMetadata,
-  KucoinProviderMetadata,
-  KucoinTradeProviderMetadata,
-  KucoinTransferProviderMetadata,
+  KuCoinAccountHistoryProviderMetadata,
+  KuCoinProviderMetadata,
+  KuCoinTradeProviderMetadata,
+  KuCoinTransferProviderMetadata,
 } from './normalize-provider-event.js';
 
-function getMetadata(event: ExchangeProviderEvent): KucoinProviderMetadata {
-  return event.providerMetadata as KucoinProviderMetadata;
+function getMetadata(event: ExchangeProviderEvent): KuCoinProviderMetadata {
+  return event.providerMetadata as KuCoinProviderMetadata;
 }
 
 function buildMovementDraft(assetSymbol: Currency, amount: string): Result<ExchangeMovementDraft, Error> {
@@ -118,7 +118,7 @@ function resolveGroupStatus(events: ExchangeProviderEvent[]): TransactionStatus 
 
 function interpretTradeGroup(
   group: ExchangeCorrelationGroup,
-  tradeEvents: { event: ExchangeProviderEvent; metadata: KucoinTradeProviderMetadata }[]
+  tradeEvents: { event: ExchangeProviderEvent; metadata: KuCoinTradeProviderMetadata }[]
 ): ExchangeGroupInterpretation {
   const firstTrade = tradeEvents[0];
   if (!firstTrade) {
@@ -233,7 +233,7 @@ function interpretTradeGroup(
 
 function interpretTransferGroup(
   group: ExchangeCorrelationGroup,
-  transferEvent: { event: ExchangeProviderEvent; metadata: KucoinTransferProviderMetadata }
+  transferEvent: { event: ExchangeProviderEvent; metadata: KuCoinTransferProviderMetadata }
 ): ExchangeGroupInterpretation {
   const amount = parseDecimal(transferEvent.event.rawAmount).abs().toFixed();
   const movementResult = buildMovementDraft(transferEvent.event.assetSymbol, amount);
@@ -297,7 +297,7 @@ function interpretTransferGroup(
 
 function buildExchangeDepositAddressCreditDiagnostics(transferEvent: {
   event: ExchangeProviderEvent;
-  metadata: KucoinTransferProviderMetadata;
+  metadata: KuCoinTransferProviderMetadata;
 }): TransactionDiagnostic[] | undefined {
   if (transferEvent.metadata.rowKind !== 'deposit') {
     return undefined;
@@ -326,7 +326,7 @@ function buildExchangeDepositAddressCreditDiagnostics(transferEvent: {
 }
 
 function getSharedAccountHistoryType(
-  historyEvents: readonly { metadata: KucoinAccountHistoryProviderMetadata }[]
+  historyEvents: readonly { metadata: KuCoinAccountHistoryProviderMetadata }[]
 ): string | undefined {
   const types = new Set(historyEvents.map(({ metadata }) => metadata.type));
   if (types.size !== 1) {
@@ -338,7 +338,7 @@ function getSharedAccountHistoryType(
 
 function interpretInternalTransferAccountHistoryGroup(
   group: ExchangeCorrelationGroup,
-  historyEvents: { event: ExchangeProviderEvent; metadata: KucoinAccountHistoryProviderMetadata }[]
+  historyEvents: { event: ExchangeProviderEvent; metadata: KuCoinAccountHistoryProviderMetadata }[]
 ): ExchangeGroupInterpretation {
   if (historyEvents.length !== 2) {
     return {
@@ -418,7 +418,7 @@ function interpretInternalTransferAccountHistoryGroup(
 
 function interpretAccountHistoryGroup(
   group: ExchangeCorrelationGroup,
-  historyEvents: { event: ExchangeProviderEvent; metadata: KucoinAccountHistoryProviderMetadata }[]
+  historyEvents: { event: ExchangeProviderEvent; metadata: KuCoinAccountHistoryProviderMetadata }[]
 ): ExchangeGroupInterpretation {
   const sharedType = getSharedAccountHistoryType(historyEvents);
   if (!sharedType) {
@@ -567,7 +567,7 @@ function interpretAccountHistoryGroup(
   };
 }
 
-export function interpretKucoinGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
+export function interpretKuCoinGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
   if (group.events.length === 0) {
     return {
       kind: 'unsupported',
@@ -608,7 +608,7 @@ export function interpretKucoinGroup(group: ExchangeCorrelationGroup): ExchangeG
     case 'trading_bot':
       return interpretTradeGroup(
         group,
-        metadata as { event: ExchangeProviderEvent; metadata: KucoinTradeProviderMetadata }[]
+        metadata as { event: ExchangeProviderEvent; metadata: KuCoinTradeProviderMetadata }[]
       );
     case 'deposit':
     case 'withdrawal': {
@@ -629,13 +629,13 @@ export function interpretKucoinGroup(group: ExchangeCorrelationGroup): ExchangeG
 
       return interpretTransferGroup(
         group,
-        metadata[0] as { event: ExchangeProviderEvent; metadata: KucoinTransferProviderMetadata }
+        metadata[0] as { event: ExchangeProviderEvent; metadata: KuCoinTransferProviderMetadata }
       );
     }
     case 'account_history':
       return interpretAccountHistoryGroup(
         group,
-        metadata as { event: ExchangeProviderEvent; metadata: KucoinAccountHistoryProviderMetadata }[]
+        metadata as { event: ExchangeProviderEvent; metadata: KuCoinAccountHistoryProviderMetadata }[]
       );
   }
 }

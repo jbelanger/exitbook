@@ -2,19 +2,19 @@ import type { TransactionStatus } from '@exitbook/core';
 import { parseCurrency, type Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { KucoinCsvRow } from './types.js';
+import type { KuCoinCsvRow } from './types.js';
 
-interface ParsedKucoinTimestamp {
+interface ParsedKuCoinTimestamp {
   datetime: string;
   timestamp: number;
 }
 
-interface ParsedKucoinTradePair {
+interface ParsedKuCoinTradePair {
   baseCurrency: Currency;
   quoteCurrency: Currency;
 }
 
-function parseKucoinUtcTimestamp(timeStr: string | undefined): Result<ParsedKucoinTimestamp, Error> {
+function parseKuCoinUtcTimestamp(timeStr: string | undefined): Result<ParsedKuCoinTimestamp, Error> {
   if (!timeStr || timeStr.trim() === '') {
     return err(new Error('Missing KuCoin timestamp'));
   }
@@ -30,7 +30,7 @@ function parseKucoinUtcTimestamp(timeStr: string | undefined): Result<ParsedKuco
   return ok({ timestamp: parsed.getTime(), datetime: parsed.toISOString() });
 }
 
-export function mapKucoinStatus(
+export function mapKuCoinStatus(
   status: string | undefined,
   type: 'spot' | 'deposit_withdrawal' | 'account_history'
 ): TransactionStatus {
@@ -75,7 +75,7 @@ export function mapKucoinStatus(
   }
 }
 
-export function parseKucoinCurrency(rawCurrency: string, context: string): Result<Currency, Error> {
+export function parseKuCoinCurrency(rawCurrency: string, context: string): Result<Currency, Error> {
   const currencyResult = parseCurrency(rawCurrency);
   if (currencyResult.isErr()) {
     return err(new Error(`Invalid KuCoin currency "${rawCurrency}" in ${context}: ${currencyResult.error.message}`));
@@ -84,7 +84,7 @@ export function parseKucoinCurrency(rawCurrency: string, context: string): Resul
   return ok(currencyResult.value);
 }
 
-export function parseKucoinTradePair(symbol: string, context: string): Result<ParsedKucoinTradePair, Error> {
+export function parseKuCoinTradePair(symbol: string, context: string): Result<ParsedKuCoinTradePair, Error> {
   if (!symbol || symbol.trim() === '') {
     return err(new Error(`Missing KuCoin symbol in ${context}`));
   }
@@ -94,12 +94,12 @@ export function parseKucoinTradePair(symbol: string, context: string): Result<Pa
     return err(new Error(`Invalid KuCoin symbol "${symbol}" in ${context}. Expected BASE-QUOTE format.`));
   }
 
-  const baseCurrencyResult = parseKucoinCurrency(rawBaseCurrency, context);
+  const baseCurrencyResult = parseKuCoinCurrency(rawBaseCurrency, context);
   if (baseCurrencyResult.isErr()) {
     return err(baseCurrencyResult.error);
   }
 
-  const quoteCurrencyResult = parseKucoinCurrency(rawQuoteCurrency, context);
+  const quoteCurrencyResult = parseKuCoinCurrency(rawQuoteCurrency, context);
   if (quoteCurrencyResult.isErr()) {
     return err(quoteCurrencyResult.error);
   }
@@ -119,21 +119,21 @@ export function trimToUndefined(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function getKucoinRowOccurredAt(raw: KucoinCsvRow): Result<number, Error> {
+export function getKuCoinRowOccurredAt(raw: KuCoinCsvRow): Result<number, Error> {
   switch (raw._rowType) {
     case 'spot_order':
     case 'order_splitting': {
-      const timestampResult = parseKucoinUtcTimestamp(raw['Filled Time(UTC)']);
+      const timestampResult = parseKuCoinUtcTimestamp(raw['Filled Time(UTC)']);
       return timestampResult.isOk() ? ok(timestampResult.value.timestamp) : err(timestampResult.error);
     }
     case 'deposit':
     case 'withdrawal':
     case 'account_history': {
-      const timestampResult = parseKucoinUtcTimestamp(raw['Time(UTC)']);
+      const timestampResult = parseKuCoinUtcTimestamp(raw['Time(UTC)']);
       return timestampResult.isOk() ? ok(timestampResult.value.timestamp) : err(timestampResult.error);
     }
     case 'trading_bot': {
-      const timestampResult = parseKucoinUtcTimestamp(raw['Time Filled(UTC)']);
+      const timestampResult = parseKuCoinUtcTimestamp(raw['Time Filled(UTC)']);
       return timestampResult.isOk() ? ok(timestampResult.value.timestamp) : err(timestampResult.error);
     }
     default:

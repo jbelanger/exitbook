@@ -30,7 +30,7 @@ import {
  * Importer for KuCoin CSV files.
  * Handles reading CSV files from specified directories and parsing different KuCoin export formats.
  */
-export class KucoinCsvImporter implements IImporter {
+export class KuCoinCsvImporter implements IImporter {
   private readonly logger: Logger;
   private readonly platformKey = 'kucoin';
   private usedEventIds: Map<string, number>;

@@ -64,7 +64,7 @@ export function maskIdentifier(account: IdentifierMaskInput): string {
   return account.identifier;
 }
 
-export function getVerificationStatus(snapshot?: BalanceSnapshot): AccountVerificationStatus | undefined {
+export function toAccountVerificationStatus(snapshot?: BalanceSnapshot): AccountVerificationStatus | undefined {
   if (!snapshot || snapshot.verificationStatus === 'never-run') {
     return 'never-checked';
   }
@@ -94,7 +94,7 @@ export function toAccountSummary(
     storedAssetCount: snapshot?.totalAssetCount,
     storedBalanceStatusReason: snapshot?.statusReason,
     storedBalanceSuggestion: snapshot?.suggestion,
-    verificationStatus: getVerificationStatus(snapshot),
+    verificationStatus: toAccountVerificationStatus(snapshot),
     sessionCount,
     childAccounts,
     createdAt: account.createdAt.toISOString(),

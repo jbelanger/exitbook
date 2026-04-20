@@ -88,7 +88,7 @@ export interface CsvTradingBotRow {
   UID: string;
 }
 
-export type KucoinCsvRow =
+export type KuCoinCsvRow =
   | (CsvSpotOrderRow & { _rowType: 'spot_order' })
   | (CsvDepositWithdrawalRow & { _rowType: 'deposit' })
   | (CsvDepositWithdrawalRow & { _rowType: 'withdrawal' })
@@ -96,4 +96,4 @@ export type KucoinCsvRow =
   | (CsvOrderSplittingRow & { _rowType: 'order_splitting' })
   | (CsvTradingBotRow & { _rowType: 'trading_bot' });
 
-export type KucoinCsvRowType = KucoinCsvRow['_rowType'];
+export type KuCoinCsvRowType = KuCoinCsvRow['_rowType'];

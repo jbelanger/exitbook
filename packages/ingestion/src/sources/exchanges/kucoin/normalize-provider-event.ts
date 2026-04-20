@@ -4,20 +4,20 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type { ExchangeProviderEvent } from '../shared/index.js';
 
 import {
-  getKucoinRowOccurredAt,
-  mapKucoinStatus,
-  parseKucoinCurrency,
-  parseKucoinTradePair,
+  getKuCoinRowOccurredAt,
+  mapKuCoinStatus,
+  parseKuCoinCurrency,
+  parseKuCoinTradePair,
   trimToUndefined,
 } from './csv-row-parsing.js';
-import type { KucoinCsvRow, KucoinCsvRowType } from './types.js';
+import type { KuCoinCsvRow, KuCoinCsvRowType } from './types.js';
 
-interface KucoinProviderMetadataBase extends Record<string, unknown> {
+interface KuCoinProviderMetadataBase extends Record<string, unknown> {
   correlationKey: string;
-  rowKind: KucoinCsvRowType;
+  rowKind: KuCoinCsvRowType;
 }
 
-export interface KucoinTradeProviderMetadata extends KucoinProviderMetadataBase {
+export interface KuCoinTradeProviderMetadata extends KuCoinProviderMetadataBase {
   baseCurrency: Currency;
   feeCurrency?: Currency | undefined;
   filledAmount: string;
@@ -28,7 +28,7 @@ export interface KucoinTradeProviderMetadata extends KucoinProviderMetadataBase 
   side: 'buy' | 'sell';
 }
 
-export interface KucoinTransferProviderMetadata extends KucoinProviderMetadataBase {
+export interface KuCoinTransferProviderMetadata extends KuCoinProviderMetadataBase {
   address?: string | undefined;
   hash?: string | undefined;
   rowKind: 'deposit' | 'withdrawal';
@@ -36,17 +36,17 @@ export interface KucoinTransferProviderMetadata extends KucoinProviderMetadataBa
   transferNetwork?: string | undefined;
 }
 
-export interface KucoinAccountHistoryProviderMetadata extends KucoinProviderMetadataBase {
+export interface KuCoinAccountHistoryProviderMetadata extends KuCoinProviderMetadataBase {
   remark?: string | undefined;
   rowKind: 'account_history';
   side: 'credit' | 'debit';
   type: string;
 }
 
-export type KucoinProviderMetadata =
-  | KucoinTradeProviderMetadata
-  | KucoinTransferProviderMetadata
-  | KucoinAccountHistoryProviderMetadata;
+export type KuCoinProviderMetadata =
+  | KuCoinTradeProviderMetadata
+  | KuCoinTransferProviderMetadata
+  | KuCoinAccountHistoryProviderMetadata;
 
 function getAccountHistoryDirectionHint(rawSide: string): 'credit' | 'debit' | 'unknown' {
   const normalizedSide = rawSide.trim().toLowerCase();
@@ -61,7 +61,7 @@ function getAccountHistoryDirectionHint(rawSide: string): 'credit' | 'debit' | '
   return 'unknown';
 }
 
-function buildCorrelationKey(raw: KucoinCsvRow, eventId: string): string {
+function buildCorrelationKey(raw: KuCoinCsvRow, eventId: string): string {
   switch (raw._rowType) {
     case 'spot_order':
     case 'order_splitting':
@@ -81,8 +81,8 @@ function buildCorrelationKey(raw: KucoinCsvRow, eventId: string): string {
   }
 }
 
-export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string): Result<ExchangeProviderEvent, Error> {
-  const occurredAtResult = getKucoinRowOccurredAt(raw);
+export function normalizeKuCoinProviderEvent(raw: KuCoinCsvRow, eventId: string): Result<ExchangeProviderEvent, Error> {
+  const occurredAtResult = getKuCoinRowOccurredAt(raw);
   if (occurredAtResult.isErr()) {
     return err(occurredAtResult.error);
   }
@@ -93,14 +93,14 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
     case 'spot_order':
     case 'order_splitting':
     case 'trading_bot': {
-      const pairResult = parseKucoinTradePair(raw.Symbol, `${raw._rowType} event ${eventId}`);
+      const pairResult = parseKuCoinTradePair(raw.Symbol, `${raw._rowType} event ${eventId}`);
       if (pairResult.isErr()) {
         return err(pairResult.error);
       }
 
       const feeCurrency = trimToUndefined(raw['Fee Currency']);
       const feeCurrencyResult = feeCurrency
-        ? parseKucoinCurrency(feeCurrency, `${raw._rowType} fee currency for ${eventId}`)
+        ? parseKuCoinCurrency(feeCurrency, `${raw._rowType} fee currency for ${eventId}`)
         : ok(undefined);
       if (feeCurrencyResult.isErr()) {
         return err(feeCurrencyResult.error);
@@ -111,7 +111,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
         return err(new Error(`Invalid KuCoin side "${raw.Side}" in ${raw._rowType} event ${eventId}`));
       }
 
-      const providerMetadata: KucoinTradeProviderMetadata = {
+      const providerMetadata: KuCoinTradeProviderMetadata = {
         correlationKey,
         rowKind: raw._rowType,
         orderId: raw['Order ID'],
@@ -128,7 +128,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
         providerName: 'kucoin',
         providerType: raw._rowType,
         occurredAt: occurredAtResult.value,
-        status: raw._rowType === 'spot_order' ? mapKucoinStatus(raw.Status, 'spot') : 'closed',
+        status: raw._rowType === 'spot_order' ? mapKuCoinStatus(raw.Status, 'spot') : 'closed',
         assetSymbol: pairResult.value.baseCurrency,
         rawAmount: raw['Filled Amount'],
         ...(trimToUndefined(raw.Fee) ? { rawFee: raw.Fee } : {}),
@@ -142,12 +142,12 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
     }
     case 'deposit':
     case 'withdrawal': {
-      const currencyResult = parseKucoinCurrency(raw.Coin, `${raw._rowType} asset for ${eventId}`);
+      const currencyResult = parseKuCoinCurrency(raw.Coin, `${raw._rowType} asset for ${eventId}`);
       if (currencyResult.isErr()) {
         return err(currencyResult.error);
       }
 
-      const providerMetadata: KucoinTransferProviderMetadata = {
+      const providerMetadata: KuCoinTransferProviderMetadata = {
         correlationKey,
         rowKind: raw._rowType,
         ...(trimToUndefined(raw['Transfer Network'])
@@ -165,7 +165,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
         providerName: 'kucoin',
         providerType: raw._rowType,
         occurredAt: occurredAtResult.value,
-        status: mapKucoinStatus(raw.Status, 'deposit_withdrawal'),
+        status: mapKuCoinStatus(raw.Status, 'deposit_withdrawal'),
         assetSymbol: currencyResult.value,
         rawAmount: raw.Amount,
         ...(trimToUndefined(raw.Fee) ? { rawFee: raw.Fee, rawFeeCurrency: currencyResult.value } : {}),
@@ -180,7 +180,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
       });
     }
     case 'account_history': {
-      const currencyResult = parseKucoinCurrency(raw.Currency, `account history asset for ${eventId}`);
+      const currencyResult = parseKuCoinCurrency(raw.Currency, `account history asset for ${eventId}`);
       if (currencyResult.isErr()) {
         return err(currencyResult.error);
       }
@@ -190,7 +190,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
         return err(new Error(`Missing KuCoin account history direction evidence in event ${eventId}`));
       }
 
-      const providerMetadata: KucoinAccountHistoryProviderMetadata = {
+      const providerMetadata: KuCoinAccountHistoryProviderMetadata = {
         correlationKey,
         rowKind: 'account_history',
         side: directionHint,
@@ -203,7 +203,7 @@ export function normalizeKucoinProviderEvent(raw: KucoinCsvRow, eventId: string)
         providerName: 'kucoin',
         providerType: raw.Type,
         occurredAt: occurredAtResult.value,
-        status: mapKucoinStatus(raw.Type, 'account_history'),
+        status: mapKuCoinStatus(raw.Type, 'account_history'),
         assetSymbol: currencyResult.value,
         rawAmount: raw.Amount,
         ...(trimToUndefined(raw.Fee) ? { rawFee: raw.Fee, rawFeeCurrency: currencyResult.value } : {}),

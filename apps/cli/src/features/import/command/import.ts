@@ -28,7 +28,7 @@ import {
 import { withImportCommandScope, type ImportCommandScope } from './import-command-scope.js';
 import { ImportCommandOptionsSchema } from './import-option-schemas.js';
 import type { BatchImportExecuteResult, ImportExecuteResult } from './run-import.js';
-import { runImport, runImportAll } from './run-import.js';
+import { runBatchImport, runSingleAccountImport } from './run-import.js';
 
 type ImportCommandOptions = z.infer<typeof ImportCommandOptionsSchema>;
 
@@ -183,7 +183,7 @@ async function loadBatchImportExecution(
   format: CliOutputFormat
 ): Promise<Result<ImportCommandExecution, Error>> {
   return resultDoAsync(async function* () {
-    const result = yield* await runImportAll(scope, { format });
+    const result = yield* await runBatchImport(scope, { format });
     return {
       kind: 'batch' as const,
       result,
@@ -204,7 +204,7 @@ async function loadSingleImportExecution(
       'Import requires an account selector or --all'
     );
     const account = accountSelection.account;
-    const outcome = yield* await runImport(scope, { format }, buildSingleImportParams(account, format));
+    const outcome = yield* await runSingleAccountImport(scope, { format }, buildSingleImportParams(account, format));
     if (outcome.kind === 'cancelled') {
       return {
         kind: 'single-cancelled' as const,
