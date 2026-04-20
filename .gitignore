@@ -173,3 +173,5 @@ environment.toml
 .desloppify/
 
 *tax-package/
+
+*-competitive-analysis.md
