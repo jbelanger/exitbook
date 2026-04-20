@@ -56,6 +56,7 @@ export {
   filterTransferEligibleMovements,
   getDiagnosticScamAssessment,
   getMovementRole,
+  isMovementRoleCompatibleWithDirection,
   getTransactionScamAssessment,
   isTransferEligibleMovement,
   TransactionStatusSchema,

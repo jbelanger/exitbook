@@ -20,6 +20,14 @@ export function getMovementRole(movement: MovementRoleCarrier): MovementRole {
   return movement.movementRole ?? 'principal';
 }
 
+export function isMovementRoleCompatibleWithDirection(direction: 'in' | 'out', role: MovementRole): boolean {
+  if (direction === 'out' && (role === 'staking_reward' || role === 'refund_rebate')) {
+    return false;
+  }
+
+  return true;
+}
+
 export function isTransferEligibleMovement(movement: MovementRoleCarrier): boolean {
   return getMovementRole(movement) === 'principal';
 }

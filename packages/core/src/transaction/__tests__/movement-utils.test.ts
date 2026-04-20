@@ -1,7 +1,7 @@
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { computePrimaryMovement } from '../movement-utils.js';
+import { computePrimaryMovement, isMovementRoleCompatibleWithDirection } from '../movement-utils.js';
 import type { AssetMovementDraft } from '../movement.js';
 
 describe('computePrimaryMovement', () => {
@@ -275,5 +275,24 @@ describe('computePrimaryMovement', () => {
       amount: parseDecimal('1000000000000'),
       direction: 'in',
     });
+  });
+});
+
+describe('isMovementRoleCompatibleWithDirection', () => {
+  it('allows all roles on inflows', () => {
+    expect(isMovementRoleCompatibleWithDirection('in', 'principal')).toBe(true);
+    expect(isMovementRoleCompatibleWithDirection('in', 'staking_reward')).toBe(true);
+    expect(isMovementRoleCompatibleWithDirection('in', 'protocol_overhead')).toBe(true);
+    expect(isMovementRoleCompatibleWithDirection('in', 'refund_rebate')).toBe(true);
+  });
+
+  it('rejects staking_reward and refund_rebate on outflows', () => {
+    expect(isMovementRoleCompatibleWithDirection('out', 'staking_reward')).toBe(false);
+    expect(isMovementRoleCompatibleWithDirection('out', 'refund_rebate')).toBe(false);
+  });
+
+  it('keeps principal and protocol_overhead compatible with outflows', () => {
+    expect(isMovementRoleCompatibleWithDirection('out', 'principal')).toBe(true);
+    expect(isMovementRoleCompatibleWithDirection('out', 'protocol_overhead')).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
 import { AmbiguousTransactionFingerprintRefError, type Transaction, type TransactionDraft } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
-import { assertOk } from '@exitbook/foundation/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';
@@ -1385,6 +1385,48 @@ describe('TransactionRepository', () => {
       );
 
       expect(updated).toBe(0);
+    });
+
+    it('rejects incompatible outflow overrides during materialization', async () => {
+      const transactionId = assertOk(
+        await repo.create(
+          makePersistedTransaction({
+            movements: {
+              inflows: [],
+              outflows: [
+                {
+                  assetId: 'test:eth',
+                  assetSymbol: 'ETH' as Currency,
+                  grossAmount: parseDecimal('1'),
+                  netAmount: parseDecimal('1'),
+                },
+              ],
+            },
+            operation: { category: 'transfer', type: 'withdrawal' },
+          }),
+          1
+        )
+      );
+      const transaction = assertOk(await repo.findById(transactionId, 1));
+      const movementFingerprint = transaction?.movements.outflows?.[0]?.movementFingerprint;
+      expect(movementFingerprint).toBeDefined();
+
+      const result = await repo.materializeTransactionMovementRoleOverrides({
+        transactionIds: [transactionId],
+        movementRoleOverrideByFingerprint: new Map([[movementFingerprint!, 'staking_reward']]),
+      });
+
+      expect(assertErr(result).message).toContain('incompatible with outflow');
+
+      const row = await db
+        .selectFrom('transaction_movements')
+        .select(['movement_role', 'movement_role_override'])
+        .where('movement_fingerprint', '=', movementFingerprint!)
+        .executeTakeFirstOrThrow();
+      expect(row).toMatchObject({
+        movement_role: null,
+        movement_role_override: null,
+      });
     });
   });
 

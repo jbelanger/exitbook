@@ -6,6 +6,7 @@ import {
   UserNoteSchema,
   buildAssetMovementCanonicalMaterial,
   buildFeeMovementCanonicalMaterial,
+  isMovementRoleCompatibleWithDirection,
   type AssetMovement,
   type FeeMovement,
   type MovementRole,
@@ -390,6 +391,23 @@ function normalizeMovementRoleOverride(
   return value ?? undefined;
 }
 
+function validateMovementRoleOverrideCompatibility(
+  movementFingerprint: string,
+  movementType: TransactionMovementsTable['movement_type'],
+  role: MovementRole
+): Result<void, Error> {
+  if (movementType === 'fee') {
+    return err(new Error(`Movement role overrides cannot target fee movements: ${movementFingerprint}`));
+  }
+
+  const direction = movementType === 'inflow' ? 'in' : 'out';
+  if (!isMovementRoleCompatibleWithDirection(direction, role)) {
+    return err(new Error(`Movement role override ${role} is incompatible with ${movementType} ${movementFingerprint}`));
+  }
+
+  return ok(undefined);
+}
+
 export async function materializeTransactionUserNoteOverrides(
   db: KyselyDB,
   logger: Logger,
@@ -549,8 +567,15 @@ export async function materializeTransactionMovementRoleOverrides(
       for (const row of rows) {
         const nextRoleOverride = params.movementRoleOverrideByFingerprint.get(row.movement_fingerprint);
 
-        if (row.movement_type === 'fee' && nextRoleOverride !== undefined) {
-          return err(new Error(`Movement role overrides cannot target fee movements: ${row.movement_fingerprint}`));
+        if (nextRoleOverride !== undefined) {
+          const compatibilityResult = validateMovementRoleOverrideCompatibility(
+            row.movement_fingerprint,
+            row.movement_type,
+            nextRoleOverride
+          );
+          if (compatibilityResult.isErr()) {
+            return err(compatibilityResult.error);
+          }
         }
 
         if (normalizeMovementRoleOverride(row.movement_role_override) === nextRoleOverride) {

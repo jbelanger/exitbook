@@ -72,6 +72,151 @@ export function buildPortfolioHoldings(accountingModel: AccountingModelBuildResu
   return { balances, assetMetadata };
 }
 
+interface PositionPricingDetails {
+  currentValue?: string | undefined;
+  isUnpriced: boolean;
+  priceError?: string | undefined;
+  priceStatus: 'ok' | 'unavailable';
+  spotPricePerUnit?: string | undefined;
+  usdSpotPrice?: Decimal | undefined;
+}
+
+interface PositionCostBasisDetails {
+  avgCostPerUnit?: string | undefined;
+  openLots: OpenLotItem[];
+  totalCostBasis?: string | undefined;
+  unrealizedGainLoss?: string | undefined;
+  unrealizedPct?: string | undefined;
+}
+
+function toDisplayedHoldingQuantity(balance: Decimal): string | undefined {
+  const quantityString = balance.toFixed(8);
+  return new Decimal(quantityString).isZero() ? undefined : quantityString;
+}
+
+function buildPositionPricingDetails(
+  balance: Decimal,
+  fxRate: Decimal | undefined,
+  priceResult: SpotPriceResult | undefined
+): PositionPricingDetails {
+  if (!priceResult || !('price' in priceResult)) {
+    return {
+      isUnpriced: true,
+      priceError: priceResult && 'error' in priceResult ? priceResult.error : undefined,
+      priceStatus: 'unavailable',
+    };
+  }
+
+  const usdSpotPrice = priceResult.price;
+  const displaySpotPrice = fxRate ? usdSpotPrice.times(fxRate) : usdSpotPrice;
+
+  return {
+    currentValue: displaySpotPrice.times(balance.abs()).toFixed(2),
+    isUnpriced: false,
+    priceStatus: 'ok',
+    spotPricePerUnit: displaySpotPrice.toFixed(2),
+    usdSpotPrice,
+  };
+}
+
+function buildPositionCostBasisDetails(params: {
+  asOf: Date;
+  fxRate: Decimal | undefined;
+  openLots: AcquisitionLot[];
+  usdSpotPrice: Decimal | undefined;
+}): PositionCostBasisDetails {
+  const { asOf, fxRate, openLots, usdSpotPrice } = params;
+  if (openLots.length === 0 || usdSpotPrice === undefined) {
+    return { openLots: [] };
+  }
+
+  const weightedCostUsd = computeWeightedAvgCost(openLots);
+  const totalCostUsd = openLots.reduce(
+    (sum, lot) => sum.plus(lot.costBasisPerUnit.times(lot.remainingQuantity)),
+    new Decimal(0)
+  );
+  const unrealizedUsd = computeUnrealizedPnL(openLots, usdSpotPrice);
+
+  const displayWeightedCost = fxRate ? weightedCostUsd.times(fxRate) : weightedCostUsd;
+  const displayTotalCost = fxRate ? totalCostUsd.times(fxRate) : totalCostUsd;
+  const displayUnrealized = fxRate ? unrealizedUsd.times(fxRate) : unrealizedUsd;
+
+  return {
+    avgCostPerUnit: displayWeightedCost.toFixed(2),
+    totalCostBasis: displayTotalCost.toFixed(2),
+    unrealizedGainLoss: displayUnrealized.toFixed(2),
+    ...(displayTotalCost.gt(0) ? { unrealizedPct: displayUnrealized.div(displayTotalCost).times(100).toFixed(1) } : {}),
+    openLots: openLots.map((lot) => {
+      const holdingDays = Math.floor((asOf.getTime() - lot.acquisitionDate.getTime()) / (1000 * 60 * 60 * 24));
+      const costBasisPerUnit = fxRate ? lot.costBasisPerUnit.times(fxRate).toFixed(2) : lot.costBasisPerUnit.toFixed(2);
+
+      return {
+        lotId: lot.id,
+        quantity: lot.quantity.toFixed(8),
+        remainingQuantity: lot.remainingQuantity.toFixed(8),
+        costBasisPerUnit,
+        acquisitionDate: lot.acquisitionDate.toISOString(),
+        holdingDays,
+      };
+    }),
+  };
+}
+
+function buildPortfolioPosition(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  asOf: Date;
+  assetId: string;
+  assetMetadata: Record<string, string>;
+  balance: Decimal;
+  fxRate: Decimal | undefined;
+  openLotsByAssetId: Map<string, AcquisitionLot[]>;
+  realizedGainLossByAssetId?: Map<string, Decimal> | undefined;
+  realizedGainLossDisplayContext: RealizedGainLossDisplayContext;
+  spotPrices: Map<string, SpotPriceResult>;
+}): { isUnpriced: boolean; position: PortfolioPositionItem } | undefined {
+  const quantity = toDisplayedHoldingQuantity(params.balance);
+  if (params.balance.isZero() || quantity === undefined) {
+    return undefined;
+  }
+
+  const priceDetails = buildPositionPricingDetails(
+    params.balance,
+    params.fxRate,
+    params.spotPrices.get(params.assetId)
+  );
+  const costBasisDetails = buildPositionCostBasisDetails({
+    asOf: params.asOf,
+    fxRate: params.fxRate,
+    openLots: params.openLotsByAssetId.get(params.assetId) ?? [],
+    usdSpotPrice: priceDetails.usdSpotPrice,
+  });
+
+  const realizedAmount = params.realizedGainLossByAssetId?.get(params.assetId) ?? new Decimal(0);
+  const realizedDisplay = convertRealizedGainLossToDisplay(realizedAmount, params.realizedGainLossDisplayContext);
+
+  return {
+    isUnpriced: priceDetails.isUnpriced,
+    position: {
+      accountBreakdown: params.accountBreakdown.get(params.assetId) ?? [],
+      assetId: params.assetId,
+      assetSymbol: params.assetMetadata[params.assetId] ?? params.assetId,
+      quantity,
+      isNegative: params.balance.isNegative(),
+      allocationPct: undefined,
+      priceStatus: priceDetails.priceStatus,
+      ...(priceDetails.spotPricePerUnit ? { spotPricePerUnit: priceDetails.spotPricePerUnit } : {}),
+      ...(priceDetails.currentValue ? { currentValue: priceDetails.currentValue } : {}),
+      ...(priceDetails.priceError ? { priceError: priceDetails.priceError } : {}),
+      ...(costBasisDetails.totalCostBasis ? { totalCostBasis: costBasisDetails.totalCostBasis } : {}),
+      ...(costBasisDetails.avgCostPerUnit ? { avgCostPerUnit: costBasisDetails.avgCostPerUnit } : {}),
+      ...(costBasisDetails.unrealizedGainLoss ? { unrealizedGainLoss: costBasisDetails.unrealizedGainLoss } : {}),
+      ...(costBasisDetails.unrealizedPct ? { unrealizedPct: costBasisDetails.unrealizedPct } : {}),
+      realizedGainLossAllTime: realizedDisplay.toFixed(2),
+      openLots: costBasisDetails.openLots,
+    },
+  };
+}
+
 /**
  * Build portfolio positions from holdings, spot prices, and open lots.
  * Handles partial price failures, negative balances, and missing open lots.
@@ -103,109 +248,30 @@ export function buildPortfolioPositions(params: {
   };
   const positions: PortfolioPositionItem[] = [];
   const warnings: string[] = [];
-
   let unpricedCount = 0;
 
   for (const [assetId, balance] of Object.entries(holdings)) {
-    if (balance.isZero()) {
-      continue;
-    }
-
-    const quantityString = balance.toFixed(8);
-    if (new Decimal(quantityString).isZero()) {
-      continue;
-    }
-
-    const assetSymbol = assetMetadata[assetId] ?? assetId;
-    const isNegative = balance.isNegative();
-    const priceResult = spotPrices.get(assetId);
-    const openLots = openLotsByAssetId.get(assetId) ?? [];
-    const accounts = accountBreakdown.get(assetId) ?? [];
-
-    let priceStatus: 'ok' | 'unavailable' = 'unavailable';
-    let spotPricePerUnit: string | undefined;
-    let currentValue: string | undefined;
-    let priceError: string | undefined;
-    let usdSpotPrice: Decimal | undefined;
-
-    if (priceResult && 'price' in priceResult) {
-      priceStatus = 'ok';
-      usdSpotPrice = priceResult.price;
-      const displaySpotPrice = fxRate ? usdSpotPrice.times(fxRate) : usdSpotPrice;
-      spotPricePerUnit = displaySpotPrice.toFixed(2);
-      currentValue = displaySpotPrice.times(balance.abs()).toFixed(2);
-    } else {
-      unpricedCount++;
-      if (priceResult && 'error' in priceResult) {
-        priceError = priceResult.error;
-      }
-    }
-
-    let totalCostBasis: string | undefined;
-    let avgCostPerUnit: string | undefined;
-    let unrealizedGainLoss: string | undefined;
-    let unrealizedPct: string | undefined;
-    const openLotItems: OpenLotItem[] = [];
-
-    if (openLots.length > 0 && usdSpotPrice) {
-      const weightedCostUsd = computeWeightedAvgCost(openLots);
-      const totalCostUsd = openLots.reduce(
-        (sum, lot) => sum.plus(lot.costBasisPerUnit.times(lot.remainingQuantity)),
-        new Decimal(0)
-      );
-      const unrealizedUsd = computeUnrealizedPnL(openLots, usdSpotPrice);
-
-      const displayWeightedCost = fxRate ? weightedCostUsd.times(fxRate) : weightedCostUsd;
-      const displayTotalCost = fxRate ? totalCostUsd.times(fxRate) : totalCostUsd;
-      const displayUnrealized = fxRate ? unrealizedUsd.times(fxRate) : unrealizedUsd;
-
-      avgCostPerUnit = displayWeightedCost.toFixed(2);
-      totalCostBasis = displayTotalCost.toFixed(2);
-      unrealizedGainLoss = displayUnrealized.toFixed(2);
-
-      if (displayTotalCost.gt(0)) {
-        unrealizedPct = displayUnrealized.div(displayTotalCost).times(100).toFixed(1);
-      }
-
-      for (const lot of openLots) {
-        const holdingDays = Math.floor((asOf.getTime() - lot.acquisitionDate.getTime()) / (1000 * 60 * 60 * 24));
-        const displayCostPerUnit = fxRate
-          ? lot.costBasisPerUnit.times(fxRate).toFixed(2)
-          : lot.costBasisPerUnit.toFixed(2);
-
-        openLotItems.push({
-          lotId: lot.id,
-          quantity: lot.quantity.toFixed(8),
-          remainingQuantity: lot.remainingQuantity.toFixed(8),
-          costBasisPerUnit: displayCostPerUnit,
-          acquisitionDate: lot.acquisitionDate.toISOString(),
-          holdingDays,
-        });
-      }
-    }
-
-    const realizedAmount = realizedGainLossByAssetId?.get(assetId) ?? new Decimal(0);
-    const realizedDisplay = convertRealizedGainLossToDisplay(realizedAmount, realizedGainLossDisplayContext);
-    const realizedGainLossAllTime = realizedDisplay.toFixed(2);
-
-    positions.push({
+    const builtPosition = buildPortfolioPosition({
+      accountBreakdown,
+      asOf,
       assetId,
-      assetSymbol,
-      quantity: quantityString,
-      isNegative,
-      spotPricePerUnit,
-      currentValue,
-      allocationPct: undefined,
-      priceStatus,
-      priceError,
-      totalCostBasis,
-      avgCostPerUnit,
-      unrealizedGainLoss,
-      unrealizedPct,
-      realizedGainLossAllTime,
-      openLots: openLotItems,
-      accountBreakdown: accounts,
+      assetMetadata,
+      balance,
+      fxRate,
+      openLotsByAssetId,
+      realizedGainLossByAssetId,
+      realizedGainLossDisplayContext,
+      spotPrices,
     });
+    if (!builtPosition) {
+      continue;
+    }
+
+    if (builtPosition.isUnpriced) {
+      unpricedCount++;
+    }
+
+    positions.push(builtPosition.position);
   }
 
   applyAllocationPercentages(positions);
@@ -381,26 +447,38 @@ function attachSourceAssetIds(
   });
 }
 
-export function buildCanadaPortfolioPositions(params: {
-  accountBreakdown: Map<string, AccountBreakdownItem[]>;
-  asOf: Date;
-  assetMetadata: Record<string, string>;
-  displayReport?: CanadaDisplayCostBasisReport | undefined;
-  holdings: Record<string, Decimal>;
-  inputContext: CanadaTaxInputContext;
-  spotPricesByAssetId: Map<string, SpotPriceResult>;
-  taxReport: CanadaTaxReport;
-}): CanadaPortfolioPositionsResult {
-  const assetGroups = buildCanadaPortfolioAssetGroups(params.inputContext);
-  const groupsByPortfolioKey = new Map([...assetGroups.values()].map((group) => [group.portfolioKey, group] as const));
+interface CanadaGroupedPortfolioInputs {
+  assetLabelsByPortfolioKey: Record<string, string>;
+  groupsByPortfolioKey: Map<string, CanadaPortfolioAssetGroup>;
+  holdingsByPortfolioKey: Record<string, Decimal>;
+  matchedAssetIds: Set<string>;
+  pooledAccountBreakdown: Map<string, AccountBreakdownItem[]>;
+  pooledSpotPrices: Map<string, SpotPriceResult>;
+}
 
+interface UnmatchedPortfolioInputs {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  assetMetadata: Record<string, string>;
+  holdings: Record<string, Decimal>;
+  spotPrices: Map<string, SpotPriceResult>;
+}
+
+function buildCanadaGroupedPortfolioInputs(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  assetGroups: Map<string, CanadaPortfolioAssetGroup>;
+  holdings: Record<string, Decimal>;
+  spotPricesByAssetId: Map<string, SpotPriceResult>;
+}): CanadaGroupedPortfolioInputs {
+  const groupsByPortfolioKey = new Map(
+    [...params.assetGroups.values()].map((group) => [group.portfolioKey, group] as const)
+  );
   const holdingsByPortfolioKey: Record<string, Decimal> = {};
   const assetLabelsByPortfolioKey: Record<string, string> = {};
   const pooledSpotPrices = new Map<string, SpotPriceResult>();
   const pooledAccountBreakdown = new Map<string, AccountBreakdownItem[]>();
   const matchedAssetIds = new Set<string>();
 
-  for (const group of assetGroups.values()) {
+  for (const group of params.assetGroups.values()) {
     let quantityHeld = new Decimal(0);
     const breakdownItems: AccountBreakdownItem[] = [];
 
@@ -435,16 +513,32 @@ export function buildCanadaPortfolioPositions(params: {
     }
   }
 
+  return {
+    assetLabelsByPortfolioKey,
+    groupsByPortfolioKey,
+    holdingsByPortfolioKey,
+    matchedAssetIds,
+    pooledAccountBreakdown,
+    pooledSpotPrices,
+  };
+}
+
+function buildCanadaOpenLotsByPortfolioKey(params: {
+  assetGroups: Map<string, CanadaPortfolioAssetGroup>;
+  displayReport?: CanadaDisplayCostBasisReport | undefined;
+  taxReport: CanadaTaxReport;
+}): Map<string, AcquisitionLot[]> {
   const displayAcquisitionsById = new Map(
     params.displayReport?.acquisitions.map((acquisition) => [acquisition.id, acquisition]) ?? []
   );
   const openLotsByPortfolioKey = new Map<string, AcquisitionLot[]>();
+
   for (const acquisition of params.taxReport.acquisitions) {
     if (acquisition.remainingQuantity.lte(0)) {
       continue;
     }
 
-    const group = assetGroups.get(acquisition.taxPropertyKey);
+    const group = params.assetGroups.get(acquisition.taxPropertyKey);
     if (!group) {
       continue;
     }
@@ -470,12 +564,21 @@ export function buildCanadaPortfolioPositions(params: {
     }
   }
 
+  return openLotsByPortfolioKey;
+}
+
+function buildCanadaRealizedGainLossByPortfolioKey(params: {
+  assetGroups: Map<string, CanadaPortfolioAssetGroup>;
+  displayReport?: CanadaDisplayCostBasisReport | undefined;
+  taxReport: CanadaTaxReport;
+}): Map<string, Decimal> {
   const displayDispositionsById = new Map(
     params.displayReport?.dispositions.map((disposition) => [disposition.id, disposition]) ?? []
   );
   const realizedGainLossByPortfolioKey = new Map<string, Decimal>();
+
   for (const disposition of params.taxReport.dispositions) {
-    const group = assetGroups.get(disposition.taxPropertyKey);
+    const group = params.assetGroups.get(disposition.taxPropertyKey);
     if (!group) {
       continue;
     }
@@ -485,25 +588,23 @@ export function buildCanadaPortfolioPositions(params: {
     realizedGainLossByPortfolioKey.set(group.portfolioKey, existing.plus(realizedGainLoss));
   }
 
-  const builtCanada = buildPortfolioPositions({
-    holdings: holdingsByPortfolioKey,
-    assetMetadata: assetLabelsByPortfolioKey,
-    spotPrices: pooledSpotPrices,
-    openLotsByAssetId: openLotsByPortfolioKey,
-    accountBreakdown: pooledAccountBreakdown,
-    fxRate: undefined,
-    asOf: params.asOf,
-    realizedGainLossByAssetId: realizedGainLossByPortfolioKey,
-    realizedGainLossDisplayContext: { sourceCurrency: 'display' },
-  });
+  return realizedGainLossByPortfolioKey;
+}
 
+function buildUnmatchedPortfolioInputs(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  assetMetadata: Record<string, string>;
+  holdings: Record<string, Decimal>;
+  matchedAssetIds: Set<string>;
+  spotPricesByAssetId: Map<string, SpotPriceResult>;
+}): UnmatchedPortfolioInputs {
   const unmatchedHoldings: Record<string, Decimal> = {};
   const unmatchedAssetMetadata: Record<string, string> = {};
   const unmatchedSpotPrices = new Map<string, SpotPriceResult>();
   const unmatchedAccountBreakdown = new Map<string, AccountBreakdownItem[]>();
 
   for (const [assetId, quantity] of Object.entries(params.holdings)) {
-    if (matchedAssetIds.has(assetId)) {
+    if (params.matchedAssetIds.has(assetId)) {
       continue;
     }
 
@@ -521,25 +622,82 @@ export function buildCanadaPortfolioPositions(params: {
     }
   }
 
-  const builtUnmatched = buildPortfolioPositions({
-    holdings: unmatchedHoldings,
-    assetMetadata: unmatchedAssetMetadata,
-    spotPrices: unmatchedSpotPrices,
-    openLotsByAssetId: new Map(),
+  return {
     accountBreakdown: unmatchedAccountBreakdown,
+    assetMetadata: unmatchedAssetMetadata,
+    holdings: unmatchedHoldings,
+    spotPrices: unmatchedSpotPrices,
+  };
+}
+
+export function buildCanadaPortfolioPositions(params: {
+  accountBreakdown: Map<string, AccountBreakdownItem[]>;
+  asOf: Date;
+  assetMetadata: Record<string, string>;
+  displayReport?: CanadaDisplayCostBasisReport | undefined;
+  holdings: Record<string, Decimal>;
+  inputContext: CanadaTaxInputContext;
+  spotPricesByAssetId: Map<string, SpotPriceResult>;
+  taxReport: CanadaTaxReport;
+}): CanadaPortfolioPositionsResult {
+  const assetGroups = buildCanadaPortfolioAssetGroups(params.inputContext);
+  const groupedInputs = buildCanadaGroupedPortfolioInputs({
+    accountBreakdown: params.accountBreakdown,
+    assetGroups,
+    holdings: params.holdings,
+    spotPricesByAssetId: params.spotPricesByAssetId,
+  });
+  const openLotsByPortfolioKey = buildCanadaOpenLotsByPortfolioKey({
+    assetGroups,
+    displayReport: params.displayReport,
+    taxReport: params.taxReport,
+  });
+  const realizedGainLossByPortfolioKey = buildCanadaRealizedGainLossByPortfolioKey({
+    assetGroups,
+    displayReport: params.displayReport,
+    taxReport: params.taxReport,
+  });
+
+  const builtCanada = buildPortfolioPositions({
+    holdings: groupedInputs.holdingsByPortfolioKey,
+    assetMetadata: groupedInputs.assetLabelsByPortfolioKey,
+    spotPrices: groupedInputs.pooledSpotPrices,
+    openLotsByAssetId: openLotsByPortfolioKey,
+    accountBreakdown: groupedInputs.pooledAccountBreakdown,
+    fxRate: undefined,
+    asOf: params.asOf,
+    realizedGainLossByAssetId: realizedGainLossByPortfolioKey,
+    realizedGainLossDisplayContext: { sourceCurrency: 'display' },
+  });
+
+  const unmatchedInputs = buildUnmatchedPortfolioInputs({
+    accountBreakdown: params.accountBreakdown,
+    assetMetadata: params.assetMetadata,
+    holdings: params.holdings,
+    matchedAssetIds: groupedInputs.matchedAssetIds,
+    spotPricesByAssetId: params.spotPricesByAssetId,
+  });
+  const builtUnmatched = buildPortfolioPositions({
+    holdings: unmatchedInputs.holdings,
+    assetMetadata: unmatchedInputs.assetMetadata,
+    spotPrices: unmatchedInputs.spotPrices,
+    openLotsByAssetId: new Map(),
+    accountBreakdown: unmatchedInputs.accountBreakdown,
     fxRate: undefined,
     asOf: params.asOf,
   });
 
-  const positions = attachSourceAssetIds(builtCanada.positions, groupsByPortfolioKey).concat(builtUnmatched.positions);
+  const positions = attachSourceAssetIds(builtCanada.positions, groupedInputs.groupsByPortfolioKey).concat(
+    builtUnmatched.positions
+  );
   const closedPositions = attachSourceAssetIds(
     buildClosedPositionsByAssetId(
-      Object.keys(holdingsByPortfolioKey),
-      assetLabelsByPortfolioKey,
+      Object.keys(groupedInputs.holdingsByPortfolioKey),
+      groupedInputs.assetLabelsByPortfolioKey,
       realizedGainLossByPortfolioKey,
       { sourceCurrency: 'display' }
     ),
-    groupsByPortfolioKey
+    groupedInputs.groupsByPortfolioKey
   );
 
   return {
@@ -550,13 +708,7 @@ export function buildCanadaPortfolioPositions(params: {
   };
 }
 
-/**
- * Aggregate portfolio positions by asset symbol for display.
- *
- * We keep underlying assetIds in `sourceAssetIds` so drill-down/history can still
- * include movements from all merged assets.
- */
-export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem[]): PortfolioPositionItem[] {
+function groupPositionsByAssetSymbol(positions: PortfolioPositionItem[]): Map<string, PortfolioPositionItem[]> {
   const groups = new Map<string, PortfolioPositionItem[]>();
 
   for (const position of positions) {
@@ -569,163 +721,166 @@ export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem
     }
   }
 
+  return groups;
+}
+
+function buildAggregatedPriceDetails(
+  group: PortfolioPositionItem[],
+  absoluteNetQuantity: Decimal
+): Pick<PortfolioPositionItem, 'currentValue' | 'priceError' | 'priceStatus' | 'spotPricePerUnit'> {
+  const pricedRows = group.filter(
+    (position): position is PortfolioPositionItem & { currentValue: string; spotPricePerUnit: string } =>
+      position.priceStatus === 'ok' && position.currentValue !== undefined && position.spotPricePerUnit !== undefined
+  );
+
+  if (pricedRows.length === 0) {
+    const uniqueErrors = Array.from(
+      new Set(
+        group
+          .map((position) => position.priceError)
+          .filter((error): error is string => error !== undefined && error.length > 0)
+      )
+    );
+
+    return {
+      priceStatus: 'unavailable',
+      ...(uniqueErrors.length > 0 ? { priceError: uniqueErrors.join('; ') } : {}),
+    };
+  }
+
+  const pricedByQuantity = pricedRows.reduce((sum, position) => {
+    const quantity = new Decimal(position.quantity).abs();
+    return sum.plus(quantity);
+  }, new Decimal(0));
+  const weightedSpot = pricedRows.reduce((sum, position) => {
+    const quantity = new Decimal(position.quantity).abs();
+    const spot = new Decimal(position.spotPricePerUnit);
+    return sum.plus(spot.times(quantity));
+  }, new Decimal(0));
+  const spot = pricedByQuantity.gt(0)
+    ? weightedSpot.div(pricedByQuantity)
+    : new Decimal(pricedRows[0]!.spotPricePerUnit);
+
+  return {
+    currentValue: spot.times(absoluteNetQuantity).toFixed(2),
+    priceStatus: 'ok',
+    spotPricePerUnit: spot.toFixed(2),
+  };
+}
+
+function buildAggregatedCostBasisDetails(
+  group: PortfolioPositionItem[],
+  absoluteNetQuantity: Decimal
+): Pick<PortfolioPositionItem, 'avgCostPerUnit' | 'totalCostBasis' | 'unrealizedGainLoss' | 'unrealizedPct'> {
+  const rowsWithCost = group.filter(
+    (
+      position
+    ): position is PortfolioPositionItem & {
+      totalCostBasis: string;
+      unrealizedGainLoss: string;
+    } => position.totalCostBasis !== undefined && position.unrealizedGainLoss !== undefined
+  );
+
+  if (rowsWithCost.length === 0) {
+    return {};
+  }
+
+  const totalCost = rowsWithCost.reduce((sum, position) => sum.plus(position.totalCostBasis), new Decimal(0));
+  const totalUnrealized = rowsWithCost.reduce((sum, position) => sum.plus(position.unrealizedGainLoss), new Decimal(0));
+  const totalCostQuantityFromBalance = rowsWithCost.reduce(
+    (sum, position) => sum.plus(new Decimal(position.quantity).abs()),
+    new Decimal(0)
+  );
+  const totalCostQuantityFromCostBasis = rowsWithCost.reduce((sum, position) => {
+    if (position.avgCostPerUnit === undefined) {
+      return sum;
+    }
+
+    const rowAvgCost = new Decimal(position.avgCostPerUnit);
+    if (rowAvgCost.lte(0)) {
+      return sum;
+    }
+
+    return sum.plus(new Decimal(position.totalCostBasis).div(rowAvgCost));
+  }, new Decimal(0));
+
+  let avgCostPerUnit: string | undefined;
+  if (totalCostQuantityFromCostBasis.gt(0)) {
+    avgCostPerUnit = totalCost.div(totalCostQuantityFromCostBasis).toFixed(2);
+  } else if (totalCostQuantityFromBalance.gt(0)) {
+    avgCostPerUnit = totalCost.div(totalCostQuantityFromBalance).toFixed(2);
+  } else if (absoluteNetQuantity.gt(0)) {
+    avgCostPerUnit = totalCost.div(absoluteNetQuantity).toFixed(2);
+  }
+
+  return {
+    totalCostBasis: totalCost.toFixed(2),
+    unrealizedGainLoss: totalUnrealized.toFixed(2),
+    ...(avgCostPerUnit ? { avgCostPerUnit } : {}),
+    ...(totalCost.gt(0) ? { unrealizedPct: totalUnrealized.div(totalCost).times(100).toFixed(1) } : {}),
+  };
+}
+
+function buildAggregatedAccountBreakdown(group: PortfolioPositionItem[]): AccountBreakdownItem[] {
+  const accountMap = new Map<string, AccountBreakdownItem>();
+
+  for (const position of group) {
+    for (const account of position.accountBreakdown) {
+      const key = `${account.accountId}:${account.platformKey}:${account.accountType}`;
+      const existing = accountMap.get(key);
+      if (existing) {
+        const mergedQuantity = new Decimal(existing.quantity).plus(account.quantity);
+        existing.quantity = mergedQuantity.toFixed(8);
+      } else {
+        accountMap.set(key, { ...account });
+      }
+    }
+  }
+
+  return Array.from(accountMap.values());
+}
+
+function aggregatePositionGroup(group: PortfolioPositionItem[]): PortfolioPositionItem {
+  if (group.length === 1) {
+    const single = group[0]!;
+    return {
+      ...single,
+      sourceAssetIds: getPositionSourceAssetIds(single),
+    };
+  }
+
+  const sourceAssetIds = Array.from(new Set(group.flatMap((position) => getPositionSourceAssetIds(position))));
+  const assetSymbol = group[0]!.assetSymbol;
+  const netQuantity = group.reduce((sum, position) => sum.plus(position.quantity), new Decimal(0));
+  const absoluteNetQuantity = netQuantity.abs();
+
+  return {
+    assetId: sourceAssetIds[0]!,
+    sourceAssetIds,
+    assetSymbol,
+    quantity: netQuantity.toFixed(8),
+    isNegative: netQuantity.isNegative(),
+    allocationPct: undefined,
+    ...buildAggregatedPriceDetails(group, absoluteNetQuantity),
+    ...buildAggregatedCostBasisDetails(group, absoluteNetQuantity),
+    realizedGainLossAllTime: group
+      .reduce((sum, position) => sum.plus(position.realizedGainLossAllTime ?? '0'), new Decimal(0))
+      .toFixed(2),
+    openLots: group.flatMap((position) => position.openLots),
+    accountBreakdown: buildAggregatedAccountBreakdown(group),
+  };
+}
+
+/**
+ * Aggregate portfolio positions by asset symbol for display.
+ *
+ * We keep underlying assetIds in `sourceAssetIds` so drill-down/history can still
+ * include movements from all merged assets.
+ */
+export function aggregatePositionsByAssetSymbol(positions: PortfolioPositionItem[]): PortfolioPositionItem[] {
   const aggregated: PortfolioPositionItem[] = [];
-
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      const single = group[0]!;
-      aggregated.push({
-        ...single,
-        sourceAssetIds: getPositionSourceAssetIds(single),
-      });
-      continue;
-    }
-
-    const sourceAssetIds = Array.from(new Set(group.flatMap((position) => getPositionSourceAssetIds(position))));
-    const assetSymbol = group[0]!.assetSymbol;
-
-    const netQuantity = group.reduce((sum, position) => sum.plus(position.quantity), new Decimal(0));
-    const netQuantityString = netQuantity.toFixed(8);
-    const absoluteNetQuantity = netQuantity.abs();
-    const isNegative = netQuantity.isNegative();
-
-    const pricedRows = group.filter(
-      (position): position is PortfolioPositionItem & { currentValue: string; spotPricePerUnit: string } =>
-        position.priceStatus === 'ok' && position.currentValue !== undefined && position.spotPricePerUnit !== undefined
-    );
-
-    const pricedByQuantity = pricedRows.reduce((sum, position) => {
-      const quantity = new Decimal(position.quantity).abs();
-      return sum.plus(quantity);
-    }, new Decimal(0));
-
-    let priceStatus: 'ok' | 'unavailable' = 'unavailable';
-    let spotPricePerUnit: string | undefined;
-    let currentValue: string | undefined;
-    let priceError: string | undefined;
-
-    if (pricedRows.length > 0) {
-      priceStatus = 'ok';
-
-      const weightedSpot = pricedRows.reduce((sum, position) => {
-        const qty = new Decimal(position.quantity).abs();
-        const spot = new Decimal(position.spotPricePerUnit);
-        return sum.plus(spot.times(qty));
-      }, new Decimal(0));
-
-      const spot = pricedByQuantity.gt(0)
-        ? weightedSpot.div(pricedByQuantity)
-        : new Decimal(pricedRows[0]!.spotPricePerUnit);
-      spotPricePerUnit = spot.toFixed(2);
-      currentValue = spot.times(absoluteNetQuantity).toFixed(2);
-    } else {
-      const uniqueErrors = Array.from(
-        new Set(
-          group
-            .map((position) => position.priceError)
-            .filter((error): error is string => error !== undefined && error.length > 0)
-        )
-      );
-      if (uniqueErrors.length > 0) {
-        priceError = uniqueErrors.join('; ');
-      }
-    }
-
-    const rowsWithCost = group.filter(
-      (
-        position
-      ): position is PortfolioPositionItem & {
-        totalCostBasis: string;
-        unrealizedGainLoss: string;
-      } => position.totalCostBasis !== undefined && position.unrealizedGainLoss !== undefined
-    );
-
-    let totalCostBasis: string | undefined;
-    let unrealizedGainLoss: string | undefined;
-    let avgCostPerUnit: string | undefined;
-    let unrealizedPct: string | undefined;
-
-    if (rowsWithCost.length > 0) {
-      const totalCost = rowsWithCost.reduce((sum, position) => sum.plus(position.totalCostBasis), new Decimal(0));
-      const totalUnrealized = rowsWithCost.reduce(
-        (sum, position) => sum.plus(position.unrealizedGainLoss),
-        new Decimal(0)
-      );
-      const totalCostQuantityFromBalance = rowsWithCost.reduce(
-        (sum, position) => sum.plus(new Decimal(position.quantity).abs()),
-        new Decimal(0)
-      );
-      const totalCostQuantityFromCostBasis = rowsWithCost.reduce((sum, position) => {
-        if (position.avgCostPerUnit === undefined) {
-          return sum;
-        }
-
-        const rowAvgCost = new Decimal(position.avgCostPerUnit);
-        if (rowAvgCost.lte(0)) {
-          return sum;
-        }
-
-        return sum.plus(new Decimal(position.totalCostBasis).div(rowAvgCost));
-      }, new Decimal(0));
-
-      totalCostBasis = totalCost.toFixed(2);
-      unrealizedGainLoss = totalUnrealized.toFixed(2);
-
-      // Derive cost-backed quantity from each row's cost basis and avg cost when available.
-      // This prevents inflated per-unit averages when net display quantity is near-zero.
-      if (totalCostQuantityFromCostBasis.gt(0)) {
-        avgCostPerUnit = totalCost.div(totalCostQuantityFromCostBasis).toFixed(2);
-      } else if (totalCostQuantityFromBalance.gt(0)) {
-        avgCostPerUnit = totalCost.div(totalCostQuantityFromBalance).toFixed(2);
-      } else if (absoluteNetQuantity.gt(0)) {
-        avgCostPerUnit = totalCost.div(absoluteNetQuantity).toFixed(2);
-      }
-      if (totalCost.gt(0)) {
-        unrealizedPct = totalUnrealized.div(totalCost).times(100).toFixed(1);
-      }
-    }
-
-    const totalRealized = group.reduce(
-      (sum, position) => sum.plus(position.realizedGainLossAllTime ?? '0'),
-      new Decimal(0)
-    );
-    const realizedGainLossAllTime = totalRealized.toFixed(2);
-
-    const accountMap = new Map<string, AccountBreakdownItem>();
-    for (const position of group) {
-      for (const account of position.accountBreakdown) {
-        const key = `${account.accountId}:${account.platformKey}:${account.accountType}`;
-        const existing = accountMap.get(key);
-        if (existing) {
-          const mergedQty = new Decimal(existing.quantity).plus(account.quantity);
-          existing.quantity = mergedQty.toFixed(8);
-        } else {
-          accountMap.set(key, { ...account });
-        }
-      }
-    }
-
-    const openLots = group.flatMap((position) => position.openLots);
-
-    aggregated.push({
-      assetId: sourceAssetIds[0]!,
-      sourceAssetIds,
-      assetSymbol,
-      quantity: netQuantityString,
-      isNegative,
-      spotPricePerUnit,
-      currentValue,
-      allocationPct: undefined,
-      priceStatus,
-      priceError,
-      totalCostBasis,
-      avgCostPerUnit,
-      unrealizedGainLoss,
-      unrealizedPct,
-      realizedGainLossAllTime,
-      openLots,
-      accountBreakdown: Array.from(accountMap.values()),
-    });
+  for (const group of groupPositionsByAssetSymbol(positions).values()) {
+    aggregated.push(aggregatePositionGroup(group));
   }
 
   applyAllocationPercentages(aggregated);

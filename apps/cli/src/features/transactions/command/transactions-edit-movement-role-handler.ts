@@ -1,4 +1,8 @@
-import type { CreateOverrideEventOptions, MovementRole } from '@exitbook/core';
+import {
+  isMovementRoleCompatibleWithDirection,
+  type CreateOverrideEventOptions,
+  type MovementRole,
+} from '@exitbook/core';
 import { materializeStoredTransactionMovementRoleOverrides, type OverrideStore } from '@exitbook/data/overrides';
 import { markDownstreamProjectionsStale } from '@exitbook/data/projections';
 import type { DataSession } from '@exitbook/data/session';
@@ -248,7 +252,7 @@ function validateMovementRoleCompatibility(
   direction: ResolvedTransactionMovementSelector['direction'],
   role: MovementRole
 ): Result<void, Error> {
-  if (direction === 'outflow' && (role === 'staking_reward' || role === 'refund_rebate')) {
+  if (!isMovementRoleCompatibleWithDirection(direction === 'inflow' ? 'in' : 'out', role)) {
     return err(new Error(`${role} is only valid on inflow movements`));
   }
 

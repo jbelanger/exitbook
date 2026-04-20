@@ -62,17 +62,13 @@ These questions apply to every pattern:
 
 ## Track 0: Movement Semantics and Diagnostics Foundation
 
-Status: implementation mostly complete; remaining follow-up is data-validation and replay hardening
+Status: foundation shipped; future movement-semantics work should be issue-driven
 Expected value: very high
 Likely destination: cross-cutting core/persistence/processing refactor
 
 Canonical spec draft:
 
 - [movement-semantics-and-diagnostics.md](/Users/joel/Dev/exitbook/docs/specs/movement-semantics-and-diagnostics.md)
-
-Execution tracker:
-
-- [movement-semantics-implementation-plan.md](/Users/joel/Dev/exitbook/docs/dev/movement-semantics-implementation-plan.md)
 
 ### Why This Comes First
 
