@@ -121,11 +121,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/price-providers
       '@inquirer/confirm':
-        specifier: ^6.0.11
-        version: 6.0.11(@types/node@25.6.0)
+        specifier: ^6.0.12
+        version: 6.0.12(@types/node@25.6.0)
       '@inquirer/core':
-        specifier: ^11.1.8
-        version: 11.1.8(@types/node@25.6.0)
+        specifier: ^11.1.9
+        version: 11.1.9(@types/node@25.6.0)
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -133,11 +133,11 @@ importers:
         specifier: ^10.6.0
         version: 10.6.0
       ink:
-        specifier: ^7.0.0
-        version: 7.0.0(@types/react@19.2.14)(react@19.2.5)
+        specifier: ^7.0.1
+        version: 7.0.1(@types/react@19.2.14)(react@19.2.5)
       ink-spinner:
         specifier: ^5.0.0
-        version: 5.0.0(ink@7.0.0(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)
+        version: 5.0.0(ink@7.0.1(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)
       ora:
         specifier: ^9.3.0
         version: 9.3.0
@@ -340,8 +340,8 @@ importers:
         specifier: workspace:*
         version: link:../logger
       ccxt:
-        specifier: ^4.5.49
-        version: 4.5.49
+        specifier: ^4.5.50
+        version: 4.5.50
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -991,8 +991,8 @@ packages:
     resolution: {integrity: sha512-doc2sWgJpbFQ64UflSVd17ibMGDuxO1yKgOgLMwavzESnXjFWJqUeG8saYosqKpHp4kWiM5x1nXvEjbpx90gzw==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
 
-  '@inquirer/confirm@6.0.11':
-    resolution: {integrity: sha512-pTpHjg0iEIRMYV/7oCZUMf27/383E6Wyhfc/MY+AVQGEoUobffIYWOK9YLP2XFRGz/9i6WlTQh1CkFVIo2Y7XA==}
+  '@inquirer/confirm@6.0.12':
+    resolution: {integrity: sha512-h9FgGun3QwVYNj5TWIZZ+slii73bMoBFjPfVIGtnFuL4t8gBiNDV9PcSfIzkuxvgquJKt9nr1QzszpBzTbH8Og==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -1000,8 +1000,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/core@11.1.8':
-    resolution: {integrity: sha512-/u+yJk2pOKNDOh1ZgdUH2RQaRx6OOH4I0uwL95qPvTFTIL38YBsuSC4r1yXBB3Q6JvNqFFc202gk0Ew79rrcjA==}
+  '@inquirer/core@11.1.9':
+    resolution: {integrity: sha512-BDE4fG22uYh1bGSifcj7JSx119TVYNViMhMu85usp4Fswrzh6M0DV3yld64jA98uOAa2GSQ4Bg4bZRm2d2cwSg==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -2130,8 +2130,8 @@ packages:
   caniuse-lite@1.0.30001782:
     resolution: {integrity: sha512-dZcaJLJeDMh4rELYFw1tvSn1bhZWYFOt468FcbHHxx/Z/dFidd1I6ciyFdi3iwfQCyOjqo9upF6lGQYtMiJWxw==}
 
-  ccxt@4.5.49:
-    resolution: {integrity: sha512-fCMslegjMOahepGnhu/byVQ4Af6nVIY8jGKQniSwWstYmO9o62nrUTs1Wx0Yhb9CX1iF4fm6W5pqGrJqRHcKRw==}
+  ccxt@4.5.50:
+    resolution: {integrity: sha512-7xI1QeVtW+jgikRrzGJd4qhc7X0heWrH2Z+gWOJuj9N5fqn0ub7p0ZeUj3KWOPF/MO/hRFdNZX91xuEt4Alxjg==}
     engines: {node: '>=15.0.0'}
 
   chai@6.2.2:
@@ -2621,6 +2621,10 @@ packages:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
 
+  hasown@2.0.3:
+    resolution: {integrity: sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg==}
+    engines: {node: '>= 0.4'}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -2674,8 +2678,8 @@ packages:
       '@types/react':
         optional: true
 
-  ink@7.0.0:
-    resolution: {integrity: sha512-fMie5/VwIYXofMyND0s+fOVhwVBBPYx+uuqJ6V6rUBGjui+2UYp+0fWtvhSeKT4z+X1uH98a4ge5Vj3aTlL6mg==}
+  ink@7.0.1:
+    resolution: {integrity: sha512-o6LAC268PLawlGVYrXTyaTfke4VtJftEheuwbgkQf7yvSXyWp1nRwBbAyKEkWXFZZsW/la5wrMuNbuBvZK2C1w==}
     engines: {node: '>=22'}
     peerDependencies:
       '@types/react': '>=19.2.0'
@@ -3575,8 +3579,8 @@ packages:
     resolution: {integrity: sha512-Ne+eE4r0/iWnpAxD852z3A+N0Bt5RN//NjJwRd2VFHEmrywxf5vsZlh4R6lixl6B+wz/8d+maTSAkN1FIkI3LQ==}
     engines: {node: '>=10'}
 
-  type-fest@5.5.0:
-    resolution: {integrity: sha512-PlBfpQwiUvGViBNX84Yxwjsdhd1TUlXr6zjX7eoirtCPIr08NAmxwa+fcYBTeRQxHo9YC9wwF3m9i700sHma8g==}
+  type-fest@5.6.0:
+    resolution: {integrity: sha512-8ZiHFm91orbSAe2PSAiSVBVko18pbhbiB3U9GglSzF/zCGkR+rxpHx6sEMCUm4kxY4LjDIUGgCfUMtwfZfjfUA==}
     engines: {node: '>=20'}
 
   typed-array-buffer@1.0.3:
@@ -4175,14 +4179,14 @@ snapshots:
 
   '@inquirer/ansi@2.0.5': {}
 
-  '@inquirer/confirm@6.0.11(@types/node@25.6.0)':
+  '@inquirer/confirm@6.0.12(@types/node@25.6.0)':
     dependencies:
-      '@inquirer/core': 11.1.8(@types/node@25.6.0)
+      '@inquirer/core': 11.1.9(@types/node@25.6.0)
       '@inquirer/type': 4.0.5(@types/node@25.6.0)
     optionalDependencies:
       '@types/node': 25.6.0
 
-  '@inquirer/core@11.1.8(@types/node@25.6.0)':
+  '@inquirer/core@11.1.9(@types/node@25.6.0)':
     dependencies:
       '@inquirer/ansi': 2.0.5
       '@inquirer/figures': 2.0.5
@@ -5155,7 +5159,7 @@ snapshots:
 
   caniuse-lite@1.0.30001782: {}
 
-  ccxt@4.5.49:
+  ccxt@4.5.50:
     dependencies:
       ws: 8.20.0
     transitivePeerDependencies:
@@ -5697,6 +5701,11 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
+  hasown@2.0.3:
+    dependencies:
+      function-bind: 1.1.2
+    optional: true
+
   html-escaper@2.0.2: {}
 
   husky@9.1.7: {}
@@ -5717,17 +5726,17 @@ snapshots:
 
   ini@1.3.8: {}
 
-  ink-spinner@5.0.0(ink@7.0.0(@types/react@19.2.14)(react@19.2.5))(react@19.2.5):
+  ink-spinner@5.0.0(ink@7.0.1(@types/react@19.2.14)(react@19.2.5))(react@19.2.5):
     dependencies:
       cli-spinners: 2.9.2
-      ink: 7.0.0(@types/react@19.2.14)(react@19.2.5)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.5)
       react: 19.2.5
 
   ink-testing-library@4.0.0(@types/react@19.2.14):
     optionalDependencies:
       '@types/react': 19.2.14
 
-  ink@7.0.0(@types/react@19.2.14)(react@19.2.5):
+  ink@7.0.1(@types/react@19.2.14)(react@19.2.5):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.3.0
       ansi-escapes: 7.3.0
@@ -5750,7 +5759,7 @@ snapshots:
       stack-utils: 2.0.6
       string-width: 8.2.0
       terminal-size: 4.0.1
-      type-fest: 5.5.0
+      type-fest: 5.6.0
       widest-line: 6.0.0
       wrap-ansi: 10.0.0
       ws: 8.20.0
@@ -5779,7 +5788,7 @@ snapshots:
 
   is-core-module@2.16.1:
     dependencies:
-      hasown: 2.0.2
+      hasown: 2.0.3
     optional: true
 
   is-extglob@2.1.1: {}
@@ -6700,7 +6709,7 @@ snapshots:
 
   type-fest@0.20.2: {}
 
-  type-fest@5.5.0:
+  type-fest@5.6.0:
     dependencies:
       tagged-tag: 1.0.0
 
