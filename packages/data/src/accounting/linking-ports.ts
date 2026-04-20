@@ -6,7 +6,7 @@ import { buildProfileProjectionScopeKey } from '../projections/profile-scope-key
 
 /**
  * Bridges DataSession repositories to accounting's ILinkingPersistence port.
- * Mirrors the pattern established by buildProcessingPorts and buildImportPorts.
+ * Mirrors the transaction-scoped port builder pattern used by data-owned workflow adapters.
  */
 export function buildLinkingPorts(db: DataSession, profileId: number): ILinkingPersistence {
   const scopeKey = buildProfileProjectionScopeKey(profileId);

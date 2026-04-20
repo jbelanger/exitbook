@@ -1,5 +1,4 @@
 import type { Account, ImportSession } from '@exitbook/core';
-import { buildImportPorts } from '@exitbook/data/ingestion';
 import { EventBus, type EventBus as EventBusType } from '@exitbook/events';
 import { err, ok, resultTryAsync, wrapError, type Result } from '@exitbook/foundation';
 import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
@@ -21,6 +20,7 @@ import {
   type BatchImportSyncMode,
 } from '../view/index.js';
 
+import { buildImportWorkflowPorts } from './build-import-workflow-ports.js';
 import type { ImportCommandScope } from './import-command-scope.js';
 
 export interface ImportExecuteResult {
@@ -426,7 +426,7 @@ function buildImportExecutionRuntime(
   },
   ingestionMonitor?: ImportMonitorController
 ): ImportExecutionRuntime {
-  const importPorts = buildImportPorts(database);
+  const importPorts = buildImportWorkflowPorts(database);
 
   return {
     findAccountById: (accountId) => database.accounts.findById(accountId),

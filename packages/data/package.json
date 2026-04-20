@@ -7,7 +7,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./accounts": "./src/accounts.ts",
     "./accounting": "./src/accounting.ts",
     "./balances": "./src/balances.ts",
     "./session": "./src/data-session.ts",

@@ -1,12 +1,12 @@
 import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Profile } from '@exitbook/core';
-import { buildBalancePorts } from '@exitbook/data/balances';
 import { err, resultTryAsync, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
+import { buildBalanceWorkflowPorts } from '../../balances/shared/build-balance-workflow-ports.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
 
@@ -60,7 +60,7 @@ export async function withAccountsRefreshScope<T>(
 
     const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
     const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
-    const balanceWorkflow = new BalanceWorkflow(buildBalancePorts(database), providerRuntime);
+    const balanceWorkflow = new BalanceWorkflow(buildBalanceWorkflowPorts(database), providerRuntime);
     const refreshRunner = new AccountsRefreshRunner({
       accountService,
       detailBuilder,

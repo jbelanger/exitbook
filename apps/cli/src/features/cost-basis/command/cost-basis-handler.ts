@@ -10,11 +10,7 @@ import {
   type CostBasisWorkflowResult,
 } from '@exitbook/accounting/cost-basis';
 import type { AssetReviewSummary } from '@exitbook/core';
-import {
-  buildCostBasisArtifactStore,
-  buildCostBasisFailureSnapshotStore,
-  buildCostBasisPorts,
-} from '@exitbook/data/accounting';
+import { buildCostBasisPorts } from '@exitbook/data/accounting';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
@@ -92,8 +88,8 @@ export class CostBasisHandler {
     options?: { refresh?: boolean | undefined }
   ): Promise<Result<PreparedCostBasisArtifactResult, Error>> {
     const contextReader = buildCostBasisPorts(this.db, this.profileId);
-    const artifactStore = buildCostBasisArtifactStore(this.db);
-    const failureSnapshotStore = buildCostBasisFailureSnapshotStore(this.db);
+    const artifactStore = this.db.costBasisSnapshots;
+    const failureSnapshotStore = this.db.costBasisFailureSnapshots;
     try {
       const workflow = new CostBasisWorkflow(contextReader, this.priceRuntime);
       const artifactService = new CostBasisArtifactService(contextReader, artifactStore, workflow);

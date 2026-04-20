@@ -1,12 +1,12 @@
 import type { Profile } from '@exitbook/core';
 import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
-import { buildBalancePorts } from '@exitbook/data/balances';
 import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultTryAsync, type Result } from '@exitbook/foundation';
 import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
 import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { buildBalanceWorkflowPorts } from '../../balances/shared/build-balance-workflow-ports.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 import { AssetOverrideService } from './asset-override-service.js';
@@ -73,7 +73,7 @@ function createBalanceSnapshotRebuilder(runtime: CommandRuntime, database: DataS
       workflowPromise = (async () => {
         const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
         runtime.onCleanup(adaptResultCleanup(providerRuntime.cleanup));
-        return new BalanceWorkflow(buildBalancePorts(database), providerRuntime);
+        return new BalanceWorkflow(buildBalanceWorkflowPorts(database), providerRuntime);
       })();
     }
 
