@@ -133,7 +133,9 @@ Put API keys there if you are using provider-backed imports or exchange API impo
 
 ### Data directory
 
-By default, CLI data lives under `apps/cli/data/`.
+By default, CLI data lives under `./data/` relative to the current working directory.
+
+When running the CLI from this repo root, set `EXITBOOK_DATA_DIR=apps/cli/data` if you want to use the checked-in app dataset.
 
 You can override that with `EXITBOOK_DATA_DIR`.
 

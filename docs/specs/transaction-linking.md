@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-12
+last_verified: 2026-04-19
 status: canonical
 ---
 
@@ -24,7 +24,8 @@ override replay, and the persisted link contract.
 | Movement identity       | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
 | Asset identity          | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
 | Match thresholds        | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
-| Strategy order          | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `amount-timing` → `partial-match`                                                                         |
+| Strategy order          | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `bridge-diagnostic` → `amount-timing` → `partial-match`                                                   |
+| Bridge diagnostic       | Explicit blockchain bridge pairs may link only when both sides carry compatible `bridge_transfer` diagnostics and the pair is uniquely safe                                        |
 | Same-hash external send | Exact same-hash exchange target match is allowed either exactly or with one exact explained residual on the target                                                                 |
 | Override replay         | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
 | Persistence             | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
@@ -271,8 +272,9 @@ Default order:
 1. `exact-hash`
 2. `same-hash external outflow`
 3. `counterparty-roundtrip`
-4. `amount-timing`
-5. `partial-match`
+4. `bridge-diagnostic`
+5. `amount-timing`
+6. `partial-match`
 
 Hard filters:
 
@@ -361,6 +363,19 @@ Counterparty roundtrip fast path:
 - target timestamp must be after source timestamp and within `30 days`
 - accepted pairs are emitted as `blockchain_to_blockchain` links with confidence `1.0`
 
+Bridge diagnostic fast path:
+
+- only considers blockchain outflow→inflow pairs
+- both sides must carry `bridge_transfer` diagnostics
+- source and target must be on different `platformKey` values
+- source and target assets must already be equivalent under normal linking semantics
+- target timestamp must be after source timestamp, allowing at most `0.25h` clock skew and at most `24h` total lag
+- chain-hint metadata may be absent, but if present it must not contradict the source/destination `platformKey`
+- token bridges require amount similarity `>= 0.995` and target-over-source variance `<= 2%`
+- native bridges require amount similarity `>= 0.7` and target-over-source variance `<= 35%`
+- the pair must be mutually unique among all eligible bridge candidates
+- accepted pairs are emitted as `blockchain_to_blockchain` links with `status='suggested'`
+
 ### Capacity Allocation And Partial Matches
 
 Potential matches are sorted by:
@@ -419,6 +434,7 @@ Persisted metadata rules:
 - counterparty roundtrip links additionally store:
   - `counterpartyRoundtrip=true`
   - `counterpartyRoundtripHours`
+- bridge diagnostic links additionally store score breakdown only; they do not currently persist extra bridge-specific metadata
 - score breakdown is stored when available
 - hash-match target excess allowance is recorded in metadata when used
 

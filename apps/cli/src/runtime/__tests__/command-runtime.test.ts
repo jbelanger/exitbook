@@ -6,6 +6,7 @@ import { err, ok } from '@exitbook/foundation';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../app-runtime.js';
 import { CommandRuntime, renderApp, runCommand, withCommandPriceProviderRuntime } from '../command-runtime.js';
 import { NonInteractiveTuiError } from '../interactive-terminal.js';
 
@@ -96,6 +97,24 @@ describe('CommandRuntime', () => {
       await ctx.closeDatabase();
 
       await expect(ctx.database()).rejects.toThrow('Database already closed');
+    });
+
+    it('wraps schema mismatch errors with selected data-dir context', async () => {
+      mockInitialize.mockRejectedValue(new Error('no such column: accounts.account_fingerprint'));
+
+      const ctx = new CommandRuntime({
+        dataDir: '/tmp/stale-data',
+        databasePath: '/tmp/stale-data/transactions.db',
+      } as unknown as CliAppRuntime);
+
+      try {
+        await ctx.database();
+        throw new Error('Expected database() to reject');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('Selected data directory "/tmp/stale-data" is incompatible');
+        expect((error as Error).message).toContain('accounts.account_fingerprint');
+      }
     });
   });
 
