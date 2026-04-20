@@ -156,12 +156,14 @@ describe('transactions edit movement-role command', () => {
         },
         nextEffectiveRole: 'staking_reward',
         previousEffectiveRole: 'principal',
+        projectionSyncStatus: 'synchronized',
         reason: 'manual correction',
         transaction: {
           platformKey: 'cardano',
           txFingerprint: transaction.txFingerprint,
           txRef: selector,
         },
+        warnings: [],
       })
     );
 
@@ -219,11 +221,13 @@ describe('transactions edit movement-role command', () => {
       },
       nextEffectiveRole: 'principal',
       previousEffectiveRole: 'staking_reward',
+      projectionSyncStatus: 'synchronized',
       transaction: {
         platformKey: 'cardano',
         txFingerprint: transaction.txFingerprint,
         txRef: selector,
       },
+      warnings: [],
     };
     mockClearRole.mockResolvedValue(ok(result));
 
@@ -249,6 +253,42 @@ describe('transactions edit movement-role command', () => {
       },
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-movement-role', result, undefined);
+  });
+
+  it('prints repair guidance when downstream movement-role sync requires reprocess', async () => {
+    const program = createProgram();
+    mockSetRole.mockResolvedValue(
+      ok({
+        action: 'set',
+        changed: true,
+        movement: {
+          assetSymbol: 'ADA',
+          direction: 'inflow',
+          movementFingerprint: transaction.movements.inflows![0]!.movementFingerprint,
+          movementRef,
+        },
+        nextEffectiveRole: 'staking_reward',
+        previousEffectiveRole: 'principal',
+        projectionSyncStatus: 'reprocess-required',
+        repairCommand: 'exitbook reprocess',
+        transaction: {
+          platformKey: 'cardano',
+          txFingerprint: transaction.txFingerprint,
+          txRef: selector,
+        },
+        warnings: ['Override persisted, but downstream projections could not be marked stale: stale mark failed'],
+      })
+    );
+
+    await program.parseAsync(
+      ['transactions', 'edit', 'movement-role', selector, '--movement', movementRef, '--role', 'staking_reward'],
+      { from: 'user' }
+    );
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Warning: Override persisted, but downstream projections could not be marked stale: stale mark failed'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Repair: exitbook reprocess');
   });
 
   it('routes missing movement refs through the shared boundary', async () => {

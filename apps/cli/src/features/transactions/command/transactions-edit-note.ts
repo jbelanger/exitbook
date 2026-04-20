@@ -18,6 +18,7 @@ import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveTransactionEditTarget } from './transaction-edit-target.js';
 import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsEditNoteHandler, type TransactionUserNoteEditResult } from './transactions-edit-note-handler.js';
+import { TRANSACTION_EDIT_REPAIR_COMMAND } from './transactions-edit-result.js';
 import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-schemas.js';
 
 type TransactionsEditNoteCommandOptions = z.infer<typeof TransactionsEditNoteCommandOptionsSchema>;
@@ -123,5 +124,12 @@ function printTransactionsEditNoteResult(result: TransactionUserNoteEditResult):
   );
   if (result.note) {
     console.log(`   Note: ${result.note}`);
+  }
+  if (result.warnings.length > 0) {
+    console.log('');
+    for (const warning of result.warnings) {
+      console.log(`Warning: ${warning}`);
+    }
+    console.log(`Repair: ${result.repairCommand ?? TRANSACTION_EDIT_REPAIR_COMMAND}`);
   }
 }

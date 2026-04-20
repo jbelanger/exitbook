@@ -27,6 +27,7 @@ import {
   TransactionsEditMovementRoleHandler,
   type TransactionMovementRoleEditResult,
 } from './transactions-edit-movement-role-handler.js';
+import { TRANSACTION_EDIT_REPAIR_COMMAND } from './transactions-edit-result.js';
 import { TransactionsEditMovementRoleCommandOptionsSchema } from './transactions-option-schemas.js';
 
 type TransactionsEditMovementRoleCommandOptions = z.infer<typeof TransactionsEditMovementRoleCommandOptionsSchema>;
@@ -147,4 +148,11 @@ function printTransactionsEditMovementRoleResult(
   );
   console.log(`   Movement: ${result.movement.movementRef} (${movementSummary})`);
   console.log(`   Role: ${result.previousEffectiveRole} -> ${result.nextEffectiveRole}`);
+  if (result.warnings.length > 0) {
+    console.log('');
+    for (const warning of result.warnings) {
+      console.log(`Warning: ${warning}`);
+    }
+    console.log(`Repair: ${result.repairCommand ?? TRANSACTION_EDIT_REPAIR_COMMAND}`);
+  }
 }

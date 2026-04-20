@@ -147,12 +147,14 @@ describe('transactions edit command', () => {
         action: 'set',
         changed: true,
         note: 'Moved to Ledger',
+        projectionSyncStatus: 'synchronized',
         reason: 'wallet transfer',
         transaction: {
           platformKey: 'kraken',
           txFingerprint: transaction.txFingerprint,
           txRef: selector,
         },
+        warnings: [],
       })
     );
 
@@ -193,12 +195,14 @@ describe('transactions edit command', () => {
     const result = {
       action: 'clear',
       changed: true,
+      projectionSyncStatus: 'synchronized',
       reason: 'duplicate reminder',
       transaction: {
         platformKey: 'kraken',
         txFingerprint: transaction.txFingerprint,
         txRef: selector,
       },
+      warnings: [],
     };
     mockClearNote.mockResolvedValue(ok(result));
 
@@ -221,6 +225,34 @@ describe('transactions edit command', () => {
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith('transactions-edit-note', result, undefined);
     expect(consoleLogSpy).not.toHaveBeenCalled();
+  });
+
+  it('prints repair guidance when note projection sync requires reprocess', async () => {
+    const program = createProgram();
+    mockSetNote.mockResolvedValue(
+      ok({
+        action: 'set',
+        changed: true,
+        note: 'Moved to Ledger',
+        projectionSyncStatus: 'reprocess-required',
+        repairCommand: 'exitbook reprocess',
+        transaction: {
+          platformKey: 'kraken',
+          txFingerprint: transaction.txFingerprint,
+          txRef: selector,
+        },
+        warnings: ['Override state is current, but transaction note projection refresh failed: materialize failed'],
+      })
+    );
+
+    await program.parseAsync(['transactions', 'edit', 'note', selector, '--message', 'Moved to Ledger'], {
+      from: 'user',
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Warning: Override state is current, but transaction note projection refresh failed: materialize failed'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Repair: exitbook reprocess');
   });
 
   it('routes option validation failures through the shared boundary', async () => {

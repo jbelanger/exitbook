@@ -14,6 +14,11 @@ import {
   type ResolvedTransactionMovementSelector,
   type TransactionEditMovementSummary,
 } from './transaction-movement-selector.js';
+import {
+  buildReprocessRequiredTransactionEditState,
+  buildSynchronizedTransactionEditState,
+  type TransactionEditProjectionSyncState,
+} from './transactions-edit-result.js';
 
 type TransactionMovementRoleEditOverrideStore = Pick<OverrideStore, 'append' | 'exists' | 'readByScopes'>;
 type TransactionMovementRoleEditDatabase = DataSession;
@@ -37,7 +42,7 @@ interface TransactionMovementRoleSetParams extends TransactionMovementRoleEditBa
 
 type TransactionMovementRoleClearParams = TransactionMovementRoleEditBaseParams;
 
-export interface TransactionMovementRoleEditResult {
+export interface TransactionMovementRoleEditResult extends TransactionEditProjectionSyncState {
   action: 'set' | 'clear';
   changed: boolean;
   movement: TransactionEditMovementSummary;
@@ -69,7 +74,11 @@ export class TransactionsEditMovementRoleHandler {
 
     const previousEffectiveRole = storedStateResult.value.overrideRole ?? storedStateResult.value.baseRole;
     if (previousEffectiveRole === params.role) {
-      return ok(buildMovementRoleEditResult(params, 'set', false, previousEffectiveRole, params.role));
+      return ok(
+        buildMovementRoleEditResult(params, 'set', false, previousEffectiveRole, params.role, {
+          ...buildSynchronizedTransactionEditState(),
+        })
+      );
     }
 
     const appendResult = await this.appendOverride({
@@ -89,15 +98,31 @@ export class TransactionsEditMovementRoleHandler {
 
     const materializeResult = await this.materializeMovementRole(params.profileKey, params.target.transactionId);
     if (materializeResult.isErr()) {
-      return err(materializeResult.error);
+      return ok(
+        buildMovementRoleEditResult(params, 'set', true, previousEffectiveRole, params.role, {
+          ...buildReprocessRequiredTransactionEditState([
+            `Override persisted, but transaction movement role materialization failed: ${materializeResult.error.message}`,
+          ]),
+        })
+      );
     }
 
     const invalidateResult = await this.invalidateDownstream(params.target.accountId);
     if (invalidateResult.isErr()) {
-      return err(invalidateResult.error);
+      return ok(
+        buildMovementRoleEditResult(params, 'set', true, previousEffectiveRole, params.role, {
+          ...buildReprocessRequiredTransactionEditState([
+            `Override persisted, but downstream projections could not be marked stale: ${invalidateResult.error.message}`,
+          ]),
+        })
+      );
     }
 
-    return ok(buildMovementRoleEditResult(params, 'set', true, previousEffectiveRole, params.role));
+    return ok(
+      buildMovementRoleEditResult(params, 'set', true, previousEffectiveRole, params.role, {
+        ...buildSynchronizedTransactionEditState(),
+      })
+    );
   }
 
   async clearRole(
@@ -116,7 +141,11 @@ export class TransactionsEditMovementRoleHandler {
     const previousEffectiveRole = existingOverride ?? baseRole;
 
     if (existingOverride === undefined) {
-      return ok(buildMovementRoleEditResult(params, 'clear', false, previousEffectiveRole, baseRole));
+      return ok(
+        buildMovementRoleEditResult(params, 'clear', false, previousEffectiveRole, baseRole, {
+          ...buildSynchronizedTransactionEditState(),
+        })
+      );
     }
 
     const appendResult = await this.appendOverride({
@@ -135,15 +164,31 @@ export class TransactionsEditMovementRoleHandler {
 
     const materializeResult = await this.materializeMovementRole(params.profileKey, params.target.transactionId);
     if (materializeResult.isErr()) {
-      return err(materializeResult.error);
+      return ok(
+        buildMovementRoleEditResult(params, 'clear', true, previousEffectiveRole, baseRole, {
+          ...buildReprocessRequiredTransactionEditState([
+            `Override persisted, but transaction movement role materialization failed: ${materializeResult.error.message}`,
+          ]),
+        })
+      );
     }
 
     const invalidateResult = await this.invalidateDownstream(params.target.accountId);
     if (invalidateResult.isErr()) {
-      return err(invalidateResult.error);
+      return ok(
+        buildMovementRoleEditResult(params, 'clear', true, previousEffectiveRole, baseRole, {
+          ...buildReprocessRequiredTransactionEditState([
+            `Override persisted, but downstream projections could not be marked stale: ${invalidateResult.error.message}`,
+          ]),
+        })
+      );
     }
 
-    return ok(buildMovementRoleEditResult(params, 'clear', true, previousEffectiveRole, baseRole));
+    return ok(
+      buildMovementRoleEditResult(params, 'clear', true, previousEffectiveRole, baseRole, {
+        ...buildSynchronizedTransactionEditState(),
+      })
+    );
   }
 
   private async appendOverride(options: CreateOverrideEventOptions): Promise<Result<void, Error>> {
@@ -215,7 +260,8 @@ function buildMovementRoleEditResult(
   action: 'set' | 'clear',
   changed: boolean,
   previousEffectiveRole: MovementRole,
-  nextEffectiveRole: MovementRole
+  nextEffectiveRole: MovementRole,
+  syncState: TransactionEditProjectionSyncState
 ): TransactionMovementRoleEditResult {
   return {
     action,
@@ -225,5 +271,6 @@ function buildMovementRoleEditResult(
     previousEffectiveRole,
     reason: params.reason,
     transaction: toTransactionEditTransactionSummary(params.target),
+    ...syncState,
   };
 }
