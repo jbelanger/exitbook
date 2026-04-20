@@ -157,10 +157,10 @@ export async function createPriceProviderRuntime(
 
       return ok(priceResult.value.data);
     },
-    async setManualFxRate(this: void, entry) {
+    setManualFxRate(this: void, entry) {
       return manualPriceService.saveFxRate(entry);
     },
-    async setManualPrice(this: void, entry) {
+    setManualPrice(this: void, entry) {
       return manualPriceService.savePrice(entry);
     },
     async cleanup(this: void) {
