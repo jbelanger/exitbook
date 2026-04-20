@@ -2,7 +2,7 @@ import type { Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
 
 import type { CircuitState, CircuitStatus } from '../circuit-breaker/types.js';
-import type { IProvider } from '../provider-health/types.js';
+import type { CircuitBlockReason, IProvider } from '../provider-health/types.js';
 
 /** Structured record of a single failover attempt for diagnostics */
 export interface FailoverAttempt {
@@ -10,7 +10,7 @@ export interface FailoverAttempt {
   durationMs: number;
   error?: string | undefined;
   circuitTransition?: { from: CircuitStatus; to: CircuitStatus } | undefined;
-  blockReason?: 'circuit_open' | undefined;
+  blockReason?: CircuitBlockReason | undefined;
 }
 
 /**

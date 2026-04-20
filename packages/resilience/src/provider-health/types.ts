@@ -11,6 +11,8 @@ export interface IProvider {
   readonly name: string;
 }
 
+export type CircuitBlockReason = 'circuit_half_open' | 'circuit_open' | 'circuit_open_no_alternatives';
+
 /**
  * Provider health tracking metrics
  *

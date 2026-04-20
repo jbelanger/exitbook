@@ -9,7 +9,9 @@ import {
   StoredCostBasisExecutionMetaSchema,
   type CostBasisArtifactDebugPayload,
 } from '../../../artifacts/artifact-storage-shared.js';
+import type { FiatCurrency } from '../../../model/cost-basis-config.js';
 import type { CanadaCostBasisWorkflowResult } from '../../../workflow/workflow-result-types.js';
+import { SUPPORTED_COST_BASIS_FIAT_CURRENCIES } from '../../jurisdiction-configs.js';
 import type {
   CanadaDisplayCostBasisReport,
   CanadaDisplayFxConversion,
@@ -300,7 +302,7 @@ interface CanadaArtifactSnapshotParts {
   debugPayload: CostBasisArtifactDebugPayload;
   metadata: {
     calculationId: string;
-    displayCurrency: string;
+    displayCurrency: FiatCurrency;
     endDate: string;
     jurisdiction: 'CA';
     method: 'average-cost';
@@ -338,6 +340,12 @@ export function buildCanadaArtifactSnapshotParts(
   }
 
   const debugPayload = buildCanadaArtifactDebugPayload(result);
+  const displayCurrencyResult = requireStoredFiatCurrency(
+    result.displayReport?.displayCurrency ?? result.calculation.displayCurrency
+  );
+  if (displayCurrencyResult.isErr()) {
+    return err(displayCurrencyResult.error);
+  }
 
   return ok({
     artifact: toStoredCanadaArtifact(result, inputContextResult.value),
@@ -345,7 +353,7 @@ export function buildCanadaArtifactSnapshotParts(
     debugPayload,
     metadata: {
       calculationId: result.calculation.id,
-      displayCurrency: result.displayReport?.displayCurrency ?? result.calculation.displayCurrency,
+      displayCurrency: displayCurrencyResult.value,
       endDate: result.calculation.endDate.toISOString(),
       jurisdiction: result.calculation.jurisdiction,
       method: result.calculation.method,
@@ -353,6 +361,14 @@ export function buildCanadaArtifactSnapshotParts(
       taxYear: result.calculation.taxYear,
     },
   });
+}
+
+function requireStoredFiatCurrency(currency: Currency): Result<FiatCurrency, Error> {
+  if (SUPPORTED_COST_BASIS_FIAT_CURRENCIES.includes(currency as FiatCurrency)) {
+    return ok(currency as FiatCurrency);
+  }
+
+  return err(new Error(`Stored Canada artifact requires a fiat display currency, received '${currency}'`));
 }
 
 export function fromStoredCanadaArtifact(artifact: StoredCanadaArtifact): CanadaCostBasisWorkflowResult {

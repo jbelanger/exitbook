@@ -10,6 +10,7 @@ export type {
   CostBasisFailureConsumer,
   CostBasisFailureSnapshotRecord,
   CostBasisProjectionWatermark,
+  PricedConsumerTarget,
   CostBasisSnapshotRecord,
   ICostBasisArtifactStore,
   ICostBasisContextReader,

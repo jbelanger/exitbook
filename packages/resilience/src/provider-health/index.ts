@@ -5,4 +5,4 @@ export {
   shouldBlockDueToCircuit,
   updateHealthMetrics,
 } from './provider-health.js';
-export type { IProvider, ProviderHealth, ProviderHealthWithCircuit } from './types.js';
+export type { CircuitBlockReason, IProvider, ProviderHealth, ProviderHealthWithCircuit } from './types.js';

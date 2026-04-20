@@ -1,5 +1,6 @@
 import type { AccountingExclusionPolicy } from '@exitbook/accounting/accounting-model';
 import { checkTransactionPriceCoverage } from '@exitbook/accounting/cost-basis';
+import type { PricedConsumerTarget } from '@exitbook/accounting/ports';
 import { buildPriceCoverageDataPorts } from '@exitbook/data/accounting';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
@@ -19,13 +20,11 @@ export interface PricePrereqConfig {
   endDate: Date;
 }
 
-type PriceReadinessTarget = 'cost-basis' | 'portfolio';
-
 export async function ensureTransactionPricesReady(
   scope: CommandRuntime,
   options: PrereqExecutionOptions,
   config: PricePrereqConfig,
-  target: PriceReadinessTarget,
+  target: PricedConsumerTarget,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
   const db = await scope.database();
@@ -86,7 +85,7 @@ export async function ensureTransactionPricesReady(
 async function verifyTransactionPriceCoverage(
   data: ReturnType<typeof buildPriceCoverageDataPorts>,
   config: PricePrereqConfig,
-  target: PriceReadinessTarget,
+  target: PricedConsumerTarget,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
   const coverageResult = await checkTransactionPriceCoverage(data, config, accountingExclusionPolicy);

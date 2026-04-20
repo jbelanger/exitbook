@@ -43,10 +43,20 @@ export interface CoinMappingInput {
   priority?: number | undefined;
 }
 
+export interface ProviderCatalogQueries {
+  getAllCoinMappings(providerId: number): Promise<Result<CoinMappingRecord[], Error>>;
+  getCoinIdForSymbol(providerId: number, symbol: Currency): Promise<Result<string | undefined, Error>>;
+  getOrCreateProvider(name: string, displayName: string): Promise<Result<ProviderRecord, Error>>;
+  getProviderByName(name: string): Promise<Result<ProviderRecord | undefined, Error>>;
+  needsCoinListSync(providerId: number): Promise<Result<boolean, Error>>;
+  updateProviderSync(providerId: number, coinCount: number): Promise<Result<void, Error>>;
+  upsertCoinMappings(providerId: number, mappings: CoinMappingInput[]): Promise<Result<void, Error>>;
+}
+
 /**
  * Queries for managing provider catalog records and coin mappings.
  */
-export function createProviderCatalogQueries(db: PricesDB) {
+export function createProviderCatalogQueries(db: PricesDB): ProviderCatalogQueries {
   function normalizeProviderRecord(row: ProviderRow): ProviderRecord {
     return {
       ...row,
@@ -234,5 +244,3 @@ export function createProviderCatalogQueries(db: PricesDB) {
     needsCoinListSync,
   };
 }
-
-export type ProviderCatalogQueries = ReturnType<typeof createProviderCatalogQueries>;
