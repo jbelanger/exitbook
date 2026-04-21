@@ -26,6 +26,7 @@ export {
 export { computeAnnotationFingerprint, type AnnotationFingerprintInput } from './annotation-fingerprint.js';
 export {
   getStakingRewardComponents,
+  sumDetectedStakingRewardComponentsForTransactions,
   sumUniqueStakingRewardComponents,
   type StakingRewardComponent,
 } from './staking-reward-components.js';

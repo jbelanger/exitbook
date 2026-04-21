@@ -12,6 +12,7 @@ export {
   canonicalizeDerivedFromTxIds,
   computeAnnotationFingerprint,
   getStakingRewardComponents,
+  sumDetectedStakingRewardComponentsForTransactions,
   sumUniqueStakingRewardComponents,
   toDerivedFromTxIds,
   type AnnotationFingerprintInput,
@@ -34,6 +35,12 @@ export {
   type TransactionReadinessIssue,
   type TransactionReadinessIssueCode,
 } from './readiness/transaction-readiness-issues.js';
+export {
+  deriveTransactionGapContextHint,
+  hasLikelyDustSignal,
+  shouldSuppressTransactionGapIssue,
+  type TransactionGapContextHint,
+} from './gap/transaction-gap-policy.js';
 
 export type {
   DetectorInput,

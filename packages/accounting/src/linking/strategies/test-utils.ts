@@ -282,6 +282,8 @@ export function createLinkableMovementsFromTransactions(transactions: Transactio
   const linkableMovements: LinkableMovement[] = [];
 
   for (const tx of transactions) {
+    const transactionAnnotations = createStakingRewardComponentAnnotationsForTransaction(tx);
+
     for (const inflow of tx.movements.inflows ?? []) {
       linkableMovements.push(
         createLinkableMovement({
@@ -300,6 +302,7 @@ export function createLinkableMovementsFromTransactions(transactions: Transactio
           fromAddress: tx.from,
           toAddress: tx.to,
           movementFingerprint: inflow.movementFingerprint,
+          transactionAnnotations,
         })
       );
     }
@@ -323,6 +326,7 @@ export function createLinkableMovementsFromTransactions(transactions: Transactio
           fromAddress: tx.from,
           toAddress: tx.to,
           movementFingerprint: outflow.movementFingerprint,
+          transactionAnnotations,
         })
       );
     }
@@ -444,4 +448,42 @@ function createStakingRewardComponentAnnotation(amount: string): TransactionAnno
       componentKey: `unattributed_staking_reward_component:ADA:${amount}`,
     },
   };
+}
+
+function createStakingRewardComponentAnnotationsForTransaction(tx: Transaction): TransactionAnnotation[] | undefined {
+  const annotations: TransactionAnnotation[] = [];
+
+  for (const [index, diagnostic] of (tx.diagnostics ?? []).entries()) {
+    if (diagnostic.code !== UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE) {
+      continue;
+    }
+
+    const amount = typeof diagnostic.metadata?.['amount'] === 'string' ? diagnostic.metadata['amount'] : undefined;
+    const assetSymbol =
+      typeof diagnostic.metadata?.['assetSymbol'] === 'string' ? diagnostic.metadata['assetSymbol'] : undefined;
+    const movementRole = diagnostic.metadata?.['movementRole'];
+    if (!amount || !assetSymbol || movementRole !== 'staking_reward') {
+      continue;
+    }
+
+    annotations.push({
+      annotationFingerprint: `annotation:staking-reward-component:${tx.id}:${index}`,
+      accountId: tx.accountId,
+      transactionId: tx.id,
+      txFingerprint: tx.txFingerprint,
+      kind: 'staking_reward_component',
+      tier: 'asserted',
+      target: { scope: 'transaction' },
+      detectorId: 'staking-reward-component',
+      derivedFromTxIds: [tx.id],
+      provenanceInputs: ['diagnostic'],
+      metadata: {
+        amount,
+        assetSymbol,
+        componentKey: `unattributed_staking_reward_component:${assetSymbol}:${amount}`,
+      },
+    });
+  }
+
+  return annotations.length > 0 ? annotations : undefined;
 }

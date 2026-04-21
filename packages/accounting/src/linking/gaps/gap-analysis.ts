@@ -1,18 +1,17 @@
 import {
   filterTransferEligibleMovements,
   getExplainedTargetResidual,
-  hasAnyDiagnosticCode,
-  getTransactionScamAssessment,
-  getMovementRole,
   type Account,
   type AssetReviewSummary,
-  type MovementRole,
   type Transaction,
   type TransactionLink,
 } from '@exitbook/core';
 import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
 import {
+  deriveTransactionGapContextHint,
   deriveOperationLabel,
+  hasLikelyDustSignal,
+  shouldSuppressTransactionGapIssue,
   type DerivedOperationLabel,
   type TransactionAnnotation,
 } from '@exitbook/transaction-interpretation';
@@ -34,29 +33,10 @@ const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 60 * 60 * 1000;
 const POSSIBLE_ASSET_MIGRATION_CUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
-const LIKELY_DUST_DIAGNOSTIC_CODES = new Set(['unsolicited_dust_fanout']);
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_TRANSFER_SEND_OVERRIDE_LABELS = new Set(['asset migration/send', 'bridge/send']);
 const GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS = new Set(['asset migration/receive', 'bridge/receive']);
 const GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS = new Set(['airdrop/claim']);
-const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
-const GAP_DIAGNOSTIC_PRIORITY = [
-  'staking_withdrawal',
-  'unsolicited_dust_fanout',
-  'allocation_uncertain',
-  'classification_uncertain',
-  'classification_failed',
-  'batch_operation',
-  'proxy_operation',
-  'multisig_operation',
-  'exchange_deposit_address_credit',
-] as const;
-const GAP_MOVEMENT_ROLE_CONTEXT_PRIORITY: readonly Exclude<MovementRole, 'principal'>[] = [
-  'staking_reward',
-  'protocol_overhead',
-  'refund_rebate',
-];
-
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
@@ -870,132 +850,7 @@ function deriveGapContextHint(
     };
   }
 
-  for (const code of GAP_DIAGNOSTIC_PRIORITY) {
-    const diagnostic = tx.diagnostics?.find((entry) => entry.code === code);
-    if (!diagnostic) {
-      continue;
-    }
-
-    return {
-      kind: 'diagnostic',
-      code: diagnostic.code,
-      label: formatGapDiagnosticContextLabel(diagnostic.code, diagnostic.message),
-      message: diagnostic.message,
-    };
-  }
-
-  const stakingRewardAnnotation = getStakingRewardAnnotation(annotations);
-  if (stakingRewardAnnotation !== undefined) {
-    return {
-      kind: 'annotation',
-      code: stakingRewardAnnotation.kind,
-      label: 'staking reward in same tx',
-      message: 'Transaction carries asserted staking reward interpretation that is excluded from transfer matching.',
-    };
-  }
-
-  return deriveGapMovementRoleContextHint(tx);
-}
-
-function getStakingRewardAnnotation(
-  annotations: readonly TransactionAnnotation[] | undefined
-): TransactionAnnotation | undefined {
-  return annotations?.find((annotation) => annotation.kind === 'staking_reward' && annotation.tier === 'asserted');
-}
-
-function deriveGapMovementRoleContextHint(tx: Transaction): GapContextHint | undefined {
-  const movementRoles = new Set<Exclude<MovementRole, 'principal'>>();
-  const movements = [...(tx.movements.inflows ?? []), ...(tx.movements.outflows ?? [])];
-
-  for (const movement of movements) {
-    const movementRole = getMovementRole(movement);
-    if (movementRole === 'principal') {
-      continue;
-    }
-
-    movementRoles.add(movementRole);
-  }
-
-  for (const movementRole of GAP_MOVEMENT_ROLE_CONTEXT_PRIORITY) {
-    if (!movementRoles.has(movementRole)) {
-      continue;
-    }
-
-    return {
-      kind: 'movement_role',
-      code: movementRole,
-      label: formatGapMovementRoleContextLabel(movementRole),
-      message: buildGapMovementRoleContextMessage(movementRole),
-    };
-  }
-
-  return undefined;
-}
-
-function formatGapDiagnosticContextLabel(code: string, message: string): string {
-  if (code === 'staking_withdrawal') {
-    return 'staking withdrawal in same tx';
-  }
-
-  if (code === 'unsolicited_dust_fanout') {
-    return 'unsolicited dust fan-out';
-  }
-
-  if (code === 'allocation_uncertain') {
-    return 'allocation uncertainty';
-  }
-
-  if (code === 'classification_uncertain') {
-    if (message.toLowerCase().includes('staking withdrawal')) {
-      return 'staking withdrawal in same tx';
-    }
-
-    return 'classification uncertainty';
-  }
-
-  if (code === 'classification_failed') {
-    return 'classification failed';
-  }
-
-  if (code === 'batch_operation') {
-    return 'batch operation';
-  }
-
-  if (code === 'proxy_operation') {
-    return 'proxy operation';
-  }
-
-  if (code === 'multisig_operation') {
-    return 'multisig operation';
-  }
-
-  if (code === 'exchange_deposit_address_credit') {
-    return 'credit into exchange deposit address';
-  }
-
-  return code.replace(/_/g, ' ');
-}
-
-function formatGapMovementRoleContextLabel(movementRole: Exclude<MovementRole, 'principal'>): string {
-  switch (movementRole) {
-    case 'staking_reward':
-      return 'staking reward in same tx';
-    case 'protocol_overhead':
-      return 'protocol overhead in same tx';
-    case 'refund_rebate':
-      return 'refund or rebate in same tx';
-  }
-}
-
-function buildGapMovementRoleContextMessage(movementRole: Exclude<MovementRole, 'principal'>): string {
-  switch (movementRole) {
-    case 'staking_reward':
-      return 'Transaction includes a staking reward movement that is excluded from transfer matching.';
-    case 'protocol_overhead':
-      return 'Transaction includes a protocol-overhead movement that is excluded from transfer matching.';
-    case 'refund_rebate':
-      return 'Transaction includes a refund or rebate movement that is excluded from transfer matching.';
-  }
+  return deriveTransactionGapContextHint(tx, annotations);
 }
 
 function buildTransactionById(transactions: readonly Transaction[]): Map<number, Transaction> {
@@ -1576,7 +1431,7 @@ function detectLikelyDustCueIssueKeys(
       continue;
     }
 
-    if (hasAnyDiagnosticCode(transaction.diagnostics, LIKELY_DUST_DIAGNOSTIC_CODES)) {
+    if (hasLikelyDustSignal(transaction)) {
       cueByIssueKey.set(
         buildLinkGapIssueKey({
           txFingerprint: issue.txFingerprint,
@@ -1694,15 +1549,7 @@ function applyGapCues(
 }
 
 function shouldSuppressGapByPolicy(tx: Transaction): boolean {
-  if (tx.excludedFromAccounting === true) {
-    return true;
-  }
-
-  if (hasAnyDiagnosticCode(tx.diagnostics, GAP_SUPPRESSION_DIAGNOSTIC_CODES)) {
-    return true;
-  }
-
-  return getTransactionScamAssessment(tx) !== undefined;
+  return shouldSuppressTransactionGapIssue(tx);
 }
 
 function isFullyExplainedTargetResidualGap(

@@ -1,3 +1,5 @@
+import type { Transaction } from '@exitbook/core';
+import { sumUniqueUnattributedStakingRewardComponents } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import type { Decimal } from 'decimal.js';
 
@@ -77,4 +79,14 @@ export function sumUniqueStakingRewardComponents(
   }
 
   return [...uniqueAmounts.values()].reduce((sum, amount) => sum.plus(amount), parseDecimal('0'));
+}
+
+export function sumDetectedStakingRewardComponentsForTransactions(
+  transactions: readonly Pick<Transaction, 'diagnostics'>[],
+  assetSymbol?: Currency
+): Decimal {
+  return sumUniqueUnattributedStakingRewardComponents(
+    transactions.map((transaction) => transaction.diagnostics),
+    assetSymbol
+  );
 }

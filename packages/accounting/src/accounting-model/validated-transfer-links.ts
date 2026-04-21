@@ -1,6 +1,7 @@
 import type { Transaction, TransactionLink } from '@exitbook/core';
-import { isPartialMatchLinkMetadata, sumUniqueUnattributedStakingRewardComponents } from '@exitbook/core';
+import { isPartialMatchLinkMetadata } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
+import { sumDetectedStakingRewardComponentsForTransactions } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import { normalizeTransactionHash } from '../linking/strategies/exact-hash-utils.js';
@@ -455,8 +456,8 @@ function getAllowedExplainedTargetResidual(
     return ok(false);
   }
 
-  const explainedResidualAmount = sumUniqueUnattributedStakingRewardComponents(
-    sourceTransactions.map((sourceTx) => sourceTx.diagnostics),
+  const explainedResidualAmount = sumDetectedStakingRewardComponentsForTransactions(
+    sourceTransactions,
     validatedLinks[0]!.link.assetSymbol
   );
 
