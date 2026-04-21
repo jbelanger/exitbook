@@ -2,8 +2,6 @@
  * Transactions view TUI state
  */
 
-import type { OperationCategory } from '@exitbook/core';
-
 import type { ExportFormat } from '../transactions-export-model.js';
 import type { CategoryCounts, TransactionViewItem, TransactionsViewFilters } from '../transactions-view-model.js';
 
@@ -46,28 +44,12 @@ export interface TransactionsViewState {
 }
 
 /**
- * Map an operation category to its display group
- */
-function categoryGroup(category: string): keyof CategoryCounts {
-  switch (category as OperationCategory) {
-    case 'trade':
-      return 'trade';
-    case 'transfer':
-      return 'transfer';
-    case 'staking':
-      return 'staking';
-    default:
-      return 'other';
-  }
-}
-
-/**
  * Compute category counts from items
  */
 export function computeCategoryCounts(items: TransactionViewItem[]): CategoryCounts {
   const counts: CategoryCounts = { trade: 0, transfer: 0, staking: 0, other: 0 };
   for (const item of items) {
-    counts[categoryGroup(item.operationCategory)] += 1;
+    counts[item.operationGroup] += 1;
   }
   return counts;
 }

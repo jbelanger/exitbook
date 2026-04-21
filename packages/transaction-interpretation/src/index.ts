@@ -21,6 +21,11 @@ export {
   type DerivedFromTxIds,
   type TransactionAnnotation,
 } from './annotations/index.js';
+export {
+  deriveOperationLabel,
+  type DerivedOperationGroup,
+  type DerivedOperationLabel,
+} from './labels/derive-operation-label.js';
 
 export type {
   DetectorInput,

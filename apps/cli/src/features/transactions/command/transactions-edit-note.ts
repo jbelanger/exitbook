@@ -13,6 +13,7 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { resolveTransactionEditTarget } from './transaction-edit-target.js';
@@ -23,7 +24,7 @@ import { TransactionsEditNoteCommandOptionsSchema } from './transactions-option-
 
 type TransactionsEditNoteCommandOptions = z.infer<typeof TransactionsEditNoteCommandOptionsSchema>;
 
-export function registerTransactionsEditNoteCommand(editCommand: Command): void {
+export function registerTransactionsEditNoteCommand(editCommand: Command, appRuntime: CliAppRuntime): void {
   editCommand
     .command('note')
     .description('Set or clear a durable note for a transaction')
@@ -41,13 +42,20 @@ Examples:
     .option('--clear', 'Clear the currently saved transaction note')
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
-    .action((selector: string, rawOptions: unknown) => executeTransactionsEditNoteCommand(selector, rawOptions));
+    .action((selector: string, rawOptions: unknown) =>
+      executeTransactionsEditNoteCommand(appRuntime, selector, rawOptions)
+    );
 }
 
-async function executeTransactionsEditNoteCommand(selector: string, rawOptions: unknown): Promise<void> {
+async function executeTransactionsEditNoteCommand(
+  appRuntime: CliAppRuntime,
+  selector: string,
+  rawOptions: unknown
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: 'transactions-edit-note',
     format,
     prepare: async () =>

@@ -105,7 +105,7 @@ Notes:
   registerLinksCommand(program, appRuntime);
   registerAccountsCommand(program, appRuntime);
   registerAssetsCommand(program);
-  registerTransactionsCommand(program);
+  registerTransactionsCommand(program, appRuntime);
   registerPricesCommand(program, appRuntime);
   registerClearCommand(program);
   registerCostBasisCommand(program, appRuntime);

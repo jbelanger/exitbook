@@ -10,13 +10,15 @@ function stripAnsi(value: string): string {
   return value.replace(ansiPattern, '');
 }
 
-function createTransactionViewItem(): TransactionViewItem {
+function createTransactionViewItem(overrides: Partial<TransactionViewItem> = {}): TransactionViewItem {
   return {
     id: 42,
     platformKey: 'kraken',
     platformKind: 'exchange',
     txFingerprint: '1234567890abcdef-transaction',
     datetime: '2026-03-01T12:00:00.000Z',
+    operationGroup: 'trade',
+    operationLabel: 'trade/buy',
     operationCategory: 'trade',
     operationType: 'buy',
     debitSummary: '48,250 USD',
@@ -36,6 +38,7 @@ function createTransactionViewItem(): TransactionViewItem {
     diagnostics: [],
     userNotes: [],
     excludedFromAccounting: false,
+    ...overrides,
   };
 }
 
@@ -54,8 +57,8 @@ describe('transactions static renderer', () => {
   it('renders debit, credit, and fee summaries for two-sided trades', () => {
     const state = createTransactionsViewState(
       [
-        {
-          ...createTransactionViewItem(),
+        createTransactionViewItem({
+          operationLabel: 'trade/swap',
           operationType: 'swap',
           debitSummary: '250 CAD',
           creditSummary: '0.0035 BTC',
@@ -63,7 +66,7 @@ describe('transactions static renderer', () => {
           primaryMovementAsset: 'CAD',
           primaryMovementAmount: '250',
           primaryMovementDirection: 'out',
-        },
+        }),
       ],
       {},
       1
@@ -79,8 +82,9 @@ describe('transactions static renderer', () => {
   it('renders em dashes for empty debit, credit, or fee columns', () => {
     const state = createTransactionsViewState(
       [
-        {
-          ...createTransactionViewItem(),
+        createTransactionViewItem({
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/deposit',
           operationCategory: 'transfer',
           operationType: 'deposit',
           debitSummary: undefined,
@@ -89,7 +93,7 @@ describe('transactions static renderer', () => {
           primaryMovementAsset: 'ETH',
           primaryMovementAmount: '2',
           primaryMovementDirection: 'in',
-        },
+        }),
       ],
       {},
       1
@@ -135,6 +139,7 @@ describe('transactions static renderer', () => {
 
     expect(stripAnsi(output)).toContain('Transaction ref: 1234567890');
     expect(stripAnsi(output)).toContain('Fingerprint: 1234567890abcdef-transaction');
+    expect(stripAnsi(output)).toContain('Operation: trade/buy');
     expect(stripAnsi(output)).toContain('Debit: 48,250 USD');
     expect(stripAnsi(output)).toContain('Credit: 1.25 BTC');
     expect(stripAnsi(output)).toContain('Fees: 12.5 USD');
@@ -203,6 +208,10 @@ describe('transactions static renderer', () => {
   it('renders interpretation details when annotations are present', () => {
     const output = buildTransactionStaticDetail({
       ...createTransactionViewItem(),
+      operationGroup: 'transfer',
+      operationLabel: 'bridge/send',
+      operationCategory: 'transfer',
+      operationType: 'withdrawal',
       annotations: [
         {
           annotationFingerprint: 'annotation-1',
@@ -225,6 +234,7 @@ describe('transactions static renderer', () => {
       ],
     });
 
+    expect(stripAnsi(output)).toContain('Operation: bridge/send');
     expect(stripAnsi(output)).toContain('Interpretation (1)');
     expect(stripAnsi(output)).toContain('bridge source [heuristic');
     expect(stripAnsi(output)).toContain('ethereum -> arbitrum');

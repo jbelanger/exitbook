@@ -2,6 +2,7 @@ import type { TransactionAnnotation } from '@exitbook/transaction-interpretation
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildTransactionFilterLabels,
   formatTransactionFlags,
   formatTransactionAnnotation,
   summarizeTransactionAnnotations,
@@ -42,6 +43,36 @@ describe('formatTransactionFlags', () => {
         diagnostics: [],
       })
     ).toBe('—');
+  });
+});
+
+describe('buildTransactionFilterLabels', () => {
+  it('formats annotation filters alongside existing transaction filters', () => {
+    expect(
+      buildTransactionFilterLabels({
+        accountFilter: 'wallet-main',
+        annotationKindFilter: 'bridge_participant',
+        annotationTierFilter: 'heuristic',
+        platformFilter: 'ethereum',
+        assetFilter: 'ETH',
+        assetIdFilter: undefined,
+        addressFilter: '0xabc',
+        fromFilter: undefined,
+        toFilter: '0xdef',
+        operationTypeFilter: 'withdrawal',
+        noPriceFilter: true,
+      })
+    ).toEqual([
+      'wallet-main',
+      'ethereum',
+      'ETH',
+      'address=0xabc',
+      'to=0xdef',
+      'withdrawal',
+      'annotation=bridge_participant',
+      'tier=heuristic',
+      'missing prices',
+    ]);
   });
 });
 

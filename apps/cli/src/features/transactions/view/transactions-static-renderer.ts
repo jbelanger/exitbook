@@ -7,12 +7,13 @@ import type { TransactionViewItem } from '../transactions-view-model.js';
 import { buildTransactionRelatedContextLines } from './transaction-related-context-static-renderer.js';
 import {
   buildCategoryParts,
+  buildTransactionFilterLabels,
   formatTransactionBalanceSummary,
   formatTransactionAnnotation,
   formatTransactionDirection,
   formatTransactionFingerprintRef,
   formatTransactionFlags,
-  formatTransactionOperation,
+  formatTransactionOperationLabel,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
   type TransactionsStatusColor,
@@ -66,7 +67,7 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       minWidth: 'FEES'.length,
     },
     operation: {
-      format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
+      format: (item) => formatTransactionOperationLabel(item.operationLabel),
       minWidth: 18,
     },
     platform: { format: (item) => item.platformKey, minWidth: 10 },
@@ -127,13 +128,13 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
   const priceStatus = getTransactionPriceStatusDisplay(transaction.priceStatus);
   const flags = formatTransactionFlags(transaction);
   const lines = [
-    `${pc.bold(`Transaction #${transaction.id}`)} ${pc.dim(formatTransactionFingerprintRef(transaction.txFingerprint))} ${pc.cyan(transaction.platformKey)} ${pc.dim(formatTransactionOperation(transaction.operationCategory, transaction.operationType))}`,
+    `${pc.bold(`Transaction #${transaction.id}`)} ${pc.dim(formatTransactionFingerprintRef(transaction.txFingerprint))} ${pc.cyan(transaction.platformKey)} ${pc.dim(formatTransactionOperationLabel(transaction.operationLabel))}`,
     '',
     buildDetailLine('Transaction ref', formatTransactionFingerprintRef(transaction.txFingerprint)),
     buildDetailLine('Fingerprint', transaction.txFingerprint),
     buildDetailLine('Date', formatTransactionTimestamp(transaction.datetime)),
     buildDetailLine('Platform', transaction.platformKey),
-    buildDetailLine('Operation', `${transaction.operationCategory}/${transaction.operationType}`),
+    buildDetailLine('Operation', formatTransactionOperationLabel(transaction.operationLabel)),
     buildDetailLine('Debit', formatTransactionBalanceSummary(transaction.debitSummary)),
     buildDetailLine('Credit', formatTransactionBalanceSummary(transaction.creditSummary)),
     buildDetailLine('Fees', formatTransactionBalanceSummary(transaction.feeSummary)),
@@ -207,17 +208,7 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
 }
 
 function buildListHeader(state: TransactionsViewState): string {
-  const activeFilters = [
-    state.filters.accountFilter,
-    state.filters.platformFilter,
-    state.filters.assetIdFilter,
-    state.filters.assetFilter,
-    state.filters.addressFilter ? `address=${state.filters.addressFilter}` : undefined,
-    state.filters.fromFilter ? `from=${state.filters.fromFilter}` : undefined,
-    state.filters.toFilter ? `to=${state.filters.toFilter}` : undefined,
-    state.filters.operationTypeFilter,
-    state.filters.noPriceFilter ? 'missing prices' : undefined,
-  ].filter((value): value is string => value !== undefined);
+  const activeFilters = buildTransactionFilterLabels(state.filters);
   const filterLabel = activeFilters.length > 0 ? ` (${activeFilters.join(' · ')})` : '';
   const metadata = [
     `${state.totalCount} total`,
@@ -228,17 +219,7 @@ function buildListHeader(state: TransactionsViewState): string {
 }
 
 function buildEmptyStateLines(state: TransactionsViewState): string[] {
-  if (
-    state.filters.accountFilter === undefined &&
-    state.filters.platformFilter === undefined &&
-    state.filters.assetIdFilter === undefined &&
-    state.filters.assetFilter === undefined &&
-    state.filters.addressFilter === undefined &&
-    state.filters.fromFilter === undefined &&
-    state.filters.toFilter === undefined &&
-    state.filters.operationTypeFilter === undefined &&
-    state.filters.noPriceFilter !== true
-  ) {
+  if (buildTransactionFilterLabels(state.filters).length === 0) {
     return ['No transactions found.', '', pc.dim('Tip: exitbook import --help')];
   }
 

@@ -685,6 +685,8 @@ describe('transaction browse filter metadata', () => {
   it('includes the account selector in view and JSON filter metadata', () => {
     const params: TransactionsBrowseFilters = {
       account: 'wallet-main',
+      annotationKind: 'bridge_participant',
+      annotationTier: 'heuristic',
       platform: 'bitcoin',
       assetSymbol: 'BTC',
       noPrice: true,
@@ -693,6 +695,8 @@ describe('transaction browse filter metadata', () => {
 
     expect(buildTransactionsViewFilters(params)).toEqual({
       accountFilter: 'wallet-main',
+      annotationKindFilter: 'bridge_participant',
+      annotationTierFilter: 'heuristic',
       platformFilter: 'bitcoin',
       assetFilter: 'BTC',
       assetIdFilter: undefined,
@@ -704,6 +708,8 @@ describe('transaction browse filter metadata', () => {
     });
     expect(buildTransactionsJsonFilters(params)).toEqual({
       account: 'wallet-main',
+      annotationKind: 'bridge_participant',
+      annotationTier: 'heuristic',
       platform: 'bitcoin',
       asset: 'BTC',
       since: '2024-01-01',
@@ -720,6 +726,8 @@ describe('transaction browse filter metadata', () => {
 
     expect(buildTransactionsViewFilters(params)).toEqual({
       accountFilter: undefined,
+      annotationKindFilter: undefined,
+      annotationTierFilter: undefined,
       platformFilter: undefined,
       assetFilter: undefined,
       assetIdFilter: undefined,

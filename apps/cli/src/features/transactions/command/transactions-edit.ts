@@ -1,12 +1,14 @@
 import type { Command } from 'commander';
 
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+
 import { registerTransactionsEditMovementRoleCommand } from './transactions-edit-movement-role.js';
 import { registerTransactionsEditNoteCommand } from './transactions-edit-note.js';
 
 /**
  * Register the transactions edit subcommand group.
  */
-export function registerTransactionsEditCommand(transactionsCommand: Command): void {
+export function registerTransactionsEditCommand(transactionsCommand: Command, appRuntime: CliAppRuntime): void {
   const editCommand = transactionsCommand
     .command('edit')
     .description('Edit durable transaction overrides such as notes and movement roles')
@@ -25,6 +27,6 @@ Notes:
 `
     );
 
-  registerTransactionsEditNoteCommand(editCommand);
-  registerTransactionsEditMovementRoleCommand(editCommand);
+  registerTransactionsEditNoteCommand(editCommand, appRuntime);
+  registerTransactionsEditMovementRoleCommand(editCommand, appRuntime);
 }

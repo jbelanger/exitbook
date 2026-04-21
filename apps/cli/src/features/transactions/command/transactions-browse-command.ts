@@ -22,6 +22,7 @@ import {
   type CliOptionDefinition,
   type CliOutputFormat,
 } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import type { TransactionsViewState } from '../view/index.js';
@@ -38,10 +39,14 @@ import { TransactionsBrowseCommandOptionsSchema } from './transactions-option-sc
 
 type TransactionsBrowseCommandOptions = z.infer<typeof TransactionsBrowseCommandOptionsSchema>;
 
-interface ExecuteTransactionsBrowseCommandInput {
+interface PrepareTransactionsBrowseCommandInput {
   commandId: string;
   rawOptions: unknown;
   transactionSelector?: string | undefined;
+}
+
+interface ExecuteTransactionsBrowseCommandInput extends PrepareTransactionsBrowseCommandInput {
+  appRuntime: CliAppRuntime;
 }
 
 export interface PreparedTransactionsBrowseCommand {
@@ -91,6 +96,14 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: CliOptionDefinition[] = [
     description: 'Filter by operation type',
   },
   {
+    flags: '--annotation-kind <kind>',
+    description: 'Filter by transaction annotation kind',
+  },
+  {
+    flags: '--annotation-tier <tier>',
+    description: 'Filter by transaction annotation tier',
+  },
+  {
     flags: '--no-price',
     description: 'Show only transactions without price data',
   },
@@ -128,7 +141,7 @@ export function buildTransactionsBrowseOptionsHelpText(): string {
 }
 
 export function prepareTransactionsBrowseCommand(
-  input: ExecuteTransactionsBrowseCommandInput
+  input: PrepareTransactionsBrowseCommandInput
 ): Result<PreparedTransactionsBrowseCommand, CliFailure> {
   const optionsResult = parseCliCommandOptionsResult(input.rawOptions, TransactionsBrowseCommandOptionsSchema);
   if (optionsResult.isErr()) {
@@ -140,7 +153,7 @@ export function prepareTransactionsBrowseCommand(
     return err(
       createCliFailure(
         new Error(
-          'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, or --no-price'
+          'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --annotation-kind, --annotation-tier, or --no-price'
         ),
         ExitCodes.INVALID_ARGS
       )
@@ -164,6 +177,8 @@ export function prepareTransactionsBrowseCommand(
       since: options.since,
       until: options.until,
       operationType: options.operationType,
+      annotationKind: options.annotationKind,
+      annotationTier: options.annotationTier,
       noPrice: options.noPrice,
       sourceData: options.sourceData,
     },
@@ -175,6 +190,7 @@ export async function runTransactionsBrowseCommand(input: ExecuteTransactionsBro
   const format = detectCliOutputFormat(input.rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime: input.appRuntime,
     command: input.commandId,
     format,
     prepare: async () => prepareTransactionsBrowseCommand(input),
@@ -250,6 +266,8 @@ function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||
+    options.annotationKind !== undefined ||
+    options.annotationTier !== undefined ||
     options.noPrice === true
   );
 }

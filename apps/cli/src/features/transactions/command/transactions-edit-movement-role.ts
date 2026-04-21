@@ -14,6 +14,7 @@ import {
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 
 import { resolveTransactionEditTarget } from './transaction-edit-target.js';
@@ -32,7 +33,7 @@ import { TransactionsEditMovementRoleCommandOptionsSchema } from './transactions
 
 type TransactionsEditMovementRoleCommandOptions = z.infer<typeof TransactionsEditMovementRoleCommandOptionsSchema>;
 
-export function registerTransactionsEditMovementRoleCommand(editCommand: Command): void {
+export function registerTransactionsEditMovementRoleCommand(editCommand: Command, appRuntime: CliAppRuntime): void {
   editCommand
     .command('movement-role')
     .description('Set or clear a durable movement role for one transaction movement')
@@ -52,14 +53,19 @@ Examples:
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action((selector: string, rawOptions: unknown) =>
-      executeTransactionsEditMovementRoleCommand(selector, rawOptions)
+      executeTransactionsEditMovementRoleCommand(appRuntime, selector, rawOptions)
     );
 }
 
-async function executeTransactionsEditMovementRoleCommand(selector: string, rawOptions: unknown): Promise<void> {
+async function executeTransactionsEditMovementRoleCommand(
+  appRuntime: CliAppRuntime,
+  selector: string,
+  rawOptions: unknown
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: 'transactions-edit-movement-role',
     format,
     prepare: async () =>

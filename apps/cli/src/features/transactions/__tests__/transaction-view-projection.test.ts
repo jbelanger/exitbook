@@ -47,6 +47,8 @@ describe('toTransactionViewItem', () => {
   it('includes debit and credit summaries for two-sided trades', () => {
     const item = toTransactionViewItem(createTransaction());
 
+    expect(item.operationGroup).toBe('trade');
+    expect(item.operationLabel).toBe('trade/swap');
     expect(item.debitSummary).toBe('250 CAD');
     expect(item.creditSummary).toBe('0.0035 BTC');
     expect(item.feeSummary).toBeUndefined();
@@ -212,5 +214,7 @@ describe('toTransactionViewItem', () => {
     const item = toTransactionViewItem(createTransaction(), undefined, annotations);
 
     expect(item.annotations).toEqual(annotations);
+    expect(item.operationGroup).toBe('transfer');
+    expect(item.operationLabel).toBe('bridge/send');
   });
 });

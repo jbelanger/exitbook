@@ -2,6 +2,7 @@ import type { Transaction, TransactionDraft, TransactionLink } from '@exitbook/c
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, it, expect } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
@@ -56,6 +57,45 @@ const createTransaction = (
     },
   });
 };
+
+function buildAnnotationsByTransactionId(
+  annotations: readonly TransactionAnnotation[]
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing !== undefined) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
+}
+
+function createAnnotation(
+  overrides: Partial<TransactionAnnotation> & Pick<TransactionAnnotation, 'kind' | 'tier' | 'transactionId'>
+): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation-${overrides.transactionId}-${overrides.kind}-${overrides.tier}`,
+    accountId: 1,
+    transactionId: overrides.transactionId,
+    txFingerprint: `ext-${overrides.transactionId}`,
+    kind: overrides.kind,
+    tier: overrides.tier,
+    target: { scope: 'transaction' },
+    detectorId: 'detector',
+    derivedFromTxIds: [overrides.transactionId],
+    provenanceInputs: ['processor'],
+    ...(overrides.role === undefined ? {} : { role: overrides.role }),
+    ...(overrides.protocolRef === undefined ? {} : { protocolRef: overrides.protocolRef }),
+    ...(overrides.groupKey === undefined ? {} : { groupKey: overrides.groupKey }),
+    ...(overrides.metadata === undefined ? {} : { metadata: overrides.metadata }),
+  };
+}
 
 describe('export-utils', () => {
   describe('parseSinceDate', () => {
@@ -159,6 +199,18 @@ describe('export-utils', () => {
       expect(params.csvFormat).toBe('simple');
     });
 
+    it('should carry annotation filters through to export params', () => {
+      const options: ExportCommandOptions = {
+        annotationKind: 'bridge_participant',
+        annotationTier: 'heuristic',
+      };
+      const result = buildExportParamsFromFlags(options);
+
+      const params = assertOk(result);
+      expect(params.annotationKind).toBe('bridge_participant');
+      expect(params.annotationTier).toBe('heuristic');
+    });
+
     it('should reject csv format when exporting json', () => {
       const options: ExportCommandOptions = {
         format: 'json',
@@ -207,10 +259,20 @@ describe('export-utils', () => {
         ],
       });
 
-      const result = convertToCSV([transaction]);
+      const result = convertToCSV(
+        [transaction],
+        buildAnnotationsByTransactionId([
+          createAnnotation({
+            transactionId: 1,
+            kind: 'bridge_participant',
+            tier: 'heuristic',
+            role: 'source',
+          }),
+        ])
+      );
 
-      expect(result).toContain('id,tx_fingerprint,platform_key,operation_category');
-      expect(result).toContain('1,ext-1,kraken,trade,buy');
+      expect(result).toContain('id,tx_fingerprint,platform_key,operation_category,operation_type,operation_group');
+      expect(result).toContain('1,ext-1,kraken,trade,buy,transfer,bridge/send,bridge_participant,heuristic');
       expect(result).toContain('BTC,1.5');
       expect(result).toContain('classification_uncertain');
       expect(result).toContain('Needs review');
@@ -307,21 +369,37 @@ describe('export-utils', () => {
         },
       });
 
-      const result = convertToJSON([transaction]);
+      const result = convertToJSON(
+        [transaction],
+        buildAnnotationsByTransactionId([
+          createAnnotation({
+            transactionId: 1,
+            kind: 'bridge_participant',
+            tier: 'asserted',
+            role: 'source',
+          }),
+        ])
+      );
       const parsed = JSON.parse(result) as unknown[];
 
       expect(parsed).toHaveLength(1);
       const tx = parsed[0] as {
+        annotations: unknown[];
         fees: { total?: unknown };
         id: string;
         movements: { primary: { amount: string; assetSymbol: string; direction: string } };
         operation: { category: string; type: string };
+        operationGroup: string;
+        operationLabel: string;
         platformKey: string;
       };
       expect(tx.id).toBe(1);
       expect(tx.platformKey).toBe('kraken');
       expect(tx.operation.category).toBe('trade');
       expect(tx.operation.type).toBe('buy');
+      expect(tx.operationGroup).toBe('transfer');
+      expect(tx.operationLabel).toBe('bridge/send');
+      expect(tx.annotations).toHaveLength(1);
       expect(tx.fees.total).toBeUndefined();
     });
 
@@ -471,15 +549,31 @@ describe('export-utils', () => {
         updatedAt: new Date('2024-01-02T00:00:00Z'),
       };
 
-      const result = convertToNormalizedCSV([transaction], [link]);
+      const result = convertToNormalizedCSV(
+        [transaction],
+        [link],
+        buildAnnotationsByTransactionId([
+          createAnnotation({
+            transactionId: 1,
+            kind: 'asset_migration_participant',
+            tier: 'heuristic',
+            role: 'target',
+            groupKey: 'migration:group-1',
+          }),
+        ])
+      );
 
       expect(result.transactionsCsv).toContain('id,tx_fingerprint,account_id');
-      expect(result.transactionsCsv).toContain('1,ext-1,1,kraken,trade,buy');
+      expect(result.transactionsCsv).toContain(
+        '1,ext-1,1,kraken,trade,buy,transfer,asset migration/receive,asset_migration_participant,heuristic'
+      );
       expect(result.movementsCsv).toContain('tx_id,direction,asset_id,asset_symbol');
       expect(result.movementsCsv).toContain('1,in,test:btc,BTC,1.5');
       expect(result.movementsCsv).toContain('1,out,test:usd,USD,30000');
       expect(result.feesCsv).toContain('tx_id,asset_id,asset_symbol,amount');
       expect(result.feesCsv).toContain('1,test:usd,USD,10,platform,balance');
+      expect(result.annotationsCsv).toContain('annotation_fingerprint,tx_id,account_id,tx_fingerprint,kind,tier');
+      expect(result.annotationsCsv).toContain('1,1,ext-1,asset_migration_participant,heuristic,transaction');
       expect(result.diagnosticsCsv).toContain('tx_id,code,severity,message,metadata_json');
       expect(result.diagnosticsCsv).toContain('1,classification_uncertain,warning,Needs review');
       expect(result.userNotesCsv).toContain('tx_id,created_at,author,message');

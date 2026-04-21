@@ -5,6 +5,7 @@ import { ok, parseDecimal } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 
 const {
@@ -17,6 +18,7 @@ const {
   mockOutputTransactionStaticDetail,
   mockOutputTransactionsStaticList,
   mockPrepareTransactionsCommandScope,
+  mockReadTransactionAnnotationsForCommand,
   mockReadTransactionsForCommand,
   mockRunCommand,
 } = vi.hoisted(() => ({
@@ -29,6 +31,7 @@ const {
   mockOutputTransactionStaticDetail: vi.fn(),
   mockOutputTransactionsStaticList: vi.fn(),
   mockPrepareTransactionsCommandScope: vi.fn(),
+  mockReadTransactionAnnotationsForCommand: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
@@ -51,6 +54,7 @@ vi.mock('../transactions-command-scope.js', () => ({
 }));
 
 vi.mock('../transactions-read-support.js', () => ({
+  readTransactionAnnotationsForCommand: mockReadTransactionAnnotationsForCommand,
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
@@ -77,9 +81,11 @@ vi.mock('../transactions-export.js', () => ({
 
 import { registerTransactionsCommand } from '../transactions.js';
 
+const mockAppRuntime = { tag: 'app-runtime' } as unknown as CliAppRuntime;
+
 function createProgram(): Command {
   const program = new Command();
-  registerTransactionsCommand(program);
+  registerTransactionsCommand(program, mockAppRuntime);
   return program;
 }
 
@@ -127,7 +133,8 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
 describe('transactions root command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
+    mockRunCommand.mockImplementation(async (...args: unknown[]) => {
+      const fn = (typeof args[0] === 'function' ? args[0] : args[1]) as (ctx: typeof mockCtx) => Promise<void>;
       await fn(mockCtx);
     });
     mockExitCliFailure.mockImplementation(
@@ -139,13 +146,34 @@ describe('transactions root command', () => {
       ok({
         database: {
           accounts: {
+            create: vi.fn(),
             findAll: mockFindAllAccounts,
+            findByFingerprintRef: vi.fn(),
+            findById: vi.fn(),
+            findByIdentifier: vi.fn(),
+            findByIdentity: vi.fn(),
             findByName: mockFindAccountByName,
+            update: vi.fn(),
+          },
+          assetReview: {
+            listAll: vi.fn().mockResolvedValue(ok([])),
+          },
+          profiles: {
+            list: vi.fn().mockResolvedValue(ok([])),
+          },
+          transactionAnnotations: {
+            readAnnotations: vi.fn().mockResolvedValue(ok([])),
           },
           transactions: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
             findByFingerprintRef: mockFindByFingerprintRef,
+            findRawTransactionsByTransactionId: vi.fn().mockResolvedValue(ok([])),
+          },
+          transactionLinks: {
+            findAll: vi.fn().mockResolvedValue(ok([])),
           },
         },
+        dataDir: '/tmp/exitbook-cli-tests',
         profile: {
           id: 1,
           profileKey: 'default',
@@ -156,6 +184,7 @@ describe('transactions root command', () => {
     );
     mockFindAllAccounts.mockResolvedValue(ok([]));
     mockFindAccountByName.mockResolvedValue(ok(undefined));
+    mockReadTransactionAnnotationsForCommand.mockResolvedValue(ok([]));
     mockReadTransactionsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
   });
@@ -169,6 +198,7 @@ describe('transactions root command', () => {
 
     await program.parseAsync(['transactions'], { from: 'user' });
 
+    expect(mockRunCommand).toHaveBeenCalledWith(mockAppRuntime, expect.any(Function));
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
       db: expect.objectContaining({

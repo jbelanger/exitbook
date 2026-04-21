@@ -1,6 +1,11 @@
 import type { MovementRole } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import type {
+  AnnotationKind,
+  AnnotationTier,
+  DerivedOperationGroup,
+  TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 
 import type { AddressOwnership } from '../shared/address-ownership.js';
 
@@ -71,6 +76,8 @@ export interface TransactionViewItem {
   platformKind: 'exchange' | 'blockchain';
   txFingerprint: string;
   datetime: string;
+  operationGroup: DerivedOperationGroup;
+  operationLabel: string;
   operationCategory: string;
   operationType: string;
   debitSummary?: string | undefined;
@@ -119,6 +126,8 @@ export interface CategoryCounts {
  */
 export interface TransactionsViewFilters {
   accountFilter?: string | undefined;
+  annotationKindFilter?: AnnotationKind | undefined;
+  annotationTierFilter?: AnnotationTier | undefined;
   platformFilter?: string | undefined;
   assetFilter?: string | undefined;
   assetIdFilter?: string | undefined;

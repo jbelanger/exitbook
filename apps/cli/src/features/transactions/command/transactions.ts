@@ -3,6 +3,7 @@ import type { Command } from 'commander';
 
 import { cliErr, ExitCodes, runCliRuntimeCommand } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import {
   buildTransactionsBrowseOptionsHelpText,
@@ -30,7 +31,7 @@ const TRANSACTIONS_COMMAND_ID = 'transactions';
  *   transactions edit movement-role - Set or clear durable movement roles by TX-REF + MOVEMENT-REF
  *   transactions export         - Export all transactions to CSV or JSON
  */
-export function registerTransactionsCommand(program: Command): void {
+export function registerTransactionsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const transactions = program
     .command('transactions')
     .usage('[options]')
@@ -67,6 +68,7 @@ Notes:
       const format = detectCliTokenOutputFormat(tokens);
 
       await runCliRuntimeCommand({
+        appRuntime,
         command: TRANSACTIONS_COMMAND_ID,
         format,
         prepare: async () =>
@@ -97,9 +99,9 @@ Notes:
       });
     });
 
-  registerTransactionsListCommand(transactions);
-  registerTransactionsViewCommand(transactions);
-  registerTransactionsExploreCommand(transactions);
-  registerTransactionsEditCommand(transactions);
-  registerTransactionsExportCommand(transactions);
+  registerTransactionsListCommand(transactions, appRuntime);
+  registerTransactionsViewCommand(transactions, appRuntime);
+  registerTransactionsExploreCommand(transactions, appRuntime);
+  registerTransactionsEditCommand(transactions, appRuntime);
+  registerTransactionsExportCommand(transactions, appRuntime);
 }

@@ -11,6 +11,14 @@ import type {
 } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 import { err, ok, resultDo } from '@exitbook/foundation';
+import {
+  ANNOTATION_KINDS,
+  ANNOTATION_TIERS,
+  deriveOperationLabel,
+  type AnnotationKind,
+  type AnnotationTier,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import type { z } from 'zod';
 
 import type { CsvFormat } from '../transactions-export-model.js';
@@ -60,6 +68,12 @@ export interface ExportHandlerParams {
   /** Filter by operation type */
   operationType?: string | undefined;
 
+  /** Filter by transaction annotation kind */
+  annotationKind?: AnnotationKind | undefined;
+
+  /** Filter by transaction annotation tier */
+  annotationTier?: AnnotationTier | undefined;
+
   /** Filter to transactions missing price data */
   noPrice?: boolean | undefined;
 }
@@ -101,6 +115,8 @@ export function buildExportParamsFromFlags(
     const outputPath = options.output || `data/transactions.${format}`;
 
     return {
+      annotationKind: options.annotationKind,
+      annotationTier: options.annotationTier,
       platformKey,
       format,
       csvFormat: format === 'csv' ? csvFormat : undefined,
@@ -113,7 +129,10 @@ export function buildExportParamsFromFlags(
 /**
  * Convert transactions to CSV format.
  */
-export function convertToCSV(transactions: Transaction[]): string {
+export function convertToCSV(
+  transactions: Transaction[],
+  annotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]> = new Map()
+): string {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -122,6 +141,10 @@ export function convertToCSV(transactions: Transaction[]): string {
     'platform_key',
     'operation_category',
     'operation_type',
+    'operation_group',
+    'operation_label',
+    'annotation_kinds',
+    'annotation_tiers',
     'datetime',
     'inflow_assets',
     'inflow_amounts',
@@ -143,6 +166,8 @@ export function convertToCSV(transactions: Transaction[]): string {
     const outflows = tx.movements.outflows ?? [];
     const networkFees = filterFeesByScope(tx.fees, 'network');
     const platformFees = filterFeesByScope(tx.fees, 'platform');
+    const annotations = annotationsByTransactionId.get(tx.id) ?? [];
+    const derivedOperation = deriveOperationLabel(tx, annotations);
 
     const values = [
       tx.id ?? '',
@@ -150,6 +175,10 @@ export function convertToCSV(transactions: Transaction[]): string {
       tx.platformKey ?? '',
       tx.operation.category ?? '',
       tx.operation.type ?? '',
+      derivedOperation.group,
+      derivedOperation.label,
+      formatAnnotationKinds(annotations),
+      formatAnnotationTiers(annotations),
       tx.datetime ?? '',
       formatMovementAssets(inflows),
       formatMovementAmounts(inflows),
@@ -175,6 +204,7 @@ export interface NormalizedCsvOutput {
   transactionsCsv: string;
   movementsCsv: string;
   feesCsv: string;
+  annotationsCsv: string;
   diagnosticsCsv: string;
   userNotesCsv: string;
   linksCsv: string;
@@ -182,10 +212,19 @@ export interface NormalizedCsvOutput {
 
 export function convertToNormalizedCSV(
   transactions: Transaction[],
-  links: TransactionLink[] = []
+  links: TransactionLink[] = [],
+  annotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]> = new Map()
 ): NormalizedCsvOutput {
   if (transactions.length === 0) {
-    return { transactionsCsv: '', movementsCsv: '', feesCsv: '', diagnosticsCsv: '', userNotesCsv: '', linksCsv: '' };
+    return {
+      transactionsCsv: '',
+      movementsCsv: '',
+      feesCsv: '',
+      annotationsCsv: '',
+      diagnosticsCsv: '',
+      userNotesCsv: '',
+      linksCsv: '',
+    };
   }
 
   const transactionHeaders = [
@@ -195,6 +234,10 @@ export function convertToNormalizedCSV(
     'platform_key',
     'operation_category',
     'operation_type',
+    'operation_group',
+    'operation_label',
+    'annotation_kinds',
+    'annotation_tiers',
     'datetime',
     'timestamp',
     'status',
@@ -205,6 +248,25 @@ export function convertToNormalizedCSV(
     'transaction_hash',
     'is_confirmed',
     'excluded_from_accounting',
+  ];
+
+  const annotationHeaders = [
+    'annotation_fingerprint',
+    'tx_id',
+    'account_id',
+    'tx_fingerprint',
+    'kind',
+    'tier',
+    'target_scope',
+    'movement_fingerprint',
+    'role',
+    'protocol_ref_id',
+    'protocol_ref_version',
+    'group_key',
+    'detector_id',
+    'derived_from_tx_ids_json',
+    'provenance_inputs_json',
+    'metadata_json',
   ];
 
   const movementHeaders = [
@@ -266,11 +328,15 @@ export function convertToNormalizedCSV(
   const transactionLines = [transactionHeaders.join(',')];
   const movementLines = [movementHeaders.join(',')];
   const feeLines = [feeHeaders.join(',')];
+  const annotationLines = [annotationHeaders.join(',')];
   const diagnosticLines = [diagnosticHeaders.join(',')];
   const userNoteLines = [userNoteHeaders.join(',')];
   const linkLines = [linkHeaders.join(',')];
 
   for (const tx of transactions) {
+    const annotations = annotationsByTransactionId.get(tx.id) ?? [];
+    const derivedOperation = deriveOperationLabel(tx, annotations);
+
     transactionLines.push(
       formatCsvLine([
         tx.id,
@@ -279,6 +345,10 @@ export function convertToNormalizedCSV(
         tx.platformKey,
         tx.operation.category,
         tx.operation.type,
+        derivedOperation.group,
+        derivedOperation.label,
+        formatAnnotationKinds(annotations),
+        formatAnnotationTiers(annotations),
         tx.datetime,
         tx.timestamp,
         tx.status,
@@ -291,6 +361,29 @@ export function convertToNormalizedCSV(
         tx.excludedFromAccounting,
       ])
     );
+
+    for (const annotation of annotations) {
+      annotationLines.push(
+        formatCsvLine([
+          annotation.annotationFingerprint,
+          tx.id,
+          annotation.accountId,
+          annotation.txFingerprint,
+          annotation.kind,
+          annotation.tier,
+          annotation.target.scope,
+          annotation.target.scope === 'movement' ? annotation.target.movementFingerprint : '',
+          annotation.role ?? '',
+          annotation.protocolRef?.id ?? '',
+          annotation.protocolRef?.version ?? '',
+          annotation.groupKey ?? '',
+          annotation.detectorId,
+          JSON.stringify(annotation.derivedFromTxIds),
+          JSON.stringify(annotation.provenanceInputs),
+          annotation.metadata ? JSON.stringify(annotation.metadata) : '',
+        ])
+      );
+    }
 
     const inflows = tx.movements.inflows ?? [];
     for (const movement of inflows) {
@@ -382,6 +475,7 @@ export function convertToNormalizedCSV(
     transactionsCsv: transactionLines.join('\n'),
     movementsCsv: movementLines.join('\n'),
     feesCsv: feeLines.join('\n'),
+    annotationsCsv: annotationLines.join('\n'),
     diagnosticsCsv: diagnosticLines.join('\n'),
     userNotesCsv: userNoteLines.join('\n'),
     linksCsv: linkLines.join('\n'),
@@ -427,6 +521,45 @@ function formatUserNoteMessages(userNotes: readonly UserNote[] | undefined): str
   return userNotes.map((userNote) => userNote.message).join(';');
 }
 
+function formatAnnotationKinds(annotations: readonly TransactionAnnotation[]): string {
+  return formatOrderedDistinctValues(
+    annotations.map((annotation) => annotation.kind),
+    ANNOTATION_KINDS
+  );
+}
+
+function formatAnnotationTiers(annotations: readonly TransactionAnnotation[]): string {
+  return formatOrderedDistinctValues(
+    annotations.map((annotation) => annotation.tier),
+    ANNOTATION_TIERS
+  );
+}
+
+function formatOrderedDistinctValues<TValue extends string>(
+  values: readonly TValue[],
+  order: readonly TValue[]
+): string {
+  if (values.length === 0) {
+    return '';
+  }
+
+  const remaining = new Set(values);
+  const orderedValues = order.filter((value) => {
+    if (!remaining.has(value)) {
+      return false;
+    }
+
+    remaining.delete(value);
+    return true;
+  });
+
+  if (remaining.size === 0) {
+    return orderedValues.join(';');
+  }
+
+  return [...orderedValues, ...[...remaining].sort()].join(';');
+}
+
 function formatPriceFields(priceAtTxTime: PriceAtTxTime | undefined): string[] {
   if (!priceAtTxTime) {
     return ['', '', '', '', '', '', '', ''];
@@ -470,7 +603,25 @@ function formatCsvLine(values: unknown[]): string {
 /**
  * Convert transactions to JSON format.
  */
-export function convertToJSON(transactions: Transaction[]): string {
+export function convertToJSON(
+  transactions: Transaction[],
+  annotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]> = new Map()
+): string {
   if (transactions.length === 0) return '[]';
-  return JSON.stringify(transactions, undefined, 2);
+
+  return JSON.stringify(
+    transactions.map((transaction) => {
+      const annotations = annotationsByTransactionId.get(transaction.id) ?? [];
+      const derivedOperation = deriveOperationLabel(transaction, annotations);
+
+      return {
+        ...transaction,
+        operationGroup: derivedOperation.group,
+        operationLabel: derivedOperation.label,
+        annotations,
+      };
+    }),
+    undefined,
+    2
+  );
 }

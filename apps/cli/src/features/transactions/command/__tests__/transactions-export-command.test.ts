@@ -2,6 +2,8 @@ import { err, ok } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
+
 const {
   mockCtx,
   mockExitCliFailure,
@@ -49,9 +51,11 @@ vi.mock('../transactions-export-handler.js', () => ({
 
 import { registerTransactionsExportCommand } from '../transactions-export.js';
 
+const mockAppRuntime = { tag: 'app-runtime' } as unknown as CliAppRuntime;
+
 function createProgram(): Command {
   const program = new Command();
-  registerTransactionsExportCommand(program.command('transactions'));
+  registerTransactionsExportCommand(program.command('transactions'), mockAppRuntime);
   return program;
 }
 
@@ -60,7 +64,8 @@ describe('transactions export command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
+    mockRunCommand.mockImplementation(async (...args: unknown[]) => {
+      const fn = (typeof args[0] === 'function' ? args[0] : args[1]) as (ctx: typeof mockCtx) => Promise<void>;
       await fn(mockCtx);
     });
     mockExitCliFailure.mockImplementation(
@@ -116,6 +121,24 @@ describe('transactions export command', () => {
       },
       undefined
     );
+  });
+
+  it('passes annotation filters through to the export handler', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(
+      ['transactions', 'export', '--annotation-kind', 'bridge_participant', '--annotation-tier', 'heuristic'],
+      { from: 'user' }
+    );
+
+    expect(mockExportExecute).toHaveBeenCalledWith({
+      profileId: 1,
+      annotationKind: 'bridge_participant',
+      annotationTier: 'heuristic',
+      format: 'csv',
+      csvFormat: 'normalized',
+      outputPath: 'data/transactions.csv',
+    });
   });
 
   it('prints a text message when there are no transactions to export', async () => {

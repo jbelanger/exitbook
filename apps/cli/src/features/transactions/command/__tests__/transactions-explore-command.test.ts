@@ -9,6 +9,7 @@ import {
   restoreTerminalInteractivity,
   setTerminalInteractivity,
 } from '../../../../runtime/__tests__/terminal-test-utils.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
   mockComputeCategoryCounts,
@@ -190,10 +191,11 @@ vi.mock('../../view/index.js', () => ({
 import { registerTransactionsExploreCommand } from '../transactions-explore.js';
 
 const originalTerminalInteractivity = captureTerminalInteractivity();
+const mockAppRuntime = { tag: 'app-runtime' } as unknown as CliAppRuntime;
 
 function createProgram(): Command {
   const program = new Command();
-  registerTransactionsExploreCommand(program.command('transactions'));
+  registerTransactionsExploreCommand(program.command('transactions'), mockAppRuntime);
   return program;
 }
 
@@ -230,7 +232,8 @@ describe('transactions explore command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setTerminalInteractivity(true);
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
+    mockRunCommand.mockImplementation(async (...args: unknown[]) => {
+      const fn = (typeof args[0] === 'function' ? args[0] : args[1]) as (ctx: typeof mockCtx) => Promise<void>;
       await fn(mockCtx);
     });
     mockExitCliFailure.mockImplementation(
@@ -286,6 +289,7 @@ describe('transactions explore command', () => {
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
     mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
     mockToTransactionViewItem.mockImplementation((transaction: { id: number; txFingerprint?: string | undefined }) => ({
+      annotations: [],
       id: transaction.id,
       platformKey: 'kraken',
       txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
@@ -293,6 +297,7 @@ describe('transactions explore command', () => {
     mockToTransactionViewItems.mockImplementation(
       (transactions: { id: number; txFingerprint?: string | undefined }[]) =>
         transactions.map((transaction) => ({
+          annotations: [],
           id: transaction.id,
           platformKey: 'kraken',
           txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
@@ -346,8 +351,8 @@ describe('transactions explore command', () => {
       'transactions-explore',
       {
         data: [
-          { id: 1, platformKey: 'kraken', txFingerprint: 'fingerprint-1' },
-          { id: 2, platformKey: 'kraken', txFingerprint: 'fingerprint-2' },
+          { annotations: [], id: 1, platformKey: 'kraken', txFingerprint: 'fingerprint-1' },
+          { annotations: [], id: 2, platformKey: 'kraken', txFingerprint: 'fingerprint-2' },
         ],
         meta: {
           count: 2,
@@ -454,9 +459,23 @@ describe('transactions explore command', () => {
       renderedElement = create(() => undefined);
     });
 
-    await program.parseAsync(['transactions', 'explore', '--platform', 'kraken', '--since', '2024-01-15'], {
-      from: 'user',
-    });
+    await program.parseAsync(
+      [
+        'transactions',
+        'explore',
+        '--platform',
+        'kraken',
+        '--since',
+        '2024-01-15',
+        '--annotation-kind',
+        'bridge_participant',
+        '--annotation-tier',
+        'heuristic',
+      ],
+      {
+        from: 'user',
+      }
+    );
 
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'text' });
     expect(mockRenderApp).toHaveBeenCalledOnce();
@@ -477,6 +496,8 @@ describe('transactions explore command', () => {
       assetId: undefined,
       assetSymbol: undefined,
       operationType: undefined,
+      annotationKind: 'bridge_participant',
+      annotationTier: 'heuristic',
       noPrice: undefined,
     });
     expect(mockWriteFilesWithAtomicRenames).toHaveBeenCalledWith([{ path: '/tmp/transactions.json', content: '{}' }]);
@@ -504,14 +525,19 @@ describe('transactions explore command', () => {
     expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, 'bbbbbbbbbb');
     expect(mockCreateTransactionsViewState).toHaveBeenCalledWith(
       [
-        { id: 1, platformKey: 'kraken', txFingerprint: 'aaaa' },
-        { id: 2, platformKey: 'kraken', txFingerprint: 'bbbbbbbbbb-selected' },
+        { annotations: [], id: 1, platformKey: 'kraken', txFingerprint: 'aaaa' },
+        { annotations: [], id: 2, platformKey: 'kraken', txFingerprint: 'bbbbbbbbbb-selected' },
       ],
       {
         accountFilter: undefined,
+        annotationKindFilter: undefined,
+        annotationTierFilter: undefined,
+        addressFilter: undefined,
         platformFilter: undefined,
         assetIdFilter: undefined,
         assetFilter: undefined,
+        fromFilter: undefined,
+        toFilter: undefined,
         operationTypeFilter: undefined,
         noPriceFilter: undefined,
       },
@@ -528,7 +554,7 @@ describe('transactions explore command', () => {
     await expect(
       program.parseAsync(['transactions', 'explore', 'bbbbbbbbbb', '--limit', '100'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:transactions-explore:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --no-price, or --limit:2'
+      'CLI:transactions-explore:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --annotation-kind, --annotation-tier, --no-price, or --limit:2'
     );
 
     expect(mockPrepareTransactionsCommandScope).not.toHaveBeenCalled();

@@ -2,7 +2,7 @@ import { getTransactionScamAssessment } from '@exitbook/core';
 import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import { formatTransactionFingerprintRef } from '../transaction-selector.js';
-import type { CategoryCounts, TransactionViewItem } from '../transactions-view-model.js';
+import type { CategoryCounts, TransactionsViewFilters, TransactionViewItem } from '../transactions-view-model.js';
 
 export { TRANSACTION_FINGERPRINT_REF_LENGTH, formatTransactionFingerprintRef } from '../transaction-selector.js';
 
@@ -23,8 +23,24 @@ export function buildCategoryParts(counts: CategoryCounts): { count: number; lab
   return parts;
 }
 
-export function formatTransactionOperation(category: string, type: string): string {
-  return `${category}/${type}`;
+export function buildTransactionFilterLabels(filters: TransactionsViewFilters): string[] {
+  return [
+    filters.accountFilter,
+    filters.platformFilter,
+    filters.assetIdFilter,
+    filters.assetFilter,
+    filters.addressFilter ? `address=${filters.addressFilter}` : undefined,
+    filters.fromFilter ? `from=${filters.fromFilter}` : undefined,
+    filters.toFilter ? `to=${filters.toFilter}` : undefined,
+    filters.operationTypeFilter,
+    filters.annotationKindFilter ? `annotation=${filters.annotationKindFilter}` : undefined,
+    filters.annotationTierFilter ? `tier=${filters.annotationTierFilter}` : undefined,
+    filters.noPriceFilter ? 'missing prices' : undefined,
+  ].filter((value): value is string => value !== undefined);
+}
+
+export function formatTransactionOperationLabel(label: string): string {
+  return label;
 }
 
 function formatAnnotationProtocolRef(ref: NonNullable<TransactionAnnotation['protocolRef']>): string {

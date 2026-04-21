@@ -24,6 +24,7 @@ import {
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
 import { buildViewMeta } from '../../../cli/view-utils.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { type CommandRuntime, renderApp } from '../../../runtime/command-runtime.js';
 import { getAccountSelectorErrorExitCode } from '../../accounts/account-selector.js';
 import { loadAddressOwnershipLookup, type AddressOwnershipLookup } from '../../shared/address-ownership.js';
@@ -35,6 +36,7 @@ import {
 } from '../transaction-selector.js';
 import { toTransactionSourceLineageItem } from '../transaction-source-data.js';
 import { toTransactionViewItem, toTransactionViewItems } from '../transaction-view-projection.js';
+import { filterTransactionViewItemsByAnnotationFilters } from '../transactions-annotation-utils.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import { outputTransactionStaticDetail, outputTransactionsStaticList } from '../view/transactions-static-renderer.js';
@@ -72,7 +74,7 @@ interface PreparedTransactionsExploreCommand {
   presentation: ResolvedBrowsePresentation;
 }
 
-export function registerTransactionsExploreCommand(transactionsCommand: Command): void {
+export function registerTransactionsExploreCommand(transactionsCommand: Command, appRuntime: CliAppRuntime): void {
   registerTransactionsExploreOptions(
     transactionsCommand
       .command('explore [selector]')
@@ -103,15 +105,20 @@ Common Usage:
 `
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {
-    await executeTransactionsExploreCommand(selector, rawOptions);
+    await executeTransactionsExploreCommand(appRuntime, selector, rawOptions);
   });
 }
 
-async function executeTransactionsExploreCommand(selector: string | undefined, rawOptions: unknown): Promise<void> {
+async function executeTransactionsExploreCommand(
+  appRuntime: CliAppRuntime,
+  selector: string | undefined,
+  rawOptions: unknown
+): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
   const surfaceSpec = buildExploreSurfaceSpec(selector);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: TRANSACTIONS_EXPLORE_COMMAND_ID,
     format,
     prepare: async () =>
@@ -125,7 +132,7 @@ async function executeTransactionsExploreCommand(selector: string | undefined, r
         if (selector && hasExploreFiltersOrLimit(parsedOptions.options)) {
           return yield* cliErr(
             new Error(
-              'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --no-price, or --limit'
+              'Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --annotation-kind, --annotation-tier, --no-price, or --limit'
             ),
             ExitCodes.INVALID_ARGS
           );
@@ -204,7 +211,10 @@ async function executeTransactionsExploreCommandResult(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const transactionViewItems = toTransactionViewItems(transactions, addressOwnershipLookup, annotations);
+    const transactionViewItems = filterTransactionViewItemsByAnnotationFilters(
+      toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
+      prepared.params
+    );
 
     return buildTransactionsExploreListCompletion(
       transactionViewItems,
@@ -274,6 +284,8 @@ function buildExploreTransactionsParams(
     since: options.since,
     until: options.until,
     operationType: options.operationType,
+    annotationKind: options.annotationKind,
+    annotationTier: options.annotationTier,
     noPrice: options.noPrice,
     limit: options.limit ?? 50,
     sourceData: options.sourceData,
@@ -298,6 +310,8 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
     options.since !== undefined ||
     options.until !== undefined ||
     options.operationType !== undefined ||
+    options.annotationKind !== undefined ||
+    options.annotationTier !== undefined ||
     options.noPrice === true ||
     options.limit !== undefined
   );
@@ -375,7 +389,10 @@ async function buildTransactionsExploreTuiCompletion(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const allViewItems = toTransactionViewItems(transactions, addressOwnershipLookup, annotations);
+    const allViewItems = filterTransactionViewItemsByAnnotationFilters(
+      toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
+      params
+    );
     const categoryCounts = computeCategoryCounts(allViewItems);
     const viewFilters = buildTransactionsViewFilters({
       ...params,
@@ -391,10 +408,11 @@ async function buildTransactionsExploreTuiCompletion(
           addressOwnershipLookup
         )
       : allViewItems.slice(0, params.limit);
+    const totalCount = allViewItems.length;
     const initialState = createTransactionsViewState(
       visibleItems,
       viewFilters,
-      transactions.length,
+      totalCount,
       categoryCounts,
       selectedIndex
     );
@@ -418,6 +436,8 @@ async function buildTransactionsExploreTuiCompletion(
             assetId: params.assetId,
             assetSymbol: params.assetSymbol,
             operationType: params.operationType,
+            annotationKind: params.annotationKind,
+            annotationTier: params.annotationTier,
             noPrice: params.noPrice,
           });
           if (result.isErr()) {

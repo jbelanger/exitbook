@@ -1,7 +1,7 @@
 import type { AssetMovement, FeeMovement, Transaction, TransactionBalanceImpactAssetEntry } from '@exitbook/core';
 import { buildTransactionBalanceImpact, computePrimaryMovement } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import { deriveOperationLabel, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import {
   createAddressOwnershipLookup,
@@ -9,6 +9,7 @@ import {
   type AddressOwnershipLookup,
 } from '../shared/address-ownership.js';
 
+import { buildAnnotationsByTransactionId } from './transactions-annotation-utils.js';
 import type { FeeDisplayItem, MovementDisplayItem, TransactionViewItem } from './transactions-view-model.js';
 
 const EMPTY_ADDRESS_OWNERSHIP_LOOKUP = createAddressOwnershipLookup({});
@@ -129,6 +130,7 @@ export function toTransactionViewItem(
   const balanceImpactAssetsById = new Map(
     balanceImpact.assets.map((assetImpact) => [assetImpact.assetId, assetImpact])
   );
+  const derivedOperation = deriveOperationLabel(tx, annotations);
 
   return {
     id: tx.id,
@@ -136,6 +138,8 @@ export function toTransactionViewItem(
     platformKind: tx.platformKind,
     txFingerprint: tx.txFingerprint,
     datetime: tx.datetime,
+    operationGroup: derivedOperation.group,
+    operationLabel: derivedOperation.label,
     operationCategory: tx.operation.category,
     operationType: tx.operation.type,
     debitSummary: formatBalanceImpactSummary(
@@ -195,24 +199,6 @@ export function toTransactionViewItem(
     })),
     excludedFromAccounting: tx.excludedFromAccounting ?? false,
   };
-}
-
-function buildAnnotationsByTransactionId(
-  annotations: readonly TransactionAnnotation[]
-): ReadonlyMap<number, readonly TransactionAnnotation[]> {
-  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of annotations) {
-    const existing = annotationsByTransactionId.get(annotation.transactionId);
-    if (existing !== undefined) {
-      existing.push(annotation);
-      continue;
-    }
-
-    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
-  }
-
-  return annotationsByTransactionId;
 }
 
 export function toTransactionViewItems(

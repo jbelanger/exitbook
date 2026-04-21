@@ -16,6 +16,7 @@ import {
 } from '../transaction-selector.js';
 import { toTransactionSourceDataItem, toTransactionSourceLineageItem } from '../transaction-source-data.js';
 import { toTransactionViewItem, toTransactionViewItems } from '../transaction-view-projection.js';
+import { filterTransactionViewItemsByAnnotationFilters } from '../transactions-annotation-utils.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
 
@@ -100,7 +101,10 @@ export async function buildTransactionsBrowsePresentation(
     );
 
     return buildListPresentation(
-      toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
+      filterTransactionViewItemsByAnnotationFilters(
+        toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
+        params
+      ),
       params,
       accountFilter
     );

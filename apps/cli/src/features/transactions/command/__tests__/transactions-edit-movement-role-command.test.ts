@@ -3,6 +3,7 @@ import { ok, parseDecimal, type Currency } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 
 const {
@@ -73,9 +74,11 @@ vi.mock('../transactions-edit-movement-role-handler.js', () => ({
 
 import { registerTransactionsCommand } from '../transactions.js';
 
+const mockAppRuntime = { tag: 'app-runtime' } as unknown as CliAppRuntime;
+
 function createProgram(): Command {
   const program = new Command();
-  registerTransactionsCommand(program);
+  registerTransactionsCommand(program, mockAppRuntime);
   return program;
 }
 
@@ -114,7 +117,8 @@ describe('transactions edit movement-role command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
+    mockRunCommand.mockImplementation(async (...args: unknown[]) => {
+      const fn = (typeof args[0] === 'function' ? args[0] : args[1]) as (ctx: typeof mockCtx) => Promise<void>;
       await fn(mockCtx);
     });
     mockExitCliFailure.mockImplementation(

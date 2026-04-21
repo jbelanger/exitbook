@@ -1,8 +1,10 @@
 import type { Command } from 'commander';
 
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
+
 import { registerTransactionsBrowseOptions, runTransactionsBrowseCommand } from './transactions-browse-command.js';
 
-export function registerTransactionsViewCommand(transactionsCommand: Command): void {
+export function registerTransactionsViewCommand(transactionsCommand: Command, appRuntime: CliAppRuntime): void {
   registerTransactionsBrowseOptions(
     transactionsCommand
       .command('view <selector>')
@@ -22,6 +24,7 @@ Notes:
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {
     await runTransactionsBrowseCommand({
+      appRuntime,
       commandId: 'transactions-view',
       rawOptions,
       transactionSelector: selector,

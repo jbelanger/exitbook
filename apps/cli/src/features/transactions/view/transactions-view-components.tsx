@@ -26,9 +26,10 @@ import {
 } from './transactions-view-controller.js';
 import {
   buildCategoryParts,
+  buildTransactionFilterLabels,
   formatTransactionBalanceSummary,
   summarizeTransactionAnnotations,
-  formatTransactionOperation,
+  formatTransactionOperationLabel,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
 } from './transactions-view-formatters.js';
@@ -125,12 +126,8 @@ const TransactionsHeader: FC<{ state: TransactionsViewState }> = ({ state }) => 
   const { categoryCounts, filters, displayedCount, totalCount } = state;
   const displayed = displayedCount ?? state.transactions.length;
 
-  // Build title with filter label
-  let filterLabel = '';
-  if (filters.platformFilter) filterLabel = ` (${filters.platformFilter})`;
-  else if (filters.assetIdFilter) filterLabel = ` (${filters.assetIdFilter})`;
-  else if (filters.assetFilter) filterLabel = ` (${filters.assetFilter})`;
-  else if (filters.noPriceFilter) filterLabel = ' (missing prices)';
+  const filterLabels = buildTransactionFilterLabels(filters);
+  const filterLabel = filterLabels.length > 0 ? ` (${filterLabels.join(' · ')})` : '';
 
   const categoryParts = buildCategoryParts(categoryCounts);
   const isLimited = displayedCount !== undefined;
@@ -184,7 +181,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
         platform: { format: (item) => item.platformKey, minWidth: 10 },
         operation: {
-          format: (item) => formatTransactionOperation(item.operationCategory, item.operationType),
+          format: (item) => formatTransactionOperationLabel(item.operationLabel),
           minWidth: 15,
         },
       }),
@@ -300,7 +297,7 @@ const TransactionDetailPanel: FC<{ state: TransactionsViewState }> = ({ state })
 };
 
 function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement[] {
-  const operation = formatTransactionOperation(selected.operationCategory, selected.operationType);
+  const operation = formatTransactionOperationLabel(selected.operationLabel);
   const fullTimestamp = formatTransactionTimestamp(selected.datetime);
   const rows: ReactElement[] = [
     <Text key="title">
@@ -776,12 +773,7 @@ const ControlsBar: FC<{ hasExport: boolean; phase: TransactionsViewPhase }> = ({
 
 const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state }) => {
   const { filters, totalCount } = state;
-  const hasFilters =
-    filters.platformFilter ||
-    filters.assetIdFilter ||
-    filters.assetFilter ||
-    filters.operationTypeFilter ||
-    filters.noPriceFilter;
+  const hasFilters = buildTransactionFilterLabels(filters).length > 0;
 
   return (
     <Box flexDirection="column">
@@ -799,15 +791,7 @@ const TransactionsEmptyState: FC<{ state: TransactionsViewState }> = ({ state })
       ) : filters.noPriceFilter ? (
         <Text>{'  '}All transactions have price data.</Text>
       ) : (
-        <Text>
-          {'  '}No transactions found
-          {filters.platformFilter
-            ? ` for ${filters.platformFilter}`
-            : filters.assetIdFilter
-              ? ` for ${filters.assetIdFilter}`
-              : ''}
-          .
-        </Text>
+        <Text>{'  '}No transactions found for the requested filters.</Text>
       )}
       <Text> </Text>
       <Text dimColor>q quit</Text>

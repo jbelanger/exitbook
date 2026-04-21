@@ -2,6 +2,7 @@
 
 import type { Transaction } from '@exitbook/core';
 import { err, identifiersMatch, ok, type Result } from '@exitbook/foundation';
+import type { AnnotationKind, AnnotationTier } from '@exitbook/transaction-interpretation';
 
 import { buildDefinedFilters, parseDate } from '../../../cli/view-utils.js';
 import type { CommonViewFilters } from '../../../cli/view-utils.js';
@@ -20,6 +21,8 @@ import {
  */
 export interface TransactionsBrowseFilters extends CommonViewFilters {
   account?: string | undefined;
+  annotationKind?: AnnotationKind | undefined;
+  annotationTier?: AnnotationTier | undefined;
   platform?: string | undefined;
   assetSymbol?: string | undefined;
   assetId?: string | undefined;
@@ -125,11 +128,23 @@ export function validateUntilDate(until: string | undefined): Result<void, Error
 export function buildTransactionsViewFilters(
   params: Pick<
     TransactionsBrowseFilters,
-    'account' | 'address' | 'assetId' | 'assetSymbol' | 'from' | 'noPrice' | 'operationType' | 'platform' | 'to'
+    | 'account'
+    | 'address'
+    | 'annotationKind'
+    | 'annotationTier'
+    | 'assetId'
+    | 'assetSymbol'
+    | 'from'
+    | 'noPrice'
+    | 'operationType'
+    | 'platform'
+    | 'to'
   >
 ): TransactionsViewFilters {
   return {
     accountFilter: params.account,
+    annotationKindFilter: params.annotationKind,
+    annotationTierFilter: params.annotationTier,
     platformFilter: params.platform,
     assetFilter: params.assetSymbol,
     assetIdFilter: params.assetId,
@@ -146,6 +161,8 @@ export function buildTransactionsJsonFilters(
     TransactionsBrowseFilters,
     | 'account'
     | 'address'
+    | 'annotationKind'
+    | 'annotationTier'
     | 'assetId'
     | 'assetSymbol'
     | 'from'
@@ -165,6 +182,8 @@ export function buildTransactionsJsonFilters(
     address: params.address,
     from: params.from,
     to: params.to,
+    annotationKind: params.annotationKind,
+    annotationTier: params.annotationTier,
     since: params.since,
     until: params.until,
     operationType: params.operationType,
@@ -191,6 +210,8 @@ export function generateDefaultPath(
   if (filters.addressFilter) parts.push(`addr-${sanitizePathSegment(filters.addressFilter)}`);
   if (filters.fromFilter) parts.push(`from-${sanitizePathSegment(filters.fromFilter)}`);
   if (filters.toFilter) parts.push(`to-${sanitizePathSegment(filters.toFilter)}`);
+  if (filters.annotationKindFilter) parts.push(`annotation-${sanitizePathSegment(filters.annotationKindFilter)}`);
+  if (filters.annotationTierFilter) parts.push(`tier-${sanitizePathSegment(filters.annotationTierFilter)}`);
   parts.push('transactions');
   const extension = format === 'json' ? '.json' : '.csv';
   return `data/${parts.join('-')}${extension}`;
@@ -201,6 +222,8 @@ export function buildTransactionsJsonFiltersWithResolvedAccount(
     TransactionsBrowseFilters,
     | 'account'
     | 'address'
+    | 'annotationKind'
+    | 'annotationTier'
     | 'assetId'
     | 'assetSymbol'
     | 'from'
@@ -221,6 +244,8 @@ export function buildTransactionsJsonFiltersWithResolvedAccount(
     address: params.address,
     from: params.from,
     to: params.to,
+    annotationKind: params.annotationKind,
+    annotationTier: params.annotationTier,
     since: params.since,
     until: params.until,
     operationType: params.operationType,

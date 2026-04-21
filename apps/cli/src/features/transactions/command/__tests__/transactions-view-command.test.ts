@@ -6,6 +6,7 @@ import { ok, parseDecimal } from '@exitbook/foundation';
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 
 const {
@@ -63,9 +64,11 @@ vi.mock('../../view/transactions-static-renderer.js', () => ({
 
 import { registerTransactionsViewCommand } from '../transactions-view.js';
 
+const mockAppRuntime = { tag: 'app-runtime' } as unknown as CliAppRuntime;
+
 function createProgram(): Command {
   const program = new Command();
-  registerTransactionsViewCommand(program.command('transactions'));
+  registerTransactionsViewCommand(program.command('transactions'), mockAppRuntime);
   return program;
 }
 
@@ -113,7 +116,8 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
 describe('transactions view command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
+    mockRunCommand.mockImplementation(async (...args: unknown[]) => {
+      const fn = (typeof args[0] === 'function' ? args[0] : args[1]) as (ctx: typeof mockCtx) => Promise<void>;
       await fn(mockCtx);
     });
     mockExitCliFailure.mockImplementation(

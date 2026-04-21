@@ -1,10 +1,13 @@
 import { MovementRoleSchema } from '@exitbook/core';
+import { AnnotationKindSchema, AnnotationTierSchema } from '@exitbook/transaction-interpretation';
 import { z } from 'zod';
 
 import { OptionalSourceSelectionSchema } from '../../../cli/option-schema-primitives.js';
 
 export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
   z.object({
+    annotationKind: AnnotationKindSchema.optional(),
+    annotationTier: AnnotationTierSchema.optional(),
     format: z.enum(['csv', 'json']).optional().default('csv'),
     csvFormat: z.enum(['normalized', 'simple']).optional(),
     output: z.string().optional(),
@@ -22,6 +25,8 @@ export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
 
 const TransactionsFilterOptionsSchema = z.object({
   account: z.string().optional(),
+  annotationKind: AnnotationKindSchema.optional(),
+  annotationTier: AnnotationTierSchema.optional(),
   platform: z.string().optional(),
   asset: z.string().optional(),
   assetId: z.string().optional(),
@@ -76,6 +81,8 @@ export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptions
 
 export const TransactionsExportCommandOptionsSchema = z
   .object({
+    annotationKind: AnnotationKindSchema.optional(),
+    annotationTier: AnnotationTierSchema.optional(),
     format: z.enum(['csv', 'json']).optional().default('csv'),
     csvFormat: z.enum(['normalized', 'simple']).optional(),
     output: z.string().optional(),

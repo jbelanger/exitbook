@@ -11,6 +11,7 @@ import {
   type CliCommandResult,
 } from '../../../cli/command.js';
 import { detectCliOutputFormat, type CliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { writeFilesWithAtomicRenames } from '../../shared/file-utils.js';
 
@@ -28,7 +29,7 @@ interface TransactionsExportCommandResult {
   };
 }
 
-export function registerTransactionsExportCommand(transactionsCommand: Command): void {
+export function registerTransactionsExportCommand(transactionsCommand: Command, appRuntime: CliAppRuntime): void {
   transactionsCommand
     .command('export')
     .description('Export all transactions to CSV or JSON')
@@ -39,20 +40,24 @@ Examples:
   $ exitbook transactions export                                # Export all transactions as normalized CSV
   $ exitbook transactions export --format json --output tx.json # Export as JSON
   $ exitbook transactions export --csv-format simple            # Export as simple CSV
+  $ exitbook transactions export --annotation-kind bridge_participant
   $ exitbook transactions export --json                         # Output metadata as JSON
 `
     )
+    .option('--annotation-kind <kind>', 'Filter by transaction annotation kind')
+    .option('--annotation-tier <tier>', 'Filter by transaction annotation tier')
     .option('--format <type>', 'Export format (csv|json)', 'csv')
     .option('--csv-format <type>', 'CSV format (normalized|simple)')
     .option('--output <file>', 'Output file path')
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeTransactionsExportCommand(rawOptions));
+    .action((rawOptions: unknown) => executeTransactionsExportCommand(appRuntime, rawOptions));
 }
 
-async function executeTransactionsExportCommand(rawOptions: unknown): Promise<void> {
+async function executeTransactionsExportCommand(appRuntime: CliAppRuntime, rawOptions: unknown): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: 'transactions-export',
     format,
     prepare: async () =>
@@ -79,6 +84,8 @@ async function executeTransactionsExportCommandResult(
     const result = yield* toCliResult(
       await exportHandler.execute({
         profileId: scope.profile.id,
+        annotationKind: options.annotationKind,
+        annotationTier: options.annotationTier,
         format: exportFormat,
         csvFormat,
         outputPath,
