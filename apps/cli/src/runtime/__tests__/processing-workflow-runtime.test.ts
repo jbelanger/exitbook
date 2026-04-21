@@ -32,6 +32,7 @@ vi.mock('@exitbook/transaction-interpretation', () => ({
   BridgeParticipantDetector: class {},
   HeuristicBridgeParticipantDetector: class {},
   InterpretationRuntime: class {},
+  StakingRewardDetector: class {},
   TransactionAnnotationDetectorRegistry: class {
     register() {
       /* no-op */

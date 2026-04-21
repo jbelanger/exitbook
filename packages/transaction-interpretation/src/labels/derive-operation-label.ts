@@ -11,6 +11,7 @@ export interface DerivedOperationLabel {
 }
 
 const ANNOTATION_KIND_PRIORITY: readonly AnnotationKind[] = [
+  'staking_reward',
   'wrap',
   'unwrap',
   'protocol_deposit',
@@ -100,6 +101,8 @@ function buildAnnotationOperationLabel(annotation: TransactionAnnotation): Deriv
         label: buildRoleLabel(annotation, 'asset migration/send', 'asset migration/receive'),
         source: 'annotation',
       };
+    case 'staking_reward':
+      return { group: 'staking', label: 'staking/reward', source: 'annotation' };
     case 'wrap':
       return { group: 'transfer', label: 'wrap', source: 'annotation' };
     case 'unwrap':

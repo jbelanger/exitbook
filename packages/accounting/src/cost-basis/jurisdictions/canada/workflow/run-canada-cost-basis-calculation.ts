@@ -2,6 +2,7 @@ import type { AssetReviewSummary, Transaction, TransactionLink } from '@exitbook
 import { err, ok, randomUUID, type Currency, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { AccountingExclusionPolicy } from '../../../../accounting-model/accounting-exclusion-policy.js';
 import type { ValidatedCostBasisConfig } from '../../../workflow/cost-basis-input.js';
@@ -23,6 +24,7 @@ interface RunCanadaCostBasisCalculationParams {
   input: ValidatedCostBasisConfig;
   transactions: Transaction[];
   confirmedLinks: TransactionLink[];
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   priceRuntime: IPriceProviderRuntime;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
@@ -86,6 +88,7 @@ export async function runCanadaCostBasisCalculation(
   const acbWorkflowResult = await runCanadaAcbWorkflow({
     transactions: rebuildTransactions,
     confirmedLinks: params.confirmedLinks,
+    transactionAnnotations: params.transactionAnnotations,
     priceRuntime: params.priceRuntime,
     accountingExclusionPolicy: params.accountingExclusionPolicy,
     assetReviewSummaries: params.assetReviewSummaries,

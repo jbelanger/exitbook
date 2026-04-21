@@ -100,6 +100,23 @@ describe('formatTransactionAnnotation', () => {
       })
     ).toBe('bridge source [asserted · via wormhole · ethereum -> arbitrum · counterpart arb-bridge]');
   });
+
+  it('formats staking reward annotations with their staking label', () => {
+    expect(
+      formatTransactionAnnotation({
+        annotationFingerprint: 'annotation-2',
+        accountId: 1,
+        transactionId: 11,
+        txFingerprint: 'tx-11',
+        kind: 'staking_reward',
+        tier: 'asserted',
+        target: { scope: 'movement', movementFingerprint: 'movement-1' },
+        detectorId: 'staking-reward',
+        derivedFromTxIds: [11],
+        provenanceInputs: ['movement_role'],
+      })
+    ).toBe('staking reward [asserted]');
+  });
 });
 
 describe('summarizeTransactionAnnotations', () => {

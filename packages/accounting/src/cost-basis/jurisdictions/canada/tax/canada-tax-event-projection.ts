@@ -1,5 +1,6 @@
 import { getExplainedTargetResidual } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import type {
@@ -13,6 +14,26 @@ import type { UsdConversionRateProviderLike } from '../../../../price-enrichment
 import { resolvePoolIdentity, type CanadaMovementEvent } from './canada-tax-event-stage-shared.js';
 import type { CanadaAcquisitionEvent, CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 import { buildCanadaTaxValuation, normalizeDecimal } from './canada-tax-valuation.js';
+
+function buildAssertedStakingRewardMovementFingerprintSet(
+  transactionAnnotations: readonly TransactionAnnotation[]
+): ReadonlySet<string> {
+  const movementFingerprints = new Set<string>();
+
+  for (const annotation of transactionAnnotations) {
+    if (
+      annotation.kind !== 'staking_reward' ||
+      annotation.tier !== 'asserted' ||
+      annotation.target.scope !== 'movement'
+    ) {
+      continue;
+    }
+
+    movementFingerprints.add(annotation.target.movementFingerprint);
+  }
+
+  return movementFingerprints;
+}
 
 function getTransferComparableQuantity(movement: AccountingAssetEntryView): Decimal {
   return movement.netQuantity ?? movement.grossQuantity;
@@ -119,8 +140,13 @@ async function buildMovementEvent(
 }
 
 function getMovementIncomeCategory(
-  movement: Pick<AccountingAssetEntryView, 'role'>
+  movement: Pick<AccountingAssetEntryView, 'movementFingerprint' | 'role'>,
+  stakingRewardMovementFingerprints: ReadonlySet<string>
 ): CanadaAcquisitionEvent['incomeCategory'] | undefined {
+  if (stakingRewardMovementFingerprints.has(movement.movementFingerprint)) {
+    return 'staking_reward';
+  }
+
   return movement.role === 'staking_reward' ? 'staking_reward' : undefined;
 }
 
@@ -145,6 +171,7 @@ async function projectTransferAwareMovementEvents(
   transactionView: AccountingTransactionView,
   movement: AccountingAssetEntryView,
   direction: 'inflow' | 'outflow',
+  stakingRewardMovementFingerprints: ReadonlySet<string>,
   validatedLinks: readonly ValidatedTransferLink[],
   usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
@@ -155,7 +182,9 @@ async function projectTransferAwareMovementEvents(
 
   if (sortedLinks.length === 0) {
     const incomeCategory =
-      direction === 'inflow' && residualEventKind === 'acquisition' ? getMovementIncomeCategory(movement) : undefined;
+      direction === 'inflow' && residualEventKind === 'acquisition'
+        ? getMovementIncomeCategory(movement, stakingRewardMovementFingerprints)
+        : undefined;
     const directEventResult = await buildMovementEvent(
       transactionView,
       movement,
@@ -220,8 +249,8 @@ async function projectTransferAwareMovementEvents(
   if (residualQuantityResult.value.gt(0)) {
     const incomeCategory =
       direction === 'inflow' && residualEventKind === 'acquisition'
-        ? (getExplainedResidualIncomeCategory(sortedLinks, residualQuantityResult.value) ??
-          getMovementIncomeCategory(movement))
+        ? (getMovementIncomeCategory(movement, stakingRewardMovementFingerprints) ??
+          getExplainedResidualIncomeCategory(sortedLinks, residualQuantityResult.value))
         : undefined;
     const residualEventResult = await buildMovementEvent(
       transactionView,
@@ -249,10 +278,14 @@ async function projectTransferAwareMovementEvents(
 export async function projectCanadaMovementEvents(params: {
   accountingTransactionViews: readonly AccountingTransactionView[];
   identityConfig: CanadaTaxInputContextBuildOptions;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaMovementEvent[], Error>> {
   const { accountingTransactionViews, identityConfig, usdConversionRateProvider, validatedTransfers } = params;
+  const stakingRewardMovementFingerprints = buildAssertedStakingRewardMovementFingerprintSet(
+    params.transactionAnnotations ?? []
+  );
   const events: CanadaMovementEvent[] = [];
 
   for (const transactionView of accountingTransactionViews) {
@@ -261,6 +294,7 @@ export async function projectCanadaMovementEvents(params: {
         transactionView,
         inflow,
         'inflow',
+        stakingRewardMovementFingerprints,
         validatedTransfers.byTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig
@@ -276,6 +310,7 @@ export async function projectCanadaMovementEvents(params: {
         transactionView,
         outflow,
         'outflow',
+        stakingRewardMovementFingerprints,
         validatedTransfers.bySourceMovementFingerprint.get(outflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig

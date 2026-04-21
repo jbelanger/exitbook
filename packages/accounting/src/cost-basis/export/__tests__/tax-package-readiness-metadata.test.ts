@@ -12,20 +12,24 @@ import {
   createStandardWorkflowArtifact,
 } from './test-utils.js';
 
-function createBridgeAnnotation(transactionId: number, txFingerprint: string): TransactionAnnotation {
+function createBridgeAnnotation(
+  transactionId: number,
+  txFingerprint: string,
+  tier: TransactionAnnotation['tier'] = 'asserted'
+): TransactionAnnotation {
   return {
-    annotationFingerprint: `annotation:${txFingerprint}:bridge-source`,
+    annotationFingerprint: `annotation:${txFingerprint}:bridge-source:${tier}`,
     accountId: 1,
     transactionId,
     txFingerprint,
     kind: 'bridge_participant',
-    tier: 'asserted',
+    tier,
     target: { scope: 'transaction' },
     role: 'source',
-    protocolRef: { id: 'wormhole' },
-    detectorId: 'bridge-participant',
+    ...(tier === 'asserted' ? { protocolRef: { id: 'wormhole' } } : {}),
+    detectorId: tier === 'asserted' ? 'bridge-participant' : 'heuristic-bridge-participant',
     derivedFromTxIds: [transactionId],
-    provenanceInputs: ['processor', 'diagnostic'],
+    provenanceInputs: tier === 'asserted' ? ['processor', 'diagnostic'] : ['timing', 'address_pattern'],
   };
 }
 
@@ -118,20 +122,49 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         },
       ],
       missingPriceDetails: [],
+      unknownTransactionClassificationCount: 0,
+      unknownTransactionClassificationDetails: [],
+      unresolvedAssetReviewCount: 1,
+    });
+  });
+
+  it('keeps unknown classification blocking when only heuristic interpretation exists', () => {
+    const context = createCanadaPackageBuildContext();
+    const retainedTransaction = context.sourceContext.transactionsById.get(11);
+    if (!retainedTransaction) {
+      throw new Error('Missing retained transaction for heuristic readiness metadata test');
+    }
+
+    retainedTransaction.diagnostics = [
+      {
+        code: 'classification_uncertain',
+        message: 'Needs review',
+        severity: 'warning',
+      },
+    ];
+    context.sourceContext.transactionAnnotationsByTransactionId = new Map([
+      [
+        retainedTransaction.id,
+        [createBridgeAnnotation(retainedTransaction.id, retainedTransaction.txFingerprint, 'heuristic')],
+      ],
+    ]);
+
+    const metadata = deriveTaxPackageReadinessMetadata({ context });
+
+    expect(metadata).toMatchObject({
       unknownTransactionClassificationCount: 1,
       unknownTransactionClassificationDetails: [
         {
           diagnosticCode: 'classification_uncertain',
           diagnosticMessage: 'Needs review',
           operationGroup: 'transfer',
-          operationLabel: 'bridge/send',
+          operationLabel: 'transfer/transfer',
           reference: retainedTransaction.txFingerprint,
           platformKey: retainedTransaction.platformKey,
           transactionDatetime: retainedTransaction.datetime,
           transactionId: retainedTransaction.id,
         },
       ],
-      unresolvedAssetReviewCount: 1,
     });
   });
 

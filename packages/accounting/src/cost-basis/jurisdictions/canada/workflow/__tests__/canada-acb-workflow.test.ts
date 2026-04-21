@@ -1,6 +1,7 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createCanadaPriceRuntime, createConfirmedTransferLink } from '../../__tests__/test-utils.js';
@@ -24,6 +25,29 @@ function createAssetReviewSummary(assetId: string, overrides: Partial<AssetRevie
       },
     ],
     ...overrides,
+  };
+}
+
+function createStakingRewardAnnotation(params: {
+  accountId: number;
+  movementFingerprint: string;
+  transactionId: number;
+  txFingerprint: string;
+}): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:staking:${params.movementFingerprint}`,
+    accountId: params.accountId,
+    transactionId: params.transactionId,
+    txFingerprint: params.txFingerprint,
+    kind: 'staking_reward',
+    tier: 'asserted',
+    target: {
+      scope: 'movement',
+      movementFingerprint: params.movementFingerprint,
+    },
+    detectorId: 'staking-reward',
+    derivedFromTxIds: [params.transactionId],
+    provenanceInputs: ['movement_role'],
   };
 }
 
@@ -296,6 +320,54 @@ describe('runCanadaAcbWorkflow', () => {
     });
 
     expect(result.isOk()).toBe(true);
+  });
+
+  it('uses asserted staking-reward annotations when building Canada input events', async () => {
+    const fxProvider = createCanadaPriceRuntime();
+    const reward = buildTransaction({
+      id: 12,
+      datetime: '2024-01-15T12:00:00Z',
+      platformKey: 'cardano',
+      platformKind: 'blockchain',
+      inflows: [
+        {
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA',
+          amount: '12.5',
+          price: '0.75',
+          priceCurrency: 'CAD',
+        },
+      ],
+      category: 'transfer',
+      type: 'deposit',
+    });
+
+    const rewardMovement = reward.movements.inflows?.[0];
+    if (rewardMovement === undefined) {
+      throw new Error('Expected reward inflow for staking annotation test');
+    }
+
+    const result = await runCanadaAcbWorkflow({
+      transactions: [reward],
+      confirmedLinks: [],
+      priceRuntime: fxProvider,
+      transactionAnnotations: [
+        createStakingRewardAnnotation({
+          accountId: reward.accountId,
+          movementFingerprint: rewardMovement.movementFingerprint,
+          transactionId: reward.id,
+          txFingerprint: reward.txFingerprint,
+        }),
+      ],
+    });
+    const value = assertOk(result);
+
+    expect(value.inputContext.inputEvents).toHaveLength(1);
+    expect(value.inputContext.inputEvents[0]).toMatchObject({
+      kind: 'acquisition',
+      transactionId: reward.id,
+      incomeCategory: 'staking_reward',
+    });
   });
 
   it('preserves pooled ACB across a confirmed internal transfer and later disposition', async () => {

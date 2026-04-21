@@ -1,7 +1,11 @@
 import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
-import { deriveOperationLabel } from '@exitbook/transaction-interpretation';
+import {
+  deriveOperationLabel,
+  type DerivedOperationLabel,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 
 import { collectBlockingAssetReviewSummaries } from '../../accounting-model/asset-review-preflight.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -145,11 +149,32 @@ function collectUnknownTransactionClassificationDetails(
   context: TaxPackageBuildContext,
   transactions: readonly Transaction[]
 ): TaxPackageUnknownTransactionClassificationDetail[] {
-  return collectTransactionIssueDetails<TaxPackageUnknownTransactionClassificationDetail>(
-    context,
-    transactions,
-    UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES
-  );
+  return transactions.flatMap((transaction) => {
+    const matchingDiagnostic = transaction.diagnostics?.find((diagnostic) =>
+      UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES.has(diagnostic.code)
+    );
+    if (!matchingDiagnostic) {
+      return [];
+    }
+
+    const derivedOperation = deriveTaxReadinessOperation(context, transaction);
+    if (derivedOperation.source === 'annotation') {
+      return [];
+    }
+
+    return [
+      {
+        diagnosticCode: matchingDiagnostic.code,
+        diagnosticMessage: matchingDiagnostic.message,
+        operationGroup: derivedOperation.group,
+        operationLabel: derivedOperation.label,
+        reference: transaction.txFingerprint,
+        platformKey: transaction.platformKey,
+        transactionDatetime: transaction.datetime,
+        transactionId: transaction.id,
+      },
+    ];
+  });
 }
 
 function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
@@ -163,10 +188,7 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
       return [];
     }
 
-    const derivedOperation = deriveOperationLabel(
-      transaction,
-      context.sourceContext.transactionAnnotationsByTransactionId.get(transaction.id) ?? []
-    );
+    const derivedOperation = deriveTaxReadinessOperation(context, transaction);
 
     return [
       {
@@ -181,6 +203,19 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
       } as TDetail,
     ];
   });
+}
+
+function deriveTaxReadinessOperation(context: TaxPackageBuildContext, transaction: Transaction): DerivedOperationLabel {
+  return deriveOperationLabel(transaction, getAssertedTransactionAnnotations(context, transaction.id));
+}
+
+function getAssertedTransactionAnnotations(
+  context: TaxPackageBuildContext,
+  transactionId: number
+): readonly TransactionAnnotation[] {
+  return (context.sourceContext.transactionAnnotationsByTransactionId.get(transactionId) ?? []).filter(
+    (annotation) => annotation.tier === 'asserted'
+  );
 }
 
 function countTaxRelevantAssetsRequiringReview(

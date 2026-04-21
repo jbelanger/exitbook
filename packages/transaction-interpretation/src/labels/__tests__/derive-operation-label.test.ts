@@ -18,7 +18,7 @@ function createAnnotation(
     txFingerprint: 'tx-test',
     kind: overrides.kind,
     tier: overrides.tier,
-    target: { scope: 'transaction' },
+    target: overrides.target ?? { scope: 'transaction' },
     detectorId: 'detector',
     derivedFromTxIds: [1],
     provenanceInputs: ['diagnostic'],
@@ -73,6 +73,28 @@ describe('deriveOperationLabel', () => {
     ).toStrictEqual({
       group: 'transfer',
       label: 'asset migration/receive',
+      source: 'annotation',
+    });
+  });
+
+  it('derives staking labels from staking reward annotations', () => {
+    expect(
+      deriveOperationLabel(
+        createTransaction({
+          category: 'transfer',
+          type: 'deposit',
+        }),
+        [
+          createAnnotation({
+            kind: 'staking_reward',
+            tier: 'asserted',
+            target: { scope: 'movement', movementFingerprint: 'in-0' },
+          }),
+        ]
+      )
+    ).toStrictEqual({
+      group: 'staking',
+      label: 'staking/reward',
       source: 'annotation',
     });
   });

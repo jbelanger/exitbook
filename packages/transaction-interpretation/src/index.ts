@@ -39,6 +39,7 @@ export type {
 export { AssetMigrationParticipantDetector } from './detectors/asset-migration-participant-detector.js';
 export { BridgeParticipantDetector } from './detectors/bridge-participant-detector.js';
 export { HeuristicBridgeParticipantDetector } from './detectors/heuristic-bridge-participant-detector.js';
+export { StakingRewardDetector } from './detectors/staking-reward-detector.js';
 
 export type { TransactionAnnotationQuery } from './persistence/transaction-annotation-query.js';
 export type {

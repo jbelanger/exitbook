@@ -862,6 +862,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       sql`kind IN (
         'bridge_participant',
         'asset_migration_participant',
+        'staking_reward',
         'wrap',
         'unwrap',
         'protocol_deposit',

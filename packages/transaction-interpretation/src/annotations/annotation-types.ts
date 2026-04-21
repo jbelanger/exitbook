@@ -4,6 +4,7 @@ import type { ProtocolRef } from '@exitbook/protocol-catalog';
 export const ANNOTATION_KINDS = [
   'bridge_participant',
   'asset_migration_participant',
+  'staking_reward',
   'wrap',
   'unwrap',
   'protocol_deposit',

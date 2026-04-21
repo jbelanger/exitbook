@@ -2,6 +2,7 @@ import type { AssetReviewSummary, TransactionLink, Transaction } from '@exitbook
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import {
   assertNoAccountingModelAssetsRequireReview,
@@ -27,6 +28,7 @@ export interface RunCanadaAcbWorkflowParams {
   priceRuntime: IPriceProviderRuntime;
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
 }
 
 export async function runCanadaAcbWorkflow(
@@ -49,6 +51,7 @@ export async function runCanadaAcbWorkflow(
       validatedTransfers,
       priceRuntime: params.priceRuntime,
       identityConfig: {},
+      transactionAnnotations: params.transactionAnnotations,
     });
     const acbEngineResult = yield* runCanadaAcbEngine(inputContext);
 

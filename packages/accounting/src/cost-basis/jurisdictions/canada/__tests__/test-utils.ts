@@ -4,6 +4,7 @@ import { err, ok, parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { vi } from 'vitest';
 
 import { buildTransaction, materializeTestTransaction } from '../../../../__tests__/test-utils.js';
@@ -135,7 +136,8 @@ export function createConfirmedTransferLink(params: {
 export async function buildCanadaTestInputContext(
   transactions: Transaction[],
   confirmedLinks: TransactionLink[],
-  priceRuntime: IPriceProviderRuntime
+  priceRuntime: IPriceProviderRuntime,
+  transactionAnnotations?: readonly TransactionAnnotation[]
 ) {
   const scopedResult = prepareAccountingTransactions(transactions.map(materializeTestTransaction), noopLogger);
   const scoped = assertOk(scopedResult);
@@ -148,6 +150,7 @@ export async function buildCanadaTestInputContext(
     validatedTransfers: validatedLinks,
     priceRuntime,
     identityConfig: {},
+    transactionAnnotations,
   });
 }
 

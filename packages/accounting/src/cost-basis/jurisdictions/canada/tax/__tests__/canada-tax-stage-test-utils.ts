@@ -2,6 +2,7 @@ import type { AssetMovement, Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type {
   AccountingModelBuildResult,
@@ -151,6 +152,7 @@ function buildStageCanadaAccountingContext(params: {
 export async function projectCanadaMovementEvents(params: {
   identityConfig: typeof identityConfig;
   preparedTransactions: PreparedAccountingTransaction[];
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   usdConversionRateProvider: UsdConversionRateProviderLike;
   validatedTransfers: ValidatedTransferSet;
 }) {
@@ -158,6 +160,7 @@ export async function projectCanadaMovementEvents(params: {
   return projectCanadaMovementEventsImpl({
     accountingTransactionViews: accountingModel.accountingTransactionViews,
     identityConfig: params.identityConfig,
+    transactionAnnotations: params.transactionAnnotations,
     usdConversionRateProvider: params.usdConversionRateProvider,
     validatedTransfers: params.validatedTransfers,
   });

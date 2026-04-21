@@ -27,6 +27,7 @@ async function runCanadaJurisdictionWorkflow(
     input: input.config,
     transactions: input.transactions,
     confirmedLinks: contextResult.value.confirmedLinks,
+    transactionAnnotations: contextResult.value.transactionAnnotations,
     priceRuntime: input.priceRuntime,
     accountingExclusionPolicy: input.options.accountingExclusionPolicy,
     assetReviewSummaries: input.options.assetReviewSummaries,

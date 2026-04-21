@@ -53,6 +53,8 @@ function formatAnnotationKind(kind: TransactionAnnotation['kind']): string {
       return 'bridge';
     case 'asset_migration_participant':
       return 'asset migration';
+    case 'staking_reward':
+      return 'staking reward';
     case 'wrap':
       return 'wrap';
     case 'unwrap':

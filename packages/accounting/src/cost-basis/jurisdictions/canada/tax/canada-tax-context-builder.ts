@@ -1,5 +1,6 @@
 import { resultDoAsync, type Result } from '@exitbook/foundation';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { AccountingModelBuildResult, ValidatedTransferSet } from '../../../../accounting-model.js';
 import { UsdConversionRateProvider } from '../../../../price-enrichment/fx/usd-conversion-rate-provider.js';
@@ -20,6 +21,7 @@ export async function buildCanadaTaxInputContext(params: {
   accountingModel: AccountingModelBuildResult;
   identityConfig: CanadaTaxInputContextBuildOptions;
   priceRuntime: IPriceProviderRuntime;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   validatedTransfers: ValidatedTransferSet;
 }): Promise<Result<CanadaTaxInputContext, Error>> {
   return resultDoAsync(async function* () {
@@ -30,6 +32,7 @@ export async function buildCanadaTaxInputContext(params: {
 
     const projectedEvents = yield* await projectCanadaMovementEvents({
       accountingTransactionViews: accountingModel.accountingTransactionViews,
+      transactionAnnotations: params.transactionAnnotations,
       validatedTransfers,
       usdConversionRateProvider,
       identityConfig: effectiveIdentityConfig,

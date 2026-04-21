@@ -1,6 +1,7 @@
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction, createFee, createPriceAtTxTime } from '../../../../../__tests__/test-utils.js';
@@ -20,6 +21,29 @@ import {
   makeTransferSet,
   projectCanadaMovementEvents,
 } from './canada-tax-stage-test-utils.js';
+
+function createStakingRewardAnnotation(params: {
+  accountId: number;
+  movementFingerprint: string;
+  transactionId: number;
+  txFingerprint: string;
+}): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:staking:${params.movementFingerprint}`,
+    accountId: params.accountId,
+    transactionId: params.transactionId,
+    txFingerprint: params.txFingerprint,
+    kind: 'staking_reward',
+    tier: 'asserted',
+    target: {
+      scope: 'movement',
+      movementFingerprint: params.movementFingerprint,
+    },
+    detectorId: 'staking-reward',
+    derivedFromTxIds: [params.transactionId],
+    provenanceInputs: ['movement_role'],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // projectCanadaMovementEvents
@@ -76,6 +100,42 @@ describe('projectCanadaMovementEvents', () => {
     const events = assertOk(
       await projectCanadaMovementEvents({
         preparedTransactions: [scoped],
+        validatedTransfers: emptyTransferSet(),
+        usdConversionRateProvider,
+        identityConfig,
+      })
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]!.kind).toBe('acquisition');
+    expect((events[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
+  });
+
+  it('uses asserted staking-reward annotations for inflows without relying on movementRole', async () => {
+    const tx = buildTransaction({
+      id: 6,
+      datetime: '2024-04-16T12:00:00Z',
+      inflows: [{ assetSymbol: 'ADA', amount: '3.25', price: '0.80' }],
+    });
+    const scoped = buildScopedTransaction(tx);
+    const inflow = scoped.movements.inflows[0];
+    if (inflow === undefined) {
+      throw new Error('Expected staking reward inflow for test');
+    }
+
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
+
+    const events = assertOk(
+      await projectCanadaMovementEvents({
+        preparedTransactions: [scoped],
+        transactionAnnotations: [
+          createStakingRewardAnnotation({
+            accountId: tx.accountId,
+            movementFingerprint: inflow.movementFingerprint,
+            transactionId: tx.id,
+            txFingerprint: tx.txFingerprint,
+          }),
+        ],
         validatedTransfers: emptyTransferSet(),
         usdConversionRateProvider,
         identityConfig,

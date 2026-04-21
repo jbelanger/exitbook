@@ -12,6 +12,7 @@ import {
   BridgeParticipantDetector,
   HeuristicBridgeParticipantDetector,
   InterpretationRuntime,
+  StakingRewardDetector,
   TransactionAnnotationDetectorRegistry,
   TransactionAnnotationProfileDetectorRegistry,
 } from '@exitbook/transaction-interpretation';
@@ -139,6 +140,7 @@ function createCliInterpretationRuntime(database: DataSession): InterpretationRu
   const registry = new TransactionAnnotationDetectorRegistry();
   registry.register(new BridgeParticipantDetector(protocolCatalog));
   registry.register(new AssetMigrationParticipantDetector());
+  registry.register(new StakingRewardDetector());
 
   const profileRegistry = new TransactionAnnotationProfileDetectorRegistry();
   profileRegistry.register(new HeuristicBridgeParticipantDetector());
@@ -201,6 +203,20 @@ export async function rebuildCliTransactionInterpretationForAccounts(
         return err(
           new Error(
             `Failed to rebuild asset migration interpretation for transaction ${transaction.txFingerprint}: ${assetMigrationResult.error.message}`
+          )
+        );
+      }
+
+      const stakingRewardResult = await runtime.runForTransaction({
+        detectorId: 'staking-reward',
+        accountId: transaction.accountId,
+        transactionId: transaction.id,
+        txFingerprint: transaction.txFingerprint,
+      });
+      if (stakingRewardResult.isErr()) {
+        return err(
+          new Error(
+            `Failed to rebuild staking reward interpretation for transaction ${transaction.txFingerprint}: ${stakingRewardResult.error.message}`
           )
         );
       }
