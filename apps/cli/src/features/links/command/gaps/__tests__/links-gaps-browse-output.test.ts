@@ -79,6 +79,8 @@ describe('links-gaps-browse-output', () => {
           exactOtherProfileCounterpartProfileKey?: string;
           exactOtherProfileCounterpartTransactionRef?: string;
           gapCueCounterpartTransactionRef?: string;
+          operationGroup?: string;
+          operationLabel?: string;
           relatedContext?: { fromAccount?: { accountRef?: string } };
           suggestedProposalRefs?: string[];
           transactionSnapshot?: { openSameHashGapRowCount?: number };
@@ -101,6 +103,8 @@ describe('links-gaps-browse-output', () => {
     expect(payload.data[0]?.crossProfileCandidates?.[0]?.profileKey).toBe('maely');
     expect(payload.data[0]?.exactOtherProfileCounterpartProfileKey).toBe('maely');
     expect(payload.data[0]?.exactOtherProfileCounterpartTransactionRef).toBe('other-prof');
+    expect(payload.data[0]?.operationGroup).toBe('transfer');
+    expect(payload.data[0]?.operationLabel).toBe('transfer/deposit');
   });
 
   it('includes cue counterpart transaction refs in json detail', () => {

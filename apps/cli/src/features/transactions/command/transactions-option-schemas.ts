@@ -4,24 +4,32 @@ import { z } from 'zod';
 
 import { OptionalSourceSelectionSchema } from '../../../cli/option-schema-primitives.js';
 
-export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
-  z.object({
-    annotationKind: AnnotationKindSchema.optional(),
-    annotationTier: AnnotationTierSchema.optional(),
-    format: z.enum(['csv', 'json']).optional().default('csv'),
-    csvFormat: z.enum(['normalized', 'simple']).optional(),
-    output: z.string().optional(),
-    since: z.string().optional(),
-    json: z.boolean().optional(),
-  })
-).superRefine((data, ctx) => {
+const TransactionsExportSharedOptionsSchema = z.object({
+  annotationKind: AnnotationKindSchema.optional(),
+  annotationTier: AnnotationTierSchema.optional(),
+  format: z.enum(['csv', 'json']).optional().default('csv'),
+  csvFormat: z.enum(['normalized', 'simple']).optional(),
+  output: z.string().optional(),
+  json: z.boolean().optional(),
+});
+
+function addCsvFormatValidationRule<T extends { csvFormat?: string | undefined; format?: string | undefined }>(
+  data: T,
+  ctx: z.RefinementCtx
+): void {
   if (data.format !== 'csv' && data.csvFormat) {
     ctx.addIssue({
       code: 'custom',
       message: '--csv-format is only supported when --format csv is selected',
     });
   }
-});
+}
+
+export const ExportCommandOptionsSchema = OptionalSourceSelectionSchema.merge(
+  TransactionsExportSharedOptionsSchema.extend({
+    since: z.string().optional(),
+  })
+).superRefine(addCsvFormatValidationRule);
 
 const TransactionsFilterOptionsSchema = z.object({
   account: z.string().optional(),
@@ -79,23 +87,8 @@ export const TransactionsExploreCommandOptionsSchema = TransactionsFilterOptions
   .superRefine(addAssetFilterExclusivityRule)
   .superRefine(addAddressFilterExclusivityRule);
 
-export const TransactionsExportCommandOptionsSchema = z
-  .object({
-    annotationKind: AnnotationKindSchema.optional(),
-    annotationTier: AnnotationTierSchema.optional(),
-    format: z.enum(['csv', 'json']).optional().default('csv'),
-    csvFormat: z.enum(['normalized', 'simple']).optional(),
-    output: z.string().optional(),
-    json: z.boolean().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.format !== 'csv' && data.csvFormat) {
-      ctx.addIssue({
-        code: 'custom',
-        message: '--csv-format is only supported when --format csv is selected',
-      });
-    }
-  });
+export const TransactionsExportCommandOptionsSchema =
+  TransactionsExportSharedOptionsSchema.superRefine(addCsvFormatValidationRule);
 
 export const TransactionsEditNoteCommandOptionsSchema = z
   .object({

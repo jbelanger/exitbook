@@ -86,7 +86,7 @@ describe('links gaps resolved command', () => {
       const actionResult = await options.action({
         runtime: {
           dataDir: '/tmp/exitbook-links',
-          database: vi.fn().mockResolvedValue({ tag: 'db' }),
+          openDatabaseSession: vi.fn().mockResolvedValue({ tag: 'db' }),
         },
         prepared: preparedResult.value,
       });
@@ -136,8 +136,8 @@ describe('links gaps resolved command', () => {
       missingAmount: '0.0018',
       totalAmount: '0.0018',
       confirmedCoveragePercent: '0',
-      operationCategory: 'transfer',
-      operationType: 'deposit',
+      operationGroup: 'transfer',
+      operationLabel: 'transfer/deposit',
       suggestedCount: 0,
       direction: 'inflow' as const,
     };
@@ -210,8 +210,8 @@ describe('links gaps resolved command', () => {
       missingAmount: '0.0018',
       totalAmount: '0.0018',
       confirmedCoveragePercent: '0',
-      operationCategory: 'transfer',
-      operationType: 'deposit',
+      operationGroup: 'transfer',
+      operationLabel: 'transfer/deposit',
       suggestedCount: 0,
       direction: 'inflow' as const,
     };
@@ -254,6 +254,8 @@ describe('links gaps resolved command', () => {
       data: [
         expect.objectContaining({
           kind: 'resolved-gap',
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/deposit',
           txFingerprint: 'resolved-gap-fingerprint',
           reason: 'BullBitcoin purchase sent directly to wallet',
           resolvedAt: '2026-04-18T14:00:00.000Z',

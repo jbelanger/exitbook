@@ -140,6 +140,37 @@ describe('BridgeParticipantDetector', () => {
     });
   });
 
+  it('resolves catalog aliases instead of relying on a detector-local hint map', async () => {
+    const detector = new BridgeParticipantDetector(createSeedProtocolCatalog());
+    const transaction = makeTransaction({
+      platformKey: 'ethereum',
+      diagnostics: [
+        {
+          code: 'bridge_transfer',
+          message: 'Bridge withdrawal via Injective sendToInjective.',
+          severity: 'info',
+          metadata: {
+            bridgeFamily: 'injective_peggy',
+            detectionSource: 'function_name',
+            functionName: 'sendToInjective',
+          },
+        },
+      ],
+      inflowCount: 0,
+      outflowCount: 1,
+    });
+
+    const result = await detector.run({
+      accountId: transaction.accountId,
+      transactionId: transaction.id,
+      txFingerprint: transaction.txFingerprint,
+      transaction,
+    });
+
+    const annotation = assertOk(result).annotations[0];
+    expect(annotation?.protocolRef).toEqual({ id: 'peggy' });
+  });
+
   it('does not emit for bridge diagnostics without a resolvable protocol hint', async () => {
     const detector = new BridgeParticipantDetector(createSeedProtocolCatalog());
     const transaction = makeTransaction({

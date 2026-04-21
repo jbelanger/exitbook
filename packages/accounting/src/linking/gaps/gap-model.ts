@@ -1,3 +1,5 @@
+import type { DerivedOperationGroup } from '@exitbook/transaction-interpretation';
+
 /**
  * Link gap issue details.
  */
@@ -34,8 +36,8 @@ export interface LinkGapIssue {
   missingAmount: string;
   totalAmount: string;
   confirmedCoveragePercent: string;
-  operationCategory: string;
-  operationType: string;
+  operationGroup: DerivedOperationGroup;
+  operationLabel: string;
   suggestedCount: number;
   highestSuggestedConfidencePercent?: string | undefined;
   direction: LinkGapDirection;

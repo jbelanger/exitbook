@@ -6,7 +6,7 @@ import { InMemoryProtocolCatalog, type IProtocolCatalog, type ProtocolCatalogEnt
 const SEED_ENTRIES: readonly ProtocolCatalogEntry[] = [
   { protocol: { id: 'wormhole' }, displayName: 'Wormhole' },
   { protocol: { id: 'ibc' }, displayName: 'IBC' },
-  { protocol: { id: 'peggy' }, displayName: 'Peggy Bridge' },
+  { protocol: { id: 'peggy' }, displayName: 'Peggy Bridge', aliases: ['injective_peggy'] },
   { protocol: { id: 'gravity' }, displayName: 'Gravity Bridge' },
   { protocol: { id: 'layerzero' }, displayName: 'LayerZero' },
   { protocol: { id: 'hop' }, displayName: 'Hop Protocol' },

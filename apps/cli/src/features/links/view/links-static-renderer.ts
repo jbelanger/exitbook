@@ -459,7 +459,7 @@ export function buildLinkGapStaticDetail(item: LinkGapBrowseItem): string {
       ? [buildDetailLine('Blockchain hash', item.transactionSnapshot.blockchainTransactionHash)]
       : []),
     buildDetailLine('Date', gapIssue.timestamp),
-    buildDetailLine('Operation', `${gapIssue.operationCategory}/${gapIssue.operationType}`),
+    buildDetailLine('Operation', gapIssue.operationLabel),
     ...(item.transactionSnapshot?.from ? [buildDetailLine('From', item.transactionSnapshot.from)] : []),
     ...(item.transactionSnapshot?.to ? [buildDetailLine('To', item.transactionSnapshot.to)] : []),
     ...(buildGapOwnershipRouteLabel(item.transactionSnapshot?.fromOwnership, item.transactionSnapshot?.toOwnership)

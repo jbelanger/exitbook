@@ -29,6 +29,20 @@ describe('InMemoryProtocolCatalog', () => {
     expect(catalog.findByAddress(' ethereum ', '0xabc123')).toEqual(TEST_ENTRIES[0]);
   });
 
+  it('matches aliases through the catalog instead of forcing detectors to own them', () => {
+    const catalog = new InMemoryProtocolCatalog([
+      ...TEST_ENTRIES,
+      {
+        protocol: { id: 'peggy' },
+        displayName: 'Peggy Bridge',
+        aliases: ['injective_peggy'],
+      },
+    ]);
+
+    expect(catalog.findByAlias('injective_peggy')?.protocol).toEqual({ id: 'peggy' });
+    expect(catalog.findByAlias(' wormhole ')?.protocol).toEqual({ id: 'wormhole' });
+  });
+
   it('does not match addresses across different chains', () => {
     const catalog = new InMemoryProtocolCatalog(TEST_ENTRIES);
 
@@ -50,5 +64,11 @@ describe('createSeedProtocolCatalog', () => {
       'across',
       'stargate',
     ]);
+  });
+
+  it('resolves seeded bridge aliases', () => {
+    const catalog = createSeedProtocolCatalog();
+
+    expect(catalog.findByAlias('injective_peggy')?.protocol).toEqual({ id: 'peggy' });
   });
 });

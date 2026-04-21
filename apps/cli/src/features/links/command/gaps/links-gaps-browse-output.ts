@@ -101,6 +101,8 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     missingAmount: item.gapIssue.missingAmount,
     totalAmount: item.gapIssue.totalAmount,
     confirmedCoveragePercent: item.gapIssue.confirmedCoveragePercent,
+    operationGroup: item.gapIssue.operationGroup,
+    operationLabel: item.gapIssue.operationLabel,
     crossProfileCandidates: item.crossProfileCandidates,
     crossProfileCue:
       item.crossProfileCandidates === undefined || item.crossProfileCandidates.length === 0
@@ -112,8 +114,6 @@ function serializeGapSummary(item: LinkGapBrowseItem): Record<string, unknown> {
     exactOtherProfileCounterpartTransactionRef: exactOtherProfileCounterpart?.transactionRef,
     exactOtherProfileCounterpartProfileDisplayName: exactOtherProfileCounterpart?.profileDisplayName,
     exactOtherProfileCounterpartProfileKey: exactOtherProfileCounterpart?.profileKey,
-    operationCategory: item.gapIssue.operationCategory,
-    operationType: item.gapIssue.operationType,
     suggestedCount: item.gapIssue.suggestedCount,
     suggestedProposalRefs: item.suggestedProposalRefs,
     highestSuggestedConfidencePercent: item.gapIssue.highestSuggestedConfidencePercent,

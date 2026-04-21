@@ -13,18 +13,6 @@ import type {
 const BRIDGE_DIAGNOSTIC_CODE = 'bridge_transfer';
 const DETECTOR_ID = 'bridge-participant';
 
-const BRIDGE_PROTOCOL_HINTS: Readonly<Record<string, ProtocolRef>> = {
-  across: { id: 'across' },
-  gravity: { id: 'gravity' },
-  hop: { id: 'hop' },
-  ibc: { id: 'ibc' },
-  injective_peggy: { id: 'peggy' },
-  layerzero: { id: 'layerzero' },
-  peggy: { id: 'peggy' },
-  stargate: { id: 'stargate' },
-  wormhole: { id: 'wormhole' },
-};
-
 type BridgeAnnotationMetadata = Record<string, string>;
 
 function getBridgeRole(transaction: Transaction): AnnotationRole | undefined {
@@ -82,12 +70,7 @@ function resolveBridgeProtocolRef(
     return undefined;
   }
 
-  const protocolRef = BRIDGE_PROTOCOL_HINTS[normalizedHint];
-  if (protocolRef === undefined) {
-    return undefined;
-  }
-
-  return protocolCatalog.findByRef(protocolRef)?.protocol;
+  return protocolCatalog.findByAlias(normalizedHint)?.protocol;
 }
 
 function buildBridgeAnnotation(

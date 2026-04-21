@@ -11,7 +11,7 @@ import {
   type TransactionLink,
 } from '@exitbook/core';
 import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import { deriveOperationLabel, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import {
@@ -743,6 +743,8 @@ function createLinkGapIssue(params: {
     direction,
     transactionAnnotationsByTransactionId,
   } = params;
+  const annotations = transactionAnnotationsByTransactionId.get(tx.id) ?? [];
+  const derivedOperation = deriveOperationLabel(tx, annotations);
 
   const coveragePercent = totalAmount.isZero() ? parseDecimal('0') : confirmedAmount.dividedBy(totalAmount).times(100);
 
@@ -757,12 +759,12 @@ function createLinkGapIssue(params: {
     missingAmount: uncoveredAmount.toFixed(),
     totalAmount: totalAmount.toFixed(),
     confirmedCoveragePercent: coveragePercent.toFixed(),
-    operationCategory: tx.operation.category,
-    operationType: tx.operation.type,
+    operationGroup: derivedOperation.group,
+    operationLabel: derivedOperation.label,
     suggestedCount: suggestedLinks.length,
     highestSuggestedConfidencePercent: findHighestConfidence(suggestedLinks),
     direction,
-    contextHint: deriveGapContextHint(tx, direction, transactionAnnotationsByTransactionId.get(tx.id)),
+    contextHint: deriveGapContextHint(tx, direction, annotations),
   };
 }
 

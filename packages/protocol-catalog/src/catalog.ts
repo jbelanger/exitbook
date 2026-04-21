@@ -1,9 +1,10 @@
 import { normalizeIdentifierForMatching } from '@exitbook/foundation';
 
 import type { ProtocolDeployment } from './protocol-deployment.js';
-import { protocolRefsEqual, type ProtocolRef } from './protocol-ref.js';
+import { formatProtocolRef, protocolRefsEqual, type ProtocolRef } from './protocol-ref.js';
 
 export interface ProtocolCatalogEntry {
+  aliases?: readonly string[] | undefined;
   protocol: ProtocolRef;
   displayName?: string | undefined;
   deployments?: readonly ProtocolDeployment[] | undefined;
@@ -12,6 +13,7 @@ export interface ProtocolCatalogEntry {
 export interface IProtocolCatalog {
   list(): readonly ProtocolCatalogEntry[];
   findByRef(ref: ProtocolRef): ProtocolCatalogEntry | undefined;
+  findByAlias(alias: string): ProtocolCatalogEntry | undefined;
   findByAddress(chain: string, address: string): ProtocolCatalogEntry | undefined;
 }
 
@@ -28,6 +30,19 @@ export class InMemoryProtocolCatalog implements IProtocolCatalog {
 
   findByRef(ref: ProtocolRef): ProtocolCatalogEntry | undefined {
     return this.#entries.find((entry) => protocolRefsEqual(entry.protocol, ref));
+  }
+
+  findByAlias(alias: string): ProtocolCatalogEntry | undefined {
+    const normalizedAlias = normalizeIdentifierForMatching(alias);
+
+    for (const entry of this.#entries) {
+      const candidates = [entry.protocol.id, formatProtocolRef(entry.protocol), ...(entry.aliases ?? [])];
+      if (candidates.some((candidate) => normalizeIdentifierForMatching(candidate) === normalizedAlias)) {
+        return entry;
+      }
+    }
+
+    return undefined;
   }
 
   findByAddress(chain: string, address: string): ProtocolCatalogEntry | undefined {

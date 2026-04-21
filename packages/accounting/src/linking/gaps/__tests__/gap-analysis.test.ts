@@ -872,6 +872,8 @@ describe('analyzeLinkGaps', () => {
     });
 
     expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.operationGroup).toBe('transfer');
+    expect(analysis.issues[0]?.operationLabel).toBe('bridge/receive');
     expect(analysis.issues[0]?.contextHint).toStrictEqual({
       kind: 'annotation',
       code: 'bridge_participant',

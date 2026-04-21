@@ -880,7 +880,7 @@ const GapDetailPanel: FC<{ state: LinksViewGapsState }> = ({ state }) => {
 function buildGapDetailRows(gap: LinkGapBrowseItem): ReactElement[] {
   const { gapIssue: issue } = gap;
   const txId = `#${issue.transactionId}`;
-  const operation = `${issue.operationCategory}/${issue.operationType}`;
+  const operation = issue.operationLabel;
   const directionLabel = issue.direction === 'inflow' ? 'inflow' : 'outflow';
   const coverageNum = parseFloat(issue.confirmedCoveragePercent);
   const coverageColor = getCoverageColor(coverageNum);

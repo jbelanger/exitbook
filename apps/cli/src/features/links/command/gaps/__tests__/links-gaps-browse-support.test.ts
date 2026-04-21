@@ -28,6 +28,32 @@ import { buildLinksGapsBrowsePresentation } from '../links-gaps-browse-support.j
 
 type LinksGapSourceReader = Parameters<typeof buildLinksGapsBrowsePresentation>[0];
 
+function deriveTransactionOperationFromGapIssue(issue: LinkGapAnalysis['issues'][number]): Transaction['operation'] {
+  const fallbackType = issue.direction === 'inflow' ? 'deposit' : 'withdrawal';
+  const slashIndex = issue.operationLabel.indexOf('/');
+  const derivedType = slashIndex >= 0 ? issue.operationLabel.slice(slashIndex + 1) : fallbackType;
+
+  switch (derivedType) {
+    case 'airdrop':
+    case 'buy':
+    case 'deposit':
+    case 'reward':
+    case 'sell':
+    case 'swap':
+    case 'transfer':
+    case 'withdrawal':
+      return {
+        category: issue.operationGroup as Transaction['operation']['category'],
+        type: derivedType,
+      };
+    default:
+      return {
+        category: issue.operationGroup as Transaction['operation']['category'],
+        type: fallbackType,
+      };
+  }
+}
+
 function createLinksGapSourceReader(
   sourceData: ProfileLinkGapSourceData = createProfileLinkGapSourceData(createMockGapAnalysis())
 ): {
@@ -72,10 +98,7 @@ function createProfileLinkGapSourceData(analysis: LinkGapAnalysis): ProfileLinkG
           ],
         },
         fees: [],
-        operation: {
-          category: issue.operationCategory as Transaction['operation']['category'],
-          type: issue.operationType as Transaction['operation']['type'],
-        },
+        operation: deriveTransactionOperationFromGapIssue(issue),
         ...(issue.blockchainName !== undefined
           ? {
               blockchain: {
@@ -231,8 +254,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '1',
           totalAmount: '1',
           confirmedCoveragePercent: '0',
-          operationCategory: fixture.sourceTransaction.operation.category,
-          operationType: fixture.sourceTransaction.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/withdrawal',
           suggestedCount: 1,
           highestSuggestedConfidencePercent: '99.0',
           direction: 'outflow' as const,
@@ -247,8 +270,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '1',
           totalAmount: '1',
           confirmedCoveragePercent: '0',
-          operationCategory: fixture.targetTransaction.operation.category,
-          operationType: fixture.targetTransaction.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/deposit',
           suggestedCount: 1,
           highestSuggestedConfidencePercent: '99.0',
           direction: 'inflow' as const,
@@ -362,8 +385,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '99',
           totalAmount: '99',
           confirmedCoveragePercent: '0',
-          operationCategory: gapTx.operation.category,
-          operationType: gapTx.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/withdrawal',
           suggestedCount: 0,
           direction: 'outflow' as const,
         },
@@ -520,8 +543,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '0.5',
           totalAmount: '0.5',
           confirmedCoveragePercent: '0',
-          operationCategory: txOne.operation.category,
-          operationType: txOne.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/transfer',
           suggestedCount: 0,
           direction: 'outflow' as const,
         },
@@ -536,8 +559,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '0.4',
           totalAmount: '0.4',
           confirmedCoveragePercent: '0',
-          operationCategory: txTwo.operation.category,
-          operationType: txTwo.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/transfer',
           suggestedCount: 0,
           direction: 'outflow' as const,
         },
@@ -666,8 +689,8 @@ describe('links-gaps-browse-support', () => {
           missingAmount: '0.5',
           totalAmount: '0.5',
           confirmedCoveragePercent: '0',
-          operationCategory: tx.operation.category,
-          operationType: tx.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'transfer/transfer',
           suggestedCount: 0,
           direction: 'outflow' as const,
         },
