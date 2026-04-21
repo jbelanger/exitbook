@@ -663,8 +663,7 @@ function createMockMovements(): MissingPriceMovement[] {
       assetSymbol: 'BTC',
       amount: '1.5',
       direction: 'inflow',
-      operationCategory: 'transfer',
-      operationType: 'deposit',
+      operationLabel: 'transfer/deposit',
     },
     {
       transactionId: 102,
@@ -673,8 +672,7 @@ function createMockMovements(): MissingPriceMovement[] {
       assetSymbol: 'ETH',
       amount: '10.0',
       direction: 'outflow',
-      operationCategory: 'transfer',
-      operationType: 'withdrawal',
+      operationLabel: 'transfer/withdrawal',
     },
     {
       transactionId: 103,
@@ -683,8 +681,7 @@ function createMockMovements(): MissingPriceMovement[] {
       assetSymbol: 'SOL',
       amount: '100.0',
       direction: 'inflow',
-      operationCategory: 'trade',
-      operationType: 'buy',
+      operationLabel: 'trade/buy',
     },
   ];
 }

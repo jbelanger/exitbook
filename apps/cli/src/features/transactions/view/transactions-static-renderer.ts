@@ -13,7 +13,6 @@ import {
   formatTransactionDirection,
   formatTransactionFingerprintRef,
   formatTransactionFlags,
-  formatTransactionOperationLabel,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
   type TransactionsStatusColor,
@@ -67,7 +66,7 @@ export function buildTransactionsStaticList(state: TransactionsViewState): strin
       minWidth: 'FEES'.length,
     },
     operation: {
-      format: (item) => formatTransactionOperationLabel(item.operationLabel),
+      format: (item) => item.operationLabel,
       minWidth: 18,
     },
     platform: { format: (item) => item.platformKey, minWidth: 10 },
@@ -128,13 +127,13 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
   const priceStatus = getTransactionPriceStatusDisplay(transaction.priceStatus);
   const flags = formatTransactionFlags(transaction);
   const lines = [
-    `${pc.bold(`Transaction #${transaction.id}`)} ${pc.dim(formatTransactionFingerprintRef(transaction.txFingerprint))} ${pc.cyan(transaction.platformKey)} ${pc.dim(formatTransactionOperationLabel(transaction.operationLabel))}`,
+    `${pc.bold(`Transaction #${transaction.id}`)} ${pc.dim(formatTransactionFingerprintRef(transaction.txFingerprint))} ${pc.cyan(transaction.platformKey)} ${pc.dim(transaction.operationLabel)}`,
     '',
     buildDetailLine('Transaction ref', formatTransactionFingerprintRef(transaction.txFingerprint)),
     buildDetailLine('Fingerprint', transaction.txFingerprint),
     buildDetailLine('Date', formatTransactionTimestamp(transaction.datetime)),
     buildDetailLine('Platform', transaction.platformKey),
-    buildDetailLine('Operation', formatTransactionOperationLabel(transaction.operationLabel)),
+    buildDetailLine('Operation', transaction.operationLabel),
     buildDetailLine('Debit', formatTransactionBalanceSummary(transaction.debitSummary)),
     buildDetailLine('Credit', formatTransactionBalanceSummary(transaction.creditSummary)),
     buildDetailLine('Fees', formatTransactionBalanceSummary(transaction.feeSummary)),

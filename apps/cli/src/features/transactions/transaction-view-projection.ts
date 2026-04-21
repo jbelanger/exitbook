@@ -140,8 +140,6 @@ export function toTransactionViewItem(
     datetime: tx.datetime,
     operationGroup: derivedOperation.group,
     operationLabel: derivedOperation.label,
-    operationCategory: tx.operation.category,
-    operationType: tx.operation.type,
     debitSummary: formatBalanceImpactSummary(
       orderBalanceImpactAssetsForDisplay(
         balanceImpactAssetsById,

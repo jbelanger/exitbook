@@ -10,6 +10,7 @@ import {
 } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { IPriceProviderRuntime } from '@exitbook/price-providers';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import type { AccountingExclusionPolicy } from '../accounting-model/accounting-exclusion-policy.js';
@@ -81,6 +82,7 @@ export interface PortfolioResult {
   closedPositions: PortfolioPositionItem[];
   issueNoticeSummaries: CostBasisIssueNoticeSummary[];
   transactions: Transaction[];
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   totalValue?: string | undefined;
   totalCost?: string | undefined;
   totalUnrealizedGainLoss?: string | undefined;
@@ -243,6 +245,10 @@ export class PortfolioHandler {
         portfolioSourceContext: {
           accounts: context.accounts,
           confirmedLinks: context.confirmedLinks,
+          transactionAnnotations: filterTransactionAnnotationsForTransactions(
+            context.transactionAnnotations ?? [],
+            portfolioTransactions
+          ),
           transactions: portfolioTransactions,
         },
       };
@@ -593,6 +599,7 @@ export class PortfolioHandler {
       closedPositions: positionsResult.closedPositions,
       issueNoticeSummaries: positionsResult.issueNoticeSummaries,
       transactions: inputs.portfolioSourceContext.transactions,
+      transactionAnnotations: inputs.portfolioSourceContext.transactionAnnotations,
       totalValue,
       totalCost,
       totalUnrealizedGainLoss,
@@ -749,6 +756,18 @@ export class PortfolioHandler {
 
     return err(error);
   }
+}
+
+function filterTransactionAnnotationsForTransactions(
+  transactionAnnotations: readonly TransactionAnnotation[],
+  transactions: readonly Transaction[]
+): readonly TransactionAnnotation[] {
+  if (transactionAnnotations.length === 0 || transactions.length === 0) {
+    return [];
+  }
+
+  const transactionIds = new Set(transactions.map((transaction) => transaction.id));
+  return transactionAnnotations.filter((annotation) => transactionIds.has(annotation.transactionId));
 }
 
 function emptyPortfolioResult(

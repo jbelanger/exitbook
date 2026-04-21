@@ -942,7 +942,7 @@ const PortfolioHistoryList: FC<{
 }> = ({ state, terminalHeight }) => {
   const { displayCurrency } = state;
   const cols = createColumns<PortfolioTransactionItem, 'category' | 'valueOrTransfer'>(state.transactions, {
-    category: { format: (t) => t.operationCategory, minWidth: 10 },
+    category: { format: (t) => t.operationLabel, minWidth: 10 },
     valueOrTransfer: {
       format: (t) =>
         t.transferDirection && t.transferPeer
@@ -1030,7 +1030,7 @@ const PortfolioTransactionDetail: FC<{ state: PortfolioHistoryState }> = ({ stat
   return (
     <Box flexDirection="column">
       <Text>
-        <Text bold>{'\u25B8'}</Text> <Text dimColor>{date}</Text> {selected.operationType}
+        <Text bold>{'\u25B8'}</Text> <Text dimColor>{date}</Text> {selected.operationLabel}
         {'  '}
         <Text color={amountColor}>
           {amountPrefix}
@@ -1040,7 +1040,7 @@ const PortfolioTransactionDetail: FC<{ state: PortfolioHistoryState }> = ({ stat
       <Text> </Text>
       <Text>
         {'  '}
-        <Text dimColor>Operation:</Text> {selected.operationCategory} ({selected.operationType})
+        <Text dimColor>Operation:</Text> {selected.operationGroup} ({selected.operationLabel})
       </Text>
       <Text>
         {'  '}

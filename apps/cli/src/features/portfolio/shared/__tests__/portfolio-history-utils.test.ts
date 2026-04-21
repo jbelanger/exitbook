@@ -1,5 +1,6 @@
 import type { PriceAtTxTime, Transaction, TransactionDraft } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
@@ -46,6 +47,27 @@ function createTransaction(params: {
   });
 }
 
+function createAnnotation(
+  overrides: Partial<TransactionAnnotation> & Pick<TransactionAnnotation, 'kind' | 'tier'>
+): TransactionAnnotation {
+  return {
+    annotationFingerprint: 'annotation:test',
+    accountId: 1,
+    transactionId: 1,
+    txFingerprint: 'portfolio-history-test-1',
+    kind: overrides.kind,
+    tier: overrides.tier,
+    target: overrides.target ?? { scope: 'transaction' },
+    detectorId: 'detector',
+    derivedFromTxIds: [1],
+    provenanceInputs: ['diagnostic'],
+    ...(overrides.role === undefined ? {} : { role: overrides.role }),
+    ...(overrides.groupKey === undefined ? {} : { groupKey: overrides.groupKey }),
+    ...(overrides.protocolRef === undefined ? {} : { protocolRef: overrides.protocolRef }),
+    ...(overrides.metadata === undefined ? {} : { metadata: overrides.metadata }),
+  };
+}
+
 describe('buildTransactionItems', () => {
   it('does not double count on-chain fees for asset amount or fiat value', () => {
     const items = buildTransactionItems(
@@ -82,8 +104,36 @@ describe('buildTransactionItems', () => {
       assetAmount: '1.00000000',
       assetDirection: 'out',
       fiatValue: '100.00',
+      operationGroup: 'transfer',
+      operationLabel: 'transfer/withdrawal',
       transferDirection: 'to',
       transferPeer: 'wallet-b',
+    });
+  });
+
+  it('prefers persisted interpretation labels over stored operation strings', () => {
+    const transaction = createTransaction({
+      id: 1,
+      datetime: '2025-01-01T00:00:00.000Z',
+      outflows: [
+        {
+          assetId: 'asset:sol',
+          assetSymbol: 'SOL' as Currency,
+          grossAmount: parseDecimal('1'),
+          netAmount: parseDecimal('1'),
+          priceAtTxTime: createPriceAtTxTime('100', '2025-01-01T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    const items = buildTransactionItems([transaction], 'asset:sol', [
+      createAnnotation({ kind: 'bridge_participant', tier: 'asserted', role: 'source' }),
+    ]);
+
+    expect(items[0]).toMatchObject({
+      operationGroup: 'transfer',
+      operationLabel: 'bridge/send',
+      transferDirection: 'to',
     });
   });
 });

@@ -6,6 +6,7 @@ export interface ProfileLinkGapCrossProfileContext {
   accounts: readonly Pick<Account, 'id' | 'profileId'>[];
   activeProfileId: number;
   profiles: readonly Pick<Profile, 'displayName' | 'id' | 'profileKey'>[];
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   transactions: readonly Transaction[];
 }
 

@@ -11,7 +11,11 @@ import {
   type TransactionLink,
 } from '@exitbook/core';
 import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
-import { deriveOperationLabel, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import {
+  deriveOperationLabel,
+  type DerivedOperationLabel,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import {
@@ -32,6 +36,9 @@ const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
 const LIKELY_DUST_DIAGNOSTIC_CODES = new Set(['unsolicited_dust_fanout']);
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
+const GAP_TRANSFER_SEND_OVERRIDE_LABELS = new Set(['asset migration/send', 'bridge/send']);
+const GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS = new Set(['asset migration/receive', 'bridge/receive']);
+const GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS = new Set(['airdrop/claim']);
 const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
@@ -152,17 +159,70 @@ function normalizeAddress(address: string | undefined): string | undefined {
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
-function isTransferSendTransaction(tx: Transaction): boolean {
+function buildDerivedOperationsByTransactionId(
+  transactions: readonly Transaction[],
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>
+): ReadonlyMap<number, DerivedOperationLabel> {
+  const derivedOperationsByTransactionId = new Map<number, DerivedOperationLabel>();
+
+  for (const transaction of transactions) {
+    derivedOperationsByTransactionId.set(
+      transaction.id,
+      deriveOperationLabel(transaction, transactionAnnotationsByTransactionId.get(transaction.id) ?? [])
+    );
+  }
+
+  return derivedOperationsByTransactionId;
+}
+
+function getDerivedGapOperation(
+  tx: Transaction,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>
+): DerivedOperationLabel {
+  return derivedOperationsByTransactionId.get(tx.id) ?? deriveOperationLabel(tx);
+}
+
+function hasGapTransferDirectionOverride(operation: DerivedOperationLabel): boolean {
+  return (
+    GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label) || GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)
+  );
+}
+
+function isTransferSendTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
+  if (GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label)) {
+    return true;
+  }
+
+  if (GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)) {
+    return false;
+  }
+
   return (
     tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer')
   );
 }
 
-function isTransferReceiveTransaction(tx: Transaction): boolean {
+function isTransferReceiveTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
+  if (GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)) {
+    return true;
+  }
+
+  if (GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label)) {
+    return false;
+  }
+
   return tx.operation.category === 'transfer' && (tx.operation.type === 'deposit' || tx.operation.type === 'transfer');
 }
 
-function isExcludedInflowGapTransaction(tx: Transaction): boolean {
+function isExcludedInflowGapTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
+  if (GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS.has(operation.label)) {
+    return true;
+  }
+
+  if (hasGapTransferDirectionOverride(operation)) {
+    return false;
+  }
+
   if (MINTING_OPERATION_TYPES.has(tx.operation.type)) {
     return true;
   }
@@ -353,6 +413,7 @@ function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverage
 
 function getOneSidedTransferActivity(
   tx: Transaction,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   excludedAssetIds?: ReadonlySet<string>
 ): OneSidedTransferActivity | undefined {
   const inflowTotals = buildPositiveAssetTotalsByAssetId(
@@ -364,7 +425,9 @@ function getOneSidedTransferActivity(
     excludedAssetIds
   );
 
-  if (outflowTotals.size === 0 && inflowTotals.size > 0 && isTransferReceiveTransaction(tx)) {
+  const derivedOperation = getDerivedGapOperation(tx, derivedOperationsByTransactionId);
+
+  if (outflowTotals.size === 0 && inflowTotals.size > 0 && isTransferReceiveTransaction(tx, derivedOperation)) {
     const entry = getSingleAssetEntryById(inflowTotals);
     if (!entry) {
       return undefined;
@@ -381,7 +444,7 @@ function getOneSidedTransferActivity(
     };
   }
 
-  if (inflowTotals.size === 0 && outflowTotals.size > 0 && isTransferSendTransaction(tx)) {
+  if (inflowTotals.size === 0 && outflowTotals.size > 0 && isTransferSendTransaction(tx, derivedOperation)) {
     const entry = getSingleAssetEntryById(outflowTotals);
     if (!entry) {
       return undefined;
@@ -403,18 +466,22 @@ function getOneSidedTransferActivity(
 
 function getOneSidedBlockchainActivity(
   tx: Transaction,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   excludedAssetIds?: ReadonlySet<string>
 ): OneSidedBlockchainActivity | undefined {
   if (!tx.blockchain) {
     return undefined;
   }
 
-  const activity = getOneSidedTransferActivity(tx, excludedAssetIds);
+  const activity = getOneSidedTransferActivity(tx, derivedOperationsByTransactionId, excludedAssetIds);
   if (activity === undefined) {
     return undefined;
   }
 
-  if (activity.direction === 'inflow' && isExcludedInflowGapTransaction(tx)) {
+  if (
+    activity.direction === 'inflow' &&
+    isExcludedInflowGapTransaction(tx, getDerivedGapOperation(tx, derivedOperationsByTransactionId))
+  ) {
     return undefined;
   }
 
@@ -559,7 +626,11 @@ function hasTrackedSelfAddress(
   return normalizeAddress(account.identifier) === activity.selfAddress;
 }
 
-function isNearbySwapTransaction(tx: Transaction, activity: OneSidedBlockchainActivity): boolean {
+function isNearbySwapTransaction(
+  tx: Transaction,
+  activity: OneSidedBlockchainActivity,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>
+): boolean {
   if (
     !tx.blockchain ||
     tx.id === activity.transaction.id ||
@@ -573,7 +644,8 @@ function isNearbySwapTransaction(tx: Transaction, activity: OneSidedBlockchainAc
     return false;
   }
 
-  if (tx.operation.category !== 'trade' || tx.operation.type !== 'swap') {
+  const derivedOperation = getDerivedGapOperation(tx, derivedOperationsByTransactionId);
+  if (derivedOperation.group !== 'trade' || derivedOperation.label !== 'trade/swap') {
     return false;
   }
 
@@ -643,10 +715,11 @@ function classifySuppressedGapTransactionIds(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   excludedAssetIds?: ReadonlySet<string>
 ): Set<number> {
   const uncoveredActivities = transactions
-    .map((tx) => getOneSidedBlockchainActivity(tx, excludedAssetIds))
+    .map((tx) => getOneSidedBlockchainActivity(tx, derivedOperationsByTransactionId, excludedAssetIds))
     .filter((activity): activity is OneSidedBlockchainActivity => activity !== undefined)
     .filter(
       (activity) =>
@@ -658,7 +731,9 @@ function classifySuppressedGapTransactionIds(
   const suppressedTxIds = new Set<number>();
 
   for (const activity of uncoveredActivities) {
-    const hasNearbySwap = transactions.some((tx) => isNearbySwapTransaction(tx, activity));
+    const hasNearbySwap = transactions.some((tx) =>
+      isNearbySwapTransaction(tx, activity, derivedOperationsByTransactionId)
+    );
     const hasNearbyOppositeUncoveredTransfer = uncoveredActivities.some(
       (other) =>
         other.transaction.id !== activity.transaction.id &&
@@ -725,6 +800,7 @@ function createLinkGapIssue(params: {
   assetId: string;
   assetSymbol: string;
   confirmedAmount: Decimal;
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>;
   direction: LinkGapDirection;
   suggestedLinks: readonly TransactionLink[];
   totalAmount: Decimal;
@@ -741,10 +817,11 @@ function createLinkGapIssue(params: {
     confirmedAmount,
     suggestedLinks,
     direction,
+    derivedOperationsByTransactionId,
     transactionAnnotationsByTransactionId,
   } = params;
   const annotations = transactionAnnotationsByTransactionId.get(tx.id) ?? [];
-  const derivedOperation = deriveOperationLabel(tx, annotations);
+  const derivedOperation = derivedOperationsByTransactionId.get(tx.id) ?? deriveOperationLabel(tx, annotations);
 
   const coveragePercent = totalAmount.isZero() ? parseDecimal('0') : confirmedAmount.dividedBy(totalAmount).times(100);
 
@@ -807,7 +884,23 @@ function deriveGapContextHint(
     };
   }
 
+  const stakingRewardAnnotation = getStakingRewardAnnotation(annotations);
+  if (stakingRewardAnnotation !== undefined) {
+    return {
+      kind: 'annotation',
+      code: stakingRewardAnnotation.kind,
+      label: 'staking reward in same tx',
+      message: 'Transaction carries asserted staking reward interpretation that is excluded from transfer matching.',
+    };
+  }
+
   return deriveGapMovementRoleContextHint(tx);
+}
+
+function getStakingRewardAnnotation(
+  annotations: readonly TransactionAnnotation[] | undefined
+): TransactionAnnotation | undefined {
+  return annotations?.find((annotation) => annotation.kind === 'staking_reward' && annotation.tier === 'asserted');
 }
 
 function deriveGapMovementRoleContextHint(tx: Transaction): GapContextHint | undefined {
@@ -1277,6 +1370,7 @@ interface PossibleAssetMigrationCueCandidate {
 function buildPossibleAssetMigrationCueCandidates(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): PossibleAssetMigrationCueCandidate[] {
@@ -1289,7 +1383,7 @@ function buildPossibleAssetMigrationCueCandidates(
       continue;
     }
 
-    const activity = getOneSidedTransferActivity(tx, excludedAssetIds);
+    const activity = getOneSidedTransferActivity(tx, derivedOperationsByTransactionId, excludedAssetIds);
     if (
       activity === undefined ||
       activity.assetId !== issue.assetId ||
@@ -1360,12 +1454,14 @@ function findPossibleAssetMigrationCueCounterparts(
 function detectPossibleAssetMigrationCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
   const candidates = buildPossibleAssetMigrationCueCandidates(
     issues,
     transactions,
+    derivedOperationsByTransactionId,
     transactionAnnotationsByTransactionId,
     excludedAssetIds
   );
@@ -1454,6 +1550,7 @@ function detectServiceSwapCueIssueKeys(
 function detectLikelyDustCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
   const transactionById = buildTransactionById(transactions);
@@ -1469,7 +1566,7 @@ function detectLikelyDustCueIssueKeys(
       continue;
     }
 
-    const activity = getOneSidedBlockchainActivity(transaction, excludedAssetIds);
+    const activity = getOneSidedBlockchainActivity(transaction, derivedOperationsByTransactionId, excludedAssetIds);
     if (
       activity === undefined ||
       activity.assetId !== issue.assetId ||
@@ -1529,6 +1626,7 @@ function detectGapCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
@@ -1544,12 +1642,13 @@ function detectGapCueIssueKeys(
     detectPossibleAssetMigrationCueIssueKeys(
       issues,
       transactions,
+      derivedOperationsByTransactionId,
       transactionAnnotationsByTransactionId,
       excludedAssetIds
     ),
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
     detectBridgeCueIssueKeysFromAnnotations(issues, transactionAnnotationsByTransactionId),
-    detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)
+    detectLikelyDustCueIssueKeys(issues, transactions, derivedOperationsByTransactionId, excludedAssetIds)
   );
 }
 
@@ -1557,6 +1656,7 @@ function applyGapCues(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
@@ -1564,6 +1664,7 @@ function applyGapCues(
     issues,
     transactions,
     accountContextById,
+    derivedOperationsByTransactionId,
     transactionAnnotationsByTransactionId,
     excludedAssetIds
   );
@@ -1624,6 +1725,7 @@ function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
@@ -1640,11 +1742,12 @@ function collectInflowGapIssues(
 
     const inflows = filterTransferEligibleMovements(tx.movements.inflows);
     const outflows = filterTransferEligibleMovements(tx.movements.outflows);
+    const derivedOperation = getDerivedGapOperation(tx, derivedOperationsByTransactionId);
     if (
       inflows.length === 0 ||
       outflows.length > 0 ||
-      !isTransferReceiveTransaction(tx) ||
-      isExcludedInflowGapTransaction(tx)
+      !isTransferReceiveTransaction(tx, derivedOperation) ||
+      isExcludedInflowGapTransaction(tx, derivedOperation)
     ) {
       continue;
     }
@@ -1684,6 +1787,7 @@ function collectInflowGapIssues(
           uncoveredAmount,
           totalAmount,
           confirmedAmount,
+          derivedOperationsByTransactionId,
           suggestedLinks,
           direction: 'inflow',
           transactionAnnotationsByTransactionId,
@@ -1699,6 +1803,7 @@ function collectOutflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
+  derivedOperationsByTransactionId: ReadonlyMap<number, DerivedOperationLabel>,
   transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
@@ -1715,7 +1820,11 @@ function collectOutflowGapIssues(
 
     const inflows = filterTransferEligibleMovements(tx.movements.inflows);
     const outflows = filterTransferEligibleMovements(tx.movements.outflows);
-    if (outflows.length === 0 || inflows.length > 0 || !isTransferSendTransaction(tx)) {
+    if (
+      outflows.length === 0 ||
+      inflows.length > 0 ||
+      !isTransferSendTransaction(tx, getDerivedGapOperation(tx, derivedOperationsByTransactionId))
+    ) {
       continue;
     }
 
@@ -1750,6 +1859,7 @@ function collectOutflowGapIssues(
           uncoveredAmount,
           totalAmount,
           confirmedAmount,
+          derivedOperationsByTransactionId,
           suggestedLinks,
           direction: 'outflow',
           transactionAnnotationsByTransactionId,
@@ -1816,10 +1926,15 @@ export function analyzeLinkGaps(
   const coverageIndex = buildLinkCoverageIndex(links);
   const accountContextById = buildAccountContextById(options.accounts);
   const transactionAnnotationsByTransactionId = buildAnnotationsByTransactionId(options.transactionAnnotations);
+  const derivedOperationsByTransactionId = buildDerivedOperationsByTransactionId(
+    transactions,
+    transactionAnnotationsByTransactionId
+  );
   const suppressedTxIds = classifySuppressedGapTransactionIds(
     transactions,
     coverageIndex,
     accountContextById,
+    derivedOperationsByTransactionId,
     options.excludedAssetIds
   );
   const rawIssues = [
@@ -1827,6 +1942,7 @@ export function analyzeLinkGaps(
       transactions,
       coverageIndex,
       suppressedTxIds,
+      derivedOperationsByTransactionId,
       transactionAnnotationsByTransactionId,
       options.excludedAssetIds
     ),
@@ -1834,6 +1950,7 @@ export function analyzeLinkGaps(
       transactions,
       coverageIndex,
       suppressedTxIds,
+      derivedOperationsByTransactionId,
       transactionAnnotationsByTransactionId,
       options.excludedAssetIds
     ),
@@ -1845,6 +1962,7 @@ export function analyzeLinkGaps(
     rawIssues,
     transactions,
     accountContextById,
+    derivedOperationsByTransactionId,
     transactionAnnotationsByTransactionId,
     options.excludedAssetIds
   );

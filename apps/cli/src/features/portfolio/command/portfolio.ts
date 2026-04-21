@@ -157,7 +157,11 @@ async function buildPortfolioTuiCompletion(
       const symbolAssetIds = assetIdsBySymbol.get(position.assetSymbol.trim().toUpperCase()) ?? [];
       const historyAssetIds = Array.from(new Set([...holdingAssetIds, ...symbolAssetIds]));
       const filteredTransactions = filterTransactionsForAssets(value.transactions, historyAssetIds);
-      const transactionItems = buildTransactionItems(filteredTransactions, historyAssetIds);
+      const transactionItems = buildTransactionItems(
+        filteredTransactions,
+        historyAssetIds,
+        value.transactionAnnotations ?? []
+      );
       transactionsByAssetId.set(position.assetId, transactionItems);
     }
 

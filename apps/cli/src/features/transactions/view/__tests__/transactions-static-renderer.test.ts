@@ -19,8 +19,6 @@ function createTransactionViewItem(overrides: Partial<TransactionViewItem> = {})
     datetime: '2026-03-01T12:00:00.000Z',
     operationGroup: 'trade',
     operationLabel: 'trade/buy',
-    operationCategory: 'trade',
-    operationType: 'buy',
     debitSummary: '48,250 USD',
     creditSummary: '1.25 BTC',
     feeSummary: '12.5 USD',
@@ -59,7 +57,6 @@ describe('transactions static renderer', () => {
       [
         createTransactionViewItem({
           operationLabel: 'trade/swap',
-          operationType: 'swap',
           debitSummary: '250 CAD',
           creditSummary: '0.0035 BTC',
           feeSummary: '1.25 CAD',
@@ -85,8 +82,6 @@ describe('transactions static renderer', () => {
         createTransactionViewItem({
           operationGroup: 'transfer',
           operationLabel: 'transfer/deposit',
-          operationCategory: 'transfer',
-          operationType: 'deposit',
           debitSummary: undefined,
           creditSummary: '2 ETH',
           feeSummary: undefined,
@@ -210,8 +205,6 @@ describe('transactions static renderer', () => {
       ...createTransactionViewItem(),
       operationGroup: 'transfer',
       operationLabel: 'bridge/send',
-      operationCategory: 'transfer',
-      operationType: 'withdrawal',
       annotations: [
         {
           annotationFingerprint: 'annotation-1',

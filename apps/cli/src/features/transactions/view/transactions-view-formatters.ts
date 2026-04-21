@@ -39,10 +39,6 @@ export function buildTransactionFilterLabels(filters: TransactionsViewFilters): 
   ].filter((value): value is string => value !== undefined);
 }
 
-export function formatTransactionOperationLabel(label: string): string {
-  return label;
-}
-
 function formatAnnotationProtocolRef(ref: NonNullable<TransactionAnnotation['protocolRef']>): string {
   return ref.version === undefined ? ref.id : `${ref.id}@${ref.version}`;
 }

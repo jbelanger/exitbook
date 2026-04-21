@@ -35,8 +35,23 @@ export function buildProfileLinkGapSourceReader(
         const excludedAssetIds = yield* await readExcludedAssetIds(overrideStore, profile.profileKey);
         const resolvedIssueKeys = yield* await readResolvedLinkGapIssueKeys(overrideStore, profile.profileKey);
         const profiles = options?.includeCrossProfileContext ? yield* await db.profiles.list() : undefined;
-        const crossProfileContext =
+        const crossProfileTransactions =
           options?.includeCrossProfileContext && profiles !== undefined && profiles.length > 1
+            ? yield* await db.transactions.findAll()
+            : undefined;
+        const crossProfileTransactionAnnotations =
+          crossProfileTransactions === undefined || crossProfileTransactions.length === 0
+            ? undefined
+            : yield* await db.transactionAnnotations.readAnnotations({
+                transactionIds: crossProfileTransactions.map((transaction) => transaction.id),
+                kinds: ['bridge_participant', 'asset_migration_participant'],
+                tiers: ['asserted', 'heuristic'],
+              });
+        const crossProfileContext =
+          options?.includeCrossProfileContext &&
+          profiles !== undefined &&
+          profiles.length > 1 &&
+          crossProfileTransactions !== undefined
             ? {
                 accounts: (yield* await db.accounts.findAll()).map((account) => ({
                   id: account.id,
@@ -48,7 +63,10 @@ export function buildProfileLinkGapSourceReader(
                   id: candidate.id,
                   profileKey: candidate.profileKey,
                 })),
-                transactions: yield* await db.transactions.findAll(),
+                ...(crossProfileTransactionAnnotations === undefined
+                  ? {}
+                  : { transactionAnnotations: crossProfileTransactionAnnotations }),
+                transactions: crossProfileTransactions,
               }
             : undefined;
 

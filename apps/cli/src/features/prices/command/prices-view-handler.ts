@@ -5,6 +5,12 @@ import type { DataSession } from '@exitbook/data/session';
 import { wrapError } from '@exitbook/foundation';
 import type { Result } from '@exitbook/foundation';
 import { ok } from '@exitbook/foundation';
+import {
+  ANNOTATION_KINDS,
+  ANNOTATION_TIERS,
+  deriveOperationLabel,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 
 import { getAllMovements } from '../../../cli/view-utils.js';
 import type {
@@ -175,10 +181,21 @@ export class PricesViewHandler {
     }
 
     const transactions = txResult.value;
+    const annotationsResult = await this.db.transactionAnnotations.readAnnotations({
+      transactionIds: transactions.map((transaction) => transaction.id),
+      kinds: ANNOTATION_KINDS,
+      tiers: ANNOTATION_TIERS,
+    });
+    if (annotationsResult.isErr()) {
+      return wrapError(annotationsResult.error, 'Failed to fetch transaction annotations');
+    }
+
+    const annotationsByTransactionId = buildAnnotationsByTransactionId(annotationsResult.value);
     const movements: MissingPriceMovement[] = [];
     const assetMap = new Map<string, { count: number; sourceCounts: Map<string, number> }>();
 
     for (const tx of transactions) {
+      const derivedOperation = deriveOperationLabel(tx, annotationsByTransactionId.get(tx.id) ?? []);
       const inflows = tx.movements.inflows ?? [];
       const outflows = tx.movements.outflows ?? [];
 
@@ -193,8 +210,7 @@ export class PricesViewHandler {
           assetSymbol: movement.assetSymbol,
           amount: movement.grossAmount.toFixed(),
           direction: 'inflow',
-          operationCategory: tx.operation.category,
-          operationType: tx.operation.type,
+          operationLabel: derivedOperation.label,
         });
 
         const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
@@ -214,8 +230,7 @@ export class PricesViewHandler {
           assetSymbol: movement.assetSymbol,
           amount: movement.grossAmount.toFixed(),
           direction: 'outflow',
-          operationCategory: tx.operation.category,
-          operationType: tx.operation.type,
+          operationLabel: derivedOperation.label,
         });
 
         const entry = assetMap.get(movement.assetSymbol) ?? { count: 0, sourceCounts: new Map<string, number>() };
@@ -346,4 +361,22 @@ export class PricesViewHandler {
       overall_coverage_percentage: overallCoverage,
     };
   }
+}
+
+function buildAnnotationsByTransactionId(
+  annotations: readonly TransactionAnnotation[]
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing !== undefined) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
 }

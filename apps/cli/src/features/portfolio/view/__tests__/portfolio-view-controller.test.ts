@@ -44,8 +44,8 @@ const baseState = createPortfolioAssetsState({
         {
           id: 1,
           datetime: '2025-01-01T00:00:00.000Z',
-          operationCategory: 'trade',
-          operationType: 'buy',
+          operationGroup: 'trade',
+          operationLabel: 'trade/buy',
           platformKey: 'kraken',
           assetAmount: '1.00000000',
           assetDirection: 'in',

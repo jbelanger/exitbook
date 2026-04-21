@@ -39,8 +39,7 @@ export interface MissingPriceMovement {
   assetSymbol: string;
   amount: string;
   direction: 'inflow' | 'outflow';
-  operationCategory?: string | undefined;
-  operationType?: string | undefined;
+  operationLabel?: string | undefined;
   resolvedPrice?: string | undefined;
 }
 

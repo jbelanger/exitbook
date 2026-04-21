@@ -29,7 +29,6 @@ import {
   buildTransactionFilterLabels,
   formatTransactionBalanceSummary,
   summarizeTransactionAnnotations,
-  formatTransactionOperationLabel,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
 } from './transactions-view-formatters.js';
@@ -181,7 +180,7 @@ const TransactionList: FC<{ state: TransactionsViewState; terminalHeight: number
         txId: { format: (item) => `#${item.id}`, align: 'right', minWidth: 6 },
         platform: { format: (item) => item.platformKey, minWidth: 10 },
         operation: {
-          format: (item) => formatTransactionOperationLabel(item.operationLabel),
+          format: (item) => item.operationLabel,
           minWidth: 15,
         },
       }),
@@ -297,7 +296,7 @@ const TransactionDetailPanel: FC<{ state: TransactionsViewState }> = ({ state })
 };
 
 function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement[] {
-  const operation = formatTransactionOperationLabel(selected.operationLabel);
+  const operation = selected.operationLabel;
   const fullTimestamp = formatTransactionTimestamp(selected.datetime);
   const rows: ReactElement[] = [
     <Text key="title">

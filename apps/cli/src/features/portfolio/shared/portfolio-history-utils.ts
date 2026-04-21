@@ -3,6 +3,8 @@ import {
   collectTransactionBalanceImpactPricingInputs,
   type Transaction,
 } from '@exitbook/core';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import { deriveOperationLabel } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import type { PortfolioTransactionItem } from './portfolio-history-types.js';
@@ -55,10 +57,12 @@ export function buildAssetIdsBySymbol(transactions: Transaction[]): Map<string, 
 
 export function buildTransactionItems(
   transactions: Transaction[],
-  assetIds: string | string[]
+  assetIds: string | string[],
+  transactionAnnotations: readonly TransactionAnnotation[] = []
 ): PortfolioTransactionItem[] {
   const items: PortfolioTransactionItem[] = [];
   const assetIdSet = new Set(Array.isArray(assetIds) ? assetIds : [assetIds]);
+  const annotationsByTransactionId = buildAnnotationsByTransactionId(transactionAnnotations);
 
   for (const tx of transactions) {
     const netAmount = buildTransactionBalanceImpact(tx).assets.reduce((sum, assetImpact) => {
@@ -84,13 +88,14 @@ export function buildTransactionItems(
     }));
 
     const fiatValue = computeTransactionFiatValue(tx, assetIdSet, netAmount.abs());
-    const { transferDirection, transferPeer } = extractTransferContext(tx, assetDirection);
+    const derivedOperation = deriveOperationLabel(tx, annotationsByTransactionId.get(tx.id) ?? []);
+    const { transferDirection, transferPeer } = extractTransferContext(tx, assetDirection, derivedOperation.group);
 
     items.push({
       id: tx.id,
       datetime: tx.datetime,
-      operationCategory: tx.operation.category,
-      operationType: tx.operation.type,
+      operationGroup: derivedOperation.group,
+      operationLabel: derivedOperation.label,
       platformKey: tx.platformKey,
       assetAmount: netAmount.abs().toFixed(8),
       assetDirection,
@@ -134,9 +139,10 @@ function computeTransactionFiatValue(
 
 function extractTransferContext(
   tx: Transaction,
-  assetDirection: 'in' | 'out'
+  assetDirection: 'in' | 'out',
+  operationGroup: PortfolioTransactionItem['operationGroup']
 ): { transferDirection?: 'to' | 'from' | undefined; transferPeer?: string | undefined } {
-  if (tx.operation.category !== 'transfer') {
+  if (operationGroup !== 'transfer') {
     return {};
   }
 
@@ -151,4 +157,22 @@ function extractTransferContext(
     transferDirection: 'from',
     transferPeer: tx.from,
   };
+}
+
+function buildAnnotationsByTransactionId(
+  annotations: readonly TransactionAnnotation[]
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing !== undefined) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
 }

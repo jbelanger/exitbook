@@ -55,6 +55,7 @@ type MissingPricesCommandResult = ViewCommandResult<{
     assetSymbol: string;
     datetime: string;
     direction: string;
+    operationLabel?: string | undefined;
     source: string;
     transactionId: number;
   }[];
@@ -187,6 +188,7 @@ async function buildMissingPricesJsonCompletion(
         assetSymbol: movement.assetSymbol,
         direction: movement.direction,
         amount: movement.amount,
+        ...(movement.operationLabel === undefined ? {} : { operationLabel: movement.operationLabel }),
       })),
       assetBreakdown,
     },

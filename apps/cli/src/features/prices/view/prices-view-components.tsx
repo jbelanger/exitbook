@@ -588,7 +588,6 @@ const MissingDetailPanel: FC<{ state: PricesViewMissingState }> = ({ state }) =>
 function buildMissingDetailRows(movement: MissingPriceMovement, isResolved: boolean): ReactElement[] {
   const dir = movement.direction === 'inflow' ? 'IN' : 'OUT';
   const dirColor = movement.direction === 'inflow' ? 'green' : 'yellow';
-  const opParts = [movement.operationCategory, movement.operationType].filter(Boolean).join('/');
 
   const rows: ReactElement[] = [
     <Text key="title">
@@ -596,9 +595,9 @@ function buildMissingDetailRows(movement: MissingPriceMovement, isResolved: bool
       {'  '}
       <Text color="cyan">{movement.source}</Text>
       {'  '}
-      {opParts && (
+      {movement.operationLabel && (
         <>
-          <Text dimColor>{opParts}</Text>
+          <Text dimColor>{movement.operationLabel}</Text>
           {'  '}
         </>
       )}

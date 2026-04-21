@@ -78,8 +78,6 @@ export interface TransactionViewItem {
   datetime: string;
   operationGroup: DerivedOperationGroup;
   operationLabel: string;
-  operationCategory: string;
-  operationType: string;
   debitSummary?: string | undefined;
   creditSummary?: string | undefined;
   feeSummary?: string | undefined;

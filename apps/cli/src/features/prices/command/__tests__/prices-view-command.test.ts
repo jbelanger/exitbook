@@ -19,6 +19,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-test',
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
+    closeDatabaseSession: vi.fn(),
   },
   mockExecute: vi.fn(),
   mockExecuteCoverageDetail: vi.fn(),
@@ -92,6 +94,8 @@ function createProgram(): Command {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCtx.openDatabaseSession.mockResolvedValue({});
+  mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
 
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);
@@ -153,8 +157,7 @@ beforeEach(() => {
           assetSymbol: 'BTC',
           amount: '1.5',
           direction: 'inflow',
-          operationCategory: 'trade',
-          operationType: 'buy',
+          operationLabel: 'trade/buy',
         },
       ],
       assetBreakdown: [
@@ -213,7 +216,12 @@ describe('prices view command', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           assetBreakdown: expect.any(Array),
-          movements: expect.any(Array),
+          movements: [
+            expect.objectContaining({
+              transactionId: 7,
+              operationLabel: 'trade/buy',
+            }),
+          ],
         }),
       }),
       undefined

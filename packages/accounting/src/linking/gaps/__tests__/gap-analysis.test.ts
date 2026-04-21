@@ -300,6 +300,25 @@ describe('analyzeLinkGaps', () => {
     },
   });
 
+  const createStakingRewardAnnotation = (params: {
+    movementFingerprint: string;
+    transaction: Transaction;
+  }): TransactionAnnotation => ({
+    annotationFingerprint: `annotation:${params.transaction.txFingerprint}:staking:${params.movementFingerprint}`,
+    accountId: params.transaction.accountId,
+    transactionId: params.transaction.id,
+    txFingerprint: params.transaction.txFingerprint,
+    kind: 'staking_reward',
+    tier: 'asserted',
+    target: {
+      scope: 'movement',
+      movementFingerprint: params.movementFingerprint,
+    },
+    detectorId: 'staking-reward',
+    derivedFromTxIds: [params.transaction.id],
+    provenanceInputs: ['movement_role'],
+  });
+
   it('should flag deposits without confirmed links', () => {
     const transactions: Transaction[] = [createBlockchainDeposit()];
     const links: TransactionLink[] = [];
@@ -882,6 +901,40 @@ describe('analyzeLinkGaps', () => {
     });
   });
 
+  it('should treat annotation-backed bridge receives as inflow gaps even when the stored operation is not transfer/deposit', () => {
+    const bridgeDeposit = createBlockchainDeposit({
+      id: 35,
+      accountId: 21,
+      txFingerprint: 'wormhole-bridge-deposit-misclassified',
+      platformKey: 'arbitrum',
+      platformKind: 'blockchain',
+      operation: {
+        category: 'trade',
+        type: 'swap',
+      },
+      blockchain: {
+        name: 'arbitrum',
+        transaction_hash: 'wormhole-bridge-deposit-misclassified',
+        is_confirmed: true,
+      },
+    });
+
+    const analysis = analyzeLinkGaps([bridgeDeposit], [], {
+      transactionAnnotations: [
+        createBridgeAnnotation({
+          transaction: bridgeDeposit,
+          tier: 'asserted',
+          role: 'target',
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.summary.uncovered_inflows).toBe(1);
+    expect(analysis.issues[0]?.operationGroup).toBe('transfer');
+    expect(analysis.issues[0]?.operationLabel).toBe('bridge/receive');
+  });
+
   it('should attach a movement-role context hint when the transaction includes staking rewards', () => {
     const analysis = analyzeLinkGaps(
       [
@@ -925,6 +978,60 @@ describe('analyzeLinkGaps', () => {
       code: 'staking_reward',
       label: 'staking reward in same tx',
       message: 'Transaction includes a staking reward movement that is excluded from transfer matching.',
+    });
+  });
+
+  it('should prefer asserted staking-reward annotations over raw movement-role context hints', () => {
+    const transaction = createBlockchainWithdrawal({
+      id: 32,
+      txFingerprint: 'staking-reward-annotation-gap',
+      platformKey: 'ethereum',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'staking-reward-annotation-gap',
+        is_confirmed: true,
+      },
+      diagnostics: [],
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.12'),
+            netAmount: parseDecimal('0.12'),
+            movementRole: 'staking_reward',
+          },
+        ],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            assetSymbol: 'USDC' as Currency,
+            grossAmount: parseDecimal('100'),
+            netAmount: parseDecimal('100'),
+          },
+        ],
+      },
+    });
+    const rewardMovement = transaction.movements.inflows?.[0];
+    if (rewardMovement === undefined) {
+      throw new Error('Expected staking reward inflow for gap-analysis test');
+    }
+
+    const analysis = analyzeLinkGaps([transaction], [], {
+      transactionAnnotations: [
+        createStakingRewardAnnotation({
+          movementFingerprint: rewardMovement.movementFingerprint,
+          transaction,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.contextHint).toStrictEqual({
+      kind: 'annotation',
+      code: 'staking_reward',
+      label: 'staking reward in same tx',
+      message: 'Transaction carries asserted staking reward interpretation that is excluded from transfer matching.',
     });
   });
 

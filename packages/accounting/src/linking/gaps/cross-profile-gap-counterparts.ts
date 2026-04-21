@@ -1,4 +1,5 @@
 import { parseDecimal } from '@exitbook/foundation';
+import { deriveOperationLabel, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { ProfileLinkGapCrossProfileContext } from '../../ports/profile-link-gap-source-reader.js';
 
@@ -21,6 +22,13 @@ export interface LinkGapCrossProfileCounterpart {
 interface IndexedCrossProfileGapCounterpart extends Omit<LinkGapCrossProfileCounterpart, 'secondsDeltaFromGap'> {
   timestampMs: number;
 }
+
+const CROSS_PROFILE_TRANSFER_OVERRIDE_LABELS = new Set([
+  'asset migration/receive',
+  'asset migration/send',
+  'bridge/receive',
+  'bridge/send',
+]);
 
 export function buildLinkGapCrossProfileCounterpartsByIssueKey(
   issues: readonly LinkGapIssue[],
@@ -90,6 +98,7 @@ function buildCrossProfileCounterpartLookup(
 ): Map<string, IndexedCrossProfileGapCounterpart[]> {
   const profileIdByAccountId = new Map(source.accounts.map((account) => [account.id, account.profileId]));
   const profileById = new Map(source.profiles.map((profile) => [profile.id, profile]));
+  const annotationsByTransactionId = buildAnnotationsByTransactionId(source.transactionAnnotations);
   const counterpartLookup = new Map<string, IndexedCrossProfileGapCounterpart[]>();
 
   for (const transaction of source.transactions) {
@@ -97,7 +106,7 @@ function buildCrossProfileCounterpartLookup(
     if (
       profileId === undefined ||
       profileId === source.activeProfileId ||
-      transaction.operation.category !== 'transfer'
+      !isCrossProfileCounterpartCandidateTransaction(transaction, annotationsByTransactionId)
     ) {
       continue;
     }
@@ -141,6 +150,37 @@ function buildCrossProfileCounterpartLookup(
   }
 
   return counterpartLookup;
+}
+
+function buildAnnotationsByTransactionId(
+  transactionAnnotations: readonly TransactionAnnotation[] | undefined
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of transactionAnnotations ?? []) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing !== undefined) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
+}
+
+function isCrossProfileCounterpartCandidateTransaction(
+  transaction: ProfileLinkGapCrossProfileContext['transactions'][number],
+  annotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>
+): boolean {
+  const derivedOperation = deriveOperationLabel(transaction, annotationsByTransactionId.get(transaction.id) ?? []);
+
+  if (CROSS_PROFILE_TRANSFER_OVERRIDE_LABELS.has(derivedOperation.label)) {
+    return true;
+  }
+
+  return transaction.operation.category === 'transfer';
 }
 
 function listCrossProfileCounterpartMovements(

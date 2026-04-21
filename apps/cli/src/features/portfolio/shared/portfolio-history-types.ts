@@ -1,8 +1,8 @@
 export interface PortfolioTransactionItem {
   id: number;
   datetime: string;
-  operationCategory: string;
-  operationType: string;
+  operationGroup: 'other' | 'staking' | 'trade' | 'transfer';
+  operationLabel: string;
   platformKey: string;
   assetAmount: string;
   assetDirection: 'in' | 'out';
