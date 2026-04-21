@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-20
+last_verified: 2026-04-21
 status: canonical
 ---
 
@@ -375,14 +375,15 @@ Counterparty roundtrip fast path:
 - target timestamp must be after source timestamp and within `30 days`
 - accepted pairs are emitted as `blockchain_to_blockchain` links with confidence `1.0`
 
-Bridge diagnostic fast path:
+Bridge annotation fast path:
 
 - only considers blockchain outflow→inflow pairs
-- both sides must carry `bridge_transfer` diagnostics
+- source must carry asserted `bridge_participant` with `role='source'`
+- target must carry asserted `bridge_participant` with `role='target'`
 - source and target must be on different `platformKey` values
 - source and target assets must already be equivalent under normal linking semantics
 - target timestamp must be after source timestamp, allowing at most `0.25h` clock skew and at most `24h` total lag
-- chain-hint metadata may be absent, but if present it must not contradict the source/destination `platformKey`
+- annotation chain-hint metadata may be absent, but if present it must not contradict the source/destination `platformKey`
 - token bridges require amount similarity `>= 0.995` and target-over-source variance `<= 2%`
 - native bridges require amount similarity `>= 0.7` and target-over-source variance `<= 35%`
 - the pair must be mutually unique among all eligible bridge candidates

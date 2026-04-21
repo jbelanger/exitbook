@@ -11,7 +11,7 @@ export type GapCueKind =
   | 'unmatched_reference';
 
 export interface GapContextHint {
-  kind: 'diagnostic' | 'movement_role';
+  kind: 'annotation' | 'diagnostic' | 'movement_role';
   code: string;
   label: string;
   message: string;

@@ -9,6 +9,7 @@ import {
 } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { createPriceAtTxTime, materializeTestTransaction } from '../../../__tests__/test-utils.js';
@@ -261,6 +262,36 @@ describe('analyzeLinkGaps', () => {
         message: "Provider 'coingecko' could not match this token to a canonical asset",
       },
     ],
+  });
+
+  const createBridgeAnnotation = (params: {
+    counterpartTxFingerprint?: string | undefined;
+    counterpartTxId?: number | undefined;
+    role: 'source' | 'target';
+    tier: 'asserted' | 'heuristic';
+    transaction: Transaction;
+  }): TransactionAnnotation => ({
+    annotationFingerprint: `annotation:${params.transaction.txFingerprint}:${params.tier}:${params.role}`,
+    accountId: params.transaction.accountId,
+    transactionId: params.transaction.id,
+    txFingerprint: params.transaction.txFingerprint,
+    kind: 'bridge_participant',
+    tier: params.tier,
+    target: { scope: 'transaction' },
+    ...(params.tier === 'asserted' ? { protocolRef: { id: 'wormhole' } } : {}),
+    role: params.role,
+    detectorId: params.tier === 'asserted' ? 'bridge-participant' : 'heuristic-bridge-participant',
+    derivedFromTxIds:
+      params.tier === 'heuristic' && params.counterpartTxId !== undefined
+        ? ([
+            Math.min(params.transaction.id, params.counterpartTxId),
+            Math.max(params.transaction.id, params.counterpartTxId),
+          ] as const)
+        : ([params.transaction.id] as const),
+    provenanceInputs: params.tier === 'asserted' ? ['processor', 'diagnostic'] : ['timing', 'address_pattern'],
+    ...(params.counterpartTxFingerprint === undefined
+      ? {}
+      : { metadata: { counterpartTxFingerprint: params.counterpartTxFingerprint } }),
   });
 
   it('should flag deposits without confirmed links', () => {
@@ -807,6 +838,39 @@ describe('analyzeLinkGaps', () => {
       label: 'credit into exchange deposit address',
       message:
         'KuCoin export records an on-chain credit into the platform deposit address; raw exchange data does not prove whether the sender was external or exchange-managed.',
+    });
+  });
+
+  it('should attach an annotation-backed context hint for bridge participants', () => {
+    const bridgeDeposit = createBlockchainDeposit({
+      id: 34,
+      accountId: 21,
+      txFingerprint: 'wormhole-bridge-deposit',
+      platformKey: 'arbitrum',
+      platformKind: 'blockchain',
+      blockchain: {
+        name: 'arbitrum',
+        transaction_hash: 'wormhole-bridge-deposit',
+        is_confirmed: true,
+      },
+    });
+
+    const analysis = analyzeLinkGaps([bridgeDeposit], [], {
+      transactionAnnotations: [
+        createBridgeAnnotation({
+          transaction: bridgeDeposit,
+          tier: 'asserted',
+          role: 'target',
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(1);
+    expect(analysis.issues[0]?.contextHint).toStrictEqual({
+      kind: 'annotation',
+      code: 'bridge_participant',
+      label: 'bridge participant (wormhole)',
+      message: 'Transaction carries asserted bridge interpretation for protocol wormhole.',
     });
   });
 
@@ -2003,6 +2067,22 @@ describe('analyzeLinkGaps', () => {
           profileId: 1,
         }),
       ],
+      transactionAnnotations: [
+        createBridgeAnnotation({
+          transaction: ethereumWithdrawal,
+          tier: 'heuristic',
+          role: 'source',
+          counterpartTxFingerprint: arbitrumDeposit.txFingerprint,
+          counterpartTxId: arbitrumDeposit.id,
+        }),
+        createBridgeAnnotation({
+          transaction: arbitrumDeposit,
+          tier: 'heuristic',
+          role: 'target',
+          counterpartTxFingerprint: ethereumWithdrawal.txFingerprint,
+          counterpartTxId: ethereumWithdrawal.id,
+        }),
+      ],
     });
 
     expect(analysis.summary.total_issues).toBe(2);
@@ -2014,6 +2094,87 @@ describe('analyzeLinkGaps', () => {
       'eth-bridge-withdrawal',
       'arb-bridge-deposit',
     ]);
+  });
+
+  it('should leave bridge-like pairs uncued when bridge annotations are absent', () => {
+    const ethereumWithdrawal = createBlockchainWithdrawal({
+      id: 511,
+      accountId: 21,
+      txFingerprint: 'eth-bridge-withdrawal-unannotated',
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      datetime: '2024-08-15T18:10:00.000Z',
+      timestamp: Date.parse('2024-08-15T18:10:00.000Z'),
+      from: '0x15a2000000000000000000000000000000000000',
+      to: '0xrouter000000000000000000000000000000000001',
+      blockchain: {
+        name: 'ethereum',
+        transaction_hash: 'eth-bridge-withdrawal-unannotated-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('1.005'),
+            netAmount: parseDecimal('1.005'),
+          },
+        ],
+      },
+    });
+
+    const arbitrumDeposit = createBlockchainDeposit({
+      id: 512,
+      accountId: 22,
+      txFingerprint: 'arb-bridge-deposit-unannotated',
+      platformKey: 'arbitrum',
+      platformKind: 'blockchain',
+      datetime: '2024-08-15T18:18:00.000Z',
+      timestamp: Date.parse('2024-08-15T18:18:00.000Z'),
+      from: '0xrouter000000000000000000000000000000000002',
+      to: '0x15a2000000000000000000000000000000000000',
+      blockchain: {
+        name: 'arbitrum',
+        transaction_hash: 'arb-bridge-deposit-unannotated-hash',
+        is_confirmed: true,
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'blockchain:arbitrum:native',
+            assetSymbol: 'ETH' as Currency,
+            grossAmount: parseDecimal('0.998'),
+            netAmount: parseDecimal('0.998'),
+          },
+        ],
+        outflows: [],
+      },
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+    });
+
+    const analysis = analyzeLinkGaps([ethereumWithdrawal, arbitrumDeposit], [], {
+      accounts: [
+        createMockAccount({
+          id: 21,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+        createMockAccount({
+          id: 22,
+          identifier: '0x15a2000000000000000000000000000000000000',
+          profileId: 1,
+        }),
+      ],
+    });
+
+    expect(analysis.summary.total_issues).toBe(2);
+    expect(analysis.issues.every((issue) => issue.gapCue === undefined)).toBe(true);
+    expect(analysis.issues.every((issue) => issue.gapCueCounterpartTxFingerprint === undefined)).toBe(true);
   });
 
   it('should leave same-wallet near-equal inflow then outflow pairs uncued without stronger evidence', () => {

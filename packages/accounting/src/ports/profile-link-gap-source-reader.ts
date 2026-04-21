@@ -1,5 +1,6 @@
 import type { Account, AssetReviewSummary, Profile, Transaction, TransactionLink } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 export interface ProfileLinkGapCrossProfileContext {
   accounts: readonly Pick<Account, 'id' | 'profileId'>[];
@@ -15,6 +16,7 @@ export interface ProfileLinkGapSourceData {
   excludedAssetIds: ReadonlySet<string>;
   links: readonly TransactionLink[];
   resolvedIssueKeys: ReadonlySet<string>;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   transactions: readonly Transaction[];
 }
 

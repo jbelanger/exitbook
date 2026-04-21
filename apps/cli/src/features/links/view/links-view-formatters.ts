@@ -297,10 +297,11 @@ export function gapCueSuggestsManualLink(cue: GapCueKind | undefined): boolean {
 }
 
 export function gapContextHintSuggestsManualLink(contextHint: LinkGapIssue['contextHint']): boolean {
-  return (
-    contextHint?.kind === 'diagnostic' &&
-    (contextHint.code === 'bridge_transfer' || contextHint.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE)
-  );
+  if (contextHint?.kind === 'annotation' && contextHint.code === 'bridge_participant') {
+    return true;
+  }
+
+  return contextHint?.kind === 'diagnostic' && contextHint.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE;
 }
 
 export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
@@ -321,6 +322,10 @@ export function formatGapLikelyOutcome(
 
   if (issue.contextHint?.kind === 'diagnostic' && issue.contextHint.code === 'exchange_deposit_address_credit') {
     return 'Exchange export only proves a credit into the platform deposit address; inspect the raw chain source before linking or resolving this gap.';
+  }
+
+  if (issue.contextHint?.kind === 'annotation' && issue.contextHint.code === 'bridge_participant') {
+    return 'Bridge interpretation exists; inspect the counterpart and create or confirm a transfer link if this is same-owner movement.';
   }
 
   if (issue.gapCue === 'likely_asset_migration') {

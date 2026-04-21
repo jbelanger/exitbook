@@ -897,16 +897,16 @@ describe('LinksViewApp - gaps mode', () => {
     expect(normalizedFrame).toContain('Likely same-owner bridge or migration');
   });
 
-  it('renders bridge-transfer diagnostics as link-first guidance when no counterpart is known', () => {
+  it('renders bridge annotations as link-first guidance when no counterpart is known', () => {
     const analysis = createMockGapAnalysis();
     analysis.issues[0] = {
       ...analysis.issues[0]!,
       suggestedCount: 0,
       contextHint: {
-        kind: 'diagnostic',
-        code: 'bridge_transfer',
-        label: 'bridge transfer',
-        message: 'Processed transaction carries bridge_transfer diagnostics and likely reflects bridge activity.',
+        kind: 'annotation',
+        code: 'bridge_participant',
+        label: 'bridge participant (wormhole)',
+        message: 'Transaction carries asserted bridge interpretation for protocol wormhole.',
       },
     };
     const state = createGapsViewState(analysis);
@@ -921,9 +921,9 @@ describe('LinksViewApp - gaps mode', () => {
     const normalizedFrame = frame?.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
     expect(normalizedFrame).toContain('Likely outcome:');
-    expect(normalizedFrame).toContain('Bridge or migration evidence exists; inspect the counterpart');
+    expect(normalizedFrame).toContain('Bridge interpretation exists; inspect the counterpart');
     expect(normalizedFrame).toContain('Context:');
-    expect(normalizedFrame).toContain('bridge_transfer diagnostics');
+    expect(normalizedFrame).toContain('asserted bridge interpretation');
     expect(normalizedFrame).toContain('Next:');
     expect(normalizedFrame).toContain('create or confirm a transfer link');
     expect(normalizedFrame).toContain('Review queue:');

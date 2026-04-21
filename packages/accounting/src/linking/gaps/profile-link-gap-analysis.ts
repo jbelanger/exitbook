@@ -18,6 +18,7 @@ export function buildProfileLinkGapAnalysis(source: ProfileLinkGapSourceData): L
     analyzeLinkGaps([...source.transactions], [...source.links], {
       accounts: source.accounts,
       excludedAssetIds: source.excludedAssetIds,
+      transactionAnnotations: source.transactionAnnotations,
     }),
     source.assetReviewSummaries
   );

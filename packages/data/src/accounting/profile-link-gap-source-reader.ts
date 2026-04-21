@@ -23,6 +23,14 @@ export function buildProfileLinkGapSourceReader(
         const transactions = yield* await db.transactions.findAll({ profileId: profile.profileId });
         const links = yield* await db.transactionLinks.findAll({ profileId: profile.profileId });
         const accounts = yield* await db.accounts.findAll({ profileId: profile.profileId });
+        const transactionAnnotations =
+          transactions.length === 0
+            ? []
+            : yield* await db.transactionAnnotations.readAnnotations({
+                kinds: ['bridge_participant'],
+                tiers: ['asserted', 'heuristic'],
+                transactionIds: transactions.map((transaction) => transaction.id),
+              });
         const assetReviewSummaries = yield* await db.assetReview.listAll(profile.profileId);
         const excludedAssetIds = yield* await readExcludedAssetIds(overrideStore, profile.profileKey);
         const resolvedIssueKeys = yield* await readResolvedLinkGapIssueKeys(overrideStore, profile.profileKey);
@@ -51,6 +59,7 @@ export function buildProfileLinkGapSourceReader(
           excludedAssetIds,
           links,
           resolvedIssueKeys,
+          transactionAnnotations,
           transactions,
         };
       }),

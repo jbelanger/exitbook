@@ -13,6 +13,7 @@ import {
   type TransactionLink,
 } from '@exitbook/core';
 import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import {
@@ -30,14 +31,12 @@ const CORRELATED_SERVICE_SWAP_WINDOW_MS = 5 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 60 * 60 * 1000;
 const POSSIBLE_ASSET_MIGRATION_CUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
-const CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO = parseDecimal('0.7');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
 const LIKELY_DUST_DIAGNOSTIC_CODES = new Set(['unsolicited_dust_fanout']);
 const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
-  'bridge_transfer',
   POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   'unsolicited_dust_fanout',
   'allocation_uncertain',
@@ -57,6 +56,7 @@ const GAP_MOVEMENT_ROLE_CONTEXT_PRIORITY: readonly Exclude<MovementRole, 'princi
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
 }
 
 export interface ResolvedLinkGapVisibilityResult {
@@ -130,6 +130,24 @@ interface PairedGapCueCandidate {
 interface GapCueAnnotation {
   cue: GapCueKind;
   counterpartTxFingerprint?: string | undefined;
+}
+
+function buildAnnotationsByTransactionId(
+  transactionAnnotations: readonly TransactionAnnotation[] | undefined
+): Map<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of transactionAnnotations ?? []) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
 }
 
 function normalizeAddress(address: string | undefined): string | undefined {
@@ -222,6 +240,48 @@ function getSingleAssetEntryById(assetTotals: Map<string, AssetTotalsEntry>): [s
   }
 
   return assetTotals.entries().next().value as [string, AssetTotalsEntry];
+}
+
+function getBridgeParticipantAnnotationForDirection(
+  annotations: readonly TransactionAnnotation[] | undefined,
+  direction: LinkGapDirection
+): TransactionAnnotation | undefined {
+  const role = direction === 'outflow' ? 'source' : 'target';
+  const bridgeAnnotations = annotations?.filter(
+    (annotation) => annotation.kind === 'bridge_participant' && annotation.role === role
+  );
+  if (!bridgeAnnotations || bridgeAnnotations.length === 0) {
+    return undefined;
+  }
+
+  return bridgeAnnotations.find((annotation) => annotation.tier === 'asserted') ?? bridgeAnnotations[0];
+}
+
+function formatBridgeContextLabel(annotation: TransactionAnnotation): string {
+  if (annotation.tier === 'asserted') {
+    return annotation.protocolRef ? `bridge participant (${annotation.protocolRef.id})` : 'bridge participant';
+  }
+
+  return 'heuristic bridge participant';
+}
+
+function buildBridgeContextMessage(annotation: TransactionAnnotation): string {
+  if (annotation.tier === 'asserted') {
+    if (annotation.protocolRef) {
+      return `Transaction carries asserted bridge interpretation for protocol ${annotation.protocolRef.id}.`;
+    }
+
+    return 'Transaction carries asserted bridge interpretation.';
+  }
+
+  return 'Transaction carries heuristic bridge interpretation derived from same-owner cross-chain bridge evidence.';
+}
+
+function getBridgeCounterpartTxFingerprint(annotation: TransactionAnnotation): string | undefined {
+  const counterpartTxFingerprint = annotation.metadata?.['counterpartTxFingerprint'];
+  return typeof counterpartTxFingerprint === 'string' && counterpartTxFingerprint.length > 0
+    ? counterpartTxFingerprint
+    : undefined;
 }
 
 function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverageIndex {
@@ -635,10 +695,21 @@ function createLinkGapIssue(params: {
   direction: LinkGapDirection;
   suggestedLinks: readonly TransactionLink[];
   totalAmount: Decimal;
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>;
   tx: Transaction;
   uncoveredAmount: Decimal;
 }): LinkGapIssue {
-  const { tx, assetId, assetSymbol, uncoveredAmount, totalAmount, confirmedAmount, suggestedLinks, direction } = params;
+  const {
+    tx,
+    assetId,
+    assetSymbol,
+    uncoveredAmount,
+    totalAmount,
+    confirmedAmount,
+    suggestedLinks,
+    direction,
+    transactionAnnotationsByTransactionId,
+  } = params;
 
   const coveragePercent = totalAmount.isZero() ? parseDecimal('0') : confirmedAmount.dividedBy(totalAmount).times(100);
 
@@ -658,11 +729,25 @@ function createLinkGapIssue(params: {
     suggestedCount: suggestedLinks.length,
     highestSuggestedConfidencePercent: findHighestConfidence(suggestedLinks),
     direction,
-    contextHint: deriveGapContextHint(tx),
+    contextHint: deriveGapContextHint(tx, direction, transactionAnnotationsByTransactionId.get(tx.id)),
   };
 }
 
-function deriveGapContextHint(tx: Transaction): GapContextHint | undefined {
+function deriveGapContextHint(
+  tx: Transaction,
+  direction: LinkGapDirection,
+  annotations: readonly TransactionAnnotation[] | undefined
+): GapContextHint | undefined {
+  const bridgeAnnotation = getBridgeParticipantAnnotationForDirection(annotations, direction);
+  if (bridgeAnnotation) {
+    return {
+      kind: 'annotation',
+      code: bridgeAnnotation.kind,
+      label: formatBridgeContextLabel(bridgeAnnotation),
+      message: buildBridgeContextMessage(bridgeAnnotation),
+    };
+  }
+
   for (const code of GAP_DIAGNOSTIC_PRIORITY) {
     const diagnostic = tx.diagnostics?.find((entry) => entry.code === code);
     if (!diagnostic) {
@@ -712,10 +797,6 @@ function deriveGapMovementRoleContextHint(tx: Transaction): GapContextHint | und
 function formatGapDiagnosticContextLabel(code: string, message: string): string {
   if (code === 'staking_withdrawal') {
     return 'staking withdrawal in same tx';
-  }
-
-  if (code === 'bridge_transfer') {
-    return 'bridge transfer';
   }
 
   if (code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE) {
@@ -1011,49 +1092,6 @@ function isLikelyCrossChainMigrationCuePair(left: PairedGapCueCandidate, right: 
   return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
 }
 
-function isLikelyCrossChainBridgeCuePair(left: PairedGapCueCandidate, right: PairedGapCueCandidate): boolean {
-  if (left.direction === right.direction) {
-    return false;
-  }
-
-  if (left.profileId !== right.profileId || left.accountId === right.accountId) {
-    return false;
-  }
-
-  if (left.blockchainName === right.blockchainName) {
-    return false;
-  }
-
-  if (left.assetSymbol !== right.assetSymbol || left.selfAddress !== right.selfAddress) {
-    return false;
-  }
-
-  if (!left.isNativeAsset || !right.isNativeAsset) {
-    return false;
-  }
-
-  if (left.counterpartyAddress === undefined || right.counterpartyAddress === undefined) {
-    return false;
-  }
-
-  if (left.counterpartyAddress === left.selfAddress || right.counterpartyAddress === right.selfAddress) {
-    return false;
-  }
-
-  const outflowCandidate = left.direction === 'outflow' ? left : right;
-  const inflowCandidate = left.direction === 'inflow' ? left : right;
-  if (!outflowCandidate.totalAmount.greaterThan(inflowCandidate.totalAmount)) {
-    return false;
-  }
-
-  const receiptRatio = inflowCandidate.totalAmount.dividedBy(outflowCandidate.totalAmount);
-  if (receiptRatio.lessThan(CROSS_CHAIN_BRIDGE_MIN_RECEIPT_RATIO)) {
-    return false;
-  }
-
-  return Math.abs(left.timestampMs - right.timestampMs) <= CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS;
-}
-
 function addCuePairMatch(
   matchesByIssueKey: Map<string, Set<string>>,
   leftIssueKey: string,
@@ -1150,18 +1188,36 @@ function detectCrossChainMigrationCueIssueKeys(
   );
 }
 
-function detectCrossChainBridgeCueIssueKeys(
+function detectBridgeCueIssueKeysFromAnnotations(
   issues: readonly LinkGapIssue[],
-  transactions: readonly Transaction[],
-  accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>
 ): Map<string, GapCueAnnotation> {
-  return detectUniquePairedCueAnnotations(
-    issues,
-    transactions,
-    accountContextById,
-    isLikelyCrossChainBridgeCuePair,
-    'likely_cross_chain_bridge'
-  );
+  const cueByIssueKey = new Map<string, GapCueAnnotation>();
+
+  for (const issue of issues) {
+    const bridgeAnnotation = getBridgeParticipantAnnotationForDirection(
+      transactionAnnotationsByTransactionId.get(issue.transactionId),
+      issue.direction
+    );
+    const counterpartTxFingerprint = bridgeAnnotation ? getBridgeCounterpartTxFingerprint(bridgeAnnotation) : undefined;
+    if (counterpartTxFingerprint === undefined) {
+      continue;
+    }
+
+    cueByIssueKey.set(
+      buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      {
+        cue: 'likely_cross_chain_bridge',
+        counterpartTxFingerprint,
+      }
+    );
+  }
+
+  return cueByIssueKey;
 }
 
 interface PossibleAssetMigrationCueCandidate {
@@ -1425,6 +1481,7 @@ function detectGapCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
   const serviceSwapCues = detectServiceSwapCueIssueKeys(issues, transactions, accountContextById);
@@ -1438,7 +1495,7 @@ function detectGapCueIssueKeys(
     correlatedServiceSwapAnnotations,
     detectPossibleAssetMigrationCueIssueKeys(issues, transactions, excludedAssetIds),
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
-    detectCrossChainBridgeCueIssueKeys(issues, transactions, accountContextById),
+    detectBridgeCueIssueKeysFromAnnotations(issues, transactionAnnotationsByTransactionId),
     detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)
   );
 }
@@ -1447,9 +1504,16 @@ function applyGapCues(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
   accountContextById: ReadonlyMap<number, GapAnalysisAccountContext>,
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
-  const cueByIssueKey = detectGapCueIssueKeys(issues, transactions, accountContextById, excludedAssetIds);
+  const cueByIssueKey = detectGapCueIssueKeys(
+    issues,
+    transactions,
+    accountContextById,
+    transactionAnnotationsByTransactionId,
+    excludedAssetIds
+  );
   if (cueByIssueKey.size === 0) {
     return [...issues];
   }
@@ -1507,6 +1571,7 @@ function collectInflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
@@ -1568,6 +1633,7 @@ function collectInflowGapIssues(
           confirmedAmount,
           suggestedLinks,
           direction: 'inflow',
+          transactionAnnotationsByTransactionId,
         })
       );
     }
@@ -1580,6 +1646,7 @@ function collectOutflowGapIssues(
   transactions: readonly Transaction[],
   coverageIndex: LinkCoverageIndex,
   suppressedTxIds: ReadonlySet<number>,
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): LinkGapIssue[] {
   const issues: LinkGapIssue[] = [];
@@ -1632,6 +1699,7 @@ function collectOutflowGapIssues(
           confirmedAmount,
           suggestedLinks,
           direction: 'outflow',
+          transactionAnnotationsByTransactionId,
         })
       );
     }
@@ -1694,6 +1762,7 @@ export function analyzeLinkGaps(
 ): LinkGapAnalysis {
   const coverageIndex = buildLinkCoverageIndex(links);
   const accountContextById = buildAccountContextById(options.accounts);
+  const transactionAnnotationsByTransactionId = buildAnnotationsByTransactionId(options.transactionAnnotations);
   const suppressedTxIds = classifySuppressedGapTransactionIds(
     transactions,
     coverageIndex,
@@ -1701,13 +1770,31 @@ export function analyzeLinkGaps(
     options.excludedAssetIds
   );
   const rawIssues = [
-    ...collectInflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
-    ...collectOutflowGapIssues(transactions, coverageIndex, suppressedTxIds, options.excludedAssetIds),
+    ...collectInflowGapIssues(
+      transactions,
+      coverageIndex,
+      suppressedTxIds,
+      transactionAnnotationsByTransactionId,
+      options.excludedAssetIds
+    ),
+    ...collectOutflowGapIssues(
+      transactions,
+      coverageIndex,
+      suppressedTxIds,
+      transactionAnnotationsByTransactionId,
+      options.excludedAssetIds
+    ),
   ];
   // This cue is intentionally local to the gaps lens. It complements, rather than
   // replaces, the existing suppression heuristics for explicit same-account swaps
   // and cross-account service-flow pairs.
-  const issues = applyGapCues(rawIssues, transactions, accountContextById, options.excludedAssetIds);
+  const issues = applyGapCues(
+    rawIssues,
+    transactions,
+    accountContextById,
+    transactionAnnotationsByTransactionId,
+    options.excludedAssetIds
+  );
   return {
     issues,
     summary: buildLinkGapSummary(issues),
