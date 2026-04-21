@@ -72,6 +72,9 @@ export function buildProcessingPorts(
   options: {
     overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>;
     rebuildAssetReviewProjection: (accountIds: number[]) => Promise<import('@exitbook/foundation').Result<void, Error>>;
+    rebuildTransactionInterpretation: (
+      accountIds: number[]
+    ) => Promise<import('@exitbook/foundation').Result<void, Error>>;
   }
 ): ProcessingPorts {
   return {
@@ -184,6 +187,8 @@ export function buildProcessingPorts(
           );
         }
       }),
+
+    rebuildTransactionInterpretation: (accountIds) => options.rebuildTransactionInterpretation(accountIds),
 
     rebuildAssetReviewProjection: (accountIds) => options.rebuildAssetReviewProjection(accountIds),
 

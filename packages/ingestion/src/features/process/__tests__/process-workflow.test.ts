@@ -1,4 +1,4 @@
-import { ok } from '@exitbook/foundation';
+import { err, ok } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ProcessingPorts } from '../../../ports/processing-ports.js';
@@ -15,6 +15,11 @@ function createWorkflow(params?: {
   const findAccountsWithPendingData = vi.fn().mockResolvedValue(ok([]));
   const findAccountsWithRawData = vi.fn().mockResolvedValue(ok([]));
   const findLatestSessionPerAccount = vi.fn().mockResolvedValue(ok([{ accountId: 14, status: importStatus }]));
+  const emit = vi.fn();
+  const markProcessedTransactionsFresh = vi.fn().mockResolvedValue(ok(undefined));
+  const materializeStoredOverrides = vi.fn().mockResolvedValue(ok(0));
+  const rebuildTransactionInterpretation = vi.fn().mockResolvedValue(ok(undefined));
+  const rebuildAssetReviewProjection = vi.fn().mockResolvedValue(ok(undefined));
 
   const ports: ProcessingPorts = {
     accountLookup: {
@@ -44,11 +49,12 @@ function createWorkflow(params?: {
     },
     markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
     markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
-    markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
+    markProcessedTransactionsFresh,
     nearBatchSource: {} as never,
-    rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+    rebuildAssetReviewProjection,
+    rebuildTransactionInterpretation,
     transactionOverrides: {
-      materializeStoredOverrides: vi.fn().mockResolvedValue(ok(0)),
+      materializeStoredOverrides,
     },
     transactionSink: {} as never,
     withTransaction: vi.fn(),
@@ -60,7 +66,7 @@ function createWorkflow(params?: {
       getProviders: vi.fn().mockReturnValue([]),
     } as never,
     {
-      emit: vi.fn(),
+      emit,
     } as never,
     {
       getBlockchain: vi.fn(),
@@ -76,8 +82,13 @@ function createWorkflow(params?: {
     ports,
     workflow,
     mocks: {
+      emit,
       findAccountsWithRawData,
       findLatestSessionPerAccount,
+      markProcessedTransactionsFresh,
+      materializeStoredOverrides,
+      rebuildAssetReviewProjection,
+      rebuildTransactionInterpretation,
     },
   };
 }
@@ -113,6 +124,72 @@ describe('ProcessingWorkflow', () => {
         expect(result.value.errors[0]).not.toContain('account 14');
         expect(result.value.errors[0]).not.toContain('14(failed)');
       }
+    });
+
+    it('rebuilds interpretation before marking processed transactions fresh when processing succeeds', async () => {
+      const { workflow, mocks } = createWorkflow({ importStatus: 'completed' });
+      mocks.findLatestSessionPerAccount.mockResolvedValue(ok([]));
+      vi.spyOn(workflow, 'processAccountTransactions').mockResolvedValue(
+        ok({
+          errors: [],
+          failed: 0,
+          processed: 1,
+        })
+      );
+
+      const result = await workflow.processImportedSessions([14]);
+
+      expect(result.isOk()).toBe(true);
+      expect(mocks.materializeStoredOverrides).toHaveBeenCalledWith({ accountIds: [14] });
+      expect(mocks.rebuildTransactionInterpretation).toHaveBeenCalledWith([14]);
+      expect(mocks.markProcessedTransactionsFresh).toHaveBeenCalledWith([14]);
+      expect(mocks.rebuildAssetReviewProjection).toHaveBeenCalledWith([14]);
+      const rebuildInterpretationCall = mocks.rebuildTransactionInterpretation.mock.invocationCallOrder[0];
+      const markFreshCall = mocks.markProcessedTransactionsFresh.mock.invocationCallOrder[0];
+      const rebuildAssetReviewCall = mocks.rebuildAssetReviewProjection.mock.invocationCallOrder[0];
+
+      expect(rebuildInterpretationCall).toBeDefined();
+      expect(markFreshCall).toBeDefined();
+      expect(rebuildAssetReviewCall).toBeDefined();
+
+      if (
+        rebuildInterpretationCall === undefined ||
+        markFreshCall === undefined ||
+        rebuildAssetReviewCall === undefined
+      ) {
+        return;
+      }
+
+      expect(rebuildInterpretationCall).toBeLessThan(markFreshCall);
+      expect(markFreshCall).toBeLessThan(rebuildAssetReviewCall);
+    });
+
+    it('fails before marking processed transactions fresh when interpretation rebuild fails', async () => {
+      const { workflow, mocks } = createWorkflow({ importStatus: 'completed' });
+      mocks.findLatestSessionPerAccount.mockResolvedValue(ok([]));
+      vi.spyOn(workflow, 'processAccountTransactions').mockResolvedValue(
+        ok({
+          errors: [],
+          failed: 0,
+          processed: 1,
+        })
+      );
+      mocks.rebuildTransactionInterpretation.mockResolvedValue(err(new Error('interpretation exploded')));
+
+      const result = await workflow.processImportedSessions([14]);
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('transaction interpretation failed');
+      }
+      expect(mocks.markProcessedTransactionsFresh).not.toHaveBeenCalled();
+      expect(mocks.rebuildAssetReviewProjection).not.toHaveBeenCalled();
+      expect(mocks.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'process.failed',
+          accountIds: [14],
+        })
+      );
     });
   });
 

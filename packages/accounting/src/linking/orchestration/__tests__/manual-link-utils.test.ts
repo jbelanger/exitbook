@@ -1,8 +1,8 @@
-import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE, type Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTransaction } from '../../shared/test-utils.js';
@@ -21,20 +21,28 @@ const noopLogger = {
   warn: vi.fn(),
 } as unknown as Logger;
 
-function withPossibleAssetMigrationDiagnostic(transaction: Transaction, migrationGroupKey: string): Transaction {
+function createAssetMigrationAnnotation(params: {
+  groupKey: string;
+  role: 'source' | 'target';
+  transactionId: number;
+  txFingerprint: string;
+}): TransactionAnnotation {
   return {
-    ...transaction,
-    diagnostics: [
-      {
-        code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
-        severity: 'info',
-        message: 'possible migration',
-        metadata: {
-          migrationGroupKey,
-          providerSubtype: 'spotfromfutures',
-        },
-      },
-    ],
+    annotationFingerprint: `annotation:${params.txFingerprint}:${params.role}`,
+    accountId: 1,
+    transactionId: params.transactionId,
+    txFingerprint: params.txFingerprint,
+    kind: 'asset_migration_participant',
+    tier: 'heuristic',
+    target: { scope: 'transaction' },
+    role: params.role,
+    groupKey: params.groupKey,
+    detectorId: 'asset-migration-participant',
+    derivedFromTxIds: [params.transactionId],
+    provenanceInputs: ['diagnostic'],
+    metadata: {
+      providerSubtype: 'spotfromfutures',
+    },
   };
 }
 
@@ -165,26 +173,20 @@ describe('manual-link-utils', () => {
   });
 
   it('prepares a cross-asset manual link when both transactions are unique migration-marked counterparts', () => {
-    const sourceTransaction = withPossibleAssetMigrationDiagnostic(
-      createTransaction({
-        id: 1,
-        source: 'kraken',
-        platformKind: 'exchange',
-        datetime: '2024-08-15T12:00:00.000Z',
-        outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
-      }),
-      'migration-group-rndr'
-    );
-    const targetTransaction = withPossibleAssetMigrationDiagnostic(
-      createTransaction({
-        id: 2,
-        source: 'kraken',
-        platformKind: 'exchange',
-        datetime: '2024-08-06T12:00:00.000Z',
-        inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:kraken:render' }],
-      }),
-      'migration-group-render'
-    );
+    const sourceTransaction = createTransaction({
+      id: 1,
+      source: 'kraken',
+      platformKind: 'exchange',
+      datetime: '2024-08-15T12:00:00.000Z',
+      outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
+    });
+    const targetTransaction = createTransaction({
+      id: 2,
+      source: 'kraken',
+      platformKind: 'exchange',
+      datetime: '2024-08-06T12:00:00.000Z',
+      inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:kraken:render' }],
+    });
 
     const prepared = assertOk(
       prepareManualLinkFromTransactions(
@@ -196,6 +198,20 @@ describe('manual-link-utils', () => {
           reviewedAt: new Date('2026-04-19T00:00:00.000Z'),
           reviewedBy: 'cli-user',
           metadata: buildManualLinkOverrideMetadata('override-migration', 'transfer'),
+          transactionAnnotations: [
+            createAssetMigrationAnnotation({
+              transactionId: sourceTransaction.id,
+              txFingerprint: sourceTransaction.txFingerprint,
+              role: 'source',
+              groupKey: 'migration-group-rndr',
+            }),
+            createAssetMigrationAnnotation({
+              transactionId: targetTransaction.id,
+              txFingerprint: targetTransaction.txFingerprint,
+              role: 'target',
+              groupKey: 'migration-group-render',
+            }),
+          ],
         },
         noopLogger
       )
@@ -208,27 +224,21 @@ describe('manual-link-utils', () => {
     expect(prepared.link.matchCriteria.suspectedMigration).toBe(true);
   });
 
-  it('rejects cross-asset manual links without matching migration diagnostics', () => {
-    const sourceTransaction = withPossibleAssetMigrationDiagnostic(
-      createTransaction({
-        id: 1,
-        source: 'kraken',
-        platformKind: 'exchange',
-        datetime: '2024-08-15T12:00:00.000Z',
-        outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
-      }),
-      'migration-group-1'
-    );
-    const targetTransaction = withPossibleAssetMigrationDiagnostic(
-      createTransaction({
-        id: 2,
-        source: 'coinbase',
-        platformKind: 'exchange',
-        datetime: '2024-08-06T12:00:00.000Z',
-        inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:coinbase:render' }],
-      }),
-      'migration-group-2'
-    );
+  it('rejects cross-asset manual links without matching migration interpretations', () => {
+    const sourceTransaction = createTransaction({
+      id: 1,
+      source: 'kraken',
+      platformKind: 'exchange',
+      datetime: '2024-08-15T12:00:00.000Z',
+      outflows: [{ assetSymbol: 'RNDR', amount: '64.98757287', assetId: 'exchange:kraken:rndr' }],
+    });
+    const targetTransaction = createTransaction({
+      id: 2,
+      source: 'coinbase',
+      platformKind: 'exchange',
+      datetime: '2024-08-06T12:00:00.000Z',
+      inflows: [{ assetSymbol: 'RENDER', amount: '64.987572', assetId: 'exchange:coinbase:render' }],
+    });
 
     const error = assertErr(
       prepareManualLinkFromTransactions(
@@ -239,12 +249,26 @@ describe('manual-link-utils', () => {
           assetSymbol: 'RNDR' as Currency,
           reviewedAt: new Date('2026-04-19T00:00:00.000Z'),
           reviewedBy: 'cli-user',
+          transactionAnnotations: [
+            createAssetMigrationAnnotation({
+              transactionId: sourceTransaction.id,
+              txFingerprint: sourceTransaction.txFingerprint,
+              role: 'source',
+              groupKey: 'migration-group-1',
+            }),
+            createAssetMigrationAnnotation({
+              transactionId: targetTransaction.id,
+              txFingerprint: targetTransaction.txFingerprint,
+              role: 'target',
+              groupKey: 'migration-group-2',
+            }),
+          ],
         },
         noopLogger
       )
     );
 
-    expect(error.message).toContain('matching migration diagnostics or a unique migration-marked counterpart');
+    expect(error.message).toContain('matching migration interpretations or a unique migration-marked counterpart');
   });
 
   it('prepares grouped many-to-one manual links with partial metadata', () => {

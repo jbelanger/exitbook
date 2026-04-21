@@ -1,5 +1,4 @@
 import {
-  getPossibleAssetMigrationGroupKey,
   type ExplainedTargetResidual,
   type NewTransactionLink,
   type OverrideLinkType,
@@ -9,6 +8,7 @@ import {
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { err, ok, resultDo, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import { createTransactionLink } from '../matching/link-construction.js';
@@ -28,9 +28,9 @@ export interface BuildConfirmedLinkFromExactMovementsParams {
   reviewedAt: Date;
   reviewedBy: string;
   sourceMovement: LinkableMovement;
-  sourceTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>;
+  sourceTransaction: Pick<Transaction, 'accountId' | 'platformKey' | 'platformKind'>;
   targetMovement: LinkableMovement;
-  targetTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>;
+  targetTransaction: Pick<Transaction, 'accountId' | 'platformKey' | 'platformKind'>;
 }
 
 export interface PrepareManualLinkFromTransactionsParams {
@@ -40,6 +40,7 @@ export interface PrepareManualLinkFromTransactionsParams {
   reviewedBy: string;
   sourceTransactionId: number;
   targetTransactionId: number;
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   transactions: Transaction[];
 }
 
@@ -59,6 +60,7 @@ export interface PrepareGroupedManualLinksFromTransactionsParams {
   reviewedBy: string;
   sourceTransactionIds: number[];
   targetTransactionIds: number[];
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
   transactions: Transaction[];
 }
 
@@ -84,7 +86,7 @@ export function buildConfirmedLinkFromExactMovements(
     if (!assetMatch && !suspectedMigration) {
       return yield* err(
         new Error(
-          'Cross-asset manual links require matching migration diagnostics or a unique migration-marked counterpart on the same account and platform'
+          'Cross-asset manual links require matching migration interpretations or a unique migration-marked counterpart on the same account and platform'
         )
       );
     }
@@ -131,7 +133,11 @@ export function prepareManualLinkFromTransactions(
       return yield* err(new Error('Manual links require two different transactions'));
     }
 
-    const { linkableMovements } = yield* buildLinkableMovements(params.transactions, logger);
+    const { linkableMovements } = yield* buildLinkableMovements(
+      params.transactions,
+      logger,
+      params.transactionAnnotations
+    );
     const sourceMovement = yield* resolveManualLinkMovement(
       linkableMovements,
       sourceTransaction,
@@ -196,7 +202,11 @@ export function prepareGroupedManualLinksFromTransactions(
       targetTransactionIds.map((transactionId) => findTransactionById(params.transactions, transactionId, 'target'))
     );
 
-    const { linkableMovements } = yield* buildLinkableMovements(params.transactions, logger);
+    const { linkableMovements } = yield* buildLinkableMovements(
+      params.transactions,
+      logger,
+      params.transactionAnnotations
+    );
     const sourceSelections = resolvedSourceTransactions.map((transaction) => ({
       movement: resolveManualLinkMovement(linkableMovements, transaction, params.assetSymbol, 'out'),
       transaction,
@@ -324,17 +334,17 @@ function findTransactionById(
 }
 
 function isPossibleAssetMigrationPair(
-  sourceTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>,
-  targetTransaction: Pick<Transaction, 'accountId' | 'diagnostics' | 'platformKey' | 'platformKind'>,
-  sourceMovement: Pick<LinkableMovement, 'amount' | 'timestamp'>,
-  targetMovement: Pick<LinkableMovement, 'amount' | 'timestamp'>
+  sourceTransaction: Pick<Transaction, 'accountId' | 'platformKey' | 'platformKind'>,
+  targetTransaction: Pick<Transaction, 'accountId' | 'platformKey' | 'platformKind'>,
+  sourceMovement: Pick<LinkableMovement, 'amount' | 'timestamp' | 'transactionAnnotations'>,
+  targetMovement: Pick<LinkableMovement, 'amount' | 'timestamp' | 'transactionAnnotations'>
 ): boolean {
-  const sourceMigrationGroupKey = getPossibleAssetMigrationGroupKey(sourceTransaction.diagnostics);
-  const targetMigrationGroupKey = getPossibleAssetMigrationGroupKey(targetTransaction.diagnostics);
+  const sourceAnnotation = getAssetMigrationAnnotationForDirection(sourceMovement, 'out');
+  const targetAnnotation = getAssetMigrationAnnotationForDirection(targetMovement, 'in');
 
   if (
-    sourceMigrationGroupKey === undefined ||
-    targetMigrationGroupKey === undefined ||
+    sourceAnnotation === undefined ||
+    targetAnnotation === undefined ||
     sourceTransaction.accountId !== targetTransaction.accountId ||
     sourceTransaction.platformKey !== targetTransaction.platformKey ||
     sourceTransaction.platformKind !== targetTransaction.platformKind
@@ -342,7 +352,11 @@ function isPossibleAssetMigrationPair(
     return false;
   }
 
-  if (sourceMigrationGroupKey === targetMigrationGroupKey) {
+  if (
+    sourceAnnotation.groupKey !== undefined &&
+    targetAnnotation.groupKey !== undefined &&
+    sourceAnnotation.groupKey === targetAnnotation.groupKey
+  ) {
     return true;
   }
 
@@ -363,6 +377,21 @@ function isPossibleAssetMigrationPair(
   }
 
   return smallerAmount.dividedBy(largerAmount).greaterThanOrEqualTo(POSSIBLE_ASSET_MIGRATION_MIN_RATIO);
+}
+
+function getAssetMigrationAnnotationForDirection(
+  movement: Pick<LinkableMovement, 'transactionAnnotations'>,
+  direction: 'in' | 'out'
+): TransactionAnnotation | undefined {
+  const role = direction === 'out' ? 'source' : 'target';
+  const migrationAnnotations = movement.transactionAnnotations?.filter(
+    (annotation) => annotation.kind === 'asset_migration_participant' && annotation.role === role
+  );
+  if (!migrationAnnotations || migrationAnnotations.length === 0) {
+    return undefined;
+  }
+
+  return migrationAnnotations.find((annotation) => annotation.tier === 'asserted') ?? migrationAnnotations[0];
 }
 
 function resolveManualLinkMovement(
@@ -399,11 +428,14 @@ function resolveManualLinkMovement(
     return ok(movement);
   }
 
-  if (getPossibleAssetMigrationGroupKey(transaction.diagnostics) !== undefined) {
-    const fallbackCandidates = linkableMovements.filter(
-      (movement) => movement.transactionId === transaction.id && movement.direction === direction && !movement.excluded
-    );
+  const fallbackCandidates = linkableMovements.filter(
+    (movement) => movement.transactionId === transaction.id && movement.direction === direction && !movement.excluded
+  );
+  const hasAssetMigrationFallback = fallbackCandidates.some(
+    (movement) => getAssetMigrationAnnotationForDirection(movement, direction) !== undefined
+  );
 
+  if (hasAssetMigrationFallback) {
     if (fallbackCandidates.length === 1) {
       return ok(fallbackCandidates[0]!);
     }

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return -- acceptable for tests */
-import { ok } from '@exitbook/foundation';
+import { ok, type Result } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +19,27 @@ vi.mock('@exitbook/ingestion/process', () => ({
   ProcessingWorkflow: class {
     constructor(...args: unknown[]) {
       mockProcessingWorkflow(...args);
+    }
+  },
+}));
+
+vi.mock('@exitbook/protocol-catalog', () => ({
+  createSeedProtocolCatalog: vi.fn(() => ({ findByAddress: vi.fn() })),
+}));
+
+vi.mock('@exitbook/transaction-interpretation', () => ({
+  AssetMigrationParticipantDetector: class {},
+  BridgeParticipantDetector: class {},
+  HeuristicBridgeParticipantDetector: class {},
+  InterpretationRuntime: class {},
+  TransactionAnnotationDetectorRegistry: class {
+    register() {
+      /* no-op */
+    }
+  },
+  TransactionAnnotationProfileDetectorRegistry: class {
+    register() {
+      /* no-op */
     }
   },
 }));
@@ -73,6 +94,39 @@ describe('rebuildCliAssetReviewProjectionsForAccounts', () => {
     assertOk(result);
     expect(adapterRegistryFactory).toHaveBeenCalledWith({ nearBatchSource });
     expect(mockProcessingWorkflow).toHaveBeenCalledWith(ports, providerRuntime, eventBus, adapterRegistry);
+  });
+
+  it('passes an interpretation rebuild callback into processing ports', async () => {
+    const nearBatchSource = { fetch: vi.fn() };
+    const ports = { nearBatchSource };
+    const database = {
+      accounts: {},
+      profiles: {},
+    };
+
+    mockBuildProcessingPorts.mockReturnValue(ports);
+
+    const result = createCliProcessingWorkflowRuntime({
+      adapterRegistryFactory: vi.fn().mockReturnValue({}),
+      assetReviewProjectionFactory,
+      dataDir: '/tmp/exitbook',
+      database: database as never,
+      eventBus: { emit: vi.fn() } as never,
+      providerRuntime: { cleanup: vi.fn() } as never,
+    });
+
+    assertOk(result);
+    const buildProcessingPortsCall = mockBuildProcessingPorts.mock.calls[0] as
+      | [unknown, { rebuildTransactionInterpretation: (accountIds: number[]) => Promise<Result<void, Error>> }]
+      | undefined;
+    expect(buildProcessingPortsCall).toBeDefined();
+    if (buildProcessingPortsCall === undefined) {
+      return;
+    }
+
+    const buildOptions = buildProcessingPortsCall[1];
+    expect(buildOptions.rebuildTransactionInterpretation).toEqual(expect.any(Function));
+    assertOk(await buildOptions.rebuildTransactionInterpretation([]));
   });
 
   it('rebuilds only the profiles that own the processed accounts', async () => {

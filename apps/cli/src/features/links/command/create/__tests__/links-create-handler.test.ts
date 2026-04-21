@@ -106,11 +106,15 @@ function createDatabase(
       return ok(undefined);
     }),
   };
+  const transactionAnnotations = {
+    readAnnotations: vi.fn().mockResolvedValue(ok([])),
+  };
 
   return {
     executeInTransaction: vi.fn(async (fn: (tx: { transactionLinks: typeof transactionLinks }) => Promise<unknown>) =>
       fn({ transactionLinks })
     ),
+    transactionAnnotations,
     transactionLinks,
     transactions,
   };
@@ -163,6 +167,11 @@ describe('ManualLinkCreateHandler', () => {
       prepared.link,
       'Token migration'
     );
+    expect(database.transactionAnnotations.readAnnotations).toHaveBeenCalledWith({
+      kinds: ['asset_migration_participant'],
+      tiers: ['asserted', 'heuristic'],
+      transactionIds: [prepared.sourceTransaction.id, prepared.targetTransaction.id],
+    });
     expect(database.transactionLinks.create).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({

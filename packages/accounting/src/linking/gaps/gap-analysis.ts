@@ -1,11 +1,9 @@
 import {
   filterTransferEligibleMovements,
-  getPossibleAssetMigrationGroupKey,
   getExplainedTargetResidual,
   hasAnyDiagnosticCode,
   getTransactionScamAssessment,
   getMovementRole,
-  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   type Account,
   type AssetReviewSummary,
   type MovementRole,
@@ -37,7 +35,6 @@ const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
 const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
-  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   'unsolicited_dust_fanout',
   'allocation_uncertain',
   'classification_uncertain',
@@ -282,6 +279,42 @@ function getBridgeCounterpartTxFingerprint(annotation: TransactionAnnotation): s
   return typeof counterpartTxFingerprint === 'string' && counterpartTxFingerprint.length > 0
     ? counterpartTxFingerprint
     : undefined;
+}
+
+function getAssetMigrationParticipantAnnotationForDirection(
+  annotations: readonly TransactionAnnotation[] | undefined,
+  direction: LinkGapDirection
+): TransactionAnnotation | undefined {
+  const role = direction === 'outflow' ? 'source' : 'target';
+  const migrationAnnotations = annotations?.filter(
+    (annotation) => annotation.kind === 'asset_migration_participant' && annotation.role === role
+  );
+  if (!migrationAnnotations || migrationAnnotations.length === 0) {
+    return undefined;
+  }
+
+  return migrationAnnotations.find((annotation) => annotation.tier === 'asserted') ?? migrationAnnotations[0];
+}
+
+function formatAssetMigrationContextLabel(annotation: TransactionAnnotation): string {
+  if (annotation.tier === 'asserted') {
+    return 'asset migration participant';
+  }
+
+  return 'possible asset migration';
+}
+
+function buildAssetMigrationContextMessage(annotation: TransactionAnnotation): string {
+  const providerSubtype = annotation.metadata?.['providerSubtype'];
+  if (typeof providerSubtype === 'string' && providerSubtype.length > 0) {
+    return `Transaction carries heuristic asset migration interpretation from ${providerSubtype} rows.`;
+  }
+
+  if (annotation.tier === 'asserted') {
+    return 'Transaction carries asserted asset migration interpretation.';
+  }
+
+  return 'Transaction carries heuristic asset migration interpretation.';
 }
 
 function buildLinkCoverageIndex(links: readonly TransactionLink[]): LinkCoverageIndex {
@@ -748,6 +781,16 @@ function deriveGapContextHint(
     };
   }
 
+  const assetMigrationAnnotation = getAssetMigrationParticipantAnnotationForDirection(annotations, direction);
+  if (assetMigrationAnnotation) {
+    return {
+      kind: 'annotation',
+      code: assetMigrationAnnotation.kind,
+      label: formatAssetMigrationContextLabel(assetMigrationAnnotation),
+      message: buildAssetMigrationContextMessage(assetMigrationAnnotation),
+    };
+  }
+
   for (const code of GAP_DIAGNOSTIC_PRIORITY) {
     const diagnostic = tx.diagnostics?.find((entry) => entry.code === code);
     if (!diagnostic) {
@@ -797,10 +840,6 @@ function deriveGapMovementRoleContextHint(tx: Transaction): GapContextHint | und
 function formatGapDiagnosticContextLabel(code: string, message: string): string {
   if (code === 'staking_withdrawal') {
     return 'staking withdrawal in same tx';
-  }
-
-  if (code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE) {
-    return 'possible asset migration';
   }
 
   if (code === 'unsolicited_dust_fanout') {
@@ -1224,33 +1263,45 @@ interface PossibleAssetMigrationCueCandidate {
   accountId: number;
   assetId: string;
   direction: LinkGapDirection;
-  migrationGroupKey: string;
+  issueKey: string;
+  migrationGroupKey?: string | undefined;
   platformKey: string;
   platformKind: Transaction['platformKind'];
   timestampMs: number;
   totalAmount: Decimal;
-  transactionId: number;
   txFingerprint: string;
 }
 
 function buildPossibleAssetMigrationCueCandidates(
+  issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): PossibleAssetMigrationCueCandidate[] {
+  const transactionById = buildTransactionById(transactions);
   const candidates: PossibleAssetMigrationCueCandidate[] = [];
 
-  for (const tx of transactions) {
-    if (tx.id === undefined) {
-      continue;
-    }
-
-    const migrationGroupKey = getPossibleAssetMigrationGroupKey(tx.diagnostics);
-    if (migrationGroupKey === undefined) {
+  for (const issue of issues) {
+    const tx = transactionById.get(issue.transactionId);
+    if (tx?.id === undefined) {
       continue;
     }
 
     const activity = getOneSidedTransferActivity(tx, excludedAssetIds);
-    if (activity === undefined) {
+    if (
+      activity === undefined ||
+      activity.assetId !== issue.assetId ||
+      activity.direction !== issue.direction ||
+      !activity.totalAmount.eq(parseDecimal(issue.totalAmount))
+    ) {
+      continue;
+    }
+
+    const assetMigrationAnnotation = getAssetMigrationParticipantAnnotationForDirection(
+      transactionAnnotationsByTransactionId.get(issue.transactionId),
+      issue.direction
+    );
+    if (assetMigrationAnnotation === undefined) {
       continue;
     }
 
@@ -1258,12 +1309,18 @@ function buildPossibleAssetMigrationCueCandidates(
       accountId: tx.accountId,
       assetId: activity.assetId,
       direction: activity.direction,
-      migrationGroupKey,
+      issueKey: buildLinkGapIssueKey({
+        txFingerprint: issue.txFingerprint,
+        assetId: issue.assetId,
+        direction: issue.direction,
+      }),
+      ...(assetMigrationAnnotation.groupKey === undefined
+        ? {}
+        : { migrationGroupKey: assetMigrationAnnotation.groupKey }),
       platformKey: tx.platformKey,
       platformKind: tx.platformKind,
       timestampMs: activity.timestampMs,
       totalAmount: activity.totalAmount,
-      transactionId: tx.id,
       txFingerprint: tx.txFingerprint,
     });
   }
@@ -1277,7 +1334,7 @@ function findPossibleAssetMigrationCueCounterparts(
 ): PossibleAssetMigrationCueCandidate[] {
   const baseMatches = candidates.filter(
     (other) =>
-      other.transactionId !== candidate.transactionId &&
+      other.issueKey !== candidate.issueKey &&
       other.accountId === candidate.accountId &&
       other.platformKey === candidate.platformKey &&
       other.platformKind === candidate.platformKind &&
@@ -1286,9 +1343,11 @@ function findPossibleAssetMigrationCueCounterparts(
       hasAmountSimilarity(candidate.totalAmount, other.totalAmount, CROSS_CHAIN_MIGRATION_MIN_RATIO)
   );
 
-  const sameGroupMatches = baseMatches.filter((other) => other.migrationGroupKey === candidate.migrationGroupKey);
-  if (sameGroupMatches.length === 1) {
-    return sameGroupMatches;
+  if (candidate.migrationGroupKey !== undefined) {
+    const sameGroupMatches = baseMatches.filter((other) => other.migrationGroupKey === candidate.migrationGroupKey);
+    if (sameGroupMatches.length === 1) {
+      return sameGroupMatches;
+    }
   }
 
   return baseMatches.filter(
@@ -1299,45 +1358,32 @@ function findPossibleAssetMigrationCueCounterparts(
 function detectPossibleAssetMigrationCueIssueKeys(
   issues: readonly LinkGapIssue[],
   transactions: readonly Transaction[],
+  transactionAnnotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>,
   excludedAssetIds?: ReadonlySet<string>
 ): Map<string, GapCueAnnotation> {
-  const candidates = buildPossibleAssetMigrationCueCandidates(transactions, excludedAssetIds);
+  const candidates = buildPossibleAssetMigrationCueCandidates(
+    issues,
+    transactions,
+    transactionAnnotationsByTransactionId,
+    excludedAssetIds
+  );
   if (candidates.length === 0) {
     return new Map<string, GapCueAnnotation>();
   }
 
-  const candidateByTransactionId = new Map(candidates.map((candidate) => [candidate.transactionId, candidate]));
   const cueByIssueKey = new Map<string, GapCueAnnotation>();
 
-  for (const issue of issues) {
-    const candidate = candidateByTransactionId.get(issue.transactionId);
-    if (
-      candidate === undefined ||
-      candidate.assetId !== issue.assetId ||
-      candidate.direction !== issue.direction ||
-      !candidate.totalAmount.eq(parseDecimal(issue.totalAmount))
-    ) {
-      continue;
-    }
-
+  for (const candidate of candidates) {
     const counterparts = findPossibleAssetMigrationCueCounterparts(candidate, candidates);
-
     if (counterparts.length !== 1) {
       continue;
     }
 
     const counterpart = counterparts[0]!;
-    cueByIssueKey.set(
-      buildLinkGapIssueKey({
-        txFingerprint: issue.txFingerprint,
-        assetId: issue.assetId,
-        direction: issue.direction,
-      }),
-      {
-        cue: 'likely_asset_migration',
-        counterpartTxFingerprint: counterpart.txFingerprint,
-      }
-    );
+    cueByIssueKey.set(candidate.issueKey, {
+      cue: 'likely_asset_migration',
+      counterpartTxFingerprint: counterpart.txFingerprint,
+    });
   }
 
   return cueByIssueKey;
@@ -1493,7 +1539,12 @@ function detectGapCueIssueKeys(
   return mergeGapCueIssueKeys(
     serviceSwapCues,
     correlatedServiceSwapAnnotations,
-    detectPossibleAssetMigrationCueIssueKeys(issues, transactions, excludedAssetIds),
+    detectPossibleAssetMigrationCueIssueKeys(
+      issues,
+      transactions,
+      transactionAnnotationsByTransactionId,
+      excludedAssetIds
+    ),
     detectCrossChainMigrationCueIssueKeys(issues, transactions, accountContextById),
     detectBridgeCueIssueKeysFromAnnotations(issues, transactionAnnotationsByTransactionId),
     detectLikelyDustCueIssueKeys(issues, transactions, excludedAssetIds)

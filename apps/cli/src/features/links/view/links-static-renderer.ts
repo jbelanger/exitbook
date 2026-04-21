@@ -1,4 +1,3 @@
-import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE } from '@exitbook/core';
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
@@ -780,7 +779,8 @@ function formatGapReadiness(item: LinkGapBrowseItem): string {
       : '';
   const suppressMigrationContextSuffix =
     item.gapIssue.gapCue === 'likely_asset_migration' &&
-    item.gapIssue.contextHint?.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE;
+    item.gapIssue.contextHint?.kind === 'annotation' &&
+    item.gapIssue.contextHint.code === 'asset_migration_participant';
   const contextSuffix =
     item.gapIssue.contextHint && !suppressMigrationContextSuffix ? ` · ${item.gapIssue.contextHint.label}` : '';
   const crossProfileCueLabel = formatGapCrossProfileCueLabel(item);

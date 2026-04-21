@@ -115,6 +115,7 @@ describe('buildProcessingPorts', () => {
 
     const ports = buildProcessingPorts(ctx, {
       rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+      rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
       overrideStore,
     });
 
@@ -147,8 +148,10 @@ describe('buildProcessingPorts', () => {
 
   it('threads processed account scope through the asset-review rebuild port', async () => {
     const rebuildAssetReviewProjection = vi.fn().mockResolvedValue(ok(undefined));
+    const rebuildTransactionInterpretation = vi.fn().mockResolvedValue(ok(undefined));
     const ports = buildProcessingPorts(ctx, {
       rebuildAssetReviewProjection,
+      rebuildTransactionInterpretation,
       overrideStore: {
         exists: vi.fn().mockReturnValue(false),
         readByScopes: vi.fn().mockResolvedValue(ok([])),
@@ -158,6 +161,23 @@ describe('buildProcessingPorts', () => {
     assertOk(await ports.rebuildAssetReviewProjection([1]));
 
     expect(rebuildAssetReviewProjection).toHaveBeenCalledWith([1]);
+  });
+
+  it('threads processed account scope through the interpretation rebuild port', async () => {
+    const rebuildAssetReviewProjection = vi.fn().mockResolvedValue(ok(undefined));
+    const rebuildTransactionInterpretation = vi.fn().mockResolvedValue(ok(undefined));
+    const ports = buildProcessingPorts(ctx, {
+      rebuildAssetReviewProjection,
+      rebuildTransactionInterpretation,
+      overrideStore: {
+        exists: vi.fn().mockReturnValue(false),
+        readByScopes: vi.fn().mockResolvedValue(ok([])),
+      },
+    });
+
+    assertOk(await ports.rebuildTransactionInterpretation([1]));
+
+    expect(rebuildTransactionInterpretation).toHaveBeenCalledWith([1]);
   });
 
   it('filters raw-data account discovery by profile', async () => {
@@ -195,6 +215,7 @@ describe('buildProcessingPorts', () => {
 
     const ports = buildProcessingPorts(ctx, {
       rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+      rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
       overrideStore: {
         exists: vi.fn().mockReturnValue(false),
         readByScopes: vi.fn().mockResolvedValue(ok([])),
@@ -214,6 +235,7 @@ describe('buildProcessingPorts', () => {
 
     const ports = buildProcessingPorts(ctx, {
       rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+      rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
       overrideStore: {
         exists: vi.fn().mockReturnValue(false),
         readByScopes: vi.fn().mockResolvedValue(ok([])),

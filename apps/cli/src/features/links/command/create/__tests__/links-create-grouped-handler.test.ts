@@ -225,11 +225,15 @@ function createDatabase(
       return ok(candidates.find((candidate) => candidate.id === transactionId));
     }),
   };
+  const transactionAnnotations = {
+    readAnnotations: vi.fn().mockResolvedValue(ok([])),
+  };
 
   return {
     executeInTransaction: vi.fn(async (fn: (tx: { transactionLinks: typeof transactionLinks }) => Promise<unknown>) =>
       fn({ transactionLinks })
     ),
+    transactionAnnotations,
     transactionLinks,
     transactions,
   };
@@ -308,12 +312,18 @@ describe('ManualGroupedLinkCreateHandler', () => {
       ],
       'Wallet consolidation'
     );
+    expect(database.transactionAnnotations.readAnnotations).toHaveBeenCalledWith({
+      kinds: ['asset_migration_participant'],
+      tiers: ['asserted', 'heuristic'],
+      transactionIds: [1, 2, 3],
+    });
     expect(mockPrepareGroupedManualLinksFromTransactions).toHaveBeenCalledWith(
       expect.objectContaining({
         explainedTargetResidual: expect.objectContaining({
           amount: expect.objectContaining({ toFixed: expect.any(Function) }),
           role: 'staking_reward',
         }),
+        transactionAnnotations: [],
       }),
       expect.anything()
     );

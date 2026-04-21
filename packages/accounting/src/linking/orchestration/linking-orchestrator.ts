@@ -234,8 +234,8 @@ export class LinkingOrchestrator {
         transactions.length === 0
           ? []
           : yield* await self.store.loadTransactionAnnotations({
-              kinds: ['bridge_participant'],
-              tiers: ['asserted'],
+              kinds: ['asset_migration_participant', 'bridge_participant'],
+              tiers: ['asserted', 'heuristic'],
               transactionIds: transactions.map((tx) => tx.id),
             });
       const txById = new Map(transactions.map((tx) => [tx.id, tx]));

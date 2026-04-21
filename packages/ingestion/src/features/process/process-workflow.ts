@@ -123,6 +123,19 @@ export class ProcessingWorkflow {
         });
         if (materializeOverridesResult.isErr()) return err(materializeOverridesResult.error);
 
+        const interpretationResult = await this.ports.rebuildTransactionInterpretation(accountIds);
+        if (interpretationResult.isErr()) {
+          const errorMessage = `Processed transactions were rebuilt, but transaction interpretation failed: ${interpretationResult.error.message}`;
+
+          this.eventBus.emit({
+            type: 'process.failed',
+            accountIds,
+            error: errorMessage,
+          });
+
+          return err(new Error(errorMessage));
+        }
+
         const freshResult = await this.ports.markProcessedTransactionsFresh(accountIds);
         if (freshResult.isErr()) return err(freshResult.error);
 

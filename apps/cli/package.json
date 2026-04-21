@@ -36,6 +36,7 @@
     "@exitbook/logger": "workspace:*",
     "@exitbook/observability": "workspace:*",
     "@exitbook/price-providers": "workspace:*",
+    "@exitbook/protocol-catalog": "workspace:*",
     "@exitbook/transaction-interpretation": "workspace:*",
     "commander": "^14.0.3",
     "decimal.js": "^10.6.0",

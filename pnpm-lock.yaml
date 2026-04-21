@@ -120,6 +120,9 @@ importers:
       '@exitbook/price-providers':
         specifier: workspace:*
         version: link:../../packages/price-providers
+      '@exitbook/protocol-catalog':
+        specifier: workspace:*
+        version: link:../../packages/protocol-catalog
       '@exitbook/transaction-interpretation':
         specifier: workspace:*
         version: link:../../packages/transaction-interpretation

@@ -269,6 +269,12 @@ describe('links static renderer', () => {
       gapCue: 'likely_asset_migration' as const,
       gapCueCounterpartTxFingerprint: 'kraken-render-counterpart',
       suggestedCount: 0,
+      contextHint: {
+        kind: 'annotation' as const,
+        code: 'asset_migration_participant',
+        label: 'possible asset migration',
+        message: 'Transaction carries heuristic asset migration interpretation from spotfromfutures rows.',
+      },
     };
     const item = {
       gapRef: buildLinkGapRef({
@@ -307,7 +313,7 @@ describe('links static renderer', () => {
       `Create manual link: exitbook links create ${item.transactionRef} ${formatTransactionFingerprintRef('kraken-render-counterpart')} --asset ${gapIssue.assetSymbol}`
     );
     expect(normalizedOutput).toContain(
-      'Likely outcome: Likely internal asset migration; inspect the counterpart, then create a manual link if basis should carry between the old and new asset.'
+      'Likely outcome: Migration interpretation exists; inspect the counterpart, then create a manual link if basis should carry between the old and new asset.'
     );
     expect(normalizedOutput).toContain(
       `Next: exitbook links create ${item.transactionRef} ${formatTransactionFingerprintRef('kraken-render-counterpart')} --asset ${gapIssue.assetSymbol}`

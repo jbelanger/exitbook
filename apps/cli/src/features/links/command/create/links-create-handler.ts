@@ -31,6 +31,7 @@ import { appendLinkOverrideEvent } from '../review/links-override-append.js';
 const logger = getLogger('ManualLinkCreateHandler');
 
 type LinksCreateDatabase = Pick<DataSession, 'executeInTransaction'> & {
+  transactionAnnotations: Pick<DataSession['transactionAnnotations'], 'readAnnotations'>;
   transactionLinks: Pick<DataSession['transactionLinks'], 'create' | 'findAll' | 'updateStatuses'>;
   transactions: Pick<DataSession['transactions'], 'findAll' | 'findByFingerprintRef' | 'findById'>;
 };
@@ -77,6 +78,14 @@ export class ManualLinkCreateHandler {
       const sourceTransaction = yield* await self.resolveTransaction(params.sourceSelector);
       const targetTransaction = yield* await self.resolveTransaction(params.targetSelector);
       const transactions = yield* await self.db.transactions.findAll({ profileId: self.profileId });
+      const transactionAnnotations =
+        transactions.length === 0
+          ? []
+          : yield* await self.db.transactionAnnotations.readAnnotations({
+              kinds: ['asset_migration_participant'],
+              tiers: ['asserted', 'heuristic'],
+              transactionIds: transactions.map((transaction) => transaction.id),
+            });
       const preparedLink = yield* prepareManualLinkFromTransactions(
         {
           transactions,
@@ -85,6 +94,7 @@ export class ManualLinkCreateHandler {
           assetSymbol: params.assetSymbol,
           reviewedAt,
           reviewedBy,
+          transactionAnnotations,
         },
         logger
       );

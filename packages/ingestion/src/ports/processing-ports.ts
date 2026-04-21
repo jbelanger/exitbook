@@ -33,6 +33,9 @@ export interface ProcessingPorts {
   /** Mark processed-transactions projection as failed for the affected profile scopes. */
   markProcessedTransactionsFailed(accountIds: number[]): Promise<Result<void, Error>>;
 
+  /** Rebuild transaction interpretation facts for the processed account scope. */
+  rebuildTransactionInterpretation(accountIds: number[]): Promise<Result<void, Error>>;
+
   /** Rebuild the dependent asset-review projection for the processed account scope. */
   rebuildAssetReviewProjection(accountIds: number[]): Promise<Result<void, Error>>;
 

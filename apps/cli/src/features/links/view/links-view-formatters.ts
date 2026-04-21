@@ -3,7 +3,6 @@ import {
   hasImpliedFeeAmount,
   isPartialMatchLinkMetadata,
   isSameHashExternalLinkMetadata,
-  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   type LinkStatus,
   type MatchCriteria,
   type TransactionLink,
@@ -297,11 +296,14 @@ export function gapCueSuggestsManualLink(cue: GapCueKind | undefined): boolean {
 }
 
 export function gapContextHintSuggestsManualLink(contextHint: LinkGapIssue['contextHint']): boolean {
-  if (contextHint?.kind === 'annotation' && contextHint.code === 'bridge_participant') {
+  if (
+    contextHint?.kind === 'annotation' &&
+    (contextHint.code === 'asset_migration_participant' || contextHint.code === 'bridge_participant')
+  ) {
     return true;
   }
 
-  return contextHint?.kind === 'diagnostic' && contextHint.code === POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE;
+  return false;
 }
 
 export function gapIssueSuggestsGapException(issue: Pick<LinkGapIssue, 'gapCue' | 'contextHint'>): boolean {
@@ -326,6 +328,14 @@ export function formatGapLikelyOutcome(
 
   if (issue.contextHint?.kind === 'annotation' && issue.contextHint.code === 'bridge_participant') {
     return 'Bridge interpretation exists; inspect the counterpart and create or confirm a transfer link if this is same-owner movement.';
+  }
+
+  if (issue.contextHint?.kind === 'annotation' && issue.contextHint.code === 'asset_migration_participant') {
+    if (counterpartTransactionRef !== undefined) {
+      return 'Migration interpretation exists; inspect the counterpart, then create a manual link if basis should carry between the old and new asset.';
+    }
+
+    return 'Migration interpretation exists; inspect the counterpart and create a manual link if this reflects a same-owner asset migration.';
   }
 
   if (issue.gapCue === 'likely_asset_migration') {

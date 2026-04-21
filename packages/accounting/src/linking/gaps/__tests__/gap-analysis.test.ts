@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- acceptable for tests */
 import {
-  POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
   type Account,
   type AssetReviewSummary,
   type Transaction,
@@ -55,21 +54,6 @@ describe('analyzeLinkGaps', () => {
       },
       ...overrides,
     });
-
-  const withPossibleAssetMigrationDiagnostic = (transaction: Transaction, migrationGroupKey: string): Transaction => ({
-    ...transaction,
-    diagnostics: [
-      {
-        code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
-        severity: 'info',
-        message: 'possible migration',
-        metadata: {
-          migrationGroupKey,
-          providerSubtype: 'spotfromfutures',
-        },
-      },
-    ],
-  });
 
   const createBlockchainDeposit = (
     overrides: Omit<Partial<Transaction>, 'movements' | 'fees'> & {
@@ -292,6 +276,28 @@ describe('analyzeLinkGaps', () => {
     ...(params.counterpartTxFingerprint === undefined
       ? {}
       : { metadata: { counterpartTxFingerprint: params.counterpartTxFingerprint } }),
+  });
+
+  const createAssetMigrationAnnotation = (params: {
+    groupKey: string;
+    role: 'source' | 'target';
+    transaction: Transaction;
+  }): TransactionAnnotation => ({
+    annotationFingerprint: `annotation:${params.transaction.txFingerprint}:${params.role}:migration`,
+    accountId: params.transaction.accountId,
+    transactionId: params.transaction.id,
+    txFingerprint: params.transaction.txFingerprint,
+    kind: 'asset_migration_participant',
+    tier: 'heuristic',
+    target: { scope: 'transaction' },
+    role: params.role,
+    groupKey: params.groupKey,
+    detectorId: 'asset-migration-participant',
+    derivedFromTxIds: [params.transaction.id],
+    provenanceInputs: ['diagnostic'],
+    metadata: {
+      providerSubtype: 'spotfromfutures',
+    },
   });
 
   it('should flag deposits without confirmed links', () => {
@@ -2973,50 +2979,57 @@ describe('analyzeLinkGaps', () => {
   });
 
   it('adds a likely asset migration cue when a migration-marked exchange counterpart exists', () => {
-    const withdrawal = withPossibleAssetMigrationDiagnostic(
-      createExchangeWithdrawal({
-        id: 32,
-        txFingerprint: 'kraken-rndr-outflow',
-        movements: {
-          inflows: [],
-          outflows: [
-            {
-              assetId: 'exchange:kraken:rndr',
-              assetSymbol: 'RNDR' as Currency,
-              grossAmount: parseDecimal('64.98757287'),
-              netAmount: parseDecimal('64.98757287'),
-            },
-          ],
-        },
-      }),
-      'migration-group-rndr'
-    );
-    const deposit = withPossibleAssetMigrationDiagnostic(
-      createMockTransaction({
-        id: 33,
-        txFingerprint: 'kraken-render-inflow',
-        platformKey: 'kraken',
-        platformKind: 'exchange',
-        operation: {
-          category: 'transfer',
-          type: 'deposit',
-        },
-        movements: {
-          inflows: [
-            {
-              assetId: 'exchange:kraken:render',
-              assetSymbol: 'RENDER' as Currency,
-              grossAmount: parseDecimal('64.987572'),
-              netAmount: parseDecimal('64.987572'),
-            },
-          ],
-          outflows: [],
-        },
-      }),
-      'migration-group-render'
-    );
+    const withdrawal = createExchangeWithdrawal({
+      id: 32,
+      txFingerprint: 'kraken-rndr-outflow',
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            assetId: 'exchange:kraken:rndr',
+            assetSymbol: 'RNDR' as Currency,
+            grossAmount: parseDecimal('64.98757287'),
+            netAmount: parseDecimal('64.98757287'),
+          },
+        ],
+      },
+    });
+    const deposit = createMockTransaction({
+      id: 33,
+      txFingerprint: 'kraken-render-inflow',
+      platformKey: 'kraken',
+      platformKind: 'exchange',
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+      movements: {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:render',
+            assetSymbol: 'RENDER' as Currency,
+            grossAmount: parseDecimal('64.987572'),
+            netAmount: parseDecimal('64.987572'),
+          },
+        ],
+        outflows: [],
+      },
+    });
 
-    const analysis = analyzeLinkGaps([withdrawal, deposit], []);
+    const analysis = analyzeLinkGaps([withdrawal, deposit], [], {
+      transactionAnnotations: [
+        createAssetMigrationAnnotation({
+          transaction: withdrawal,
+          role: 'source',
+          groupKey: 'migration-group-rndr',
+        }),
+        createAssetMigrationAnnotation({
+          transaction: deposit,
+          role: 'target',
+          groupKey: 'migration-group-render',
+        }),
+      ],
+    });
 
     expect(analysis.summary.total_issues).toBe(2);
     expect(analysis.summary.unmatched_outflows).toBe(1);
@@ -3025,7 +3038,8 @@ describe('analyzeLinkGaps', () => {
       expect.objectContaining({
         assetId: 'exchange:kraken:rndr',
         contextHint: expect.objectContaining({
-          code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+          kind: 'annotation',
+          code: 'asset_migration_participant',
         }),
         gapCue: 'likely_asset_migration',
         gapCueCounterpartTxFingerprint: 'kraken-render-inflow',
@@ -3036,7 +3050,8 @@ describe('analyzeLinkGaps', () => {
         assetId: 'exchange:kraken:render',
         direction: 'inflow',
         contextHint: expect.objectContaining({
-          code: POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE,
+          kind: 'annotation',
+          code: 'asset_migration_participant',
         }),
         gapCue: 'likely_asset_migration',
         gapCueCounterpartTxFingerprint: 'kraken-rndr-outflow',
