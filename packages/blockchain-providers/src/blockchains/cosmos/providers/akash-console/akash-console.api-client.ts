@@ -82,7 +82,7 @@ export class AkashConsoleApiClient extends BaseApiClient {
     super(config);
 
     // Use Akash chain config
-    this.chainConfig = COSMOS_CHAINS['akash'] as CosmosChainConfig;
+    this.chainConfig = COSMOS_CHAINS['akash'];
 
     this.logger.debug(
       `Initialized AkashConsoleApiClient for chain: ${this.chainConfig.chainName} - BaseUrl: ${this.baseUrl}`

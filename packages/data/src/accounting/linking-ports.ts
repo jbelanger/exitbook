@@ -14,6 +14,8 @@ export function buildLinkingPorts(db: DataSession, profileId: number): ILinkingP
   return {
     loadTransactions: () => db.transactions.findAll({ profileId }),
 
+    loadTransactionAnnotations: (query) => db.transactionAnnotations.readAnnotations(query),
+
     replaceLinks: (links) =>
       resultDoAsync(async function* () {
         const scopedAccounts = yield* await db.accounts.findAll({ profileId });

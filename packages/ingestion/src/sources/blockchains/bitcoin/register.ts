@@ -22,7 +22,7 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
     chainModel: 'utxo',
     createImporter: (providerRuntime, preferredProvider) =>
       new BitcoinImporter(config, providerRuntime, { preferredProvider }),
-    createProcessor: ({ scamDetectionService }) => new BitcoinProcessor(config, scamDetectionService),
+    createProcessor: ({ scamDetector }) => new BitcoinProcessor(config, scamDetector),
 
     isExtendedPublicKey: isBitcoinXpub,
 

@@ -1,16 +1,16 @@
 import { parseDecimal } from '@exitbook/foundation';
 
-import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from '../shared/index.js';
+import type { ExchangeCorrelationGroup } from '../shared/index.js';
 
-import type { KuCoinProviderMetadata } from './normalize-provider-event.js';
+import type { KuCoinProviderEvent, KuCoinProviderMetadata } from './normalize-provider-event.js';
 
 const ACCOUNT_HISTORY_TRANSFER_PAIRING_WINDOW_MS = 5_000;
 
-function getMetadata(event: ExchangeProviderEvent): KuCoinProviderMetadata {
-  return event.providerMetadata as KuCoinProviderMetadata;
+function getMetadata(event: KuCoinProviderEvent): KuCoinProviderMetadata {
+  return event.providerMetadata;
 }
 
-function getEvidenceAssetSymbols(event: ExchangeProviderEvent): string[] {
+function getEvidenceAssetSymbols(event: KuCoinProviderEvent): string[] {
   const metadata = getMetadata(event);
 
   if (
@@ -27,8 +27,8 @@ function getEvidenceAssetSymbols(event: ExchangeProviderEvent): string[] {
 
 function createCorrelationGroup(
   correlationKey: string,
-  groupEvents: readonly ExchangeProviderEvent[]
-): ExchangeCorrelationGroup {
+  groupEvents: readonly KuCoinProviderEvent[]
+): ExchangeCorrelationGroup<KuCoinProviderMetadata> {
   const sortedEvents = [...groupEvents].sort((left, right) => left.occurredAt - right.occurredAt);
   const timestamps = sortedEvents.map((event) => event.occurredAt);
   const minTimestamp = Math.min(...timestamps);
@@ -44,15 +44,15 @@ function createCorrelationGroup(
       directionHints: sortedEvents.map((event) => event.providerHints.directionHint ?? 'unknown'),
       timeSpanMs: maxTimestamp - minTimestamp,
     },
-  } satisfies ExchangeCorrelationGroup;
+  } satisfies ExchangeCorrelationGroup<KuCoinProviderMetadata>;
 }
 
-function isTransferAccountHistoryEvent(event: ExchangeProviderEvent): boolean {
+function isTransferAccountHistoryEvent(event: KuCoinProviderEvent): boolean {
   const metadata = getMetadata(event);
   return metadata.rowKind === 'account_history' && metadata.type === 'transfer';
 }
 
-function buildTransferPairingKey(event: ExchangeProviderEvent): string {
+function buildTransferPairingKey(event: KuCoinProviderEvent): string {
   const metadata = getMetadata(event);
   if (metadata.rowKind !== 'account_history' || metadata.type !== 'transfer') {
     throw new Error(`Expected KuCoin transfer account-history metadata for event ${event.providerEventId}`);
@@ -63,8 +63,10 @@ function buildTransferPairingKey(event: ExchangeProviderEvent): string {
   return `${event.assetSymbol}|${normalizedAmount}|${normalizedRemark}`;
 }
 
-function buildRegularCorrelationGroups(events: readonly ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
-  const grouped = new Map<string, ExchangeProviderEvent[]>();
+function buildRegularCorrelationGroups(
+  events: readonly KuCoinProviderEvent[]
+): ExchangeCorrelationGroup<KuCoinProviderMetadata>[] {
+  const grouped = new Map<string, KuCoinProviderEvent[]>();
 
   for (const event of events) {
     const correlationKey = event.providerHints.correlationKeys[0] ?? event.providerEventId;
@@ -83,10 +85,12 @@ function buildRegularCorrelationGroups(events: readonly ExchangeProviderEvent[])
   );
 }
 
-function buildTransferAccountHistoryGroups(events: readonly ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
+function buildTransferAccountHistoryGroups(
+  events: readonly KuCoinProviderEvent[]
+): ExchangeCorrelationGroup<KuCoinProviderMetadata>[] {
   const sortedEvents = [...events].sort((left, right) => left.occurredAt - right.occurredAt);
-  const pendingByPairingKeyAndSide = new Map<string, ExchangeProviderEvent[]>();
-  const groups: ExchangeCorrelationGroup[] = [];
+  const pendingByPairingKeyAndSide = new Map<string, KuCoinProviderEvent[]>();
+  const groups: ExchangeCorrelationGroup<KuCoinProviderMetadata>[] = [];
 
   for (const event of sortedEvents) {
     const metadata = getMetadata(event);
@@ -157,7 +161,9 @@ function buildTransferAccountHistoryGroups(events: readonly ExchangeProviderEven
   return groups;
 }
 
-function sortCorrelationGroups(groups: readonly ExchangeCorrelationGroup[]): ExchangeCorrelationGroup[] {
+function sortCorrelationGroups(
+  groups: readonly ExchangeCorrelationGroup<KuCoinProviderMetadata>[]
+): ExchangeCorrelationGroup<KuCoinProviderMetadata>[] {
   return [...groups].sort((left, right) => {
     const leftTimestamp = left.events[0]?.occurredAt ?? 0;
     const rightTimestamp = right.events[0]?.occurredAt ?? 0;
@@ -170,7 +176,9 @@ function sortCorrelationGroups(groups: readonly ExchangeCorrelationGroup[]): Exc
   });
 }
 
-export function buildKuCoinCorrelationGroups(events: ExchangeProviderEvent[]): ExchangeCorrelationGroup[] {
+export function buildKuCoinCorrelationGroups(
+  events: KuCoinProviderEvent[]
+): ExchangeCorrelationGroup<KuCoinProviderMetadata>[] {
   const transferAccountHistoryEvents = events.filter(isTransferAccountHistoryEvent);
   const regularEvents = events.filter((event) => !isTransferAccountHistoryEvent(event));
 

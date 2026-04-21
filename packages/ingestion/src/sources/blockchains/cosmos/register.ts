@@ -22,7 +22,7 @@ export const cosmosAdapters: BlockchainAdapter[] = Object.keys(COSMOS_CHAINS).fl
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ scamDetectionService }) => new CosmosProcessor(config, scamDetectionService),
+    createProcessor: ({ scamDetector }) => new CosmosProcessor(config, scamDetector),
   };
 
   return [adapter];

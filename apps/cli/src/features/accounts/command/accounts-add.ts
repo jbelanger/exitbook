@@ -62,7 +62,7 @@ async function executeAddAccountCommand(name: string, rawOptions: unknown, appRu
       }),
     action: async (context) =>
       resultDoAsync(async function* () {
-        const db = await context.runtime.database();
+        const db = await context.runtime.openDatabaseSession();
         const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
         const draft = yield* toCliResult(
           buildCreateAccountInput(name, profile.id, context.prepared, appRuntime.adapterRegistry),

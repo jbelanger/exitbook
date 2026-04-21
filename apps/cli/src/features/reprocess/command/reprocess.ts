@@ -120,7 +120,7 @@ async function resolveReprocessTargetScope(
   options: ReprocessCommandOptions
 ): Promise<Result<{ accountId?: number | undefined; profileId: number }, Error>> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const profile = yield* await resolveCommandProfile(ctx, database);
 
     if (!hasAccountSelectorArgument(options)) {

@@ -2,6 +2,7 @@ import { filterTransferEligibleMovements, type NewTransactionLink, type Transact
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
@@ -23,9 +24,11 @@ import type { LinkableMovementBuildResult, PendingInternalLink } from './types.j
  */
 export function buildLinkableMovements(
   transactions: Transaction[],
-  logger: Logger
+  logger: Logger,
+  transactionAnnotations: readonly TransactionAnnotation[] = []
 ): Result<LinkableMovementBuildResult, Error> {
   logger.info({ transactionCount: transactions.length }, 'Building linkable movements');
+  const annotationsByTransactionId = buildAnnotationsByTransactionId(transactionAnnotations);
 
   // 1. Group same-hash blockchain transactions and reduce conservatively
   const sameHashGroups = groupSameHashTransactions(transactions);
@@ -70,6 +73,7 @@ export function buildLinkableMovements(
             isInternal,
             movementFingerprint: inflow.movementFingerprint,
             transactionDiagnostics: tx.diagnostics,
+            transactionAnnotations: annotationsByTransactionId.get(tx.id),
           }
         )
       );
@@ -98,6 +102,7 @@ export function buildLinkableMovements(
             isInternal,
             movementFingerprint: outflow.movementFingerprint,
             transactionDiagnostics: tx.diagnostics,
+            transactionAnnotations: annotationsByTransactionId.get(tx.id),
           }
         )
       );
@@ -121,6 +126,24 @@ export function buildLinkableMovements(
   return ok({ linkableMovements, internalLinks: enrichedInternalLinksResult.value });
 }
 
+function buildAnnotationsByTransactionId(
+  annotations: readonly TransactionAnnotation[]
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const byTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const existing = byTransactionId.get(annotation.transactionId);
+    if (existing === undefined) {
+      byTransactionId.set(annotation.transactionId, [annotation]);
+      continue;
+    }
+
+    existing.push(annotation);
+  }
+
+  return byTransactionId;
+}
+
 function createLinkableMovement(
   id: number,
   tx: Transaction,
@@ -134,6 +157,7 @@ function createLinkableMovement(
     excluded: boolean;
     isInternal: boolean;
     movementFingerprint: string;
+    transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
     transactionDiagnostics?: Transaction['diagnostics'];
   }
 ): LinkableMovement {
@@ -153,6 +177,7 @@ function createLinkableMovement(
     fromAddress: tx.from,
     toAddress: tx.to,
     transactionDiagnostics: flags.transactionDiagnostics,
+    transactionAnnotations: flags.transactionAnnotations === undefined ? undefined : [...flags.transactionAnnotations],
     isInternal: flags.isInternal,
     excluded: flags.excluded,
     movementFingerprint: flags.movementFingerprint,

@@ -2,6 +2,7 @@ import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import type { Logger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTransaction, requirePresent } from '../../shared/test-utils.js';
@@ -118,6 +119,38 @@ describe('buildLinkableMovements', () => {
     const result = assertOk(buildLinkableMovements([transaction], logger));
 
     expect(result.linkableMovements[0]?.movementFingerprint).toBe('movement:stored:outflow:0');
+  });
+
+  it('attaches transaction annotations to linkable movements by transaction id', () => {
+    const transactions = [
+      createTransaction({
+        id: 9,
+        source: 'blockchain:ethereum',
+        platformKind: 'blockchain',
+        datetime: '2026-01-01T00:00:00Z',
+        outflows: [{ assetSymbol: 'ETH', amount: '1' }],
+      }),
+    ];
+    const annotations: readonly TransactionAnnotation[] = [
+      {
+        annotationFingerprint: 'annotation:bridge:9',
+        accountId: 1,
+        transactionId: 9,
+        txFingerprint: transactions[0]!.txFingerprint,
+        kind: 'bridge_participant',
+        tier: 'asserted',
+        target: { scope: 'transaction' },
+        role: 'source',
+        protocolRef: { id: 'wormhole' },
+        detectorId: 'bridge-participant',
+        derivedFromTxIds: [9],
+        provenanceInputs: ['processor', 'diagnostic'],
+      },
+    ];
+
+    const result = assertOk(buildLinkableMovements(transactions, logger, annotations));
+
+    expect(result.linkableMovements[0]?.transactionAnnotations).toEqual(annotations);
   });
 
   it('ignores non-principal movements when building transfer candidates', () => {

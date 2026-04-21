@@ -374,27 +374,11 @@ function requireStoredFiatCurrency(currency: Currency): Result<FiatCurrency, Err
 export function fromStoredCanadaArtifact(artifact: StoredCanadaArtifact): CanadaCostBasisWorkflowResult {
   return {
     kind: 'canada-workflow',
-    calculation: {
-      id: artifact.calculation.id,
-      calculationDate: new Date(artifact.calculation.calculationDate),
-      method: artifact.calculation.method,
-      jurisdiction: artifact.calculation.jurisdiction,
-      taxYear: artifact.calculation.taxYear,
-      displayCurrency: artifact.calculation.displayCurrency as Currency,
-      taxCurrency: artifact.calculation.taxCurrency,
-      startDate: new Date(artifact.calculation.startDate),
-      endDate: new Date(artifact.calculation.endDate),
-      transactionsProcessed: artifact.calculation.transactionsProcessed,
-      assetsProcessed: artifact.calculation.assetsProcessed,
-    },
+    calculation: fromStoredCanadaCalculation(artifact.calculation),
     taxReport: fromStoredCanadaTaxReport(artifact.taxReport),
     inputContext: fromStoredCanadaInputContext(artifact.inputContext),
     ...(artifact.displayReport ? { displayReport: fromStoredCanadaDisplayReport(artifact.displayReport) } : {}),
-    executionMeta: {
-      missingPricesCount: artifact.executionMeta.missingPricesCount,
-      missingPriceTransactionIds: artifact.executionMeta.missingPriceTransactionIds,
-      retainedTransactionIds: artifact.executionMeta.retainedTransactionIds,
-    },
+    executionMeta: fromStoredExecutionMeta(artifact.executionMeta),
   };
 }
 
@@ -430,27 +414,11 @@ function toStoredCanadaArtifact(
 ): StoredCanadaArtifact {
   return {
     kind: 'canada-workflow',
-    calculation: {
-      id: result.calculation.id,
-      calculationDate: result.calculation.calculationDate.toISOString(),
-      method: result.calculation.method,
-      jurisdiction: result.calculation.jurisdiction,
-      taxYear: result.calculation.taxYear,
-      displayCurrency: result.calculation.displayCurrency,
-      taxCurrency: result.calculation.taxCurrency,
-      startDate: result.calculation.startDate.toISOString(),
-      endDate: result.calculation.endDate.toISOString(),
-      transactionsProcessed: result.calculation.transactionsProcessed,
-      assetsProcessed: result.calculation.assetsProcessed,
-    },
+    calculation: toStoredCanadaCalculation(result.calculation),
     taxReport: toStoredCanadaTaxReport(result.taxReport),
     inputContext: toStoredCanadaInputContext(inputContext),
     ...(result.displayReport ? { displayReport: toStoredCanadaDisplayReport(result.displayReport) } : {}),
-    executionMeta: {
-      missingPricesCount: result.executionMeta.missingPricesCount,
-      missingPriceTransactionIds: result.executionMeta.missingPriceTransactionIds,
-      retainedTransactionIds: result.executionMeta.retainedTransactionIds,
-    },
+    executionMeta: toStoredExecutionMeta(result.executionMeta),
   };
 }
 
@@ -466,6 +434,62 @@ function toStoredCanadaDebug(debug: CostBasisArtifactDebugPayload): StoredCanada
   };
 }
 
+function toStoredCanadaCalculation(
+  calculation: CanadaCostBasisWorkflowResult['calculation']
+): z.infer<typeof StoredCanadaCalculationSchema> {
+  return {
+    id: calculation.id,
+    calculationDate: calculation.calculationDate.toISOString(),
+    method: calculation.method,
+    jurisdiction: calculation.jurisdiction,
+    taxYear: calculation.taxYear,
+    displayCurrency: calculation.displayCurrency,
+    taxCurrency: calculation.taxCurrency,
+    startDate: calculation.startDate.toISOString(),
+    endDate: calculation.endDate.toISOString(),
+    transactionsProcessed: calculation.transactionsProcessed,
+    assetsProcessed: calculation.assetsProcessed,
+  };
+}
+
+function fromStoredCanadaCalculation(
+  calculation: z.infer<typeof StoredCanadaCalculationSchema>
+): CanadaCostBasisWorkflowResult['calculation'] {
+  return {
+    id: calculation.id,
+    calculationDate: new Date(calculation.calculationDate),
+    method: calculation.method,
+    jurisdiction: calculation.jurisdiction,
+    taxYear: calculation.taxYear,
+    displayCurrency: calculation.displayCurrency as Currency,
+    taxCurrency: calculation.taxCurrency,
+    startDate: new Date(calculation.startDate),
+    endDate: new Date(calculation.endDate),
+    transactionsProcessed: calculation.transactionsProcessed,
+    assetsProcessed: calculation.assetsProcessed,
+  };
+}
+
+function toStoredExecutionMeta(
+  executionMeta: CanadaCostBasisWorkflowResult['executionMeta']
+): z.infer<typeof StoredCostBasisExecutionMetaSchema> {
+  return {
+    missingPricesCount: executionMeta.missingPricesCount,
+    missingPriceTransactionIds: executionMeta.missingPriceTransactionIds,
+    retainedTransactionIds: executionMeta.retainedTransactionIds,
+  };
+}
+
+function fromStoredExecutionMeta(
+  executionMeta: z.infer<typeof StoredCostBasisExecutionMetaSchema>
+): CanadaCostBasisWorkflowResult['executionMeta'] {
+  return {
+    missingPricesCount: executionMeta.missingPricesCount,
+    missingPriceTransactionIds: executionMeta.missingPriceTransactionIds,
+    retainedTransactionIds: executionMeta.retainedTransactionIds,
+  };
+}
+
 function toStoredCanadaTaxReport(report: CanadaTaxReport): z.infer<typeof StoredCanadaTaxReportSchema> {
   return {
     calculationId: report.calculationId,
@@ -474,19 +498,10 @@ function toStoredCanadaTaxReport(report: CanadaTaxReport): z.infer<typeof Stored
     dispositions: report.dispositions.map(toStoredCanadaTaxReportDisposition),
     transfers: report.transfers.map(toStoredCanadaTaxReportTransfer),
     superficialLossAdjustments: report.superficialLossAdjustments.map(toStoredCanadaSuperficialLossAdjustment),
-    summary: {
-      totalProceedsCad: report.summary.totalProceedsCad.toFixed(),
-      totalCostBasisCad: report.summary.totalCostBasisCad.toFixed(),
-      totalGainLossCad: report.summary.totalGainLossCad.toFixed(),
-      totalTaxableGainLossCad: report.summary.totalTaxableGainLossCad.toFixed(),
-      totalDeniedLossCad: report.summary.totalDeniedLossCad.toFixed(),
-    },
+    summary: toStoredCanadaTaxReportSummary(report.summary),
     displayContext: {
-      transferMarketValueCadByTransferId: Object.fromEntries(
-        [...report.displayContext.transferMarketValueCadByTransferId.entries()].map(([key, value]) => [
-          key,
-          value.toFixed(),
-        ])
+      transferMarketValueCadByTransferId: toStoredDecimalRecord(
+        report.displayContext.transferMarketValueCadByTransferId
       ),
     },
   };
@@ -500,19 +515,10 @@ function fromStoredCanadaTaxReport(report: z.infer<typeof StoredCanadaTaxReportS
     dispositions: report.dispositions.map(fromStoredCanadaTaxReportDisposition),
     transfers: report.transfers.map(fromStoredCanadaTaxReportTransfer),
     superficialLossAdjustments: report.superficialLossAdjustments.map(fromStoredCanadaSuperficialLossAdjustment),
-    summary: {
-      totalProceedsCad: parseDecimal(report.summary.totalProceedsCad),
-      totalCostBasisCad: parseDecimal(report.summary.totalCostBasisCad),
-      totalGainLossCad: parseDecimal(report.summary.totalGainLossCad),
-      totalTaxableGainLossCad: parseDecimal(report.summary.totalTaxableGainLossCad),
-      totalDeniedLossCad: parseDecimal(report.summary.totalDeniedLossCad),
-    },
+    summary: fromStoredCanadaTaxReportSummary(report.summary),
     displayContext: {
-      transferMarketValueCadByTransferId: new Map(
-        Object.entries(report.displayContext.transferMarketValueCadByTransferId).map(([key, value]) => [
-          key,
-          parseDecimal(value),
-        ])
+      transferMarketValueCadByTransferId: fromStoredDecimalRecord(
+        report.displayContext.transferMarketValueCadByTransferId
       ),
     },
   };
@@ -549,39 +555,10 @@ function toStoredCanadaDisplayReport(
     calculationId: report.calculationId,
     sourceTaxCurrency: report.sourceTaxCurrency,
     displayCurrency: report.displayCurrency,
-    acquisitions: report.acquisitions.map((item) => ({
-      ...toStoredCanadaTaxReportAcquisition(item),
-      displayCostBasisPerUnit: item.displayCostBasisPerUnit.toFixed(),
-      displayTotalCost: item.displayTotalCost.toFixed(),
-      displayRemainingAllocatedCost: item.displayRemainingAllocatedCost.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    dispositions: report.dispositions.map((item) => ({
-      ...toStoredCanadaTaxReportDisposition(item),
-      displayProceeds: item.displayProceeds.toFixed(),
-      displayCostBasis: item.displayCostBasis.toFixed(),
-      displayGainLoss: item.displayGainLoss.toFixed(),
-      displayDeniedLoss: item.displayDeniedLoss.toFixed(),
-      displayTaxableGainLoss: item.displayTaxableGainLoss.toFixed(),
-      displayAcbPerUnit: item.displayAcbPerUnit.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    transfers: report.transfers.map((item) => ({
-      ...toStoredCanadaTaxReportTransfer(item),
-      marketValueCad: item.marketValueCad.toFixed(),
-      displayCarriedAcb: item.displayCarriedAcb.toFixed(),
-      displayCarriedAcbPerUnit: item.displayCarriedAcbPerUnit.toFixed(),
-      displayMarketValue: item.displayMarketValue.toFixed(),
-      displayFeeAdjustment: item.displayFeeAdjustment.toFixed(),
-      fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    summary: {
-      totalProceeds: report.summary.totalProceeds.toFixed(),
-      totalCostBasis: report.summary.totalCostBasis.toFixed(),
-      totalGainLoss: report.summary.totalGainLoss.toFixed(),
-      totalTaxableGainLoss: report.summary.totalTaxableGainLoss.toFixed(),
-      totalDeniedLoss: report.summary.totalDeniedLoss.toFixed(),
-    },
+    acquisitions: report.acquisitions.map(toStoredCanadaDisplayReportAcquisition),
+    dispositions: report.dispositions.map(toStoredCanadaDisplayReportDisposition),
+    transfers: report.transfers.map(toStoredCanadaDisplayReportTransfer),
+    summary: toStoredCanadaDisplayReportSummary(report.summary),
   };
 }
 
@@ -592,40 +569,149 @@ function fromStoredCanadaDisplayReport(
     calculationId: report.calculationId,
     sourceTaxCurrency: report.sourceTaxCurrency,
     displayCurrency: report.displayCurrency as Currency,
-    acquisitions: report.acquisitions.map((item) => ({
-      ...fromStoredCanadaTaxReportAcquisition(item),
-      displayCostBasisPerUnit: parseDecimal(item.displayCostBasisPerUnit),
-      displayTotalCost: parseDecimal(item.displayTotalCost),
-      displayRemainingAllocatedCost: parseDecimal(item.displayRemainingAllocatedCost),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    dispositions: report.dispositions.map((item) => ({
-      ...fromStoredCanadaTaxReportDisposition(item),
-      displayProceeds: parseDecimal(item.displayProceeds),
-      displayCostBasis: parseDecimal(item.displayCostBasis),
-      displayGainLoss: parseDecimal(item.displayGainLoss),
-      displayDeniedLoss: parseDecimal(item.displayDeniedLoss),
-      displayTaxableGainLoss: parseDecimal(item.displayTaxableGainLoss),
-      displayAcbPerUnit: parseDecimal(item.displayAcbPerUnit),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    transfers: report.transfers.map((item) => ({
-      ...fromStoredCanadaTaxReportTransfer(item),
-      marketValueCad: parseDecimal(item.marketValueCad),
-      displayCarriedAcb: parseDecimal(item.displayCarriedAcb),
-      displayCarriedAcbPerUnit: parseDecimal(item.displayCarriedAcbPerUnit),
-      displayMarketValue: parseDecimal(item.displayMarketValue),
-      displayFeeAdjustment: parseDecimal(item.displayFeeAdjustment),
-      fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
-    })),
-    summary: {
-      totalProceeds: parseDecimal(report.summary.totalProceeds),
-      totalCostBasis: parseDecimal(report.summary.totalCostBasis),
-      totalGainLoss: parseDecimal(report.summary.totalGainLoss),
-      totalTaxableGainLoss: parseDecimal(report.summary.totalTaxableGainLoss),
-      totalDeniedLoss: parseDecimal(report.summary.totalDeniedLoss),
-    },
+    acquisitions: report.acquisitions.map(fromStoredCanadaDisplayReportAcquisition),
+    dispositions: report.dispositions.map(fromStoredCanadaDisplayReportDisposition),
+    transfers: report.transfers.map(fromStoredCanadaDisplayReportTransfer),
+    summary: fromStoredCanadaDisplayReportSummary(report.summary),
   };
+}
+
+function toStoredCanadaTaxReportSummary(
+  summary: CanadaTaxReport['summary']
+): z.infer<typeof StoredCanadaTaxReportSchema>['summary'] {
+  return {
+    totalProceedsCad: summary.totalProceedsCad.toFixed(),
+    totalCostBasisCad: summary.totalCostBasisCad.toFixed(),
+    totalGainLossCad: summary.totalGainLossCad.toFixed(),
+    totalTaxableGainLossCad: summary.totalTaxableGainLossCad.toFixed(),
+    totalDeniedLossCad: summary.totalDeniedLossCad.toFixed(),
+  };
+}
+
+function fromStoredCanadaTaxReportSummary(
+  summary: z.infer<typeof StoredCanadaTaxReportSchema>['summary']
+): CanadaTaxReport['summary'] {
+  return {
+    totalProceedsCad: parseDecimal(summary.totalProceedsCad),
+    totalCostBasisCad: parseDecimal(summary.totalCostBasisCad),
+    totalGainLossCad: parseDecimal(summary.totalGainLossCad),
+    totalTaxableGainLossCad: parseDecimal(summary.totalTaxableGainLossCad),
+    totalDeniedLossCad: parseDecimal(summary.totalDeniedLossCad),
+  };
+}
+
+function toStoredCanadaDisplayReportAcquisition(
+  item: CanadaDisplayCostBasisReport['acquisitions'][number]
+): z.infer<typeof StoredCanadaDisplayReportAcquisitionSchema> {
+  return {
+    ...toStoredCanadaTaxReportAcquisition(item),
+    displayCostBasisPerUnit: item.displayCostBasisPerUnit.toFixed(),
+    displayTotalCost: item.displayTotalCost.toFixed(),
+    displayRemainingAllocatedCost: item.displayRemainingAllocatedCost.toFixed(),
+    fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function fromStoredCanadaDisplayReportAcquisition(
+  item: z.infer<typeof StoredCanadaDisplayReportAcquisitionSchema>
+): CanadaDisplayCostBasisReport['acquisitions'][number] {
+  return {
+    ...fromStoredCanadaTaxReportAcquisition(item),
+    displayCostBasisPerUnit: parseDecimal(item.displayCostBasisPerUnit),
+    displayTotalCost: parseDecimal(item.displayTotalCost),
+    displayRemainingAllocatedCost: parseDecimal(item.displayRemainingAllocatedCost),
+    fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function toStoredCanadaDisplayReportDisposition(
+  item: CanadaDisplayCostBasisReport['dispositions'][number]
+): z.infer<typeof StoredCanadaDisplayReportDispositionSchema> {
+  return {
+    ...toStoredCanadaTaxReportDisposition(item),
+    displayProceeds: item.displayProceeds.toFixed(),
+    displayCostBasis: item.displayCostBasis.toFixed(),
+    displayGainLoss: item.displayGainLoss.toFixed(),
+    displayDeniedLoss: item.displayDeniedLoss.toFixed(),
+    displayTaxableGainLoss: item.displayTaxableGainLoss.toFixed(),
+    displayAcbPerUnit: item.displayAcbPerUnit.toFixed(),
+    fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function fromStoredCanadaDisplayReportDisposition(
+  item: z.infer<typeof StoredCanadaDisplayReportDispositionSchema>
+): CanadaDisplayCostBasisReport['dispositions'][number] {
+  return {
+    ...fromStoredCanadaTaxReportDisposition(item),
+    displayProceeds: parseDecimal(item.displayProceeds),
+    displayCostBasis: parseDecimal(item.displayCostBasis),
+    displayGainLoss: parseDecimal(item.displayGainLoss),
+    displayDeniedLoss: parseDecimal(item.displayDeniedLoss),
+    displayTaxableGainLoss: parseDecimal(item.displayTaxableGainLoss),
+    displayAcbPerUnit: parseDecimal(item.displayAcbPerUnit),
+    fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function toStoredCanadaDisplayReportTransfer(
+  item: CanadaDisplayCostBasisReport['transfers'][number]
+): z.infer<typeof StoredCanadaDisplayReportTransferSchema> {
+  return {
+    ...toStoredCanadaTaxReportTransfer(item),
+    marketValueCad: item.marketValueCad.toFixed(),
+    displayCarriedAcb: item.displayCarriedAcb.toFixed(),
+    displayCarriedAcbPerUnit: item.displayCarriedAcbPerUnit.toFixed(),
+    displayMarketValue: item.displayMarketValue.toFixed(),
+    displayFeeAdjustment: item.displayFeeAdjustment.toFixed(),
+    fxConversion: toStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function fromStoredCanadaDisplayReportTransfer(
+  item: z.infer<typeof StoredCanadaDisplayReportTransferSchema>
+): CanadaDisplayCostBasisReport['transfers'][number] {
+  return {
+    ...fromStoredCanadaTaxReportTransfer(item),
+    marketValueCad: parseDecimal(item.marketValueCad),
+    displayCarriedAcb: parseDecimal(item.displayCarriedAcb),
+    displayCarriedAcbPerUnit: parseDecimal(item.displayCarriedAcbPerUnit),
+    displayMarketValue: parseDecimal(item.displayMarketValue),
+    displayFeeAdjustment: parseDecimal(item.displayFeeAdjustment),
+    fxConversion: fromStoredCanadaDisplayFxConversion(item.fxConversion),
+  };
+}
+
+function toStoredCanadaDisplayReportSummary(
+  summary: CanadaDisplayCostBasisReport['summary']
+): z.infer<typeof StoredCanadaDisplayCostBasisReportSchema>['summary'] {
+  return {
+    totalProceeds: summary.totalProceeds.toFixed(),
+    totalCostBasis: summary.totalCostBasis.toFixed(),
+    totalGainLoss: summary.totalGainLoss.toFixed(),
+    totalTaxableGainLoss: summary.totalTaxableGainLoss.toFixed(),
+    totalDeniedLoss: summary.totalDeniedLoss.toFixed(),
+  };
+}
+
+function fromStoredCanadaDisplayReportSummary(
+  summary: z.infer<typeof StoredCanadaDisplayCostBasisReportSchema>['summary']
+): CanadaDisplayCostBasisReport['summary'] {
+  return {
+    totalProceeds: parseDecimal(summary.totalProceeds),
+    totalCostBasis: parseDecimal(summary.totalCostBasis),
+    totalGainLoss: parseDecimal(summary.totalGainLoss),
+    totalTaxableGainLoss: parseDecimal(summary.totalTaxableGainLoss),
+    totalDeniedLoss: parseDecimal(summary.totalDeniedLoss),
+  };
+}
+
+function toStoredDecimalRecord(values: Map<string, Decimal>): Record<string, string> {
+  return Object.fromEntries([...values.entries()].map(([key, value]) => [key, value.toFixed()]));
+}
+
+function fromStoredDecimalRecord(values: Record<string, string>): Map<string, Decimal> {
+  return new Map(Object.entries(values).map(([key, value]) => [key, parseDecimal(value)]));
 }
 
 function toStoredMoney(value: { amount: Decimal; currency: string }): z.infer<typeof StoredMoneySchema> {

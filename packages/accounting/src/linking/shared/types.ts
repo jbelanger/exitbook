@@ -1,5 +1,7 @@
 import type { z } from 'zod';
 
+import type { LinkableMovement } from '../matching/linkable-movement.js';
+
 import type { MatchingConfigSchema, PotentialMatchSchema, ScoreComponentSchema } from './schemas.js';
 
 /**
@@ -15,7 +17,10 @@ export type ScoreComponent = z.infer<typeof ScoreComponentSchema>;
 /**
  * A potential match found by the matching algorithm
  */
-export type PotentialMatch = z.infer<typeof PotentialMatchSchema>;
+export type PotentialMatch = Omit<z.infer<typeof PotentialMatchSchema>, 'sourceMovement' | 'targetMovement'> & {
+  sourceMovement: LinkableMovement;
+  targetMovement: LinkableMovement;
+};
 
 /**
  * Configuration for the matching algorithm

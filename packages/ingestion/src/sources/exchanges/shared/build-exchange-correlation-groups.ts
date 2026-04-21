@@ -1,4 +1,4 @@
-import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from './index.js';
+import type { ExchangeCorrelationGroup, ExchangeProviderEvent, ExchangeProviderMetadata } from './index.js';
 
 /**
  * Group exchange events into correlation groups by their correlation key.
@@ -7,12 +7,12 @@ import type { ExchangeCorrelationGroup, ExchangeProviderEvent } from './index.js
  * @param providerName - Exchange name embedded in each group
  * @param sortGroupsByKey - When true, applies a secondary sort by correlationKey after timestamp
  */
-export function buildExchangeCorrelationGroups(
-  events: ExchangeProviderEvent[],
+export function buildExchangeCorrelationGroups<TProviderMetadata extends ExchangeProviderMetadata>(
+  events: ExchangeProviderEvent<TProviderMetadata>[],
   providerName: string,
   sortGroupsByKey = false
-): ExchangeCorrelationGroup[] {
-  const grouped = new Map<string, ExchangeProviderEvent[]>();
+): ExchangeCorrelationGroup<TProviderMetadata>[] {
+  const grouped = new Map<string, ExchangeProviderEvent<TProviderMetadata>[]>();
 
   for (const event of events) {
     const correlationKey = event.providerHints.correlationKeys[0] ?? event.providerEventId;
@@ -42,7 +42,7 @@ export function buildExchangeCorrelationGroups(
         directionHints: sortedEvents.map((event) => event.providerHints.directionHint ?? 'unknown'),
         timeSpanMs: maxTimestamp - minTimestamp,
       },
-    } satisfies ExchangeCorrelationGroup;
+    } satisfies ExchangeCorrelationGroup<TProviderMetadata>;
   });
 
   if (!sortGroupsByKey) {

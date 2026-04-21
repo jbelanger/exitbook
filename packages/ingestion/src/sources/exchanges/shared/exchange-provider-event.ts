@@ -1,7 +1,9 @@
 import type { TransactionStatus } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
 
-export interface ExchangeProviderEvent {
+export type ExchangeProviderMetadata = Record<string, unknown>;
+
+export interface ExchangeProviderEvent<TProviderMetadata extends ExchangeProviderMetadata = ExchangeProviderMetadata> {
   providerEventId: string;
   providerName: string;
   providerType: string;
@@ -18,5 +20,5 @@ export interface ExchangeProviderEvent {
     hashHint?: string | undefined;
     networkHint?: string | undefined;
   };
-  providerMetadata: Record<string, unknown>;
+  providerMetadata: TProviderMetadata;
 }

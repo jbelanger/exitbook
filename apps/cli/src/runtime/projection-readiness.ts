@@ -1,3 +1,4 @@
+import { buildMatchingConfig } from '@exitbook/accounting/linking';
 import { type ProjectionId, type ProjectionStatus } from '@exitbook/core';
 import {
   buildAssetReviewFreshnessPorts,
@@ -5,14 +6,14 @@ import {
   buildProcessedTransactionsFreshnessPorts,
   buildLinksFreshnessPorts,
 } from '@exitbook/data/projections';
-import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CliOutputFormat } from '../cli/options.js';
-import { createCliAssetReviewProjectionRuntime } from '../features/assets/command/asset-review-projection-runtime.js';
 import { executeCliLinkingRuntime, withCliLinkingRuntime } from '../features/links/command/run/links-runtime.js';
 import { resolveCommandProfile } from '../features/profiles/profile-resolution.js';
 
+import { createCliCommandResourceFactories } from './command-capability-factories.js';
 import type { CommandRuntime } from './command-runtime.js';
 import { withIngestionRuntime } from './ingestion-runtime.js';
 import { resetProjections } from './projection-reset.js';
@@ -41,7 +42,7 @@ async function resolvePrereqProfileScope(
   scope: CommandRuntime,
   options: Pick<PrereqExecutionOptions, 'profileId' | 'profileKey'>
 ): Promise<Result<{ profileId: number; profileKey: string }, Error>> {
-  const db = await scope.database();
+  const db = await scope.openDatabaseSession();
 
   if (options.profileId !== undefined && options.profileKey !== undefined) {
     return ok({ profileId: options.profileId, profileKey: options.profileKey });
@@ -111,7 +112,7 @@ export async function ensureProcessedTransactionsReady(
     return err(profileScopeResult.error);
   }
 
-  const db = await scope.database();
+  const db = await scope.openDatabaseSession();
 
   return rebuildIfStale(
     'processed-transactions',
@@ -172,15 +173,14 @@ export async function ensureAssetReviewReady(
     return err(profileScopeResult.error);
   }
 
-  const db = await scope.database();
+  const db = await scope.openDatabaseSession();
 
   return rebuildIfStale(
     'asset-review',
     () => buildAssetReviewFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
     async () => {
-      const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(
-        db,
-        scope.dataDir,
+      const capabilityFactories = createCliCommandResourceFactories(scope, db);
+      const assetReviewRuntimeResult = capabilityFactories.assetReviewProjectionFactory.createForProfile(
         profileScopeResult.value
       );
       if (assetReviewRuntimeResult.isErr()) {
@@ -196,7 +196,7 @@ export async function ensureLinksReady(
   scope: CommandRuntime,
   options: PrereqExecutionOptions
 ): Promise<Result<void, Error>> {
-  const db = await scope.database();
+  const db = await scope.openDatabaseSession();
   const profileScopeResult = await resolvePrereqProfileScope(scope, options);
   if (profileScopeResult.isErr()) {
     return err(profileScopeResult.error);
@@ -206,9 +206,10 @@ export async function ensureLinksReady(
     'links',
     () => buildLinksFreshnessPorts(db, profileScopeResult.value.profileId).checkFreshness(),
     async () => {
+      const matchingConfig = buildMatchingConfig();
       const params = {
-        minConfidenceScore: parseDecimal('0.7'),
-        autoConfirmThreshold: parseDecimal('0.95'),
+        minConfidenceScore: matchingConfig.minConfidenceScore,
+        autoConfirmThreshold: matchingConfig.autoConfirmThreshold,
       };
 
       return withCliLinkingRuntime(

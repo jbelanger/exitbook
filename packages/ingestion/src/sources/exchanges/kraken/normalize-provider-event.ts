@@ -5,6 +5,17 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getDirectionHint } from '../shared/exchange-utils.js';
 import type { ExchangeProviderEvent } from '../shared/index.js';
 
+export interface KrakenProviderMetadata extends Record<string, unknown> {
+  aclass?: string | undefined;
+  asset: string;
+  balance: string;
+  refid?: string | undefined;
+  subtype?: string | undefined;
+  type: string;
+}
+
+export type KrakenProviderEvent = ExchangeProviderEvent<KrakenProviderMetadata>;
+
 function getKrakenCorrelationKeys(raw: KrakenLedgerEntry, eventId: string): string[] {
   const normalizedSubtype = raw.subtype?.trim().toLowerCase();
   const trimmedRefId = raw.refid?.trim() ?? '';
@@ -19,7 +30,7 @@ function getKrakenCorrelationKeys(raw: KrakenLedgerEntry, eventId: string): stri
 export function normalizeKrakenProviderEvent(
   raw: KrakenLedgerEntry,
   eventId: string
-): Result<ExchangeProviderEvent, Error> {
+): Result<KrakenProviderEvent, Error> {
   const normalizedAsset = normalizeKrakenAsset(raw.asset);
   const currencyResult = parseCurrency(normalizedAsset);
 

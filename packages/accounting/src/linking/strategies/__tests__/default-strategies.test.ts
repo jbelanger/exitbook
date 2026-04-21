@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AmountTimingStrategy } from '../amount-timing-strategy.js';
-import { BridgeDiagnosticStrategy } from '../bridge-diagnostic-strategy.js';
+import { BridgeAnnotationStrategy } from '../bridge-annotation-strategy.js';
 import { CounterpartyRoundtripStrategy } from '../counterparty-roundtrip-strategy.js';
 import { ExactHashStrategy } from '../exact-hash-strategy.js';
 import { defaultStrategies } from '../index.js';
@@ -20,7 +20,7 @@ describe('defaultStrategies', () => {
     expect(strategies[0]).toBeInstanceOf(ExactHashStrategy);
     expect(strategies[1]).toBeInstanceOf(SameHashExternalOutflowStrategy);
     expect(strategies[2]).toBeInstanceOf(CounterpartyRoundtripStrategy);
-    expect(strategies[3]).toBeInstanceOf(BridgeDiagnosticStrategy);
+    expect(strategies[3]).toBeInstanceOf(BridgeAnnotationStrategy);
     expect(strategies[4]).toBeInstanceOf(AmountTimingStrategy);
     expect(strategies[5]).toBeInstanceOf(PartialMatchStrategy);
   });
@@ -33,7 +33,7 @@ describe('defaultStrategies', () => {
       'exact-hash',
       'same-hash-external-outflow',
       'counterparty-roundtrip',
-      'bridge-diagnostic',
+      'bridge-annotation',
       'amount-timing',
       'partial-match',
     ]);

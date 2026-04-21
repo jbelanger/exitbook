@@ -53,7 +53,7 @@ export async function preparePricedConsumerRuntime(
     }
 
     prereqAbort = undefined;
-    const priceRuntime = await ctx.openPriceProviderRuntime();
+    const priceRuntime = await ctx.createManagedPriceProviderRuntime();
 
     return ok({
       accountingExclusionPolicy: accountingExclusionPolicyResult.value,

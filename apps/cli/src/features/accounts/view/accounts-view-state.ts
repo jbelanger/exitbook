@@ -1,10 +1,10 @@
-import type { StoredBalanceAssetsExplorerState } from '../../shared/stored-balance-assets-view.js';
 import type {
   AccountDetailViewItem,
   AccountViewItem,
   ReadableAccountStoredBalanceDetailView,
   TypeCounts,
 } from '../accounts-view-model.js';
+import type { StoredBalanceAssetsExplorerState } from '../stored-balance/stored-balance-assets-view.js';
 
 export interface AccountsViewFilters {
   platformFilter?: string | undefined;

@@ -17,6 +17,7 @@ interface TransferProposalReviewResult {
   affectedLinkCount: number;
   affectedLinkIds: number[];
   asset?: string | undefined;
+  changed: boolean;
   confidence?: string | undefined;
   linkId: number;
   newStatus: 'confirmed' | 'rejected';
@@ -78,8 +79,9 @@ export class TransferProposalReviewService {
         if (actionableLinks.length === 0) {
           logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
           return ok({
-            affectedLinkCount: 1,
-            affectedLinkIds: [selectedLink.id],
+            affectedLinkCount: 0,
+            affectedLinkIds: [],
+            changed: false,
             linkId: selectedLink.id,
             newStatus: targetStatus,
             reviewedBy: selectedLink.reviewedBy ?? reviewedBy,
@@ -97,8 +99,9 @@ export class TransferProposalReviewService {
       } else if (actionableLinks.length === 0) {
         logger.warn({ linkId, targetStatus }, 'Transfer proposal review action is already satisfied');
         return ok({
-          affectedLinkCount: 1,
-          affectedLinkIds: [selectedLink.id],
+          affectedLinkCount: 0,
+          affectedLinkIds: [],
+          changed: false,
           linkId: selectedLink.id,
           newStatus: targetStatus,
           reviewedBy: selectedLink.reviewedBy ?? reviewedBy,
@@ -142,6 +145,7 @@ export class TransferProposalReviewService {
       return ok({
         affectedLinkCount: actionableLinks.length,
         affectedLinkIds: actionableIds,
+        changed: true,
         linkId,
         newStatus: targetStatus,
         reviewedBy,

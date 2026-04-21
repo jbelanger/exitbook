@@ -1,21 +1,22 @@
 import type { Currency } from '@exitbook/foundation';
 import { parseDecimal } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { buildMatchingConfig } from '../../matching/matching-config.js';
 import { createLinkableMovement } from '../../shared/test-utils.js';
-import { BridgeDiagnosticStrategy } from '../bridge-diagnostic-strategy.js';
+import { BridgeAnnotationStrategy } from '../bridge-annotation-strategy.js';
 
-describe('BridgeDiagnosticStrategy', () => {
-  it('has name "bridge-diagnostic"', () => {
-    const strategy = new BridgeDiagnosticStrategy();
-    expect(strategy.name).toBe('bridge-diagnostic');
+describe('BridgeAnnotationStrategy', () => {
+  it('has name "bridge-annotation"', () => {
+    const strategy = new BridgeAnnotationStrategy();
+    expect(strategy.name).toBe('bridge-annotation');
   });
 
   it('suggests a unique explicit token bridge pair', () => {
-    const strategy = new BridgeDiagnosticStrategy();
+    const strategy = new BridgeAnnotationStrategy();
     const sources = [
       createBlockchainBridgeMovement({
         id: 1,
@@ -57,10 +58,11 @@ describe('BridgeDiagnosticStrategy', () => {
     expect(link.targetTransactionId).toBe(200);
     expect(link.confidenceScore.toFixed()).toBe('0.9');
     expect(link.metadata?.scoreBreakdown?.some((entry) => entry.signal === 'chain_hint_alignment')).toBe(true);
+    expect(link.metadata?.scoreBreakdown?.some((entry) => entry.signal === 'bridge_annotation')).toBe(true);
   });
 
   it('suggests a native bridge pair with higher allowed variance', () => {
-    const strategy = new BridgeDiagnosticStrategy();
+    const strategy = new BridgeAnnotationStrategy();
     const sources = [
       createBlockchainBridgeMovement({
         id: 1,
@@ -103,7 +105,7 @@ describe('BridgeDiagnosticStrategy', () => {
   });
 
   it('does not link when the source has multiple eligible bridge targets', () => {
-    const strategy = new BridgeDiagnosticStrategy();
+    const strategy = new BridgeAnnotationStrategy();
     const sources = [
       createBlockchainBridgeMovement({
         id: 1,
@@ -148,8 +150,8 @@ describe('BridgeDiagnosticStrategy', () => {
     expect(result.consumedCandidateIds.size).toBe(0);
   });
 
-  it('does not link when only one side carries bridge diagnostics', () => {
-    const strategy = new BridgeDiagnosticStrategy();
+  it('does not link when only one side carries bridge annotations', () => {
+    const strategy = new BridgeAnnotationStrategy();
     const sources = [
       createBlockchainBridgeMovement({
         id: 1,
@@ -184,7 +186,7 @@ describe('BridgeDiagnosticStrategy', () => {
   });
 
   it('does not link when explicit chain hints conflict with the candidate target', () => {
-    const strategy = new BridgeDiagnosticStrategy();
+    const strategy = new BridgeAnnotationStrategy();
     const sources = [
       createBlockchainBridgeMovement({
         id: 1,
@@ -220,6 +222,28 @@ describe('BridgeDiagnosticStrategy', () => {
   });
 });
 
+function createBridgeAnnotation(params: {
+  direction: 'in' | 'out';
+  metadata?: Record<string, unknown> | undefined;
+  transactionId: number;
+}): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:bridge:${params.transactionId}:${params.direction}`,
+    accountId: 1,
+    transactionId: params.transactionId,
+    txFingerprint: `tx:${params.transactionId}`,
+    kind: 'bridge_participant',
+    tier: 'asserted',
+    target: { scope: 'transaction' },
+    role: params.direction === 'out' ? 'source' : 'target',
+    protocolRef: { id: 'wormhole' },
+    detectorId: 'bridge-participant',
+    derivedFromTxIds: [params.transactionId],
+    provenanceInputs: ['processor', 'diagnostic'],
+    ...(params.metadata === undefined ? {} : { metadata: params.metadata }),
+  };
+}
+
 function createBlockchainBridgeMovement(params: {
   amount: Decimal;
   assetId: string;
@@ -232,13 +256,6 @@ function createBlockchainBridgeMovement(params: {
   timestamp: Date;
   transactionId: number;
 }) {
-  const diagnostic = {
-    code: 'bridge_transfer',
-    message: 'Explicit bridge transfer diagnostic.',
-    severity: 'info' as const,
-    ...(params.metadata !== undefined ? { metadata: params.metadata } : {}),
-  };
-
   return createLinkableMovement({
     id: params.id,
     transactionId: params.transactionId,
@@ -250,6 +267,6 @@ function createBlockchainBridgeMovement(params: {
     direction: params.direction,
     timestamp: params.timestamp,
     movementFingerprint: params.movementFingerprint,
-    transactionDiagnostics: [diagnostic],
+    transactionAnnotations: [createBridgeAnnotation(params)],
   });
 }

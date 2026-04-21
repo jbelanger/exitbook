@@ -32,6 +32,7 @@ function createTransactionViewItem(): TransactionViewItem {
     blockchain: undefined,
     from: undefined,
     to: undefined,
+    annotations: [],
     diagnostics: [],
     userNotes: [],
     excludedFromAccounting: false,
@@ -197,6 +198,37 @@ describe('transactions static renderer', () => {
     expect(stripAnsi(output)).toContain('"amount": "1.25"');
     expect(stripAnsi(output)).toContain('normalizedPayload:');
     expect(stripAnsi(output)).toContain('"normalized": true');
+  });
+
+  it('renders interpretation details when annotations are present', () => {
+    const output = buildTransactionStaticDetail({
+      ...createTransactionViewItem(),
+      annotations: [
+        {
+          annotationFingerprint: 'annotation-1',
+          accountId: 42,
+          transactionId: 42,
+          txFingerprint: '1234567890abcdef-transaction',
+          kind: 'bridge_participant',
+          tier: 'heuristic',
+          target: { scope: 'transaction' },
+          role: 'source',
+          detectorId: 'heuristic-bridge-participant',
+          derivedFromTxIds: [42, 99],
+          provenanceInputs: ['timing', 'counterparty'],
+          metadata: {
+            counterpartTxFingerprint: 'arb-bridge-counterpart',
+            sourceChain: 'ethereum',
+            destinationChain: 'arbitrum',
+          },
+        },
+      ],
+    });
+
+    expect(stripAnsi(output)).toContain('Interpretation (1)');
+    expect(stripAnsi(output)).toContain('bridge source [heuristic');
+    expect(stripAnsi(output)).toContain('ethereum -> arbitrum');
+    expect(stripAnsi(output)).toContain('counterpart arb-bridge');
   });
 
   it('renders related investigation context when present', () => {

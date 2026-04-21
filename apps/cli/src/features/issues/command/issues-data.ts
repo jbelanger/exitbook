@@ -14,7 +14,7 @@ import { toCliResult, toCliValue, type CliFailure } from '../../../cli/command.j
 import { createCliFailure, ExitCodes } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { loadAccountingExclusionPolicy } from '../../../runtime/accounting-exclusion-policy.js';
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import type { CommandRuntime, CommandRuntimeDatabase } from '../../../runtime/command-runtime.js';
 import {
   ensureAssetReviewReady,
   ensureLinksReady,
@@ -63,7 +63,7 @@ export interface IssuesScopedCostBasisData {
   scope: AccountingIssueScopeSummary;
 }
 
-type IssuesDb = Awaited<ReturnType<CommandRuntime['database']>>;
+type IssuesDb = CommandRuntimeDatabase;
 type AccountingIssueScopeSnapshot = Parameters<IssuesDb['accountingIssues']['reconcileScope']>[0];
 
 export async function loadIssuesOverviewData(
@@ -105,7 +105,7 @@ export async function resolveCurrentIssueData(
 ): Promise<Result<ResolvedCurrentIssueData, CliFailure>> {
   return resultDoAsync(async function* () {
     const overview = yield* await loadIssuesOverviewData(runtime, format);
-    const db = await runtime.database();
+    const db = await runtime.openDatabaseSession();
     const scopedIssueRecords = yield* toCliResult(
       await db.accountingIssues.listCurrentIssueSummariesForProfile(overview.profileId),
       ExitCodes.GENERAL_ERROR
@@ -164,7 +164,7 @@ async function materializeCurrentProfileIssues(
   format: CliOutputFormat
 ): Promise<Result<MaterializedProfileIssuesData, CliFailure>> {
   return resultDoAsync(async function* () {
-    const db = await runtime.database();
+    const db = await runtime.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, db), ExitCodes.GENERAL_ERROR);
 
     yield* await ensureProfileIssueInputsReady(runtime, format, profile.id, profile.profileKey);
@@ -214,7 +214,7 @@ async function materializeScopedCostBasisIssues(
   >
 > {
   return resultDoAsync(async function* () {
-    const db = await runtime.database();
+    const db = await runtime.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, db), ExitCodes.GENERAL_ERROR);
 
     yield* await ensureProfileIssueInputsReady(runtime, format, profile.id, profile.profileKey);
@@ -228,7 +228,7 @@ async function materializeScopedCostBasisIssues(
       await readAssetReviewProjectionSummaries(db, profile.id),
       ExitCodes.GENERAL_ERROR
     );
-    const priceRuntime = params.currency === 'USD' ? undefined : await runtime.openPriceProviderRuntime();
+    const priceRuntime = params.currency === 'USD' ? undefined : await runtime.createManagedPriceProviderRuntime();
     const snapshot = yield* toCliResult(
       await materializeCostBasisAccountingIssueScopeSnapshot({
         accountingExclusionPolicy,

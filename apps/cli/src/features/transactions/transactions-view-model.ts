@@ -1,5 +1,6 @@
 import type { MovementRole } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { AddressOwnership } from '../shared/address-ownership.js';
 
@@ -94,6 +95,7 @@ export interface TransactionViewItem {
   fromOwnership?: AddressOwnership | undefined;
   to: string | undefined;
   toOwnership?: AddressOwnership | undefined;
+  annotations: TransactionAnnotation[];
   diagnostics: { code: string; message: string; severity?: string | undefined }[];
   userNotes: { author?: string | undefined; createdAt: string; message: string }[];
   excludedFromAccounting: boolean;

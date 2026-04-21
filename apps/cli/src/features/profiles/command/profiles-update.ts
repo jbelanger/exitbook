@@ -55,7 +55,7 @@ async function executeUpdateProfileCommand(profileKey: string, rawOptions: unkno
       }),
     action: async ({ runtime, prepared }) =>
       resultDoAsync(async function* () {
-        const db = await runtime.database();
+        const db = await runtime.openDatabaseSession();
         const profileService = buildCliProfileService(db);
         const updateResult = await profileService.update(profileKey, buildUpdateProfileInput(prepared));
         if (updateResult.isErr()) {

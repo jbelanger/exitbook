@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { wrapError } from '@exitbook/foundation';
-import { flushLoggers, getLogger, initLogger, type LogLevel } from '@exitbook/logger';
+import { getLogger, initLogger, type LogLevel } from '@exitbook/logger';
 import { FileSink } from '@exitbook/logger';
 import { Command } from 'commander';
 
@@ -118,7 +118,6 @@ Notes:
 
 export async function runCli(argv: string[] = process.argv): Promise<void> {
   configureCliLogger();
-  process.on('exit', () => flushLoggers());
 
   const program = createProgram();
   await program.parseAsync(argv);

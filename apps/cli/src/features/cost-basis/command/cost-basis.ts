@@ -191,7 +191,7 @@ async function buildCostBasisTuiCompletion(
 
     const finalState = resolveAssetFilter(initialState, options.asset);
 
-    await ctx.closeDatabase();
+    await ctx.closeDatabaseSession();
     await renderApp((unmount) =>
       React.createElement(CostBasisApp, {
         initialState: finalState,

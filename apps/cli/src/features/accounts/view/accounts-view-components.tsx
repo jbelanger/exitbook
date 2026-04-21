@@ -14,14 +14,14 @@ import {
   FixedHeightDetail,
   SelectableRow,
 } from '../../../ui/shared/layout.js';
-import { StoredBalanceAssetsView } from '../../shared/stored-balance-assets-view.js';
-import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
 import type {
   AccountDetailViewItem,
   AccountViewItem,
   ChildAccountViewItem,
   SessionViewItem,
 } from '../accounts-view-model.js';
+import { StoredBalanceAssetsView } from '../stored-balance/stored-balance-assets-view.js';
+import type { StoredBalanceAssetViewItem } from '../stored-balance/stored-balance-view.js';
 
 import { handleAccountsKeyboardInput, accountsViewReducer } from './accounts-view-controller.js';
 import {

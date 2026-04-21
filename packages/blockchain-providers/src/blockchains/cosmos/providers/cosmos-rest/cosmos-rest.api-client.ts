@@ -24,7 +24,7 @@ import {
 } from '../../../../runtime/streaming/adapter.js';
 import { convertBalance, createZeroBalance, findNativeBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
-import { COSMOS_CHAINS } from '../../chain-registry.js';
+import { COSMOS_CHAINS, getCosmosChainConfig } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 import { validateBech32Address } from '../../utils.js';
 
@@ -46,7 +46,7 @@ export class CosmosRestApiClient extends BaseApiClient {
   constructor(config: CosmosRestProviderConfig) {
     // Get chain config to determine base URL
     const chainName = config.chainName || 'fetch';
-    const chainConfig = COSMOS_CHAINS[chainName];
+    const chainConfig = getCosmosChainConfig(chainName);
 
     if (!chainConfig) {
       throw new Error(`Unknown Cosmos chain: ${chainName}. Available chains: ${Object.keys(COSMOS_CHAINS).join(', ')}`);

@@ -19,7 +19,7 @@ export async function prepareTransactionsCommandScope(
     format: CliOutputFormat;
   }
 ): Promise<Result<TransactionsCommandScope, Error>> {
-  const database = await runtime.database();
+  const database = await runtime.openDatabaseSession();
   const profileResult = await resolveCommandProfile(runtime, database);
   if (profileResult.isErr()) {
     return err(profileResult.error);

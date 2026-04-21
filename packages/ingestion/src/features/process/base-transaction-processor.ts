@@ -7,7 +7,7 @@ import { getLogger } from '@exitbook/logger';
 import type { z } from 'zod';
 
 import type { ITransactionProcessor, AddressContext } from '../../shared/types/processors.js';
-import type { IScamDetectionService, MovementWithContext } from '../scam-detection/contracts.js';
+import type { MovementWithContext, ScamDetector } from '../scam-detection/contracts.js';
 
 /**
  * Base class providing common functionality for all processors.
@@ -22,7 +22,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
   constructor(
     protected platformKey: string,
     protected providerRuntime?: IBlockchainProviderRuntime,
-    protected scamDetectionService?: IScamDetectionService
+    protected scamDetector?: ScamDetector
   ) {
     this.logger = getLogger(`${platformKey}Processor`);
   }
@@ -80,7 +80,7 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     movements: MovementWithContext[],
     chainName: string
   ): Promise<void> {
-    if (movements.length === 0 || !this.scamDetectionService) {
+    if (movements.length === 0 || !this.scamDetector) {
       return;
     }
 
@@ -120,12 +120,12 @@ export abstract class BaseTransactionProcessor<T = unknown> implements ITransact
     movements: MovementWithContext[],
     metadataMap: Map<string, TokenMetadataRecord | undefined>
   ): void {
-    if (!this.scamDetectionService) {
+    if (!this.scamDetector) {
       return; // No service available
     }
 
     // Get scam diagnostics keyed by transaction index
-    const scamDiagnostics = this.scamDetectionService.detectScams(movements, metadataMap, this.platformKey);
+    const scamDiagnostics = this.scamDetector(movements, metadataMap);
 
     // Apply diagnostics to transactions
     for (const [txIndex, diagnostics] of scamDiagnostics) {

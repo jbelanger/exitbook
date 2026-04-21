@@ -8,24 +8,20 @@ import type {
   ExchangeFeeDraft,
   ExchangeGroupInterpretation,
   ExchangeMovementDraft,
-  ExchangeProviderEvent,
 } from '../shared/index.js';
 import { consolidateFees, consolidateMovements, diagnostic } from '../shared/interpret-group-utils.js';
 
+import type { KrakenProviderEvent, KrakenProviderMetadata } from './normalize-provider-event.js';
+
 interface InterpretedKrakenEvent {
-  event: ExchangeProviderEvent;
+  event: KrakenProviderEvent;
   amount: ReturnType<typeof parseDecimal>;
   feeAmount: ReturnType<typeof parseDecimal>;
 }
 
-function getKrakenSubtype(event: ExchangeProviderEvent): string | undefined {
-  const subtype = event.providerMetadata['subtype'];
-  if (typeof subtype !== 'string') {
-    return undefined;
-  }
-
-  const normalized = subtype.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : undefined;
+function getKrakenSubtype(event: KrakenProviderEvent): string | undefined {
+  const normalized = event.providerMetadata.subtype?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
 function getSharedKrakenSubtype(interpretedEvents: readonly InterpretedKrakenEvent[]): string | undefined {
@@ -139,7 +135,7 @@ function isNetZeroTransferReversalPair(
   return interpretedEvents.some((event) => event.feeAmount.isNegative());
 }
 
-function interpretKrakenEvent(event: ExchangeProviderEvent): Result<InterpretedKrakenEvent, Error> {
+function interpretKrakenEvent(event: KrakenProviderEvent): Result<InterpretedKrakenEvent, Error> {
   const amount = parseDecimal(event.rawAmount);
   const feeAmount = parseDecimal(event.rawFee ?? '0');
 
@@ -151,7 +147,7 @@ function interpretKrakenEvent(event: ExchangeProviderEvent): Result<InterpretedK
 }
 
 function buildDraft(
-  group: ExchangeCorrelationGroup,
+  group: ExchangeCorrelationGroup<KrakenProviderMetadata>,
   operation: ConfirmedExchangeTransactionDraft['operation'],
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[],
@@ -182,7 +178,7 @@ function buildDraft(
 }
 
 function buildDustSweepingDiagnostics(
-  group: ExchangeCorrelationGroup,
+  group: ExchangeCorrelationGroup<KrakenProviderMetadata>,
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[]
 ): TransactionDiagnostic[] | undefined {
@@ -212,7 +208,7 @@ function buildDustSweepingDiagnostics(
 }
 
 function buildPossibleAssetMigrationDiagnostics(
-  group: ExchangeCorrelationGroup,
+  group: ExchangeCorrelationGroup<KrakenProviderMetadata>,
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[]
 ): TransactionDiagnostic[] {
@@ -251,7 +247,7 @@ function combineDiagnostics(
 }
 
 function buildOneSidedTradeResidualDiagnostic(params: {
-  group: ExchangeCorrelationGroup;
+  group: ExchangeCorrelationGroup<KrakenProviderMetadata>;
   inferredTradeType: 'buy' | 'sell';
   providerSubtype?: string | undefined;
 }): TransactionDiagnostic {
@@ -274,7 +270,9 @@ function buildOneSidedTradeResidualDiagnostic(params: {
   };
 }
 
-export function interpretKrakenGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
+export function interpretKrakenGroup(
+  group: ExchangeCorrelationGroup<KrakenProviderMetadata>
+): ExchangeGroupInterpretation {
   const interpretedEvents: InterpretedKrakenEvent[] = [];
 
   for (const event of group.events) {

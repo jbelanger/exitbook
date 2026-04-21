@@ -1,5 +1,6 @@
 import type { Transaction } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { toTransactionViewItem } from '../transaction-view-projection.js';
@@ -59,6 +60,7 @@ describe('toTransactionViewItem', () => {
       movementFingerprint: 'outflow:cad:1',
       movementRole: 'principal',
     });
+    expect(item.annotations).toEqual([]);
   });
 
   it('aggregates repeated assets into balance summaries', () => {
@@ -183,5 +185,32 @@ describe('toTransactionViewItem', () => {
       movementFingerprint: 'movement:1234567890abcdef1234567890abcdef:2',
       movementRole: 'staking_reward',
     });
+  });
+
+  it('carries transaction annotations onto the view item', () => {
+    const annotations: TransactionAnnotation[] = [
+      {
+        annotationFingerprint: 'annotation-1',
+        accountId: 1,
+        transactionId: 1,
+        txFingerprint: 'coinbase:trade:swap-1',
+        kind: 'bridge_participant',
+        tier: 'heuristic',
+        target: { scope: 'transaction' },
+        role: 'source',
+        detectorId: 'heuristic-bridge-participant',
+        derivedFromTxIds: [1, 2],
+        provenanceInputs: ['timing', 'counterparty'],
+        metadata: {
+          counterpartTxFingerprint: 'arb-bridge-counterpart',
+          sourceChain: 'ethereum',
+          destinationChain: 'arbitrum',
+        },
+      },
+    ];
+
+    const item = toTransactionViewItem(createTransaction(), undefined, annotations);
+
+    expect(item.annotations).toEqual(annotations);
   });
 });

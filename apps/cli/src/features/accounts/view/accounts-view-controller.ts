@@ -9,7 +9,7 @@ import {
   type ListNavigationKey,
   reduceListNavigation,
 } from '../../../ui/shared/list-navigation.js';
-import { getStoredBalanceAssetsVisibleRows } from '../../shared/stored-balance-assets-view.js';
+import { getStoredBalanceAssetsVisibleRows } from '../stored-balance/stored-balance-assets-view.js';
 
 import { CHROME_LINES } from './accounts-view-components.jsx';
 import { createAccountsAssetsViewState, type AccountsViewState } from './accounts-view-state.js';

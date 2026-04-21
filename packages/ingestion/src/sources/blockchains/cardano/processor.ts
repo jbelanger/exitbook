@@ -4,7 +4,7 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDec
 import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
+import type { MovementWithContext, ScamDetector } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './processor-utils.js';
@@ -25,8 +25,8 @@ import { analyzeCardanoFundFlow, determineCardanoTransactionType } from './proce
  * 4. Determine transaction type based on fund flow direction
  */
 export class CardanoProcessor extends BaseTransactionProcessor<CardanoTransaction> {
-  constructor(scamDetectionService?: IScamDetectionService) {
-    super('cardano', undefined, scamDetectionService);
+  constructor(scamDetector?: ScamDetector) {
+    super('cardano', undefined, scamDetector);
   }
 
   protected get inputSchema() {

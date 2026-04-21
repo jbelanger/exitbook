@@ -1,6 +1,7 @@
 import type { Transaction } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
-import { err, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
+import { ANNOTATION_KINDS, ANNOTATION_TIERS, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import { applyTransactionFilters, type TransactionsBrowseFilters } from './transactions-browse-utils.js';
 
@@ -47,4 +48,28 @@ export async function readTransactionsForCommand(
     to: params.to,
     until: params.until,
   } satisfies TransactionsBrowseFilters);
+}
+
+interface ReadTransactionAnnotationsForCommandParams {
+  db: DataSession;
+  transactionIds: readonly number[];
+}
+
+export async function readTransactionAnnotationsForCommand(
+  params: ReadTransactionAnnotationsForCommandParams
+): Promise<Result<readonly TransactionAnnotation[], Error>> {
+  if (params.transactionIds.length === 0) {
+    return ok([]);
+  }
+
+  const annotationsResult = await params.db.transactionAnnotations.readAnnotations({
+    transactionIds: params.transactionIds,
+    kinds: ANNOTATION_KINDS,
+    tiers: ANNOTATION_TIERS,
+  });
+  if (annotationsResult.isErr()) {
+    return err(new Error(`Failed to retrieve transaction annotations: ${annotationsResult.error.message}`));
+  }
+
+  return annotationsResult;
 }

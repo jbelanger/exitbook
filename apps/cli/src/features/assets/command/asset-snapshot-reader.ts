@@ -4,13 +4,13 @@ import type { OverrideStore } from '@exitbook/data/overrides';
 import { readAssetReviewDecisions, readExcludedAssetIds } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { AssetReviewProjectionRuntime } from '@exitbook/ingestion/asset-review';
 
 import { formatAccountFingerprintRef } from '../../accounts/account-selector.js';
 import { readAssetReviewProjectionSummaries } from '../../shared/asset-review-projection-store.js';
 import { formatAssetsFreshnessMessage } from '../../shared/balance-snapshot-freshness-message.js';
 import { requiresAssetReviewAction } from '../asset-view-filter.js';
 
-import { createCliAssetReviewProjectionRuntime } from './asset-review-projection-runtime.js';
 import type {
   AssetsBrowseResult,
   AssetExclusionsResult,
@@ -31,12 +31,20 @@ export interface BalanceSnapshotRebuilder {
   rebuildCalculatedSnapshot(scopeAccountId: number): Promise<Result<void, Error>>;
 }
 
+export interface AssetReviewProjectionFactory {
+  createForProfile(profile: { profileId: number; profileKey: string }): Result<AssetReviewProjectionRuntime, Error>;
+}
+
+export interface AssetSnapshotReaderOptions {
+  assetReviewProjectionFactory: AssetReviewProjectionFactory;
+  balanceSnapshotRebuilder?: BalanceSnapshotRebuilder | undefined;
+}
+
 export class AssetSnapshotReader {
   constructor(
     private readonly db: AssetQueryDatabase,
     private readonly overrideStore: AssetOverrideStore,
-    private readonly dataDir: string,
-    private readonly balanceSnapshotRebuilder?: BalanceSnapshotRebuilder | undefined
+    private readonly options: AssetSnapshotReaderOptions
   ) {}
 
   async listExclusions(profileId: number, profileKey: string): Promise<Result<AssetExclusionsResult, Error>> {
@@ -196,7 +204,7 @@ export class AssetSnapshotReader {
     profileKey: string,
     assetIds?: string[]
   ): Promise<Result<Map<string, import('@exitbook/core').AssetReviewSummary>, Error>> {
-    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(this.db, this.dataDir, {
+    const assetReviewRuntimeResult = this.options.assetReviewProjectionFactory.createForProfile({
       profileId,
       profileKey,
     });
@@ -251,7 +259,7 @@ export class AssetSnapshotReader {
         continue;
       }
 
-      if (freshnessResult.value.status !== 'stale' || this.balanceSnapshotRebuilder === undefined) {
+      if (freshnessResult.value.status !== 'stale' || this.options.balanceSnapshotRebuilder === undefined) {
         return err(
           new Error(
             formatAssetsFreshnessMessage({
@@ -266,7 +274,7 @@ export class AssetSnapshotReader {
       staleScopeAccounts.push(scopeAccount);
     }
 
-    const balanceSnapshotRebuilder = this.balanceSnapshotRebuilder;
+    const balanceSnapshotRebuilder = this.options.balanceSnapshotRebuilder;
     if (balanceSnapshotRebuilder === undefined) {
       if (staleScopeAccounts.length > 0) {
         return err(new Error('Balance snapshot rebuilder is not configured for assets commands.'));

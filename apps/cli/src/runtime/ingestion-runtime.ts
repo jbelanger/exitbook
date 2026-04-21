@@ -11,6 +11,7 @@ import { createCliProcessingWorkflowRuntime } from '../features/import/command/i
 import { IngestionMonitor } from '../features/import/view/ingestion-monitor-view-components.jsx';
 import { createEventDrivenController, type EventDrivenController } from '../ui/shared/controllers.js';
 
+import { createCliCommandResourceFactories } from './command-capability-factories.js';
 import { adaptResultCleanup, type CommandRuntime } from './command-runtime.js';
 
 const logger = getLogger('ingestion-runtime');
@@ -50,13 +51,16 @@ export async function createIngestionRuntime(
   let cleanupBlockchainProviderRuntime: (() => Promise<void>) | undefined;
 
   try {
-    providerRuntime = await ctx.openBlockchainProviderRuntime({
+    providerRuntime = await ctx.createManagedBlockchainProviderRuntime({
       instrumentation,
       eventBus: eventBus as EventBus<ProviderEvent>,
       registerCleanup: false,
     });
     cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
+    const capabilityFactories = createCliCommandResourceFactories(ctx, database);
     const processingWorkflowRuntimeResult = createCliProcessingWorkflowRuntime({
+      adapterRegistryFactory: ctx.requireAppRuntime().createAdapterRegistry,
+      assetReviewProjectionFactory: capabilityFactories.assetReviewProjectionFactory,
       dataDir: ctx.dataDir,
       database,
       eventBus: eventBus as EventBus<IngestionEvent>,

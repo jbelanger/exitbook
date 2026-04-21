@@ -1,4 +1,5 @@
 import type { Account } from '@exitbook/core';
+import { EventBus } from '@exitbook/events';
 import { err, ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import type { AdapterRegistry } from '@exitbook/ingestion/adapters';
@@ -6,7 +7,14 @@ import { isUtxoAdapter } from '@exitbook/ingestion/adapters';
 import type { ImportParams, ImportWorkflow } from '@exitbook/ingestion/import';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { abortImportRuntime, executeImportWithRuntime, type ImportExecutionRuntime } from '../run-import.js';
+import type { BatchImportMonitorEvent } from '../../view/index.js';
+import {
+  abortImportRuntime,
+  createBatchImportRuntime,
+  executeBatchImportAccounts,
+  executeImportWithRuntime,
+  type ImportExecutionRuntime,
+} from '../run-import.js';
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
@@ -247,6 +255,286 @@ describe('import runner helpers', () => {
 
       expect(mockImportWorkflow.abort).toHaveBeenCalledOnce();
       expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('batch executor', () => {
+    it('should execute batch accounts and summarize successful imports', async () => {
+      mockImportWorkflow.execute
+        .mockResolvedValueOnce(
+          ok({ sessions: [makeSession({ accountId: 1, transactionsImported: 3, transactionsSkipped: 1 })] })
+        )
+        .mockResolvedValueOnce(
+          ok({ sessions: [makeSession({ accountId: 2, transactionsImported: 5, transactionsSkipped: 0 })] })
+        );
+
+      const batchEventBus = new EventBus<BatchImportMonitorEvent>({
+        onError: vi.fn(),
+      });
+      const emittedEvents: { type: string }[] = [];
+      batchEventBus.subscribe((event) => {
+        emittedEvents.push(event as { type: string });
+      });
+
+      const result = await executeBatchImportAccounts({
+        batchAccounts: [
+          { account: makeAccount({ id: 1, name: 'kraken-main', platformKey: 'kraken' }), syncMode: 'incremental' },
+          { account: makeAccount({ id: 2, name: 'btc-wallet', platformKey: 'bitcoin' }), syncMode: 'first-sync' },
+        ],
+        batchEventBus,
+        database: {
+          importSessions: {
+            findLatestIncomplete: vi.fn(),
+          },
+        } as never,
+        runtime,
+      });
+
+      expect(assertOk(result)).toEqual({
+        accounts: [
+          {
+            account: {
+              accountType: 'blockchain',
+              id: 1,
+              name: 'kraken-main',
+              platformKey: 'kraken',
+            },
+            counts: { imported: 3, skipped: 1 },
+            status: 'completed',
+            syncMode: 'incremental',
+          },
+          {
+            account: {
+              accountType: 'blockchain',
+              id: 2,
+              name: 'btc-wallet',
+              platformKey: 'bitcoin',
+            },
+            counts: { imported: 5, skipped: 0 },
+            status: 'completed',
+            syncMode: 'first-sync',
+          },
+        ],
+        failedCount: 0,
+        totalCount: 2,
+      });
+      expect(emittedEvents.map((event) => event.type)).toEqual([
+        'batch.account.started',
+        'batch.account.completed',
+        'batch.account.started',
+        'batch.account.completed',
+      ]);
+    });
+
+    it('should keep running after an account import fails and load failed-session counts', async () => {
+      const failedSessionLookup = vi
+        .fn()
+        .mockResolvedValueOnce(ok({ transactionsImported: 7, transactionsSkipped: 2 }));
+      mockImportWorkflow.execute.mockResolvedValueOnce(err(new Error('network timeout')));
+
+      const batchEventBus = new EventBus<BatchImportMonitorEvent>({
+        onError: vi.fn(),
+      });
+      const emittedEvents: { type: string }[] = [];
+      batchEventBus.subscribe((event) => {
+        emittedEvents.push(event as { type: string });
+      });
+
+      const result = await executeBatchImportAccounts({
+        batchAccounts: [
+          { account: makeAccount({ id: 1, name: 'kraken-main', platformKey: 'kraken' }), syncMode: 'resuming' },
+        ],
+        batchEventBus,
+        database: {
+          importSessions: {
+            findLatestIncomplete: failedSessionLookup,
+          },
+        } as never,
+        runtime,
+      });
+
+      expect(assertOk(result)).toEqual({
+        accounts: [
+          {
+            account: {
+              accountType: 'blockchain',
+              id: 1,
+              name: 'kraken-main',
+              platformKey: 'kraken',
+            },
+            counts: { imported: 7, skipped: 2 },
+            errorMessage: 'network timeout',
+            status: 'failed',
+            syncMode: 'resuming',
+          },
+        ],
+        failedCount: 1,
+        totalCount: 1,
+      });
+      expect(failedSessionLookup).toHaveBeenCalledWith(1);
+      expect(emittedEvents.map((event) => event.type)).toEqual(['batch.account.started', 'batch.account.failed']);
+    });
+  });
+
+  describe('batch runtime', () => {
+    it('should emit lifecycle events, stop the presentation, and return the batch summary', async () => {
+      mockImportWorkflow.execute.mockResolvedValueOnce(
+        ok({ sessions: [makeSession({ accountId: 7, transactionsImported: 5, transactionsSkipped: 2 })] })
+      );
+
+      const batchEventBus = new EventBus<BatchImportMonitorEvent>({
+        onError: vi.fn(),
+      });
+      const emittedEvents: { type: string }[] = [];
+      batchEventBus.subscribe((event) => {
+        emittedEvents.push(event as { type: string });
+      });
+      const batchPresentation = {
+        abort: vi.fn(),
+        fail: vi.fn(),
+        stop: vi.fn().mockResolvedValue(undefined),
+        unsubscribe: vi.fn(),
+      };
+
+      const batchRuntime = await createBatchImportRuntime({
+        batchEventBus,
+        database: {
+          importSessions: {
+            findLatestIncomplete: vi.fn(),
+          },
+        } as never,
+        format: 'json',
+        infra: {
+          blockchainProviderRuntime: {} as never,
+          eventBus: {} as never,
+          instrumentation: mockInstrumentation as never,
+        },
+        presentation: batchPresentation,
+        profileDisplayName: 'business',
+        registry: mockRegistry as unknown as AdapterRegistry,
+        runtime,
+      });
+
+      const result = await batchRuntime.run([
+        {
+          account: makeAccount({
+            accountType: 'exchange-api',
+            id: 7,
+            name: 'kraken-main',
+            platformKey: 'kraken',
+          }),
+          syncMode: 'incremental',
+        },
+      ]);
+
+      expect(assertOk(result)).toEqual({
+        accounts: [
+          {
+            account: {
+              accountType: 'exchange-api',
+              id: 7,
+              name: 'kraken-main',
+              platformKey: 'kraken',
+            },
+            counts: { imported: 5, skipped: 2 },
+            status: 'completed',
+            syncMode: 'incremental',
+          },
+        ],
+        failedCount: 0,
+        profileDisplayName: 'business',
+        runStats: { totalRequests: 0 },
+        totalCount: 1,
+      });
+      expect(emittedEvents.map((event) => event.type)).toEqual([
+        'batch.started',
+        'batch.account.started',
+        'batch.account.completed',
+        'batch.completed',
+      ]);
+      expect(batchPresentation.fail).not.toHaveBeenCalled();
+      expect(batchPresentation.stop).toHaveBeenCalledOnce();
+
+      batchRuntime.cleanup();
+      expect(batchPresentation.unsubscribe).toHaveBeenCalledOnce();
+    });
+
+    it('should fail and stop the presentation when batch execution returns an error', async () => {
+      mockImportWorkflow.execute.mockResolvedValueOnce(err(new Error('network timeout')));
+      const failedSessionLookup = vi.fn().mockResolvedValueOnce(err(new Error('failed-session lookup failed')));
+      const batchPresentation = {
+        abort: vi.fn(),
+        fail: vi.fn(),
+        stop: vi.fn().mockResolvedValue(undefined),
+        unsubscribe: vi.fn(),
+      };
+
+      const batchRuntime = await createBatchImportRuntime({
+        database: {
+          importSessions: {
+            findLatestIncomplete: failedSessionLookup,
+          },
+        } as never,
+        format: 'json',
+        infra: {
+          blockchainProviderRuntime: {} as never,
+          eventBus: {} as never,
+          instrumentation: mockInstrumentation as never,
+        },
+        presentation: batchPresentation,
+        profileDisplayName: 'business',
+        registry: mockRegistry as unknown as AdapterRegistry,
+        runtime,
+      });
+
+      const result = await batchRuntime.run([
+        {
+          account: makeAccount({
+            id: 7,
+            name: 'kraken-main',
+            platformKey: 'kraken',
+          }),
+          syncMode: 'resuming',
+        },
+      ]);
+
+      const error = assertErr(result);
+      expect(error.message).toBe('failed-session lookup failed');
+      expect(batchPresentation.fail).toHaveBeenCalledWith('failed-session lookup failed');
+      expect(batchPresentation.stop).toHaveBeenCalledOnce();
+    });
+
+    it('should abort the import workflow and presentation together', async () => {
+      const batchPresentation = {
+        abort: vi.fn(),
+        fail: vi.fn(),
+        stop: vi.fn().mockResolvedValue(undefined),
+        unsubscribe: vi.fn(),
+      };
+
+      const batchRuntime = await createBatchImportRuntime({
+        database: {
+          importSessions: {
+            findLatestIncomplete: vi.fn(),
+          },
+        } as never,
+        format: 'json',
+        infra: {
+          blockchainProviderRuntime: {} as never,
+          eventBus: {} as never,
+          instrumentation: mockInstrumentation as never,
+        },
+        presentation: batchPresentation,
+        profileDisplayName: 'business',
+        registry: mockRegistry as unknown as AdapterRegistry,
+        runtime,
+      });
+
+      batchRuntime.abort();
+
+      expect(mockImportWorkflow.abort).toHaveBeenCalledOnce();
+      expect(batchPresentation.abort).toHaveBeenCalledOnce();
+      expect(batchPresentation.stop).toHaveBeenCalledOnce();
     });
   });
 });

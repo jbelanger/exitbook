@@ -352,6 +352,11 @@ describe('KuCoinCsvImporter - Error Handling', () => {
   let importer: KuCoinCsvImporter;
   const mockReaddir = vi.mocked(fs.readdir);
   const mockReadFile = vi.mocked(fs.readFile);
+  const orderSplittingHeader =
+    'UID,Account Type,Order ID,Symbol,Side,Order Type,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Tax,Maker/Taker,Fee Currency';
+  const futuresOrderSplittingHeader =
+    'UID,Account Type,Order ID,Filled Time(UTC),Symbol,Side,Filled Amount,Filled Price,Filled Volume,Filled Volume  (USDT),Fee Rate,Fee,Order Type';
+  const assetSnapshotsHeader = 'UID,Account Type,Account Name,Coin,Amount,Amount(USDT),Time(UTC)';
 
   beforeEach(() => {
     importer = new KuCoinCsvImporter();
@@ -397,7 +402,7 @@ describe('KuCoinCsvImporter - Error Handling', () => {
     }
   });
 
-  test('handles CSV parsing errors gracefully by skipping unreadable files', async () => {
+  test('returns an error when CSV header validation cannot read the file', async () => {
     mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Filled Orders.csv')] as unknown as Dirent<
       Buffer<ArrayBuffer>
     >[]);
@@ -411,10 +416,65 @@ describe('KuCoinCsvImporter - Error Handling', () => {
 
     const result = await consumeImportStream(importer, params);
 
-    // When a file can't be read, it's logged and skipped, not returned as an error
-    const value = assertOk(result);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to validate CSV headers');
+      expect(result.error.message).toContain('Spot Orders_Filled Orders.csv');
+    }
+  });
 
-    // No transactions should be imported from the unreadable file
-    expect(value.rawTransactions).toHaveLength(0);
+  test('returns an error when duplicate order-splitting files cannot be counted for skip logging', async () => {
+    mockReaddir.mockResolvedValue([createMockDirent('Spot Orders_Order Splitting.csv')] as unknown as Dirent<
+      Buffer<ArrayBuffer>
+    >[]);
+    mockReadFile.mockResolvedValueOnce(orderSplittingHeader).mockRejectedValueOnce(new Error('File read error'));
+
+    const result = await consumeImportStream(importer, {
+      platformKey: 'kucoin',
+      platformKind: 'exchange-csv' as const,
+      csvDirectory: '/test/csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to count CSV records');
+      expect(result.error.message).toContain('Spot Orders_Order Splitting.csv');
+    }
+  });
+
+  test('returns an error when not-yet-implemented files cannot be counted for skip logging', async () => {
+    mockReaddir.mockResolvedValue([createMockDirent('Futures Orders.csv')] as unknown as Dirent<Buffer<ArrayBuffer>>[]);
+    mockReadFile.mockResolvedValueOnce(futuresOrderSplittingHeader).mockRejectedValueOnce(new Error('File read error'));
+
+    const result = await consumeImportStream(importer, {
+      platformKey: 'kucoin',
+      platformKind: 'exchange-csv' as const,
+      csvDirectory: '/test/csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to count CSV records');
+      expect(result.error.message).toContain('Futures Orders.csv');
+    }
+  });
+
+  test('returns an error when snapshot files cannot be counted for skip logging', async () => {
+    mockReaddir.mockResolvedValue([createMockDirent('Asset Snapshots.csv')] as unknown as Dirent<
+      Buffer<ArrayBuffer>
+    >[]);
+    mockReadFile.mockResolvedValueOnce(assetSnapshotsHeader).mockRejectedValueOnce(new Error('File read error'));
+
+    const result = await consumeImportStream(importer, {
+      platformKey: 'kucoin',
+      platformKind: 'exchange-csv' as const,
+      csvDirectory: '/test/csv',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Failed to count CSV records');
+      expect(result.error.message).toContain('Asset Snapshots.csv');
+    }
   });
 });

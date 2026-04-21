@@ -827,9 +827,144 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     ON accounting_issue_rows (scope_key, issue_key)
     WHERE status = 'open'
   `.execute(db);
+
+  // Transaction annotations — persisted interpretation layer. See
+  // docs/dev/transaction-interpretation-architecture-2026-04-20.md.
+  await db.schema
+    .createTable('transaction_annotations')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('annotation_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id').onDelete('cascade'))
+    .addColumn('transaction_id', 'integer', (col) => col.notNull().references('transactions.id').onDelete('cascade'))
+    .addColumn('tx_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('target_scope', 'text', (col) => col.notNull())
+    .addColumn('movement_fingerprint', 'text')
+    .addColumn('kind', 'text', (col) => col.notNull())
+    .addColumn('tier', 'text', (col) => col.notNull())
+    .addColumn('role', 'text')
+    .addColumn('protocol_ref_id', 'text')
+    .addColumn('protocol_ref_version', 'text')
+    .addColumn('group_key', 'text')
+    .addColumn('detector_id', 'text', (col) => col.notNull())
+    .addColumn('derived_from_tx_ids_json', 'text', (col) => col.notNull())
+    .addColumn('provenance_inputs_json', 'text', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint('transaction_annotations_target_scope_valid', sql`target_scope IN ('transaction', 'movement')`)
+    .addCheckConstraint(
+      'transaction_annotations_movement_fingerprint_required',
+      sql`(target_scope = 'movement' AND movement_fingerprint IS NOT NULL)
+          OR (target_scope = 'transaction' AND movement_fingerprint IS NULL)`
+    )
+    .addCheckConstraint(
+      'transaction_annotations_kind_valid',
+      sql`kind IN (
+        'bridge_participant',
+        'asset_migration_participant',
+        'wrap',
+        'unwrap',
+        'protocol_deposit',
+        'protocol_withdrawal',
+        'airdrop_claim'
+      )`
+    )
+    .addCheckConstraint('transaction_annotations_tier_valid', sql`tier IN ('asserted', 'heuristic')`)
+    .addCheckConstraint(
+      'transaction_annotations_role_valid',
+      sql`role IS NULL OR role IN ('source', 'target', 'claim', 'deposit', 'withdrawal')`
+    )
+    .addCheckConstraint(
+      'transaction_annotations_protocol_version_requires_id',
+      sql`protocol_ref_version IS NULL OR protocol_ref_id IS NOT NULL`
+    )
+    .addCheckConstraint(
+      'transaction_annotations_derived_from_tx_ids_json_valid',
+      sql`json_valid(derived_from_tx_ids_json)
+          AND json_type(derived_from_tx_ids_json) = 'array'
+          AND json_array_length(derived_from_tx_ids_json) > 0`
+    )
+    .addCheckConstraint('transaction_annotations_provenance_inputs_json_valid', sql`json_valid(provenance_inputs_json)`)
+    .addCheckConstraint(
+      'transaction_annotations_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_fingerprint_unique')
+    .on('transaction_annotations')
+    .column('annotation_fingerprint')
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_account_kind_tier')
+    .on('transaction_annotations')
+    .columns(['account_id', 'kind', 'tier'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_account_protocol')
+    .on('transaction_annotations')
+    .columns(['account_id', 'protocol_ref_id', 'protocol_ref_version'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_account_group')
+    .on('transaction_annotations')
+    .columns(['account_id', 'group_key'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_detector')
+    .on('transaction_annotations')
+    .column('detector_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_transaction_annotations_transaction')
+    .on('transaction_annotations')
+    .column('transaction_id')
+    .execute();
+
+  await sql`
+    CREATE TRIGGER trg_transaction_annotations_derived_from_tx_ids_items_insert
+    BEFORE INSERT ON transaction_annotations
+    FOR EACH ROW
+    WHEN json_valid(NEW.derived_from_tx_ids_json)
+      AND json_type(NEW.derived_from_tx_ids_json) = 'array'
+      AND EXISTS (
+        SELECT 1
+        FROM json_each(NEW.derived_from_tx_ids_json)
+        WHERE json_each.type != 'integer'
+          OR CAST(json_each.value AS INTEGER) <= 0
+      )
+    BEGIN
+      SELECT RAISE(ABORT, 'transaction_annotations derived_from_tx_ids_json must contain only positive integers');
+    END
+  `.execute(db);
+
+  await sql`
+    CREATE TRIGGER trg_transaction_annotations_derived_from_tx_ids_items_update
+    BEFORE UPDATE OF derived_from_tx_ids_json ON transaction_annotations
+    FOR EACH ROW
+    WHEN json_valid(NEW.derived_from_tx_ids_json)
+      AND json_type(NEW.derived_from_tx_ids_json) = 'array'
+      AND EXISTS (
+        SELECT 1
+        FROM json_each(NEW.derived_from_tx_ids_json)
+        WHERE json_each.type != 'integer'
+          OR CAST(json_each.value AS INTEGER) <= 0
+      )
+    BEGIN
+      SELECT RAISE(ABORT, 'transaction_annotations derived_from_tx_ids_json must contain only positive integers');
+    END
+  `.execute(db);
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('transaction_annotations').ifExists().execute();
   await db.schema.dropTable('accounting_issue_rows').ifExists().execute();
   await db.schema.dropTable('accounting_issue_scopes').ifExists().execute();
   await db.schema.dropTable('asset_review_evidence').ifExists().execute();

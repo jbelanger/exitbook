@@ -13,13 +13,19 @@ import {
   type CliCommandResult,
   type CliFailure,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../cli/options.js';
+import {
+  buildCliOptionsHelpText,
+  detectCliOutputFormat,
+  parseCliBrowseOptionsResult,
+  registerCliOptionDefinitions,
+  type CliOptionDefinition,
+} from '../../../cli/options.js';
 import {
   collapseEmptyExplorerToStatic,
   type BrowseSurfaceSpec,
   type ResolvedBrowsePresentation,
 } from '../../../cli/presentation.js';
-import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { renderApp, type CommandRuntime, type CommandRuntimeDatabase } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { getLinkSelectorErrorExitCode } from '../link-selector.js';
 import { LinksViewApp } from '../view/index.js';
@@ -46,13 +52,7 @@ interface ExecuteLinksBrowseCommandInput {
   surfaceSpec: BrowseSurfaceSpec;
 }
 
-interface LinksBrowseOptionDefinition {
-  description: string;
-  flags: string;
-  parser?: (value: string) => unknown;
-}
-
-const LINKS_BROWSE_OPTION_DEFINITIONS: LinksBrowseOptionDefinition[] = [
+const LINKS_BROWSE_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--status <status>',
     description: 'Filter proposals by status (suggested, confirmed, rejected)',
@@ -78,25 +78,11 @@ const LINKS_BROWSE_OPTION_DEFINITIONS: LinksBrowseOptionDefinition[] = [
 ];
 
 export function registerLinksBrowseOptions(command: Command): Command {
-  for (const option of LINKS_BROWSE_OPTION_DEFINITIONS) {
-    if (option.parser) {
-      command.option(option.flags, option.description, option.parser);
-      continue;
-    }
-
-    command.option(option.flags, option.description);
-  }
-
-  return command;
+  return registerCliOptionDefinitions(command, LINKS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function buildLinksBrowseOptionsHelpText(): string {
-  const flagsColumnWidth =
-    LINKS_BROWSE_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
-
-  return LINKS_BROWSE_OPTION_DEFINITIONS.map((option) => {
-    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
-  }).join('\n');
+  return buildCliOptionsHelpText(LINKS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function prepareLinksBrowseCommand(
@@ -155,7 +141,7 @@ export async function executePreparedLinksBrowseCommand(
   prepared: PreparedLinksBrowseCommand
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
 
     const browsePresentationResult = await buildLinksBrowsePresentation(database, profile.id, prepared.params);
@@ -191,7 +177,7 @@ export async function executePreparedLinksBrowseCommand(
 
 async function renderLinksExploreTui(
   _runtime: CommandRuntime,
-  database: Awaited<ReturnType<CommandRuntime['database']>>,
+  database: CommandRuntimeDatabase,
   profile: { displayName: string; id: number; profileKey: string },
   browsePresentation: LinksBrowsePresentation
 ): Promise<Result<void, Error>> {

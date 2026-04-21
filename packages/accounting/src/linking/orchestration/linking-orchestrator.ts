@@ -2,6 +2,7 @@ import type { NewTransactionLink, OverrideEvent, Transaction } from '@exitbook/c
 import type { EventBus } from '@exitbook/events';
 import { err, ok, resultDo, resultDoAsync, resultTryAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import { buildAccountingModelFromTransactions } from '../../accounting-model/build-accounting-model-from-transactions.js';
@@ -86,7 +87,7 @@ export class LinkingOrchestrator {
         yield* await self.store.markLinksBuilding();
 
         // 1. Load transactions
-        const { transactions, txById } = yield* await self.loadTransactions();
+        const { transactions, transactionAnnotations, txById } = yield* await self.loadTransactions();
         if (transactions.length === 0) {
           yield* await self.store.markLinksFresh();
           return emptyResult();
@@ -94,7 +95,11 @@ export class LinkingOrchestrator {
 
         // 2. Build linkable movements
         self.eventBus?.emit({ type: 'candidates.started' });
-        const { linkableMovements, internalLinks } = yield* buildLinkableMovements(transactions, logger);
+        const { linkableMovements, internalLinks } = yield* buildLinkableMovements(
+          transactions,
+          logger,
+          transactionAnnotations
+        );
         self.eventBus?.emit({
           type: 'candidates.completed',
           candidateCount: linkableMovements.length,
@@ -212,18 +217,36 @@ export class LinkingOrchestrator {
   }
 
   private async loadTransactions(): Promise<
-    Result<{ transactions: Transaction[]; txById: Map<number, Transaction> }, Error>
+    Result<
+      {
+        transactionAnnotations: readonly TransactionAnnotation[];
+        transactions: Transaction[];
+        txById: Map<number, Transaction>;
+      },
+      Error
+    >
   > {
     return resultDoAsync(async function* (self) {
       self.eventBus?.emit({ type: 'load.started' });
 
       const transactions = yield* await self.store.loadTransactions();
+      const transactionAnnotations =
+        transactions.length === 0
+          ? []
+          : yield* await self.store.loadTransactionAnnotations({
+              kinds: ['bridge_participant'],
+              tiers: ['asserted'],
+              transactionIds: transactions.map((tx) => tx.id),
+            });
       const txById = new Map(transactions.map((tx) => [tx.id, tx]));
 
-      logger.info({ transactionCount: transactions.length }, 'Fetched transactions for linking');
+      logger.info(
+        { transactionCount: transactions.length, transactionAnnotationCount: transactionAnnotations.length },
+        'Fetched transactions for linking'
+      );
       self.eventBus?.emit({ type: 'load.completed', totalTransactions: transactions.length });
 
-      return { transactions, txById };
+      return { transactions, transactionAnnotations, txById };
     }, this);
   }
 

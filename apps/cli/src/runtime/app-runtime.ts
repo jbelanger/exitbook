@@ -2,15 +2,23 @@ import path from 'node:path';
 
 import { loadBlockchainExplorerConfig, type BlockchainExplorersConfig } from '@exitbook/blockchain-providers';
 import { ok, type Result } from '@exitbook/foundation';
-import { AdapterRegistry, allBlockchainAdapters, allExchangeAdapters } from '@exitbook/ingestion/adapters';
+import { AdapterRegistry, allExchangeAdapters, createBlockchainAdapters } from '@exitbook/ingestion/adapters';
+import type { INearBatchSource } from '@exitbook/ingestion/ports';
 import type { PriceProviderConfig } from '@exitbook/price-providers';
 
 import { getDataDir } from './data-dir.js';
+
+export interface CliAdapterRegistryOptions {
+  nearBatchSource?: INearBatchSource | undefined;
+}
+
+export type CliAdapterRegistryFactory = (options?: CliAdapterRegistryOptions) => AdapterRegistry;
 
 export interface CliAppRuntime {
   dataDir: string;
   databasePath: string;
   adapterRegistry: AdapterRegistry;
+  createAdapterRegistry: CliAdapterRegistryFactory;
   priceProviderConfig: PriceProviderConfig;
   blockchainExplorerConfigPath?: string | undefined;
   blockchainExplorersConfig?: BlockchainExplorersConfig | undefined;
@@ -50,13 +58,23 @@ export function loadCliBlockchainExplorersConfig(
   );
 }
 
+export function createCliAdapterRegistry(options: CliAdapterRegistryOptions = {}): AdapterRegistry {
+  return new AdapterRegistry(
+    createBlockchainAdapters({ nearBatchSource: options.nearBatchSource }),
+    allExchangeAdapters
+  );
+}
+
 export function createCliAppRuntime(): CliAppRuntime {
   const dataDir = getDataDir();
+  const createAdapterRegistry: CliAdapterRegistryFactory = (options = {}) => createCliAdapterRegistry(options);
+  const adapterRegistry = createAdapterRegistry();
 
   return {
     dataDir,
     databasePath: path.join(dataDir, 'transactions.db'),
-    adapterRegistry: new AdapterRegistry(allBlockchainAdapters, allExchangeAdapters),
+    adapterRegistry,
+    createAdapterRegistry,
     priceProviderConfig: buildPriceProviderConfigFromEnv(),
     blockchainExplorerConfigPath: resolveCliBlockchainExplorerConfigPath(),
   };

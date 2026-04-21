@@ -78,7 +78,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     super(config);
 
     // Use provided chainConfig or default to Injective
-    this.chainConfig = COSMOS_CHAINS['injective'] as CosmosChainConfig;
+    this.chainConfig = COSMOS_CHAINS['injective'];
 
     // Create separate HTTP client for REST API (Bank module queries)
     this.restClient = new HttpClient({

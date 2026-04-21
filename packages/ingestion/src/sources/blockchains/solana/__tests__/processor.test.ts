@@ -1,10 +1,8 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import { type SolanaTransaction } from '@exitbook/blockchain-providers/solana';
-import { EventBus } from '@exitbook/events';
 import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi } from 'vitest';
 
-import type { IngestionEvent } from '../../../../events.js';
 import { SolanaProcessor } from '../processor.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
@@ -1700,11 +1698,10 @@ describe('SolanaProcessor - Scam Detection', () => {
 
     // Import and instantiate real scam detection service
     const { ScamDetectionService } = await import('../../../../features/scam-detection/scam-detection-service.js');
-    // eslint-disable-next-line @typescript-eslint/no-empty-function -- avoid unnecessary complexity in test
-    const mockEventBus = new EventBus<IngestionEvent>({ onError: () => {} });
-    const scamDetectionService = new ScamDetectionService(mockEventBus);
+    const scamDetectionService = new ScamDetectionService();
+    const scamDetector = scamDetectionService.detectScams.bind(scamDetectionService);
 
-    const processor = new SolanaProcessor(mockManager, scamDetectionService);
+    const processor = new SolanaProcessor(mockManager, scamDetector);
 
     const normalizedData = createTransaction({
       id: 'sigScam1',

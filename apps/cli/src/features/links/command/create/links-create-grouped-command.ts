@@ -113,7 +113,7 @@ async function executeLinksCreateGroupedCommandResult(
   format: 'json' | 'text'
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
       return yield* err(createCliFailure(profileResult.error, ExitCodes.GENERAL_ERROR));

@@ -8,7 +8,7 @@ import { buildBlockchainNativeAssetId, ok, parseDecimal, type Currency } from '@
 import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeBitcoinFundFlow } from './processor-utils.js';
@@ -16,8 +16,8 @@ import { analyzeBitcoinFundFlow } from './processor-utils.js';
 export class BitcoinProcessor extends BaseTransactionProcessor<BitcoinTransaction> {
   private readonly chainConfig: BitcoinChainConfig;
 
-  constructor(chainConfig: BitcoinChainConfig, scamDetectionService?: IScamDetectionService) {
-    super(chainConfig.chainName, undefined, scamDetectionService);
+  constructor(chainConfig: BitcoinChainConfig, scamDetector?: ScamDetector) {
+    super(chainConfig.chainName, undefined, scamDetector);
     this.chainConfig = chainConfig;
   }
 

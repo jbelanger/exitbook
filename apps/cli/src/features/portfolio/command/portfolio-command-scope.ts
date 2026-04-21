@@ -24,7 +24,7 @@ export async function withPortfolioCommandScope<T>(
   operation: (scope: PortfolioCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return resultTryAsync<T>(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
       return yield* err(profileResult.error);

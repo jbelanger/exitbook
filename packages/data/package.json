@@ -13,6 +13,7 @@
     "./ingestion": "./src/ingestion.ts",
     "./overrides": "./src/overrides.ts",
     "./projections": "./src/projections.ts",
+    "./transaction-interpretation": "./src/transaction-interpretation.ts",
     "./test-utils": "./src/utils/test-utils.ts"
   },
   "main": "src/index.ts",
@@ -32,6 +33,7 @@
     "@exitbook/ingestion": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
+    "@exitbook/transaction-interpretation": "workspace:*",
     "decimal.js": "^10.6.0",
     "zod": "^4.3.6"
   },

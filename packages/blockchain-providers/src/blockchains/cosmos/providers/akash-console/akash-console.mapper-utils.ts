@@ -5,7 +5,6 @@ import { getLogger } from '@exitbook/logger';
 import type { NormalizationError } from '../../../../contracts/errors.js';
 import { generateUniqueTransactionEventId } from '../../../../normalization/event-id.js';
 import { validateOutput } from '../../../../normalization/mapper-validation.js';
-import type { CosmosChainConfig } from '../../chain-config.interface.js';
 import { COSMOS_CHAINS } from '../../chain-registry.js';
 import {
   parseBankMultiSendMessage,
@@ -31,7 +30,7 @@ export function mapAkashConsoleTransaction(
   const logger = getLogger('AkashConsoleMapperUtils');
 
   // Get Akash chain config for denom formatting
-  const chainConfig = COSMOS_CHAINS['akash'] as CosmosChainConfig;
+  const chainConfig = COSMOS_CHAINS['akash'];
   const formatDenomOptions = {
     nativeCurrency: chainConfig.nativeCurrency,
     nativeDenom: chainConfig.nativeDenom,

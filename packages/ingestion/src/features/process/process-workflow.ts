@@ -13,7 +13,7 @@ import type { ProcessedTransactionWrite } from '../../ports/processed-transactio
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
-import type { IScamDetectionService } from '../scam-detection/contracts.js';
+import type { ScamDetector } from '../scam-detection/contracts.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 
 import {
@@ -23,6 +23,7 @@ import {
   type IRawDataBatchProvider,
 } from './batch-providers/index.js';
 import { buildProcessedTransactionWrites } from './raw-transaction-lineage.js';
+import { createScamBatchReportingDetector } from './scam-detection-reporting.js';
 
 export interface ReprocessPlan {
   accountIds: number[];
@@ -41,7 +42,7 @@ function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'acco
 
 export class ProcessingWorkflow {
   private logger: Logger;
-  private scamDetectionService: IScamDetectionService;
+  private scamDetector: ScamDetector;
 
   constructor(
     private ports: ProcessingPorts,
@@ -50,7 +51,8 @@ export class ProcessingWorkflow {
     private registry: AdapterRegistry
   ) {
     this.logger = getLogger('ProcessingWorkflow');
-    this.scamDetectionService = new ScamDetectionService(eventBus);
+    const scamDetectionService = new ScamDetectionService();
+    this.scamDetector = scamDetectionService.detectScams.bind(scamDetectionService);
   }
 
   /**
@@ -605,7 +607,11 @@ export class ProcessingWorkflow {
       return ok(
         adapterResult.value.createProcessor({
           providerRuntime: this.providerRuntime,
-          scamDetectionService: this.scamDetectionService,
+          scamDetector: createScamBatchReportingDetector({
+            blockchain: platformKey,
+            detector: this.scamDetector,
+            emit: (event) => this.eventBus.emit(event),
+          }),
         })
       );
     } else {

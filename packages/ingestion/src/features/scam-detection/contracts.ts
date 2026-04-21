@@ -14,23 +14,13 @@ export interface MovementWithContext {
   transactionIndex: number;
 }
 
+export type ScamDetectionResult = Map<number, TransactionDiagnostic[]>;
+
 /**
- * Service for detecting scam tokens using pre-fetched metadata.
- * Pure logic service - does NOT fetch metadata, expects it to be provided.
+ * Pure classification contract for scam detection.
+ * Metadata fetching and event emission stay outside this boundary.
  */
-export interface IScamDetectionService {
-  /**
-   * Detect scams in movements using pre-fetched metadata.
-   * Does NOT fetch metadata - expects it to be provided by the caller.
-   *
-   * @param movements - Movements with context (contract, amount, isAirdrop, txIndex)
-   * @param metadataMap - Pre-fetched metadata keyed by contract address (may contain undefined for unfound contracts)
-   * @param blockchain - Optional blockchain identifier for event emission
-   * @returns Map of transaction index to scam diagnostics for all suspicious assets in the transaction
-   */
-  detectScams(
-    movements: MovementWithContext[],
-    metadataMap: Map<string, TokenMetadataRecord | undefined>,
-    blockchain?: string
-  ): Map<number, TransactionDiagnostic[]>;
-}
+export type ScamDetector = (
+  movements: MovementWithContext[],
+  metadataMap: ReadonlyMap<string, TokenMetadataRecord | undefined>
+) => ScamDetectionResult;

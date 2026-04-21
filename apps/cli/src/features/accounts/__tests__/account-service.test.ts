@@ -4,11 +4,23 @@ const { mockAccountLifecycleService } = vi.hoisted(() => ({
   mockAccountLifecycleService: vi.fn(),
 }));
 
-let capturedStore: Record<string, (...args: unknown[]) => unknown> | undefined;
+interface CapturedStore {
+  create: (...args: unknown[]) => unknown;
+  findByFingerprintRef: (...args: unknown[]) => unknown;
+  findById: (...args: unknown[]) => unknown;
+  findByIdentifier: (...args: unknown[]) => unknown;
+  findByIdentity: (...args: unknown[]) => unknown;
+  findByName: (...args: unknown[]) => unknown;
+  findChildren: (...args: unknown[]) => unknown;
+  listTopLevel: (...args: unknown[]) => unknown;
+  update: (...args: unknown[]) => unknown;
+}
+
+let capturedStore: CapturedStore | undefined;
 
 vi.mock('@exitbook/accounts', () => ({
   AccountLifecycleService: class {
-    constructor(store: Record<string, (...args: unknown[]) => unknown>) {
+    constructor(store: CapturedStore) {
       capturedStore = store;
       mockAccountLifecycleService(store);
     }
@@ -16,6 +28,11 @@ vi.mock('@exitbook/accounts', () => ({
 }));
 
 import { createCliAccountLifecycleService } from '../account-service.js';
+
+function requireCapturedStore(): CapturedStore {
+  expect(capturedStore).toBeDefined();
+  return capturedStore as CapturedStore;
+}
 
 describe('createCliAccountLifecycleService', () => {
   beforeEach(() => {
@@ -48,17 +65,17 @@ describe('createCliAccountLifecycleService', () => {
     createCliAccountLifecycleService(db as never);
 
     expect(mockAccountLifecycleService).toHaveBeenCalledOnce();
-    expect(capturedStore).toBeDefined();
+    const store = requireCapturedStore();
 
-    capturedStore?.create({ tag: 'create' });
-    capturedStore?.findById(1);
-    capturedStore?.findByFingerprintRef('fingerprint');
-    capturedStore?.findByIdentifier('identifier');
-    capturedStore?.findByIdentity('profile', 'identity');
-    capturedStore?.findByName(3, 'kraken');
-    capturedStore?.update(7, { name: 'updated' });
-    capturedStore?.findChildren(9, 2);
-    capturedStore?.listTopLevel(4);
+    store.create({ tag: 'create' });
+    store.findById(1);
+    store.findByFingerprintRef('fingerprint');
+    store.findByIdentifier('identifier');
+    store.findByIdentity('profile', 'identity');
+    store.findByName(3, 'kraken');
+    store.update(7, { name: 'updated' });
+    store.findChildren(9, 2);
+    store.listTopLevel(4);
 
     expect(mockCreate).toHaveBeenCalledWith({ tag: 'create' });
     expect(mockFindById).toHaveBeenCalledWith(1);

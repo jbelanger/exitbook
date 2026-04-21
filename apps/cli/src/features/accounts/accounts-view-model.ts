@@ -1,8 +1,7 @@
 import type { AccountType, BalanceSnapshotVerificationStatus } from '@exitbook/core';
 
-import type { StoredBalanceAssetViewItem } from '../shared/stored-balance-view.js';
-
 import type { AccountBalanceProjectionStatus, AccountVerificationStatus } from './query/account-query.js';
+import type { StoredBalanceAssetViewItem } from './stored-balance/stored-balance-view.js';
 
 /**
  * Session line item for detail panel (when --show-sessions)

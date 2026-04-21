@@ -20,6 +20,7 @@ describe('runLinksReview', () => {
       ok({
         affectedLinkCount: 1,
         affectedLinkIds: [42],
+        changed: true,
         linkId: 42,
         newStatus: 'confirmed',
         reviewedAt: new Date('2026-04-16T12:00:00.000Z'),
@@ -32,6 +33,27 @@ describe('runLinksReview', () => {
 
     expect(scope.handler.executeTyped).toHaveBeenCalledWith({ linkId: 42 }, 'confirm');
     expect(scope.refreshProfileIssues).toHaveBeenCalledTimes(1);
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('skips profile issue refresh for idempotent no-op reviews', async () => {
+    const scope = createScope();
+    scope.handler.executeTyped.mockResolvedValue(
+      ok({
+        affectedLinkCount: 0,
+        affectedLinkIds: [],
+        changed: false,
+        linkId: 42,
+        newStatus: 'confirmed',
+        reviewedAt: new Date('2026-04-16T12:00:00.000Z'),
+        reviewedBy: 'cli-user',
+      })
+    );
+
+    const result = await runLinksReview(scope as never, { linkId: 42 }, 'confirm');
+
+    expect(scope.handler.executeTyped).toHaveBeenCalledWith({ linkId: 42 }, 'confirm');
+    expect(scope.refreshProfileIssues).not.toHaveBeenCalled();
     expect(result.isOk()).toBe(true);
   });
 

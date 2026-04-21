@@ -1,7 +1,7 @@
 import { type IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
 import type { Result } from '@exitbook/foundation';
 
-import type { IScamDetectionService } from '../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../features/scam-detection/contracts.js';
 
 import type { IImporter } from './importers.js';
 import type { ITransactionProcessor } from './processors.js';
@@ -13,7 +13,7 @@ export interface DerivedAddress {
 
 export interface CommonBlockchainProcessorContext {
   providerRuntime: IBlockchainProviderRuntime;
-  scamDetectionService: IScamDetectionService | undefined;
+  scamDetector: ScamDetector | undefined;
 }
 
 interface BlockchainAdapterBase {

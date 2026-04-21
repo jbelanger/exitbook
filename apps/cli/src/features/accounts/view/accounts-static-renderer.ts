@@ -1,16 +1,16 @@
 import pc from 'picocolors';
 
 import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
-import {
-  buildStoredBalanceAssetSectionLines,
-  formatStoredBalanceScopeAccountLine,
-} from '../../shared/stored-balance-static-renderer.js';
 import type {
   AccountDetailViewItem,
   AccountViewItem,
   ChildAccountViewItem,
   SessionViewItem,
 } from '../accounts-view-model.js';
+import {
+  buildStoredBalanceAssetSectionLines,
+  formatStoredBalanceScopeAccountLine,
+} from '../stored-balance/stored-balance-static-renderer.js';
 
 import {
   ACCOUNT_FINGERPRINT_REF_LENGTH,

@@ -19,6 +19,10 @@ export async function runLinksReview<TAction extends LinksReviewAction>(
 ): Promise<Result<LinksReviewActionResult<TAction>, Error>> {
   return resultDoAsync(async function* () {
     const result = yield* await scope.handler.executeTyped(params, action);
+    if (!result.changed) {
+      return result;
+    }
+
     yield* await scope.refreshProfileIssues();
     return result;
   });

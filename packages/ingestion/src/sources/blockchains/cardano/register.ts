@@ -55,6 +55,6 @@ export const cardanoAdapters: BlockchainAdapter[] = [
     createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) =>
       new CardanoImporter(providerRuntime, { preferredProvider: providerName }),
 
-    createProcessor: ({ scamDetectionService }) => new CardanoProcessor(scamDetectionService),
+    createProcessor: ({ scamDetector }) => new CardanoProcessor(scamDetector),
   },
 ];

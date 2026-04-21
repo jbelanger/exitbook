@@ -27,7 +27,7 @@ export async function ensureTransactionPricesReady(
   target: PricedConsumerTarget,
   accountingExclusionPolicy?: AccountingExclusionPolicy
 ): Promise<Result<void, Error>> {
-  const db = await scope.database();
+  const db = await scope.openDatabaseSession();
   const { format, setAbort } = options;
   if (options.profileId === undefined) {
     return err(new Error('Price readiness requires a resolved profile scope'));

@@ -2,9 +2,8 @@ import type { Transaction, TransactionDraft } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
+import { createPersistedTransaction } from '../../../shared/__tests__/transaction-test-utils.js';
 import { buildStoredBalanceAssetDiagnosticsSummary } from '../stored-balance-diagnostics.js';
-
-import { createPersistedTransaction } from './transaction-test-utils.js';
 
 function createTransaction(params: {
   datetime: string;

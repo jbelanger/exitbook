@@ -19,7 +19,7 @@ export const thetaAdapters: BlockchainAdapter[] = [
     normalizeAddress: normalizeThetaAddress,
     createImporter: (providerRuntime, preferredProvider) =>
       new ThetaImporter(thetaConfig, providerRuntime, { preferredProvider }),
-    createProcessor: ({ providerRuntime, scamDetectionService }) =>
-      new ThetaProcessor(thetaConfig, providerRuntime, scamDetectionService),
+    createProcessor: ({ providerRuntime, scamDetector }) =>
+      new ThetaProcessor(thetaConfig, providerRuntime, scamDetector),
   },
 ];

@@ -60,7 +60,7 @@ export async function runLinksGapsResolvedCommand(commandId: string, rawOptions:
 
 async function executeLinksGapsResolvedCommand(runtime: CommandRuntime, asJson: boolean): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
     const sourceReader = buildProfileLinkGapSourceReader(database, runtime.dataDir, {
       profileId: profile.id,

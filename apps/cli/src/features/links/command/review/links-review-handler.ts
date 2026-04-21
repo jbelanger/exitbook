@@ -15,6 +15,7 @@ export interface LinksReviewResult {
   linkId: number;
   affectedLinkIds: number[];
   affectedLinkCount: number;
+  changed: boolean;
   newStatus: 'confirmed' | 'rejected';
   reviewedBy: string;
   reviewedAt: Date;

@@ -12,6 +12,7 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { AccountDetailViewItem, AccountViewItem } from '../../accounts-view-model.js';
 
 const {
+  mockCloseDatabaseSession,
   mockcreateCliAccountLifecycleService,
   mockBuildAccountDetailViewItem,
   mockBuildAccountQueryPorts,
@@ -25,18 +26,23 @@ const {
   mockOutputAccountStaticDetail,
   mockOutputAccountsStaticList,
   mockOutputSuccess,
+  mockOpenDatabaseSession,
   mockRenderApp,
   mockResolveCommandProfile,
   mockRunCommand,
 } = vi.hoisted(() => ({
+  mockCloseDatabaseSession: vi.fn(),
   mockcreateCliAccountLifecycleService: vi.fn(),
   mockBuildAccountDetailViewItem: vi.fn(),
   mockBuildAccountQueryPorts: vi.fn(),
+  mockOpenDatabaseSession: vi.fn(),
   mockCtx: {
     activeProfileKey: 'default',
-    closeDatabase: vi.fn(),
-    database: vi.fn(),
+    closeDatabase: undefined as unknown,
+    closeDatabaseSession: undefined as unknown,
+    database: undefined as unknown,
     exitCode: 0,
+    openDatabaseSession: undefined as unknown,
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
@@ -51,6 +57,11 @@ const {
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
+
+mockCtx.database = mockOpenDatabaseSession;
+mockCtx.openDatabaseSession = mockOpenDatabaseSession;
+mockCtx.closeDatabase = mockCloseDatabaseSession;
+mockCtx.closeDatabaseSession = mockCloseDatabaseSession;
 
 const originalTerminalInteractivity = captureTerminalInteractivity();
 
@@ -251,8 +262,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('CI', '');
   setTTYFlags(true, true);
-  mockCtx.database.mockResolvedValue({ tag: 'db' });
-  mockCtx.closeDatabase.mockResolvedValue(undefined);
+  mockOpenDatabaseSession.mockResolvedValue({ tag: 'db' });
+  mockCloseDatabaseSession.mockResolvedValue(undefined);
   mockCtx.exitCode = 0;
   mockBuildAccountQueryPorts.mockReturnValue({ tag: 'ports' });
   mockcreateCliAccountLifecycleService.mockReturnValue({

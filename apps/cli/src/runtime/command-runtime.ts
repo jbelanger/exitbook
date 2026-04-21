@@ -46,13 +46,17 @@ interface PriceProviderRuntimeOptions {
   providers?: PriceProviderConfig | undefined;
 }
 
+export type CommandRuntimeDatabase = DataSession;
+export type CommandRuntimeBlockchainProviderRuntime = IBlockchainProviderRuntime;
+export type CommandRuntimePriceProviderRuntime = IPriceProviderRuntime;
+
 /**
  * Manages database lifecycle, SIGINT handling, and cleanup for CLI commands.
  *
- * - `database()` — lazy init; auto-closed in dispose
- * - `closeDatabase()` — early close for snapshot TUI pattern
+ * - `openDatabaseSession()` — lazy init; auto-closed in dispose
+ * - `closeDatabaseSession()` — early close for snapshot TUI pattern
  * - `onCleanup()` — LIFO stack, runs during dispose
- * - `openPriceProviderRuntime()` / `openBlockchainProviderRuntime()` — command runtime setup
+ * - `createManagedPriceProviderRuntime()` / `createManagedBlockchainProviderRuntime()` — command runtime setup
  * - `onAbort()` — SIGINT: fn() sync → await dispose → exit(130)
  * - `dispose()` — remove SIGINT, run stack, close DB. Idempotent. Throws on cleanup failures.
  */
@@ -63,7 +67,7 @@ export class CommandRuntime {
   readonly activeProfileKey: string;
   readonly activeProfileSource: 'default' | 'env' | 'state';
 
-  private _database?: DataSession | undefined;
+  private _database?: CommandRuntimeDatabase | undefined;
   private _databaseClosed = false;
   private _disposed = false;
   private cleanupStack: (() => Promise<void>)[] = [];
@@ -90,9 +94,9 @@ export class CommandRuntime {
 
   /**
    * Lazy-initialize and return the database connection.
-   * Throws if called after closeDatabase().
+   * Throws if called after closeDatabaseSession().
    */
-  async database(): Promise<DataSession> {
+  async openDatabaseSession(): Promise<CommandRuntimeDatabase> {
     if (this._databaseClosed) {
       throw new Error('Database already closed');
     }
@@ -123,7 +127,7 @@ export class CommandRuntime {
    * Early close for snapshot TUI pattern (load data → close → render).
    * Prevents dispose() from closing again.
    */
-  async closeDatabase(): Promise<void> {
+  async closeDatabaseSession(): Promise<void> {
     if (this._database && !this._databaseClosed) {
       const closeResult = await this._database.close();
       if (closeResult.isErr()) {
@@ -140,10 +144,10 @@ export class CommandRuntime {
     this.cleanupStack.push(fn);
   }
 
-  async openBlockchainProviderRuntime(
+  async createManagedBlockchainProviderRuntime(
     options?: BlockchainProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
-  ): Promise<IBlockchainProviderRuntime> {
-    const explorerConfig = options?.explorerConfig ?? this.resolveBlockchainExplorerConfig();
+  ): Promise<CommandRuntimeBlockchainProviderRuntime> {
+    const explorerConfig = options?.explorerConfig ?? this.loadBlockchainExplorerConfigOrThrow();
     const runtimeResult = await createBlockchainProviderRuntime({
       dataDir: options?.dataDir ?? this.dataDir,
       explorerConfig,
@@ -161,9 +165,9 @@ export class CommandRuntime {
     return runtimeResult.value;
   }
 
-  async openPriceProviderRuntime(
+  async createManagedPriceProviderRuntime(
     options?: PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }
-  ): Promise<IPriceProviderRuntime> {
+  ): Promise<CommandRuntimePriceProviderRuntime> {
     const runtimeResult = await createPriceProviderRuntime({
       dataDir: options?.dataDir ?? this.dataDir,
       providers: options?.providers ?? this.app?.priceProviderConfig,
@@ -266,7 +270,7 @@ export class CommandRuntime {
     }
   }
 
-  private resolveBlockchainExplorerConfig(): BlockchainExplorersConfig | undefined {
+  private loadBlockchainExplorerConfigOrThrow(): BlockchainExplorersConfig | undefined {
     const appRuntime = this.requireAppRuntime();
     const explorerConfigResult = loadCliBlockchainExplorersConfig(appRuntime);
     if (explorerConfigResult.isErr()) {
@@ -292,14 +296,14 @@ export function adaptResultCleanup(cleanup: () => Promise<ResultCleanupOutcome>)
 export async function withCommandPriceProviderRuntime<T>(
   runtime: CommandRuntime,
   options: (PriceProviderRuntimeOptions & { registerCleanup?: boolean | undefined }) | undefined,
-  operation: (priceRuntime: IPriceProviderRuntime) => Promise<T>
+  operation: (priceRuntime: CommandRuntimePriceProviderRuntime) => Promise<T>
 ): Promise<T> {
-  let priceRuntime: IPriceProviderRuntime | undefined;
+  let priceRuntime: CommandRuntimePriceProviderRuntime | undefined;
   let value: T | undefined;
   let operationError: Error | undefined;
 
   try {
-    priceRuntime = await runtime.openPriceProviderRuntime({
+    priceRuntime = await runtime.createManagedPriceProviderRuntime({
       ...options,
       registerCleanup: false,
     });

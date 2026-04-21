@@ -4,16 +4,19 @@ import { OverrideStore } from '@exitbook/data/overrides';
 import type { DataSession } from '@exitbook/data/session';
 import type { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
-import { AdapterRegistry, allExchangeAdapters, createBlockchainAdapters } from '@exitbook/ingestion/adapters';
 import type { IngestionEvent } from '@exitbook/ingestion/events';
 import { ProcessingWorkflow } from '@exitbook/ingestion/process';
 
-import { createCliAssetReviewProjectionRuntime } from '../../assets/command/asset-review-projection-runtime.js';
+import type { CliAdapterRegistryFactory } from '../../../runtime/app-runtime.js';
+import type { CliAssetReviewProjectionFactory } from '../../../runtime/command-capability-factories.js';
+
 interface CliProcessingWorkflowRuntime {
   processingWorkflow: ProcessingWorkflow;
 }
 
 interface CreateCliProcessingWorkflowRuntimeOptions {
+  adapterRegistryFactory: CliAdapterRegistryFactory;
+  assetReviewProjectionFactory: CliAssetReviewProjectionFactory;
   dataDir: string;
   database: DataSession;
   eventBus: EventBus<IngestionEvent>;
@@ -22,8 +25,8 @@ interface CreateCliProcessingWorkflowRuntimeOptions {
 
 export async function rebuildCliAssetReviewProjectionsForAccounts(
   database: DataSession,
-  dataDir: string,
-  accountIds: number[]
+  accountIds: number[],
+  assetReviewProjectionFactory: CliAssetReviewProjectionFactory
 ): Promise<import('@exitbook/foundation').Result<void, Error>> {
   if (accountIds.length === 0) {
     return ok(undefined);
@@ -62,7 +65,7 @@ export async function rebuildCliAssetReviewProjectionsForAccounts(
   }
 
   for (const profile of scopedProfiles.values()) {
-    const assetReviewRuntimeResult = createCliAssetReviewProjectionRuntime(database, dataDir, {
+    const assetReviewRuntimeResult = assetReviewProjectionFactory.createForProfile({
       profileId: profile.profileId,
       profileKey: profile.profileKey,
     });
@@ -88,13 +91,10 @@ export function createCliProcessingWorkflowRuntime(
     const overrideStore = new OverrideStore(options.dataDir);
     const ports = buildProcessingPorts(options.database, {
       rebuildAssetReviewProjection: (accountIds) =>
-        rebuildCliAssetReviewProjectionsForAccounts(options.database, options.dataDir, accountIds),
+        rebuildCliAssetReviewProjectionsForAccounts(options.database, accountIds, options.assetReviewProjectionFactory),
       overrideStore,
     });
-    const processingAdapterRegistry = new AdapterRegistry(
-      createBlockchainAdapters({ nearBatchSource: ports.nearBatchSource }),
-      allExchangeAdapters
-    );
+    const processingAdapterRegistry = options.adapterRegistryFactory({ nearBatchSource: ports.nearBatchSource });
 
     return ok({
       processingWorkflow: new ProcessingWorkflow(

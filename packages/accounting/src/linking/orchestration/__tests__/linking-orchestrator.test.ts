@@ -20,6 +20,7 @@ afterEach(() => {
 function createMockStore(overrides: Partial<ILinkingPersistence> = {}): ILinkingPersistence {
   const store: ILinkingPersistence = {
     loadTransactions: vi.fn().mockResolvedValue(ok([])),
+    loadTransactionAnnotations: vi.fn().mockResolvedValue(ok([])),
 
     replaceLinks: vi.fn().mockImplementation((links: unknown[]) => {
       return ok({ previousCount: 0, savedCount: links.length } satisfies LinksSaveResult);
@@ -140,6 +141,36 @@ describe('LinkingOrchestrator', () => {
     });
 
     expect(assertErr(result).message).toContain('load failed');
+  });
+
+  it('loads asserted bridge annotations for the fetched transaction set', async () => {
+    const transactions = [
+      createTransaction({
+        id: 1,
+        source: 'blockchain:ethereum',
+        platformKind: 'blockchain',
+        datetime: '2026-02-07T00:00:00Z',
+        outflows: [{ assetSymbol: 'ETH', amount: '1' }],
+      }),
+    ];
+    const loadTransactionAnnotations = vi.fn().mockResolvedValue(ok([]));
+    const store = createMockStore({
+      loadTransactions: vi.fn().mockResolvedValue(ok(transactions)),
+      loadTransactionAnnotations,
+    });
+
+    const handler = new LinkingOrchestrator(store);
+    const result = await handler.execute({
+      minConfidenceScore: parseDecimal('0.7'),
+      autoConfirmThreshold: parseDecimal('0.95'),
+    });
+
+    expect(assertOk(result).totalSourceCandidates).toBeGreaterThanOrEqual(0);
+    expect(loadTransactionAnnotations).toHaveBeenCalledWith({
+      kinds: ['bridge_participant'],
+      tiers: ['asserted'],
+      transactionIds: [1],
+    });
   });
 
   it('emits events during execution when eventBus is provided', async () => {

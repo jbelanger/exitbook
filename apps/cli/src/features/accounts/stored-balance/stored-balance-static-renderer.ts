@@ -2,8 +2,8 @@ import type { AccountType, BalanceSnapshotAssetComparisonStatus } from '@exitboo
 import { parseDecimal } from '@exitbook/foundation';
 import pc from 'picocolors';
 
-import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../ui/shared/table-utils.js';
-import { formatAccountFingerprintRef } from '../accounts/account-selector.js';
+import { buildTextTableHeader, buildTextTableRow, createColumns } from '../../../ui/shared/table-utils.js';
+import { formatAccountFingerprintRef } from '../account-selector.js';
 
 import type { StoredBalanceAssetViewItem } from './stored-balance-view.js';
 

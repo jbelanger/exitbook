@@ -24,10 +24,12 @@ const {
   mockOutputTransactionStaticDetail,
   mockOutputTransactionsStaticList,
   mockPrepareTransactionsCommandScope,
+  mockReadTransactionAnnotationsForCommand,
   mockReadTransactionsForCommand,
   mockRenderApp,
   mockRunCommand,
   mockToTransactionViewItem,
+  mockToTransactionViewItems,
   mockWriteFilesWithAtomicRenames,
 } = vi.hoisted(() => ({
   mockComputeCategoryCounts: vi.fn(),
@@ -43,10 +45,12 @@ const {
   mockOutputTransactionStaticDetail: vi.fn(),
   mockOutputTransactionsStaticList: vi.fn(),
   mockPrepareTransactionsCommandScope: vi.fn(),
+  mockReadTransactionAnnotationsForCommand: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
   mockRenderApp: vi.fn(),
   mockRunCommand: vi.fn(),
   mockToTransactionViewItem: vi.fn(),
+  mockToTransactionViewItems: vi.fn(),
   mockWriteFilesWithAtomicRenames: vi.fn(),
 }));
 
@@ -78,6 +82,7 @@ vi.mock('../transactions-command-scope.js', () => ({
 }));
 
 vi.mock('../transactions-read-support.js', () => ({
+  readTransactionAnnotationsForCommand: mockReadTransactionAnnotationsForCommand,
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
@@ -167,6 +172,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
 
 vi.mock('../../transaction-view-projection.js', () => ({
   toTransactionViewItem: mockToTransactionViewItem,
+  toTransactionViewItems: mockToTransactionViewItems,
 }));
 
 vi.mock('../transactions-export-handler.js', () => ({
@@ -191,6 +197,35 @@ function createProgram(): Command {
   return program;
 }
 
+interface ReadTransactionsCommandCall {
+  accountIds?: number[] | undefined;
+  address?: string | undefined;
+  assetId?: string | undefined;
+  assetSymbol?: string | undefined;
+  db: {
+    accounts: {
+      findAll: unknown;
+      findByName: unknown;
+    };
+    transactions: {
+      findByFingerprintRef: unknown;
+      findRawTransactionsByTransactionId: unknown;
+    };
+  };
+  from?: string | undefined;
+  noPrice?: boolean | undefined;
+  operationType?: string | undefined;
+  platformKey?: string | undefined;
+  profileId: number;
+  since?: number | undefined;
+  to?: string | undefined;
+  until?: string | undefined;
+}
+
+function getReadTransactionsCommandCall(index: number): ReadTransactionsCommandCall | undefined {
+  return mockReadTransactionsForCommand.mock.calls[index]?.[0] as ReadTransactionsCommandCall | undefined;
+}
+
 describe('transactions explore command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -208,8 +243,23 @@ describe('transactions explore command', () => {
         database: {
           tag: 'db',
           accounts: {
+            create: vi.fn(),
             findAll: mockFindAllAccounts,
+            findByFingerprintRef: vi.fn(),
+            findById: vi.fn(),
+            findByIdentifier: vi.fn(),
+            findByIdentity: vi.fn(),
             findByName: mockFindAccountByName,
+            update: vi.fn(),
+          },
+          assetReview: {
+            listAll: vi.fn().mockResolvedValue(ok([])),
+          },
+          profiles: {
+            list: vi.fn().mockResolvedValue(ok([])),
+          },
+          transactionAnnotations: {
+            readAnnotations: vi.fn().mockResolvedValue(ok([])),
           },
           transactions: {
             findAll: vi.fn().mockResolvedValue(ok([])),
@@ -232,6 +282,7 @@ describe('transactions explore command', () => {
     mockFindAllAccounts.mockResolvedValue(ok([]));
     mockFindAccountByName.mockResolvedValue(ok(undefined));
     mockReadTransactionsForCommand.mockResolvedValue(ok([{ id: 1 }, { id: 2 }]));
+    mockReadTransactionAnnotationsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
     mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
     mockToTransactionViewItem.mockImplementation((transaction: { id: number; txFingerprint?: string | undefined }) => ({
@@ -239,6 +290,14 @@ describe('transactions explore command', () => {
       platformKey: 'kraken',
       txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
     }));
+    mockToTransactionViewItems.mockImplementation(
+      (transactions: { id: number; txFingerprint?: string | undefined }[]) =>
+        transactions.map((transaction) => ({
+          id: transaction.id,
+          platformKey: 'kraken',
+          txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
+        }))
+    );
     mockComputeCategoryCounts.mockReturnValue({ trade: 2 });
     mockCreateTransactionsViewState.mockReturnValue({ tag: 'view-state' });
     mockExportExecute.mockResolvedValue(
@@ -262,18 +321,8 @@ describe('transactions explore command', () => {
     await program.parseAsync(['transactions', 'explore', '--platform', 'kraken', '--json'], { from: 'user' });
 
     expect(mockPrepareTransactionsCommandScope).toHaveBeenCalledWith(mockCtx, { format: 'json' });
-    expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
-      db: expect.objectContaining({
-        tag: 'db',
-        accounts: {
-          findAll: mockFindAllAccounts,
-          findByName: mockFindAccountByName,
-        },
-        transactions: expect.objectContaining({
-          findByFingerprintRef: mockFindByFingerprintRef,
-          findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
-        }),
-      }),
+    const firstReadTransactionsCall = getReadTransactionsCommandCall(0);
+    expect(firstReadTransactionsCall).toMatchObject({
       profileId: 1,
       accountIds: undefined,
       platformKey: 'kraken',
@@ -287,6 +336,12 @@ describe('transactions explore command', () => {
       operationType: undefined,
       noPrice: undefined,
     });
+    expect(firstReadTransactionsCall?.db.accounts.findAll).toBe(mockFindAllAccounts);
+    expect(firstReadTransactionsCall?.db.accounts.findByName).toBe(mockFindAccountByName);
+    expect(firstReadTransactionsCall?.db.transactions.findByFingerprintRef).toBe(mockFindByFingerprintRef);
+    expect(firstReadTransactionsCall?.db.transactions.findRawTransactionsByTransactionId).toBe(
+      mockFindRawTransactionsByTransactionId
+    );
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'transactions-explore',
       {
@@ -346,18 +401,8 @@ describe('transactions explore command', () => {
 
     await program.parseAsync(['transactions', 'explore', '--account', 'wallet-main', '--json'], { from: 'user' });
 
-    expect(mockReadTransactionsForCommand).toHaveBeenCalledWith({
-      db: expect.objectContaining({
-        tag: 'db',
-        accounts: {
-          findAll: mockFindAllAccounts,
-          findByName: mockFindAccountByName,
-        },
-        transactions: expect.objectContaining({
-          findByFingerprintRef: mockFindByFingerprintRef,
-          findRawTransactionsByTransactionId: mockFindRawTransactionsByTransactionId,
-        }),
-      }),
+    const accountReadTransactionsCall = getReadTransactionsCommandCall(0);
+    expect(accountReadTransactionsCall).toMatchObject({
       profileId: 1,
       accountIds: [7, 8],
       platformKey: undefined,
@@ -371,6 +416,12 @@ describe('transactions explore command', () => {
       operationType: undefined,
       noPrice: undefined,
     });
+    expect(accountReadTransactionsCall?.db.accounts.findAll).toBe(mockFindAllAccounts);
+    expect(accountReadTransactionsCall?.db.accounts.findByName).toBe(mockFindAccountByName);
+    expect(accountReadTransactionsCall?.db.transactions.findByFingerprintRef).toBe(mockFindByFingerprintRef);
+    expect(accountReadTransactionsCall?.db.transactions.findRawTransactionsByTransactionId).toBe(
+      mockFindRawTransactionsByTransactionId
+    );
     expect(mockOutputSuccess).toHaveBeenCalledWith(
       'transactions-explore',
       expect.objectContaining({

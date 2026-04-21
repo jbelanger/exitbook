@@ -15,7 +15,7 @@ import {
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
 import { toTransactionSourceDataItem, toTransactionSourceLineageItem } from '../transaction-source-data.js';
-import { toTransactionViewItem } from '../transaction-view-projection.js';
+import { toTransactionViewItem, toTransactionViewItems } from '../transaction-view-projection.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import { createTransactionsViewState, type TransactionsViewState } from '../view/index.js';
 
@@ -31,7 +31,7 @@ import {
   validateUntilDate,
 } from './transactions-browse-utils.js';
 import type { TransactionsCommandScope } from './transactions-command-scope.js';
-import { readTransactionsForCommand } from './transactions-read-support.js';
+import { readTransactionAnnotationsForCommand, readTransactionsForCommand } from './transactions-read-support.js';
 
 export interface TransactionsBrowseParams extends TransactionsBrowseFilters {
   sourceData?: boolean | undefined;
@@ -91,9 +91,16 @@ export async function buildTransactionsBrowsePresentation(
       }),
       ExitCodes.GENERAL_ERROR
     );
+    const annotations = yield* toCliResult(
+      await readTransactionAnnotationsForCommand({
+        db: scope.database,
+        transactionIds: transactions.map((transaction) => transaction.id),
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
 
     return buildListPresentation(
-      transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup)),
+      toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
       params,
       accountFilter
     );
@@ -155,6 +162,13 @@ async function buildDetailPresentation(
       await scope.database.transactions.findRawTransactionsByTransactionId(selector.transaction.id, scope.profile.id),
       ExitCodes.GENERAL_ERROR
     );
+    const annotations = yield* toCliResult(
+      await readTransactionAnnotationsForCommand({
+        db: scope.database,
+        transactionIds: [selector.transaction.id],
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
     const profileLinkGapSourceReader = buildProfileLinkGapSourceReader(scope.database, scope.dataDir, {
       profileId: scope.profile.id,
       profileKey: scope.profile.profileKey,
@@ -164,7 +178,7 @@ async function buildDetailPresentation(
       ExitCodes.GENERAL_ERROR
     );
     const selectedTransaction = {
-      ...toTransactionViewItem(selector.transaction, addressOwnershipLookup),
+      ...toTransactionViewItem(selector.transaction, addressOwnershipLookup, annotations),
       relatedContext: buildTransactionRelatedContext(profileLinkGapSource, selector.transaction),
       ...(rawSourceRows.length > 0
         ? {

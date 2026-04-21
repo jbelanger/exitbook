@@ -77,7 +77,7 @@ export async function executePreparedLinksGapsBrowseCommand(
   prepared: PreparedLinksGapsBrowseCommand
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(runtime, database), ExitCodes.GENERAL_ERROR);
     const sourceReader = buildProfileLinkGapSourceReader(
       database,
@@ -139,7 +139,7 @@ async function renderLinksGapsExploreTui(
   browsePresentation: LinksGapsBrowsePresentation
 ): Promise<Result<void, Error>> {
   try {
-    await runtime.closeDatabase();
+    await runtime.closeDatabaseSession();
     await renderApp((unmount) =>
       React.createElement(LinksViewApp, {
         initialState: browsePresentation.state,

@@ -8,20 +8,11 @@ import type { BlockchainDisplayCategory } from '../blockchains-view-model.js';
 
 export { providerToSummary, type ProviderSummary } from '../../providers/shared/provider-summary.js';
 
-/**
- * Blockchain categories surfaced in browse data.
- */
 const BLOCKCHAIN_DISPLAY_CATEGORIES = ['evm', 'substrate', 'cosmos', 'utxo', 'solana', 'other'] as const;
 
-/**
- * Blockchain category filters accepted at the CLI boundary.
- */
 export const BLOCKCHAIN_CATEGORIES = [...BLOCKCHAIN_DISPLAY_CATEGORIES, 'all'] as const;
 export type BlockchainCategory = (typeof BLOCKCHAIN_CATEGORIES)[number];
 
-/**
- * Blockchain information with providers (intermediate representation before browse rendering).
- */
 export interface BlockchainCatalogItem {
   name: string;
   displayName: string;
@@ -34,9 +25,6 @@ export interface BlockchainCatalogItem {
   exampleAddress: string;
 }
 
-/**
- * Validate blockchain category filter.
- */
 export function validateCategory(category: string): Result<BlockchainCategory, Error> {
   if (!BLOCKCHAIN_CATEGORIES.includes(category as BlockchainCategory)) {
     return err(
@@ -48,10 +36,6 @@ export function validateCategory(category: string): Result<BlockchainCategory, E
   return ok(category as BlockchainCategory);
 }
 
-/**
- * Get blockchain category from name.
- * Derives category from the blockchain hint in shared prompts.
- */
 export function getBlockchainCategory(blockchain: string): BlockchainDisplayCategory {
   const hint = getBlockchainHint(blockchain);
 
@@ -64,9 +48,6 @@ export function getBlockchainCategory(blockchain: string): BlockchainDisplayCate
   return 'other';
 }
 
-/**
- * Get blockchain layer information from hint.
- */
 export function getBlockchainLayer(blockchain: string): string | undefined {
   const hint = getBlockchainHint(blockchain);
 
@@ -77,9 +58,6 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
   return undefined;
 }
 
-/**
- * Build blockchain info from name and providers.
- */
 export function buildBlockchainCatalogItem(
   blockchain: string,
   providers: BlockchainProviderDescriptor[]
@@ -99,9 +77,6 @@ export function buildBlockchainCatalogItem(
   };
 }
 
-/**
- * Filter blockchains by category.
- */
 export function filterByCategory(
   blockchains: BlockchainCatalogItem[],
   category: BlockchainCategory
@@ -113,9 +88,6 @@ export function filterByCategory(
   return blockchains.filter((b) => b.category === category);
 }
 
-/**
- * Filter blockchains by API key requirement.
- */
 export function filterByApiKeyRequirement(
   blockchains: BlockchainCatalogItem[],
   requiresApiKey?: boolean
@@ -131,9 +103,6 @@ export function filterByApiKeyRequirement(
   }
 }
 
-/**
- * Sort blockchains by category and popularity.
- */
 export function sortBlockchains(blockchains: BlockchainCatalogItem[]): BlockchainCatalogItem[] {
   const order = [
     'bitcoin',

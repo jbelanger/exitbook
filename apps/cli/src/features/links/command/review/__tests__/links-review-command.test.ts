@@ -70,6 +70,7 @@ describe('links review command', () => {
     handler: {},
     resolveProposalRef: mockResolveProposalRef,
   };
+  const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,6 +92,7 @@ describe('links review command', () => {
         throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
       }
     );
+    consoleLogSpy.mockClear();
   });
 
   it('runs confirm in JSON mode through the links review command scope', async () => {
@@ -99,6 +101,7 @@ describe('links review command', () => {
       ok({
         affectedLinkCount: 1,
         affectedLinkIds: [123],
+        changed: true,
         linkId: 123,
         newStatus: 'confirmed',
         reviewedAt: new Date('2026-03-28T16:00:00.000Z'),
@@ -118,6 +121,7 @@ describe('links review command', () => {
       {
         affectedLinkCount: 1,
         affectedLinkIds: [123],
+        changed: true,
         newStatus: 'confirmed',
         proposalRef: 'a1b2c3d4e5',
         reviewedAt: '2026-03-28T16:00:00.000Z',
@@ -125,6 +129,56 @@ describe('links review command', () => {
       },
       undefined
     );
+  });
+
+  it('reports idempotent no-op reviews distinctly in JSON mode', async () => {
+    const program = createLinksProgram();
+    mockRunLinksReview.mockResolvedValue(
+      ok({
+        affectedLinkCount: 0,
+        affectedLinkIds: [],
+        changed: false,
+        linkId: 123,
+        newStatus: 'confirmed',
+        reviewedAt: new Date('2026-03-28T16:00:00.000Z'),
+        reviewedBy: 'cli-user',
+      })
+    );
+
+    await program.parseAsync(['links', 'confirm', 'a1b2c3d4e5', '--json'], { from: 'user' });
+
+    expect(mockOutputSuccess).toHaveBeenCalledWith(
+      'links-confirm',
+      {
+        affectedLinkCount: 0,
+        affectedLinkIds: [],
+        changed: false,
+        newStatus: 'confirmed',
+        proposalRef: 'a1b2c3d4e5',
+        reviewedAt: '2026-03-28T16:00:00.000Z',
+        reviewedBy: 'cli-user',
+      },
+      undefined
+    );
+  });
+
+  it('prints an already-reviewed message for idempotent no-op reviews in text mode', async () => {
+    const program = createLinksProgram();
+    mockRunLinksReview.mockResolvedValue(
+      ok({
+        affectedLinkCount: 0,
+        affectedLinkIds: [],
+        changed: false,
+        linkId: 123,
+        newStatus: 'confirmed',
+        reviewedAt: new Date('2026-03-28T16:00:00.000Z'),
+        reviewedBy: 'cli-user',
+      })
+    );
+
+    await program.parseAsync(['links', 'confirm', 'a1b2c3d4e5'], { from: 'user' });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Proposal a1b2c3d4e5 was already confirmed.');
   });
 
   it('returns selector resolution failures with browse-style exit codes', async () => {

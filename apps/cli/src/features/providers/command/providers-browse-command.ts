@@ -1,23 +1,29 @@
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
 import {
+  executePreparedBrowseCommand,
+  prepareBrowseCommand,
+  runPreparedBrowseCommandBoundary,
+  type PreparedBrowseCommand,
+} from '../../../cli/browse-command-scaffold.js';
+import { buildBrowseJsonOrStaticCompletion } from '../../../cli/browse-output.js';
+import {
   createCliFailure,
   ExitCodes,
-  jsonSuccess,
-  runCliCommandBoundary,
   textSuccess,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../cli/options.js';
 import {
-  collapseEmptyExplorerToStatic,
-  type BrowseSurfaceSpec,
-  type ResolvedBrowsePresentation,
-} from '../../../cli/presentation.js';
+  buildCliOptionsHelpText,
+  parseCliBrowseOptionsResult,
+  registerCliOptionDefinitions,
+  type CliOptionDefinition,
+} from '../../../cli/options.js';
+import { type BrowseSurfaceSpec } from '../../../cli/presentation.js';
 import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import { loadCliBlockchainExplorersConfig, type CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
@@ -37,10 +43,7 @@ interface ExecuteProvidersBrowseCommandInput {
   surfaceSpec: BrowseSurfaceSpec;
 }
 
-export interface PreparedProvidersBrowseCommand {
-  params: ProvidersBrowseParams;
-  presentation: ResolvedBrowsePresentation;
-}
+export type PreparedProvidersBrowseCommand = PreparedBrowseCommand<ProvidersBrowseParams>;
 
 interface ProvidersBrowseParams {
   blockchain?: string | undefined;
@@ -59,12 +62,7 @@ interface ProvidersBrowsePresentation {
   selectedProvider?: ProviderViewItem | undefined;
 }
 
-interface ProvidersBrowseOptionDefinition {
-  description: string;
-  flags: string;
-}
-
-const PROVIDERS_BROWSE_OPTION_DEFINITIONS: ProvidersBrowseOptionDefinition[] = [
+const PROVIDERS_BROWSE_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--blockchain <name>',
     description: 'Filter by blockchain served by the provider',
@@ -84,20 +82,11 @@ const PROVIDERS_BROWSE_OPTION_DEFINITIONS: ProvidersBrowseOptionDefinition[] = [
 ];
 
 export function registerProvidersBrowseOptions(command: Command): Command {
-  for (const option of PROVIDERS_BROWSE_OPTION_DEFINITIONS) {
-    command.option(option.flags, option.description);
-  }
-
-  return command;
+  return registerCliOptionDefinitions(command, PROVIDERS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function buildProvidersBrowseOptionsHelpText(): string {
-  const flagsColumnWidth =
-    PROVIDERS_BROWSE_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
-
-  return PROVIDERS_BROWSE_OPTION_DEFINITIONS.map((option) => {
-    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
-  }).join('\n');
+  return buildCliOptionsHelpText(PROVIDERS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function prepareProvidersBrowseCommand({
@@ -121,46 +110,42 @@ export function prepareProvidersBrowseCommand({
     );
   }
 
-  return ok({
-    params: {
-      providerSelector,
-      blockchain: options.blockchain,
-      health: options.health,
-      missingApiKey: options.missingApiKey,
-      preselectInExplorer: providerSelector !== undefined && presentation.mode === 'tui' ? true : undefined,
-    },
-    presentation,
-  });
+  return ok(
+    prepareBrowseCommand(
+      {
+        providerSelector,
+        blockchain: options.blockchain,
+        health: options.health,
+        missingApiKey: options.missingApiKey,
+        preselectInExplorer: providerSelector !== undefined && presentation.mode === 'tui' ? true : undefined,
+      },
+      presentation
+    )
+  );
 }
 
 export async function executePreparedProvidersBrowseCommand(
   prepared: PreparedProvidersBrowseCommand,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const browsePresentation = yield* await buildProvidersBrowsePresentation(appRuntime, prepared.params);
-    const finalPresentation = collapseEmptyExplorerToStatic(prepared.presentation, {
+  return executePreparedBrowseCommand({
+    prepared,
+    loadBrowsePresentation: (params) => buildProvidersBrowsePresentation(appRuntime, params),
+    resolveNavigability: (params, browsePresentation) => ({
       hasNavigableItems: browsePresentation.initialState.providers.length > 0,
-      shouldCollapseEmptyExplorer: shouldCollapseProvidersExplorerWhenEmpty(prepared.params),
-    });
-
-    return yield* buildProvidersBrowseCompletion(
-      browsePresentation,
-      finalPresentation.staticKind,
-      finalPresentation.mode
-    );
+      shouldCollapseEmptyExplorer: shouldCollapseProvidersExplorerWhenEmpty(params),
+    }),
+    buildCompletion: ({ browsePresentation, finalPresentation }) =>
+      buildProvidersBrowseCompletion(browsePresentation, finalPresentation.staticKind, finalPresentation.mode),
   });
 }
 
 export async function runProvidersBrowseCommand(input: ExecuteProvidersBrowseCommandInput): Promise<void> {
-  await runCliCommandBoundary({
+  await runPreparedBrowseCommandBoundary({
     command: input.commandId,
-    format: detectCliOutputFormat(input.rawOptions),
-    action: async () =>
-      resultDoAsync(async function* () {
-        const prepared = yield* prepareProvidersBrowseCommand(input);
-        return yield* await executePreparedProvidersBrowseCommand(prepared, input.appRuntime);
-      }),
+    rawOptions: input.rawOptions,
+    prepare: () => prepareProvidersBrowseCommand(input),
+    action: async (prepared) => executePreparedProvidersBrowseCommand(prepared, input.appRuntime),
   });
 }
 
@@ -235,61 +220,46 @@ function buildProvidersBrowseCompletion(
   staticKind: 'detail' | 'list',
   mode: 'json' | 'static' | 'tui'
 ): Result<CliCompletion, CliFailure> {
-  switch (mode) {
-    case 'json':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.detailJsonResult) {
-          return err(createCliFailure(new Error('Expected a provider detail result'), ExitCodes.GENERAL_ERROR));
-        }
-
-        return ok(jsonSuccess(browsePresentation.detailJsonResult));
-      }
-
-      return ok(
-        jsonSuccess(browsePresentation.listJsonResult, {
-          total: browsePresentation.initialState.totalCount,
-          byHealth: browsePresentation.initialState.healthCounts,
-          requireApiKey: browsePresentation.initialState.apiKeyRequiredCount,
-          filters: buildDefinedFilters({
-            blockchain: browsePresentation.initialState.blockchainFilter,
-            health: browsePresentation.initialState.healthFilter,
-            missingApiKey: browsePresentation.initialState.missingApiKeyFilter ? true : undefined,
-          }),
-        })
-      );
-    case 'static':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.selectedProvider) {
-          return err(createCliFailure(new Error('Expected a selected provider'), ExitCodes.GENERAL_ERROR));
-        }
-
-        return ok(
-          textSuccess(() => {
-            outputProviderStaticDetail(browsePresentation.selectedProvider!);
+  if (mode === 'tui') {
+    return ok(
+      textSuccess(async () =>
+        renderApp((unmount) =>
+          React.createElement(ProvidersViewApp, {
+            initialState: browsePresentation.initialState,
+            onQuit: unmount,
           })
-        );
-      }
-
-      return ok(
-        textSuccess(() => {
-          outputProvidersStaticList(browsePresentation.initialState);
-        })
-      );
-    case 'tui':
-      return ok(
-        textSuccess(async () =>
-          renderApp((unmount) =>
-            React.createElement(ProvidersViewApp, {
-              initialState: browsePresentation.initialState,
-              onQuit: unmount,
-            })
-          )
         )
-      );
+      )
+    );
   }
 
-  const exhaustiveCheck: never = mode;
-  return exhaustiveCheck;
+  return buildBrowseJsonOrStaticCompletion({
+    createMissingDetailJsonError: () =>
+      createCliFailure(new Error('Expected a provider detail result'), ExitCodes.GENERAL_ERROR),
+    createMissingSelectedItemError: () =>
+      createCliFailure(new Error('Expected a selected provider'), ExitCodes.GENERAL_ERROR),
+    detailJsonResult: browsePresentation.detailJsonResult,
+    listJsonResult: browsePresentation.listJsonResult,
+    metadata: {
+      total: browsePresentation.initialState.totalCount,
+      byHealth: browsePresentation.initialState.healthCounts,
+      requireApiKey: browsePresentation.initialState.apiKeyRequiredCount,
+      filters: buildDefinedFilters({
+        blockchain: browsePresentation.initialState.blockchainFilter,
+        health: browsePresentation.initialState.healthFilter,
+        missingApiKey: browsePresentation.initialState.missingApiKeyFilter ? true : undefined,
+      }),
+    },
+    mode,
+    renderStaticDetail: (selectedProvider) => {
+      outputProviderStaticDetail(selectedProvider);
+    },
+    renderStaticList: () => {
+      outputProvidersStaticList(browsePresentation.initialState);
+    },
+    selectedItem: browsePresentation.selectedProvider,
+    staticKind,
+  });
 }
 
 function shouldCollapseProvidersExplorerWhenEmpty(params: ProvidersBrowseParams): boolean {

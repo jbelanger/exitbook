@@ -70,7 +70,7 @@ async function executePricesSetFxCommandResult(
   format: CliOutputFormat
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const overrideStore = new OverrideStore(ctx.dataDir);
 

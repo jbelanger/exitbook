@@ -37,6 +37,7 @@ interface LinksReviewCommandDefinition<TAction extends LinksReviewAction> {
 interface LinksReviewCommandJsonResult<TStatus extends LinksReviewStatus> {
   affectedLinkCount: number;
   affectedLinkIds: number[];
+  changed: boolean;
   newStatus: TStatus;
   proposalRef: string;
   reviewedAt: string;
@@ -158,6 +159,7 @@ function buildLinksReviewCompletion<TAction extends LinksReviewAction>(
   const resultData: LinksReviewCommandJsonResult<LinksReviewActionResult<TAction>['newStatus']> = {
     affectedLinkCount: result.affectedLinkCount,
     affectedLinkIds: result.affectedLinkIds,
+    changed: result.changed,
     newStatus: result.newStatus,
     proposalRef,
     reviewedAt: result.reviewedAt.toISOString(),
@@ -169,6 +171,11 @@ function buildLinksReviewCompletion<TAction extends LinksReviewAction>(
   }
 
   return textSuccess(() => {
+    if (!result.changed) {
+      console.log(`Proposal ${proposalRef} was already ${definition.newStatus}.`);
+      return;
+    }
+
     if (
       result.asset &&
       result.sourceAmount &&

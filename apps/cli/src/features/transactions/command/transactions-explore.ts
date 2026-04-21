@@ -1,4 +1,3 @@
-import type { Transaction } from '@exitbook/core';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, wrapError, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
@@ -35,7 +34,7 @@ import {
   type ResolvedTransactionSelector,
 } from '../transaction-selector.js';
 import { toTransactionSourceLineageItem } from '../transaction-source-data.js';
-import { toTransactionViewItem } from '../transaction-view-projection.js';
+import { toTransactionViewItem, toTransactionViewItems } from '../transaction-view-projection.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import { outputTransactionStaticDetail, outputTransactionsStaticList } from '../view/transactions-static-renderer.js';
@@ -57,7 +56,7 @@ import {
 import type { TransactionsCommandScope } from './transactions-command-scope.js';
 import { prepareTransactionsCommandScope } from './transactions-command-scope.js';
 import { TransactionsExploreCommandOptionsSchema } from './transactions-option-schemas.js';
-import { readTransactionsForCommand } from './transactions-read-support.js';
+import { readTransactionAnnotationsForCommand, readTransactionsForCommand } from './transactions-read-support.js';
 
 const TRANSACTIONS_EXPLORE_COMMAND_ID = 'transactions-explore';
 
@@ -198,10 +197,17 @@ async function executeTransactionsExploreCommandResult(
       await loadAddressOwnershipLookup(scope.database, scope.profile.id),
       ExitCodes.GENERAL_ERROR
     );
+    const annotations = yield* toCliResult(
+      await readTransactionAnnotationsForCommand({
+        db: scope.database,
+        transactionIds: transactions.map((transaction) => transaction.id),
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const transactionViewItems = toTransactionViewItems(transactions, addressOwnershipLookup, annotations);
 
     return buildTransactionsExploreListCompletion(
-      addressOwnershipLookup,
-      transactions,
+      transactionViewItems,
       prepared.params,
       prepared.presentation.mode,
       accountFilter
@@ -298,15 +304,13 @@ function hasExploreFiltersOrLimit(options: TransactionsExploreCommandOptions): b
 }
 
 function buildTransactionsExploreListCompletion(
-  addressOwnershipLookup: AddressOwnershipLookup,
-  transactions: Transaction[],
+  transactions: TransactionViewItem[],
   params: ExploreTransactionsParams,
   mode: 'json' | 'static',
   accountFilter: ResolvedTransactionsAccountFilter | undefined
 ): CliCompletion {
-  const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup));
-  const categoryCounts = computeCategoryCounts(allViewItems);
-  const visibleItems = allViewItems.slice(0, params.limit);
+  const categoryCounts = computeCategoryCounts(transactions);
+  const visibleItems = transactions.slice(0, params.limit);
   const filters = buildTransactionsViewFilters({
     ...params,
     account: accountFilter?.selector.value ?? params.account,
@@ -364,8 +368,14 @@ async function buildTransactionsExploreTuiCompletion(
       }),
       ExitCodes.GENERAL_ERROR
     );
-
-    const allViewItems = transactions.map((transaction) => toTransactionViewItem(transaction, addressOwnershipLookup));
+    const annotations = yield* toCliResult(
+      await readTransactionAnnotationsForCommand({
+        db: database,
+        transactionIds: transactions.map((transaction) => transaction.id),
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const allViewItems = toTransactionViewItems(transactions, addressOwnershipLookup, annotations);
     const categoryCounts = computeCategoryCounts(allViewItems);
     const viewFilters = buildTransactionsViewFilters({
       ...params,
@@ -373,7 +383,13 @@ async function buildTransactionsExploreTuiCompletion(
     });
     const selectedIndex = resolveSelectedIndex(allViewItems, selectedTransaction);
     const visibleItems = selectedTransaction
-      ? yield* await enrichSelectedExploreTransaction(database, profileId, allViewItems, selectedTransaction)
+      ? yield* await enrichSelectedExploreTransaction(
+          database,
+          profileId,
+          allViewItems,
+          selectedTransaction,
+          addressOwnershipLookup
+        )
       : allViewItems.slice(0, params.limit);
     const initialState = createTransactionsViewState(
       visibleItems,
@@ -442,7 +458,8 @@ async function enrichSelectedExploreTransaction(
   database: DataSession,
   profileId: number,
   transactions: TransactionViewItem[],
-  selectedTransaction: ResolvedTransactionSelector
+  selectedTransaction: ResolvedTransactionSelector,
+  addressOwnershipLookup: AddressOwnershipLookup
 ): Promise<Result<TransactionViewItem[], CliFailure>> {
   return resultDoAsync(async function* () {
     const rawSourceRows = yield* toCliResult(
@@ -450,15 +467,14 @@ async function enrichSelectedExploreTransaction(
       ExitCodes.GENERAL_ERROR
     );
 
-    const addressOwnershipLookup = yield* toCliResult(
-      await loadAddressOwnershipLookup(database, profileId),
-      ExitCodes.GENERAL_ERROR
-    );
+    const selectedAnnotations =
+      transactions.find((transaction) => transaction.txFingerprint === selectedTransaction.transaction.txFingerprint)
+        ?.annotations ?? [];
 
     return transactions.map((transaction) =>
       transaction.txFingerprint === selectedTransaction.transaction.txFingerprint
         ? {
-            ...toTransactionViewItem(selectedTransaction.transaction, addressOwnershipLookup),
+            ...toTransactionViewItem(selectedTransaction.transaction, addressOwnershipLookup, selectedAnnotations),
             ...(rawSourceRows.length > 0 ? { sourceLineage: rawSourceRows.map(toTransactionSourceLineageItem) } : {}),
           }
         : transaction

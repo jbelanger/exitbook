@@ -9,7 +9,7 @@ import {
 import { ok } from '@exitbook/foundation';
 import { describe, expect, test, vi, type Mock } from 'vitest';
 
-import type { IScamDetectionService } from '../../../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../../shared/types/processors.js';
 import { NearProcessor } from '../processor.js';
 
@@ -91,10 +91,8 @@ function createMockProviderManager(): ProviderManagerMock {
   } as unknown as ProviderManagerMock;
 }
 
-function createMockScamDetectionService(): IScamDetectionService {
-  return {
-    detectScams: vi.fn().mockReturnValue(new Map()),
-  } as unknown as IScamDetectionService;
+function createMockScamDetector(): ScamDetector {
+  return vi.fn().mockReturnValue(new Map());
 }
 
 const createFundFlowContext = (overrides: Partial<AddressContext> = {}): AddressContext => ({
@@ -851,8 +849,8 @@ describe('NearProcessor', () => {
   describe('Scam Detection Integration', () => {
     test('should call scam detection for token movements', async () => {
       const mockProviderManager = createMockProviderManager();
-      const mockScamDetectionService = createMockScamDetectionService();
-      const processor = new NearProcessor(mockProviderManager, mockScamDetectionService);
+      const mockScamDetector = createMockScamDetector();
+      const processor = new NearProcessor(mockProviderManager, mockScamDetector);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),
@@ -875,8 +873,8 @@ describe('NearProcessor', () => {
 
     test('should detect airdrop transactions (inflow only, no fee)', async () => {
       const mockProviderManager = createMockProviderManager();
-      const mockScamDetectionService = createMockScamDetectionService();
-      const processor = new NearProcessor(mockProviderManager, mockScamDetectionService);
+      const mockScamDetector = createMockScamDetector();
+      const processor = new NearProcessor(mockProviderManager, mockScamDetector);
 
       const events: NearStreamEvent[] = [
         createTransactionEvent({ transactionHash: 'tx1' }),

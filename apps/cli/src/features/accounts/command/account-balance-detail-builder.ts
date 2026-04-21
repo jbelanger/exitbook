@@ -7,9 +7,9 @@ import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
 import {
   buildStoredBalanceAssetDiagnostics,
   buildStoredBalanceAssetViewItem,
-} from '../../shared/stored-balance-detail-utils.js';
-import { buildStoredBalanceAssetDiagnosticsSummary } from '../../shared/stored-balance-diagnostics.js';
-import type { StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
+} from '../stored-balance/stored-balance-detail-utils.js';
+import { buildStoredBalanceAssetDiagnosticsSummary } from '../stored-balance/stored-balance-diagnostics.js';
+import type { StoredBalanceAssetViewItem } from '../stored-balance/stored-balance-view.js';
 
 import type { AssetComparisonItem } from './accounts-refresh-types.js';
 import { sortAssetComparisonsByStatus } from './accounts-refresh-utils.js';

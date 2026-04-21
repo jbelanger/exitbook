@@ -24,8 +24,8 @@ export function createNearAdapters(
           preferredProvider: providerName,
         }),
 
-      createProcessor: ({ providerRuntime, scamDetectionService }) => {
-        return new NearProcessor(providerRuntime, scamDetectionService, options.nearBatchSource);
+      createProcessor: ({ providerRuntime, scamDetector }) => {
+        return new NearProcessor(providerRuntime, scamDetector, options.nearBatchSource);
       },
     },
   ];

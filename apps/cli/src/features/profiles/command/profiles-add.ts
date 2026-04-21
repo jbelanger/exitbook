@@ -42,7 +42,7 @@ async function executeAddProfileCommand(profileKey: string, rawOptions: unknown)
       }),
     action: async ({ runtime, prepared }) =>
       resultDoAsync(async function* () {
-        const db = await runtime.database();
+        const db = await runtime.openDatabaseSession();
         const profile = yield* toCliResult(
           await buildCliProfileService(db).create(profileKey),
           ExitCodes.GENERAL_ERROR

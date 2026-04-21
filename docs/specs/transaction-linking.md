@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-19
+last_verified: 2026-04-20
 status: canonical
 ---
 
@@ -24,8 +24,8 @@ override replay, and the persisted link contract.
 | Movement identity       | Persisted links carry deterministic source/target movement fingerprints: `movement:${movementHash}:${duplicateOccurrence}`                                                         |
 | Asset identity          | Persisted links carry both `sourceAssetId` and `targetAssetId`; one shared asset id is not enough                                                                                  |
 | Match thresholds        | Defaults: `maxTimingWindowHours=48`, `clockSkewToleranceHours=2`, `minConfidenceScore=0.7`, `autoConfirmThreshold=0.95`, `minPartialMatchFraction=0.1`                             |
-| Strategy order          | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `bridge-diagnostic` → `amount-timing` → `partial-match`                                                   |
-| Bridge diagnostic       | Explicit blockchain bridge pairs may link only when both sides carry compatible `bridge_transfer` diagnostics and the pair is uniquely safe                                        |
+| Strategy order          | `exact-hash` → `same-hash external outflow` → `counterparty-roundtrip` → `bridge-annotation` → `amount-timing` → `partial-match`                                                   |
+| Bridge annotation       | Explicit blockchain bridge pairs may link only when both sides carry compatible asserted `bridge_participant` annotations and the pair is uniquely safe                            |
 | Same-hash external send | Exact same-hash exchange target match is allowed either exactly or with one exact explained residual on the target                                                                 |
 | Override replay         | Last event wins per link fingerprint; orphaned confirmed overrides from `links confirm` or `links create` materialize only when exactly one source and one target movement resolve |
 | Persistence             | `links run` replaces persisted non-rejected links atomically and then marks the `links` projection fresh                                                                           |
@@ -66,6 +66,7 @@ interface LinkableMovement {
   blockchainTxHash?: string;
   fromAddress?: string;
   toAddress?: string;
+  transactionAnnotations?: TransactionAnnotation[];
   isInternal: boolean;
   excluded: boolean;
   movementFingerprint: string;
@@ -76,6 +77,8 @@ Important semantics:
 
 - `amount` is the matching amount.
 - `grossAmount` is only present when it differs from `amount`.
+- `transactionAnnotations` carries persisted transaction-level interpretation facts
+  needed by strategies that no longer scrape raw diagnostics.
 - `excluded=true` means the linkable movement exists for observability but strategies must not match it.
 - `movementFingerprint` is copied from the persisted processed movement.
 
@@ -272,9 +275,18 @@ Default order:
 1. `exact-hash`
 2. `same-hash external outflow`
 3. `counterparty-roundtrip`
-4. `bridge-diagnostic`
+4. `bridge-annotation`
 5. `amount-timing`
 6. `partial-match`
+
+Bridge annotation rules:
+
+- blockchain -> blockchain only
+- source must carry asserted `bridge_participant` with `role='source'`
+- target must carry asserted `bridge_participant` with `role='target'`
+- annotations must remain compatible with existing asset-equivalence rules
+- explicit chain-hint conflicts are a hard veto
+- links are emitted as `suggested`, never `confirmed`
 
 Hard filters:
 

@@ -302,6 +302,34 @@ describe('PriceProviderManager', () => {
     });
   });
 
+  describe('destroy', () => {
+    it('surfaces provider and dependency cleanup failures as an aggregate error', async () => {
+      const provider = createMockProvider('broken-provider');
+      provider.destroy = vi.fn().mockRejectedValue(new Error('provider teardown failed'));
+
+      manager.registerProviders([provider]);
+      manager.registerCleanup(vi.fn().mockRejectedValue(new Error('dependency cleanup failed')));
+
+      const destroyPromise = manager.destroy();
+
+      await expect(destroyPromise).rejects.toThrow('Failed to destroy price provider manager');
+
+      try {
+        await destroyPromise;
+      } catch (error) {
+        expect(error).toBeInstanceOf(AggregateError);
+        const aggregateError = error as AggregateError;
+        expect(aggregateError.errors).toHaveLength(2);
+        expect(aggregateError.errors[0]).toBeInstanceOf(Error);
+        expect(aggregateError.errors[1]).toBeInstanceOf(Error);
+        expect((aggregateError.errors[0] as Error).message).toBe('provider teardown failed');
+        expect((aggregateError.errors[1] as Error).message).toBe('dependency cleanup failed');
+      }
+
+      expect(manager.getProviderHealth().size).toBe(0);
+    });
+  });
+
   describe('stablecoin conversion', () => {
     it('should convert USDT-denominated price to USD', async () => {
       // Provider returns BTC price in USDT

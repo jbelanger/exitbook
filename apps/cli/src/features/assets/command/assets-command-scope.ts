@@ -1,12 +1,13 @@
 import type { Profile } from '@exitbook/core';
 import { refreshProfileAccountingIssueProjection } from '@exitbook/data/accounting';
 import { OverrideStore } from '@exitbook/data/overrides';
-import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultTryAsync, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
-import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
-import { buildBalanceWorkflowPorts } from '../../balances/shared/build-balance-workflow-ports.js';
+import {
+  createCliCommandResourceFactories,
+  type CliBalanceWorkflowFactory,
+} from '../../../runtime/command-capability-factories.js';
+import { type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
 import { AssetOverrideService } from './asset-override-service.js';
@@ -24,19 +25,18 @@ export async function withAssetsCommandScope<T>(
   operation: (scope: AssetsCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return resultTryAsync<T>(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
       return yield* err(profileResult.error);
     }
 
     const overrideStore = new OverrideStore(runtime.dataDir);
-    const snapshotReader = new AssetSnapshotReader(
-      database,
-      overrideStore,
-      runtime.dataDir,
-      createBalanceSnapshotRebuilder(runtime, database)
-    );
+    const capabilityFactories = createCliCommandResourceFactories(runtime, database);
+    const snapshotReader = new AssetSnapshotReader(database, overrideStore, {
+      assetReviewProjectionFactory: capabilityFactories.assetReviewProjectionFactory,
+      balanceSnapshotRebuilder: createBalanceSnapshotRebuilder(capabilityFactories.balanceWorkflowFactory),
+    });
 
     const value = yield* await operation({
       overrideService: new AssetOverrideService(database, overrideStore, snapshotReader),
@@ -53,12 +53,10 @@ export async function withAssetsCommandScope<T>(
   }, 'Failed to prepare assets command scope');
 }
 
-function createBalanceSnapshotRebuilder(runtime: CommandRuntime, database: DataSession): BalanceSnapshotRebuilder {
-  let workflowPromise: Promise<BalanceWorkflow> | undefined;
-
+function createBalanceSnapshotRebuilder(balanceWorkflowFactory: CliBalanceWorkflowFactory): BalanceSnapshotRebuilder {
   return {
     async rebuildCalculatedSnapshot(scopeAccountId) {
-      const workflow = await getWorkflow();
+      const workflow = await balanceWorkflowFactory.getOrCreate();
       const rebuildResult = await workflow.rebuildCalculatedSnapshot({ accountId: scopeAccountId });
       if (rebuildResult.isErr()) {
         return err(rebuildResult.error);
@@ -67,16 +65,4 @@ function createBalanceSnapshotRebuilder(runtime: CommandRuntime, database: DataS
       return ok(undefined);
     },
   };
-
-  async function getWorkflow(): Promise<BalanceWorkflow> {
-    if (!workflowPromise) {
-      workflowPromise = (async () => {
-        const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
-        runtime.onCleanup(adaptResultCleanup(providerRuntime.cleanup));
-        return new BalanceWorkflow(buildBalanceWorkflowPorts(database), providerRuntime);
-      })();
-    }
-
-    return await workflowPromise;
-  }
 }

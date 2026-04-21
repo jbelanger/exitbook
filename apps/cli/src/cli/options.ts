@@ -9,6 +9,12 @@ import { resolveBrowsePresentation } from './presentation.js';
 
 export type CliOutputFormat = 'json' | 'text';
 
+export interface CliOptionDefinition {
+  description: string;
+  flags: string;
+  parser?: ((value: string) => unknown) | undefined;
+}
+
 export interface CliBrowseRootInvocation {
   rawOptions: Record<string, unknown>;
   selector?: string | undefined;
@@ -32,6 +38,25 @@ export function detectCliOutputFormat(rawOptions: unknown): CliOutputFormat {
 
 export function detectCliTokenOutputFormat(tokens: string[] | undefined): CliOutputFormat {
   return tokens?.some((token) => token === '--json' || token.startsWith('--json=')) ? 'json' : 'text';
+}
+
+export function registerCliOptionDefinitions(command: Command, definitions: CliOptionDefinition[]): Command {
+  for (const option of definitions) {
+    if (option.parser) {
+      command.option(option.flags, option.description, option.parser);
+      continue;
+    }
+
+    command.option(option.flags, option.description);
+  }
+
+  return command;
+}
+
+export function buildCliOptionsHelpText(definitions: CliOptionDefinition[]): string {
+  const flagsColumnWidth = definitions.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
+
+  return definitions.map((option) => `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`).join('\n');
 }
 
 function mergeCliRawOptions(rawOptions: unknown, overrides: Record<string, unknown>): Record<string, unknown> {

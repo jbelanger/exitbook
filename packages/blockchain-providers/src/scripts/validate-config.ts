@@ -8,7 +8,7 @@ import path from 'node:path';
 
 import { getErrorMessage } from '@exitbook/foundation';
 
-import { loadExplorerConfig } from '../catalog/load-explorer-config.js';
+import { loadExplorerConfigOrThrow } from '../catalog/load-explorer-config.js';
 import { createProviderRegistry } from '../initialize.js';
 
 const registry = createProviderRegistry();
@@ -33,7 +33,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
 
   try {
     // Load the configuration
-    const config = loadExplorerConfig(resolveExplorerConfigPath());
+    const config = loadExplorerConfigOrThrow(resolveExplorerConfigPath());
 
     if (!config) {
       console.log('✅ No configuration file found - using registry-based auto-discovery!\n');

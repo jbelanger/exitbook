@@ -18,6 +18,27 @@ vi.mock('../registry/manager-bootstrap.js', () => ({
 
 import { createPriceProviderRuntime } from '../create-price-provider-runtime.js';
 
+function createMockManager(overrides: Partial<{ destroy: () => Promise<void> }> = {}) {
+  return {
+    destroy: vi.fn().mockResolvedValue(undefined),
+    fetchPrice: vi.fn().mockResolvedValue(
+      ok({
+        data: {
+          assetSymbol: 'BTC' as Currency,
+          currency: 'USD' as Currency,
+          fetchedAt: new Date('2024-01-15T10:31:00.000Z'),
+          granularity: 'exact' as const,
+          price: parseDecimal('45000'),
+          source: 'mock-provider',
+          timestamp: new Date('2024-01-15T10:30:00.000Z'),
+        },
+        providerName: 'mock-provider',
+      })
+    ),
+    ...overrides,
+  };
+}
+
 describe('createPriceProviderRuntime', () => {
   let tempDir: string;
 
@@ -83,23 +104,7 @@ describe('createPriceProviderRuntime', () => {
   });
 
   it('lazily initializes the provider manager once for fetches', async () => {
-    const manager = {
-      destroy: vi.fn().mockResolvedValue(undefined),
-      fetchPrice: vi.fn().mockResolvedValue(
-        ok({
-          data: {
-            assetSymbol: 'BTC' as Currency,
-            currency: 'USD' as Currency,
-            fetchedAt: new Date('2024-01-15T10:31:00.000Z'),
-            granularity: 'exact' as const,
-            price: parseDecimal('45000'),
-            source: 'mock-provider',
-            timestamp: new Date('2024-01-15T10:30:00.000Z'),
-          },
-          providerName: 'mock-provider',
-        })
-      ),
-    };
+    const manager = createMockManager();
     mockCreatePriceProviderManager.mockResolvedValue(ok(manager));
 
     const runtimeResult = await createPriceProviderRuntime({ dataDir: tempDir });
@@ -134,5 +139,40 @@ describe('createPriceProviderRuntime', () => {
     }
 
     expect(manager.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an aggregate cleanup error when provider manager teardown fails', async () => {
+    const manager = createMockManager({
+      destroy: vi.fn().mockRejectedValue(new Error('manager teardown failed')),
+    });
+    mockCreatePriceProviderManager.mockResolvedValue(ok(manager));
+
+    const runtimeResult = await createPriceProviderRuntime({ dataDir: tempDir });
+    expect(runtimeResult.isOk()).toBe(true);
+    if (runtimeResult.isErr()) {
+      return;
+    }
+
+    const runtime = runtimeResult.value;
+    await runtime.fetchPrice({
+      assetSymbol: 'BTC' as Currency,
+      currency: 'USD' as Currency,
+      timestamp: new Date('2024-01-15T10:30:00.000Z'),
+    });
+
+    const cleanupResult = await runtime.cleanup();
+    expect(cleanupResult.isErr()).toBe(true);
+    expect(manager.destroy).toHaveBeenCalledTimes(1);
+
+    if (cleanupResult.isOk()) {
+      return;
+    }
+
+    expect(cleanupResult.error).toBeInstanceOf(AggregateError);
+    const aggregateError = cleanupResult.error as AggregateError;
+    expect(aggregateError.message).toBe('Failed to cleanup price provider runtime');
+    expect(aggregateError.errors).toHaveLength(1);
+    expect(aggregateError.errors[0]).toBeInstanceOf(Error);
+    expect((aggregateError.errors[0] as Error).message).toBe('manager teardown failed');
   });
 });

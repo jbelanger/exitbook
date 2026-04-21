@@ -1,12 +1,11 @@
 import type { AccountLifecycleService } from '@exitbook/accounts';
 import type { Profile } from '@exitbook/core';
 import { err, resultTryAsync, type Result } from '@exitbook/foundation';
-import { BalanceWorkflow } from '@exitbook/ingestion/balance';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
-import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import { createCliCommandResourceFactories } from '../../../runtime/command-capability-factories.js';
+import { type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { ensureProcessedTransactionsReady } from '../../../runtime/projection-readiness.js';
-import { buildBalanceWorkflowPorts } from '../../balances/shared/build-balance-workflow-ports.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
 
@@ -28,7 +27,7 @@ export async function withAccountsRefreshScope<T>(
   operation: (scope: AccountsRefreshScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
   return resultTryAsync<T>(async function* () {
-    const database = await runtime.database();
+    const database = await runtime.openDatabaseSession();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
       return yield* err(profileResult.error);
@@ -44,6 +43,7 @@ export async function withAccountsRefreshScope<T>(
 
     const accountService = createCliAccountLifecycleService(database);
     const detailBuilder = new AccountBalanceDetailBuilder(database);
+    const capabilityFactories = createCliCommandResourceFactories(runtime, database);
 
     if (!options.needsWorkflow) {
       const value = yield* await operation({
@@ -58,9 +58,7 @@ export async function withAccountsRefreshScope<T>(
       return value;
     }
 
-    const providerRuntime = await runtime.openBlockchainProviderRuntime({ registerCleanup: false });
-    const cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
-    const balanceWorkflow = new BalanceWorkflow(buildBalanceWorkflowPorts(database), providerRuntime);
+    const balanceWorkflow = await capabilityFactories.balanceWorkflowFactory.getOrCreate();
     const refreshRunner = new AccountsRefreshRunner({
       accountService,
       detailBuilder,
@@ -68,7 +66,6 @@ export async function withAccountsRefreshScope<T>(
     });
     runtime.onCleanup(async () => {
       await refreshRunner.awaitStream();
-      await cleanupBlockchainProviderRuntime();
     });
 
     const value = yield* await operation({

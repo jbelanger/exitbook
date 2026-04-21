@@ -182,7 +182,7 @@ async function buildPortfolioTuiCompletion(
 
     const initialState = createPortfolioAssetsState(stateParams);
 
-    await ctx.closeDatabase();
+    await ctx.closeDatabaseSession();
     await renderApp((unmount) =>
       React.createElement(PortfolioApp, {
         initialState,

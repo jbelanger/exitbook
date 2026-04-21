@@ -87,13 +87,19 @@ export class KuCoinCsvImporter implements IImporter {
             continue;
           }
 
-          const fileType = await this.validateCSVHeaders(filePath);
+          const fileTypeResult = await this.validateCSVHeaders(filePath);
+          if (fileTypeResult.isErr()) {
+            yield err(fileTypeResult.error);
+            return;
+          }
 
-          // Skip unknown or unimplemented file types
-          if (fileType === 'unknown' || fileType.startsWith('not_implemented_') || fileType === 'convert') {
-            if (fileType === 'unknown') {
-              this.logger.warn(`• Skipping unrecognized CSV file: ${file}`);
-            }
+          const fileType = fileTypeResult.value;
+
+          // Only truly unknown headers are skipped here. Convert and known-but-unimplemented
+          // files still flow through processFileAsBatch() so their skip paths can log counts
+          // and surface boundary failures instead of being silently treated as empty files.
+          if (fileType === 'unknown') {
+            this.logger.warn(`• Skipping unrecognized CSV file: ${file}`);
             continue;
           }
 
@@ -223,7 +229,12 @@ export class KuCoinCsvImporter implements IImporter {
         case 'order_splitting': {
           // Skip Spot order-splitting files to avoid duplicates
           if (fileName.includes('Spot Orders_')) {
-            const recordCount = await this.countCsvRecords(filePath);
+            const recordCountResult = await this.countCsvRecords(filePath);
+            if (recordCountResult.isErr()) {
+              return err(recordCountResult.error);
+            }
+
+            const recordCount = recordCountResult.value;
             this.logger.info(
               `Skipping ${recordCount} spot order-splitting transaction${recordCount === 1 ? '' : 's'}: ${fileName}. Using Spot Orders_Filled Orders.csv instead to avoid duplicates.`
             );
@@ -306,7 +317,12 @@ export class KuCoinCsvImporter implements IImporter {
           return this.skipNotImplemented(filePath, 'trading bot', currentTotalFetched);
 
         case 'not_implemented_snapshots': {
-          const recordCount = await this.countCsvRecords(filePath);
+          const recordCountResult = await this.countCsvRecords(filePath);
+          if (recordCountResult.isErr()) {
+            return err(recordCountResult.error);
+          }
+
+          const recordCount = recordCountResult.value;
           this.logger.info(
             `Skipping asset snapshots file (${recordCount} snapshot${recordCount === 1 ? '' : 's'}): ${fileName}. Snapshots are informational only and not imported.`
           );
@@ -378,7 +394,12 @@ export class KuCoinCsvImporter implements IImporter {
     currentTotalFetched: number
   ): Promise<Result<ImportBatchResult, Error>> {
     const fileName = path.basename(filePath);
-    const recordCount = await this.countCsvRecords(filePath);
+    const recordCountResult = await this.countCsvRecords(filePath);
+    if (recordCountResult.isErr()) {
+      return err(recordCountResult.error);
+    }
+
+    const recordCount = recordCountResult.value;
     if (recordCount > 0) {
       this.logger.warn(
         `Skipping ${recordCount} ${categoryLabel} transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${fileName}. ${categoryLabel.charAt(0).toUpperCase() + categoryLabel.slice(1)} support coming soon.`
@@ -505,34 +526,44 @@ export class KuCoinCsvImporter implements IImporter {
   /**
    * Count the number of data records in a CSV file (excluding header).
    */
-  private async countCsvRecords(filePath: string): Promise<number> {
+  private async countCsvRecords(filePath: string): Promise<Result<number, Error>> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.trim().split('\n');
       // Subtract 1 for header row, return 0 if only header or empty
-      return Math.max(0, lines.length - 1);
+      return ok(Math.max(0, lines.length - 1));
     } catch (error) {
-      this.logger.error(`Failed to count records in ${filePath}: ${String(error)}`);
-      return 0;
+      const failure = new Error(
+        `Failed to count CSV records for ${path.basename(filePath)}: ${getErrorMessage(error)}`
+      );
+      this.logger.error({ error: getErrorMessage(error), filePath }, 'Failed to count KuCoin CSV records');
+      return err(failure);
     }
   }
 
   /**
    * Validate CSV headers and determine file type.
    */
-  private async validateCSVHeaders(filePath: string): Promise<string> {
+  private async validateCSVHeaders(filePath: string): Promise<Result<string, Error>> {
     const expectedHeaders = CSV_FILE_TYPES;
 
     try {
       const fileTypeResult = await validateCsvHeaders(filePath, expectedHeaders);
       if (fileTypeResult.isErr()) {
-        this.logger.error(`Failed to validate CSV headers for ${filePath}: ${fileTypeResult.error.message}`);
-        return 'unknown';
+        const failure = new Error(
+          `Failed to validate CSV headers for ${path.basename(filePath)}: ${fileTypeResult.error.message}`
+        );
+        this.logger.error({ error: fileTypeResult.error.message, filePath }, 'Failed to validate KuCoin CSV headers');
+        return err(failure);
       }
-      return fileTypeResult.value;
+
+      return ok(fileTypeResult.value);
     } catch (error) {
-      this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);
-      return 'unknown';
+      const failure = new Error(
+        `Failed to validate CSV headers for ${path.basename(filePath)}: ${getErrorMessage(error)}`
+      );
+      this.logger.error({ error: getErrorMessage(error), filePath }, 'Failed to validate KuCoin CSV headers');
+      return err(failure);
     }
   }
 

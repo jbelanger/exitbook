@@ -3,23 +3,28 @@ import type { Command } from 'commander';
 import React from 'react';
 
 import {
+  executePreparedBrowseCommand,
+  prepareBrowseCommand,
+  runPreparedBrowseRuntimeCommand,
+  type PreparedBrowseCommand,
+} from '../../../cli/browse-command-scaffold.js';
+import { buildBrowseJsonOrStaticCompletion } from '../../../cli/browse-output.js';
+import {
   createCliFailure,
   ExitCodes,
-  jsonSuccess,
-  runCliRuntimeCommand,
-  silentSuccess,
   textSuccess,
   toCliResult,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../cli/options.js';
 import {
-  collapseEmptyExplorerToStatic,
-  type BrowseSurfaceSpec,
-  type ResolvedBrowsePresentation,
-} from '../../../cli/presentation.js';
+  buildCliOptionsHelpText,
+  parseCliBrowseOptionsResult,
+  registerCliOptionDefinitions,
+  type CliOptionDefinition,
+} from '../../../cli/options.js';
+import { type BrowseSurfaceSpec } from '../../../cli/presentation.js';
 import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { outputAssetStaticDetail, outputAssetsStaticList } from '../view/assets-static-renderer.js';
@@ -45,10 +50,7 @@ interface ExecuteAssetsBrowseCommandInput {
   surfaceSpec: BrowseSurfaceSpec;
 }
 
-export interface PreparedAssetsBrowseCommand {
-  params: AssetsBrowseParams;
-  presentation: ResolvedBrowsePresentation;
-}
+export type PreparedAssetsBrowseCommand = PreparedBrowseCommand<AssetsBrowseParams>;
 
 interface AssetsBrowseParams {
   actionRequiredOnly?: boolean | undefined;
@@ -68,12 +70,7 @@ interface AssetsBrowsePresentation {
   totalCount: number;
 }
 
-interface AssetsBrowseOptionDefinition {
-  description: string;
-  flags: string;
-}
-
-const ASSETS_BROWSE_OPTION_DEFINITIONS: AssetsBrowseOptionDefinition[] = [
+const ASSETS_BROWSE_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--action-required',
     description: 'Show only flagged assets that still need attention',
@@ -89,20 +86,11 @@ const ASSETS_BROWSE_OPTION_DEFINITIONS: AssetsBrowseOptionDefinition[] = [
 ];
 
 export function registerAssetsBrowseOptions(command: Command): Command {
-  for (const option of ASSETS_BROWSE_OPTION_DEFINITIONS) {
-    command.option(option.flags, option.description);
-  }
-
-  return command;
+  return registerCliOptionDefinitions(command, ASSETS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function buildAssetsBrowseOptionsHelpText(): string {
-  const flagsColumnWidth =
-    ASSETS_BROWSE_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
-
-  return ASSETS_BROWSE_OPTION_DEFINITIONS.map((option) => {
-    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
-  }).join('\n');
+  return buildCliOptionsHelpText(ASSETS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function prepareAssetsBrowseCommand({
@@ -126,14 +114,16 @@ export function prepareAssetsBrowseCommand({
     );
   }
 
-  return ok({
-    params: {
-      actionRequiredOnly,
-      selector,
-      preselectInExplorer: selector !== undefined && presentation.mode === 'tui' ? true : undefined,
-    },
-    presentation,
-  });
+  return ok(
+    prepareBrowseCommand(
+      {
+        actionRequiredOnly,
+        selector,
+        preselectInExplorer: selector !== undefined && presentation.mode === 'tui' ? true : undefined,
+      },
+      presentation
+    )
+  );
 }
 
 export async function executePreparedAssetsBrowseCommand(
@@ -143,23 +133,21 @@ export async function executePreparedAssetsBrowseCommand(
   return resultDoAsync(async function* () {
     const completion = yield* toCliResult(
       await withAssetsCommandScope(runtime, async (scope) => {
-        const browsePresentationResult = await buildAssetsBrowsePresentation(scope, prepared.params);
-        if (browsePresentationResult.isErr()) {
-          return err(browsePresentationResult.error);
-        }
-
-        const browsePresentation = browsePresentationResult.value;
-        const finalPresentation = collapseEmptyExplorerToStatic(prepared.presentation, {
-          hasNavigableItems: browsePresentation.initialState.filteredAssets.length > 0,
-          shouldCollapseEmptyExplorer: shouldCollapseAssetsExplorerWhenEmpty(prepared.params),
+        return executePreparedBrowseCommand({
+          prepared,
+          loadBrowsePresentation: (params) => buildAssetsBrowsePresentation(scope, params),
+          resolveNavigability: (params, browsePresentation) => ({
+            hasNavigableItems: browsePresentation.initialState.filteredAssets.length > 0,
+            shouldCollapseEmptyExplorer: shouldCollapseAssetsExplorerWhenEmpty(params),
+          }),
+          buildCompletion: ({ browsePresentation, finalPresentation }) =>
+            buildAssetsBrowseCompletion(
+              scope,
+              browsePresentation,
+              finalPresentation.staticKind,
+              finalPresentation.mode
+            ),
         });
-
-        if (finalPresentation.mode === 'tui') {
-          await renderAssetsBrowseTui(scope, browsePresentation.initialState);
-          return ok(silentSuccess());
-        }
-
-        return buildAssetsBrowseCompletion(browsePresentation, finalPresentation.staticKind, finalPresentation.mode);
       }),
       ExitCodes.GENERAL_ERROR
     );
@@ -169,11 +157,11 @@ export async function executePreparedAssetsBrowseCommand(
 }
 
 export async function runAssetsBrowseCommand(input: ExecuteAssetsBrowseCommandInput): Promise<void> {
-  await runCliRuntimeCommand({
+  await runPreparedBrowseRuntimeCommand({
     command: input.commandId,
-    format: detectCliOutputFormat(input.rawOptions),
-    prepare: async () => prepareAssetsBrowseCommand(input),
-    action: async (context) => executePreparedAssetsBrowseCommand(context.runtime, context.prepared),
+    rawOptions: input.rawOptions,
+    prepare: () => prepareAssetsBrowseCommand(input),
+    action: async ({ runtime, prepared }) => executePreparedAssetsBrowseCommand(runtime, prepared),
   });
 }
 
@@ -217,50 +205,42 @@ async function buildAssetsBrowsePresentation(
 }
 
 function buildAssetsBrowseCompletion(
+  scope: AssetsCommandScope,
   browsePresentation: AssetsBrowsePresentation,
   staticKind: 'detail' | 'list',
-  mode: 'json' | 'static'
+  mode: 'json' | 'static' | 'tui'
 ): Result<CliCompletion, Error> {
-  switch (mode) {
-    case 'json':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.detailJsonResult) {
-          return err(new Error('Expected an asset detail result'));
-        }
-
-        return ok(jsonSuccess(browsePresentation.detailJsonResult));
-      }
-
-      return ok(
-        jsonSuccess(browsePresentation.listJsonResult, {
-          total: browsePresentation.totalCount,
-          actionRequiredCount: browsePresentation.actionRequiredCount,
-          excludedCount: browsePresentation.excludedCount,
-          filters: buildDefinedFilters({
-            actionRequired: browsePresentation.initialState.filter === 'action-required' ? true : undefined,
-          }),
-        })
-      );
-    case 'static':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.selectedAsset) {
-          return err(new Error('Expected a selected asset'));
-        }
-        const selectedAsset = browsePresentation.selectedAsset;
-
-        return ok(
-          textSuccess(() => {
-            outputAssetStaticDetail(selectedAsset);
-          })
-        );
-      }
-
-      return ok(
-        textSuccess(() => {
-          outputAssetsStaticList(browsePresentation.initialState);
-        })
-      );
+  if (mode === 'tui') {
+    return ok(
+      textSuccess(async () => {
+        await renderAssetsBrowseTui(scope, browsePresentation.initialState);
+      })
+    );
   }
+
+  return buildBrowseJsonOrStaticCompletion({
+    createMissingDetailJsonError: () => new Error('Expected an asset detail result'),
+    createMissingSelectedItemError: () => new Error('Expected a selected asset'),
+    detailJsonResult: browsePresentation.detailJsonResult,
+    listJsonResult: browsePresentation.listJsonResult,
+    metadata: {
+      total: browsePresentation.totalCount,
+      actionRequiredCount: browsePresentation.actionRequiredCount,
+      excludedCount: browsePresentation.excludedCount,
+      filters: buildDefinedFilters({
+        actionRequired: browsePresentation.initialState.filter === 'action-required' ? true : undefined,
+      }),
+    },
+    mode,
+    renderStaticDetail: (selectedAsset) => {
+      outputAssetStaticDetail(selectedAsset);
+    },
+    renderStaticList: () => {
+      outputAssetsStaticList(browsePresentation.initialState);
+    },
+    selectedItem: browsePresentation.selectedAsset,
+    staticKind,
+  });
 }
 
 async function renderAssetsBrowseTui(

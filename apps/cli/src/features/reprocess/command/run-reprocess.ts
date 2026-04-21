@@ -33,35 +33,57 @@ export interface ReprocessExecutionRuntime {
   instrumentation: InstrumentationCollector;
 }
 
+function createReprocessExecutionRuntime(
+  database: DataSession,
+  infra: {
+    ingestionMonitor?: EventDrivenController<CliEvent> | undefined;
+    instrumentation: InstrumentationCollector;
+    processingWorkflow: ProcessingWorkflow;
+  }
+): ReprocessExecutionRuntime {
+  return {
+    database,
+    processingWorkflow: infra.processingWorkflow,
+    ingestionMonitor: infra.ingestionMonitor,
+    instrumentation: infra.instrumentation,
+  };
+}
+
+async function stopReprocessMonitor(runtime: ReprocessExecutionRuntime): Promise<void> {
+  await runtime.ingestionMonitor?.stop();
+}
+
+async function failAndStopMonitor(runtime: ReprocessExecutionRuntime, errorMessage: string): Promise<void> {
+  runtime.ingestionMonitor?.fail(errorMessage);
+  await stopReprocessMonitor(runtime);
+}
+
 export async function executeReprocessWithRuntime(
   runtime: ReprocessExecutionRuntime,
   params: ReprocessParams
 ): Promise<Result<ReprocessResultWithMetrics, Error>> {
   const planResult = await runtime.processingWorkflow.prepareReprocess(params);
   if (planResult.isErr()) {
-    runtime.ingestionMonitor?.fail(planResult.error.message);
-    await runtime.ingestionMonitor?.stop();
+    await failAndStopMonitor(runtime, planResult.error.message);
     return err(planResult.error);
   }
 
   const plan = planResult.value;
   if (!plan) {
-    await runtime.ingestionMonitor?.stop();
+    await stopReprocessMonitor(runtime);
     return ok({ processed: 0, errors: [], failed: 0, runStats: runtime.instrumentation.getSummary() });
   }
 
   const resetResult = await resetProjections(runtime.database, 'processed-transactions', plan.accountIds);
   if (resetResult.isErr()) {
-    runtime.ingestionMonitor?.fail(resetResult.error.message);
-    await runtime.ingestionMonitor?.stop();
+    await failAndStopMonitor(runtime, resetResult.error.message);
     return err(resetResult.error);
   }
   logger.info('Reset projections for reprocess');
 
   const result = await runtime.processingWorkflow.processImportedSessions(plan.accountIds);
   if (result.isErr()) {
-    runtime.ingestionMonitor?.fail(result.error.message);
-    await runtime.ingestionMonitor?.stop();
+    await failAndStopMonitor(runtime, result.error.message);
     return err(result.error);
   }
 
@@ -71,12 +93,11 @@ export async function executeReprocessWithRuntime(
       `Reprocess failed: ${result.value.failed} account(s) failed during processing. ` +
       (firstErrors.length > 0 ? `First errors: ${firstErrors}` : 'See logs for details.');
 
-    runtime.ingestionMonitor?.fail(errorMessage);
-    await runtime.ingestionMonitor?.stop();
+    await failAndStopMonitor(runtime, errorMessage);
     return err(new Error(errorMessage));
   }
 
-  await runtime.ingestionMonitor?.stop();
+  await stopReprocessMonitor(runtime);
   return ok({
     processed: result.value.processed,
     errors: result.value.errors,
@@ -102,31 +123,21 @@ export async function runReprocess(
   params: ReprocessParams
 ): Promise<Result<ReprocessResultWithMetrics, Error>> {
   return resultTryAsync<ReprocessResultWithMetrics>(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const result = yield* await withIngestionRuntime(
       ctx,
       database,
       {
         presentation: options.format === 'json' ? 'headless' : 'monitor',
         onAbortRegistered: (infra) => {
-          const runtime: ReprocessExecutionRuntime = {
-            database,
-            processingWorkflow: infra.processingWorkflow,
-            ingestionMonitor: infra.ingestionMonitor,
-            instrumentation: infra.instrumentation,
-          };
+          const runtime = createReprocessExecutionRuntime(database, infra);
           ctx.onAbort(() => {
             abortReprocessRuntime(runtime);
           });
         },
       },
       async (infra) => {
-        const runtime: ReprocessExecutionRuntime = {
-          database,
-          processingWorkflow: infra.processingWorkflow,
-          ingestionMonitor: infra.ingestionMonitor,
-          instrumentation: infra.instrumentation,
-        };
+        const runtime = createReprocessExecutionRuntime(database, infra);
         return executeReprocessWithRuntime(runtime, params);
       }
     );

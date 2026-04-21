@@ -1,24 +1,30 @@
 import { listBlockchainProviders } from '@exitbook/blockchain-providers';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import React from 'react';
 
 import {
+  executePreparedBrowseCommand,
+  prepareBrowseCommand,
+  runPreparedBrowseCommandBoundary,
+  type PreparedBrowseCommand,
+} from '../../../cli/browse-command-scaffold.js';
+import { buildBrowseJsonOrStaticCompletion } from '../../../cli/browse-output.js';
+import {
   createCliFailure,
   ExitCodes,
-  jsonSuccess,
-  runCliCommandBoundary,
   textSuccess,
   type CliCommandResult,
   type CliCompletion,
   type CliFailure,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliBrowseOptionsResult } from '../../../cli/options.js';
 import {
-  collapseEmptyExplorerToStatic,
-  type BrowseSurfaceSpec,
-  type ResolvedBrowsePresentation,
-} from '../../../cli/presentation.js';
+  buildCliOptionsHelpText,
+  parseCliBrowseOptionsResult,
+  registerCliOptionDefinitions,
+  type CliOptionDefinition,
+} from '../../../cli/options.js';
+import { type BrowseSurfaceSpec } from '../../../cli/presentation.js';
 import { buildDefinedFilters } from '../../../cli/view-utils.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp } from '../../../runtime/command-runtime.js';
@@ -45,10 +51,7 @@ interface ExecuteBlockchainsBrowseCommandInput {
   surfaceSpec: BrowseSurfaceSpec;
 }
 
-export interface PreparedBlockchainsBrowseCommand {
-  params: BlockchainsBrowseParams;
-  presentation: ResolvedBrowsePresentation;
-}
+export type PreparedBlockchainsBrowseCommand = PreparedBrowseCommand<BlockchainsBrowseParams>;
 
 interface BlockchainsBrowseParams {
   blockchainSelector?: string | undefined;
@@ -66,12 +69,7 @@ interface BlockchainsBrowsePresentation {
   selectedBlockchain?: BlockchainViewItem | undefined;
 }
 
-interface BlockchainsBrowseOptionDefinition {
-  description: string;
-  flags: string;
-}
-
-const BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS: BlockchainsBrowseOptionDefinition[] = [
+const BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--category <name>',
     description: 'Filter by blockchain category (evm, substrate, cosmos, utxo, solana, other)',
@@ -87,20 +85,11 @@ const BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS: BlockchainsBrowseOptionDefinition[]
 ];
 
 export function registerBlockchainsBrowseOptions(command: Command): Command {
-  for (const option of BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS) {
-    command.option(option.flags, option.description);
-  }
-
-  return command;
+  return registerCliOptionDefinitions(command, BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function buildBlockchainsBrowseOptionsHelpText(): string {
-  const flagsColumnWidth =
-    BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
-
-  return BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS.map((option) => {
-    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
-  }).join('\n');
+  return buildCliOptionsHelpText(BLOCKCHAINS_BROWSE_OPTION_DEFINITIONS);
 }
 
 export function prepareBlockchainsBrowseCommand({
@@ -127,45 +116,41 @@ export function prepareBlockchainsBrowseCommand({
     );
   }
 
-  return ok({
-    params: {
-      blockchainSelector,
-      category: options.category,
-      requiresApiKey: options.requiresApiKey,
-      preselectInExplorer: blockchainSelector !== undefined && presentation.mode === 'tui' ? true : undefined,
-    },
-    presentation,
-  });
+  return ok(
+    prepareBrowseCommand(
+      {
+        blockchainSelector,
+        category: options.category,
+        requiresApiKey: options.requiresApiKey,
+        preselectInExplorer: blockchainSelector !== undefined && presentation.mode === 'tui' ? true : undefined,
+      },
+      presentation
+    )
+  );
 }
 
 export async function executePreparedBlockchainsBrowseCommand(
   prepared: PreparedBlockchainsBrowseCommand,
   appRuntime: CliAppRuntime
 ): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const browsePresentation = yield* buildBlockchainsBrowsePresentation(appRuntime, prepared.params);
-    const finalPresentation = collapseEmptyExplorerToStatic(prepared.presentation, {
+  return executePreparedBrowseCommand({
+    prepared,
+    loadBrowsePresentation: (params) => buildBlockchainsBrowsePresentation(appRuntime, params),
+    resolveNavigability: (params, browsePresentation) => ({
       hasNavigableItems: browsePresentation.initialState.blockchains.length > 0,
-      shouldCollapseEmptyExplorer: shouldCollapseBlockchainsExplorerWhenEmpty(prepared.params),
-    });
-
-    return yield* buildBlockchainsBrowseCompletion(
-      browsePresentation,
-      finalPresentation.staticKind,
-      finalPresentation.mode
-    );
+      shouldCollapseEmptyExplorer: shouldCollapseBlockchainsExplorerWhenEmpty(params),
+    }),
+    buildCompletion: ({ browsePresentation, finalPresentation }) =>
+      buildBlockchainsBrowseCompletion(browsePresentation, finalPresentation.staticKind, finalPresentation.mode),
   });
 }
 
 export async function runBlockchainsBrowseCommand(input: ExecuteBlockchainsBrowseCommandInput): Promise<void> {
-  await runCliCommandBoundary({
+  await runPreparedBrowseCommandBoundary({
     command: input.commandId,
-    format: detectCliOutputFormat(input.rawOptions),
-    action: async () =>
-      resultDoAsync(async function* () {
-        const prepared = yield* prepareBlockchainsBrowseCommand(input);
-        return yield* await executePreparedBlockchainsBrowseCommand(prepared, input.appRuntime);
-      }),
+    rawOptions: input.rawOptions,
+    prepare: () => prepareBlockchainsBrowseCommand(input),
+    action: async (prepared) => executePreparedBlockchainsBrowseCommand(prepared, input.appRuntime),
   });
 }
 
@@ -243,59 +228,45 @@ function buildBlockchainsBrowseCompletion(
   staticKind: 'list' | 'detail',
   mode: 'json' | 'static' | 'tui'
 ): Result<CliCompletion, CliFailure> {
-  switch (mode) {
-    case 'json':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.detailJsonResult) {
-          return err(createCliFailure(new Error('Expected a blockchain detail result'), ExitCodes.GENERAL_ERROR));
-        }
-        return ok(jsonSuccess(browsePresentation.detailJsonResult));
-      }
-
-      return ok(
-        jsonSuccess(browsePresentation.listJsonResult, {
-          byCategory: browsePresentation.initialState.categoryCounts,
-          filters: buildDefinedFilters({
-            category: browsePresentation.initialState.categoryFilter,
-            requiresApiKey: browsePresentation.initialState.requiresApiKeyFilter ? true : undefined,
-          }),
-          total: browsePresentation.initialState.totalCount,
-          totalProviders: browsePresentation.initialState.totalProviders,
-        })
-      );
-    case 'static':
-      if (staticKind === 'detail') {
-        if (!browsePresentation.selectedBlockchain) {
-          return err(createCliFailure(new Error('Expected a selected blockchain'), ExitCodes.GENERAL_ERROR));
-        }
-
-        return ok(
-          textSuccess(() => {
-            outputBlockchainStaticDetail(browsePresentation.selectedBlockchain!);
+  if (mode === 'tui') {
+    return ok(
+      textSuccess(async () =>
+        renderApp((unmount) =>
+          React.createElement(BlockchainsViewApp, {
+            initialState: browsePresentation.initialState,
+            onQuit: unmount,
           })
-        );
-      }
-
-      return ok(
-        textSuccess(() => {
-          outputBlockchainsStaticList(browsePresentation.initialState);
-        })
-      );
-    case 'tui':
-      return ok(
-        textSuccess(async () =>
-          renderApp((unmount) =>
-            React.createElement(BlockchainsViewApp, {
-              initialState: browsePresentation.initialState,
-              onQuit: unmount,
-            })
-          )
         )
-      );
+      )
+    );
   }
 
-  const exhaustiveCheck: never = mode;
-  return exhaustiveCheck;
+  return buildBrowseJsonOrStaticCompletion({
+    createMissingDetailJsonError: () =>
+      createCliFailure(new Error('Expected a blockchain detail result'), ExitCodes.GENERAL_ERROR),
+    createMissingSelectedItemError: () =>
+      createCliFailure(new Error('Expected a selected blockchain'), ExitCodes.GENERAL_ERROR),
+    detailJsonResult: browsePresentation.detailJsonResult,
+    listJsonResult: browsePresentation.listJsonResult,
+    metadata: {
+      byCategory: browsePresentation.initialState.categoryCounts,
+      filters: buildDefinedFilters({
+        category: browsePresentation.initialState.categoryFilter,
+        requiresApiKey: browsePresentation.initialState.requiresApiKeyFilter ? true : undefined,
+      }),
+      total: browsePresentation.initialState.totalCount,
+      totalProviders: browsePresentation.initialState.totalProviders,
+    },
+    mode,
+    renderStaticDetail: (selectedBlockchain) => {
+      outputBlockchainStaticDetail(selectedBlockchain);
+    },
+    renderStaticList: () => {
+      outputBlockchainsStaticList(browsePresentation.initialState);
+    },
+    selectedItem: browsePresentation.selectedBlockchain,
+    staticKind,
+  });
 }
 
 function shouldCollapseBlockchainsExplorerWhenEmpty(params: BlockchainsBrowseParams): boolean {

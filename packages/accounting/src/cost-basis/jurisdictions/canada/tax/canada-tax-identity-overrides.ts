@@ -5,7 +5,7 @@ import { resolveTaxAssetIdentity } from '../../../model/tax-asset-identity.js';
 
 import type { CanadaTaxInputContextBuildOptions } from './canada-tax-types.js';
 
-function isBlockchainTokenAsset(assetId: string): Result<boolean, Error> {
+function checkBlockchainTokenAsset(assetId: string): Result<boolean, Error> {
   const parsedAssetIdResult = parseAssetId(assetId);
   if (parsedAssetIdResult.isErr()) {
     return err(parsedAssetIdResult.error);
@@ -116,17 +116,17 @@ export function buildTransferAwareIdentityConfig(
       continue;
     }
 
-    const targetIsBlockchainTokenResult = isBlockchainTokenAsset(override.blockchainAssetId);
-    if (targetIsBlockchainTokenResult.isErr()) {
+    const targetBlockchainTokenCheckResult = checkBlockchainTokenAsset(override.blockchainAssetId);
+    if (targetBlockchainTokenCheckResult.isErr()) {
       return err(
         new Error(
           `Failed to validate blockchain transfer identity override for ${override.blockchainAssetId}: ` +
-            targetIsBlockchainTokenResult.error.message
+            targetBlockchainTokenCheckResult.error.message
         )
       );
     }
 
-    if (!targetIsBlockchainTokenResult.value) {
+    if (!targetBlockchainTokenCheckResult.value) {
       continue;
     }
 

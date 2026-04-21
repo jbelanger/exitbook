@@ -157,22 +157,30 @@ export class PriceProviderManager {
    * Cleanup resources
    */
   async destroy(): Promise<void> {
+    const cleanupErrors: Error[] = [];
+
     // Close all provider HTTP clients
-    const closePromises = this.providers.map((provider) =>
-      provider.destroy().catch((error: unknown) => {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error({ error: errorMessage }, 'Failed to destroy provider');
-      })
-    );
+    const closePromises = this.providers.map(async (provider) => {
+      try {
+        await provider.destroy();
+      } catch (error) {
+        const cleanupError = error instanceof Error ? error : new Error(String(error));
+        cleanupErrors.push(cleanupError);
+        logger.error({ error: cleanupError, providerName: provider.name }, 'Failed to destroy price provider');
+      }
+    });
 
     await Promise.all(closePromises);
 
-    const cleanupPromises = this.cleanupHandlers.map((cleanup) =>
-      cleanup().catch((error: unknown) => {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error({ error: errorMessage }, 'Failed to clean up price provider manager dependency');
-      })
-    );
+    const cleanupPromises = this.cleanupHandlers.map(async (cleanup) => {
+      try {
+        await cleanup();
+      } catch (error) {
+        const cleanupError = error instanceof Error ? error : new Error(String(error));
+        cleanupErrors.push(cleanupError);
+        logger.error({ error: cleanupError }, 'Failed to clean up price provider manager dependency');
+      }
+    });
 
     await Promise.all(cleanupPromises);
 
@@ -181,6 +189,10 @@ export class PriceProviderManager {
     this.healthStore.clear();
     this.circuitBreakers.clear();
     this.requestCache.clear();
+
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(cleanupErrors, 'Failed to destroy price provider manager');
+    }
 
     logger.debug('PriceProviderManager destroyed');
   }

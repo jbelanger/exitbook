@@ -80,7 +80,7 @@ async function executeUpdateAccountCommand(
       }),
     action: async (context) =>
       resultDoAsync(async function* () {
-        const db = await context.runtime.database();
+        const db = await context.runtime.openDatabaseSession();
         const profile = yield* toCliResult(await resolveCommandProfile(context.runtime, db), ExitCodes.GENERAL_ERROR);
         const accountService = createCliAccountLifecycleService(db);
         const selection = await resolveRequiredOwnedAccountSelector(

@@ -75,16 +75,43 @@ interface ImportMonitorController {
   stop(): Promise<void>;
 }
 
-interface BatchImportPresentation {
+export interface BatchImportPresentationHandle {
   abort(): void;
   fail(errorMessage: string): void;
   stop(): Promise<void>;
   unsubscribe(): void;
 }
 
-interface BatchImportAccountPlan {
+export interface BatchImportAccountPlan {
   account: Account;
   syncMode: BatchImportSyncMode;
+}
+
+export interface BatchImportExecutionSummary {
+  accounts: BatchImportAccountResult[];
+  failedCount: number;
+  totalCount: number;
+}
+
+export interface BatchImportRuntime {
+  abort(): void;
+  cleanup(): void;
+  run(batchAccounts: BatchImportAccountPlan[]): Promise<Result<BatchImportExecuteResult, Error>>;
+}
+
+export interface CreateBatchImportRuntimeOptions {
+  batchEventBus?: EventBus<BatchImportMonitorEvent> | undefined;
+  database: ImportCommandScope['database'];
+  format: CliOutputFormat;
+  infra: {
+    blockchainProviderRuntime: IngestionRuntime['blockchainProviderRuntime'];
+    eventBus: EventBusType<CliEvent>;
+    instrumentation: InstrumentationCollector;
+  };
+  presentation?: BatchImportPresentationHandle | undefined;
+  profileDisplayName: string;
+  registry: AdapterRegistry;
+  runtime?: ImportExecutionRuntime | undefined;
 }
 
 type SingleAddressWarningStatus = 'cancelled' | 'continue';
@@ -183,166 +210,197 @@ export async function runBatchImport(
   scope: ImportCommandScope,
   options: { format: CliOutputFormat }
 ): Promise<Result<BatchImportExecuteResult, Error>> {
-  let batchPresentation: BatchImportPresentation | undefined;
-
-  try {
+  return resultTryAsync<BatchImportExecuteResult>(async function* () {
     const database = scope.database;
-    const registry = scope.registry;
     const batchAccountsResult = await loadBatchImportAccounts(database, scope.profile.id);
     if (batchAccountsResult.isErr()) {
-      return err(batchAccountsResult.error);
+      return yield* err(batchAccountsResult.error);
     }
 
     const batchAccounts = batchAccountsResult.value;
     if (batchAccounts.length === 0) {
-      return err(new Error(`No accounts found for profile '${scope.profile.displayName}'`));
+      return yield* err(new Error(`No accounts found for profile '${scope.profile.displayName}'`));
     }
 
-    const batchEventBus = new EventBus<BatchImportMonitorEvent>({
+    const result = yield* await withIngestionRuntime(
+      scope.runtime,
+      database,
+      { presentation: 'headless' },
+      async (infra) => {
+        const batchRuntime = await createBatchImportRuntime({
+          database,
+          format: options.format,
+          infra,
+          profileDisplayName: scope.profile.displayName,
+          registry: scope.registry,
+        });
+
+        scope.runtime.onAbort(() => {
+          batchRuntime.abort();
+        });
+
+        try {
+          return await batchRuntime.run(batchAccounts);
+        } finally {
+          batchRuntime.cleanup();
+        }
+      }
+    );
+
+    return result;
+  }, 'Failed to run batch import');
+}
+
+export async function createBatchImportRuntime(options: CreateBatchImportRuntimeOptions): Promise<BatchImportRuntime> {
+  const batchEventBus =
+    options.batchEventBus ??
+    new EventBus<BatchImportMonitorEvent>({
       onError: (error) => {
         logger.error({ error }, 'Batch import event bus error');
       },
     });
-    return withIngestionRuntime(scope.runtime, database, { presentation: 'headless' }, async (infra) => {
-      const runtime = buildImportExecutionRuntime(database, registry, infra);
-      batchPresentation = await createBatchImportPresentation(options.format, batchEventBus, infra);
+  const runtime = options.runtime ?? buildImportExecutionRuntime(options.database, options.registry, options.infra);
+  const presentation =
+    options.presentation ?? (await createBatchImportPresentationHandle(options.format, batchEventBus, options.infra));
 
-      scope.runtime.onAbort(() => {
-        runtime.importWorkflow.abort();
-        const activePresentation = batchPresentation;
-        if (!activePresentation) {
-          return;
+  return {
+    abort() {
+      abortBatchImport(runtime, presentation);
+    },
+    cleanup() {
+      presentation.unsubscribe();
+    },
+    async run(batchAccounts) {
+      try {
+        emitBatchImportStarted(batchEventBus, options.profileDisplayName, batchAccounts);
+
+        const executionResult = await executeBatchImportAccounts({
+          batchAccounts,
+          batchEventBus,
+          database: options.database,
+          runtime,
+        });
+        if (executionResult.isErr()) {
+          await failAndStopBatchImportPresentation(presentation, executionResult.error);
+          return err(executionResult.error);
         }
 
-        activePresentation.abort();
-        void activePresentation.stop().catch((error) => {
-          logger.warn({ error }, 'Failed to stop batch import monitor on abort');
+        const execution = executionResult.value;
+        emitBatchImportCompleted(batchEventBus, execution);
+        await presentation.stop();
+
+        return ok({
+          accounts: execution.accounts,
+          failedCount: execution.failedCount,
+          profileDisplayName: options.profileDisplayName,
+          runStats: runtime.instrumentation.getSummary(),
+          totalCount: execution.totalCount,
         });
-      });
-
-      batchEventBus.emit({
-        type: 'batch.started',
-        profileDisplayName: scope.profile.displayName,
-        rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
-          accountId: batchAccount.account.id,
-          accountType: batchAccount.account.accountType,
-          name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
-          platformKey: batchAccount.account.platformKey,
-          syncMode: batchAccount.syncMode,
-        })),
-      });
-
-      const accountResults: BatchImportAccountResult[] = [];
-      let failedCount = 0;
-
-      for (const [index, batchAccount] of batchAccounts.entries()) {
-        batchEventBus.emit({
-          type: 'batch.account.started',
-          accountId: batchAccount.account.id,
-          index,
-        });
-
-        const importResult = await executeImportWithRuntime(runtime, {
-          accountId: batchAccount.account.id,
-        });
-
-        if (importResult.isErr()) {
-          failedCount += 1;
-          const countsResult = await loadFailedImportCounts(database, batchAccount.account.id);
-          if (countsResult.isErr()) {
-            return err(countsResult.error);
-          }
-
-          batchEventBus.emit({
-            type: 'batch.account.failed',
-            accountId: batchAccount.account.id,
-            error: importResult.error.message,
-            imported: countsResult.value.imported,
-            skipped: countsResult.value.skipped,
-          });
-
-          accountResults.push({
-            account: toBatchImportAccount(batchAccount.account),
-            counts: countsResult.value,
-            errorMessage: importResult.error.message,
-            status: 'failed',
-            syncMode: batchAccount.syncMode,
-          });
-          continue;
-        }
-        if (importResult.value.kind === 'cancelled') {
-          logger.warn(
-            { accountId: batchAccount.account.id },
-            'Batch import returned a cancelled outcome even though batch mode should not prompt'
-          );
-          failedCount += 1;
-          batchEventBus.emit({
-            type: 'batch.account.failed',
-            accountId: batchAccount.account.id,
-            error: 'Import cancelled by user',
-            imported: 0,
-            skipped: 0,
-          });
-
-          accountResults.push({
-            account: toBatchImportAccount(batchAccount.account),
-            counts: {
-              imported: 0,
-              skipped: 0,
-            },
-            errorMessage: 'Import cancelled by user',
-            status: 'failed',
-            syncMode: batchAccount.syncMode,
-          });
-          continue;
-        }
-
-        const counts = summarizeImportSessions(importResult.value.result.sessions);
-        batchEventBus.emit({
-          type: 'batch.account.completed',
-          accountId: batchAccount.account.id,
-          imported: counts.imported,
-          skipped: counts.skipped,
-        });
-
-        accountResults.push({
-          account: toBatchImportAccount(batchAccount.account),
-          counts,
-          status: 'completed',
-          syncMode: batchAccount.syncMode,
-        });
+      } catch (error) {
+        const batchError = error instanceof Error ? error : new Error(String(error));
+        await failAndStopBatchImportPresentation(presentation, batchError);
+        return wrapError(batchError, 'Failed to run batch import');
       }
-
-      batchEventBus.emit({
-        type: 'batch.completed',
-        completedCount: accountResults.length - failedCount,
-        failedCount,
-        totalCount: accountResults.length,
-      });
-
-      await batchPresentation.stop();
-
-      return ok({
-        accounts: accountResults,
-        failedCount,
-        profileDisplayName: scope.profile.displayName,
-        runStats: runtime.instrumentation.getSummary(),
-        totalCount: accountResults.length,
-      });
-    });
-  } catch (error) {
-    const batchError = error instanceof Error ? error : new Error(String(error));
-    batchPresentation?.fail(batchError.message);
-    await batchPresentation?.stop().catch((stopError) => {
-      logger.warn({ stopError }, 'Failed to stop batch import monitor after batch failure');
-    });
-    return wrapError(batchError, 'Failed to run batch import');
-  } finally {
-    batchPresentation?.unsubscribe();
-  }
+    },
+  };
 }
 
-async function createBatchImportPresentation(
+export async function executeBatchImportAccounts(params: {
+  batchAccounts: BatchImportAccountPlan[];
+  batchEventBus: EventBus<BatchImportMonitorEvent>;
+  database: ImportCommandScope['database'];
+  runtime: ImportExecutionRuntime;
+}): Promise<Result<BatchImportExecutionSummary, Error>> {
+  const accountResults: BatchImportAccountResult[] = [];
+  let failedCount = 0;
+
+  for (const [index, batchAccount] of params.batchAccounts.entries()) {
+    params.batchEventBus.emit({
+      type: 'batch.account.started',
+      accountId: batchAccount.account.id,
+      index,
+    });
+
+    const importResult = await executeImportWithRuntime(params.runtime, {
+      accountId: batchAccount.account.id,
+    });
+
+    if (importResult.isErr()) {
+      failedCount += 1;
+      const countsResult = await loadFailedImportCounts(params.database, batchAccount.account.id);
+      if (countsResult.isErr()) {
+        return err(countsResult.error);
+      }
+
+      params.batchEventBus.emit({
+        type: 'batch.account.failed',
+        accountId: batchAccount.account.id,
+        error: importResult.error.message,
+        imported: countsResult.value.imported,
+        skipped: countsResult.value.skipped,
+      });
+
+      accountResults.push({
+        account: toBatchImportAccount(batchAccount.account),
+        counts: countsResult.value,
+        errorMessage: importResult.error.message,
+        status: 'failed',
+        syncMode: batchAccount.syncMode,
+      });
+      continue;
+    }
+
+    if (importResult.value.kind === 'cancelled') {
+      logger.warn(
+        { accountId: batchAccount.account.id },
+        'Batch import returned a cancelled outcome even though batch mode should not prompt'
+      );
+      failedCount += 1;
+      params.batchEventBus.emit({
+        type: 'batch.account.failed',
+        accountId: batchAccount.account.id,
+        error: 'Import cancelled by user',
+        imported: 0,
+        skipped: 0,
+      });
+
+      accountResults.push({
+        account: toBatchImportAccount(batchAccount.account),
+        counts: {
+          imported: 0,
+          skipped: 0,
+        },
+        errorMessage: 'Import cancelled by user',
+        status: 'failed',
+        syncMode: batchAccount.syncMode,
+      });
+      continue;
+    }
+
+    const counts = summarizeImportSessions(importResult.value.result.sessions);
+    params.batchEventBus.emit({
+      type: 'batch.account.completed',
+      accountId: batchAccount.account.id,
+      imported: counts.imported,
+      skipped: counts.skipped,
+    });
+
+    accountResults.push({
+      account: toBatchImportAccount(batchAccount.account),
+      counts,
+      status: 'completed',
+      syncMode: batchAccount.syncMode,
+    });
+  }
+
+  return ok({
+    accounts: accountResults,
+    failedCount,
+    totalCount: accountResults.length,
+  });
+}
+
+async function createBatchImportPresentationHandle(
   format: CliOutputFormat,
   batchEventBus: EventBus<BatchImportMonitorEvent>,
   infra: {
@@ -350,7 +408,7 @@ async function createBatchImportPresentation(
     eventBus: EventBusType<CliEvent>;
     instrumentation: InstrumentationCollector;
   }
-): Promise<BatchImportPresentation> {
+): Promise<BatchImportPresentationHandle> {
   if (format === 'json') {
     return {
       abort: () => void 0,
@@ -375,6 +433,69 @@ async function createBatchImportPresentation(
     stop: async () => await controller.stop(),
     unsubscribe: () => unsubscribeCliEvents(),
   };
+}
+
+function abortBatchImport(
+  runtime: ImportExecutionRuntime,
+  batchPresentation: BatchImportPresentationHandle | undefined
+): void {
+  runtime.importWorkflow.abort();
+  if (!batchPresentation) {
+    return;
+  }
+
+  batchPresentation.abort();
+  void batchPresentation.stop().catch((error) => {
+    logger.warn({ error }, 'Failed to stop batch import monitor on abort');
+  });
+}
+
+async function failAndStopBatchImportPresentation(
+  batchPresentation: BatchImportPresentationHandle,
+  batchError: Error
+): Promise<void> {
+  try {
+    batchPresentation.fail(batchError.message);
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error : new Error(String(error)) },
+      'Failed to mark batch import presentation as failed'
+    );
+  }
+
+  await batchPresentation.stop().catch((stopError) => {
+    logger.warn({ stopError }, 'Failed to stop batch import monitor after batch failure');
+  });
+}
+
+function emitBatchImportStarted(
+  batchEventBus: EventBus<BatchImportMonitorEvent>,
+  profileDisplayName: string,
+  batchAccounts: BatchImportAccountPlan[]
+): void {
+  batchEventBus.emit({
+    type: 'batch.started',
+    profileDisplayName,
+    rows: batchAccounts.map<BatchImportDescriptor>((batchAccount) => ({
+      accountId: batchAccount.account.id,
+      accountType: batchAccount.account.accountType,
+      name: batchAccount.account.name ?? `account-${batchAccount.account.id}`,
+      platformKey: batchAccount.account.platformKey,
+      syncMode: batchAccount.syncMode,
+    })),
+  });
+}
+
+function emitBatchImportCompleted(
+  batchEventBus: EventBus<BatchImportMonitorEvent>,
+  execution: BatchImportExecutionSummary
+): void {
+  batchEventBus.emit({
+    type: 'batch.completed',
+    completedCount: execution.totalCount - execution.failedCount,
+    failedCount: execution.failedCount,
+    totalCount: execution.totalCount,
+  });
 }
 
 async function checkSingleAddressWarning(

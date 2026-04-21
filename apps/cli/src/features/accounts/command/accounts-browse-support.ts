@@ -43,7 +43,7 @@ export async function buildAccountsBrowsePresentation(
   params: AccountsBrowseParams
 ): Promise<Result<AccountsBrowsePresentation, CliFailure>> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const accountService = createCliAccountLifecycleService(database);
     const selection = yield* await resolveSelectedAccount(accountService, profile.id, params);

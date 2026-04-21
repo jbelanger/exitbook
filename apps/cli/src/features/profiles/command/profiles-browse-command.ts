@@ -118,7 +118,7 @@ export async function runProfilesViewCommand(
 
 async function loadProfilesBrowseData(runtime: CommandRuntime): Promise<Result<ProfilesBrowseData, CliFailure>> {
   return resultDoAsync(async function* () {
-    const db = await runtime.database();
+    const db = await runtime.openDatabaseSession();
     const profileService = buildCliProfileService(db);
 
     yield* toCliResult(await profileService.findOrCreateDefault(), ExitCodes.GENERAL_ERROR);
@@ -137,7 +137,7 @@ async function loadProfilesViewData(
   selector: string
 ): Promise<Result<ProfilesViewData, CliFailure>> {
   return resultDoAsync(async function* () {
-    const db = await runtime.database();
+    const db = await runtime.openDatabaseSession();
     const profileService = buildCliProfileService(db);
 
     yield* toCliResult(await profileService.findOrCreateDefault(), ExitCodes.GENERAL_ERROR);

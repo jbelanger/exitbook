@@ -10,7 +10,7 @@ import { extractCorrelationEvidence, mapCoinbaseStatus } from './coinbase-utils.
 
 type CoinbaseFeeSettlementHint = 'balance' | 'on-chain' | 'none';
 
-interface CoinbaseProviderMetadata extends Record<string, unknown> {
+export interface CoinbaseProviderMetadata extends Record<string, unknown> {
   correlationKey: string;
   correlationSource: CoinbaseCorrelationSource;
   entryType: string;
@@ -20,6 +20,8 @@ interface CoinbaseProviderMetadata extends Record<string, unknown> {
   networkStatus?: string | undefined;
   rawStatus?: string | undefined;
 }
+
+export type CoinbaseProviderEvent = ExchangeProviderEvent<CoinbaseProviderMetadata>;
 
 function extractCoinbaseFee(raw: RawCoinbaseLedgerEntry): {
   amount?: string | undefined;
@@ -73,7 +75,7 @@ function extractCoinbaseFee(raw: RawCoinbaseLedgerEntry): {
 export function normalizeCoinbaseProviderEvent(
   raw: RawCoinbaseLedgerEntry,
   eventId: string
-): Result<ExchangeProviderEvent, Error> {
+): Result<CoinbaseProviderEvent, Error> {
   const currencyResult = parseCurrency(raw.amount.currency);
   if (currencyResult.isErr()) {
     return err(new Error(`Invalid Coinbase currency "${raw.amount.currency}": ${currencyResult.error.message}`));

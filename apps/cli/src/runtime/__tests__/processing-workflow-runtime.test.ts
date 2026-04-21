@@ -1,27 +1,78 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- acceptable for tests */
 import { ok } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateCliAssetReviewProjectionRuntime, mockRebuild } = vi.hoisted(() => ({
-  mockCreateCliAssetReviewProjectionRuntime: vi.fn(),
+import type { CliAssetReviewProjectionFactory } from '../command-capability-factories.js';
+
+const { mockBuildProcessingPorts, mockProcessingWorkflow, mockRebuild } = vi.hoisted(() => ({
+  mockBuildProcessingPorts: vi.fn(),
+  mockProcessingWorkflow: vi.fn(),
   mockRebuild: vi.fn(),
 }));
 
-vi.mock('../../features/assets/command/asset-review-projection-runtime.js', () => ({
-  createCliAssetReviewProjectionRuntime: mockCreateCliAssetReviewProjectionRuntime,
+vi.mock('@exitbook/data/ingestion', () => ({
+  buildProcessingPorts: mockBuildProcessingPorts,
 }));
 
-import { rebuildCliAssetReviewProjectionsForAccounts } from '../../features/import/command/import-processing-workflow-runtime.js';
+vi.mock('@exitbook/ingestion/process', () => ({
+  ProcessingWorkflow: class {
+    constructor(...args: unknown[]) {
+      mockProcessingWorkflow(...args);
+    }
+  },
+}));
+
+import {
+  createCliProcessingWorkflowRuntime,
+  rebuildCliAssetReviewProjectionsForAccounts,
+} from '../../features/import/command/import-processing-workflow-runtime.js';
 
 describe('rebuildCliAssetReviewProjectionsForAccounts', () => {
+  const createForProfile = vi.fn();
+  const assetReviewProjectionFactory: CliAssetReviewProjectionFactory = {
+    createForProfile: (profile) => createForProfile(profile),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockBuildProcessingPorts.mockReturnValue({
+      nearBatchSource: undefined,
+    });
     mockRebuild.mockResolvedValue(ok(undefined));
-    mockCreateCliAssetReviewProjectionRuntime.mockImplementation((_database, _dataDir, _profile) =>
+    createForProfile.mockImplementation((_profile) =>
       ok({
         rebuild: mockRebuild,
       })
     );
+  });
+
+  it('builds the processing registry through the CLI-owned adapter factory', () => {
+    const nearBatchSource = { fetch: vi.fn() };
+    const ports = { nearBatchSource };
+    const adapterRegistry = { getAllBlockchains: vi.fn() };
+    const adapterRegistryFactory = vi.fn().mockReturnValue(adapterRegistry);
+    const database = {
+      accounts: {},
+      profiles: {},
+    };
+    const eventBus = { emit: vi.fn() };
+    const providerRuntime = { cleanup: vi.fn() };
+
+    mockBuildProcessingPorts.mockReturnValue(ports);
+
+    const result = createCliProcessingWorkflowRuntime({
+      adapterRegistryFactory,
+      assetReviewProjectionFactory,
+      dataDir: '/tmp/exitbook',
+      database: database as never,
+      eventBus: eventBus as never,
+      providerRuntime: providerRuntime as never,
+    });
+
+    assertOk(result);
+    expect(adapterRegistryFactory).toHaveBeenCalledWith({ nearBatchSource });
+    expect(mockProcessingWorkflow).toHaveBeenCalledWith(ports, providerRuntime, eventBus, adapterRegistry);
   });
 
   it('rebuilds only the profiles that own the processed accounts', async () => {
@@ -54,14 +105,16 @@ describe('rebuildCliAssetReviewProjectionsForAccounts', () => {
       },
     };
 
-    assertOk(await rebuildCliAssetReviewProjectionsForAccounts(database as never, '/tmp/exitbook', [1, 2, 3]));
+    assertOk(
+      await rebuildCliAssetReviewProjectionsForAccounts(database as never, [1, 2, 3], assetReviewProjectionFactory)
+    );
 
-    expect(mockCreateCliAssetReviewProjectionRuntime).toHaveBeenCalledTimes(2);
-    expect(mockCreateCliAssetReviewProjectionRuntime).toHaveBeenNthCalledWith(1, database, '/tmp/exitbook', {
+    expect(createForProfile).toHaveBeenCalledTimes(2);
+    expect(createForProfile).toHaveBeenNthCalledWith(1, {
       profileId: 10,
       profileKey: 'default',
     });
-    expect(mockCreateCliAssetReviewProjectionRuntime).toHaveBeenNthCalledWith(2, database, '/tmp/exitbook', {
+    expect(createForProfile).toHaveBeenNthCalledWith(2, {
       profileId: 20,
       profileKey: 'business',
     });

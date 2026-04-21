@@ -10,10 +10,10 @@ import {
   buildBalanceSnapshotUnreadableDetail,
   BALANCE_SNAPSHOT_NEVER_BUILT_REASON,
 } from '../../shared/balance-snapshot-freshness-message.js';
-import { sortStoredBalanceAssets } from '../../shared/stored-balance-detail-utils.js';
 import { formatAccountFingerprintRef } from '../account-selector.js';
 import type { AccountDetailViewItem, AccountScopeViewItem, AccountViewItem } from '../accounts-view-model.js';
 import { maskIdentifier } from '../query/account-query-utils.js';
+import { sortStoredBalanceAssets } from '../stored-balance/stored-balance-detail-utils.js';
 
 import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
 

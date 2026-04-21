@@ -8,6 +8,8 @@ import { runCli } from './cli.js';
 // Command execution should route failures through the shared CLI boundary so
 // JSON/text formatting and semantic exit codes stay consistent. Global handlers
 // would bypass that boundary and produce inconsistent output.
+process.on('exit', () => flushLoggers());
+
 runCli().catch((error) => {
   const logger = getLogger('CLI');
   logger.error(`CLI initialization failed: ${String(error)}`);

@@ -8,6 +8,7 @@ import { buildTransactionRelatedContextLines } from './transaction-related-conte
 import {
   buildCategoryParts,
   formatTransactionBalanceSummary,
+  formatTransactionAnnotation,
   formatTransactionDirection,
   formatTransactionFingerprintRef,
   formatTransactionFlags,
@@ -154,6 +155,10 @@ export function buildTransactionStaticDetail(transaction: TransactionViewItem): 
       lines.push(buildDetailLine('Block', `${transaction.blockchain.blockHeight}`));
     }
     lines.push(buildDetailLine('Confirmed', transaction.blockchain.isConfirmed ? 'yes' : 'no'));
+  }
+  if (transaction.annotations.length > 0) {
+    lines.push('', pc.dim(`Interpretation (${transaction.annotations.length})`));
+    lines.push(...transaction.annotations.map((annotation) => `  ${formatTransactionAnnotation(annotation)}`));
   }
   if (transaction.relatedContext) {
     lines.push('', ...buildTransactionRelatedContextLines(transaction.relatedContext));

@@ -17,6 +17,8 @@ import { ProjectionStateRepository } from './repositories/projection-state-repos
 import { RawTransactionRepository } from './repositories/raw-transaction-repository.js';
 import { TransactionLinkRepository } from './repositories/transaction-link-repository.js';
 import { TransactionRepository } from './repositories/transaction-repository.js';
+import { TransactionAnnotationStore } from './transaction-interpretation/transaction-annotation-store.js';
+import { TransactionInterpretationSourceReader } from './transaction-interpretation/transaction-interpretation-source-reader.js';
 import { withControlledTransaction } from './utils/controlled-transaction.js';
 
 const logger = getLogger('data-session');
@@ -37,6 +39,8 @@ export class DataSession {
   readonly costBasisSnapshots: CostBasisSnapshotRepository;
   readonly transactions: TransactionRepository;
   readonly transactionLinks: TransactionLinkRepository;
+  readonly transactionAnnotations: TransactionAnnotationStore;
+  readonly transactionInterpretationSource: TransactionInterpretationSourceReader;
   readonly rawTransactions: RawTransactionRepository;
   readonly importSessions: ImportSessionRepository;
   readonly profiles: ProfileRepository;
@@ -57,6 +61,8 @@ export class DataSession {
     this.costBasisSnapshots = new CostBasisSnapshotRepository(connection);
     this.transactions = new TransactionRepository(connection);
     this.transactionLinks = new TransactionLinkRepository(connection);
+    this.transactionAnnotations = new TransactionAnnotationStore(connection);
+    this.transactionInterpretationSource = new TransactionInterpretationSourceReader(this.transactions, this.accounts);
     this.rawTransactions = new RawTransactionRepository(connection);
     this.importSessions = new ImportSessionRepository(connection);
     this.profiles = new ProfileRepository(connection);

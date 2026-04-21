@@ -1,3 +1,5 @@
+import { defineChainRegistry, mapChainRegistryValues } from '../shared/chain-registry-utils.js';
+
 import type { EvmChainConfig } from './chain-config.interface.js';
 import evmChainsData from './evm-chains.json' with { type: 'json' };
 
@@ -11,24 +13,22 @@ import evmChainsData from './evm-chains.json' with { type: 'json' };
  * const processor = new EvmProcessor(EVM_CHAINS.avalanche);
  * ```
  */
-const evmChains = evmChainsData as unknown as Record<string, EvmChainConfig>;
+const evmChains = defineChainRegistry<EvmChainConfig, typeof evmChainsData>(evmChainsData);
 
-export const EVM_CHAINS = Object.fromEntries(
-  Object.entries(evmChains).map(([chainName, config]) => [
-    chainName,
-    {
-      ...config,
-      providerHints: {
-        ...config.providerHints,
-        coingecko: {
-          ...config.providerHints?.coingecko,
-          chainIdentifier: config.providerHints?.coingecko?.chainIdentifier ?? config.chainId,
-          tokenRefFormat: config.providerHints?.coingecko?.tokenRefFormat ?? 'evm-contract',
-        },
+export const EVM_CHAINS = mapChainRegistryValues(
+  evmChains,
+  (_chainName, config): EvmChainConfig => ({
+    ...config,
+    providerHints: {
+      ...config.providerHints,
+      coingecko: {
+        ...config.providerHints?.coingecko,
+        chainIdentifier: config.providerHints?.coingecko?.chainIdentifier ?? config.chainId,
+        tokenRefFormat: config.providerHints?.coingecko?.tokenRefFormat ?? 'evm-contract',
       },
     },
-  ])
-) as Record<string, EvmChainConfig>;
+  })
+);
 
 /**
  * Type-safe chain names
@@ -40,6 +40,8 @@ export type EvmChainName = keyof typeof EVM_CHAINS;
  *
  * @public
  */
+export function getEvmChainConfig(chainName: EvmChainName): EvmChainConfig;
+export function getEvmChainConfig(chainName: string): EvmChainConfig | undefined;
 export function getEvmChainConfig(chainName: string): EvmChainConfig | undefined {
-  return EVM_CHAINS[chainName];
+  return chainName in EVM_CHAINS ? EVM_CHAINS[chainName as EvmChainName] : undefined;
 }

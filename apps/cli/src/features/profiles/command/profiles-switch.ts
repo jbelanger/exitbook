@@ -43,7 +43,7 @@ async function executeSwitchProfileCommand(profileKey: string, rawOptions: unkno
       }),
     action: async ({ runtime, prepared }) =>
       resultDoAsync(async function* () {
-        const db = await runtime.database();
+        const db = await runtime.openDatabaseSession();
         const profileService = buildCliProfileService(db);
         const resolveResult = await profileService.resolve(profileKey);
         if (resolveResult.isErr()) {

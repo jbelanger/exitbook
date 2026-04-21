@@ -1,7 +1,10 @@
 import type { Account, AccountType } from '@exitbook/core';
 import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 
-import type { StoredBalanceAssetDiagnostics, StoredBalanceAssetViewItem } from '../../shared/stored-balance-view.js';
+import type {
+  StoredBalanceAssetDiagnostics,
+  StoredBalanceAssetViewItem,
+} from '../stored-balance/stored-balance-view.js';
 
 export interface AssetComparisonItem {
   assetId: string;

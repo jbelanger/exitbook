@@ -68,7 +68,7 @@ async function executeRemoveProfileCommand(profileKey: string, rawOptions: unkno
       }),
     action: async ({ runtime, prepared }) =>
       resultDoAsync(async function* () {
-        const db = await runtime.database();
+        const db = await runtime.openDatabaseSession();
         const profileService = buildCliProfileService(db);
         const preparationResult = await prepareProfileRemoval(db, profileService, profileKey);
         if (preparationResult.isErr()) {

@@ -73,10 +73,10 @@ describe('CommandRuntime', () => {
     vi.clearAllMocks();
   });
 
-  describe('database()', () => {
+  describe('openDatabaseSession()', () => {
     it('should lazily initialize database on first call', async () => {
       const ctx = new CommandRuntime();
-      const db = await ctx.database();
+      const db = await ctx.openDatabaseSession();
 
       expect(db).toBe(mockDataContext);
       expect(dataModule.DataSession.initialize).toHaveBeenCalledOnce();
@@ -84,19 +84,19 @@ describe('CommandRuntime', () => {
 
     it('should return same instance on subsequent calls', async () => {
       const ctx = new CommandRuntime();
-      const db1 = await ctx.database();
-      const db2 = await ctx.database();
+      const db1 = await ctx.openDatabaseSession();
+      const db2 = await ctx.openDatabaseSession();
 
       expect(db1).toBe(db2);
       expect(dataModule.DataSession.initialize).toHaveBeenCalledOnce();
     });
 
-    it('should throw if called after closeDatabase()', async () => {
+    it('should throw if called after closeDatabaseSession()', async () => {
       const ctx = new CommandRuntime();
-      await ctx.database();
-      await ctx.closeDatabase();
+      await ctx.openDatabaseSession();
+      await ctx.closeDatabaseSession();
 
-      await expect(ctx.database()).rejects.toThrow('Database already closed');
+      await expect(ctx.openDatabaseSession()).rejects.toThrow('Database already closed');
     });
 
     it('wraps schema mismatch errors with selected data-dir context', async () => {
@@ -108,8 +108,8 @@ describe('CommandRuntime', () => {
       } as unknown as CliAppRuntime);
 
       try {
-        await ctx.database();
-        throw new Error('Expected database() to reject');
+        await ctx.openDatabaseSession();
+        throw new Error('Expected openDatabaseSession() to reject');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toContain('Selected data directory "/tmp/stale-data" is incompatible');
@@ -118,20 +118,20 @@ describe('CommandRuntime', () => {
     });
   });
 
-  describe('closeDatabase()', () => {
+  describe('closeDatabaseSession()', () => {
     it('should close database and prevent dispose from closing again', async () => {
       const ctx = new CommandRuntime();
-      await ctx.database();
-      await ctx.closeDatabase();
+      await ctx.openDatabaseSession();
+      await ctx.closeDatabaseSession();
       await ctx.dispose();
 
-      // close called once (by closeDatabase), not twice (not again by dispose)
+      // close called once (by closeDatabaseSession), not twice (not again by dispose)
       expect(mockClose).toHaveBeenCalledOnce();
     });
 
     it('should be no-op if database was never opened', async () => {
       const ctx = new CommandRuntime();
-      await ctx.closeDatabase();
+      await ctx.closeDatabaseSession();
 
       expect(mockClose).not.toHaveBeenCalled();
     });
@@ -194,7 +194,7 @@ describe('CommandRuntime', () => {
   describe('dispose()', () => {
     it('should close database if still open', async () => {
       const ctx = new CommandRuntime();
-      await ctx.database();
+      await ctx.openDatabaseSession();
       await ctx.dispose();
 
       expect(mockClose).toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe('CommandRuntime', () => {
         /* empty */
       });
       ctx.onCleanup(cleanupFn);
-      await ctx.database();
+      await ctx.openDatabaseSession();
 
       await ctx.dispose();
       await ctx.dispose();
@@ -226,19 +226,19 @@ describe('CommandRuntime', () => {
       mockClose.mockResolvedValue(err(new Error('close failed')));
 
       const ctx = new CommandRuntime();
-      await ctx.database();
+      await ctx.openDatabaseSession();
 
       await expect(ctx.dispose()).rejects.toThrow('close failed');
     });
   });
 
-  describe('openPriceProviderRuntime()', () => {
+  describe('createManagedPriceProviderRuntime()', () => {
     it('should throw when the raw opener fails', async () => {
       mockCreatePriceProviderRuntime.mockResolvedValue(err(new Error('price runtime init failed')));
 
       const ctx = new CommandRuntime();
 
-      await expect(ctx.openPriceProviderRuntime()).rejects.toThrow('price runtime init failed');
+      await expect(ctx.createManagedPriceProviderRuntime()).rejects.toThrow('price runtime init failed');
     });
   });
 });
@@ -314,7 +314,7 @@ describe('runCommand', () => {
     let dbRef: DataSession | undefined;
 
     await runCommand(async (ctx) => {
-      dbRef = await ctx.database();
+      dbRef = await ctx.openDatabaseSession();
     });
 
     expect(dbRef).toBe(mockDataContext);
@@ -326,7 +326,7 @@ describe('runCommand', () => {
 
     await expect(
       runCommand(async (ctx) => {
-        await ctx.database();
+        await ctx.openDatabaseSession();
         throw testError;
       })
     ).rejects.toThrow(testError);
@@ -355,7 +355,7 @@ describe('runCommand', () => {
 
     await expect(
       runCommand(async (ctx) => {
-        await ctx.database();
+        await ctx.openDatabaseSession();
       })
     ).rejects.toThrow('close failed');
   });
@@ -365,7 +365,7 @@ describe('runCommand', () => {
 
     await expect(
       runCommand(async (ctx) => {
-        await ctx.database();
+        await ctx.openDatabaseSession();
         throw new Error('fn failed');
       })
     ).rejects.toThrow('fn failed');

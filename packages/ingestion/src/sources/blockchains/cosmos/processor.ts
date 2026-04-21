@@ -8,7 +8,7 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId, ok, parseDec
 import { type Result, err } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
+import type { MovementWithContext, ScamDetector } from '../../../features/scam-detection/contracts.js';
 import { detectPromoMemoDiagnostic } from '../../../features/scam-detection/scam-detection-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
@@ -21,8 +21,8 @@ import { analyzeCosmosFundFlow, deduplicateByEventId, determineOperationFromFund
 export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction> {
   private chainConfig: CosmosChainConfig;
 
-  constructor(chainConfig: CosmosChainConfig, scamDetectionService?: IScamDetectionService) {
-    super(chainConfig.chainName, undefined, scamDetectionService);
+  constructor(chainConfig: CosmosChainConfig, scamDetector?: ScamDetector) {
+    super(chainConfig.chainName, undefined, scamDetector);
     this.chainConfig = chainConfig;
   }
 

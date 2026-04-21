@@ -5,7 +5,7 @@ import { buildBlockchainNativeAssetId, buildBlockchainTokenAssetId } from '@exit
 import { err, type Result } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../../features/scam-detection/contracts.js';
 import { looksLikeContractAddress } from '../../../features/token-metadata/token-metadata-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 import { processCorrelatedTransactions } from '../shared/correlated-transaction-processor.js';
@@ -29,9 +29,9 @@ export class EvmProcessor extends BaseTransactionProcessor<EvmTransaction> {
   constructor(
     private readonly chainConfig: EvmChainConfig,
     providerRuntime: IBlockchainProviderRuntime,
-    scamDetectionService?: IScamDetectionService
+    scamDetector?: ScamDetector
   ) {
-    super(chainConfig.chainName, providerRuntime, scamDetectionService);
+    super(chainConfig.chainName, providerRuntime, scamDetector);
   }
 
   protected get inputSchema() {

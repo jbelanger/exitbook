@@ -7,6 +7,7 @@ export {
   getTransferProposalGroupKey,
   groupLinksByTransferProposal,
 } from './linking/shared/transfer-proposals.js';
+export { buildMatchingConfig } from './linking/matching/matching-config.js';
 export {
   filterConfirmableTransferProposals,
   validateTransferProposalConfirmability,

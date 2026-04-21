@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IngestionEvent } from '../../../events.js';
 import type { ImportPorts } from '../../../ports/import-ports.js';
 import { AdapterRegistry } from '../../../shared/types/adapter-registry.js';
+import type { ImportBatchResult } from '../../../shared/types/importers.js';
 import { ImportWorkflow } from '../import-workflow.js';
 
 interface TestState {
@@ -114,20 +115,25 @@ function buildImportPorts(state: TestState, failCreateIdentifiers: Set<string> =
 }
 
 function createWorkflow(params: {
+  createImporter?: ReturnType<typeof vi.fn> | undefined;
   deriveAddressesFromXpub: ReturnType<typeof vi.fn>;
   eventBus?: EventBus<IngestionEvent> | undefined;
   ports: ImportPorts;
 }): ImportWorkflow {
-  const adapter = {
-    blockchain: 'bitcoin',
-    chainModel: 'utxo',
-    normalizeAddress: (address: string) => ok(address),
-    createImporter: vi.fn(() => ({
+  const createImporter =
+    params.createImporter ??
+    vi.fn(() => ({
       async *importStreaming(): AsyncIterableIterator<Result<never, Error>> {
         yield* [];
         return;
       },
-    })),
+    }));
+
+  const adapter = {
+    blockchain: 'bitcoin',
+    chainModel: 'utxo',
+    normalizeAddress: (address: string) => ok(address),
+    createImporter,
     createProcessor: vi.fn(),
     isExtendedPublicKey: vi.fn((address: string) => address.startsWith('xpub')),
     deriveAddressesFromXpub: params.deriveAddressesFromXpub,
@@ -139,6 +145,30 @@ function createWorkflow(params: {
     new AdapterRegistry([adapter as never], []),
     params.eventBus
   );
+}
+
+function createImportBatch(overrides: Partial<ImportBatchResult> = {}): ImportBatchResult {
+  return {
+    rawTransactions: overrides.rawTransactions ?? [],
+    streamType: overrides.streamType ?? 'transactions',
+    cursor: overrides.cursor ?? {
+      primary: {
+        type: 'pageToken',
+        value: 'cursor:1',
+        providerName: 'bitcoin',
+      },
+      lastTransactionId: 'cursor:1:last',
+      totalFetched: 0,
+      metadata: {
+        providerName: 'bitcoin',
+        updatedAt: 1,
+        isComplete: true,
+      },
+    },
+    isComplete: overrides.isComplete ?? true,
+    providerStats: overrides.providerStats,
+    warnings: overrides.warnings,
+  };
 }
 
 describe('ImportWorkflow xpub child materialization', () => {
@@ -226,5 +256,171 @@ describe('ImportWorkflow xpub child materialization', () => {
       gapLimit: 20,
     });
     expect(derivationStartedEvent?.previousGap).toBeUndefined();
+  });
+});
+
+describe('ImportWorkflow failure finalization', () => {
+  it('returns an aggregate error when warning-based failure finalization also fails', async () => {
+    const state: TestState = {
+      accounts: [createAccount()],
+      nextAccountId: 2,
+    };
+    const finalizeImportSession = vi.fn().mockResolvedValue(err(new Error('failed to persist warning failure state')));
+    const emitMock = vi.fn();
+    const ports = buildImportPorts(state);
+    ports.finalizeImportSession = finalizeImportSession;
+
+    const workflow = createWorkflow({
+      createImporter: vi.fn(() => ({
+        async *importStreaming(): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+          yield ok(
+            createImportBatch({
+              warnings: ['provider returned partial data'],
+            })
+          );
+        },
+      })),
+      deriveAddressesFromXpub: vi.fn(),
+      eventBus: {
+        emit: emitMock,
+      } as unknown as EventBus<IngestionEvent>,
+      ports,
+    });
+
+    const result = await workflow.execute({ accountId: 1 });
+
+    expect(result.isErr()).toBe(true);
+    expect(finalizeImportSession).toHaveBeenCalledOnce();
+    expect(finalizeImportSession).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        status: 'failed',
+        metadata: {
+          warnings: ['provider returned partial data'],
+        },
+      })
+    );
+
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error).toBeInstanceOf(AggregateError);
+    const aggregateError = result.error as AggregateError;
+    expect(aggregateError.message).toBe('Import failed for bitcoin and failed to finalize import session');
+    expect(aggregateError.errors).toHaveLength(2);
+    expect((aggregateError.errors[0] as Error).message).toBe(
+      'Import completed with 1 warning(s) and was marked as failed to prevent processing incomplete data. '
+    );
+    expect((aggregateError.errors[1] as Error).message).toBe('failed to persist warning failure state');
+
+    const importFailedEvent = emitMock.mock.calls
+      .map((call) => call[0] as IngestionEvent)
+      .find((event): event is Extract<IngestionEvent, { type: 'import.failed' }> => event.type === 'import.failed');
+
+    expect(importFailedEvent).toMatchObject({
+      type: 'import.failed',
+      platformKey: 'bitcoin',
+      accountId: 1,
+      error:
+        'Import completed with 1 warning(s) and was marked as failed to prevent processing incomplete data. ; additionally failed to finalize import session: failed to persist warning failure state',
+    });
+  });
+
+  it('returns an aggregate error when abort finalization also fails', async () => {
+    const state: TestState = {
+      accounts: [createAccount()],
+      nextAccountId: 2,
+    };
+    const finalizeImportSession = vi.fn().mockResolvedValue(err(new Error('failed to persist abort state')));
+    const ports = buildImportPorts(state);
+    ports.finalizeImportSession = finalizeImportSession;
+
+    const workflow = createWorkflow({
+      createImporter: vi.fn(() => ({
+        async *importStreaming(): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
+          yield ok(createImportBatch());
+        },
+      })),
+      deriveAddressesFromXpub: vi.fn(),
+      ports,
+    });
+    workflow.abort();
+
+    const result = await workflow.execute({ accountId: 1 });
+
+    expect(result.isErr()).toBe(true);
+    expect(finalizeImportSession).toHaveBeenCalledOnce();
+    expect(finalizeImportSession).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        status: 'failed',
+        errorMessage: 'Import aborted by user',
+      })
+    );
+
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error).toBeInstanceOf(AggregateError);
+    const aggregateError = result.error as AggregateError;
+    expect(aggregateError.message).toBe('Import aborted for bitcoin and failed to finalize import session');
+    expect(aggregateError.errors).toHaveLength(2);
+    expect((aggregateError.errors[0] as Error).message).toBe('Import aborted by user');
+    expect((aggregateError.errors[1] as Error).message).toBe('failed to persist abort state');
+  });
+
+  it('returns an aggregate error when import execution fails and failed-session finalization also fails', async () => {
+    const state: TestState = {
+      accounts: [createAccount()],
+      nextAccountId: 2,
+    };
+    const finalizeImportSession = vi.fn().mockResolvedValue(err(new Error('failed to persist failed session state')));
+    const emitMock = vi.fn();
+    const ports = buildImportPorts(state);
+    ports.finalizeImportSession = finalizeImportSession;
+
+    const workflow = createWorkflow({
+      createImporter: vi.fn(() => ({
+        async *importStreaming(): AsyncIterableIterator<Result<never, Error>> {
+          yield* [];
+          throw new Error('provider stream exploded');
+        },
+      })),
+      deriveAddressesFromXpub: vi.fn(),
+      eventBus: {
+        emit: emitMock,
+      } as unknown as EventBus<IngestionEvent>,
+      ports,
+    });
+
+    const result = await workflow.execute({ accountId: 1 });
+
+    expect(result.isErr()).toBe(true);
+    expect(finalizeImportSession).toHaveBeenCalledOnce();
+
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error).toBeInstanceOf(AggregateError);
+    const aggregateError = result.error as AggregateError;
+    expect(aggregateError.message).toBe('Import failed for bitcoin and failed to finalize import session');
+    expect(aggregateError.errors).toHaveLength(2);
+    expect((aggregateError.errors[0] as Error).message).toBe('provider stream exploded');
+    expect((aggregateError.errors[1] as Error).message).toBe('failed to persist failed session state');
+
+    const importFailedEvent = emitMock.mock.calls
+      .map((call) => call[0] as IngestionEvent)
+      .find((event): event is Extract<IngestionEvent, { type: 'import.failed' }> => event.type === 'import.failed');
+
+    expect(importFailedEvent).toMatchObject({
+      type: 'import.failed',
+      platformKey: 'bitcoin',
+      accountId: 1,
+      error:
+        'provider stream exploded; additionally failed to finalize import session: failed to persist failed session state',
+    });
   });
 });

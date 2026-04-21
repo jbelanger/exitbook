@@ -17,6 +17,7 @@ const {
   mockOutputTransactionStaticDetail,
   mockOutputTransactionsStaticList,
   mockPrepareTransactionsCommandScope,
+  mockReadTransactionAnnotationsForCommand,
   mockReadTransactionsForCommand,
   mockRunCommand,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   mockOutputTransactionStaticDetail: vi.fn(),
   mockOutputTransactionsStaticList: vi.fn(),
   mockPrepareTransactionsCommandScope: vi.fn(),
+  mockReadTransactionAnnotationsForCommand: vi.fn(),
   mockReadTransactionsForCommand: vi.fn(),
   mockRunCommand: vi.fn(),
 }));
@@ -50,6 +52,7 @@ vi.mock('../transactions-command-scope.js', () => ({
 }));
 
 vi.mock('../transactions-read-support.js', () => ({
+  readTransactionAnnotationsForCommand: mockReadTransactionAnnotationsForCommand,
   readTransactionsForCommand: mockReadTransactionsForCommand,
 }));
 
@@ -122,7 +125,23 @@ describe('transactions view command', () => {
       ok({
         database: {
           accounts: {
+            create: vi.fn(),
             findAll: vi.fn().mockResolvedValue(ok([])),
+            findByFingerprintRef: vi.fn(),
+            findById: vi.fn(),
+            findByIdentifier: vi.fn(),
+            findByIdentity: vi.fn(),
+            findByName: vi.fn(),
+            update: vi.fn(),
+          },
+          assetReview: {
+            listAll: vi.fn().mockResolvedValue(ok([])),
+          },
+          profiles: {
+            list: vi.fn().mockResolvedValue(ok([])),
+          },
+          transactionAnnotations: {
+            readAnnotations: vi.fn().mockResolvedValue(ok([])),
           },
           transactions: {
             findAll: vi.fn().mockResolvedValue(ok([])),
@@ -143,6 +162,7 @@ describe('transactions view command', () => {
       })
     );
     mockReadTransactionsForCommand.mockResolvedValue(ok([]));
+    mockReadTransactionAnnotationsForCommand.mockResolvedValue(ok([]));
     mockFindByFingerprintRef.mockResolvedValue(ok(undefined));
     mockFindRawTransactionsByTransactionId.mockResolvedValue(ok([]));
   });
@@ -193,6 +213,7 @@ describe('transactions view command', () => {
       ok({
         database: {
           accounts: {
+            create: vi.fn(),
             findAll: vi.fn().mockResolvedValue(
               ok([
                 {
@@ -213,6 +234,21 @@ describe('transactions view command', () => {
                 },
               ])
             ),
+            findByFingerprintRef: vi.fn(),
+            findById: vi.fn(),
+            findByIdentifier: vi.fn(),
+            findByIdentity: vi.fn(),
+            findByName: vi.fn(),
+            update: vi.fn(),
+          },
+          assetReview: {
+            listAll: vi.fn().mockResolvedValue(ok([])),
+          },
+          profiles: {
+            list: vi.fn().mockResolvedValue(ok([])),
+          },
+          transactionAnnotations: {
+            readAnnotations: vi.fn().mockResolvedValue(ok([])),
           },
           transactions: {
             findAll: vi.fn().mockResolvedValue(ok([transaction])),

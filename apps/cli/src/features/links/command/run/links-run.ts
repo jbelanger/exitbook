@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- Used in React component code */
-import type { LinkingRunParams } from '@exitbook/accounting/linking';
+import { buildMatchingConfig, type LinkingRunParams } from '@exitbook/accounting/linking';
 import { ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
 import type { z } from 'zod';
@@ -36,6 +36,10 @@ type PreparedLinksRunCommand =
   | { mode: 'json'; params: LinkingRunParams; startTime: number }
   | { mode: 'text'; params: LinkingRunParams };
 
+const DEFAULT_LINKING_RUN_CONFIG = buildMatchingConfig();
+const DEFAULT_MIN_CONFIDENCE_INPUT = DEFAULT_LINKING_RUN_CONFIG.minConfidenceScore.toFixed();
+const DEFAULT_AUTO_CONFIRM_INPUT = DEFAULT_LINKING_RUN_CONFIG.autoConfirmThreshold.toFixed();
+
 function hasExplicitLinksRunThresholds(options: LinksRunCommandOptions): boolean {
   return options.minConfidence !== undefined || options.autoConfirmThreshold !== undefined;
 }
@@ -46,8 +50,8 @@ function normalizeThresholdInput(input: string, fallback: string): string {
 
 function buildLinksRunParamsFromFlags(options: LinksRunCommandOptions): LinkingRunParams {
   return {
-    minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? '0.7'),
-    autoConfirmThreshold: parseDecimal(options.autoConfirmThreshold?.toString() ?? '0.95'),
+    minConfidenceScore: parseDecimal(options.minConfidence?.toString() ?? DEFAULT_MIN_CONFIDENCE_INPUT),
+    autoConfirmThreshold: parseDecimal(options.autoConfirmThreshold?.toString() ?? DEFAULT_AUTO_CONFIRM_INPUT),
   };
 }
 
@@ -57,7 +61,7 @@ async function promptForLinksRunParams(): Promise<LinksRunPromptOutcome> {
       type: 'text',
       props: {
         message: 'Minimum confidence score (0-1):',
-        placeholder: '0.7',
+        placeholder: DEFAULT_MIN_CONFIDENCE_INPUT,
         validate: (value) => {
           if (!value) return;
           const num = Number(value);
@@ -71,7 +75,7 @@ async function promptForLinksRunParams(): Promise<LinksRunPromptOutcome> {
       type: 'text',
       props: {
         message: 'Auto-confirm threshold (0-1):',
-        placeholder: '0.95',
+        placeholder: DEFAULT_AUTO_CONFIRM_INPUT,
         validate: (value) => {
           if (!value) return;
           const num = Number(value);
@@ -107,8 +111,8 @@ async function promptForLinksRunParams(): Promise<LinksRunPromptOutcome> {
     return { kind: 'cancelled' };
   }
 
-  const normalizedMinConfidence = normalizeThresholdInput(minConfidenceInput, '0.7');
-  const normalizedAutoConfirm = normalizeThresholdInput(autoConfirmInput, '0.95');
+  const normalizedMinConfidence = normalizeThresholdInput(minConfidenceInput, DEFAULT_MIN_CONFIDENCE_INPUT);
+  const normalizedAutoConfirm = normalizeThresholdInput(autoConfirmInput, DEFAULT_AUTO_CONFIRM_INPUT);
   const minConfidence = Number(normalizedMinConfidence);
   const autoConfirm = Number(normalizedAutoConfirm);
   if (autoConfirm < minConfidence) {
@@ -192,7 +196,7 @@ async function executePreparedLinksRunCommand(
   prepared: PreparedLinksRunCommand
 ): Promise<CliCommandResult> {
   return resultDoAsync(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const result = yield* toCliResult(
       await runLinks(

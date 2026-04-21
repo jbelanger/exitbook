@@ -4,6 +4,7 @@ import type { Logger } from '@exitbook/logger';
 import type { ExchangeCorrelationGroup } from './exchange-correlation-group.js';
 import type { ExchangeGroupInterpretation } from './exchange-interpretation.js';
 import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnostic.js';
+import type { ExchangeProviderMetadata } from './exchange-provider-event.js';
 import { materializeProcessedTransaction } from './materialize-processed-transaction.js';
 
 interface ExchangeProcessingBatchResult {
@@ -11,9 +12,9 @@ interface ExchangeProcessingBatchResult {
   diagnostics: ExchangeProcessingDiagnostic[];
 }
 
-export function collectExchangeProcessingBatchResult(
-  groups: ExchangeCorrelationGroup[],
-  interpretGroup: (group: ExchangeCorrelationGroup) => ExchangeGroupInterpretation
+export function collectExchangeProcessingBatchResult<TProviderMetadata extends ExchangeProviderMetadata>(
+  groups: ExchangeCorrelationGroup<TProviderMetadata>[],
+  interpretGroup: (group: ExchangeCorrelationGroup<TProviderMetadata>) => ExchangeGroupInterpretation
 ): ExchangeProcessingBatchResult {
   const result: ExchangeProcessingBatchResult = {
     transactions: [],

@@ -1,6 +1,9 @@
 import { getTransactionScamAssessment } from '@exitbook/core';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
+import { formatTransactionFingerprintRef } from '../transaction-selector.js';
 import type { CategoryCounts, TransactionViewItem } from '../transactions-view-model.js';
+
 export { TRANSACTION_FINGERPRINT_REF_LENGTH, formatTransactionFingerprintRef } from '../transaction-selector.js';
 
 export type TransactionsStatusColor = 'green' | 'yellow' | 'red' | 'dim';
@@ -22,6 +25,83 @@ export function buildCategoryParts(counts: CategoryCounts): { count: number; lab
 
 export function formatTransactionOperation(category: string, type: string): string {
   return `${category}/${type}`;
+}
+
+function formatAnnotationProtocolRef(ref: NonNullable<TransactionAnnotation['protocolRef']>): string {
+  return ref.version === undefined ? ref.id : `${ref.id}@${ref.version}`;
+}
+
+function formatAnnotationKind(kind: TransactionAnnotation['kind']): string {
+  switch (kind) {
+    case 'bridge_participant':
+      return 'bridge';
+    case 'asset_migration_participant':
+      return 'asset migration';
+    case 'wrap':
+      return 'wrap';
+    case 'unwrap':
+      return 'unwrap';
+    case 'protocol_deposit':
+      return 'protocol deposit';
+    case 'protocol_withdrawal':
+      return 'protocol withdrawal';
+    case 'airdrop_claim':
+      return 'airdrop claim';
+  }
+
+  const exhaustiveCheck: never = kind;
+  return exhaustiveCheck;
+}
+
+function buildAnnotationMetadataParts(annotation: TransactionAnnotation): string[] {
+  const metadata = annotation.metadata;
+  if (metadata === undefined) {
+    return [];
+  }
+
+  const parts: string[] = [];
+  const sourceChain = typeof metadata['sourceChain'] === 'string' ? metadata['sourceChain'] : undefined;
+  const destinationChain = typeof metadata['destinationChain'] === 'string' ? metadata['destinationChain'] : undefined;
+  const counterpartTxFingerprint =
+    typeof metadata['counterpartTxFingerprint'] === 'string' ? metadata['counterpartTxFingerprint'] : undefined;
+
+  if (sourceChain !== undefined || destinationChain !== undefined) {
+    parts.push(`${sourceChain ?? '?'} -> ${destinationChain ?? '?'}`);
+  }
+
+  if (counterpartTxFingerprint !== undefined) {
+    parts.push(`counterpart ${formatTransactionFingerprintRef(counterpartTxFingerprint)}`);
+  }
+
+  return parts;
+}
+
+export function formatTransactionAnnotation(annotation: TransactionAnnotation): string {
+  const baseParts: string[] = [formatAnnotationKind(annotation.kind)];
+  if (annotation.role !== undefined) {
+    baseParts.push(annotation.role);
+  }
+
+  const details: string[] = [annotation.tier];
+  if (annotation.protocolRef !== undefined) {
+    details.push(`via ${formatAnnotationProtocolRef(annotation.protocolRef)}`);
+  }
+  details.push(...buildAnnotationMetadataParts(annotation));
+
+  return `${baseParts.join(' ')} [${details.join(' · ')}]`;
+}
+
+export function summarizeTransactionAnnotations(annotations: readonly TransactionAnnotation[]): string {
+  if (annotations.length === 0) {
+    return '—';
+  }
+
+  const rendered = annotations.map((annotation) => formatTransactionAnnotation(annotation));
+  if (rendered.length <= 2) {
+    return rendered.join(' · ');
+  }
+
+  return `${rendered.slice(0, 2).join(' · ')} · +${rendered.length - 2} more`;
 }
 
 export function formatTransactionBalanceSummary(summary: string | undefined): string {

@@ -14,7 +14,14 @@ import {
   type CliCompletion,
   type CliFailure,
 } from '../../../cli/command.js';
-import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import {
+  buildCliOptionsHelpText,
+  detectCliOutputFormat,
+  parseCliCommandOptionsResult,
+  registerCliOptionDefinitions,
+  type CliOptionDefinition,
+  type CliOutputFormat,
+} from '../../../cli/options.js';
 import { type CommandRuntime } from '../../../runtime/command-runtime.js';
 import type { TransactionViewItem } from '../transactions-view-model.js';
 import type { TransactionsViewState } from '../view/index.js';
@@ -42,13 +49,7 @@ export interface PreparedTransactionsBrowseCommand {
   surfaceKind: 'detail' | 'list';
 }
 
-interface TransactionsBrowseOptionDefinition {
-  description: string;
-  flags: string;
-  parser?: ((value: string) => unknown) | undefined;
-}
-
-const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
+const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--account <selector>',
     description: 'Filter by account name or fingerprint prefix',
@@ -103,7 +104,7 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition
   },
 ];
 
-const TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefinition[] = [
+const TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   {
     flags: '--limit <number>',
     description: 'Maximum number of transactions to return',
@@ -112,23 +113,18 @@ const TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS: TransactionsBrowseOptionDefi
 ];
 
 export function registerTransactionsBrowseOptions(command: Command): Command {
-  return registerOptionDefinitions(command, TRANSACTIONS_FILTER_OPTION_DEFINITIONS);
+  return registerCliOptionDefinitions(command, TRANSACTIONS_FILTER_OPTION_DEFINITIONS);
 }
 
 export function registerTransactionsExploreOptions(command: Command): Command {
-  return registerOptionDefinitions(command, [
+  return registerCliOptionDefinitions(command, [
     ...TRANSACTIONS_FILTER_OPTION_DEFINITIONS,
     ...TRANSACTIONS_EXPLORE_ONLY_OPTION_DEFINITIONS,
   ]);
 }
 
 export function buildTransactionsBrowseOptionsHelpText(): string {
-  const flagsColumnWidth =
-    TRANSACTIONS_FILTER_OPTION_DEFINITIONS.reduce((maxWidth, option) => Math.max(maxWidth, option.flags.length), 0) + 2;
-
-  return TRANSACTIONS_FILTER_OPTION_DEFINITIONS.map((option) => {
-    return `  ${option.flags.padEnd(flagsColumnWidth)}${option.description}`;
-  }).join('\n');
+  return buildCliOptionsHelpText(TRANSACTIONS_FILTER_OPTION_DEFINITIONS);
 }
 
 export function prepareTransactionsBrowseCommand(
@@ -256,16 +252,4 @@ function hasBrowseFilters(options: TransactionsBrowseCommandOptions): boolean {
     options.operationType !== undefined ||
     options.noPrice === true
   );
-}
-
-function registerOptionDefinitions(command: Command, definitions: TransactionsBrowseOptionDefinition[]): Command {
-  for (const option of definitions) {
-    if (option.parser) {
-      command.option(option.flags, option.description, option.parser);
-    } else {
-      command.option(option.flags, option.description);
-    }
-  }
-
-  return command;
 }

@@ -8,29 +8,21 @@ import type {
   ExchangeFeeDraft,
   ExchangeGroupInterpretation,
   ExchangeMovementDraft,
-  ExchangeProviderEvent,
 } from '../shared/index.js';
 import { consolidateFees, consolidateMovements, diagnostic } from '../shared/interpret-group-utils.js';
 
-interface CoinbaseProviderMetadata extends Record<string, unknown> {
-  correlationKey: string;
-  correlationSource: 'event_id' | 'id' | 'order_id' | 'trade_id' | 'transfer_id';
-  entryType: string;
-  feeEmbeddedInAmount: boolean;
-  feeSettlementHint: 'balance' | 'on-chain' | 'none';
-  networkName?: string | undefined;
-}
+import type { CoinbaseProviderEvent, CoinbaseProviderMetadata } from './normalize-provider-event.js';
 
 interface InterpretedCoinbaseEvent {
-  event: ExchangeProviderEvent;
+  event: CoinbaseProviderEvent;
   metadata: CoinbaseProviderMetadata;
   amount: ReturnType<typeof parseDecimal>;
   feeAmount: ReturnType<typeof parseDecimal>;
   feeCurrency: Currency;
 }
 
-function getMetadata(event: ExchangeProviderEvent): CoinbaseProviderMetadata {
-  return event.providerMetadata as unknown as CoinbaseProviderMetadata;
+function getMetadata(event: CoinbaseProviderEvent): CoinbaseProviderMetadata {
+  return event.providerMetadata;
 }
 
 function buildMovementDraft(
@@ -71,7 +63,7 @@ function buildFeeDraft(
   });
 }
 
-function interpretEvent(event: ExchangeProviderEvent): Result<InterpretedCoinbaseEvent, Error> {
+function interpretEvent(event: CoinbaseProviderEvent): Result<InterpretedCoinbaseEvent, Error> {
   const metadata = getMetadata(event);
   const feeCurrency = event.rawFeeCurrency ?? event.assetSymbol;
 
@@ -104,7 +96,7 @@ function shouldEmitFee(event: InterpretedCoinbaseEvent, group: InterpretedCoinba
   return true;
 }
 
-function resolveGroupStatus(events: ExchangeProviderEvent[]) {
+function resolveGroupStatus(events: CoinbaseProviderEvent[]) {
   if (events.some((event) => event.status === 'failed')) {
     return 'failed' as const;
   }
@@ -129,7 +121,10 @@ function isTransferLikeEntryType(entryType: string): boolean {
   );
 }
 
-function hasExplicitTransferEvidence(group: ExchangeCorrelationGroup, events: InterpretedCoinbaseEvent[]): boolean {
+function hasExplicitTransferEvidence(
+  group: ExchangeCorrelationGroup<CoinbaseProviderMetadata>,
+  events: InterpretedCoinbaseEvent[]
+): boolean {
   if (events.length === 0 || events.some((event) => !isTransferLikeEntryType(event.metadata.entryType))) {
     return false;
   }
@@ -152,7 +147,7 @@ function hasExplicitTransferEvidence(group: ExchangeCorrelationGroup, events: In
 function buildCoinbaseTransactionDiagnostic(params: {
   code: string;
   entryType: string;
-  group: ExchangeCorrelationGroup;
+  group: ExchangeCorrelationGroup<CoinbaseProviderMetadata>;
   message: string;
   metadata?: Record<string, unknown> | undefined;
 }): TransactionDiagnostic {
@@ -169,7 +164,7 @@ function buildCoinbaseTransactionDiagnostic(params: {
 }
 
 function buildDraft(
-  group: ExchangeCorrelationGroup,
+  group: ExchangeCorrelationGroup<CoinbaseProviderMetadata>,
   operation: ConfirmedExchangeTransactionDraft['operation'],
   inflows: ExchangeMovementDraft[],
   outflows: ExchangeMovementDraft[],
@@ -212,7 +207,9 @@ function buildDraft(
   };
 }
 
-export function interpretCoinbaseGroup(group: ExchangeCorrelationGroup): ExchangeGroupInterpretation {
+export function interpretCoinbaseGroup(
+  group: ExchangeCorrelationGroup<CoinbaseProviderMetadata>
+): ExchangeGroupInterpretation {
   const interpretedEvents: InterpretedCoinbaseEvent[] = [];
 
   for (const event of group.events) {

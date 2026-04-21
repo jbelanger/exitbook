@@ -11,10 +11,14 @@ import { EventBus } from '@exitbook/events';
 import { err, ok, wrapError, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { InstrumentationCollector } from '@exitbook/observability';
-import type { IPriceProviderRuntime } from '@exitbook/price-providers';
 
 import type { CliOutputFormat } from '../../../cli/options.js';
-import { adaptResultCleanup, type CommandRuntime } from '../../../runtime/command-runtime.js';
+import {
+  adaptResultCleanup,
+  type CommandRuntime,
+  type CommandRuntimeDatabase,
+  type CommandRuntimePriceProviderRuntime,
+} from '../../../runtime/command-runtime.js';
 import { createEventDrivenController, type EventDrivenController } from '../../../ui/shared/controllers.js';
 import { PricesEnrichMonitor } from '../view/prices-enrich-components.jsx';
 
@@ -24,7 +28,7 @@ interface CliPriceEnrichmentRuntime {
   controller?: EventDrivenController<PricingEvent> | undefined;
   instrumentation: InstrumentationCollector;
   pipeline: PriceEnrichmentPipeline;
-  priceRuntime: IPriceProviderRuntime;
+  priceRuntime: CommandRuntimePriceProviderRuntime;
 }
 
 interface CreateCliPriceEnrichmentRuntimeOptions {
@@ -45,7 +49,7 @@ interface ExecuteCliPriceEnrichmentRuntimeOptions<TSuccess = PricesEnrichResult>
 
 interface WithCliPriceEnrichmentRuntimeOptions {
   accountingExclusionPolicy?: AccountingExclusionPolicy | undefined;
-  database: Awaited<ReturnType<CommandRuntime['database']>>;
+  database: CommandRuntimeDatabase;
   format: CliOutputFormat;
   onAbortRegistered?: ((abort: () => void) => void) | undefined;
   onAbortReleased?: (() => void) | undefined;
@@ -57,14 +61,14 @@ async function createCliPriceEnrichmentRuntime(
   options: CreateCliPriceEnrichmentRuntimeOptions
 ): Promise<Result<CliPriceEnrichmentRuntime, Error>> {
   let controller: EventDrivenController<PricingEvent> | undefined;
-  let priceRuntime: IPriceProviderRuntime | undefined;
+  let priceRuntime: CommandRuntimePriceProviderRuntime | undefined;
 
   try {
     const store = buildPricingPorts(options.database, options.profileId);
     const instrumentation = new InstrumentationCollector();
 
     if (options.format === 'json') {
-      priceRuntime = await options.scope.openPriceProviderRuntime({
+      priceRuntime = await options.scope.createManagedPriceProviderRuntime({
         instrumentation,
         registerCleanup: options.registerCleanup,
       });
@@ -82,7 +86,7 @@ async function createCliPriceEnrichmentRuntime(
     });
     controller = createEventDrivenController(eventBus, PricesEnrichMonitor, { instrumentation });
 
-    priceRuntime = await options.scope.openPriceProviderRuntime({
+    priceRuntime = await options.scope.createManagedPriceProviderRuntime({
       instrumentation,
       eventBus,
       registerCleanup: options.registerCleanup,

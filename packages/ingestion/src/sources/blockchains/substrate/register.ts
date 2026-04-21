@@ -22,7 +22,7 @@ export const substrateAdapters: BlockchainAdapter[] = Object.keys(SUBSTRATE_CHAI
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ scamDetectionService }) => new SubstrateProcessor(config, scamDetectionService),
+    createProcessor: ({ scamDetector }) => new SubstrateProcessor(config, scamDetector),
   };
 
   return [adapter];

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BlockchainExplorersConfig } from '../explorer-config.js';
-import { loadExplorerConfig } from '../load-explorer-config.js';
+import { loadExplorerConfigOrThrow } from '../load-explorer-config.js';
 
 describe('load-explorer-config', () => {
   let tempDir: string;
@@ -31,7 +31,7 @@ describe('load-explorer-config', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe('loadExplorerConfig', () => {
+  describe('loadExplorerConfigOrThrow', () => {
     it('should load valid configuration file', () => {
       const validConfig: BlockchainExplorersConfig = {
         bitcoin: {
@@ -49,13 +49,13 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'test-config.json');
       fs.writeFileSync(configPath, JSON.stringify(validConfig));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(validConfig);
     });
 
     it('should return undefined when config file does not exist', () => {
       const nonExistentPath = path.join(tempDir, 'does-not-exist.json');
-      const result = loadExplorerConfig(nonExistentPath);
+      const result = loadExplorerConfigOrThrow(nonExistentPath);
       expect(result).toBeUndefined();
     });
 
@@ -63,7 +63,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'invalid.json');
       fs.writeFileSync(configPath, '{ invalid json }');
 
-      expect(() => loadExplorerConfig(configPath)).toThrow(/Failed to load blockchain explorer configuration/);
+      expect(() => loadExplorerConfigOrThrow(configPath)).toThrow(/Failed to load blockchain explorer configuration/);
     });
 
     it('should throw error for invalid schema', () => {
@@ -81,7 +81,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'invalid-schema.json');
       fs.writeFileSync(configPath, JSON.stringify(invalidConfig));
 
-      expect(() => loadExplorerConfig(configPath)).toThrow(/Failed to load blockchain explorer configuration/);
+      expect(() => loadExplorerConfigOrThrow(configPath)).toThrow(/Failed to load blockchain explorer configuration/);
     });
 
     it('should handle configuration with optional fields', () => {
@@ -95,7 +95,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'minimal.json');
       fs.writeFileSync(configPath, JSON.stringify(minimalConfig));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(minimalConfig);
     });
 
@@ -120,7 +120,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'rate-limit.json');
       fs.writeFileSync(configPath, JSON.stringify(fullRateLimitConfig));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(fullRateLimitConfig);
     });
 
@@ -137,7 +137,7 @@ describe('load-explorer-config', () => {
       // Set environment variable to relative path
       process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = 'env-config.json';
 
-      const result = loadExplorerConfig();
+      const result = loadExplorerConfigOrThrow();
       expect(result).toBeUndefined();
     });
 
@@ -153,7 +153,7 @@ describe('load-explorer-config', () => {
 
       process.env['BLOCKCHAIN_EXPLORERS_CONFIG'] = 'env.json';
 
-      const result = loadExplorerConfig(explicitPath);
+      const result = loadExplorerConfigOrThrow(explicitPath);
       expect(result).toEqual(explicitConfig);
     });
 
@@ -165,13 +165,13 @@ describe('load-explorer-config', () => {
       fs.mkdirSync(path.join(tempDir, 'config'), { recursive: true });
       fs.writeFileSync(defaultPath, JSON.stringify(config));
 
-      const result = loadExplorerConfig();
+      const result = loadExplorerConfigOrThrow();
       expect(result).toBeUndefined();
     });
 
     it('should return undefined when default config path does not exist', () => {
       // No config file at default location
-      const result = loadExplorerConfig();
+      const result = loadExplorerConfigOrThrow();
       expect(result).toBeUndefined();
     });
 
@@ -198,7 +198,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'multi.json');
       fs.writeFileSync(configPath, JSON.stringify(multiConfig));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(multiConfig);
     });
 
@@ -218,7 +218,7 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'description.json');
       fs.writeFileSync(configPath, JSON.stringify(configWithDescription));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(configWithDescription);
     });
 
@@ -239,18 +239,18 @@ describe('load-explorer-config', () => {
       const configPath = path.join(tempDir, 'partial-rate.json');
       fs.writeFileSync(configPath, JSON.stringify(partialRateLimit));
 
-      const result = loadExplorerConfig(configPath);
+      const result = loadExplorerConfigOrThrow(configPath);
       expect(result).toEqual(partialRateLimit);
     });
   });
 
-  describe('loadExplorerConfig (convenience export)', () => {
+  describe('loadExplorerConfigOrThrow (convenience export)', () => {
     it('should load configuration from an explicit path', () => {
       const config: BlockchainExplorersConfig = { bitcoin: {} };
       const configPath = path.join(tempDir, 'convenience.json');
       fs.writeFileSync(configPath, JSON.stringify(config));
 
-      expect(loadExplorerConfig(configPath)).toEqual(config);
+      expect(loadExplorerConfigOrThrow(configPath)).toEqual(config);
     });
   });
 });

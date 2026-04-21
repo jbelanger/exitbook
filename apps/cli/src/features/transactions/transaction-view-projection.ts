@@ -1,6 +1,7 @@
 import type { AssetMovement, FeeMovement, Transaction, TransactionBalanceImpactAssetEntry } from '@exitbook/core';
 import { buildTransactionBalanceImpact, computePrimaryMovement } from '@exitbook/core';
 import { isFiat, type Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import {
   createAddressOwnershipLookup,
@@ -119,7 +120,8 @@ export function getTransactionPriceStatus(tx: Transaction): TransactionViewItem[
 
 export function toTransactionViewItem(
   tx: Transaction,
-  addressOwnershipLookup?: AddressOwnershipLookup
+  addressOwnershipLookup?: AddressOwnershipLookup,
+  annotations: readonly TransactionAnnotation[] = []
 ): TransactionViewItem {
   const resolvedAddressOwnershipLookup = addressOwnershipLookup ?? EMPTY_ADDRESS_OWNERSHIP_LOOKUP;
   const primaryMovement = computePrimaryMovement(tx.movements.inflows, tx.movements.outflows);
@@ -180,6 +182,7 @@ export function toTransactionViewItem(
     fromOwnership: resolveAddressOwnership(tx.from ?? undefined, resolvedAddressOwnershipLookup),
     to: tx.to ?? undefined,
     toOwnership: resolveAddressOwnership(tx.to ?? undefined, resolvedAddressOwnershipLookup),
+    annotations: [...annotations],
     diagnostics: (tx.diagnostics ?? []).map((diagnostic) => ({
       code: diagnostic.code,
       message: diagnostic.message,
@@ -192,4 +195,34 @@ export function toTransactionViewItem(
     })),
     excludedFromAccounting: tx.excludedFromAccounting ?? false,
   };
+}
+
+function buildAnnotationsByTransactionId(
+  annotations: readonly TransactionAnnotation[]
+): ReadonlyMap<number, readonly TransactionAnnotation[]> {
+  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const existing = annotationsByTransactionId.get(annotation.transactionId);
+    if (existing !== undefined) {
+      existing.push(annotation);
+      continue;
+    }
+
+    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
+  }
+
+  return annotationsByTransactionId;
+}
+
+export function toTransactionViewItems(
+  transactions: readonly Transaction[],
+  addressOwnershipLookup?: AddressOwnershipLookup,
+  annotations: readonly TransactionAnnotation[] = []
+): TransactionViewItem[] {
+  const annotationsByTransactionId = buildAnnotationsByTransactionId(annotations);
+
+  return transactions.map((transaction) =>
+    toTransactionViewItem(transaction, addressOwnershipLookup, annotationsByTransactionId.get(transaction.id) ?? [])
+  );
 }

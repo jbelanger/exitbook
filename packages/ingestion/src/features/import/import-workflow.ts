@@ -7,7 +7,7 @@ import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent, ImportEvent } from '../../events.js';
-import type { ImportPorts } from '../../ports/import-ports.js';
+import type { FinalizeImportSessionInput, ImportPorts } from '../../ports/import-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
 import { isUtxoAdapter, type UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import type { IImporter, StreamingImportParams } from '../../shared/types/importers.js';
@@ -21,6 +21,22 @@ export interface ImportResult {
 }
 
 type XpubMetadata = NonNullable<NonNullable<Account['metadata']>['xpub']>;
+
+interface FailedImportSessionFinalizationOutcome {
+  error: Error;
+  message: string;
+}
+
+interface FailedImportSessionFinalizationParams {
+  error: Error;
+  importSessionId: number;
+  imported: number;
+  metadata?: Record<string, unknown> | undefined;
+  platformKey: string;
+  skipped: number;
+  startTime: number;
+  summaryLabel: 'aborted' | 'failed';
+}
 
 const logger = getLogger('ImportWorkflow');
 
@@ -437,23 +453,29 @@ export class ImportWorkflow {
 
       for await (const batchResult of batchIterator) {
         if (this.abortController.signal.aborted) {
-          await this.ports.updateImportSession(importSessionId, {
-            status: 'failed',
-            error_message: 'Import aborted by user',
-            transactions_imported: totalImported,
-            transactions_skipped: totalSkipped,
+          const failure = await this.finalizeFailedImportSession({
+            importSessionId,
+            platformKey,
+            startTime,
+            imported: totalImported,
+            skipped: totalSkipped,
+            error: new Error('Import aborted by user'),
+            summaryLabel: 'aborted',
           });
-          return err(new Error('Import aborted by user'));
+          return err(failure.error);
         }
 
         if (batchResult.isErr()) {
-          await this.ports.updateImportSession(importSessionId, {
-            status: 'failed',
-            error_message: batchResult.error.message,
-            transactions_imported: totalImported,
-            transactions_skipped: totalSkipped,
+          const failure = await this.finalizeFailedImportSession({
+            importSessionId,
+            platformKey,
+            startTime,
+            imported: totalImported,
+            skipped: totalSkipped,
+            error: batchResult.error,
+            summaryLabel: 'failed',
           });
-          return err(batchResult.error);
+          return err(failure.error);
         }
 
         const batch = batchResult.value;
@@ -498,13 +520,16 @@ export class ImportWorkflow {
         });
 
         if (batchCommitResult.isErr()) {
-          await this.ports.updateImportSession(importSessionId, {
-            status: 'failed',
-            error_message: batchCommitResult.error.message,
-            transactions_imported: totalImported,
-            transactions_skipped: totalSkipped,
+          const failure = await this.finalizeFailedImportSession({
+            importSessionId,
+            platformKey,
+            startTime,
+            imported: totalImported,
+            skipped: totalSkipped,
+            error: batchCommitResult.error,
+            summaryLabel: 'failed',
           });
-          return err(batchCommitResult.error);
+          return err(failure.error);
         }
 
         const { inserted, skipped } = batchCommitResult.value;
@@ -543,17 +568,18 @@ export class ImportWorkflow {
 
       // Handle warnings → failure
       if (allWarnings.length > 0) {
-        const warningMessage = `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `;
-
-        const finalizeResult = await this.ports.finalizeImportSession(importSessionId, {
-          status: 'failed',
+        const failure = await this.finalizeFailedImportSession({
+          importSessionId,
+          platformKey,
           startTime,
           imported: totalImported,
           skipped: totalSkipped,
-          errorMessage: warningMessage,
+          error: new Error(
+            `Import completed with ${allWarnings.length} warning(s) and was marked as failed to prevent processing incomplete data. `
+          ),
           metadata: { warnings: allWarnings },
+          summaryLabel: 'failed',
         });
-        if (finalizeResult.isErr()) return err(finalizeResult.error);
 
         logger.warn(`Import marked failed due to ${allWarnings.length} warning(s). Data may be incomplete.`);
 
@@ -561,10 +587,10 @@ export class ImportWorkflow {
           type: 'import.failed',
           platformKey,
           accountId: account.id,
-          error: warningMessage,
+          error: failure.message,
         });
 
-        return err(new Error(warningMessage));
+        return err(failure.error);
       }
 
       // Success: finalize session + invalidate projections atomically
@@ -623,32 +649,70 @@ export class ImportWorkflow {
       return ok(sessionResult.value);
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
-
-      await this.ports.finalizeImportSession(importSessionId, {
-        status: 'failed',
+      const failure = await this.finalizeFailedImportSession({
+        importSessionId,
+        platformKey,
         startTime,
         imported: totalImported,
         skipped: totalSkipped,
-        errorMessage: originalError.message,
+        error: originalError,
         metadata: error instanceof Error ? { stack: error.stack } : { error: String(error) },
+        summaryLabel: 'failed',
       });
 
-      logger.error(`Import failed for ${platformKey}: ${originalError.message}`);
+      if (failure.error instanceof AggregateError) {
+        logger.error(
+          { accountId: account.id, error: failure.error },
+          'Import failed and failed to finalize import session'
+        );
+      } else {
+        logger.error(`Import failed for ${platformKey}: ${originalError.message}`);
+      }
 
       this.emit({
         type: 'import.failed',
         platformKey,
         accountId: account.id,
-        error: originalError.message,
+        error: failure.message,
       });
 
-      return err(originalError);
+      return err(failure.error);
     }
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  private async finalizeFailedImportSession(
+    params: FailedImportSessionFinalizationParams
+  ): Promise<FailedImportSessionFinalizationOutcome> {
+    const finalizeParams: FinalizeImportSessionInput = {
+      status: 'failed',
+      startTime: params.startTime,
+      imported: params.imported,
+      skipped: params.skipped,
+      errorMessage: params.error.message,
+      metadata: params.metadata,
+    };
+    const finalizeResult = await this.ports.finalizeImportSession(params.importSessionId, finalizeParams);
+
+    if (finalizeResult.isOk()) {
+      return {
+        error: params.error,
+        message: params.error.message,
+      };
+    }
+
+    const finalizationError = finalizeResult.error;
+    return {
+      error: new AggregateError(
+        [params.error, finalizationError],
+        `Import ${params.summaryLabel} for ${params.platformKey} and failed to finalize import session`
+      ),
+      message: `${params.error.message}; additionally failed to finalize import session: ${finalizationError.message}`,
+    };
+  }
 
   private emit(event: ImportEvent): void {
     this.eventBus?.emit(event);

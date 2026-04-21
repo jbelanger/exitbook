@@ -18,7 +18,6 @@ export const solanaAdapters: BlockchainAdapter[] = [
         preferredProvider: providerName,
       }),
 
-    createProcessor: ({ providerRuntime, scamDetectionService }) =>
-      new SolanaProcessor(providerRuntime, scamDetectionService),
+    createProcessor: ({ providerRuntime, scamDetector }) => new SolanaProcessor(providerRuntime, scamDetector),
   },
 ];

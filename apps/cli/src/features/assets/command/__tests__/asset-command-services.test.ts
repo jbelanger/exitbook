@@ -18,16 +18,15 @@ import {
   readAssetReviewProjectionSummaries,
 } from '../../../shared/asset-review-projection-store.js';
 import { AssetOverrideService } from '../asset-override-service.js';
-import { createCliAssetReviewProjectionRuntime } from '../asset-review-projection-runtime.js';
-import { AssetSnapshotReader, type BalanceSnapshotRebuilder } from '../asset-snapshot-reader.js';
+import {
+  AssetSnapshotReader,
+  type AssetReviewProjectionFactory,
+  type BalanceSnapshotRebuilder,
+} from '../asset-snapshot-reader.js';
 
 const PROFILE_ID = 1;
 const PROFILE_KEY = 'default';
 const OTHER_PROFILE_KEY = 'other';
-
-vi.mock('../asset-review-projection-runtime.js', () => ({
-  createCliAssetReviewProjectionRuntime: vi.fn(),
-}));
 
 vi.mock('../../../shared/asset-review-projection-store.js', () => ({
   invalidateAssetReviewProjection: vi.fn(),
@@ -246,18 +245,30 @@ function createAssetReviewConfirmEvent(assetId: string, evidenceFingerprint: str
   };
 }
 
+const mockAssetReviewProjectionRuntime = {
+  ensureFresh: vi.fn(),
+  rebuild: vi.fn(),
+};
+
+const defaultAssetReviewProjectionFactory: AssetReviewProjectionFactory = {
+  createForProfile: () => ok(mockAssetReviewProjectionRuntime),
+};
+
 function createAssetsServices(
   db: ReturnType<typeof createMockDb>,
   overrideStore: ReturnType<typeof createMockOverrideStore>,
   options?: {
+    assetReviewProjectionFactory?: AssetReviewProjectionFactory | undefined;
     balanceSnapshotRebuilder?: BalanceSnapshotRebuilder | undefined;
   }
 ) {
   const snapshotReader = new AssetSnapshotReader(
     db as unknown as DataSession,
     overrideStore as unknown as OverrideStore,
-    '/tmp/exitbook-assets',
-    options?.balanceSnapshotRebuilder
+    {
+      assetReviewProjectionFactory: options?.assetReviewProjectionFactory ?? defaultAssetReviewProjectionFactory,
+      balanceSnapshotRebuilder: options?.balanceSnapshotRebuilder,
+    }
   );
 
   return {
@@ -271,16 +282,10 @@ function createAssetsServices(
 }
 
 describe('asset command services', () => {
-  const mockAssetReviewProjectionRuntime = {
-    ensureFresh: vi.fn(),
-    rebuild: vi.fn(),
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockAssetReviewProjectionRuntime.ensureFresh.mockResolvedValue(ok(undefined));
     mockAssetReviewProjectionRuntime.rebuild.mockResolvedValue(ok(undefined));
-    vi.mocked(createCliAssetReviewProjectionRuntime).mockReturnValue(ok(mockAssetReviewProjectionRuntime));
     vi.mocked(readAssetReviewProjectionSummaries).mockResolvedValue(ok(new Map()));
     vi.mocked(invalidateAssetReviewProjection).mockResolvedValue(ok(undefined));
   });

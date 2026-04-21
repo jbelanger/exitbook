@@ -12,7 +12,7 @@ export type { BlockchainExplorersConfig } from './explorer-config.js';
  * Load blockchain explorer configuration from an explicit file path.
  * Returns undefined if no path is provided or the file doesn't exist.
  */
-export function loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
+export function loadExplorerConfigOrThrow(configPath?: string): BlockchainExplorersConfig | undefined {
   if (!configPath) {
     return undefined;
   }
@@ -36,7 +36,7 @@ export function loadBlockchainExplorerConfig(
   configPath?: string
 ): Result<BlockchainExplorersConfig | undefined, Error> {
   try {
-    return ok(loadExplorerConfig(configPath));
+    return ok(loadExplorerConfigOrThrow(configPath));
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }

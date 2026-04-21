@@ -4,7 +4,7 @@ import { buildBlockchainNativeAssetId, parseDecimal, type Currency } from '@exit
 import { type Result, err, ok } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-utils.js';
@@ -17,8 +17,8 @@ import { analyzeXrpFundFlow, determineXrpTransactionType } from './processor-uti
 export class XrpProcessor extends BaseTransactionProcessor<XrpTransaction> {
   private readonly chainConfig: XrpChainConfig;
 
-  constructor(chainConfig: XrpChainConfig, scamDetectionService?: IScamDetectionService) {
-    super(chainConfig.chainName, undefined, scamDetectionService);
+  constructor(chainConfig: XrpChainConfig, scamDetector?: ScamDetector) {
+    super(chainConfig.chainName, undefined, scamDetector);
     this.chainConfig = chainConfig;
   }
 

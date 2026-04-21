@@ -56,9 +56,11 @@ import { registerBlockchainsViewCommand } from '../blockchains-view.js';
 import { registerBlockchainsCommand } from '../blockchains.js';
 
 function createAppRuntime(blockchains: string[] = ['bitcoin', 'solana']): CliAppRuntime {
+  const adapterRegistry = createRegistry(blockchains);
   return {
-    adapterRegistry: createRegistry(blockchains),
+    adapterRegistry,
     blockchainExplorersConfig: {},
+    createAdapterRegistry: vi.fn().mockReturnValue(adapterRegistry),
     dataDir: '/tmp/exitbook-blockchains',
     databasePath: '/tmp/exitbook-blockchains/transactions.db',
     priceProviderConfig: {

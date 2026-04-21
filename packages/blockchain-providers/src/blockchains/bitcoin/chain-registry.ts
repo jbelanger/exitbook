@@ -1,3 +1,5 @@
+import { defineChainRegistry } from '../shared/chain-registry-utils.js';
+
 import bitcoinChainsData from './bitcoin-chains.json' with { type: 'json' };
 import type { BitcoinChainConfig } from './chain-config.interface.js';
 
@@ -11,7 +13,7 @@ import type { BitcoinChainConfig } from './chain-config.interface.js';
  * const processor = new BitcoinProcessor(BITCOIN_CHAINS.dogecoin);
  * ```
  */
-export const BITCOIN_CHAINS = bitcoinChainsData as unknown as Record<string, BitcoinChainConfig>;
+export const BITCOIN_CHAINS = defineChainRegistry<BitcoinChainConfig, typeof bitcoinChainsData>(bitcoinChainsData);
 
 /**
  * Type-safe chain names for all supported Bitcoin-like chains
@@ -26,6 +28,8 @@ export type BitcoinChainName = keyof typeof BITCOIN_CHAINS;
  *
  * @public
  */
+export function getBitcoinChainConfig(chainName: BitcoinChainName): BitcoinChainConfig;
+export function getBitcoinChainConfig(chainName: string): BitcoinChainConfig | undefined;
 export function getBitcoinChainConfig(chainName: string): BitcoinChainConfig | undefined {
-  return BITCOIN_CHAINS[chainName];
+  return chainName in BITCOIN_CHAINS ? BITCOIN_CHAINS[chainName as BitcoinChainName] : undefined;
 }

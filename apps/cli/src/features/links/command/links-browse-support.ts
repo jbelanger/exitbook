@@ -1,7 +1,7 @@
 import type { LinkStatus, TransactionLink } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
+import type { CommandRuntimeDatabase } from '../../../runtime/command-runtime.js';
 import { buildLinkProposalRef, buildLinkProposalSelector, resolveLinkProposalSelector } from '../link-selector.js';
 import type { LinkProposalBrowseItem } from '../links-browse-model.js';
 import type { LinkWithTransactions } from '../links-view-model.js';
@@ -9,7 +9,7 @@ import { buildTransferProposalItems } from '../transfer-proposals.js';
 import { createLinksViewState } from '../view/index.js';
 import type { LinksViewLinksState } from '../view/links-view-state.js';
 
-type LinksCommandDatabase = Awaited<ReturnType<CommandRuntime['database']>>;
+type LinksCommandDatabase = CommandRuntimeDatabase;
 
 export interface LinksBrowseParams {
   maxConfidence?: number | undefined;

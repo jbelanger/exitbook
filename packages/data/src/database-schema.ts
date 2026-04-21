@@ -21,6 +21,7 @@ import type {
   ProjectionStatus,
 } from '@exitbook/core';
 import type { Generated, ColumnType } from '@exitbook/sqlite';
+import type { AnnotationKind, AnnotationRole, AnnotationTier } from '@exitbook/transaction-interpretation';
 
 /**
  * Database schema definitions
@@ -403,6 +404,31 @@ export interface AccountingIssueRowsTable {
 }
 
 /**
+ * Transaction annotations table — persisted interpretation layer.
+ */
+export interface TransactionAnnotationsTable {
+  id: Generated<number>;
+  annotation_fingerprint: string;
+  account_id: number;
+  transaction_id: number;
+  tx_fingerprint: string;
+  target_scope: 'transaction' | 'movement';
+  movement_fingerprint: string | null;
+  kind: AnnotationKind;
+  tier: AnnotationTier;
+  role: AnnotationRole | null;
+  protocol_ref_id: string | null;
+  protocol_ref_version: string | null;
+  group_key: string | null;
+  detector_id: string;
+  derived_from_tx_ids_json: JSONString;
+  provenance_inputs_json: JSONString;
+  metadata_json: JSONString | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -423,4 +449,5 @@ export interface DatabaseSchema {
   asset_review_evidence: AssetReviewEvidenceTable;
   accounting_issue_scopes: AccountingIssueScopesTable;
   accounting_issue_rows: AccountingIssueRowsTable;
+  transaction_annotations: TransactionAnnotationsTable;
 }

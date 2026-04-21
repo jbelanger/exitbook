@@ -48,7 +48,7 @@ import { registerLinksRunCommand } from '../links-run.js';
 
 interface MockCtx {
   dataDir: string;
-  database: ReturnType<typeof vi.fn>;
+  openDatabaseSession: ReturnType<typeof vi.fn>;
   onAbort: ReturnType<typeof vi.fn>;
 }
 
@@ -63,7 +63,7 @@ function createProgram(): Command {
 describe('links run command', () => {
   const ctx: MockCtx = {
     dataDir: '/tmp/exitbook-links-run',
-    database: vi.fn(),
+    openDatabaseSession: vi.fn(),
     onAbort: vi.fn(),
   };
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -74,7 +74,7 @@ describe('links run command', () => {
       const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
       await fn?.(ctx);
     });
-    ctx.database.mockResolvedValue({ tag: 'links-db' });
+    ctx.openDatabaseSession.mockResolvedValue({ tag: 'links-db' });
     mockResolveCommandProfile.mockResolvedValue(
       ok({
         id: 7,

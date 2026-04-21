@@ -1,9 +1,11 @@
-import type { ExchangeProviderEvent } from './exchange-provider-event.js';
+import type { ExchangeProviderEvent, ExchangeProviderMetadata } from './exchange-provider-event.js';
 
-export interface ExchangeCorrelationGroup {
+export interface ExchangeCorrelationGroup<
+  TProviderMetadata extends ExchangeProviderMetadata = ExchangeProviderMetadata,
+> {
   providerName: string;
   correlationKey: string;
-  events: ExchangeProviderEvent[];
+  events: ExchangeProviderEvent<TProviderMetadata>[];
   evidence: {
     assetSymbols: string[];
     directionHints: ('credit' | 'debit' | 'unknown')[];

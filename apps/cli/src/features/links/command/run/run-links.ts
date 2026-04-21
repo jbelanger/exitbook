@@ -13,7 +13,7 @@ export async function runLinks(
   params: LinkingRunParams
 ): Promise<Result<LinkingRunResult, Error>> {
   return resultTryAsync<LinkingRunResult>(async function* () {
-    const database = await ctx.database();
+    const database = await ctx.openDatabaseSession();
     const readyResult = await ensureConsumerInputsReady(ctx, 'links-run', {
       format: options.format,
       profileId: options.profileId,

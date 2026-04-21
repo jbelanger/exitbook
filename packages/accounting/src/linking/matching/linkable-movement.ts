@@ -1,5 +1,6 @@
 import { PlatformKindSchema, TransactionDiagnosticSchema } from '@exitbook/core';
 import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/foundation';
+import { TransactionAnnotationSchema, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { z } from 'zod';
 
 /**
@@ -21,9 +22,12 @@ export const LinkableMovementSchema = z.object({
   fromAddress: z.string().optional(),
   toAddress: z.string().optional(),
   transactionDiagnostics: z.array(TransactionDiagnosticSchema).optional(),
+  transactionAnnotations: z.array(TransactionAnnotationSchema).optional(),
   isInternal: z.boolean(),
   excluded: z.boolean(),
   movementFingerprint: z.string(),
 });
 
-export type LinkableMovement = z.infer<typeof LinkableMovementSchema>;
+export type LinkableMovement = Omit<z.infer<typeof LinkableMovementSchema>, 'transactionAnnotations'> & {
+  transactionAnnotations?: TransactionAnnotation[] | undefined;
+};

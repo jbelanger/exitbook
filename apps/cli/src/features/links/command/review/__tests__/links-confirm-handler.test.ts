@@ -170,6 +170,9 @@ describe('LinksConfirmHandler', () => {
       const confirmResult = assertOk(result);
       expect(confirmResult.linkId).toBe(123);
       expect(confirmResult.newStatus).toBe('confirmed');
+      expect(confirmResult.changed).toBe(false);
+      expect(confirmResult.affectedLinkCount).toBe(0);
+      expect(confirmResult.affectedLinkIds).toEqual([]);
       expect(confirmResult.reviewedBy).toBe('cli-user');
       expect(mockLinkRepository.updateStatuses).not.toHaveBeenCalled();
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
@@ -204,6 +207,7 @@ describe('LinksConfirmHandler', () => {
       const confirmResult = assertOk(result);
       expect(confirmResult.linkId).toBe(123);
       expect(confirmResult.newStatus).toBe('confirmed');
+      expect(confirmResult.changed).toBe(true);
       expect(mockLinkRepository.updateStatuses).toHaveBeenCalledWith([123], 'confirmed', 'cli-user', expect.any(Map));
     });
 

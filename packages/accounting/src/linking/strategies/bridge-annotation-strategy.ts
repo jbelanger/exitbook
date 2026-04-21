@@ -1,5 +1,6 @@
-import { hasDiagnosticCode, type NewTransactionLink, type TransactionDiagnostic } from '@exitbook/core';
+import type { NewTransactionLink } from '@exitbook/core';
 import { ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import { createTransactionLink } from '../matching/link-construction.js';
@@ -10,7 +11,6 @@ import { determineLinkType } from './amount-timing-utils.js';
 import { areLinkingAssetsEquivalent } from './asset-equivalence-utils.js';
 import type { ILinkingStrategy, StrategyResult } from './types.js';
 
-const BRIDGE_DIAGNOSTIC_CODE = 'bridge_transfer';
 const BRIDGE_MAX_TIMING_WINDOW_HOURS = 24;
 const BRIDGE_MAX_CLOCK_SKEW_HOURS = 0.25;
 const BRIDGE_NATIVE_MIN_AMOUNT_SIMILARITY = parseDecimal('0.7');
@@ -19,12 +19,12 @@ const BRIDGE_NATIVE_MAX_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('35');
 const BRIDGE_TOKEN_MAX_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('2');
 
 /**
- * Matches explicit bridge / migration flows across blockchains when both sides
- * carry processor-authored bridge diagnostics and the pair is uniquely safe.
+ * Matches explicit bridge flows across blockchains when both sides carry
+ * asserted bridge interpretation and the pair is uniquely safe.
  *
  * Safety constraints:
  * - blockchain -> blockchain only
- * - both sides must carry bridge_transfer diagnostics
+ * - both sides must carry asserted `bridge_participant` interpretation
  * - assets must already be equivalent under existing linking semantics
  * - target must follow source within a conservative window
  * - source and target must be mutual unique candidates
@@ -32,8 +32,8 @@ const BRIDGE_TOKEN_MAX_SOURCE_TO_TARGET_VARIANCE_PCT = parseDecimal('2');
  *
  * Links are intentionally emitted as suggested, never confirmed.
  */
-export class BridgeDiagnosticStrategy implements ILinkingStrategy {
-  readonly name = 'bridge-diagnostic';
+export class BridgeAnnotationStrategy implements ILinkingStrategy {
+  readonly name = 'bridge-annotation';
 
   execute(
     sources: LinkableMovement[],
@@ -77,9 +77,9 @@ export class BridgeDiagnosticStrategy implements ILinkingStrategy {
         continue;
       }
 
-      const sourceDiagnostic = getBridgeDiagnostic(source);
-      const targetDiagnostic = getBridgeDiagnostic(target);
-      if (!sourceDiagnostic || !targetDiagnostic) {
+      const sourceAnnotation = getBridgeAnnotation(source, 'source');
+      const targetAnnotation = getBridgeAnnotation(target, 'target');
+      if (!sourceAnnotation || !targetAnnotation) {
         continue;
       }
 
@@ -89,8 +89,8 @@ export class BridgeDiagnosticStrategy implements ILinkingStrategy {
         ? BRIDGE_NATIVE_MAX_SOURCE_TO_TARGET_VARIANCE_PCT
         : BRIDGE_TOKEN_MAX_SOURCE_TO_TARGET_VARIANCE_PCT;
       const alignedChainHints = hasAlignedChainHints(
-        sourceDiagnostic,
-        targetDiagnostic,
+        sourceAnnotation,
+        targetAnnotation,
         source.platformKey,
         target.platformKey
       );
@@ -136,7 +136,7 @@ function isBridgeSourceCandidate(movement: LinkableMovement): boolean {
   return (
     movement.platformKind === 'blockchain' &&
     movement.direction === 'out' &&
-    hasDiagnosticCode(movement.transactionDiagnostics, BRIDGE_DIAGNOSTIC_CODE)
+    getBridgeAnnotation(movement, 'source') !== undefined
   );
 }
 
@@ -144,7 +144,7 @@ function isBridgeTargetCandidate(movement: LinkableMovement): boolean {
   return (
     movement.platformKind === 'blockchain' &&
     movement.direction === 'in' &&
-    hasDiagnosticCode(movement.transactionDiagnostics, BRIDGE_DIAGNOSTIC_CODE)
+    getBridgeAnnotation(movement, 'target') !== undefined
   );
 }
 
@@ -177,17 +177,23 @@ function isSafeBridgePair(source: LinkableMovement, target: LinkableMovement, co
     return false;
   }
 
-  const sourceDiagnostic = getBridgeDiagnostic(source);
-  const targetDiagnostic = getBridgeDiagnostic(target);
-  if (!sourceDiagnostic || !targetDiagnostic) {
+  const sourceAnnotation = getBridgeAnnotation(source, 'source');
+  const targetAnnotation = getBridgeAnnotation(target, 'target');
+  if (!sourceAnnotation || !targetAnnotation) {
     return false;
   }
 
-  return chainHintsAreCompatible(sourceDiagnostic, targetDiagnostic, source.platformKey, target.platformKey);
+  return chainHintsAreCompatible(sourceAnnotation, targetAnnotation, source.platformKey, target.platformKey);
 }
 
-function getBridgeDiagnostic(movement: LinkableMovement): TransactionDiagnostic | undefined {
-  return movement.transactionDiagnostics?.find((diagnostic) => diagnostic.code === BRIDGE_DIAGNOSTIC_CODE);
+function getBridgeAnnotation(
+  movement: LinkableMovement,
+  role: Extract<NonNullable<TransactionAnnotation['role']>, 'source' | 'target'>
+): TransactionAnnotation | undefined {
+  return movement.transactionAnnotations?.find(
+    (annotation) =>
+      annotation.kind === 'bridge_participant' && annotation.tier === 'asserted' && annotation.role === role
+  );
 }
 
 function calculateTimeDifferenceHours(sourceTime: Date, targetTime: Date): number {
@@ -217,30 +223,30 @@ function isNativeAssetMovement(movement: LinkableMovement): boolean {
 }
 
 function chainHintsAreCompatible(
-  sourceDiagnostic: TransactionDiagnostic,
-  targetDiagnostic: TransactionDiagnostic,
+  sourceAnnotation: TransactionAnnotation,
+  targetAnnotation: TransactionAnnotation,
   sourcePlatformKey: string,
   targetPlatformKey: string
 ): boolean {
   return (
-    matchesOptionalChainHint(sourceDiagnostic.metadata?.['sourceChain'], sourcePlatformKey) &&
-    matchesOptionalChainHint(sourceDiagnostic.metadata?.['destinationChain'], targetPlatformKey) &&
-    matchesOptionalChainHint(targetDiagnostic.metadata?.['sourceChain'], sourcePlatformKey) &&
-    matchesOptionalChainHint(targetDiagnostic.metadata?.['destinationChain'], targetPlatformKey)
+    matchesOptionalChainHint(sourceAnnotation.metadata?.['sourceChain'], sourcePlatformKey) &&
+    matchesOptionalChainHint(sourceAnnotation.metadata?.['destinationChain'], targetPlatformKey) &&
+    matchesOptionalChainHint(targetAnnotation.metadata?.['sourceChain'], sourcePlatformKey) &&
+    matchesOptionalChainHint(targetAnnotation.metadata?.['destinationChain'], targetPlatformKey)
   );
 }
 
 function hasAlignedChainHints(
-  sourceDiagnostic: TransactionDiagnostic,
-  targetDiagnostic: TransactionDiagnostic,
+  sourceAnnotation: TransactionAnnotation,
+  targetAnnotation: TransactionAnnotation,
   sourcePlatformKey: string,
   targetPlatformKey: string
 ): boolean {
   const hints = [
-    chainHintMatches(sourceDiagnostic.metadata?.['sourceChain'], sourcePlatformKey),
-    chainHintMatches(sourceDiagnostic.metadata?.['destinationChain'], targetPlatformKey),
-    chainHintMatches(targetDiagnostic.metadata?.['sourceChain'], sourcePlatformKey),
-    chainHintMatches(targetDiagnostic.metadata?.['destinationChain'], targetPlatformKey),
+    chainHintMatches(sourceAnnotation.metadata?.['sourceChain'], sourcePlatformKey),
+    chainHintMatches(sourceAnnotation.metadata?.['destinationChain'], targetPlatformKey),
+    chainHintMatches(targetAnnotation.metadata?.['sourceChain'], sourcePlatformKey),
+    chainHintMatches(targetAnnotation.metadata?.['destinationChain'], targetPlatformKey),
   ];
 
   return hints.some((hint) => hint === true);
@@ -289,7 +295,7 @@ function calculateBridgeConfidenceScore(amountSimilarity: Decimal, hasChainHintA
 function buildBridgeScoreBreakdown(amountSimilarity: Decimal, hasChainHintAlignment: boolean): ScoreComponent[] {
   const breakdown: ScoreComponent[] = [
     {
-      signal: 'bridge_diagnostic',
+      signal: 'bridge_annotation',
       weight: parseDecimal('0.45'),
       value: parseDecimal('1'),
       contribution: parseDecimal('0.45'),

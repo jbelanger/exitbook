@@ -16,7 +16,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService, MovementWithContext } from '../../../features/scam-detection/contracts.js';
+import type { MovementWithContext, ScamDetector } from '../../../features/scam-detection/contracts.js';
 import type { INearBatchSource } from '../../../ports/near-batch-source.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
@@ -46,10 +46,10 @@ import type { NearCorrelatedTransaction } from './types.js';
 export class NearProcessor extends BaseTransactionProcessor<NearStreamEvent> {
   constructor(
     providerRuntime: IBlockchainProviderRuntime,
-    scamDetectionService?: IScamDetectionService,
+    scamDetector?: ScamDetector,
     private readonly nearBatchSource?: INearBatchSource
   ) {
-    super('near', providerRuntime, scamDetectionService);
+    super('near', providerRuntime, scamDetector);
   }
 
   protected get inputSchema() {

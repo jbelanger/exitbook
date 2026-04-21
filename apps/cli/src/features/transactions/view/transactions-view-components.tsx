@@ -27,6 +27,7 @@ import {
 import {
   buildCategoryParts,
   formatTransactionBalanceSummary,
+  summarizeTransactionAnnotations,
   formatTransactionOperation,
   formatTransactionTimestamp,
   getTransactionPriceStatusDisplay,
@@ -332,6 +333,15 @@ function buildTransactionDetailRows(selected: TransactionViewItem): ReactElement
             {'  '}
             <Text dimColor>Source: </Text>
             {buildSourceLineageSummary(selected)}
+          </Text>,
+        ]
+      : []),
+    ...(selected.annotations.length > 0
+      ? [
+          <Text key="interpretation-summary">
+            {'  '}
+            <Text dimColor>Interpretation: </Text>
+            {summarizeTransactionAnnotations(selected.annotations)}
           </Text>,
         ]
       : []),

@@ -8,7 +8,7 @@ import { buildBlockchainNativeAssetId, parseDecimal } from '@exitbook/foundation
 import { type Result, err, ok } from '@exitbook/foundation';
 
 import { BaseTransactionProcessor } from '../../../features/process/base-transaction-processor.js';
-import type { IScamDetectionService } from '../../../features/scam-detection/contracts.js';
+import type { ScamDetector } from '../../../features/scam-detection/contracts.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
 import {
@@ -28,8 +28,8 @@ import type { SubstrateMovement } from './types.js';
 export class SubstrateProcessor extends BaseTransactionProcessor<SubstrateTransaction> {
   private chainConfig: SubstrateChainConfig;
 
-  constructor(chainConfig: SubstrateChainConfig, scamDetectionService?: IScamDetectionService) {
-    super(chainConfig.chainName, undefined, scamDetectionService);
+  constructor(chainConfig: SubstrateChainConfig, scamDetector?: ScamDetector) {
+    super(chainConfig.chainName, undefined, scamDetector);
     this.chainConfig = chainConfig;
   }
 

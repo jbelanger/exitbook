@@ -1,16 +1,11 @@
 import { type TokenMetadataRecord } from '@exitbook/blockchain-providers';
-import { EventBus } from '@exitbook/events';
 import { parseDecimal } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import type { IngestionEvent } from '../../../events.js';
 import type { MovementWithContext } from '../contracts.js';
 import { ScamDetectionService } from '../scam-detection-service.js';
 
 describe('ScamDetectionService', () => {
-  // Create a mock event bus for testing
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- acceptable for mock
-  const createMockEventBus = () => new EventBus<IngestionEvent>({ onError: () => {} });
   const createMetadata = (overrides?: Partial<TokenMetadataRecord>): TokenMetadataRecord => ({
     blockchain: 'ethereum',
     contractAddress: '0xabc',
@@ -29,7 +24,7 @@ describe('ScamDetectionService', () => {
   });
 
   it('returns metadata-based note when possibleSpam is true', () => {
-    const service = new ScamDetectionService(createMockEventBus());
+    const service = new ScamDetectionService();
     const movements = [createMovement()];
     const metadataMap = new Map<string, TokenMetadataRecord | undefined>([
       [
@@ -55,7 +50,7 @@ describe('ScamDetectionService', () => {
   });
 
   it('falls back to symbol detection when metadata is missing', () => {
-    const service = new ScamDetectionService(createMockEventBus());
+    const service = new ScamDetectionService();
     const movements = [
       createMovement({
         asset: 'ClaimRewards.com',
@@ -77,7 +72,7 @@ describe('ScamDetectionService', () => {
   });
 
   it('uses airdrop context for heuristic detection when metadata is neutral', () => {
-    const service = new ScamDetectionService(createMockEventBus());
+    const service = new ScamDetectionService();
     const movements = [
       createMovement({
         contractAddress: '0xairdrop',
@@ -109,7 +104,7 @@ describe('ScamDetectionService', () => {
   });
 
   it('records every suspicious asset in the same transaction', () => {
-    const service = new ScamDetectionService(createMockEventBus());
+    const service = new ScamDetectionService();
     const movements = [
       createMovement({
         transactionIndex: 0,

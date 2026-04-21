@@ -1,5 +1,6 @@
 import type { NewTransactionLink, Transaction } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { TransactionAnnotation, TransactionAnnotationQuery } from '@exitbook/transaction-interpretation';
 
 /**
  * Result of replacing links in persistence.
@@ -20,6 +21,11 @@ export interface LinksSaveResult {
 export interface ILinkingPersistence {
   /** Load all transactions needed for the linking pipeline */
   loadTransactions(): Promise<Result<Transaction[], Error>>;
+
+  /** Load persisted interpretation facts needed by linking. */
+  loadTransactionAnnotations(
+    query: TransactionAnnotationQuery
+  ): Promise<Result<readonly TransactionAnnotation[], Error>>;
 
   /**
    * Clear existing links and persist new ones.

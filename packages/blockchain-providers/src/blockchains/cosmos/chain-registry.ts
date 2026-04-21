@@ -1,3 +1,5 @@
+import { defineChainRegistry } from '../shared/chain-registry-utils.js';
+
 import type { CosmosChainConfig } from './chain-config.interface.js';
 import cosmosChainsData from './cosmos-chains.json' with { type: 'json' };
 
@@ -11,7 +13,7 @@ import cosmosChainsData from './cosmos-chains.json' with { type: 'json' };
  * const processor = new CosmosProcessor(COSMOS_CHAINS.osmosis);
  * ```
  */
-export const COSMOS_CHAINS = cosmosChainsData as unknown as Record<string, CosmosChainConfig>;
+export const COSMOS_CHAINS = defineChainRegistry<CosmosChainConfig, typeof cosmosChainsData>(cosmosChainsData);
 
 /**
  * Type-safe chain names for all supported Cosmos SDK chains
@@ -26,8 +28,10 @@ export type CosmosChainName = keyof typeof COSMOS_CHAINS;
  *
  * @public
  */
+export function getCosmosChainConfig(chainName: CosmosChainName): CosmosChainConfig;
+export function getCosmosChainConfig(chainName: string): CosmosChainConfig | undefined;
 export function getCosmosChainConfig(chainName: string): CosmosChainConfig | undefined {
-  return COSMOS_CHAINS[chainName];
+  return chainName in COSMOS_CHAINS ? COSMOS_CHAINS[chainName as CosmosChainName] : undefined;
 }
 
 /**
@@ -37,8 +41,8 @@ export function getCosmosChainConfig(chainName: string): CosmosChainConfig | und
  *
  * @public
  */
-export function getAllCosmosChainNames(): string[] {
-  return Object.keys(COSMOS_CHAINS);
+export function getAllCosmosChainNames(): CosmosChainName[] {
+  return Object.keys(COSMOS_CHAINS) as CosmosChainName[];
 }
 
 /**
@@ -49,6 +53,6 @@ export function getAllCosmosChainNames(): string[] {
  *
  * @public
  */
-export function isCosmosChainSupported(chainName: string): boolean {
+export function isCosmosChainSupported(chainName: string): chainName is CosmosChainName {
   return chainName in COSMOS_CHAINS;
 }

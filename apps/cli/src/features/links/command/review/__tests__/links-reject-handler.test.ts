@@ -151,6 +151,9 @@ describe('LinksRejectHandler', () => {
       const rejectResult = assertOk(result);
       expect(rejectResult.linkId).toBe(123);
       expect(rejectResult.newStatus).toBe('rejected');
+      expect(rejectResult.changed).toBe(false);
+      expect(rejectResult.affectedLinkCount).toBe(0);
+      expect(rejectResult.affectedLinkIds).toEqual([]);
       expect(rejectResult.reviewedBy).toBe('cli-user');
       expect(mockLinkQueries.updateStatuses).not.toHaveBeenCalled();
       expect(mockOverrideStore.append).not.toHaveBeenCalled();
@@ -209,6 +212,7 @@ describe('LinksRejectHandler', () => {
       const rejectResult = assertOk(result);
       expect(rejectResult.affectedLinkIds).toEqual([124]);
       expect(rejectResult.affectedLinkCount).toBe(1);
+      expect(rejectResult.changed).toBe(true);
       expect(mockLinkQueries.updateStatuses).toHaveBeenCalledWith([124], 'rejected', 'cli-user', expect.any(Map));
       expect(mockOverrideStore.appendMany).toHaveBeenCalledTimes(1);
     });

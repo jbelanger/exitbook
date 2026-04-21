@@ -10,7 +10,7 @@ import {
   FixedHeightDetail,
   SelectableRow,
   type Columns,
-} from '../../ui/shared/layout.js';
+} from '../../../ui/shared/layout.js';
 
 import { formatStoredBalanceTimestamp, getStoredBalanceVerificationDisplay } from './stored-balance-formatters.js';
 import type { StoredBalanceAssetViewItem } from './stored-balance-view.js';

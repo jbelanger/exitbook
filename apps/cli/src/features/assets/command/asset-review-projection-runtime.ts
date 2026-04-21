@@ -9,22 +9,24 @@ import {
   createAssetReviewProjectionRuntime,
   type AssetReviewProjectionRuntime,
 } from '@exitbook/ingestion/asset-review';
+import type { PriceProviderConfig } from '@exitbook/price-providers';
 
-import { buildPriceProviderConfigFromEnv } from '../../../runtime/app-runtime.js';
+export interface CreateCliAssetReviewProjectionRuntimeOptions {
+  priceProviderConfig: Pick<PriceProviderConfig, 'coingecko'>;
+  profile: { profileId: number; profileKey: string };
+}
 
 export function createCliAssetReviewProjectionRuntime(
   db: DataSession,
   dataDir: string,
-  profile: { profileId: number; profileKey: string }
+  options: CreateCliAssetReviewProjectionRuntimeOptions
 ): Result<AssetReviewProjectionRuntime, Error> {
   try {
-    const coinGeckoConfig = buildPriceProviderConfigFromEnv().coingecko;
-
     return ok(
       createAssetReviewProjectionRuntime({
-        ports: buildAssetReviewRuntimePorts(db, dataDir, profile),
+        ports: buildAssetReviewRuntimePorts(db, dataDir, options.profile),
         providerSupportFactory: {
-          open: () => createAssetReviewProviderSupport(dataDir, coinGeckoConfig),
+          open: () => createAssetReviewProviderSupport(dataDir, options.priceProviderConfig.coingecko),
         },
         tokenMetadataFreshness: {
           findLatestTokenMetadataRefreshAt: () => findLatestTokenMetadataRefreshAt(dataDir),
@@ -32,6 +34,6 @@ export function createCliAssetReviewProjectionRuntime(
       })
     );
   } catch (error) {
-    return wrapError(error, `Failed to create asset review runtime for profile ${profile.profileKey}`);
+    return wrapError(error, `Failed to create asset review runtime for profile ${options.profile.profileKey}`);
   }
 }

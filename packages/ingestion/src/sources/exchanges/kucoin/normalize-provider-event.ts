@@ -48,6 +48,8 @@ export type KuCoinProviderMetadata =
   | KuCoinTransferProviderMetadata
   | KuCoinAccountHistoryProviderMetadata;
 
+export type KuCoinProviderEvent = ExchangeProviderEvent<KuCoinProviderMetadata>;
+
 function getAccountHistoryDirectionHint(rawSide: string): 'credit' | 'debit' | 'unknown' {
   const normalizedSide = rawSide.trim().toLowerCase();
   if (normalizedSide === 'deposit' || normalizedSide === 'in') {
@@ -81,7 +83,7 @@ function buildCorrelationKey(raw: KuCoinCsvRow, eventId: string): string {
   }
 }
 
-export function normalizeKuCoinProviderEvent(raw: KuCoinCsvRow, eventId: string): Result<ExchangeProviderEvent, Error> {
+export function normalizeKuCoinProviderEvent(raw: KuCoinCsvRow, eventId: string): Result<KuCoinProviderEvent, Error> {
   const occurredAtResult = getKuCoinRowOccurredAt(raw);
   if (occurredAtResult.isErr()) {
     return err(occurredAtResult.error);
