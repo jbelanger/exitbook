@@ -1,6 +1,7 @@
 import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import { deriveOperationLabel } from '@exitbook/transaction-interpretation';
 
 import { collectBlockingAssetReviewSummaries } from '../../accounting-model/asset-review-preflight.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -28,11 +29,14 @@ export function deriveTaxPackageReadinessMetadata(params: {
   const taxRelevantTransactions = getTransactionsById(params.context, readinessScope.transactionIds);
   const incompleteTransferLinkDetails = collectIncompleteTransferLinkDetails(params.context);
   const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
+    params.context,
     taxRelevantTransactions,
     ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES
   );
-  const unknownTransactionClassificationDetails =
-    collectUnknownTransactionClassificationDetails(taxRelevantTransactions);
+  const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(
+    params.context,
+    taxRelevantTransactions
+  );
 
   return {
     allocationUncertainCount: allocationUncertainDetails.length,
@@ -138,15 +142,18 @@ function deriveStandardReadinessScope(
 }
 
 function collectUnknownTransactionClassificationDetails(
+  context: TaxPackageBuildContext,
   transactions: readonly Transaction[]
 ): TaxPackageUnknownTransactionClassificationDetail[] {
   return collectTransactionIssueDetails<TaxPackageUnknownTransactionClassificationDetail>(
+    context,
     transactions,
     UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES
   );
 }
 
 function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
+  context: TaxPackageBuildContext,
   transactions: readonly Transaction[],
   diagnosticCodes: ReadonlySet<string>
 ): TDetail[] {
@@ -156,12 +163,17 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
       return [];
     }
 
+    const derivedOperation = deriveOperationLabel(
+      transaction,
+      context.sourceContext.transactionAnnotationsByTransactionId.get(transaction.id) ?? []
+    );
+
     return [
       {
         diagnosticCode: matchingDiagnostic.code,
         diagnosticMessage: matchingDiagnostic.message,
-        operationCategory: transaction.operation.category,
-        operationType: transaction.operation.type,
+        operationGroup: derivedOperation.group,
+        operationLabel: derivedOperation.label,
         reference: transaction.txFingerprint,
         platformKey: transaction.platformKey,
         transactionDatetime: transaction.datetime,

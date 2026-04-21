@@ -1,3 +1,5 @@
+import type { DerivedOperationGroup } from '@exitbook/transaction-interpretation';
+
 import type { CostBasisJurisdiction, CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { ValidatedCostBasisConfig } from '../workflow/cost-basis-input.js';
 import type { CostBasisWorkflowResult } from '../workflow/workflow-result-types.js';
@@ -47,8 +49,8 @@ export interface TaxPackageSummaryTotals {
 interface TaxPackageTransactionIssueDetailBase {
   diagnosticCode: string;
   diagnosticMessage: string;
-  operationCategory?: string | undefined;
-  operationType?: string | undefined;
+  operationGroup: DerivedOperationGroup;
+  operationLabel: string;
   reference: string;
   platformKey: string;
   transactionDatetime: string;

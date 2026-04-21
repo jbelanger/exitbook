@@ -1,5 +1,6 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import type { TaxPackageBuildContext } from '../tax-package-build-context.js';
@@ -10,6 +11,23 @@ import {
   createStandardPackageBuildContext,
   createStandardWorkflowArtifact,
 } from './test-utils.js';
+
+function createBridgeAnnotation(transactionId: number, txFingerprint: string): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:${txFingerprint}:bridge-source`,
+    accountId: 1,
+    transactionId,
+    txFingerprint,
+    kind: 'bridge_participant',
+    tier: 'asserted',
+    target: { scope: 'transaction' },
+    role: 'source',
+    protocolRef: { id: 'wormhole' },
+    detectorId: 'bridge-participant',
+    derivedFromTxIds: [transactionId],
+    provenanceInputs: ['processor', 'diagnostic'],
+  };
+}
 
 describe('deriveTaxPackageReadinessMetadata', () => {
   it('derives live Canada readiness signals from tax-relevant transactions and tax-report transfers', () => {
@@ -31,6 +49,9 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         severity: 'warning',
       },
     ];
+    context.sourceContext.transactionAnnotationsByTransactionId = new Map([
+      [retainedTransaction.id, [createBridgeAnnotation(retainedTransaction.id, retainedTransaction.txFingerprint)]],
+    ]);
 
     if (context.workflowResult.kind !== 'canada-workflow') {
       throw new Error('Expected canada-workflow test fixture');
@@ -74,8 +95,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         {
           diagnosticCode: 'allocation_uncertain',
           diagnosticMessage: 'Per-asset proceeds split is not exact',
-          operationCategory: retainedTransaction.operation.category,
-          operationType: retainedTransaction.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'bridge/send',
           reference: retainedTransaction.txFingerprint,
           platformKey: retainedTransaction.platformKey,
           transactionDatetime: retainedTransaction.datetime,
@@ -102,8 +123,8 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         {
           diagnosticCode: 'classification_uncertain',
           diagnosticMessage: 'Needs review',
-          operationCategory: retainedTransaction.operation.category,
-          operationType: retainedTransaction.operation.type,
+          operationGroup: 'transfer',
+          operationLabel: 'bridge/send',
           reference: retainedTransaction.txFingerprint,
           platformKey: retainedTransaction.platformKey,
           transactionDatetime: retainedTransaction.datetime,
@@ -255,6 +276,7 @@ describe('deriveTaxPackageReadinessMetadata', () => {
         transactionsById: new Map(),
         accountsById: new Map(),
         confirmedLinksById: new Map(),
+        transactionAnnotationsByTransactionId: new Map(),
       },
     };
 

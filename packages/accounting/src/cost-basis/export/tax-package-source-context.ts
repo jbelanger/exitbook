@@ -1,5 +1,6 @@
 import type { TransactionLink, Transaction } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { CostBasisContext } from '../../ports/cost-basis-persistence.js';
 
@@ -31,10 +32,19 @@ export function buildIndexedTaxPackageSourceContext(
     return err(confirmedLinksByIdResult.error);
   }
 
+  const transactionAnnotationsByTransactionIdResult = buildGroupedTransactionAnnotations(
+    sourceContext.transactionAnnotations ?? [],
+    transactionsByIdResult.value
+  );
+  if (transactionAnnotationsByTransactionIdResult.isErr()) {
+    return err(transactionAnnotationsByTransactionIdResult.error);
+  }
+
   return ok({
     transactionsById: transactionsByIdResult.value,
     accountsById: accountsByIdResult.value,
     confirmedLinksById: confirmedLinksByIdResult.value,
+    transactionAnnotationsByTransactionId: transactionAnnotationsByTransactionIdResult.value,
   });
 }
 
@@ -90,4 +100,32 @@ function buildIndexedMap<T>(
   }
 
   return ok(indexedValues);
+}
+
+function buildGroupedTransactionAnnotations(
+  annotations: readonly TransactionAnnotation[],
+  transactionsById: ReadonlyMap<number, Transaction>
+): Result<ReadonlyMap<number, readonly TransactionAnnotation[]>, Error> {
+  const groupedAnnotations = new Map<number, TransactionAnnotation[]>();
+
+  for (const annotation of annotations) {
+    const transaction = transactionsById.get(annotation.transactionId);
+    if (!transaction) {
+      return err(
+        new Error(
+          `Missing source transaction ${annotation.transactionId} for transaction annotation ${annotation.annotationFingerprint}`
+        )
+      );
+    }
+
+    const existing = groupedAnnotations.get(annotation.transactionId);
+    if (existing) {
+      existing.push(annotation);
+      continue;
+    }
+
+    groupedAnnotations.set(annotation.transactionId, [annotation]);
+  }
+
+  return ok(groupedAnnotations);
 }

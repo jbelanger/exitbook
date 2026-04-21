@@ -1,6 +1,7 @@
 import type { Account, TransactionLink, Transaction } from '@exitbook/core';
 import type { ProjectionStatus } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import type { CostBasisJurisdiction, CostBasisMethod, FiatCurrency } from '../cost-basis/model/cost-basis-config.js';
 
@@ -14,6 +15,8 @@ export interface CostBasisContext {
   confirmedLinks: TransactionLink[];
   /** Accounts needed for source labeling and export rejoin context */
   accounts: Account[];
+  /** Persisted transaction interpretation facts for downstream review/export consumers */
+  transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
 }
 
 export interface CostBasisProjectionWatermark {

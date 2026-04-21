@@ -1,4 +1,5 @@
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { buildTransaction } from '../../../__tests__/test-utils.js';
@@ -10,6 +11,7 @@ import {
 
 function createSourceContext(params?: {
   accounts?: { id: number }[];
+  annotations?: TransactionAnnotation[];
   confirmedLinks?: { id: number }[];
   transactions?: { accountId?: number; id: number }[];
 }) {
@@ -23,6 +25,7 @@ function createSourceContext(params?: {
       })
     ),
     accounts: (params?.accounts ?? []).map((a) => ({ id: a.id, name: `account-${a.id}` })),
+    transactionAnnotations: params?.annotations ?? [],
     confirmedLinks: (params?.confirmedLinks ?? []).map((l) => ({ id: l.id })),
   } as unknown as Parameters<typeof buildIndexedTaxPackageSourceContext>[0];
 }
@@ -40,6 +43,7 @@ describe('buildIndexedTaxPackageSourceContext', () => {
     expect(result.transactionsById.size).toBe(2);
     expect(result.accountsById.size).toBe(1);
     expect(result.confirmedLinksById.size).toBe(1);
+    expect(result.transactionAnnotationsByTransactionId.size).toBe(0);
   });
 
   it('should return error for duplicate transaction ids', () => {
@@ -52,6 +56,33 @@ describe('buildIndexedTaxPackageSourceContext', () => {
 
     expect(result.message).toContain('Duplicate');
     expect(result.message).toContain('transaction');
+  });
+
+  it('should group transaction annotations by transaction id', () => {
+    const ctx = createSourceContext({
+      transactions: [{ id: 1 }, { id: 2 }],
+      annotations: [
+        {
+          annotationFingerprint: 'annotation:tx-1:bridge',
+          accountId: 1,
+          transactionId: 1,
+          txFingerprint: 'tx-1',
+          kind: 'bridge_participant',
+          tier: 'asserted',
+          target: { scope: 'transaction' },
+          role: 'source',
+          protocolRef: { id: 'wormhole' },
+          detectorId: 'bridge-participant',
+          derivedFromTxIds: [1],
+          provenanceInputs: ['processor', 'diagnostic'],
+        },
+      ],
+    });
+
+    const result = assertOk(buildIndexedTaxPackageSourceContext(ctx));
+
+    expect(result.transactionAnnotationsByTransactionId.get(1)).toHaveLength(1);
+    expect(result.transactionAnnotationsByTransactionId.get(2)).toBeUndefined();
   });
 });
 

@@ -51,6 +51,7 @@ function createTestTaxPackageContext(accounts: readonly Account[]): TaxPackageBu
       transactionsById: new Map(),
       accountsById: new Map(accounts.map((account) => [account.id, account])),
       confirmedLinksById: new Map(),
+      transactionAnnotationsByTransactionId: new Map(),
     },
   };
 }

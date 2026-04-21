@@ -220,8 +220,8 @@ describe('evaluateTaxPackageReadiness', () => {
             diagnosticCode: 'classification_uncertain',
             diagnosticMessage:
               'Kraken group TSDEF5I-HNFS4-PZQ2KE has complex multi-leg fund flow and was materialized conservatively as a transfer.',
-            operationCategory: 'transfer',
-            operationType: 'transfer',
+            operationGroup: 'transfer',
+            operationLabel: 'bridge/send',
             reference: 'LI54ES-YRZMF-F2MYUQ',
             platformKey: 'kraken',
             transactionDatetime: '2023-11-28T04:59:06.764Z',
@@ -239,7 +239,7 @@ describe('evaluateTaxPackageReadiness', () => {
     expect(result.blockingIssues[0]?.affectedArtifact).toBe('source transaction');
     expect(result.blockingIssues[0]?.affectedRowRef).toBe('LI54ES-YRZMF-F2MYUQ');
     expect(result.blockingIssues[0]?.details).toContain('Tax-relevant transaction kraken LI54ES-YRZMF-F2MYUQ');
-    expect(result.blockingIssues[0]?.details).toContain('materialized as transfer/transfer');
+    expect(result.blockingIssues[0]?.details).toContain('interpreted as bridge/send');
     expect(result.blockingIssues[0]?.recommendedAction).toBe(
       'Review the transaction operation classification (for example transfer, swap, reward, or fee) before filing.'
     );
@@ -270,8 +270,8 @@ describe('evaluateTaxPackageReadiness', () => {
             diagnosticCode: 'allocation_uncertain',
             diagnosticMessage:
               'Kraken dustsweeping group TSDEF5I-HNFS4-PZQ2KE was classified as a dust conversion, but Kraken does not provide an exact per-asset proceeds allocation across every disposed asset in the group.',
-            operationCategory: 'trade',
-            operationType: 'swap',
+            operationGroup: 'trade',
+            operationLabel: 'trade/swap',
             reference: 'LI54ES-YRZMF-F2MYUQ',
             platformKey: 'kraken',
             transactionDatetime: '2023-11-28T04:59:06.764Z',

@@ -89,6 +89,7 @@ beforeEach(() => {
         transactionsById: new Map(),
         accountsById: new Map(),
         confirmedLinksById: new Map(),
+        transactionAnnotationsByTransactionId: new Map(),
       },
     } as never)
   );

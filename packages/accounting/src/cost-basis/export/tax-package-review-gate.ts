@@ -177,10 +177,7 @@ function buildReadinessIssue(
 }
 
 function buildUnknownTransactionClassificationDetail(detail: TaxPackageUnknownTransactionClassificationDetail): string {
-  const operationLabel =
-    detail.operationCategory !== undefined && detail.operationType !== undefined
-      ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
-      : '';
+  const operationLabel = ` It is currently interpreted as ${detail.operationLabel}.`;
 
   return `Tax-relevant transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} could not be confidently classified into an accounting operation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
 }
@@ -195,10 +192,7 @@ function buildMissingPriceDetail(detail: TaxPackageMissingPriceDetail): string {
 }
 
 function buildUncertainProceedsAllocationDetail(detail: TaxPackageUncertainProceedsAllocationDetail): string {
-  const operationLabel =
-    detail.operationCategory !== undefined && detail.operationType !== undefined
-      ? ` It is currently materialized as ${detail.operationCategory}/${detail.operationType}.`
-      : '';
+  const operationLabel = ` It is currently interpreted as ${detail.operationLabel}.`;
 
   return `Tax-relevant transaction ${detail.platformKey} ${detail.reference} at ${detail.transactionDatetime} has provider hints for its economic classification, but the provider data does not specify an exact per-asset proceeds allocation.${operationLabel} Diagnostic (${detail.diagnosticCode}): ${detail.diagnosticMessage}`;
 }
