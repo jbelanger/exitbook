@@ -11,11 +11,14 @@ export {
   TransactionAnnotationSchema,
   canonicalizeDerivedFromTxIds,
   computeAnnotationFingerprint,
+  getStakingRewardComponents,
+  sumUniqueStakingRewardComponents,
   toDerivedFromTxIds,
   type AnnotationFingerprintInput,
   type AnnotationKind,
   type AnnotationProvenanceInput,
   type AnnotationRole,
+  type StakingRewardComponent,
   type AnnotationTarget,
   type AnnotationTier,
   type DerivedFromTxIds,
@@ -26,6 +29,11 @@ export {
   type DerivedOperationGroup,
   type DerivedOperationLabel,
 } from './labels/derive-operation-label.js';
+export {
+  collectTransactionReadinessIssues,
+  type TransactionReadinessIssue,
+  type TransactionReadinessIssueCode,
+} from './readiness/transaction-readiness-issues.js';
 
 export type {
   DetectorInput,
@@ -40,6 +48,7 @@ export { AssetMigrationParticipantDetector } from './detectors/asset-migration-p
 export { BridgeParticipantDetector } from './detectors/bridge-participant-detector.js';
 export { HeuristicBridgeParticipantDetector } from './detectors/heuristic-bridge-participant-detector.js';
 export { StakingRewardDetector } from './detectors/staking-reward-detector.js';
+export { StakingRewardComponentDetector } from './detectors/staking-reward-component-detector.js';
 
 export type { TransactionAnnotationQuery } from './persistence/transaction-annotation-query.js';
 export type {

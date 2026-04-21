@@ -72,7 +72,6 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             movementFingerprint: inflow.movementFingerprint,
-            transactionDiagnostics: tx.diagnostics,
             transactionAnnotations: annotationsByTransactionId.get(tx.id),
           }
         )
@@ -101,7 +100,6 @@ export function buildLinkableMovements(
             excluded,
             isInternal,
             movementFingerprint: outflow.movementFingerprint,
-            transactionDiagnostics: tx.diagnostics,
             transactionAnnotations: annotationsByTransactionId.get(tx.id),
           }
         )
@@ -158,7 +156,6 @@ function createLinkableMovement(
     isInternal: boolean;
     movementFingerprint: string;
     transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
-    transactionDiagnostics?: Transaction['diagnostics'];
   }
 ): LinkableMovement {
   return {
@@ -176,7 +173,6 @@ function createLinkableMovement(
     blockchainTxHash: normalizedHash,
     fromAddress: tx.from,
     toAddress: tx.to,
-    transactionDiagnostics: flags.transactionDiagnostics,
     transactionAnnotations: flags.transactionAnnotations === undefined ? undefined : [...flags.transactionAnnotations],
     isInternal: flags.isInternal,
     excluded: flags.excluded,

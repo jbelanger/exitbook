@@ -24,3 +24,8 @@ export {
 } from './annotation-schemas.js';
 
 export { computeAnnotationFingerprint, type AnnotationFingerprintInput } from './annotation-fingerprint.js';
+export {
+  getStakingRewardComponents,
+  sumUniqueStakingRewardComponents,
+  type StakingRewardComponent,
+} from './staking-reward-components.js';

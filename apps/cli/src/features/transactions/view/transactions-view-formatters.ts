@@ -51,6 +51,8 @@ function formatAnnotationKind(kind: TransactionAnnotation['kind']): string {
       return 'asset migration';
     case 'staking_reward':
       return 'staking reward';
+    case 'staking_reward_component':
+      return 'staking reward component';
     case 'wrap':
       return 'wrap';
     case 'unwrap':
@@ -78,9 +80,15 @@ function buildAnnotationMetadataParts(annotation: TransactionAnnotation): string
   const destinationChain = typeof metadata['destinationChain'] === 'string' ? metadata['destinationChain'] : undefined;
   const counterpartTxFingerprint =
     typeof metadata['counterpartTxFingerprint'] === 'string' ? metadata['counterpartTxFingerprint'] : undefined;
+  const amount = typeof metadata['amount'] === 'string' ? metadata['amount'] : undefined;
+  const assetSymbol = typeof metadata['assetSymbol'] === 'string' ? metadata['assetSymbol'] : undefined;
 
   if (sourceChain !== undefined || destinationChain !== undefined) {
     parts.push(`${sourceChain ?? '?'} -> ${destinationChain ?? '?'}`);
+  }
+
+  if (amount !== undefined && assetSymbol !== undefined) {
+    parts.push(`${amount} ${assetSymbol}`);
   }
 
   if (counterpartTxFingerprint !== undefined) {

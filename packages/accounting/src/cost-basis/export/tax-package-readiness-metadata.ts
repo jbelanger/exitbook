@@ -2,6 +2,7 @@ import type { AssetReviewSummary, Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import {
+  collectTransactionReadinessIssues,
   deriveOperationLabel,
   type DerivedOperationLabel,
   type TransactionAnnotation,
@@ -22,9 +23,6 @@ import type {
 
 const logger = getLogger('cost-basis.export.tax-package-readiness-metadata');
 
-const ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES = new Set(['allocation_uncertain']);
-const UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES = new Set(['classification_uncertain', 'classification_failed']);
-
 export function deriveTaxPackageReadinessMetadata(params: {
   assetReviewSummaries?: ReadonlyMap<string, AssetReviewSummary> | undefined;
   context: TaxPackageBuildContext;
@@ -35,7 +33,7 @@ export function deriveTaxPackageReadinessMetadata(params: {
   const allocationUncertainDetails = collectTransactionIssueDetails<TaxPackageUncertainProceedsAllocationDetail>(
     params.context,
     taxRelevantTransactions,
-    ALLOCATION_UNCERTAIN_DIAGNOSTIC_CODES
+    'uncertain_proceeds_allocation'
   );
   const unknownTransactionClassificationDetails = collectUnknownTransactionClassificationDetails(
     params.context,
@@ -150,22 +148,20 @@ function collectUnknownTransactionClassificationDetails(
   transactions: readonly Transaction[]
 ): TaxPackageUnknownTransactionClassificationDetail[] {
   return transactions.flatMap((transaction) => {
-    const matchingDiagnostic = transaction.diagnostics?.find((diagnostic) =>
-      UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES.has(diagnostic.code)
-    );
-    if (!matchingDiagnostic) {
+    const matchingIssue = collectTransactionReadinessIssues(
+      transaction,
+      getAssertedTransactionAnnotations(context, transaction.id)
+    ).find((issue) => issue.code === 'unknown_classification');
+    if (!matchingIssue) {
       return [];
     }
 
     const derivedOperation = deriveTaxReadinessOperation(context, transaction);
-    if (derivedOperation.source === 'annotation') {
-      return [];
-    }
 
     return [
       {
-        diagnosticCode: matchingDiagnostic.code,
-        diagnosticMessage: matchingDiagnostic.message,
+        diagnosticCode: matchingIssue.diagnosticCode,
+        diagnosticMessage: matchingIssue.diagnosticMessage,
         operationGroup: derivedOperation.group,
         operationLabel: derivedOperation.label,
         reference: transaction.txFingerprint,
@@ -180,11 +176,14 @@ function collectUnknownTransactionClassificationDetails(
 function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransactionClassificationDetail>(
   context: TaxPackageBuildContext,
   transactions: readonly Transaction[],
-  diagnosticCodes: ReadonlySet<string>
+  issueCode: 'uncertain_proceeds_allocation'
 ): TDetail[] {
   return transactions.flatMap((transaction) => {
-    const matchingDiagnostic = transaction.diagnostics?.find((diagnostic) => diagnosticCodes.has(diagnostic.code));
-    if (!matchingDiagnostic) {
+    const matchingIssue = collectTransactionReadinessIssues(
+      transaction,
+      getAssertedTransactionAnnotations(context, transaction.id)
+    ).find((issue) => issue.code === issueCode);
+    if (!matchingIssue) {
       return [];
     }
 
@@ -192,8 +191,8 @@ function collectTransactionIssueDetails<TDetail extends TaxPackageUnknownTransac
 
     return [
       {
-        diagnosticCode: matchingDiagnostic.code,
-        diagnosticMessage: matchingDiagnostic.message,
+        diagnosticCode: matchingIssue.diagnosticCode,
+        diagnosticMessage: matchingIssue.diagnosticMessage,
         operationGroup: derivedOperation.group,
         operationLabel: derivedOperation.label,
         reference: transaction.txFingerprint,

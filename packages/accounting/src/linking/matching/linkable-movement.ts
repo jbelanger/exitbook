@@ -1,4 +1,4 @@
-import { PlatformKindSchema, TransactionDiagnosticSchema } from '@exitbook/core';
+import { PlatformKindSchema } from '@exitbook/core';
 import { CurrencySchema, DateSchema, DecimalSchema } from '@exitbook/foundation';
 import { TransactionAnnotationSchema, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { z } from 'zod';
@@ -21,7 +21,6 @@ export const LinkableMovementSchema = z.object({
   blockchainTxHash: z.string().optional(),
   fromAddress: z.string().optional(),
   toAddress: z.string().optional(),
-  transactionDiagnostics: z.array(TransactionDiagnosticSchema).optional(),
   transactionAnnotations: z.array(TransactionAnnotationSchema).optional(),
   isInternal: z.boolean(),
   excluded: z.boolean(),

@@ -16,6 +16,7 @@ import {
 } from '@exitbook/accounting/portfolio';
 import type { Transaction } from '@exitbook/core';
 import type { Currency } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -131,6 +132,48 @@ function createTransaction(params: {
     },
     notes: [],
   } as unknown as Transaction;
+}
+
+function createBridgeAnnotation(params: {
+  role: 'source' | 'target';
+  tier: 'asserted' | 'heuristic';
+  transaction: Transaction;
+}): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:${params.transaction.txFingerprint}:${params.tier}:${params.role}:bridge`,
+    accountId: params.transaction.accountId,
+    transactionId: params.transaction.id,
+    txFingerprint: params.transaction.txFingerprint,
+    kind: 'bridge_participant',
+    tier: params.tier,
+    target: { scope: 'transaction' },
+    ...(params.tier === 'asserted' ? { protocolRef: { id: 'wormhole' } } : {}),
+    role: params.role,
+    detectorId: params.tier === 'asserted' ? 'bridge-participant' : 'heuristic-bridge-participant',
+    derivedFromTxIds: [params.transaction.id],
+    provenanceInputs: params.tier === 'asserted' ? ['processor', 'diagnostic'] : ['timing', 'address_pattern'],
+  };
+}
+
+function createStakingRewardAnnotation(params: {
+  movementFingerprint: string;
+  transaction: Transaction;
+}): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:${params.transaction.txFingerprint}:${params.movementFingerprint}:staking`,
+    accountId: params.transaction.accountId,
+    transactionId: params.transaction.id,
+    txFingerprint: params.transaction.txFingerprint,
+    kind: 'staking_reward',
+    tier: 'asserted',
+    target: {
+      scope: 'movement',
+      movementFingerprint: params.movementFingerprint,
+    },
+    detectorId: 'staking-reward',
+    derivedFromTxIds: [params.transaction.id],
+    provenanceInputs: ['movement_role'],
+  };
 }
 
 function buildAccountingModel(transactions: Transaction[]) {
@@ -795,5 +838,57 @@ describe('portfolio position building', () => {
     const result = computeNetFiatInUsd(buildAccountingModel([eurDepositNoPrice]));
     expect(result.netFiatInUsd.toFixed(2)).toBe('0.00');
     expect(result.skippedNonUsdMovementsWithoutPrice).toBe(1);
+  });
+
+  it('keeps transfer fiat funding when unrelated annotations are present', () => {
+    const mixedTransfer = createTransaction({
+      id: 42,
+      accountId: 1,
+      datetime: '2025-01-06T00:00:00.000Z',
+      source: 'kraken',
+      operationCategory: 'transfer',
+      operationType: 'deposit',
+      inflows: [
+        { assetId: 'exchange:kraken:usd', assetSymbol: 'USD', amount: '100', price: '1' },
+        { assetId: 'blockchain:cardano:native', assetSymbol: 'ADA', amount: '5', price: '0.75' },
+      ],
+    });
+    const rewardMovement = mixedTransfer.movements.inflows?.[1];
+    if (rewardMovement === undefined) {
+      throw new Error('Expected staking reward inflow for computeNetFiatInUsd test');
+    }
+
+    const result = computeNetFiatInUsd(buildAccountingModel([mixedTransfer]), [
+      createStakingRewardAnnotation({
+        movementFingerprint: rewardMovement.movementFingerprint,
+        transaction: mixedTransfer,
+      }),
+    ]);
+
+    expect(result.netFiatInUsd.toFixed(2)).toBe('100.00');
+    expect(result.skippedNonUsdMovementsWithoutPrice).toBe(0);
+  });
+
+  it('treats annotation-backed bridge transfers as eligible fiat funding transactions', () => {
+    const bridgeLikeDeposit = createTransaction({
+      id: 43,
+      accountId: 1,
+      datetime: '2025-01-07T00:00:00.000Z',
+      source: 'kraken',
+      operationCategory: 'trade',
+      operationType: 'buy',
+      inflows: [{ assetId: 'exchange:kraken:cad', assetSymbol: 'CAD', amount: '100', price: '0.75' }],
+    });
+
+    const result = computeNetFiatInUsd(buildAccountingModel([bridgeLikeDeposit]), [
+      createBridgeAnnotation({
+        role: 'target',
+        tier: 'asserted',
+        transaction: bridgeLikeDeposit,
+      }),
+    ]);
+
+    expect(result.netFiatInUsd.toFixed(2)).toBe('75.00');
+    expect(result.skippedNonUsdMovementsWithoutPrice).toBe(0);
   });
 });

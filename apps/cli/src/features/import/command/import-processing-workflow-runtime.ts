@@ -13,6 +13,7 @@ import {
   HeuristicBridgeParticipantDetector,
   InterpretationRuntime,
   StakingRewardDetector,
+  StakingRewardComponentDetector,
   TransactionAnnotationDetectorRegistry,
   TransactionAnnotationProfileDetectorRegistry,
 } from '@exitbook/transaction-interpretation';
@@ -141,6 +142,7 @@ function createCliInterpretationRuntime(database: DataSession): InterpretationRu
   registry.register(new BridgeParticipantDetector(protocolCatalog));
   registry.register(new AssetMigrationParticipantDetector());
   registry.register(new StakingRewardDetector());
+  registry.register(new StakingRewardComponentDetector());
 
   const profileRegistry = new TransactionAnnotationProfileDetectorRegistry();
   profileRegistry.register(new HeuristicBridgeParticipantDetector());

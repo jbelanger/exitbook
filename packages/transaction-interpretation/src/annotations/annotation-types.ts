@@ -5,6 +5,7 @@ export const ANNOTATION_KINDS = [
   'bridge_participant',
   'asset_migration_participant',
   'staking_reward',
+  'staking_reward_component',
   'wrap',
   'unwrap',
   'protocol_deposit',

@@ -271,8 +271,8 @@ describe('export-utils', () => {
         ])
       );
 
-      expect(result).toContain('id,tx_fingerprint,platform_key,operation_category,operation_type,operation_group');
-      expect(result).toContain('1,ext-1,kraken,trade,buy,transfer,bridge/send,bridge_participant,heuristic');
+      expect(result).toContain('id,tx_fingerprint,platform_key,operation_group,operation_label');
+      expect(result).toContain('1,ext-1,kraken,transfer,bridge/send,bridge_participant,heuristic');
       expect(result).toContain('BTC,1.5');
       expect(result).toContain('classification_uncertain');
       expect(result).toContain('Needs review');
@@ -307,9 +307,9 @@ describe('export-utils', () => {
       const lines = result.split('\n');
 
       expect(lines).toHaveLength(3); // header + 2 rows
-      expect(lines[0]).toContain('id,tx_fingerprint,platform_key,operation_category');
-      expect(lines[1]).toContain('1,ext-1,kraken,trade,buy');
-      expect(lines[2]).toContain('2,ext-2,kraken,trade,sell');
+      expect(lines[0]).toContain('id,tx_fingerprint,platform_key,operation_group');
+      expect(lines[1]).toContain('1,ext-1,kraken,trade,trade/buy');
+      expect(lines[2]).toContain('2,ext-2,kraken,trade,trade/sell');
     });
 
     it('should escape values with commas', () => {
@@ -388,15 +388,13 @@ describe('export-utils', () => {
         fees: { total?: unknown };
         id: string;
         movements: { primary: { amount: string; assetSymbol: string; direction: string } };
-        operation: { category: string; type: string };
         operationGroup: string;
         operationLabel: string;
         platformKey: string;
       };
       expect(tx.id).toBe(1);
       expect(tx.platformKey).toBe('kraken');
-      expect(tx.operation.category).toBe('trade');
-      expect(tx.operation.type).toBe('buy');
+      expect('operation' in tx).toBe(false);
       expect(tx.operationGroup).toBe('transfer');
       expect(tx.operationLabel).toBe('bridge/send');
       expect(tx.annotations).toHaveLength(1);
@@ -485,8 +483,8 @@ describe('export-utils', () => {
 
       // Should contain proper indentation (2 spaces)
       expect(result).toContain('  "id"');
-      expect(result).toContain('  "operation"');
-      expect(result).toContain('    "category"');
+      expect(result).toContain('  "operationGroup"');
+      expect(result).toContain('  "operationLabel"');
     });
   });
 
@@ -565,7 +563,7 @@ describe('export-utils', () => {
 
       expect(result.transactionsCsv).toContain('id,tx_fingerprint,account_id');
       expect(result.transactionsCsv).toContain(
-        '1,ext-1,1,kraken,trade,buy,transfer,asset migration/receive,asset_migration_participant,heuristic'
+        '1,ext-1,1,kraken,transfer,asset migration/receive,asset_migration_participant,heuristic'
       );
       expect(result.movementsCsv).toContain('tx_id,direction,asset_id,asset_symbol');
       expect(result.movementsCsv).toContain('1,in,test:btc,BTC,1.5');

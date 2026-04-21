@@ -4,6 +4,7 @@ import {
   type TransactionDiagnostic,
 } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 
 import { materializeTestTransaction } from '../../__tests__/test-utils.js';
 import type { LinkableMovement } from '../matching/linkable-movement.js';
@@ -136,7 +137,7 @@ export function createImpossibleMultiSourceAdaHashPartialTransactions(): Transac
 
 export function createExplainedMultiSourceAdaHashPartialScenario() {
   const hash = '0c62fbdfe97c5e94346f0976114b769b45080dc5d9e0c03ca33ad112dc8f25cf';
-  const transactionDiagnostics = [createUnattributedStakingRewardDiagnostic('10.524451')];
+  const transactionAnnotations = [createStakingRewardComponentAnnotation('10.524451')];
 
   const sources = [
     createLinkableMovement({
@@ -155,7 +156,7 @@ export function createExplainedMultiSourceAdaHashPartialScenario() {
       toAddress:
         'addr1q95qk0u05drsy3e3qfjzspgc97a3f8ktv23se96sqfw4204c0rqf3wsyvp6zyxwgg0f7p0d8h0d8z6kpf6asuetxeussscaha9',
       movementFingerprint: 'movement:tx:v2:cardano:87:hash:outflow:0',
-      transactionDiagnostics,
+      transactionAnnotations,
     }),
     createLinkableMovement({
       id: 2,
@@ -173,7 +174,7 @@ export function createExplainedMultiSourceAdaHashPartialScenario() {
       toAddress:
         'addr1q95qk0u05drsy3e3qfjzspgc97a3f8ktv23se96sqfw4204c0rqf3wsyvp6zyxwgg0f7p0d8h0d8z6kpf6asuetxeussscaha9',
       movementFingerprint: 'movement:tx:v2:cardano:89:hash:outflow:0',
-      transactionDiagnostics,
+      transactionAnnotations,
     }),
     createLinkableMovement({
       id: 3,
@@ -191,7 +192,7 @@ export function createExplainedMultiSourceAdaHashPartialScenario() {
       toAddress:
         'addr1q95qk0u05drsy3e3qfjzspgc97a3f8ktv23se96sqfw4204c0rqf3wsyvp6zyxwgg0f7p0d8h0d8z6kpf6asuetxeussscaha9',
       movementFingerprint: 'movement:tx:v2:cardano:91:hash:outflow:0',
-      transactionDiagnostics,
+      transactionAnnotations,
     }),
   ];
 
@@ -299,7 +300,6 @@ export function createLinkableMovementsFromTransactions(transactions: Transactio
           fromAddress: tx.from,
           toAddress: tx.to,
           movementFingerprint: inflow.movementFingerprint,
-          transactionDiagnostics: tx.diagnostics,
         })
       );
     }
@@ -323,7 +323,6 @@ export function createLinkableMovementsFromTransactions(transactions: Transactio
           fromAddress: tx.from,
           toAddress: tx.to,
           movementFingerprint: outflow.movementFingerprint,
-          transactionDiagnostics: tx.diagnostics,
         })
       );
     }
@@ -423,6 +422,26 @@ function createUnattributedStakingRewardDiagnostic(amount: string): TransactionD
       amount,
       assetSymbol: 'ADA',
       movementRole: 'staking_reward',
+    },
+  };
+}
+
+function createStakingRewardComponentAnnotation(amount: string): TransactionAnnotation {
+  return {
+    annotationFingerprint: `annotation:staking-reward-component:${amount}`,
+    accountId: 87,
+    transactionId: 2447,
+    txFingerprint: `tx:staking-reward-component:${amount}`,
+    kind: 'staking_reward_component',
+    tier: 'asserted',
+    target: { scope: 'transaction' },
+    detectorId: 'staking-reward-component',
+    derivedFromTxIds: [2447],
+    provenanceInputs: ['diagnostic'],
+    metadata: {
+      amount,
+      assetSymbol: 'ADA',
+      componentKey: `unattributed_staking_reward_component:ADA:${amount}`,
     },
   };
 }

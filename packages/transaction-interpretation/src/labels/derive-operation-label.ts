@@ -10,7 +10,7 @@ export interface DerivedOperationLabel {
   source: 'annotation' | 'operation';
 }
 
-const ANNOTATION_KIND_PRIORITY: readonly AnnotationKind[] = [
+const ANNOTATION_KIND_PRIORITY = [
   'staking_reward',
   'wrap',
   'unwrap',
@@ -19,7 +19,10 @@ const ANNOTATION_KIND_PRIORITY: readonly AnnotationKind[] = [
   'bridge_participant',
   'asset_migration_participant',
   'airdrop_claim',
-];
+] as const satisfies readonly AnnotationKind[];
+
+type OperationLabelAnnotationKind = (typeof ANNOTATION_KIND_PRIORITY)[number];
+type OperationLabelAnnotation = TransactionAnnotation & { kind: OperationLabelAnnotationKind };
 
 function mapOperationCategoryToGroup(category: Transaction['operation']['category']): DerivedOperationGroup {
   switch (category) {
@@ -38,17 +41,25 @@ function getAnnotationTierRank(tier: AnnotationTier): number {
   return tier === 'asserted' ? 2 : 1;
 }
 
-function getAnnotationKindRank(kind: AnnotationKind): number {
+function getAnnotationKindRank(kind: OperationLabelAnnotationKind): number {
   const rank = ANNOTATION_KIND_PRIORITY.indexOf(kind);
   return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
 }
 
+function isOperationLabelAnnotation(annotation: TransactionAnnotation): annotation is OperationLabelAnnotation {
+  return ANNOTATION_KIND_PRIORITY.includes(annotation.kind as OperationLabelAnnotationKind);
+}
+
 function chooseOperationLabelAnnotation(
   annotations: readonly TransactionAnnotation[]
-): TransactionAnnotation | undefined {
-  let selected: TransactionAnnotation | undefined;
+): OperationLabelAnnotation | undefined {
+  let selected: OperationLabelAnnotation | undefined;
 
   for (const annotation of annotations) {
+    if (!isOperationLabelAnnotation(annotation)) {
+      continue;
+    }
+
     if (selected === undefined) {
       selected = annotation;
       continue;
@@ -87,7 +98,7 @@ function buildRoleLabel(annotation: TransactionAnnotation, sendLabel: string, re
   return sendLabel;
 }
 
-function buildAnnotationOperationLabel(annotation: TransactionAnnotation): DerivedOperationLabel {
+function buildAnnotationOperationLabel(annotation: OperationLabelAnnotation): DerivedOperationLabel {
   switch (annotation.kind) {
     case 'bridge_participant':
       return {

@@ -1,10 +1,10 @@
 import {
-  sumUniqueUnattributedStakingRewardComponents,
   type NewTransactionLink,
   type SameHashExternalSourceAllocation,
   type TransactionLinkMetadata,
 } from '@exitbook/core';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import { sumUniqueStakingRewardComponents } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import { createTransactionLink } from '../matching/link-construction.js';
@@ -271,8 +271,8 @@ function resolveGroupMatch(
   if (exactMatches.length !== 1) {
     const explainedTargetResidualAmount =
       group.siblingInflows.length === 0
-        ? sumUniqueUnattributedStakingRewardComponents(
-            group.sources.map((source) => source.transactionDiagnostics),
+        ? sumUniqueStakingRewardComponents(
+            group.sources.map((source) => source.transactionAnnotations),
             group.sources[0]?.assetSymbol
           )
         : parseDecimal('0');

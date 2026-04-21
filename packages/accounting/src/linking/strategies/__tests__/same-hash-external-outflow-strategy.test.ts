@@ -1,5 +1,5 @@
-import { UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE } from '@exitbook/core';
 import { type Currency, parseDecimal } from '@exitbook/foundation';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { describe, expect, it } from 'vitest';
 
 import { buildMatchingConfig } from '../../matching/matching-config.js';
@@ -169,15 +169,22 @@ describe('SameHashExternalOutflowStrategy', () => {
     const targetTimestamp = new Date('2024-07-25T20:35:47.000Z');
     const toAddress =
       'addr1q95qk0u05drsy3e3qfjzspgc97a3f8ktv23se96sqfw4204c0rqf3wsyvp6zyxwgg0f7p0d8h0d8z6kpf6asuetxeussscaha9';
-    const transactionDiagnostics = [
+    const transactionAnnotations: readonly TransactionAnnotation[] = [
       {
-        code: UNATTRIBUTED_STAKING_REWARD_COMPONENT_DIAGNOSTIC_CODE,
-        message: 'wallet-scoped staking reward component',
-        severity: 'info' as const,
+        annotationFingerprint: 'annotation:staking-reward-component:10.524451',
+        accountId: 87,
+        transactionId: 2447,
+        txFingerprint: 'tx:staking-reward-component:10.524451',
+        kind: 'staking_reward_component',
+        tier: 'asserted',
+        target: { scope: 'transaction' },
+        detectorId: 'staking-reward-component',
+        derivedFromTxIds: [2447],
+        provenanceInputs: ['diagnostic'],
         metadata: {
           amount: '10.524451',
-          assetSymbol: 'ADA' as Currency,
-          movementRole: 'staking_reward',
+          assetSymbol: 'ADA',
+          componentKey: 'unattributed_staking_reward_component:ADA:10.524451',
         },
       },
     ];
@@ -198,7 +205,7 @@ describe('SameHashExternalOutflowStrategy', () => {
         blockchainTxHash: hash,
         toAddress,
         movementFingerprint: 'movement:cardano:2447:outflow:0',
-        transactionDiagnostics,
+        transactionAnnotations: [...transactionAnnotations],
       }),
       createLinkableMovement({
         id: 2,
@@ -215,7 +222,7 @@ describe('SameHashExternalOutflowStrategy', () => {
         blockchainTxHash: hash,
         toAddress,
         movementFingerprint: 'movement:cardano:2452:outflow:0',
-        transactionDiagnostics,
+        transactionAnnotations: [...transactionAnnotations],
       }),
       createLinkableMovement({
         id: 3,
@@ -232,7 +239,7 @@ describe('SameHashExternalOutflowStrategy', () => {
         blockchainTxHash: hash,
         toAddress,
         movementFingerprint: 'movement:cardano:2454:outflow:0',
-        transactionDiagnostics,
+        transactionAnnotations: [...transactionAnnotations],
       }),
     ];
 

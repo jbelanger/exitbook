@@ -258,7 +258,10 @@ export class PortfolioHandler {
   private async buildPortfolioValuationContext(
     inputs: PortfolioExecutionInputs
   ): Promise<Result<PortfolioValuationContext, Error>> {
-    const fiatFlowComputation = computeNetFiatInUsd(inputs.portfolioAccountingModel);
+    const fiatFlowComputation = computeNetFiatInUsd(
+      inputs.portfolioAccountingModel,
+      inputs.portfolioSourceContext.transactionAnnotations ?? []
+    );
     const warnings: string[] = [];
     if (fiatFlowComputation.skippedNonUsdMovementsWithoutPrice > 0) {
       warnings.push(

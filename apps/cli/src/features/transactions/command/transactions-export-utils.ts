@@ -139,8 +139,6 @@ export function convertToCSV(
     'id',
     'tx_fingerprint',
     'platform_key',
-    'operation_category',
-    'operation_type',
     'operation_group',
     'operation_label',
     'annotation_kinds',
@@ -173,8 +171,6 @@ export function convertToCSV(
       tx.id ?? '',
       tx.txFingerprint,
       tx.platformKey ?? '',
-      tx.operation.category ?? '',
-      tx.operation.type ?? '',
       derivedOperation.group,
       derivedOperation.label,
       formatAnnotationKinds(annotations),
@@ -232,8 +228,6 @@ export function convertToNormalizedCSV(
     'tx_fingerprint',
     'account_id',
     'platform_key',
-    'operation_category',
-    'operation_type',
     'operation_group',
     'operation_label',
     'annotation_kinds',
@@ -343,8 +337,6 @@ export function convertToNormalizedCSV(
         tx.txFingerprint,
         tx.accountId,
         tx.platformKey,
-        tx.operation.category,
-        tx.operation.type,
         derivedOperation.group,
         derivedOperation.label,
         formatAnnotationKinds(annotations),
@@ -613,9 +605,10 @@ export function convertToJSON(
     transactions.map((transaction) => {
       const annotations = annotationsByTransactionId.get(transaction.id) ?? [];
       const derivedOperation = deriveOperationLabel(transaction, annotations);
+      const { operation: _operation, ...exportTransaction } = transaction;
 
       return {
-        ...transaction,
+        ...exportTransaction,
         operationGroup: derivedOperation.group,
         operationLabel: derivedOperation.label,
         annotations,
