@@ -48,6 +48,18 @@ Movements carry an `accounting_role` field, narrowly scoped to transfer
 eligibility and accounting behavior. Allowed values:
 `principal`, `staking_reward`, `protocol_overhead`, `refund_rebate`.
 
+`accounting_role` is **NOT NULL**. Every movement is authored with an
+explicit value at creation time — plain inflow/outflow is `principal`,
+staking payouts are `staking_reward`, and so on. Read paths never coerce a
+missing value; if the column is ever seen NULL it is an authoring bug and
+accounting should fail loud, not silently default.
+
+If durable user correction remains supported, it stays **ledger-owned**.
+The current override-store / replay pattern materializes an effective
+`accounting_role` back onto movement state before accounting or linking
+reads. Review may record why a correction happened, but cost basis and
+transfer validation still read one channel: ledger.
+
 Notably **not** carried on movements: `fee` and `gas`. Those live in the
 separate fees table. The accounting layer reads `accounting_role` to decide
 what counts as transferable principal — it does not need to consult any other
@@ -83,6 +95,31 @@ Each fact also carries an explicit `emitter_lane` of `processor` or
 `post_processor`. This is a typed column, not a string-prefix convention on
 `emitter_id`. Invalidation rules (see Cross-Transaction Post-Processing)
 branch on lane, so the lane must be first-class in the schema.
+
+#### Fingerprint contract
+
+`fact_fingerprint` must be deterministic from:
+
+- `kind`
+- `evidence`
+- fact scope plus durable target ref
+  - transaction-scoped fact: `tx_fingerprint`
+  - movement-scoped fact: `movement_fingerprint`
+- `protocol_ref`
+- `counterparty_ref`
+- `role`
+- `group_key`
+- canonicalized `metadata` (stable key ordering, no non-deterministic values)
+
+Explicitly excluded from fingerprint material:
+
+- `emitter_id` and `emitter_lane` — author provenance, not identity
+- `derived_from_tx_fingerprints` — invalidation provenance, not identity
+- database ids and timestamps
+
+Two emitters that converge on the same subject-scoped fact should produce the
+same fingerprint. If that ever causes a persistence conflict, the problem is
+upstream duplicate authorship, not fingerprint design.
 
 #### Reserved columns
 
@@ -126,10 +163,25 @@ schema column. The `kind` enum carries the discrimination.
 
 Decisions, not observations. A separate authority with its own lifecycle.
 
-Each decision targets a subject (transaction, movement, asset, or semantic
-fact, identified by a stable subject ref), records a decision verb
-(`include`, `exclude`, `reclassify`, `confirm`, `dismiss`), the reason, and
-the reviewer (a user or a named rule).
+Each decision targets a subject, records a decision verb (`include`,
+`exclude`, `reclassify`, `confirm`, `dismiss`), the reason, and the reviewer
+(a user or a named rule).
+
+Subject refs are **fingerprint-based, never id-based**. Database ids are
+ephemeral — a reprocess rewrites them — so an id-based ref would silently
+detach a decision from its target. Fingerprints survive replay. The shape
+is `{ kind, ref }` where `ref` resolves as:
+
+- `transaction` → `tx_fingerprint`
+- `movement` → persisted `movement_fingerprint` (the existing durable movement
+  identity from `docs/specs/transaction-and-movement-identity.md`)
+- `asset` → the asset id (asset ids are already stable across reprocess).
+- `semantic_fact` → `fact_fingerprint`
+
+Review decisions do **not** directly override ledger-owned
+`movements.accounting_role`. Durable accounting-role correction remains a
+ledger override keyed by `movement_fingerprint` and materialized back onto
+movement state before accounting or linking reads.
 
 The boundary versus semantic facts is sharp: a `spam_inbound` fact is what
 the processor _observed_. An `exclude` review decision is what the system or
@@ -191,19 +243,53 @@ sides.
 A small post-processing runtime exists for exactly this work. It loads a
 profile scope (accounts + transactions), runs registered post-processors
 that emit semantic facts (typically `evidence: 'inferred'`), and persists
-them with the same replay discipline used today:
-
-- replace by `(emitter_id, derived_from_tx_fingerprints)` for facts whose
-  inputs reproduce
-- replace by `(emitter_id, group_key)` for group-scoped facts whose
-  membership can change
-
-Stale facts whose inputs no longer reproduce are removed in the same pass.
-Re-running over unchanged inputs produces the same fact fingerprints.
+them under the grouping contract below.
 
 Post-processors are the **only** thing the runtime exists for. Anything
 single-transaction that does not need profile context belongs in the
 processor.
+
+### Grouping contract
+
+Cross-transaction semantics — bridge pair, asset migration, batched
+operations — are represented as **N facts sharing a group**, not as a
+special event row. This subsection is the single source of truth for how
+those N facts cohere, replace, and invalidate. It replaces the earlier
+"two replacement keys" framing by giving `group_key` and
+`derived_from_tx_fingerprints` one unified role.
+
+1. **Inputs declared.** Every fact carries
+   `derived_from_tx_fingerprints: string[]` — the set of transactions
+   whose state the fact reads. Canonicalized: sorted, deduped. Order
+   never affects identity. A single-tx processor fact has a one-element
+   set; a bridge-pair post-processor fact has a two-element set.
+2. **Group key derived.** For grouped post-processor facts, `group_key`
+   is a deterministic function of the canonical
+   `derived_from_tx_fingerprints` set (a stable hash). Post-processors
+   never synthesize group keys from external randomness. Single-subject
+   facts carry `group_key: null`.
+3. **Provider pass-through.** When a provider supplies an authoritative
+   external group identifier (e.g. an exchange-assigned batch id), a
+   processor may pass it through unchanged as `group_key`. That is the
+   only path by which `group_key` appears on a processor-lane fact.
+   Processors never synthesize their own.
+4. **Replacement.** `fact_fingerprint` is the row identity. Grouped
+   post-processors do **not** row-upsert by
+   `(emitter_id, derived_from_tx_fingerprints)`. Instead, they replace
+   one whole emitted batch in a single transaction:
+   - delete existing rows for
+     `(emitter_id, derived_from_tx_fingerprints)`
+   - insert the newly emitted N facts, each keyed by its own
+     `fact_fingerprint`
+     This is why a bridge pair can safely emit two participant facts that
+     share one canonical input set.
+5. **Scope.** `group_key` is always interpreted in the scope of
+   `emitter_id`; the meaningful identity is `(emitter_id, group_key)`.
+   Cross-emitter grouping, if ever needed, must be modeled explicitly
+   rather than inferred from a raw `group_key` collision.
+
+Re-running a post-processor over unchanged inputs produces identical fact
+fingerprints.
 
 ### Invalidation on reprocess
 
@@ -215,7 +301,10 @@ reprocessed:
   processor emits
 - all `post_processor`-lane facts whose `derived_from_tx_fingerprints`
   include that `tx_fingerprint` are deleted in the same database
-  transaction — they are **not** left visible as stale state
+  transaction — they are **not** left visible as stale state. Because
+  `group_key` is derived from `derived_from_tx_fingerprints`, deleting
+  by `derived_from` also clears the corresponding group; there is no
+  separate "invalidate the group" step.
 
 Post-processor facts are regenerated when the affected post-processors
 re-run. Until then, consumers see fewer post-processor facts, never
@@ -223,20 +312,22 @@ silently stale ones. The workflow layer is expected to re-run affected
 post-processors after a reprocess completes; the store contract guarantees
 freshness, not the workflow.
 
-### Group key lifecycle
+### Three-case sanity check
 
-`group_key` is assigned only by post-processors. Processors emit facts
-with `group_key: null`. Single exception: when a provider supplies an
-authoritative external group identifier (e.g. a provider-assigned batch
-id), a processor may pass it through unchanged. Processors never
-synthesize group keys of their own.
+Any change to the grouping contract must still cleanly cover:
 
-`group_key` is never a global identifier. It is always interpreted in the
-scope of `emitter_id`; the meaningful identity is `(emitter_id, group_key)`.
-That makes provider-pass-through ids safe without requiring global
-namespacing and matches the replacement semantics above. If we ever need
-cross-emitter grouping, that must be modeled explicitly rather than inferred
-from a raw `group_key` collision.
+- **Bridge pair.** Two txs on two chains, one post-processor fact per tx,
+  both sharing a `group_key` derived from the pair's `derived_from` set.
+- **Asset migration.** N txs (old-asset withdrawal + new-asset deposits),
+  N facts sharing a `group_key` derived from the set.
+- **Accounting-role correction.** A user sets a movement's `accounting_role`
+  to `staking_reward`. This remains a ledger-owned override keyed by
+  `movement_fingerprint` and materialized back onto movement state before
+  accounting or linking reads. It is not a semantic fact and does not touch
+  the grouping contract at all.
+
+If any of those three needs a special case in the contract, stop and
+re-examine before shipping — the model is not yet greenfield-clean.
 
 ## Read Paths
 
@@ -258,6 +349,22 @@ Consumers read from one channel for each question:
 
 No consumer reads diagnostics for semantic meaning. The closed diagnostic
 enum makes that rule mechanically enforceable.
+
+### Label composition
+
+`deriveLedgerShapeLabel()` is the base structural projection. It answers only
+from ledger shape whether a transaction looks like a deposit, withdrawal,
+transfer, trade, or fee.
+
+`deriveOperationLabel()` is the only transaction-facing label helper.
+It composes `deriveLedgerShapeLabel()` first, then overlays semantic facts
+when a richer meaning exists (`bridge/send`, `bridge/receive`,
+`asset migration/send`, `staking/reward`, and so on).
+
+Consumers rendering user-facing transaction labels, filters, exports, or
+history rows should call `deriveOperationLabel()`. Direct calls to
+`deriveLedgerShapeLabel()` are reserved for ledger/debug surfaces and tests
+that intentionally ignore semantic facts.
 
 ## What Stays From the Current Implementation
 
