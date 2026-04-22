@@ -83,11 +83,13 @@ channel for that decision.
 
 Authoring invariant: when ledger and semantics both express the same
 observation, the two must agree. V1 fixes one mandatory overlap: any
-transaction containing a movement with `accounting_role: 'staking_reward'`
-must also emit a transaction-scoped `staking_reward` fact. The other ledger
-roles do not, by themselves, imply a semantic fact kind; `principal`,
-`protocol_overhead`, and `refund_rebate` may appear with or without richer
-semantic facts depending on what the processor can prove.
+movement authored with `accounting_role: 'staking_reward'` must also emit a
+movement-scoped `staking_reward` fact targeting that same movement. Transaction
+labels may project that upward when helpful, but the durable semantic fact
+stays leg-scoped. The other ledger roles do not, by themselves, imply a
+semantic fact kind; `principal`, `protocol_overhead`, and `refund_rebate` may
+appear with or without richer semantic facts depending on what the processor
+can prove.
 
 `transaction.operation` is **gone**. There is no canonical stored "what
 happened" field on transactions. Plain transfer labels (`send`, `receive`,
@@ -123,15 +125,31 @@ not target fee rows in v1.
 V1 kind scope is fixed:
 
 - transaction-scoped kinds: `bridge`, `swap`, `wrap`, `unwrap`,
-  `staking_deposit`, `staking_withdrawal`, `staking_reward`,
+  `staking_deposit`, `staking_withdrawal`,
   `protocol_deposit`, `protocol_withdrawal`, `airdrop_claim`,
   `asset_migration`, `spam_inbound`, `phishing_approval`, `dust_fanout`
-- movement-scoped kinds: none in the initial v1 kind set
+- movement-scoped kinds: `staking_reward`
 
-Movement-scoped support remains in the generic fact contract for future narrow
-facts, but no current kind chooses its own scope ad hoc. When a transaction-
-scoped kind needs to name specific legs, it does so in kind-specific metadata
-using referenced `movement_fingerprint` values.
+`staking_reward` is movement-scoped in v1 because downstream tax, residual, and
+linking logic need exact leg attribution inside mixed transactions. V1 does
+not carry a second `staking_reward_component`-style fact family; the single
+reasoning model is the movement-scoped `staking_reward` fact itself.
+
+Movement-scoped support otherwise remains in the generic fact contract for
+future narrow facts, but no current kind chooses its own scope ad hoc. When a
+transaction-scoped kind needs to name specific legs, it does so in kind-
+specific metadata using referenced `movement_fingerprint` values.
+
+`asset_migration` is allowed in two non-overlapping authoring shapes:
+
+- processor-lane `asset_migration` facts cover single-transaction migrations a
+  source processor can prove from one transaction alone; they must write
+  `group_key: null`
+- post-processor-lane `asset_migration` facts cover grouped multi-transaction
+  migrations and follow the grouping contract below
+
+Provider-native batch, campaign, or venue-correlation hints for single-tx
+processor facts belong in `correlation_key`, not `group_key`.
 
 Each fact also carries an explicit `emitter_lane` of `processor` or
 `post_processor`. This is a typed column, not a string-prefix convention on
@@ -221,14 +239,18 @@ or producer work explicitly deferred.
 
 #### Kinds
 
-Discriminated by `kind`. Each kind has its own metadata shape.
+Discriminated by `kind`. Each kind has its own metadata shape. Scope is fixed by
+the earlier "V1 kind scope is fixed" contract; this list groups kinds by
+meaning, not by target scope.
 
 Actions ("what happened"):
 
 - `bridge`
 - `swap`
 - `wrap`, `unwrap`
-- `staking_deposit`, `staking_withdrawal`, `staking_reward`
+- `staking_deposit`, `staking_withdrawal`
+- `staking_reward` (movement-scoped; all other listed action kinds are
+  transaction-scoped in v1)
 - `protocol_deposit`, `protocol_withdrawal`
 - `airdrop_claim`
 - `asset_migration`
@@ -268,6 +290,16 @@ and inspector surfaces only. It does **not** rewrite ledger-owned
 `accounting_role`, stand in for semantic-fact correction, or change
 accounting, linking, transaction labeling, portfolio inclusion, or
 transaction-level inclusion by itself.
+
+`include` / `exclude` on `transaction` and `asset` subjects are the canonical
+participation controls. The target architecture does **not** keep a second
+canonical exclusion flag on `transactions`. If a materialized fast-path
+projection exists for read performance, it is review-owned derived state
+(for example `effective_participation_state`), not a parallel authority.
+Participation-sensitive consumers — cost basis, linking, gap analysis,
+readiness, portfolio, and balance-verification adjustments — read that
+effective participation projection. History, audit, and debug surfaces still
+read the underlying transactions even when participation is excluded.
 
 Subject refs are **fingerprint-based, never id-based**. Database ids are
 ephemeral — a reprocess rewrites them — so an id-based ref would silently
@@ -377,10 +409,13 @@ All five are returned together as one structured `ProcessorOutput`.
 Ingestion writes each to its respective store inside one database
 transaction. The processor never imports a store; it returns data.
 
-Drafts identify each other by **fingerprint**, not id. Ingestion resolves
-fingerprints to persisted ids at write time. This eliminates the bootstrap
-problem of "how does a fact reference a transaction that does not have an id
-yet."
+Store-facing semantic-fact targets are fingerprint-based, never id-based.
+Shared ingestion-owned identity helpers compute canonical `tx_fingerprint`,
+`movement_fingerprint`, and fee fingerprints from ledger drafts before
+semantic facts are validated or persisted. Whether processors return already-
+fingerprinted refs or ingestion enriches draft outputs with those fingerprints
+before store write is an internal API detail; the durable semantics contract is
+only that facts never key off database ids.
 
 Fee drafts use their own persisted fee fingerprint helpers for ledger
 identity. That identity is for fees storage and accounting; semantic-fact
@@ -393,16 +428,29 @@ authors the fact.** No detector for re-projection.
 
 Some semantic facts require a profile-wide view. Heuristic bridge pairing
 across two chains is the canonical example: no single processor can see both
-sides.
+sides. Grouped asset migration is another case where correlation may require
+more than one persisted transaction.
 
-A small post-processing runtime exists for exactly this work. It loads a
-profile scope (accounts + transactions), runs registered post-processors
-that emit semantic facts (typically `evidence: 'inferred'`), and persists
-them under the grouping contract below.
+An ingestion-owned post-processing stage exists for exactly this work. It runs
+after transactions and raw bindings are persisted, loads a profile scope plus
+whatever persisted source context the registered post-processors require, emits
+semantic facts (typically `evidence: 'inferred'`), and persists them under the
+grouping contract below.
+
+Because this stage lives in ingestion, post-processors may use source-aware
+persisted raw / normalized / provider context through ingestion-owned readers
+when that is required for deterministic correlation. They still operate only on
+persisted state: no network calls, no live provider clients, no hidden mutable
+caches.
 
 Post-processors are the **only** thing the runtime exists for. Anything
 single-transaction that does not need profile context belongs in the
 processor.
+
+Post-processors emit semantic facts only. They do **not** emit diagnostics, and
+no post-processing path may translate diagnostics into facts later. If a
+signal is "what happened?" it must be authored as a fact directly by the owning
+processor or post-processor lane.
 
 V1 may satisfy freshness conservatively by rerunning all registered
 post-processors over full profile scope after any transaction reprocess.
@@ -411,12 +459,12 @@ as a full rerun for the evaluated scope.
 
 ### Grouping contract
 
-Cross-transaction semantics — bridge pair, asset migration, batched
-operations — are represented as **N facts sharing a group**, not as a
-special event row. This subsection is the single source of truth for how
-those N facts cohere, replace, and invalidate. It replaces the earlier
-"two replacement keys" framing by giving `group_key` and
-`derived_from_tx_fingerprints` one unified role.
+Cross-transaction semantics — bridge pair, grouped asset migration, batched
+operations — are represented as **N facts sharing a group**, not as a special
+event row. This subsection is the single source of truth for how those N facts
+cohere, replace, and invalidate. It replaces the earlier "two replacement
+keys" framing by giving `group_key` and `derived_from_tx_fingerprints` one
+unified role.
 
 1. **Inputs declared.** Every fact carries
    `derived_from_tx_fingerprints: string[]` — the set of transactions
@@ -516,15 +564,19 @@ Consumers read from one channel for each question:
 
 - **Cost basis / accounting**: `movements.accounting_role` (transfer
   eligibility) + `semantic_facts WHERE evidence = 'asserted'` (forced by
-  the query API — no defaulting)
+  the query API — no defaulting) + effective participation state on
+  `transaction` / `asset` subjects
 - **Tax & readiness**: asserted semantic facts + diagnostics (for
-  uncertainty issues only)
+  uncertainty issues only) + effective participation state where participation
+  matters
 - **Linking**: bridge / asset-migration facts (both evidence values, the
-  consumer decides what to suggest) + `transaction_links`
+  consumer decides what to suggest) + `transaction_links` + effective
+  participation state
 - **Portfolio / balance**: movements + asserted facts + effective review
-  state (excludes filter out)
+  state / participation state (excludes filter out)
 - **History & filters**: facts of any evidence value, labeled clearly +
-  diagnostics for the "why uncertain" surface
+  diagnostics for the "why uncertain" surface; excluded items may still appear
+  on audit/debug-oriented surfaces
 - **Spam filtering**: effective review state where the decision is
   `exclude`, typically seeded from `spam_inbound` facts via a rule
 
@@ -542,7 +594,9 @@ itself stays canonical.
 `deriveOperationLabel()` is the only transaction-facing label helper.
 It composes `deriveLedgerShapeLabel()` first, then overlays semantic facts
 when a richer meaning exists (`bridge/send`, `bridge/receive`,
-`asset migration/send`, `staking/reward`, and so on).
+`asset migration/send`, `staking/reward`, and so on). For movement-scoped
+facts such as `staking_reward`, the helper projects upward from the matching
+leg facts when building a transaction label.
 
 Its evidence contract is explicit: the caller must pass either facts already
 filtered to a chosen evidence policy, or an `evidence_policy` argument that
@@ -578,7 +632,8 @@ parts carry forward:
 
 - The replace-by-fingerprint and replace-by-derived-from-inputs invalidation
   story. Keep it verbatim.
-- The deterministic-replay discipline for the post-processor runtime.
+- The deterministic-replay discipline for the ingestion-owned post-processing
+  runtime.
 - Forced tier/evidence selection at the query API. Keep it; rename `tier`
   to `evidence`.
 - The cross-transaction heuristic bridge pairing. It is exactly what the
@@ -610,17 +665,20 @@ visible.
   helper that replaces stored `operation` for plain transfers.
 - `packages/transaction-semantics/` — fact types and per-kind schemas, the
   store port and query API, protocol and counterparty resolvers (internal,
-  not extracted), the post-processing runtime, the post-processors that
-  truly need cross-tx scope, and the `deriveOperationLabel()` projection.
+  not extracted), and the `deriveOperationLabel()` projection.
 - `packages/review/` — review decisions, asset-level review, decision
-  authority (user vs rule). Spam _decisions_ live here; spam _observations_
-  are facts.
+  authority (user vs rule), and the effective participation projection. Spam
+  _decisions_ live here; spam _observations_ are facts.
+- `packages/ingestion/` — source processors, `ProcessorOutput`, diagnostics,
+  and the ingestion-owned semantic post-processing stage that authors
+  `post_processor`-lane facts after persistence.
 - Diagnostics — kept as a folder under `packages/ingestion/`, not a
   standalone package. The forcing function is the closed diagnostic-code
   enum, not the package boundary.
 - Existing provider packages (`blockchain-providers`, `exchange-providers`)
   return `ProcessorOutput` with all five draft kinds. Ingestion writes each
-  to its store inside one transaction.
+  to its store inside one transaction, then may run semantic post-processing
+  as a later authoring stage over persisted scope.
 
 Naming: `transaction-semantics` (not `transaction-interpretation`).
 Interpretation implies post-hoc derivation; semantics is the thing itself.
@@ -668,13 +726,6 @@ packages/
       counterparty/
         counterparty-ref.ts
         counterparty-resolver.ts
-      runtime/
-        post-processing-runtime.ts
-        post-processor-registry.ts
-        source-reader.ts
-      post-processors/
-        heuristic-bridge-pair.ts
-        asset-migration-grouper.ts
       labels/
         derive-operation-label.ts
       index.ts
@@ -684,12 +735,23 @@ packages/
       decisions/
         review-decision-types.ts
         review-decision-store.ts
+      participation/
+        effective-participation-state.ts
       authority/
       asset-review/
       index.ts
 
   ingestion/
     src/
+      semantic-authoring/
+        processor-output.ts
+        post-processing/
+          post-processing-runtime.ts
+          post-processor-registry.ts
+          source-reader.ts
+          post-processors/
+            heuristic-bridge-pair.ts
+            asset-migration-grouper.ts
       diagnostics/
         diagnostic-types.ts
         diagnostic-codes.ts
@@ -711,8 +773,11 @@ Boundary notes:
 
 - `ledger/` owns canonical accounting contracts plus ledger-shape projections.
 - `transaction-semantics/` owns fact contracts, protocol/counterparty context,
-  and post-processing for the truly cross-transaction cases.
-- `review/` owns decisions and asset-review state, not passive observations.
+  and label projection. It does not own source-aware authoring workflows.
+- `review/` owns decisions, asset-review state, and effective participation
+  state, not passive observations.
+- `ingestion/` owns semantic authoring workflows, including the
+  post-processing stage for the truly cross-transaction or source-aware cases.
 - diagnostics stay narrow under ingestion-owned code.
 - accounting-owned helpers that were temporarily parked under
   `transaction-interpretation` move back to accounting.
@@ -724,6 +789,7 @@ Boundary notes:
 - Do not let `transaction-semantics` absorb accounting or CLI policy helpers.
 - If a processor can already say what happened, it should emit a semantic fact
   directly.
+- Do not let ingestion post-processing emit diagnostics. It emits facts only.
 - If a signal changes behavior only after confirmation or exclusion, it belongs
   in review.
 - When a signal is ambiguous between observation and decision, default to
@@ -754,7 +820,9 @@ Near-term work should move toward this target incrementally:
 - preserve the current replay and invalidation bar for all persisted semantic
   state
 - keep the cross-transaction heuristic bridge path, but only in the
-  post-processing lane
+  ingestion-owned post-processing lane
+- move semantic post-processing runtime ownership under ingestion while keeping
+  fact contracts in `transaction-semantics`
 
 ## Deferred / Non-Goals
 
@@ -789,19 +857,21 @@ A v1 that delivers this architecture is one where:
   labels are derived from ledger shape.
 - `movements.movement_role` is renamed to `accounting_role` with the
   narrower allowed-values set.
+- Transaction / asset participation is review-owned effective state. There is
+  no second canonical transaction exclusion flag; if a fast-path projection
+  exists it is review-owned derived state.
 - Consumer-side helpers (`gap`, `readiness`, `transfer`, `residual`) live
   with their consumers, not in the semantics package.
 - The semantics package contains: facts + schemas + protocol/counterparty
-  resolvers + the cross-tx post-processor runtime + the operation-label
-  projection. Nothing else.
+  resolvers + the operation-label projection. Ingestion owns the semantic
+  authoring runtimes. Nothing else.
 - Per-kind metadata is validated by Zod. No `Record<string, unknown>` in
   the typed fact contract.
 - The fact query API forces `kinds` and `evidence` selection. Heuristic /
   inferred facts cannot silently drive tax or readiness consumers.
 - Semantic-fact subjects are transactions or non-fee asset movements. In the
-  initial v1 kind set, every listed kind is transaction-scoped; movement-
-  scoped support exists in the generic contract but is unused until a later
-  kind is added explicitly.
+  initial v1 kind set, `staking_reward` is movement-scoped; all other listed
+  kinds are transaction-scoped unless a later kind is added explicitly.
 - Duplicate authorship across emitters fails the enclosing ingestion
   transaction; cutovers are gated rather than merged ad hoc.
 - Review reads use one effective review state with a fixed verb / subject
@@ -815,14 +885,21 @@ A v1 that delivers this architecture is one where:
   mutate inclusion state.
 - `deriveOperationLabel()` requires an explicit evidence policy; inferred
   facts do not silently relabel asserted-only surfaces.
+- `staking_reward` is the only v1 movement-scoped kind and is the sole reward
+  reasoning model. No parallel `staking_reward_component` fact family remains.
 - `group_key` is post-processor-only in v1 and participates in grouped fact
   identity there. Processor-lane facts set `group_key` to `null`; non-identity
   batch/provider correlation uses `correlation_key`.
+- Processor-lane `asset_migration` facts are single-transaction facts with
+  `group_key: null`. Grouped `asset_migration` facts, when needed, are authored
+  only by the ingestion-owned post-processing lane.
 - Post-processor reruns reconcile an explicit evaluated transaction set; stale
   prior outputs within that set are deleted when candidate groupings change.
 - Reprocessing a transaction replaces all processor-authored facts for that
   transaction atomically. Re-running a post-processor over unchanged inputs
   produces identical fact fingerprints.
+- Ingestion-owned post-processing authors facts only. Diagnostics are emitted
+  by processors at processing time, never by post-processing.
 
 ## Decisions & Smells
 
@@ -830,6 +907,8 @@ A v1 that delivers this architecture is one where:
   diagnostic / annotation parallel-contract risk that the prior design
   flagged but did not solve.
 - Processors as fact authors. No detector layer for single-tx work.
+- Ingestion owns semantic authoring runtimes. `post_processor` is a fact lane,
+  not a package boundary.
 - Per-kind metadata schemas. No more string-roundtripping through a
   free-form blob.
 - Duplicate authorship fails closed. During migration, ownership must be
@@ -837,15 +916,20 @@ A v1 that delivers this architecture is one where:
 - `accounting_role` on movements keeps accounting fast — it does not need
   to join semantic_facts to decide transfer eligibility.
 - Semantic-fact scope stays narrow: transactions or non-fee asset movements.
-  The initial v1 kind set is entirely transaction-scoped; movement-fingerprint
-  metadata names specific legs where needed.
+  The initial v1 kind set uses one movement-scoped kind (`staking_reward`);
+  other facts stay transaction-scoped unless explicitly added later.
 - Review state is decisions, not observations. `spam_inbound` is what was
   seen; `exclude` is what was decided.
+- Transaction / asset participation is review-owned effective state, not a
+  parallel transaction flag.
 - Review reads collapse append-only history into one effective state with
   one user authority per profile, user-over-rule precedence, and deterministic
   append ordering.
 - `group_key` is a post-processor lifecycle key. Non-identity external
   correlation uses `correlation_key` instead of overloading grouped identity.
+- `asset_migration` has two non-overlapping shapes: processor-lane single-tx
+  facts with `correlation_key`, and grouped post-processor facts with
+  `group_key`.
 - Post-processor persistence is reconcile-not-append within execution scope;
   candidate regrouping must delete stale prior rows.
 - `deriveOperationLabel()` takes explicit evidence policy. Surfaces that
@@ -872,5 +956,7 @@ A v1 that delivers this architecture is one where:
   overloading `group_key`.
 - `effective review state` is a better contract term than `active review
 decisions`.
+- `effective participation state` is the right contract term for canonical
+  include / exclude reads.
 - `derived_from_tx_fingerprints` (not `_ids`) — fingerprints survive the
   draft-to-persisted boundary; ids do not.
