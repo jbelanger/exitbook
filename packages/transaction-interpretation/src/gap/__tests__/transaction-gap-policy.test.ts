@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveTransactionGapContextHint,
   hasLikelyDustSignal,
+  shouldExcludeTransactionInflowGap,
   shouldSuppressTransactionGapIssue,
 } from '../transaction-gap-policy.js';
 
@@ -134,5 +135,33 @@ describe('transaction-gap-policy', () => {
     });
 
     expect(shouldSuppressTransactionGapIssue(transaction)).toBe(true);
+  });
+
+  it('excludes inflow gaps for interpreted airdrop claims', () => {
+    const transaction = makeTransaction({
+      operation: { category: 'transfer', type: 'deposit' },
+    });
+
+    expect(shouldExcludeTransactionInflowGap(transaction, { label: 'airdrop/claim' })).toBe(true);
+  });
+
+  it('excludes inflow gaps for raw minting and staking fallback operations', () => {
+    expect(
+      shouldExcludeTransactionInflowGap(
+        makeTransaction({
+          operation: { category: 'transfer', type: 'reward' },
+        }),
+        { label: 'transfer/deposit' }
+      )
+    ).toBe(true);
+
+    expect(
+      shouldExcludeTransactionInflowGap(
+        makeTransaction({
+          operation: { category: 'staking', type: 'unstake' },
+        }),
+        { label: 'staking/unstake' }
+      )
+    ).toBe(true);
   });
 });

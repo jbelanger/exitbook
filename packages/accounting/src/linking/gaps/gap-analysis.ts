@@ -10,7 +10,12 @@ import { isFiat, parseAssetId, parseDecimal, type Currency } from '@exitbook/fou
 import {
   deriveTransactionGapContextHint,
   deriveOperationLabel,
+  groupTransactionAnnotationsByTransactionId,
+  hasTransferDirectionOverrideLabel,
+  hasTransactionTransferReceiveIntent,
+  hasTransactionTransferSendIntent,
   hasLikelyDustSignal,
+  shouldExcludeTransactionInflowGap,
   shouldSuppressTransactionGapIssue,
   type DerivedOperationLabel,
   type TransactionAnnotation,
@@ -33,10 +38,6 @@ const CROSS_CHAIN_MIGRATION_CUE_WINDOW_MS = 60 * 60 * 1000;
 const POSSIBLE_ASSET_MIGRATION_CUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const CROSS_CHAIN_MIGRATION_MIN_RATIO = parseDecimal('0.9999');
 const LIKELY_DUST_MAX_FIAT_VALUE = parseDecimal('10');
-const MINTING_OPERATION_TYPES = new Set(['reward', 'airdrop']);
-const GAP_TRANSFER_SEND_OVERRIDE_LABELS = new Set(['asset migration/send', 'bridge/send']);
-const GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS = new Set(['asset migration/receive', 'bridge/receive']);
-const GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS = new Set(['airdrop/claim']);
 export interface AnalyzeLinkGapsOptions {
   accounts?: readonly Pick<Account, 'id' | 'identifier' | 'profileId'>[] | undefined;
   excludedAssetIds?: ReadonlySet<string> | undefined;
@@ -116,24 +117,6 @@ interface GapCueAnnotation {
   counterpartTxFingerprint?: string | undefined;
 }
 
-function buildAnnotationsByTransactionId(
-  transactionAnnotations: readonly TransactionAnnotation[] | undefined
-): Map<number, readonly TransactionAnnotation[]> {
-  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of transactionAnnotations ?? []) {
-    const existing = annotationsByTransactionId.get(annotation.transactionId);
-    if (existing) {
-      existing.push(annotation);
-      continue;
-    }
-
-    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
-  }
-
-  return annotationsByTransactionId;
-}
-
 function normalizeAddress(address: string | undefined): string | undefined {
   const normalized = address?.trim().toLowerCase();
   return normalized && normalized.length > 0 ? normalized : undefined;
@@ -163,51 +146,23 @@ function getDerivedGapOperation(
 }
 
 function hasGapTransferDirectionOverride(operation: DerivedOperationLabel): boolean {
-  return (
-    GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label) || GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)
-  );
+  return hasTransferDirectionOverrideLabel(operation.label);
 }
 
 function isTransferSendTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
-  if (GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label)) {
-    return true;
-  }
-
-  if (GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)) {
-    return false;
-  }
-
-  return (
-    tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer')
-  );
+  return hasTransactionTransferSendIntent(tx, operation);
 }
 
 function isTransferReceiveTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
-  if (GAP_TRANSFER_RECEIVE_OVERRIDE_LABELS.has(operation.label)) {
-    return true;
-  }
-
-  if (GAP_TRANSFER_SEND_OVERRIDE_LABELS.has(operation.label)) {
-    return false;
-  }
-
-  return tx.operation.category === 'transfer' && (tx.operation.type === 'deposit' || tx.operation.type === 'transfer');
+  return hasTransactionTransferReceiveIntent(tx, operation);
 }
 
 function isExcludedInflowGapTransaction(tx: Transaction, operation: DerivedOperationLabel): boolean {
-  if (GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS.has(operation.label)) {
-    return true;
-  }
-
   if (hasGapTransferDirectionOverride(operation)) {
     return false;
   }
 
-  if (MINTING_OPERATION_TYPES.has(tx.operation.type)) {
-    return true;
-  }
-
-  return tx.operation.category === 'staking';
+  return shouldExcludeTransactionInflowGap(tx, operation);
 }
 
 function findHighestConfidence(links: readonly TransactionLink[]): string | undefined {
@@ -1772,7 +1727,9 @@ export function analyzeLinkGaps(
 ): LinkGapAnalysis {
   const coverageIndex = buildLinkCoverageIndex(links);
   const accountContextById = buildAccountContextById(options.accounts);
-  const transactionAnnotationsByTransactionId = buildAnnotationsByTransactionId(options.transactionAnnotations);
+  const transactionAnnotationsByTransactionId = groupTransactionAnnotationsByTransactionId(
+    options.transactionAnnotations
+  );
   const derivedOperationsByTransactionId = buildDerivedOperationsByTransactionId(
     transactions,
     transactionAnnotationsByTransactionId

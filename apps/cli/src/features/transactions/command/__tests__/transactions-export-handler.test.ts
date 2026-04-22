@@ -242,7 +242,9 @@ describe('TransactionsExportHandler', () => {
       expect(exportResult.format).toBe('csv');
       expect(exportResult.csvFormat).toBe('simple');
       expect(exportResult.outputs).toHaveLength(1);
-      expect(exportResult.outputs[0]?.content).toContain('id,tx_fingerprint,platform_key,operation_category');
+      expect(exportResult.outputs[0]?.content).toContain(
+        'id,tx_fingerprint,platform_key,operation_group,operation_label'
+      );
       expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
     });
 
@@ -340,6 +342,34 @@ describe('TransactionsExportHandler', () => {
       const exportResult = assertOk(result);
       expect(exportResult.transactionCount).toBe(1);
       expect(mockTransactionLinkQueries.findByTransactionIds).not.toHaveBeenCalled();
+      const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as unknown as { id: number }[];
+      expect(parsedContent.map((transaction) => transaction.id)).toEqual([1]);
+    });
+
+    it('filters exports by interpreted operation type', async () => {
+      const params: ExportHandlerParams = {
+        profileId: 1,
+        format: 'json',
+        outputPath: './data/transactions.json',
+        operationFilter: 'bridge/send',
+      };
+
+      mockTransactionRepository.findAll.mockResolvedValue(
+        ok([createMockTransaction(1, 'ethereum', 'ETH'), createMockTransaction(2, 'kraken', 'BTC')])
+      );
+      mockTransactionAnnotations.readAnnotations.mockResolvedValue(
+        ok([
+          {
+            ...createMockAnnotation(1, 'bridge_participant', 'asserted'),
+            role: 'source',
+          },
+        ])
+      );
+
+      const result = await handler.execute(params);
+
+      const exportResult = assertOk(result);
+      expect(exportResult.transactionCount).toBe(1);
       const parsedContent = JSON.parse(exportResult.outputs[0]?.content ?? '[]') as unknown as { id: number }[];
       expect(parsedContent.map((transaction) => transaction.id)).toEqual([1]);
     });

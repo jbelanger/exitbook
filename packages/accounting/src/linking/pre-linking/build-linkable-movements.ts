@@ -2,7 +2,10 @@ import { filterTransferEligibleMovements, type NewTransactionLink, type Transact
 import type { Currency } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import type { Logger } from '@exitbook/logger';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import {
+  groupTransactionAnnotationsByTransactionId,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import type { LinkableMovement } from '../matching/linkable-movement.js';
@@ -28,7 +31,7 @@ export function buildLinkableMovements(
   transactionAnnotations: readonly TransactionAnnotation[] = []
 ): Result<LinkableMovementBuildResult, Error> {
   logger.info({ transactionCount: transactions.length }, 'Building linkable movements');
-  const annotationsByTransactionId = buildAnnotationsByTransactionId(transactionAnnotations);
+  const annotationsByTransactionId = groupTransactionAnnotationsByTransactionId(transactionAnnotations);
 
   // 1. Group same-hash blockchain transactions and reduce conservatively
   const sameHashGroups = groupSameHashTransactions(transactions);
@@ -122,24 +125,6 @@ export function buildLinkableMovements(
   );
 
   return ok({ linkableMovements, internalLinks: enrichedInternalLinksResult.value });
-}
-
-function buildAnnotationsByTransactionId(
-  annotations: readonly TransactionAnnotation[]
-): ReadonlyMap<number, readonly TransactionAnnotation[]> {
-  const byTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of annotations) {
-    const existing = byTransactionId.get(annotation.transactionId);
-    if (existing === undefined) {
-      byTransactionId.set(annotation.transactionId, [annotation]);
-      continue;
-    }
-
-    existing.push(annotation);
-  }
-
-  return byTransactionId;
 }
 
 function createLinkableMovement(

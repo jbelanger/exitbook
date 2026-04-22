@@ -4,6 +4,10 @@ import type { Decimal } from 'decimal.js';
 
 import { computeAnnotationFingerprint, type TransactionAnnotation } from '../annotations/index.js';
 import type { InterpretationAccountContext } from '../runtime/transaction-interpretation-source-reader.js';
+import {
+  hasTransactionTransferReceiveIntent,
+  hasTransactionTransferSendIntent,
+} from '../transfer/transaction-transfer-intent.js';
 
 import type { DetectorOutput } from './transaction-annotation-detector.js';
 import type {
@@ -53,16 +57,6 @@ function normalizeAddress(address: string | undefined): string | undefined {
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
-function isTransferSendTransaction(tx: Transaction): boolean {
-  return (
-    tx.operation.category === 'transfer' && (tx.operation.type === 'withdrawal' || tx.operation.type === 'transfer')
-  );
-}
-
-function isTransferReceiveTransaction(tx: Transaction): boolean {
-  return tx.operation.category === 'transfer' && (tx.operation.type === 'deposit' || tx.operation.type === 'transfer');
-}
-
 function buildPositiveAssetTotalsByAssetId(
   movements: readonly {
     assetId: string;
@@ -106,7 +100,7 @@ function getOneSidedTransferActivity(tx: Transaction): OneSidedTransferActivity 
   const inflowTotals = buildPositiveAssetTotalsByAssetId(filterTransferEligibleMovements(tx.movements.inflows));
   const outflowTotals = buildPositiveAssetTotalsByAssetId(filterTransferEligibleMovements(tx.movements.outflows));
 
-  if (outflowTotals.size === 0 && inflowTotals.size > 0 && isTransferReceiveTransaction(tx)) {
+  if (outflowTotals.size === 0 && inflowTotals.size > 0 && hasTransactionTransferReceiveIntent(tx)) {
     const entry = getSingleAssetEntryById(inflowTotals);
     if (!entry) {
       return undefined;
@@ -123,7 +117,7 @@ function getOneSidedTransferActivity(tx: Transaction): OneSidedTransferActivity 
     };
   }
 
-  if (inflowTotals.size === 0 && outflowTotals.size > 0 && isTransferSendTransaction(tx)) {
+  if (inflowTotals.size === 0 && outflowTotals.size > 0 && hasTransactionTransferSendIntent(tx)) {
     const entry = getSingleAssetEntryById(outflowTotals);
     if (!entry) {
       return undefined;

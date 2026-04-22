@@ -217,7 +217,7 @@ describe('transactions root command', () => {
       until: undefined,
       assetId: undefined,
       assetSymbol: undefined,
-      operationType: undefined,
+      operationFilter: undefined,
       noPrice: undefined,
     });
     expect(mockOutputTransactionsStaticList).toHaveBeenCalledOnce();
@@ -319,7 +319,7 @@ describe('transactions root command', () => {
       until: undefined,
       assetId: undefined,
       assetSymbol: undefined,
-      operationType: undefined,
+      operationFilter: undefined,
       noPrice: undefined,
     });
     expect(mockOutputSuccess).toHaveBeenCalledWith(

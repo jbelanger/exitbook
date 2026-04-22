@@ -59,7 +59,7 @@ describe('buildTransactionFilterLabels', () => {
         addressFilter: '0xabc',
         fromFilter: undefined,
         toFilter: '0xdef',
-        operationTypeFilter: 'withdrawal',
+        operationFilter: 'withdrawal',
         noPriceFilter: true,
       })
     ).toEqual([

@@ -24,6 +24,7 @@ export {
 } from './annotation-schemas.js';
 
 export { computeAnnotationFingerprint, type AnnotationFingerprintInput } from './annotation-fingerprint.js';
+export { groupTransactionAnnotationsByTransactionId } from './transaction-annotation-groups.js';
 export {
   getStakingRewardComponents,
   sumDetectedStakingRewardComponentsForTransactions,

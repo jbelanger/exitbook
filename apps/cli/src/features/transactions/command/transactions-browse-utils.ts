@@ -29,7 +29,7 @@ export interface TransactionsBrowseFilters extends CommonViewFilters {
   address?: string | undefined;
   from?: string | undefined;
   to?: string | undefined;
-  operationType?: string | undefined;
+  operationFilter?: string | undefined;
   noPrice?: boolean | undefined;
 }
 
@@ -83,11 +83,6 @@ export function applyTransactionFilters(
     });
   }
 
-  // Filter by operation type
-  if (params.operationType) {
-    filtered = filtered.filter((tx) => tx.operation.type === params.operationType);
-  }
-
   // Filter by missing price data
   if (params.noPrice) {
     filtered = filtered.filter((tx) => {
@@ -136,7 +131,7 @@ export function buildTransactionsViewFilters(
     | 'assetSymbol'
     | 'from'
     | 'noPrice'
-    | 'operationType'
+    | 'operationFilter'
     | 'platform'
     | 'to'
   >
@@ -151,7 +146,7 @@ export function buildTransactionsViewFilters(
     addressFilter: params.address,
     fromFilter: params.from,
     toFilter: params.to,
-    operationTypeFilter: params.operationType,
+    operationFilter: params.operationFilter,
     noPriceFilter: params.noPrice,
   };
 }
@@ -167,7 +162,7 @@ export function buildTransactionsJsonFilters(
     | 'assetSymbol'
     | 'from'
     | 'noPrice'
-    | 'operationType'
+    | 'operationFilter'
     | 'platform'
     | 'since'
     | 'to'
@@ -186,7 +181,7 @@ export function buildTransactionsJsonFilters(
     annotationTier: params.annotationTier,
     since: params.since,
     until: params.until,
-    operationType: params.operationType,
+    operationType: params.operationFilter,
     noPrice: params.noPrice ? true : undefined,
   });
 }
@@ -228,7 +223,7 @@ export function buildTransactionsJsonFiltersWithResolvedAccount(
     | 'assetSymbol'
     | 'from'
     | 'noPrice'
-    | 'operationType'
+    | 'operationFilter'
     | 'platform'
     | 'since'
     | 'to'
@@ -248,7 +243,7 @@ export function buildTransactionsJsonFiltersWithResolvedAccount(
     annotationTier: params.annotationTier,
     since: params.since,
     until: params.until,
-    operationType: params.operationType,
+    operationType: params.operationFilter,
     noPrice: params.noPrice ? true : undefined,
   });
 }

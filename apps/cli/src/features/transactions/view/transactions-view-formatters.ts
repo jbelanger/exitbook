@@ -32,7 +32,7 @@ export function buildTransactionFilterLabels(filters: TransactionsViewFilters): 
     filters.addressFilter ? `address=${filters.addressFilter}` : undefined,
     filters.fromFilter ? `from=${filters.fromFilter}` : undefined,
     filters.toFilter ? `to=${filters.toFilter}` : undefined,
-    filters.operationTypeFilter,
+    filters.operationFilter,
     filters.annotationKindFilter ? `annotation=${filters.annotationKindFilter}` : undefined,
     filters.annotationTierFilter ? `tier=${filters.annotationTierFilter}` : undefined,
     filters.noPriceFilter ? 'missing prices' : undefined,

@@ -5,7 +5,12 @@
 import type { Transaction } from '@exitbook/core';
 import { isFiat, parseCurrency, type Currency } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
-import { deriveOperationLabel, type TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import {
+  deriveOperationLabel,
+  groupTransactionAnnotationsByTransactionId,
+  hasTransactionTransferIntent,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import type {
@@ -29,13 +34,6 @@ import type {
 
 const logger = getLogger('portfolio-position-building');
 const USD_CURRENCY = 'USD' as Currency;
-const NET_FIAT_IN_TRANSFER_OVERRIDE_LABELS = new Set([
-  'asset migration/receive',
-  'asset migration/send',
-  'bridge/receive',
-  'bridge/send',
-]);
-
 interface AccountMetadata {
   accountType: AccountBreakdownItem['accountType'];
   platformKey: string;
@@ -1174,35 +1172,12 @@ interface NetFiatInComputation {
   skippedNonUsdMovementsWithoutPrice: number;
 }
 
-function buildAnnotationsByTransactionId(
-  transactionAnnotations: readonly TransactionAnnotation[]
-): ReadonlyMap<number, readonly TransactionAnnotation[]> {
-  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of transactionAnnotations) {
-    const existing = annotationsByTransactionId.get(annotation.transactionId);
-    if (existing !== undefined) {
-      existing.push(annotation);
-      continue;
-    }
-
-    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
-  }
-
-  return annotationsByTransactionId;
-}
-
 function isNetFiatTransferTransaction(
   tx: Transaction,
   annotationsByTransactionId: ReadonlyMap<number, readonly TransactionAnnotation[]>
 ): boolean {
   const derivedOperation = deriveOperationLabel(tx, annotationsByTransactionId.get(tx.id) ?? []);
-
-  if (NET_FIAT_IN_TRANSFER_OVERRIDE_LABELS.has(derivedOperation.label)) {
-    return true;
-  }
-
-  return tx.operation.category === 'transfer';
+  return hasTransactionTransferIntent(tx, derivedOperation);
 }
 
 /**
@@ -1216,7 +1191,7 @@ export function computeNetFiatInUsd(
 ): NetFiatInComputation {
   let netFiatInUsd = new Decimal(0);
   let skippedNonUsdMovementsWithoutPrice = 0;
-  const annotationsByTransactionId = buildAnnotationsByTransactionId(transactionAnnotations);
+  const annotationsByTransactionId = groupTransactionAnnotationsByTransactionId(transactionAnnotations);
 
   for (const transactionView of accountingModel.accountingTransactionViews) {
     const tx = transactionView.processedTransaction;

@@ -93,7 +93,7 @@ const TRANSACTIONS_FILTER_OPTION_DEFINITIONS: CliOptionDefinition[] = [
   },
   {
     flags: '--operation-type <type>',
-    description: 'Filter by operation type',
+    description: 'Filter by interpreted operation group, type, or label',
   },
   {
     flags: '--annotation-kind <kind>',
@@ -176,7 +176,7 @@ export function prepareTransactionsBrowseCommand(
       to: options.to,
       since: options.since,
       until: options.until,
-      operationType: options.operationType,
+      operationFilter: options.operationType,
       annotationKind: options.annotationKind,
       annotationTier: options.annotationTier,
       noPrice: options.noPrice,

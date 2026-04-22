@@ -13,7 +13,7 @@ interface ReadTransactionsForCommandParams {
   db: DataSession;
   from?: string | undefined;
   noPrice?: boolean | undefined;
-  operationType?: string | undefined;
+  operationFilter?: string | undefined;
   profileId: number;
   since?: number | undefined;
   platformKey?: string | undefined;
@@ -44,7 +44,6 @@ export async function readTransactionsForCommand(
     assetSymbol: params.assetSymbol,
     from: params.from,
     noPrice: params.noPrice,
-    operationType: params.operationType,
     to: params.to,
     until: params.until,
   } satisfies TransactionsBrowseFilters);

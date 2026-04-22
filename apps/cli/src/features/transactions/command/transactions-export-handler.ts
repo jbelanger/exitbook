@@ -4,7 +4,7 @@ import { getLogger } from '@exitbook/logger';
 
 import {
   buildAnnotationsByTransactionId,
-  filterTransactionsByAnnotationFilters,
+  filterTransactionsByInterpretationFilters,
 } from '../transactions-annotation-utils.js';
 
 import type { ExportHandlerParams, NormalizedCsvOutput } from './transactions-export-utils.js';
@@ -59,7 +59,7 @@ export class TransactionsExportHandler {
         until: params.until,
         assetId: params.assetId,
         assetSymbol: params.assetSymbol,
-        operationType: params.operationType,
+        operationFilter: params.operationFilter,
         noPrice: params.noPrice,
       });
       if (transactionsResult.isErr()) {
@@ -76,9 +76,10 @@ export class TransactionsExportHandler {
       }
 
       const annotationsByTransactionId = buildAnnotationsByTransactionId(annotationsResult.value);
-      const filteredTransactions = filterTransactionsByAnnotationFilters(transactions, annotationsByTransactionId, {
+      const filteredTransactions = filterTransactionsByInterpretationFilters(transactions, annotationsByTransactionId, {
         annotationKind: params.annotationKind,
         annotationTier: params.annotationTier,
+        operationFilter: params.operationFilter,
       });
       const filteredTransactionIds = new Set(filteredTransactions.map((transaction) => transaction.id));
       const filteredAnnotations = annotationsResult.value.filter((annotation) =>

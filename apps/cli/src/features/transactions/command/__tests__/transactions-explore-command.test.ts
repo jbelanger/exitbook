@@ -96,7 +96,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
       assetSymbol?: string | undefined;
       from?: string | undefined;
       noPrice?: boolean | undefined;
-      operationType?: string | undefined;
+      operationFilter?: string | undefined;
       platform?: string | undefined;
       since?: string | undefined;
       to?: string | undefined;
@@ -113,7 +113,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
           to: params.to,
           since: params.since,
           until: params.until,
-          operationType: params.operationType,
+          operationType: params.operationFilter,
           noPrice: params.noPrice ? true : undefined,
         }).filter(([, value]) => value !== undefined)
       );
@@ -129,7 +129,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
       assetSymbol?: string | undefined;
       from?: string | undefined;
       noPrice?: boolean | undefined;
-      operationType?: string | undefined;
+      operationFilter?: string | undefined;
       platform?: string | undefined;
       to?: string | undefined;
     }) => ({
@@ -140,7 +140,7 @@ vi.mock('../transactions-browse-utils.js', () => ({
       addressFilter: params.address,
       fromFilter: params.from,
       toFilter: params.to,
-      operationTypeFilter: params.operationType,
+      operationFilter: params.operationFilter,
       noPriceFilter: params.noPrice,
     })
   ),
@@ -216,7 +216,7 @@ interface ReadTransactionsCommandCall {
   };
   from?: string | undefined;
   noPrice?: boolean | undefined;
-  operationType?: string | undefined;
+  operationFilter?: string | undefined;
   platformKey?: string | undefined;
   profileId: number;
   since?: number | undefined;
@@ -291,6 +291,8 @@ describe('transactions explore command', () => {
     mockToTransactionViewItem.mockImplementation((transaction: { id: number; txFingerprint?: string | undefined }) => ({
       annotations: [],
       id: transaction.id,
+      operationGroup: 'trade',
+      operationLabel: 'trade/buy',
       platformKey: 'kraken',
       txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
     }));
@@ -299,6 +301,8 @@ describe('transactions explore command', () => {
         transactions.map((transaction) => ({
           annotations: [],
           id: transaction.id,
+          operationGroup: 'trade',
+          operationLabel: 'trade/buy',
           platformKey: 'kraken',
           txFingerprint: transaction.txFingerprint ?? `fingerprint-${transaction.id}`,
         }))
@@ -338,7 +342,7 @@ describe('transactions explore command', () => {
       until: undefined,
       assetId: undefined,
       assetSymbol: undefined,
-      operationType: undefined,
+      operationFilter: undefined,
       noPrice: undefined,
     });
     expect(firstReadTransactionsCall?.db.accounts.findAll).toBe(mockFindAllAccounts);
@@ -351,8 +355,22 @@ describe('transactions explore command', () => {
       'transactions-explore',
       {
         data: [
-          { annotations: [], id: 1, platformKey: 'kraken', txFingerprint: 'fingerprint-1' },
-          { annotations: [], id: 2, platformKey: 'kraken', txFingerprint: 'fingerprint-2' },
+          {
+            annotations: [],
+            id: 1,
+            operationGroup: 'trade',
+            operationLabel: 'trade/buy',
+            platformKey: 'kraken',
+            txFingerprint: 'fingerprint-1',
+          },
+          {
+            annotations: [],
+            id: 2,
+            operationGroup: 'trade',
+            operationLabel: 'trade/buy',
+            platformKey: 'kraken',
+            txFingerprint: 'fingerprint-2',
+          },
         ],
         meta: {
           count: 2,
@@ -418,7 +436,7 @@ describe('transactions explore command', () => {
       until: undefined,
       assetId: undefined,
       assetSymbol: undefined,
-      operationType: undefined,
+      operationFilter: undefined,
       noPrice: undefined,
     });
     expect(accountReadTransactionsCall?.db.accounts.findAll).toBe(mockFindAllAccounts);
@@ -495,7 +513,7 @@ describe('transactions explore command', () => {
       until: undefined,
       assetId: undefined,
       assetSymbol: undefined,
-      operationType: undefined,
+      operationFilter: undefined,
       annotationKind: 'bridge_participant',
       annotationTier: 'heuristic',
       noPrice: undefined,
@@ -525,8 +543,22 @@ describe('transactions explore command', () => {
     expect(mockFindByFingerprintRef).toHaveBeenCalledWith(1, 'bbbbbbbbbb');
     expect(mockCreateTransactionsViewState).toHaveBeenCalledWith(
       [
-        { annotations: [], id: 1, platformKey: 'kraken', txFingerprint: 'aaaa' },
-        { annotations: [], id: 2, platformKey: 'kraken', txFingerprint: 'bbbbbbbbbb-selected' },
+        {
+          annotations: [],
+          id: 1,
+          operationGroup: 'trade',
+          operationLabel: 'trade/buy',
+          platformKey: 'kraken',
+          txFingerprint: 'aaaa',
+        },
+        {
+          annotations: [],
+          id: 2,
+          operationGroup: 'trade',
+          operationLabel: 'trade/buy',
+          platformKey: 'kraken',
+          txFingerprint: 'bbbbbbbbbb-selected',
+        },
       ],
       {
         accountFilter: undefined,
@@ -538,7 +570,7 @@ describe('transactions explore command', () => {
         assetFilter: undefined,
         fromFilter: undefined,
         toFilter: undefined,
-        operationTypeFilter: undefined,
+        operationFilter: undefined,
         noPriceFilter: undefined,
       },
       2,

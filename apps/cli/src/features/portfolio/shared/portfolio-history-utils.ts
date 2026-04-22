@@ -3,8 +3,11 @@ import {
   collectTransactionBalanceImpactPricingInputs,
   type Transaction,
 } from '@exitbook/core';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
-import { deriveOperationLabel } from '@exitbook/transaction-interpretation';
+import {
+  deriveOperationLabel,
+  groupTransactionAnnotationsByTransactionId,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 
 import type { PortfolioTransactionItem } from './portfolio-history-types.js';
@@ -62,7 +65,7 @@ export function buildTransactionItems(
 ): PortfolioTransactionItem[] {
   const items: PortfolioTransactionItem[] = [];
   const assetIdSet = new Set(Array.isArray(assetIds) ? assetIds : [assetIds]);
-  const annotationsByTransactionId = buildAnnotationsByTransactionId(transactionAnnotations);
+  const annotationsByTransactionId = groupTransactionAnnotationsByTransactionId(transactionAnnotations);
 
   for (const tx of transactions) {
     const netAmount = buildTransactionBalanceImpact(tx).assets.reduce((sum, assetImpact) => {
@@ -157,22 +160,4 @@ function extractTransferContext(
     transferDirection: 'from',
     transferPeer: tx.from,
   };
-}
-
-function buildAnnotationsByTransactionId(
-  annotations: readonly TransactionAnnotation[]
-): ReadonlyMap<number, readonly TransactionAnnotation[]> {
-  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of annotations) {
-    const existing = annotationsByTransactionId.get(annotation.transactionId);
-    if (existing !== undefined) {
-      existing.push(annotation);
-      continue;
-    }
-
-    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
-  }
-
-  return annotationsByTransactionId;
 }

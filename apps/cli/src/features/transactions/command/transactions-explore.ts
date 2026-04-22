@@ -36,7 +36,7 @@ import {
 } from '../transaction-selector.js';
 import { toTransactionSourceLineageItem } from '../transaction-source-data.js';
 import { toTransactionViewItem, toTransactionViewItems } from '../transaction-view-projection.js';
-import { filterTransactionViewItemsByAnnotationFilters } from '../transactions-annotation-utils.js';
+import { filterTransactionViewItemsByInterpretationFilters } from '../transactions-annotation-utils.js';
 import type { ExportCallbackResult, OnExport, TransactionViewItem } from '../transactions-view-model.js';
 import { TransactionsViewApp, computeCategoryCounts, createTransactionsViewState } from '../view/index.js';
 import { outputTransactionStaticDetail, outputTransactionsStaticList } from '../view/transactions-static-renderer.js';
@@ -195,7 +195,7 @@ async function executeTransactionsExploreCommandResult(
         until: prepared.params.until,
         assetId: prepared.params.assetId,
         assetSymbol: prepared.params.assetSymbol,
-        operationType: prepared.params.operationType,
+        operationFilter: prepared.params.operationFilter,
         noPrice: prepared.params.noPrice,
       }),
       ExitCodes.GENERAL_ERROR
@@ -211,7 +211,7 @@ async function executeTransactionsExploreCommandResult(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const transactionViewItems = filterTransactionViewItemsByAnnotationFilters(
+    const transactionViewItems = filterTransactionViewItemsByInterpretationFilters(
       toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
       prepared.params
     );
@@ -283,7 +283,7 @@ function buildExploreTransactionsParams(
     to: options.to,
     since: options.since,
     until: options.until,
-    operationType: options.operationType,
+    operationFilter: options.operationType,
     annotationKind: options.annotationKind,
     annotationTier: options.annotationTier,
     noPrice: options.noPrice,
@@ -377,7 +377,7 @@ async function buildTransactionsExploreTuiCompletion(
         until: params.until,
         assetId: params.assetId,
         assetSymbol: params.assetSymbol,
-        operationType: params.operationType,
+        operationFilter: params.operationFilter,
         noPrice: params.noPrice,
       }),
       ExitCodes.GENERAL_ERROR
@@ -389,7 +389,7 @@ async function buildTransactionsExploreTuiCompletion(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const allViewItems = filterTransactionViewItemsByAnnotationFilters(
+    const allViewItems = filterTransactionViewItemsByInterpretationFilters(
       toTransactionViewItems(transactions, addressOwnershipLookup, annotations),
       params
     );
@@ -435,7 +435,7 @@ async function buildTransactionsExploreTuiCompletion(
             until: params.until,
             assetId: params.assetId,
             assetSymbol: params.assetSymbol,
-            operationType: params.operationType,
+            operationFilter: params.operationFilter,
             annotationKind: params.annotationKind,
             annotationTier: params.annotationTier,
             noPrice: params.noPrice,

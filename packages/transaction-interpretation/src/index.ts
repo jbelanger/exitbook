@@ -11,6 +11,7 @@ export {
   TransactionAnnotationSchema,
   canonicalizeDerivedFromTxIds,
   computeAnnotationFingerprint,
+  groupTransactionAnnotationsByTransactionId,
   getStakingRewardComponents,
   sumDetectedStakingRewardComponentsForTransactions,
   sumUniqueStakingRewardComponents,
@@ -31,6 +32,13 @@ export {
   type DerivedOperationLabel,
 } from './labels/derive-operation-label.js';
 export {
+  hasTransferDirectionOverrideLabel,
+  hasTransactionTransferDirectionOverride,
+  hasTransactionTransferIntent,
+  hasTransactionTransferReceiveIntent,
+  hasTransactionTransferSendIntent,
+} from './transfer/transaction-transfer-intent.js';
+export {
   collectTransactionReadinessIssues,
   type TransactionReadinessIssue,
   type TransactionReadinessIssueCode,
@@ -38,6 +46,7 @@ export {
 export {
   deriveTransactionGapContextHint,
   hasLikelyDustSignal,
+  shouldExcludeTransactionInflowGap,
   shouldSuppressTransactionGapIssue,
   type TransactionGapContextHint,
 } from './gap/transaction-gap-policy.js';

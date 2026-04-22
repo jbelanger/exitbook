@@ -420,8 +420,8 @@ describe('applyTransactionFilters', () => {
     });
   });
 
-  describe('operation type filtering', () => {
-    it('should filter transactions by operation type', () => {
+  describe('operation type filtering handoff', () => {
+    it('does not filter by operation type before interpretation is loaded', () => {
       const transactions: Transaction[] = [
         createTestTransaction({ id: 1, operation: { category: 'trade', type: 'buy' } }),
         createTestTransaction({ id: 2, operation: { category: 'trade', type: 'sell' } }),
@@ -429,16 +429,16 @@ describe('applyTransactionFilters', () => {
       ];
 
       const params: TransactionsBrowseFilters = {
-        operationType: 'buy',
+        operationFilter: 'buy',
       };
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
 
-      expect(result).toHaveLength(2);
-      expect(result.map((tx) => tx.id)).toEqual([1, 3]);
+      expect(result).toHaveLength(3);
+      expect(result.map((tx) => tx.id)).toEqual([1, 2, 3]);
     });
 
-    it('should return all transactions when operation type filter is not provided', () => {
+    it('returns all transactions when operation type filter is not provided', () => {
       const transactions: Transaction[] = [
         createTestTransaction({ id: 1, operation: { category: 'trade', type: 'buy' } }),
         createTestTransaction({ id: 2, operation: { category: 'trade', type: 'sell' } }),
@@ -670,7 +670,7 @@ describe('applyTransactionFilters', () => {
       const params: TransactionsBrowseFilters = {
         until: '2024-01-15T23:59:59Z',
         assetSymbol: 'BTC',
-        operationType: 'buy',
+        operationFilter: 'buy',
       };
 
       const result = unwrapOk(applyTransactionFilters(transactions, params));
@@ -703,7 +703,7 @@ describe('transaction browse filter metadata', () => {
       addressFilter: undefined,
       fromFilter: undefined,
       toFilter: undefined,
-      operationTypeFilter: undefined,
+      operationFilter: undefined,
       noPriceFilter: true,
     });
     expect(buildTransactionsJsonFilters(params)).toEqual({
@@ -734,7 +734,7 @@ describe('transaction browse filter metadata', () => {
       addressFilter: '0xabc',
       fromFilter: undefined,
       toFilter: '0xdef',
-      operationTypeFilter: undefined,
+      operationFilter: undefined,
       noPriceFilter: undefined,
     });
     expect(buildTransactionsJsonFilters(params)).toEqual({

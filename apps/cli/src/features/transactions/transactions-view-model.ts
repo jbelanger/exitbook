@@ -132,7 +132,7 @@ export interface TransactionsViewFilters {
   addressFilter?: string | undefined;
   fromFilter?: string | undefined;
   toFilter?: string | undefined;
-  operationTypeFilter?: string | undefined;
+  operationFilter?: string | undefined;
   noPriceFilter?: boolean | undefined;
 }
 

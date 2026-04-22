@@ -7,9 +7,12 @@ import {
 } from '@exitbook/core';
 
 import type { TransactionAnnotation } from '../annotations/annotation-types.js';
+import type { DerivedOperationLabel } from '../labels/derive-operation-label.js';
 
 const LIKELY_DUST_DIAGNOSTIC_CODES = new Set(['unsolicited_dust_fanout']);
 const GAP_SUPPRESSION_DIAGNOSTIC_CODES = new Set(['off_platform_cash_movement']);
+const MINTING_OPERATION_TYPES = new Set<Transaction['operation']['type']>(['reward', 'airdrop']);
+const GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS = new Set(['airdrop/claim']);
 const GAP_DIAGNOSTIC_PRIORITY = [
   'staking_withdrawal',
   'unsolicited_dust_fanout',
@@ -168,6 +171,21 @@ export function deriveTransactionGapContextHint(
 
 export function hasLikelyDustSignal(transaction: Pick<Transaction, 'diagnostics'>): boolean {
   return hasAnyDiagnosticCode(transaction.diagnostics, LIKELY_DUST_DIAGNOSTIC_CODES);
+}
+
+export function shouldExcludeTransactionInflowGap(
+  transaction: Pick<Transaction, 'operation'>,
+  operation: Pick<DerivedOperationLabel, 'label'> | undefined
+): boolean {
+  if (operation !== undefined && GAP_INFLOW_EXCLUSION_OVERRIDE_LABELS.has(operation.label)) {
+    return true;
+  }
+
+  if (MINTING_OPERATION_TYPES.has(transaction.operation.type)) {
+    return true;
+  }
+
+  return transaction.operation.category === 'staking';
 }
 
 export function shouldSuppressTransactionGapIssue(

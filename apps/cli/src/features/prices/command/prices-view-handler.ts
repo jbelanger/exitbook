@@ -9,7 +9,7 @@ import {
   ANNOTATION_KINDS,
   ANNOTATION_TIERS,
   deriveOperationLabel,
-  type TransactionAnnotation,
+  groupTransactionAnnotationsByTransactionId,
 } from '@exitbook/transaction-interpretation';
 
 import { getAllMovements } from '../../../cli/view-utils.js';
@@ -190,7 +190,7 @@ export class PricesViewHandler {
       return wrapError(annotationsResult.error, 'Failed to fetch transaction annotations');
     }
 
-    const annotationsByTransactionId = buildAnnotationsByTransactionId(annotationsResult.value);
+    const annotationsByTransactionId = groupTransactionAnnotationsByTransactionId(annotationsResult.value);
     const movements: MissingPriceMovement[] = [];
     const assetMap = new Map<string, { count: number; sourceCounts: Map<string, number> }>();
 
@@ -361,22 +361,4 @@ export class PricesViewHandler {
       overall_coverage_percentage: overallCoverage,
     };
   }
-}
-
-function buildAnnotationsByTransactionId(
-  annotations: readonly TransactionAnnotation[]
-): ReadonlyMap<number, readonly TransactionAnnotation[]> {
-  const annotationsByTransactionId = new Map<number, TransactionAnnotation[]>();
-
-  for (const annotation of annotations) {
-    const existing = annotationsByTransactionId.get(annotation.transactionId);
-    if (existing !== undefined) {
-      existing.push(annotation);
-      continue;
-    }
-
-    annotationsByTransactionId.set(annotation.transactionId, [annotation]);
-  }
-
-  return annotationsByTransactionId;
 }

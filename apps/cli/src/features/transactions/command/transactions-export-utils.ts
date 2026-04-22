@@ -65,8 +65,8 @@ export interface ExportHandlerParams {
   /** Filter by exact asset ID */
   assetId?: string | undefined;
 
-  /** Filter by operation type */
-  operationType?: string | undefined;
+  /** Filter by interpreted operation group, type, or label */
+  operationFilter?: string | undefined;
 
   /** Filter by transaction annotation kind */
   annotationKind?: AnnotationKind | undefined;
@@ -103,7 +103,12 @@ export function buildExportParamsFromFlags(
   options: ExportCommandOptions
 ): Result<Omit<ExportHandlerParams, 'profileId'>, Error> {
   return resultDo(function* () {
-    const platformKey = options.exchange || options.blockchain;
+    const platformKey =
+      typeof options.exchange === 'string'
+        ? options.exchange
+        : typeof options.blockchain === 'string'
+          ? options.blockchain
+          : undefined;
     const format = options.format ?? 'csv';
     const csvFormat = options.csvFormat ?? 'normalized';
 
