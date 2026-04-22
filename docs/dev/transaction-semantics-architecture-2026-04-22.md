@@ -26,6 +26,14 @@ out to be a parallel semantic contract growing alongside diagnostics, with
 most detectors doing pure re-projection of facts the processor already knew.
 This document defines the target shape that fixes both problems.
 
+This document intentionally locks down only the contracts that affect durable
+identity, invalidation, authority boundaries, and observable read behavior. It
+intentionally leaves implementation leeway for internal APIs, helper
+decomposition, runtime scheduling, and storage mechanics that do not change
+those contracts. Future ambiguity reviews should treat that leeway as
+deliberate, not as a defect, unless it changes replay identity, invalidation,
+or consumer-visible semantics.
+
 The target is four channels with non-overlapping jobs:
 
 | Channel               | Question it answers            | Primary storage                                          |
@@ -48,6 +56,10 @@ Movements carry an `accounting_role` field, narrowly scoped to transfer
 eligibility and accounting behavior. Allowed values:
 `principal`, `staking_reward`, `protocol_overhead`, `refund_rebate`.
 
+`protocol_overhead` means a non-fee protocol-side balance movement such as
+rent, storage, account funding, or protocol rebate legs. It is **not** a
+fallback for amounts already represented in `fees[]`.
+
 `accounting_role` is **NOT NULL**. Every movement is authored with an
 explicit value at creation time — plain inflow/outflow is `principal`,
 staking payouts are `staking_reward`, and so on. Read paths never coerce a
@@ -60,14 +72,26 @@ The current override-store / replay pattern materializes an effective
 reads. Review may record why a correction happened, but cost basis and
 transfer validation still read one channel: ledger.
 
+This architecture keeps the existing override event-store + replay contract
+from `docs/specs/override-event-store-and-replay.md`. V1 does not redesign
+that mechanism here; it only preserves ledger ownership.
+
 Notably **not** carried on movements: `fee` and `gas`. Those live in the
 separate fees table. The accounting layer reads `accounting_role` to decide
 what counts as transferable principal — it does not need to consult any other
 channel for that decision.
 
+Authoring invariant: when ledger and semantics both express the same
+observation, the two must agree. V1 fixes one mandatory overlap: any
+transaction containing a movement with `accounting_role: 'staking_reward'`
+must also emit a transaction-scoped `staking_reward` fact. The other ledger
+roles do not, by themselves, imply a semantic fact kind; `principal`,
+`protocol_overhead`, and `refund_rebate` may appear with or without richer
+semantic facts depending on what the processor can prove.
+
 `transaction.operation` is **gone**. There is no canonical stored "what
-happened" field on transactions. Plain transfer labels (send / receive /
-self-transfer / trade) are derived from ledger shape on read by a small
+happened" field on transactions. Plain transfer labels (`send`, `receive`,
+`self_transfer`, `trade`) are derived from ledger shape on read by a small
 helper in the ledger package — not stored, not authored.
 
 ### 2. Semantic Facts — "what happened?"
@@ -82,7 +106,8 @@ Each fact has:
 - a typed `kind` (one of a small enum — see Kinds below)
 - `evidence` of `asserted` or `inferred` (rename of the earlier `tier` field;
   reads more honestly with the word "fact")
-- optional `role`, `protocol_ref`, `counterparty_ref`, `group_key`
+- optional `role`, `protocol_ref`, `counterparty_ref`, `group_key`,
+  `correlation_key`
 - an `emitter_id` identifying the processor or post-processor that authored it
 - `derived_from_tx_fingerprints` for provenance
 - `metadata` validated by a per-kind Zod schema (no free-form blob)
@@ -90,6 +115,23 @@ Each fact has:
 Facts identify each other by **fingerprint**, never by database id. This
 keeps the contract durable across reprocesses and across the draft-vs-
 persisted boundary at ingestion time (see Processor Authoring below).
+
+V1 fact targets are `transaction` or non-fee asset `movement`. Fees have
+their own persisted fingerprint for ledger identity, but semantic facts do
+not target fee rows in v1.
+
+V1 kind scope is fixed:
+
+- transaction-scoped kinds: `bridge`, `swap`, `wrap`, `unwrap`,
+  `staking_deposit`, `staking_withdrawal`, `staking_reward`,
+  `protocol_deposit`, `protocol_withdrawal`, `airdrop_claim`,
+  `asset_migration`, `spam_inbound`, `phishing_approval`, `dust_fanout`
+- movement-scoped kinds: none in the initial v1 kind set
+
+Movement-scoped support remains in the generic fact contract for future narrow
+facts, but no current kind chooses its own scope ad hoc. When a transaction-
+scoped kind needs to name specific legs, it does so in kind-specific metadata
+using referenced `movement_fingerprint` values.
 
 Each fact also carries an explicit `emitter_lane` of `processor` or
 `post_processor`. This is a typed column, not a string-prefix convention on
@@ -101,7 +143,6 @@ branch on lane, so the lane must be first-class in the schema.
 `fact_fingerprint` must be deterministic from:
 
 - `kind`
-- `evidence`
 - fact scope plus durable target ref
   - transaction-scoped fact: `tx_fingerprint`
   - movement-scoped fact: `movement_fingerprint`
@@ -111,15 +152,57 @@ branch on lane, so the lane must be first-class in the schema.
 - `group_key`
 - canonicalized `metadata` (stable key ordering, no non-deterministic values)
 
+All fingerprint construction must use one shared metadata canonicalizer in
+`semantic-fact-fingerprint.ts`. Per-kind code may normalize semantic fields
+before handing metadata to that canonicalizer, but must not invent alternate
+serialization rules.
+
 Explicitly excluded from fingerprint material:
 
+- `evidence` — upgrading or downgrading support changes confidence about the
+  same fact; it does not create a second fact identity
 - `emitter_id` and `emitter_lane` — author provenance, not identity
 - `derived_from_tx_fingerprints` — invalidation provenance, not identity
+- `correlation_key` — non-identity external batch / correlation tag
 - database ids and timestamps
 
-Two emitters that converge on the same subject-scoped fact should produce the
-same fingerprint. If that ever causes a persistence conflict, the problem is
-upstream duplicate authorship, not fingerprint design.
+Two runs that differ only in `asserted` vs `inferred` should produce the same
+fingerprint. A stronger or weaker rerun replaces the same fact row; it does
+not create a sibling row at a different evidence level.
+
+Two emitters that would describe the same subject-scoped fact must also
+produce the same fingerprint. That convergence rule is about identity only;
+it is **not** permission for two emitters to persist the same fact. In steady
+state, exactly one emitter owns any given fact tuple. If two emitters reach
+the same fingerprint, the problem is duplicate authorship upstream, not
+fingerprint design.
+
+`emitter_lane` is excluded from fact identity, but it is part of the
+replacement-authorization tuple and the invalidation contract.
+
+V1 lane rule: `group_key` is reserved for grouped `post_processor` facts.
+`processor`-lane facts must write `group_key: null`. Non-identity provider or
+batch correlation belongs in optional `correlation_key`, which is scoped to
+`emitter_id` for display/debug only and does not participate in identity,
+replacement authorization, or invalidation.
+
+Runtime rule: duplicate authorship fails closed. The semantics store may
+replace an existing row for a `fact_fingerprint` only when the existing row
+has the same `(emitter_lane, emitter_id)`. If the fingerprint already exists
+with a different author, ingestion aborts the enclosing database transaction
+with a deterministic `duplicate_fact_authorship` error. No last-writer-wins
+merge, no silent replacement, no widening of the fingerprint to make the
+collision disappear.
+
+Migration rule: incremental rollout must use feature gating or staged cutover
+so exactly one author owns any given fact tuple at a time. During migration,
+do not leave legacy detector-style emission and new processor /
+post-processor emission active for the same fact tuple in one run.
+
+Authoring rule: if a processor can author a fact, a post-processor must not
+re-emit the same scope + `kind` + refs + metadata tuple just to attach
+different provenance or weaker/stronger evidence. Fix the emitter boundary;
+do not widen the fingerprint.
 
 #### Reserved columns
 
@@ -164,8 +247,27 @@ schema column. The `kind` enum carries the discrimination.
 Decisions, not observations. A separate authority with its own lifecycle.
 
 Each decision targets a subject, records a decision verb (`include`,
-`exclude`, `reclassify`, `confirm`, `dismiss`), the reason, and the reviewer
-(a user or a named rule).
+`exclude`, `confirm`, `dismiss`), the reason, and the reviewer (a user or a
+named rule).
+
+V1 assumes one interactive user authority per profile. `reviewer` may record a
+concrete actor id for audit, but precedence collapses all user-authored
+decisions into that single user authority class.
+
+V1 keeps verb meaning narrow:
+
+- `include` / `exclude` are participation decisions for `transaction`,
+  `movement`, and `asset` subjects
+- `confirm` / `dismiss` are truth-value decisions for `semantic_fact`
+  subjects
+- any other verb / subject pairing is invalid and rejected at write time
+
+`movement`-scoped review is valid persisted review state in v1, but its
+canonical effect is intentionally narrow. It may drive review queues, filters,
+and inspector surfaces only. It does **not** rewrite ledger-owned
+`accounting_role`, stand in for semantic-fact correction, or change
+accounting, linking, transaction labeling, portfolio inclusion, or
+transaction-level inclusion by itself.
 
 Subject refs are **fingerprint-based, never id-based**. Database ids are
 ephemeral — a reprocess rewrites them — so an id-based ref would silently
@@ -183,21 +285,70 @@ Review decisions do **not** directly override ledger-owned
 ledger override keyed by `movement_fingerprint` and materialized back onto
 movement state before accounting or linking reads.
 
+V1 deliberately omits an atomic `reclassify` verb. If a fact is wrong, the
+flow is:
+
+- `dismiss` the old semantic fact
+- apply the correction in the owning lane
+  - new semantic fact through the correct authoring workflow, or
+  - ledger override for `accounting_role` corrections
+
+If product later needs a one-click "this is actually X" flow, that should be
+modeled as an explicit correction workflow with its own payload contract, not
+as an underspecified review-table verb.
+
+`review_decisions` is append-only audit history. Reads collapse it into one
+**effective review state** per subject:
+
+1. For the same reviewer on the same subject, the latest decision wins.
+2. User decisions outrank rule decisions. If any user decision exists for a
+   subject, the latest user decision is the effective state and rule
+   decisions are ignored for read paths.
+3. If no user decision exists, the latest rule decision is the effective
+   state.
+4. If no effective decision exists, the subject is undecided.
+
+Here, `latest` means latest by the review store's durable append sequence, not
+by wall-clock timestamp. The exact storage column is an implementation detail;
+the ordering contract is deterministic total order.
+
+Consumers do not interpret raw decision history ad hoc. Portfolio, spam
+filtering, and future review UI read the effective review state projection.
+
 The boundary versus semantic facts is sharp: a `spam_inbound` fact is what
 the processor _observed_. An `exclude` review decision is what the system or
 user _decided_. They live in different tables because they have different
 authorities, different lifecycles, and different audit needs.
 
-Asset-level review state lives here. Per-transaction overrides live here.
-User confirmations of heuristic facts live here.
+Asset-level include / exclude lives here. Transaction- and movement-level
+include / exclude lives here. User confirmation or dismissal of heuristic
+facts lives here.
+
+`spam_inbound` workflows must coordinate fact truth and participation decisions
+explicitly. A workflow meaning "not spam" writes both `dismiss` on the
+`semantic_fact` subject and `include` on the `transaction` subject in the same
+write transaction. A workflow meaning "confirmed spam" may write `confirm` on
+the fact and `exclude` on the transaction together when both truth and
+participation are being decided. No review action on a semantic fact
+implicitly mutates transaction participation.
+
+This narrow movement-review effect is intentional, not provisional.
 
 ### 4. Diagnostics — "why was this uncertain or odd?"
 
 Demoted hard. Diagnostics carry processor warnings about uncertainty,
 ambiguity, or odd processing — and nothing else. Allowed codes are a small
-fixed enum (roughly: `classification_uncertain`, `allocation_uncertain`,
-`batch_operation`, `proxy_operation`, `multisig_operation`,
-`off_platform_cash_movement`).
+fixed enum for v1:
+`classification_uncertain`, `allocation_uncertain`,
+`counterparty_unresolved`, `batched_context_missing`,
+`proxy_target_unresolved`, `multisig_participants_unresolved`,
+`off_platform_settlement_unresolved`.
+
+These names are intentionally about missing context or uncertainty, not about
+event meaning. A diagnostic may say "we could not confidently resolve the
+proxy target"; it must not be the canonical place that says "this was a proxy
+operation." If a code starts answering "what happened?" it belongs in
+`semantic_facts`, with diagnostics reserved for whatever uncertainty remains.
 
 If a diagnostic code starts to encode "what happened," it has drifted into
 the wrong channel and should be promoted to a semantic fact kind.
@@ -231,6 +382,10 @@ fingerprints to persisted ids at write time. This eliminates the bootstrap
 problem of "how does a fact reference a transaction that does not have an id
 yet."
 
+Fee drafts use their own persisted fee fingerprint helpers for ledger
+identity. That identity is for fees storage and accounting; semantic-fact
+subjects remain transaction or non-fee asset movement in v1.
+
 The architectural rule: **if the processor knew the fact, the processor
 authors the fact.** No detector for re-projection.
 
@@ -249,6 +404,11 @@ Post-processors are the **only** thing the runtime exists for. Anything
 single-transaction that does not need profile context belongs in the
 processor.
 
+V1 may satisfy freshness conservatively by rerunning all registered
+post-processors over full profile scope after any transaction reprocess.
+Narrower scheduling is allowed, but only if it produces the same final rows
+as a full rerun for the evaluated scope.
+
 ### Grouping contract
 
 Cross-transaction semantics — bridge pair, asset migration, batched
@@ -263,30 +423,41 @@ those N facts cohere, replace, and invalidate. It replaces the earlier
    whose state the fact reads. Canonicalized: sorted, deduped. Order
    never affects identity. A single-tx processor fact has a one-element
    set; a bridge-pair post-processor fact has a two-element set.
-2. **Group key derived.** For grouped post-processor facts, `group_key`
+2. **Evaluated scope declared.** Every post-processor run executes against
+   an explicit `evaluated_tx_fingerprints: string[]` set, canonicalized
+   sorted/deduped. V1 may choose the whole profile. Narrower sets are
+   allowed only when the runtime can prove they preserve the same final
+   rows as a full rerun for that evaluated set.
+3. **Group key derived.** For grouped post-processor facts, `group_key`
    is a deterministic function of the canonical
    `derived_from_tx_fingerprints` set (a stable hash). Post-processors
    never synthesize group keys from external randomness. Single-subject
    facts carry `group_key: null`.
-3. **Provider pass-through.** When a provider supplies an authoritative
-   external group identifier (e.g. an exchange-assigned batch id), a
-   processor may pass it through unchanged as `group_key`. That is the
-   only path by which `group_key` appears on a processor-lane fact.
-   Processors never synthesize their own.
-4. **Replacement.** `fact_fingerprint` is the row identity. Grouped
-   post-processors do **not** row-upsert by
-   `(emitter_id, derived_from_tx_fingerprints)`. Instead, they replace
-   one whole emitted batch in a single transaction:
-   - delete existing rows for
-     `(emitter_id, derived_from_tx_fingerprints)`
-   - insert the newly emitted N facts, each keyed by its own
-     `fact_fingerprint`
-     This is why a bridge pair can safely emit two participant facts that
-     share one canonical input set.
-5. **Scope.** `group_key` is always interpreted in the scope of
+4. **Correlation key separated.** Non-identity external batch or
+   correlation tags belong in `correlation_key`, not `group_key`.
+   `correlation_key` may appear on processor- or post-processor-lane
+   facts, is interpreted only within `emitter_id`, and must not drive
+   replacement, invalidation, or grouped semantic meaning.
+5. **Replacement.** `fact_fingerprint` is the row identity. For a given
+   `emitter_id` and `evaluated_tx_fingerprints` set, persistence is
+   reconcile-not-append: after commit, the persisted rows authored by
+   that emitter whose `derived_from_tx_fingerprints` are wholly contained
+   in the evaluated set must equal exactly the newly emitted rows for
+   that same evaluated set. Implementations may realize this with
+   delete+insert or equivalent set reconciliation inside one database
+   transaction. This is why a bridge pair can safely emit two
+   participant facts that share one canonical input set.
+6. **Scope.** `group_key` is always interpreted in the scope of
    `emitter_id`; the meaningful identity is `(emitter_id, group_key)`.
    Cross-emitter grouping, if ever needed, must be modeled explicitly
-   rather than inferred from a raw `group_key` collision.
+   rather than inferred from a raw `group_key` collision. For
+   post-processors, `(emitter_id, group_key)` identifies one emitted
+   group. `correlation_key` is never a lifecycle key.
+
+Within the execution scope of a run, post-processor persistence is
+reconcile-not-append. If grouping changes from `{A,B}` to `{A,C}`, the old
+`{A,B}` rows are deleted as stale even though that previous `derived_from`
+tuple did not recur.
 
 Re-running a post-processor over unchanged inputs produces identical fact
 fingerprints.
@@ -306,11 +477,21 @@ reprocessed:
   by `derived_from` also clears the corresponding group; there is no
   separate "invalidate the group" step.
 
+`correlation_key` does not widen invalidation scope. Reprocessing one
+transaction invalidates only that transaction's processor-authored facts,
+even if several rows share the same external correlation tag.
+
 Post-processor facts are regenerated when the affected post-processors
 re-run. Until then, consumers see fewer post-processor facts, never
 silently stale ones. The workflow layer is expected to re-run affected
 post-processors after a reprocess completes; the store contract guarantees
 freshness, not the workflow.
+
+`Affected` means any registered post-processor whose candidate search space
+includes the reprocessed transaction under the runtime's scope rules. V1 may
+implement this conservatively as "all registered post-processors for the
+profile." Whatever scheduler is used, it must preserve the reconcile-not-
+append contract above.
 
 ### Three-case sanity check
 
@@ -340,31 +521,55 @@ Consumers read from one channel for each question:
   uncertainty issues only)
 - **Linking**: bridge / asset-migration facts (both evidence values, the
   consumer decides what to suggest) + `transaction_links`
-- **Portfolio / balance**: movements + asserted facts + active review
-  decisions (excludes filter out)
+- **Portfolio / balance**: movements + asserted facts + effective review
+  state (excludes filter out)
 - **History & filters**: facts of any evidence value, labeled clearly +
   diagnostics for the "why uncertain" surface
-- **Spam filtering**: `review_decisions WHERE decision = 'exclude'`,
-  typically seeded from `spam_inbound` facts via a rule
+- **Spam filtering**: effective review state where the decision is
+  `exclude`, typically seeded from `spam_inbound` facts via a rule
 
 No consumer reads diagnostics for semantic meaning. The closed diagnostic
 enum makes that rule mechanically enforceable.
 
 ### Label composition
 
-`deriveLedgerShapeLabel()` is the base structural projection. It answers only
-from ledger shape whether a transaction looks like a deposit, withdrawal,
-transfer, trade, or fee.
+`deriveLedgerShapeLabel()` is the base structural projection. Its canonical
+structural vocabulary is `send`, `receive`, `self_transfer`, `trade`, and
+`fee`. Surfaces that prefer venue wording such as "deposit" or "withdrawal"
+may remap those labels later from account context, but the helper contract
+itself stays canonical.
 
 `deriveOperationLabel()` is the only transaction-facing label helper.
 It composes `deriveLedgerShapeLabel()` first, then overlays semantic facts
 when a richer meaning exists (`bridge/send`, `bridge/receive`,
 `asset migration/send`, `staking/reward`, and so on).
 
+Its evidence contract is explicit: the caller must pass either facts already
+filtered to a chosen evidence policy, or an `evidence_policy` argument that
+the helper itself enforces. There is no implicit default. V1 uses two
+policies:
+
+- `asserted_only` — accounting, tax, readiness, portfolio, exports, and any
+  surface that must not let heuristics change canonical meaning
+- `asserted_or_inferred` — history, filters, and suggestion-oriented
+  surfaces that intentionally show heuristic semantics
+
+If an inferred fact is what upgrades the base label, the rendering surface
+must mark that uncertainty explicitly.
+
+For DEX-like shapes, the contract is intentionally layered:
+
+- `deriveLedgerShapeLabel()` may return `trade` for a structural
+  one-asset-out / different-asset-in transaction
+- `deriveOperationLabel()` upgrades that base label to `swap` when a
+  `swap` fact is present
+- if no semantic fact exists yet, transaction-facing surfaces fall back to
+  the structural `trade` label rather than collapsing to send/receive
+
 Consumers rendering user-facing transaction labels, filters, exports, or
-history rows should call `deriveOperationLabel()`. Direct calls to
-`deriveLedgerShapeLabel()` are reserved for ledger/debug surfaces and tests
-that intentionally ignore semantic facts.
+history rows should call `deriveOperationLabel()` with an explicit evidence
+policy. Direct calls to `deriveLedgerShapeLabel()` are reserved for
+ledger/debug surfaces and tests that intentionally ignore semantic facts.
 
 ## What Stays From the Current Implementation
 
@@ -380,6 +585,8 @@ parts carry forward:
   post-processor lane is for.
 - The `protocol_ref` shape (id + optional version, chain not part of the
   ref). Sound.
+- The existing override event-store / replay contract for movement-role
+  correction. Preserve it; do not redesign it inside this refactor.
 
 What does not carry forward:
 
@@ -551,9 +758,9 @@ Near-term work should move toward this target incrementally:
 
 ## Deferred / Non-Goals
 
-The greenfield target is broad. The following are explicitly **not** part of
-the v1 cut, and should not be assumed to land just because the architecture
-makes room for them:
+The contract-critical decisions are fixed above. The following are later
+implementation slices or broader product scope, not unresolved semantics in
+this architecture:
 
 - Counterparty resolver implementation. The column and shape are reserved;
   the resolver is a later slice.
@@ -591,6 +798,28 @@ A v1 that delivers this architecture is one where:
   the typed fact contract.
 - The fact query API forces `kinds` and `evidence` selection. Heuristic /
   inferred facts cannot silently drive tax or readiness consumers.
+- Semantic-fact subjects are transactions or non-fee asset movements. In the
+  initial v1 kind set, every listed kind is transaction-scoped; movement-
+  scoped support exists in the generic contract but is unused until a later
+  kind is added explicitly.
+- Duplicate authorship across emitters fails the enclosing ingestion
+  transaction; cutovers are gated rather than merged ad hoc.
+- Review reads use one effective review state with a fixed verb / subject
+  matrix, one user authority per profile, user-over-rule precedence, and
+  deterministic append-order semantics.
+- Movement-level review is stored/projected but has no canonical effect on
+  accounting, linking, labels, portfolio inclusion, or transaction-level
+  inclusion.
+- Workflows that change both fact truth and transaction participation write
+  separate review decisions atomically; fact decisions do not implicitly
+  mutate inclusion state.
+- `deriveOperationLabel()` requires an explicit evidence policy; inferred
+  facts do not silently relabel asserted-only surfaces.
+- `group_key` is post-processor-only in v1 and participates in grouped fact
+  identity there. Processor-lane facts set `group_key` to `null`; non-identity
+  batch/provider correlation uses `correlation_key`.
+- Post-processor reruns reconcile an explicit evaluated transaction set; stale
+  prior outputs within that set are deleted when candidate groupings change.
 - Reprocessing a transaction replaces all processor-authored facts for that
   transaction atomically. Re-running a post-processor over unchanged inputs
   produces identical fact fingerprints.
@@ -603,10 +832,24 @@ A v1 that delivers this architecture is one where:
 - Processors as fact authors. No detector layer for single-tx work.
 - Per-kind metadata schemas. No more string-roundtripping through a
   free-form blob.
+- Duplicate authorship fails closed. During migration, ownership must be
+  cut over explicitly rather than tolerated at write time.
 - `accounting_role` on movements keeps accounting fast — it does not need
   to join semantic_facts to decide transfer eligibility.
+- Semantic-fact scope stays narrow: transactions or non-fee asset movements.
+  The initial v1 kind set is entirely transaction-scoped; movement-fingerprint
+  metadata names specific legs where needed.
 - Review state is decisions, not observations. `spam_inbound` is what was
   seen; `exclude` is what was decided.
+- Review reads collapse append-only history into one effective state with
+  one user authority per profile, user-over-rule precedence, and deterministic
+  append ordering.
+- `group_key` is a post-processor lifecycle key. Non-identity external
+  correlation uses `correlation_key` instead of overloading grouped identity.
+- Post-processor persistence is reconcile-not-append within execution scope;
+  candidate regrouping must delete stale prior rows.
+- `deriveOperationLabel()` takes explicit evidence policy. Surfaces that
+  allow inferred semantics must opt in.
 - Smell to watch: negative observations drifting between semantic facts
   and diagnostics. The closed diagnostic enum is the forcing function;
   protect it.
@@ -625,5 +868,9 @@ A v1 that delivers this architecture is one where:
   `Annotation` + `tier: 'asserted' | 'heuristic'`.
 - `accounting_role` is a real improvement over `movementRole`.
 - `emitter_id` is right.
+- `correlation_key` is a better name for non-identity external batching than
+  overloading `group_key`.
+- `effective review state` is a better contract term than `active review
+decisions`.
 - `derived_from_tx_fingerprints` (not `_ids`) — fingerprints survive the
   draft-to-persisted boundary; ids do not.
