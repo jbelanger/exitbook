@@ -86,13 +86,31 @@ V1 resolution:
 
 - persist or clear the ledger override first
 - then run a narrow persisted-state sync step for the affected transaction
+- for this workflow, an **equivalent** fact means any movement-scoped
+  `staking_reward` fact targeting the same `movement_fingerprint`; equivalence
+  is about satisfying the overlap invariant for that movement, not about
+  matching `emitter_id`, `emitter_lane`, or `evidence`
+- synced facts use the minimal v1 `staking_reward` payload for that movement:
+  no `role`, no `protocol_ref`, no `counterparty_ref`, and canonical empty
+  metadata `{}` (see V1 per-kind payload matrix below)
 - that sync step may author a movement-scoped `staking_reward` fact only when
   no equivalent fact already exists for the movement
 - synced facts use `emitter_lane: 'post_processor'`,
   `emitter_id: 'ledger_override_sync'`, and `evidence: 'asserted'`
 - when the override is cleared, the sync step deletes only
   `ledger_override_sync`-owned rows for that movement and leaves any
-  processor-authored equivalent fact in place
+  processor-authored same-movement `staking_reward` fact in place
+- moving a movement away from effective `accounting_role: 'staking_reward'` is
+  **not** a bare ledger override write. It must use a coordinated correction
+  workflow that, in one database transaction:
+  - appends `dismiss` review decisions for every movement-scoped
+    `staking_reward` fact targeting that `movement_fingerprint`
+  - persists or clears the ledger override to the new effective
+    `accounting_role`
+  - deletes only `ledger_override_sync`-owned rows for that movement
+- that downgrade workflow never hard-deletes processor-authored
+  `staking_reward` facts. They remain persisted audit history and are
+  suppressed from canonical semantic reads by the review contract below
 
 Notably **not** carried on movements: `fee` and `gas`. Those live in the
 separate fees table. The accounting layer reads `accounting_role` to decide
@@ -164,6 +182,14 @@ future narrow facts, but no current kind chooses its own scope ad hoc. When a
 transaction-scoped kind needs to name specific legs, it does so in kind-
 specific metadata using referenced `movement_fingerprint` values.
 
+`bridge` is allowed in two non-overlapping authoring shapes:
+
+- processor-lane `bridge` facts cover single-transaction bridges a source
+  processor can prove from one transaction alone; they must write
+  `group_key: null`
+- post-processor-lane `bridge` facts cover profile-scoped heuristic or grouped
+  bridge pairing and follow the grouping contract below
+
 `asset_migration` is allowed in two non-overlapping authoring shapes:
 
 - processor-lane `asset_migration` facts cover single-transaction migrations a
@@ -171,6 +197,14 @@ specific metadata using referenced `movement_fingerprint` values.
   `group_key: null`
 - post-processor-lane `asset_migration` facts cover grouped multi-transaction
   migrations and follow the grouping contract below
+
+Coexistence rule for `asset_migration`: raw persistence may contain both a
+processor-lane single-transaction fact and a grouped post-processor fact for
+the same `tx_fingerprint`. Canonical semantic reads must suppress
+processor-lane `asset_migration` for any transaction that also has at least one
+non-dismissed post-processor-lane `asset_migration`. Grouped migration
+supersedes single-transaction migration for canonical meaning; audit/debug
+surfaces may still show both rows with emitter provenance.
 
 Provider-native batch, campaign, or venue-correlation hints for single-tx
 processor facts belong in `correlation_key`, not `group_key`.
@@ -198,6 +232,10 @@ All fingerprint construction must use one shared metadata canonicalizer in
 `semantic-fact-fingerprint.ts`. Per-kind code may normalize semantic fields
 before handing metadata to that canonicalizer, but must not invent alternate
 serialization rules.
+
+For kinds whose schema has no payload fields in v1, canonical metadata is the
+empty object `{}`. Emitters must not create identity drift by alternating
+between omitted metadata and `{}` for the same fact family.
 
 Explicitly excluded from fingerprint material:
 
@@ -288,6 +326,32 @@ Negative signals (processor-time observations consumers may act on):
 The action vs. negative-signal distinction is a documentation grouping, not a
 schema column. The `kind` enum carries the discrimination.
 
+#### V1 per-kind payload matrix
+
+This is the minimum payload contract for v1 identity. If a kind is listed with
+empty metadata, emitters persist canonical empty metadata `{}` rather than
+varying between omitted and empty payloads.
+
+| Kind(s)                                                                                                      | Scope         | Allowed `role`       | Metadata schema (v1)                                                                             |
+| ------------------------------------------------------------------------------------------------------------ | ------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
+| `bridge`                                                                                                     | `transaction` | `source` \| `target` | `{ sourceChain?: string; destinationChain?: string }` with normalized lowercase chain hints only |
+| `asset_migration`                                                                                            | `transaction` | `source` \| `target` | `{ providerSubtype?: string }`                                                                   |
+| `swap`, `wrap`, `unwrap`, `staking_deposit`, `staking_withdrawal`, `protocol_deposit`, `protocol_withdrawal` | `transaction` | none                 | `{}`                                                                                             |
+| `airdrop_claim`, `spam_inbound`, `phishing_approval`, `dust_fanout`                                          | `transaction` | none                 | `{}`                                                                                             |
+| `staking_reward`                                                                                             | `movement`    | none                 | `{}`                                                                                             |
+
+Additional v1 rules:
+
+- `bridge` chain hints are directional context only. Counterpart transaction
+  refs, batch tags, and external campaign ids do **not** belong in bridge
+  metadata.
+- `asset_migration.providerSubtype` is descriptive context only. Cross-
+  transaction cohesion still comes from `group_key`, and non-identity provider
+  batch hints still belong in `correlation_key`.
+- When a future transaction-scoped kind needs exact leg attribution, its schema
+  must name specific `movement_fingerprint` fields explicitly. Do not smuggle
+  ad hoc provider blobs into `metadata`.
+
 ### 3. Review Decisions — "should we trust / include this?"
 
 Decisions, not observations. A separate authority with its own lifecycle.
@@ -330,8 +394,15 @@ Effective participation applies with transaction scope as the outer gate:
 - if the effective `transaction` decision is `exclude`, the whole transaction
   is excluded for participation-sensitive consumers
 - if the transaction is included or undecided, effective `asset` decisions
-  prune only the matching movements and fees inside the surviving transaction
-- mixed transactions stay in scope when included activity survives
+  match by exact `asset_id`
+- asset-level `exclude` prunes every movement and fee row whose `asset_id`
+  matches the excluded asset inside the surviving transaction
+- mixed transactions stay in scope when any non-pruned movement or fee remains
+- fee-only survivors remain in scope for participation-sensitive consumers; a
+  fee row is still surviving included activity
+- if asset-level pruning removes every movement and fee in the transaction,
+  participation-sensitive consumers treat the transaction as excluded even
+  though the ledger row remains visible on audit/debug surfaces
 - transaction-level `exclude` wins over any asset-level decision inside that tx
 - transaction-level `include` does not resurrect an excluded asset leg
 - asset-level `include` does not resurrect a transaction excluded at
@@ -380,6 +451,42 @@ Here, `latest` means latest by the review store's durable append sequence, not
 by wall-clock timestamp. The exact storage column is an implementation detail;
 the ordering contract is deterministic total order.
 
+Rule-seeded review is a reconciled derived workflow, not a one-way append.
+Each named rule reviewer evaluates an explicit subject set and appends whatever
+decision is required so that its latest rule-authored state matches current rule
+output for each evaluated subject.
+
+- for participation subjects, when a rule-authored `exclude` no longer applies,
+  the rule appends `include` for that same subject
+- for `semantic_fact` subjects, when a rule-authored `confirm` no longer
+  applies and the fact still exists, the rule appends `dismiss`
+- if a previously-reviewed `semantic_fact` subject no longer exists after
+  reprocess, the historical rule rows remain audit history but are inert on
+  read because the subject ref no longer resolves
+
+User-over-rule precedence still applies on top of that reconciled rule stream.
+
+For `semantic_fact` subjects, effective review state affects canonical fact
+visibility:
+
+- effective `dismiss` suppresses the fact from canonical semantic reads
+- effective `confirm` leaves the fact visible and records trust, but does not
+  create a second fact
+- history, audit, and debug surfaces may opt into raw persisted facts together
+  with their effective review state
+
+The semantic-fact query API must expose an explicit fact-decision policy with
+no implicit default:
+
+- `exclude_dismissed` — canonical meaning reads
+- `include_dismissed` — audit/history/debug reads
+
+Producer placement: rule evaluation lives in `packages/review/` as an
+observation consumer over persisted semantic facts and diagnostics. Ingestion
+triggers that evaluation after fact persistence or reprocess, but review owns
+the rule registry/runner and writes `review_decisions`. It is not part of
+semantic post-processing because post-processing authors facts only.
+
 Consumers do not interpret raw decision history ad hoc. Portfolio, spam
 filtering, and future review UI read the effective review state projection.
 
@@ -399,6 +506,10 @@ write transaction. A workflow meaning "confirmed spam" may write `confirm` on
 the fact and `exclude` on the transaction together when both truth and
 participation are being decided. No review action on a semantic fact
 implicitly mutates transaction participation.
+
+Rule-seeded spam review follows the same reconciled model above. It must not
+leave stale rule-authored transaction or asset excludes in place once the
+current rule evaluation no longer supports them.
 
 Spam workflows should choose the narrowest subject that matches the intended
 blast radius:
@@ -495,6 +606,11 @@ across two chains is the canonical example: no single processor can see both
 sides. Grouped asset migration is another case where correlation may require
 more than one persisted transaction.
 
+That profile-wide bridge example is intentionally distinct from source-proven
+single-transaction bridge facts. If a processor can prove `bridge` from one
+transaction alone, the processor owns that fact and the post-processor must not
+re-emit the same tuple just to add pairing provenance.
+
 An ingestion-owned post-processing stage exists for exactly this work. It runs
 after transactions and raw bindings are persisted, loads a profile scope plus
 whatever persisted source context the registered post-processors require, emits
@@ -515,6 +631,12 @@ Post-processors emit semantic facts only. They do **not** emit diagnostics, and
 no post-processing path may translate diagnostics into facts later. If a
 signal is "what happened?" it must be authored as a fact directly by the owning
 processor or post-processor lane.
+
+`ledger_override_sync` lives under ingestion-owned semantic authoring, not under
+ledger or review, because it authors semantic facts. The ledger override
+workflow triggers it immediately after override persistence/clear for the
+affected transaction; the sync step itself only writes/deletes semantic facts it
+owns.
 
 V1 may satisfy freshness conservatively by rerunning all registered
 post-processors over full profile scope after any transaction reprocess.
@@ -626,21 +748,32 @@ re-examine before shipping — the model is not yet greenfield-clean.
 
 Consumers read from one channel for each question:
 
+Unless a surface is explicitly audit/debug-oriented, semantic reads operate on
+**effective semantic facts**: persisted facts after explicit evidence
+selection, explicit fact-decision filtering (`exclude_dismissed` vs
+`include_dismissed`), and kind-specific supersession rules such as grouped
+`asset_migration` suppressing processor-lane single-transaction
+`asset_migration` for the same transaction.
+
 - **Cost basis / accounting**: `movements.accounting_role` (transfer
-  eligibility) + `semantic_facts WHERE evidence = 'asserted'` (forced by
-  the query API — no defaulting) + effective participation state on
+  eligibility) + effective semantic facts where `evidence = 'asserted'`
+  (forced by the query API — no defaulting) + effective participation state on
   `transaction` / `asset` subjects
-- **Tax & readiness**: asserted semantic facts + diagnostics (for
-  uncertainty issues only) + effective participation state where participation
-  matters
-- **Linking**: bridge / asset-migration facts (both evidence values, the
+- **Tax & readiness**: effective semantic facts where `evidence = 'asserted'`
+  - diagnostics (for
+    uncertainty issues only) + effective participation state where participation
+    matters
+- **Linking**: effective bridge / asset-migration facts (both evidence values,
+  the
   consumer decides what to suggest) + `transaction_links` + effective
   participation state
-- **Portfolio / balance**: movements + asserted facts + effective review
+- **Portfolio / balance**: movements + effective semantic facts where
+  `evidence = 'asserted'` + effective review
   state / participation state (excludes filter out)
-- **History & filters**: facts of any evidence value, labeled clearly +
-  diagnostics for the "why uncertain" surface; excluded items may still appear
-  on audit/debug-oriented surfaces
+- **History & filters**: facts of any evidence value, optionally including
+  dismissed or superseded rows, labeled clearly + diagnostics for the
+  "why uncertain" surface; excluded items may still appear on audit/debug-
+  oriented surfaces
 - **Spam filtering**: effective review state where the decision is
   `exclude`, typically seeded from `spam_inbound` facts via a rule
 
@@ -664,6 +797,11 @@ facts such as `staking_reward`, the helper projects upward from the matching
 leg facts when building a transaction label. Negative-signal facts do not
 replace the primary operation label; they surface separately as flags or
 badges.
+
+The helper consumes semantic facts after the caller's evidence policy and
+fact-decision policy have already been applied. It must not resurrect dismissed
+facts or ignored processor-lane `asset_migration` facts that were superseded by
+grouped post-processor migration.
 
 Its evidence contract is explicit: the caller must pass either facts already
 filtered to a chosen evidence policy, or an `evidence_policy` argument that
@@ -755,11 +893,13 @@ visible.
   store port and query API, protocol and counterparty resolvers (internal,
   not extracted), and the `deriveOperationLabel()` projection.
 - `packages/review/` — review decisions, asset-level review, decision
-  authority (user vs rule), and the effective participation projection. Spam
-  _decisions_ live here; spam _observations_ are facts.
+  authority (user vs rule), review-rule evaluation, and the effective
+  participation projection. Spam _decisions_ live here; spam _observations_ are
+  facts.
 - `packages/ingestion/` — source processors, `ProcessorOutput`, diagnostics,
-  and the ingestion-owned semantic post-processing stage that authors
-  `post_processor`-lane facts after persistence.
+  the ingestion-owned semantic post-processing stage that authors
+  `post_processor`-lane facts after persistence, and `ledger_override_sync`
+  for semantic fact sync triggered by ledger override workflows.
 - Diagnostics — kept as a folder under `packages/ingestion/`, not a
   standalone package. The forcing function is the closed diagnostic-code
   enum, not the package boundary.
@@ -818,24 +958,29 @@ packages/
         derive-operation-label.ts
       index.ts
 
-  review/
-    src/
-      decisions/
-        review-decision-types.ts
-        review-decision-store.ts
-      participation/
-        effective-participation-state.ts
-      authority/
-      asset-review/
-      index.ts
+	  review/
+	    src/
+	      decisions/
+	        review-decision-types.ts
+	        review-decision-store.ts
+	      rules/
+	        review-rule-registry.ts
+	        review-rule-runner.ts
+	        spam-inbound-rule.ts
+	      participation/
+	        effective-participation-state.ts
+	      authority/
+	      asset-review/
+	      index.ts
 
-  ingestion/
-    src/
-      semantic-authoring/
-        processor-output.ts
-        post-processing/
-          post-processing-runtime.ts
-          post-processor-registry.ts
+	  ingestion/
+	    src/
+	      semantic-authoring/
+	        processor-output.ts
+	        ledger-override-sync.ts
+	        post-processing/
+	          post-processing-runtime.ts
+	          post-processor-registry.ts
           source-reader.ts
           post-processors/
             heuristic-bridge-pair.ts
@@ -863,9 +1008,14 @@ Boundary notes:
 - `transaction-semantics/` owns fact contracts, protocol/counterparty context,
   and label projection. It does not own source-aware authoring workflows.
 - `review/` owns decisions, asset-review state, and effective participation
-  state, not passive observations.
+  state, including rule evaluation over persisted observations, not passive
+  observations themselves.
 - `ingestion/` owns semantic authoring workflows, including the
-  post-processing stage for the truly cross-transaction or source-aware cases.
+  post-processing stage for the truly cross-transaction or source-aware cases
+  and `ledger_override_sync` for semantic fact authoring triggered by ledger
+  override workflows.
+- ingestion may trigger review rule evaluation after persistence/reprocess, but
+  review owns rule logic and decision writes.
 - diagnostics stay narrow under ingestion-owned code.
 - accounting-owned helpers that were temporarily parked under
   `transaction-interpretation` move back to accounting.
@@ -957,8 +1107,14 @@ A v1 that delivers this architecture is one where:
   authoring runtimes. Nothing else.
 - Per-kind metadata is validated by Zod. No `Record<string, unknown>` in
   the typed fact contract.
+- The v1 per-kind payload matrix is fixed and identity-safe. Kinds with empty
+  payload schemas persist canonical empty metadata `{}` rather than drifting
+  between omitted and empty payloads.
 - The fact query API forces `kinds` and `evidence` selection. Heuristic /
   inferred facts cannot silently drive tax or readiness consumers.
+- The semantic-fact query API also forces explicit fact-decision policy.
+  Canonical semantic reads exclude effectively dismissed facts; audit/debug
+  reads may opt into dismissed facts explicitly.
 - Semantic-fact subjects are transactions or non-fee asset movements. In the
   initial v1 kind set, `staking_reward` is movement-scoped; all other listed
   kinds are transaction-scoped unless a later kind is added explicitly.
@@ -967,6 +1123,9 @@ A v1 that delivers this architecture is one where:
 - Review reads use one effective review state with a fixed verb / subject
   matrix, one user authority per profile, user-over-rule precedence, and
   deterministic append-order semantics.
+- Rule-seeded review is reconciled over current evaluated subjects rather than
+  append-only accumulation. When a rule-authored participation decision no
+  longer applies, the rule appends the neutralizing latest state.
 - Movement-level review is stored/projected but has no canonical effect on
   accounting, linking, labels, portfolio inclusion, or transaction-level
   inclusion.
@@ -975,7 +1134,10 @@ A v1 that delivers this architecture is one where:
   mutate inclusion state.
 - Manual correction to or from `accounting_role: 'staking_reward'` preserves
   the matching movement-scoped `staking_reward` fact invariant through the
-  coordinated sync workflow above.
+  coordinated sync workflow above, where sync suppression keys off same-
+  movement `staking_reward` existence rather than author identity, and
+  downgrades away from `staking_reward` use explicit fact dismissal rather
+  than hard-deleting processor-authored facts.
 - Pure structural downstream checks read a ledger-owned `deriveLedgerShape()`
   contract rather than branching on display labels.
 - `deriveOperationLabel()` requires an explicit evidence policy; inferred
@@ -987,9 +1149,18 @@ A v1 that delivers this architecture is one where:
 - `group_key` is post-processor-only in v1 and participates in grouped fact
   identity there. Processor-lane facts set `group_key` to `null`; non-identity
   batch/provider correlation uses `correlation_key`.
+- Asset-level participation matches by exact `asset_id`, prunes same-asset fee
+  rows as well as movements, and fee-only survivors keep a transaction in
+  scope for participation-sensitive reads.
+- `bridge` has two non-overlapping shapes: processor-lane single-tx facts with
+  `group_key: null`, and grouped / heuristic post-processor facts under the
+  grouping contract.
 - Processor-lane `asset_migration` facts are single-transaction facts with
   `group_key: null`. Grouped `asset_migration` facts, when needed, are authored
   only by the ingestion-owned post-processing lane.
+- Canonical semantic reads suppress processor-lane `asset_migration` for a
+  transaction when non-dismissed grouped post-processor `asset_migration`
+  exists for that same transaction. Audit/debug reads may still surface both.
 - Post-processor reruns reconcile an explicit evaluated transaction set; stale
   prior outputs within that set are deleted when candidate groupings change.
 - Reprocessing a transaction replaces all processor-authored facts for that
@@ -997,6 +1168,10 @@ A v1 that delivers this architecture is one where:
   produces identical fact fingerprints.
 - Ingestion-owned post-processing authors facts only. Diagnostics are emitted
   by processors at processing time, never by post-processing.
+- Review owns rule evaluation and decision writes; ingestion only triggers rule
+  runs after persistence/reprocess.
+- `ledger_override_sync` lives in ingestion semantic authoring and is invoked by
+  the ledger override workflow after override persist/clear.
 
 ## Decisions & Smells
 
@@ -1008,6 +1183,9 @@ A v1 that delivers this architecture is one where:
   not a package boundary.
 - Per-kind metadata schemas. No more string-roundtripping through a
   free-form blob.
+- V1 payload identity is fixed by an explicit per-kind matrix. Empty-schema
+  kinds canonicalize to `{}` so emitters do not create false fingerprint
+  divergence with omitted metadata.
 - Duplicate authorship fails closed. During migration, ownership must be
   cut over explicitly rather than tolerated at write time.
 - `accounting_role` on movements keeps accounting fast — it does not need
@@ -1022,11 +1200,29 @@ A v1 that delivers this architecture is one where:
 - Review reads collapse append-only history into one effective state with
   one user authority per profile, user-over-rule precedence, and deterministic
   append ordering.
+- Rule-seeded review is reconcile-not-append at the workflow level. Latest rule
+  state must track current evaluated subjects, not accumulate stale excludes.
+- Dismissed semantic facts remain persisted audit history but are excluded from
+  canonical semantic reads unless a surface explicitly opts into them.
+- Asset-level participation pruning matches exact `asset_id`, removes same-
+  asset fees with same-asset legs, and still treats fee-only survivors as
+  surviving included activity.
+- `bridge` mirrors `asset_migration` in lane ownership: source-proven
+  single-tx facts belong to processors; grouped or heuristic pairing belongs to
+  post-processing.
+- Grouped `asset_migration` supersedes processor-lane single-tx
+  `asset_migration` for canonical meaning without hard-deleting the original
+  processor row.
 - `group_key` is a post-processor lifecycle key. Non-identity external
   correlation uses `correlation_key` instead of overloading grouped identity.
 - `asset_migration` has two non-overlapping shapes: processor-lane single-tx
   facts with `correlation_key`, and grouped post-processor facts with
   `group_key`.
+- Review rule evaluation belongs in `packages/review/`; ingestion triggers it
+  but does not own decision logic.
+- `ledger_override_sync` belongs in ingestion semantic authoring even though it
+  is triggered by a ledger-owned override workflow, because it authors semantic
+  facts.
 - Post-processor persistence is reconcile-not-append within execution scope;
   candidate regrouping must delete stale prior rows.
 - `deriveOperationLabel()` takes explicit evidence policy. Surfaces that
@@ -1040,6 +1236,9 @@ A v1 that delivers this architecture is one where:
 - Smell to watch: `derive-operation-label` becoming a coupling hotspot as
   new kinds are added. Mitigated by TS exhaustiveness checks; revisit if
   the kind set grows past ~15.
+- Smell to watch: empty-schema kinds drifting between omitted metadata and `{}`
+  during migration. Normalize once in the shared fingerprint / persistence path
+  and keep the representation canonical.
 
 ## Naming Issues
 
