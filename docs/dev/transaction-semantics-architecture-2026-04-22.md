@@ -76,6 +76,24 @@ This architecture keeps the existing override event-store + replay contract
 from `docs/specs/override-event-store-and-replay.md`. V1 does not redesign
 that mechanism here; it only preserves ledger ownership.
 
+Manual correction to or from `staking_reward` is a coordinated correction
+workflow, not a bare movement-role override write. The override event-store
+remains ledger-owned and keyed by `movement_fingerprint`, but the workflow
+must also keep the mandatory ledger/semantics overlap invariant satisfied for
+the affected movement.
+
+V1 resolution:
+
+- persist or clear the ledger override first
+- then run a narrow persisted-state sync step for the affected transaction
+- that sync step may author a movement-scoped `staking_reward` fact only when
+  no equivalent fact already exists for the movement
+- synced facts use `emitter_lane: 'post_processor'`,
+  `emitter_id: 'ledger_override_sync'`, and `evidence: 'asserted'`
+- when the override is cleared, the sync step deletes only
+  `ledger_override_sync`-owned rows for that movement and leaves any
+  processor-authored equivalent fact in place
+
 Notably **not** carried on movements: `fee` and `gas`. Those live in the
 separate fees table. The accounting layer reads `accounting_role` to decide
 what counts as transferable principal — it does not need to consult any other
@@ -95,6 +113,12 @@ can prove.
 happened" field on transactions. Plain transfer labels (`send`, `receive`,
 `self_transfer`, `trade`) are derived from ledger shape on read by a small
 helper in the ledger package — not stored, not authored.
+
+For non-semantic policy code, the ledger package also owns a structural helper
+`deriveLedgerShape()` whose result is one of:
+`send`, `receive`, `self_transfer`, `trade`, `fee`.
+That helper answers structural questions only. Downstream policy code must not
+branch on rendered label text.
 
 ### 2. Semantic Facts — "what happened?"
 
@@ -301,6 +325,18 @@ readiness, portfolio, and balance-verification adjustments — read that
 effective participation projection. History, audit, and debug surfaces still
 read the underlying transactions even when participation is excluded.
 
+Effective participation applies with transaction scope as the outer gate:
+
+- if the effective `transaction` decision is `exclude`, the whole transaction
+  is excluded for participation-sensitive consumers
+- if the transaction is included or undecided, effective `asset` decisions
+  prune only the matching movements and fees inside the surviving transaction
+- mixed transactions stay in scope when included activity survives
+- transaction-level `exclude` wins over any asset-level decision inside that tx
+- transaction-level `include` does not resurrect an excluded asset leg
+- asset-level `include` does not resurrect a transaction excluded at
+  transaction scope
+
 Subject refs are **fingerprint-based, never id-based**. Database ids are
 ephemeral — a reprocess rewrites them — so an id-based ref would silently
 detach a decision from its target. Fingerprints survive replay. The shape
@@ -364,6 +400,15 @@ the fact and `exclude` on the transaction together when both truth and
 participation are being decided. No review action on a semantic fact
 implicitly mutates transaction participation.
 
+Spam workflows should choose the narrowest subject that matches the intended
+blast radius:
+
+- exclude the `transaction` when the whole tx should drop out of accounting,
+  linking, readiness, portfolio participation, and related review-sensitive
+  reads
+- exclude the `asset` when only the suspicious asset should be pruned while
+  native fees or unrelated legs remain in scope
+
 This narrow movement-review effect is intentional, not provisional.
 
 ### 4. Diagnostics — "why was this uncertain or odd?"
@@ -388,6 +433,25 @@ the wrong channel and should be promoted to a semantic fact kind.
 The diagnostic enum is closed. Adding a new code requires explicit review.
 This is the forcing function that prevents diagnostics from regrowing into a
 semantic contract.
+
+Migration cutover rule: existing diagnostics that answer "what happened?"
+must move into semantic facts, leaving only uncertainty or missing-context
+diagnostics behind. Concretely:
+
+| Current signal                          | V1 home                                                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `bridge_transfer`                       | `bridge` fact                                                                                                         |
+| `possible_asset_migration`              | `asset_migration` fact when correlation is proven; otherwise `classification_uncertain`                               |
+| `SCAM_TOKEN`, `SUSPICIOUS_AIRDROP`      | `spam_inbound` fact plus review-rule seeding                                                                          |
+| `unsolicited_dust_fanout`               | `dust_fanout` fact                                                                                                    |
+| `proxy_operation`                       | concrete semantic fact when known, plus `proxy_target_unresolved` if target resolution is still missing               |
+| `multisig_operation`                    | concrete semantic fact when known, plus `multisig_participants_unresolved` if participant resolution is still missing |
+| `batch_operation`                       | concrete semantic fact when known, plus `batched_context_missing` when grouping context is missing                    |
+| `exchange_deposit_address_credit`       | `counterparty_ref.kind='exchange_endpoint'` when resolved; otherwise `counterparty_unresolved`                        |
+| `off_platform_cash_movement`            | `off_platform_settlement_unresolved`                                                                                  |
+| `classification_failed`                 | collapse into `classification_uncertain` in v1                                                                        |
+| `contract_interaction`                  | no standalone v1 signal; emit a concrete fact if known, otherwise `classification_uncertain`                          |
+| `unattributed_staking_reward_component` | `allocation_uncertain` until exact movement-scoped `staking_reward` attribution can be proven                         |
 
 ## Processor Authoring
 
@@ -585,18 +649,21 @@ enum makes that rule mechanically enforceable.
 
 ### Label composition
 
-`deriveLedgerShapeLabel()` is the base structural projection. Its canonical
-structural vocabulary is `send`, `receive`, `self_transfer`, `trade`, and
-`fee`. Surfaces that prefer venue wording such as "deposit" or "withdrawal"
-may remap those labels later from account context, but the helper contract
-itself stays canonical.
+`deriveLedgerShape()` is the base structural projection for non-semantic
+policy code. `deriveLedgerShapeLabel()` is the display projection over that
+same structural result. Their canonical vocabulary is `send`, `receive`,
+`self_transfer`, `trade`, and `fee`. Surfaces that prefer venue wording such
+as "deposit" or "withdrawal" may remap those labels later from account
+context, but the helper contract itself stays canonical.
 
 `deriveOperationLabel()` is the only transaction-facing label helper.
 It composes `deriveLedgerShapeLabel()` first, then overlays semantic facts
 when a richer meaning exists (`bridge/send`, `bridge/receive`,
 `asset migration/send`, `staking/reward`, and so on). For movement-scoped
 facts such as `staking_reward`, the helper projects upward from the matching
-leg facts when building a transaction label.
+leg facts when building a transaction label. Negative-signal facts do not
+replace the primary operation label; they surface separately as flags or
+badges.
 
 Its evidence contract is explicit: the caller must pass either facts already
 filtered to a chosen evidence policy, or an `evidence_policy` argument that
@@ -620,10 +687,31 @@ For DEX-like shapes, the contract is intentionally layered:
 - if no semantic fact exists yet, transaction-facing surfaces fall back to
   the structural `trade` label rather than collapsing to send/receive
 
+After evidence filtering, `deriveOperationLabel()` emits one primary
+transaction-facing label. V1 primary-label precedence is:
+
+1. `staking_reward`
+2. `swap`
+3. `wrap` / `unwrap`
+4. `bridge`
+5. `asset_migration`
+6. `staking_deposit` / `staking_withdrawal`
+7. `protocol_deposit` / `protocol_withdrawal`
+8. `airdrop_claim`
+9. fallback ledger shape
+
+If multiple facts in the same precedence tier survive evidence filtering, the
+helper uses stable lexical ordering of `fact_fingerprint` as a final
+deterministic tie-breaker. That tie-break is for rendering determinism only;
+it should be treated as an authoring smell, not as permission to emit
+semantically overlapping fact families indefinitely.
+
 Consumers rendering user-facing transaction labels, filters, exports, or
 history rows should call `deriveOperationLabel()` with an explicit evidence
 policy. Direct calls to `deriveLedgerShapeLabel()` are reserved for
 ledger/debug surfaces and tests that intentionally ignore semantic facts.
+Downstream policy code should branch on `deriveLedgerShape()` and semantic
+facts, not on rendered label strings.
 
 ## What Stays From the Current Implementation
 
@@ -860,6 +948,8 @@ A v1 that delivers this architecture is one where:
 - Transaction / asset participation is review-owned effective state. There is
   no second canonical transaction exclusion flag; if a fast-path projection
   exists it is review-owned derived state.
+- Effective participation applies with transaction scope as the outer gate and
+  asset scope as leg-level pruning inside surviving transactions.
 - Consumer-side helpers (`gap`, `readiness`, `transfer`, `residual`) live
   with their consumers, not in the semantics package.
 - The semantics package contains: facts + schemas + protocol/counterparty
@@ -883,8 +973,15 @@ A v1 that delivers this architecture is one where:
 - Workflows that change both fact truth and transaction participation write
   separate review decisions atomically; fact decisions do not implicitly
   mutate inclusion state.
+- Manual correction to or from `accounting_role: 'staking_reward'` preserves
+  the matching movement-scoped `staking_reward` fact invariant through the
+  coordinated sync workflow above.
+- Pure structural downstream checks read a ledger-owned `deriveLedgerShape()`
+  contract rather than branching on display labels.
 - `deriveOperationLabel()` requires an explicit evidence policy; inferred
   facts do not silently relabel asserted-only surfaces.
+- Negative-signal facts do not replace the primary operation label; they
+  surface separately as flags or badges.
 - `staking_reward` is the only v1 movement-scoped kind and is the sole reward
   reasoning model. No parallel `staking_reward_component` fact family remains.
 - `group_key` is post-processor-only in v1 and participates in grouped fact
