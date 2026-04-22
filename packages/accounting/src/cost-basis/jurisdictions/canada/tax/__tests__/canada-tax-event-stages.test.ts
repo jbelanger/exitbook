@@ -147,6 +147,37 @@ describe('projectCanadaMovementEvents', () => {
     expect((events[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
   });
 
+  it('does not fall back to movementRole when explicit interpretation input is present but empty', async () => {
+    const tx = buildTransaction({
+      id: 7,
+      datetime: '2024-04-17T12:00:00Z',
+      inflows: [
+        {
+          assetSymbol: 'ADA',
+          amount: '4.5',
+          price: '0.80',
+          movementRole: 'staking_reward',
+        },
+      ],
+    });
+    const scoped = buildScopedTransaction(tx);
+    const usdConversionRateProvider = createFxProvider({ CAD: '1.35' });
+
+    const events = assertOk(
+      await projectCanadaMovementEvents({
+        preparedTransactions: [scoped],
+        transactionAnnotations: [],
+        validatedTransfers: emptyTransferSet(),
+        usdConversionRateProvider,
+        identityConfig,
+      })
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]!.kind).toBe('acquisition');
+    expect((events[0] as CanadaAcquisitionEvent).incomeCategory).toBeUndefined();
+  });
+
   it('projects a disposition event from an outflow with no validated links', async () => {
     const tx = buildTransaction({
       id: 2,

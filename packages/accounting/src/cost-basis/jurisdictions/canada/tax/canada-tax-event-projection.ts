@@ -144,13 +144,18 @@ async function buildMovementEvent(
 
 function getMovementIncomeCategory(
   movement: Pick<AccountingAssetEntryView, 'movementFingerprint' | 'role'>,
-  stakingRewardMovementFingerprints: ReadonlySet<string>
+  stakingRewardMovementFingerprints: ReadonlySet<string>,
+  options?: {
+    allowMovementRoleFallback?: boolean | undefined;
+  }
 ): CanadaAcquisitionEvent['incomeCategory'] | undefined {
   if (stakingRewardMovementFingerprints.has(movement.movementFingerprint)) {
     return 'staking_reward';
   }
 
-  return movement.role === 'staking_reward' ? 'staking_reward' : undefined;
+  return options?.allowMovementRoleFallback === true && movement.role === 'staking_reward'
+    ? 'staking_reward'
+    : undefined;
 }
 
 function getExplainedResidualIncomeCategory(params: {
@@ -182,6 +187,7 @@ async function projectTransferAwareMovementEvents(
   direction: 'inflow' | 'outflow',
   stakingRewardMovementFingerprints: ReadonlySet<string>,
   targetTransactionAnnotations: readonly TransactionAnnotation[] | undefined,
+  allowMovementRoleFallback: boolean,
   validatedLinks: readonly ValidatedTransferLink[],
   usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
@@ -193,7 +199,9 @@ async function projectTransferAwareMovementEvents(
   if (sortedLinks.length === 0) {
     const incomeCategory =
       direction === 'inflow' && residualEventKind === 'acquisition'
-        ? getMovementIncomeCategory(movement, stakingRewardMovementFingerprints)
+        ? getMovementIncomeCategory(movement, stakingRewardMovementFingerprints, {
+            allowMovementRoleFallback,
+          })
         : undefined;
     const directEventResult = await buildMovementEvent(
       transactionView,
@@ -259,7 +267,9 @@ async function projectTransferAwareMovementEvents(
   if (residualQuantityResult.value.gt(0)) {
     const incomeCategory =
       direction === 'inflow' && residualEventKind === 'acquisition'
-        ? (getMovementIncomeCategory(movement, stakingRewardMovementFingerprints) ??
+        ? (getMovementIncomeCategory(movement, stakingRewardMovementFingerprints, {
+            allowMovementRoleFallback,
+          }) ??
           getExplainedResidualIncomeCategory({
             assetSymbol: movement.assetSymbol,
             links: sortedLinks,
@@ -302,6 +312,7 @@ export async function projectCanadaMovementEvents(params: {
   const stakingRewardMovementFingerprints = buildAssertedStakingRewardMovementFingerprintSet(
     params.transactionAnnotations ?? []
   );
+  const allowMovementRoleFallback = params.transactionAnnotations === undefined;
   const transactionAnnotationsByTransactionId = groupTransactionAnnotationsByTransactionId(
     params.transactionAnnotations
   );
@@ -315,6 +326,7 @@ export async function projectCanadaMovementEvents(params: {
         'inflow',
         stakingRewardMovementFingerprints,
         transactionAnnotationsByTransactionId.get(transactionView.processedTransaction.id),
+        allowMovementRoleFallback,
         validatedTransfers.byTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig
@@ -332,6 +344,7 @@ export async function projectCanadaMovementEvents(params: {
         'outflow',
         stakingRewardMovementFingerprints,
         transactionAnnotationsByTransactionId.get(transactionView.processedTransaction.id),
+        allowMovementRoleFallback,
         validatedTransfers.bySourceMovementFingerprint.get(outflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig
