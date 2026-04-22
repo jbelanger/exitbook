@@ -43,6 +43,7 @@ export {
   type TransactionReadinessIssue,
   type TransactionReadinessIssueCode,
 } from './readiness/transaction-readiness-issues.js';
+export { resolveExactTargetResidualRole } from './residual/exact-target-residual-role.js';
 export {
   deriveTransactionGapContextHint,
   hasLikelyDustSignal,

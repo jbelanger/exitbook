@@ -1,6 +1,7 @@
 import type { TransactionLink } from '@exitbook/core';
 import { err, randomUUID, resultDoAsync, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import type { AccountingModelBuildResult } from '../../../accounting-model/accounting-model-types.js';
@@ -46,7 +47,8 @@ export async function calculateCostBasisFromAccountingModel(
   config: CostBasisConfig,
   rules: IJurisdictionRules,
   lotMatcher: LotMatcher,
-  confirmedLinks: TransactionLink[] = []
+  confirmedLinks: TransactionLink[] = [],
+  transactionAnnotations?: readonly TransactionAnnotation[]
 ): Promise<Result<CostBasisSummary, Error>> {
   return resultDoAsync(async function* () {
     if (config.jurisdiction === 'CA') {
@@ -64,11 +66,16 @@ export async function calculateCostBasisFromAccountingModel(
     const calculationDate = new Date();
     const strategy = yield* getStrategyForMethod(config.method);
     const jurisdictionConfig = rules.getConfig();
-    const lotMatchResult = yield* await lotMatcher.match(accountingModel, validatedLinks, {
-      calculationId,
-      strategy,
-      jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
-    });
+    const lotMatchResult = yield* await lotMatcher.match(
+      accountingModel,
+      validatedLinks,
+      {
+        calculationId,
+        strategy,
+        jurisdiction: { sameAssetTransferFeePolicy: jurisdictionConfig.sameAssetTransferFeePolicy },
+      },
+      { transactionAnnotations }
+    );
 
     if (config.startDate) {
       for (const assetResult of lotMatchResult.assetResults) {

@@ -1,7 +1,11 @@
-import { getExplainedTargetResidual } from '@exitbook/core';
 import { err, ok, parseDecimal, resultDoAsync, type Result } from '@exitbook/foundation';
 import { isFiat } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import {
+  groupTransactionAnnotationsByTransactionId,
+  resolveExactTargetResidualRole,
+} from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import {
@@ -87,7 +91,9 @@ interface PreparedInternalTransferCarryoverTarget {
 }
 
 function getExplainedResidualAcquisitionQuantity(
+  targetTransaction: AccountingTransactionView,
   inflow: CostBasisMovementLike,
+  targetTransactionAnnotations: readonly TransactionAnnotation[] | undefined,
   validatedTargetLinks: readonly ValidatedTransferLink[]
 ): Decimal | undefined {
   if (validatedTargetLinks.length === 0) {
@@ -105,12 +111,15 @@ function getExplainedResidualAcquisitionQuantity(
   }
 
   const residualQuantity = fullMovementAmount.minus(linkedTargetAmount);
-  const explainedResidual = getExplainedTargetResidual(validatedTargetLinks.map((validatedLink) => validatedLink.link));
-  if (!explainedResidual || !explainedResidual.amount.eq(residualQuantity)) {
-    return undefined;
-  }
-
-  switch (explainedResidual.role) {
+  switch (
+    resolveExactTargetResidualRole({
+      assetSymbol: getMovementAssetSymbol(inflow),
+      residualQuantity,
+      targetTransaction: targetTransaction.processedTransaction,
+      targetTransactionAnnotations,
+      transferLinks: validatedTargetLinks.map((validatedLink) => validatedLink.link),
+    })
+  ) {
     case 'staking_reward':
     case 'refund_rebate':
       return residualQuantity;
@@ -125,7 +134,10 @@ export class LotMatcher {
   async match(
     accountingModel: AccountingModelBuildResult,
     validatedExternalLinks: ValidatedTransferSet,
-    config: LotMatcherConfig
+    config: LotMatcherConfig,
+    options?: {
+      transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
+    }
   ): Promise<Result<LotMatchResult, Error>> {
     return resultDoAsync(async function* (self: LotMatcher) {
       const resolvedCarryovers = yield* resolveInternalTransferCarryovers(accountingModel);
@@ -161,6 +173,9 @@ export class LotMatcher {
       );
 
       const sortedTransactionViews: AccountingTransactionView[] = [];
+      const transactionAnnotationsByTransactionId = groupTransactionAnnotationsByTransactionId(
+        options?.transactionAnnotations
+      );
       for (const transaction of sortedTransactions) {
         const transactionView = transactionViewsById.get(transaction.id);
         if (!transactionView) {
@@ -377,7 +392,12 @@ export class LotMatcher {
               assetState.lots.push(transferTargetResult.value.lot);
             }
 
-            const explainedResidualQuantity = getExplainedResidualAcquisitionQuantity(inflow, validatedTargetLinks);
+            const explainedResidualQuantity = getExplainedResidualAcquisitionQuantity(
+              transactionView,
+              inflow,
+              transactionAnnotationsByTransactionId.get(transactionView.processedTransaction.id),
+              validatedTargetLinks
+            );
             if (explainedResidualQuantity?.gt(0)) {
               const residualLotResult = buildExplainedResidualAcquisitionLotFromInflow(
                 transactionView,

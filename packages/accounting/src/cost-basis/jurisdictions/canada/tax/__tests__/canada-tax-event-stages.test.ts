@@ -478,6 +478,107 @@ describe('projectCanadaMovementEvents', () => {
     expect((acquisitionEvents[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
   });
 
+  it('marks exact inflow residuals as staking-reward acquisitions from component annotations when link metadata is absent', async () => {
+    const withdrawalTx = buildTransaction({
+      id: 24,
+      datetime: '2024-07-25T20:32:02Z',
+      outflows: [{ assetSymbol: 'ADA', amount: '2669.193991', price: '0.75' }],
+    });
+    const depositTx = buildTransaction({
+      id: 25,
+      accountId: 2,
+      datetime: '2024-07-25T20:35:47Z',
+      inflows: [
+        {
+          assetSymbol: 'ADA',
+          amount: '2679.718442',
+          assetId: 'exchange:kucoin:ada',
+          price: '0.75',
+        },
+      ],
+    });
+
+    const scopedWithdrawal = buildScopedTransaction(withdrawalTx);
+    const scopedDeposit = buildScopedTransaction(depositTx);
+    const sourceMovementFp = scopedWithdrawal.movements.outflows[0]!.movementFingerprint;
+    const targetMovementFp = scopedDeposit.movements.inflows[0]!.movementFingerprint;
+
+    const link: ValidatedTransferLink = {
+      isPartialMatch: true,
+      link: {
+        id: 62,
+        sourceTransactionId: 24,
+        targetTransactionId: 25,
+        assetSymbol: 'ADA' as Currency,
+        sourceAssetId: 'exchange:test:ada',
+        targetAssetId: 'exchange:kucoin:ada',
+        sourceAmount: parseDecimal('2669.193991'),
+        targetAmount: parseDecimal('2669.193991'),
+        sourceMovementFingerprint: sourceMovementFp,
+        targetMovementFingerprint: targetMovementFp,
+        linkType: 'blockchain_to_exchange',
+        confidenceScore: parseDecimal('1'),
+        matchCriteria: {
+          assetMatch: true,
+          amountSimilarity: parseDecimal('1'),
+          timingValid: true,
+          timingHours: 0,
+        },
+        status: 'confirmed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metadata: {
+          partialMatch: true,
+          fullSourceAmount: '2669.193991',
+          fullTargetAmount: '2679.718442',
+          consumedAmount: '2669.193991',
+          targetExcessAllowed: true,
+          targetExcess: '10.524451',
+          targetExcessPct: '0.393',
+        },
+      },
+      sourceAssetId: 'exchange:test:ada',
+      sourceMovementAmount: parseDecimal('2669.193991'),
+      sourceMovementFingerprint: sourceMovementFp,
+      targetAssetId: 'exchange:kucoin:ada',
+      targetMovementAmount: parseDecimal('2679.718442'),
+      targetMovementFingerprint: targetMovementFp,
+    };
+
+    const events = assertOk(
+      await projectCanadaMovementEvents({
+        preparedTransactions: [scopedWithdrawal, scopedDeposit],
+        transactionAnnotations: [
+          {
+            annotationFingerprint: 'annotation:staking_reward_component:25:ADA:10.524451',
+            accountId: depositTx.accountId,
+            transactionId: 25,
+            txFingerprint: depositTx.txFingerprint,
+            kind: 'staking_reward_component',
+            tier: 'asserted',
+            target: { scope: 'transaction' },
+            detectorId: 'staking-reward-component',
+            derivedFromTxIds: [25],
+            provenanceInputs: ['diagnostic'],
+            metadata: {
+              amount: '10.524451',
+              assetSymbol: 'ADA',
+              componentKey: 'unattributed_staking_reward_component:ADA:10.524451',
+            },
+          },
+        ],
+        validatedTransfers: makeTransferSet([link]),
+        usdConversionRateProvider: createFxProvider({ CAD: '1.35' }),
+        identityConfig,
+      })
+    );
+
+    const acquisitionEvents = events.filter((event) => event.kind === 'acquisition' && event.transactionId === 25);
+    expect(acquisitionEvents).toHaveLength(1);
+    expect((acquisitionEvents[0] as CanadaAcquisitionEvent).quantity.toFixed()).toBe('10.524451');
+    expect((acquisitionEvents[0] as CanadaAcquisitionEvent).incomeCategory).toBe('staking_reward');
+  });
+
   it('projects both acquisition and disposition for a trade with inflow and outflow', async () => {
     const tx = buildTransaction({
       id: 30,

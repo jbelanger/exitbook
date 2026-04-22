@@ -1,6 +1,9 @@
-import { getExplainedTargetResidual } from '@exitbook/core';
 import { err, isFiat, ok, parseDecimal, type Result } from '@exitbook/foundation';
-import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
+import {
+  groupTransactionAnnotationsByTransactionId,
+  resolveExactTargetResidualRole,
+  type TransactionAnnotation,
+} from '@exitbook/transaction-interpretation';
 import type { Decimal } from 'decimal.js';
 
 import type {
@@ -150,16 +153,22 @@ function getMovementIncomeCategory(
   return movement.role === 'staking_reward' ? 'staking_reward' : undefined;
 }
 
-function getExplainedResidualIncomeCategory(
-  links: readonly ValidatedTransferLink[],
-  residualQuantity: Decimal
-): CanadaAcquisitionEvent['incomeCategory'] | undefined {
-  const explainedResidual = getExplainedTargetResidual(links.map((validatedLink) => validatedLink.link));
-  if (!explainedResidual || !explainedResidual.amount.eq(residualQuantity)) {
-    return undefined;
-  }
-
-  switch (explainedResidual.role) {
+function getExplainedResidualIncomeCategory(params: {
+  assetSymbol: AccountingAssetEntryView['assetSymbol'];
+  links: readonly ValidatedTransferLink[];
+  residualQuantity: Decimal;
+  targetTransactionAnnotations?: readonly TransactionAnnotation[] | undefined;
+  transactionView: AccountingTransactionView;
+}): CanadaAcquisitionEvent['incomeCategory'] | undefined {
+  switch (
+    resolveExactTargetResidualRole({
+      assetSymbol: params.assetSymbol,
+      residualQuantity: params.residualQuantity,
+      targetTransaction: params.transactionView.processedTransaction,
+      targetTransactionAnnotations: params.targetTransactionAnnotations,
+      transferLinks: params.links.map((validatedLink) => validatedLink.link),
+    })
+  ) {
     case 'staking_reward':
       return 'staking_reward';
     default:
@@ -172,6 +181,7 @@ async function projectTransferAwareMovementEvents(
   movement: AccountingAssetEntryView,
   direction: 'inflow' | 'outflow',
   stakingRewardMovementFingerprints: ReadonlySet<string>,
+  targetTransactionAnnotations: readonly TransactionAnnotation[] | undefined,
   validatedLinks: readonly ValidatedTransferLink[],
   usdConversionRateProvider: UsdConversionRateProviderLike,
   identityConfig: CanadaTaxInputContextBuildOptions
@@ -250,7 +260,13 @@ async function projectTransferAwareMovementEvents(
     const incomeCategory =
       direction === 'inflow' && residualEventKind === 'acquisition'
         ? (getMovementIncomeCategory(movement, stakingRewardMovementFingerprints) ??
-          getExplainedResidualIncomeCategory(sortedLinks, residualQuantityResult.value))
+          getExplainedResidualIncomeCategory({
+            assetSymbol: movement.assetSymbol,
+            links: sortedLinks,
+            residualQuantity: residualQuantityResult.value,
+            targetTransactionAnnotations,
+            transactionView,
+          }))
         : undefined;
     const residualEventResult = await buildMovementEvent(
       transactionView,
@@ -286,6 +302,9 @@ export async function projectCanadaMovementEvents(params: {
   const stakingRewardMovementFingerprints = buildAssertedStakingRewardMovementFingerprintSet(
     params.transactionAnnotations ?? []
   );
+  const transactionAnnotationsByTransactionId = groupTransactionAnnotationsByTransactionId(
+    params.transactionAnnotations
+  );
   const events: CanadaMovementEvent[] = [];
 
   for (const transactionView of accountingTransactionViews) {
@@ -295,6 +314,7 @@ export async function projectCanadaMovementEvents(params: {
         inflow,
         'inflow',
         stakingRewardMovementFingerprints,
+        transactionAnnotationsByTransactionId.get(transactionView.processedTransaction.id),
         validatedTransfers.byTargetMovementFingerprint.get(inflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig
@@ -311,6 +331,7 @@ export async function projectCanadaMovementEvents(params: {
         outflow,
         'outflow',
         stakingRewardMovementFingerprints,
+        transactionAnnotationsByTransactionId.get(transactionView.processedTransaction.id),
         validatedTransfers.bySourceMovementFingerprint.get(outflow.movementFingerprint) ?? [],
         usdConversionRateProvider,
         identityConfig

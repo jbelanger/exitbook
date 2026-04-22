@@ -124,7 +124,8 @@ export async function runCostBasisPipeline(
       config,
       rules,
       lotMatcher,
-      context.confirmedLinks
+      context.confirmedLinks,
+      context.transactionAnnotations
     );
 
     return { summary, missingPriceTransactions, missingPricesCount, rebuildTransactions };

@@ -3,6 +3,7 @@ import type { AssetMovementDraft, Transaction } from '@exitbook/core';
 import { err, type Currency, parseDecimal, type Result } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { getLogger } from '@exitbook/logger';
+import type { TransactionAnnotation } from '@exitbook/transaction-interpretation';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
@@ -80,7 +81,10 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
   async function matchTransactions(
     rawTransactions: Transaction[],
     confirmedLinks: TransactionLink[],
-    config: Parameters<LotMatcher['match']>[2]
+    config: Parameters<LotMatcher['match']>[2],
+    options?: {
+      transactionAnnotations?: readonly TransactionAnnotation[] | undefined;
+    }
   ): Promise<Result<Awaited<ReturnType<LotMatcher['match']>> extends Result<infer T, infer _E> ? T : never, Error>> {
     const scopedResult = prepareAccountingTransactions(rawTransactions, logger);
     if (scopedResult.isErr()) {
@@ -100,7 +104,7 @@ describe('LotMatcher - Transfer-Aware Integration Tests (ADR-004 Phase 2)', () =
       return err(validatedLinksResult.error);
     }
 
-    return matcher.match(accountingModelResult.value, validatedLinksResult.value, config);
+    return matcher.match(accountingModelResult.value, validatedLinksResult.value, config, options);
   }
 
   function hydrateTestLinks(
