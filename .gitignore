@@ -174,5 +174,4 @@ environment.toml
 
 *tax-package/
 
-*-competitive-analysis.md
-docs/dev/
+docs/dev/archive/*
