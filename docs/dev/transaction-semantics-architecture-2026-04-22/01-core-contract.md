@@ -200,7 +200,9 @@ linking, readiness, portfolio, or balance reads.
 For `semantic_fact` subjects:
 
 - effective `dismiss` suppresses the fact from canonical semantic reads
-- effective `confirm` keeps the fact visible and records trust
+- effective `confirm` keeps the fact visible and records reviewed trust state
+- undecided facts remain visible subject to evidence policy and supersession;
+  `confirm` does not widen visibility or override evidence filtering
 - history/debug surfaces may opt into raw rows plus effective review state
 
 ### Workflow atomicity
@@ -240,6 +242,21 @@ current rule output for each evaluated subject:
 Manual-over-rule precedence still applies on top of that reconciled rule
 stream.
 
+### Subject families
+
+`subject family` is the rule-ownership namespace used to prevent overlapping
+rule authorship.
+
+V1 families are:
+
+- participation families by subject type: `transaction`, `asset`, and
+  `movement`
+- semantic-fact truth families by semantic `kind`
+
+One rule authority may own multiple subject families. No subject family may
+have multiple rule authorities in v1 unless explicit precedence is added
+first.
+
 V1 constraint:
 
 - manual review is a singleton authority per profile; person identity is not
@@ -274,19 +291,5 @@ Rules:
 - the enum is intentionally closed; adding a new diagnostic code requires
   explicit review
 
-### Migration cutover for old semantic diagnostics
-
-| Current signal                          | V1 home                                                                                            |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `bridge_transfer`                       | `bridge` fact                                                                                      |
-| `possible_asset_migration`              | `asset_migration` fact when correlation is proven; otherwise `classification_uncertain`            |
-| `SCAM_TOKEN`, `SUSPICIOUS_AIRDROP`      | `spam_inbound` fact plus review-rule seeding                                                       |
-| `unsolicited_dust_fanout`               | `dust_fanout` fact                                                                                 |
-| `proxy_operation`                       | concrete semantic fact when known, plus `proxy_target_unresolved` if unresolved                    |
-| `multisig_operation`                    | concrete semantic fact when known, plus `multisig_participants_unresolved` if unresolved           |
-| `batch_operation`                       | concrete semantic fact when known, plus `batched_context_missing` when grouping context is missing |
-| `exchange_deposit_address_credit`       | `counterparty_ref.kind='exchange_endpoint'` when resolved; otherwise `counterparty_unresolved`     |
-| `off_platform_cash_movement`            | `off_platform_settlement_unresolved`                                                               |
-| `classification_failed`                 | collapse into `classification_uncertain`                                                           |
-| `contract_interaction`                  | no standalone v1 signal; emit a concrete fact if known, otherwise `classification_uncertain`       |
-| `unattributed_staking_reward_component` | `allocation_uncertain` until exact movement-scoped `staking_reward` attribution is provable        |
+Legacy diagnostic-to-v1 migration mapping lives in
+[04. Rollout And Checklist](./04-rollout-and-checklist.md).

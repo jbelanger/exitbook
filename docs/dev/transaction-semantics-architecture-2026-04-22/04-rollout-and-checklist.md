@@ -7,6 +7,10 @@ derived_from:
 
 # Rollout And Checklist
 
+This document is transitional implementation guidance for moving the codebase
+to the target architecture. Unlike 01–03, it is not part of the enduring
+runtime contract and may be archived after rollout converges.
+
 ## What Carries Forward
 
 - replace-by-fingerprint invalidation discipline
@@ -79,15 +83,6 @@ Migration must preserve that invariant, not relax it:
 If a cutover cannot be made single-author in one slice, gate the new emitter
 off by default until the old path is removed in the same merge.
 
-### Movement-scope change vs source note
-
-The split deliberately softens the v1 movement-scope boundary: the source note
-restricted movement scope to `staking_reward` and said other kinds should not
-choose movement scope ad hoc. The split keeps `staking_reward` as the only v1
-movement-scoped kind shipped, but allows future movement-scoped kinds through
-the kind-definition contract with explicit invariant/read-path notes. This is
-an intentional architecture change, not a carried-over constraint.
-
 ## Deferred / Non-Goals
 
 - counterparty resolver implementation details
@@ -97,6 +92,23 @@ an intentional architecture change, not a carried-over constraint.
 - migration of every existing consumer in one slice
 - deeper staking taxonomy than v1 kinds
 - fee-scoped semantic facts in v1
+
+## Legacy Diagnostic Migration Map
+
+| Current signal                          | V1 home                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `bridge_transfer`                       | `bridge` fact                                                                                      |
+| `possible_asset_migration`              | `asset_migration` fact when correlation is proven; otherwise `classification_uncertain`            |
+| `SCAM_TOKEN`, `SUSPICIOUS_AIRDROP`      | `spam_inbound` fact plus review-rule seeding                                                       |
+| `unsolicited_dust_fanout`               | `dust_fanout` fact                                                                                 |
+| `proxy_operation`                       | concrete semantic fact when known, plus `proxy_target_unresolved` if unresolved                    |
+| `multisig_operation`                    | concrete semantic fact when known, plus `multisig_participants_unresolved` if unresolved           |
+| `batch_operation`                       | concrete semantic fact when known, plus `batched_context_missing` when grouping context is missing |
+| `exchange_deposit_address_credit`       | `counterparty_ref.kind='exchange_endpoint'` when resolved; otherwise `counterparty_unresolved`     |
+| `off_platform_cash_movement`            | `off_platform_settlement_unresolved`                                                               |
+| `classification_failed`                 | collapse into `classification_uncertain`                                                           |
+| `contract_interaction`                  | no standalone v1 signal; emit a concrete fact if known, otherwise `classification_uncertain`       |
+| `unattributed_staking_reward_component` | `allocation_uncertain` until exact movement-scoped `staking_reward` attribution is provable        |
 
 ## Acceptance Checklist
 

@@ -218,7 +218,9 @@ conventions becoming architecture.
 
 ## Kind Definition Contract
 
-Every kind is owned by one definition module in `transaction-semantics/kinds/`.
+Every kind is owned by one definition module within the transaction semantics
+capability. The exact package or path is non-binding; kind ownership is
+architectural, not a package-placement shortcut.
 
 Each definition must declare:
 
@@ -227,10 +229,13 @@ Each definition must declare:
 - `scope`
 - allowed `role` values
 - `metadata_schema`
-- `label_behavior`
-- precedence participation
-- grouping mode
-- supersession behavior
+- `label_projection`, which is either `none` or a typed contribution to the
+  primary operation label (`group` + canonical `label_key`)
+- `primary_label_precedence`, which is a number when the kind may drive the
+  primary label and `null` otherwise
+- `grouping_mode`, which is `single_subject` or `groupable_correlated`
+- `supersession`, which declares whether grouped facts suppress the
+  single-subject meaning for canonical reads
 
 The central registry is the composition point, but kind ownership stays local to
 the definition module.
@@ -242,9 +247,10 @@ Adding a new kind requires:
 1. a new kind definition module
 2. registration in the central kind registry
 3. metadata schema tests
-4. explicit label contribution decision
-5. explicit precedence decision if it can drive the primary label
-6. explicit grouping decision
+4. explicit `label_projection` decision
+5. explicit `primary_label_precedence` decision if it can drive the primary
+   label
+6. explicit `grouping_mode` / `supersession` decision
 7. explicit migration note if the change affects persisted identity
 
 This is the canonical extension contract. No hidden additional touch points

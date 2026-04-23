@@ -163,9 +163,10 @@ No consumer reads diagnostics for semantic meaning.
 
 ### Ledger shape labels
 
-`deriveLedgerShapeLabel()` is the display projection of ledger shape.
+`deriveLedgerShapeLabel()` is the projection of ledger shape into a canonical
+typed `label_key`. It is not a policy-bearing English string contract.
 
-Canonical vocabulary:
+Canonical v1 ledger-shape `label_key` values:
 
 - `send`
 - `receive`
@@ -185,10 +186,10 @@ It composes:
 It returns:
 
 - `group: 'other' | 'staking' | 'trade' | 'transfer'`
-- `label: string`
+- `label_key`
 - `source: 'semantic_fact' | 'ledger_shape'`
 
-V1 semantic upgrade vocabulary:
+V1 semantic `label_key` vocabulary:
 
 - `bridge/send`
 - `bridge/receive`
@@ -210,10 +211,12 @@ Rules:
 - the helper does not query stores or apply hidden filtering
 - dismissed or superseded facts must not be resurrected
 - negative-signal facts do not replace the primary operation label
-- policy code must branch on typed projections, not on rendered label strings
+- policy code must branch on typed projections or kind definitions, not on
+  rendered label strings
 
-Presentation layers may map this canonical vocabulary to localized or
-product-specific text later. That remapping must not become a policy input.
+Presentation layers map `label_key` to English, localized, or product-specific
+text. That rendering layer is not part of the architecture contract and must
+not become a policy input.
 
 ### Primary-label precedence
 
@@ -266,95 +269,8 @@ Examples:
 - hosts compose these capabilities, but do not absorb business-policy
   orchestration that belongs in a workflow package
 
-## Illustrative Package Sketch
-
-This sketch is non-binding. It shows one possible extraction if the repo later
-chooses dedicated packages for these capabilities. The final shape must still
-follow [`docs/architecture/architecture-package-contract.md`](../../architecture/architecture-package-contract.md),
-including consumer-owned ports and no direct feature-to-feature imports.
-
-```text
-packages/
-  ledger/
-    src/
-      transactions/
-      movements/
-      fees/
-      links/
-      labels/
-        derive-ledger-shape-label.ts
-      index.ts
-
-  transaction-semantics/
-    src/
-      facts/
-        semantic-fact-types.ts
-        semantic-fact-schemas.ts
-        semantic-fact-fingerprint.ts
-        semantic-fact-read-model.ts
-        semantic-fact-ports.ts
-      kinds/
-        bridge.ts
-        swap.ts
-        wrap.ts
-        staking.ts
-        protocol-flow.ts
-        airdrop.ts
-        asset-migration.ts
-        negative-signals.ts
-        registry.ts
-      protocol/
-        protocol-ref.ts
-        protocol-resolver.ts
-        seed/
-      counterparty/
-        counterparty-ref.ts
-        counterparty-resolver.ts
-      labels/
-        derive-operation-label.ts
-      index.ts
-
-  review/
-    src/
-      decisions/
-        review-decision-types.ts
-        review-decision-ports.ts
-      rules/
-        review-rule-registry.ts
-        review-rule-runner.ts
-        spam-inbound-rule.ts
-      effective-state/
-        effective-review-state.ts
-        effective-participation-state.ts
-      authority/
-      index.ts
-
-  ingestion/
-    src/
-      semantic-authoring/
-        processor-output.ts
-        reconciler/
-          staking-reward-reconciler.ts
-        post-processing/
-          post-processing-runtime.ts
-          post-processor-registry.ts
-          source-reader.ts
-          post-processors/
-            heuristic-bridge-pair.ts
-            asset-migration-grouper.ts
-      diagnostics/
-        diagnostic-types.ts
-        diagnostic-codes.ts
-        diagnostic-schemas.ts
-      ...
-
-  accounting/
-    src/
-      gaps/
-      readiness/
-      transfer-policy/
-      residual-attribution/
-      cost-basis/
-      portfolio/
-      ...
-```
+Concrete package trees are intentionally omitted from this contract. If the
+repo later needs a package-shape proposal, keep it in a separate exploratory
+design note and validate it against
+[`docs/architecture/architecture-package-contract.md`](../../architecture/architecture-package-contract.md)
+rather than treating the tree itself as architecture.
