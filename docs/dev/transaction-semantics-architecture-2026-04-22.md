@@ -190,6 +190,14 @@ specific metadata using referenced `movement_fingerprint` values.
 - post-processor-lane `bridge` facts cover profile-scoped heuristic or grouped
   bridge pairing and follow the grouping contract below
 
+Coexistence rule for `bridge`: raw persistence may contain both a
+processor-lane single-transaction fact and a grouped post-processor fact for
+the same `tx_fingerprint`. Canonical semantic reads must suppress
+processor-lane `bridge` for any transaction that also has at least one
+non-dismissed post-processor-lane `bridge`. Grouped bridge supersedes
+single-transaction bridge for canonical meaning; audit/debug surfaces may
+still show both rows with emitter provenance.
+
 `asset_migration` is allowed in two non-overlapping authoring shapes:
 
 - processor-lane `asset_migration` facts cover single-transaction migrations a
@@ -197,6 +205,13 @@ specific metadata using referenced `movement_fingerprint` values.
   `group_key: null`
 - post-processor-lane `asset_migration` facts cover grouped multi-transaction
   migrations and follow the grouping contract below
+
+V1 processor-lane `asset_migration` is intentionally one-sided: at most one
+fact per transaction, with `role: 'source'` or `role: 'target'`. If one
+transaction contains both the old-asset send leg and the new-asset receive
+leg, processors do **not** emit two same-kind `asset_migration` facts for
+that one transaction in v1. That shape requires a later explicit payload
+contract naming the exact `movement_fingerprint` values.
 
 Coexistence rule for `asset_migration`: raw persistence may contain both a
 processor-lane single-transaction fact and a grouped post-processor fact for
@@ -289,6 +304,15 @@ do not widen the fingerprint.
 Some fact columns exist today only as reserved structure, with the resolver
 or producer work explicitly deferred.
 
+- **`protocol_ref`** — shape:
+  `{ id: string; version?: string }`.
+  - `version` may be set only when `id` is set.
+  - Chain is not part of the ref; protocol identity is chain-agnostic.
+  - Because `protocol_ref` participates in `fact_fingerprint`, v1 may persist
+    it only when the authoring lane can deterministically resolve it at fact
+    creation time. Null-to-populated backfill is a fact-identity migration,
+    not a silent enrichment.
+
 - **`counterparty_ref`** — shape:
   `{ id: string; kind: 'protocol' | 'validator' | 'exchange' | 'exchange_endpoint' | 'address' }`.
   - `id` must be globally namespaced. For `kind: 'address'`, the id carries
@@ -297,7 +321,9 @@ or producer work explicitly deferred.
   - `kind: 'exchange_endpoint'` is the right kind for a specific
     deposit/withdrawal endpoint. `kind: 'exchange'` is reserved for cases
     where the venue is the counterparty but the endpoint is unknown.
-  - Column reserved; resolver deferred (see Deferred / Non-Goals).
+  - V1 writes canonical `null` for all persisted facts. The column remains
+    reserved so the schema and query shape are ready, but starting to populate
+    it later is a fact-identity migration, not silent enrichment.
 
 #### Kinds
 
@@ -345,6 +371,10 @@ Additional v1 rules:
 - `bridge` chain hints are directional context only. Counterpart transaction
   refs, batch tags, and external campaign ids do **not** belong in bridge
   metadata.
+- V1 does not require `protocol_ref` for any kind. When deterministic
+  author-time protocol identification exists, emit the canonical
+  `protocol_ref`; otherwise emit `null` rather than a placeholder that would
+  later change identity.
 - `asset_migration.providerSubtype` is descriptive context only. Cross-
   transaction cohesion still comes from `group_key`, and non-identity provider
   batch hints still belong in `correlation_key`.
@@ -638,6 +668,15 @@ workflow triggers it immediately after override persistence/clear for the
 affected transaction; the sync step itself only writes/deletes semantic facts it
 owns.
 
+That trigger is broader than the interactive override write itself. Any
+workflow that rematerializes effective ledger state for a transaction,
+including transaction reprocess and movement-role override replay /
+materialization, must run `ledger_override_sync` for the affected transaction
+set before downstream canonical semantic reads rely on semantic-fact state.
+The sync step reconciles against the transaction's effective persisted
+`accounting_role` state after override materialization, not against the raw
+override event log.
+
 V1 may satisfy freshness conservatively by rerunning all registered
 post-processors over full profile scope after any transaction reprocess.
 Narrower scheduling is allowed, but only if it produces the same final rows
@@ -654,9 +693,12 @@ unified role.
 
 1. **Inputs declared.** Every fact carries
    `derived_from_tx_fingerprints: string[]` — the set of transactions
-   whose state the fact reads. Canonicalized: sorted, deduped. Order
-   never affects identity. A single-tx processor fact has a one-element
-   set; a bridge-pair post-processor fact has a two-element set.
+   whose continued persisted state is necessary for that fact to remain
+   valid. This is the minimal support set, not the full search space or
+   every candidate the algorithm inspected while deciding whether to emit
+   the fact. Canonicalized: sorted, deduped. Order never affects
+   identity. A single-tx processor fact has a one-element set; a
+   bridge-pair post-processor fact has a two-element set.
 2. **Evaluated scope declared.** Every post-processor run executes against
    an explicit `evaluated_tx_fingerprints: string[]` set, canonicalized
    sorted/deduped. V1 may choose the whole profile. Narrower sets are
@@ -752,6 +794,7 @@ Unless a surface is explicitly audit/debug-oriented, semantic reads operate on
 **effective semantic facts**: persisted facts after explicit evidence
 selection, explicit fact-decision filtering (`exclude_dismissed` vs
 `include_dismissed`), and kind-specific supersession rules such as grouped
+`bridge` suppressing processor-lane single-transaction `bridge` and grouped
 `asset_migration` suppressing processor-lane single-transaction
 `asset_migration` for the same transaction.
 
@@ -797,6 +840,23 @@ facts such as `staking_reward`, the helper projects upward from the matching
 leg facts when building a transaction label. Negative-signal facts do not
 replace the primary operation label; they surface separately as flags or
 badges.
+
+The helper returns a structured result, not a bare string:
+
+- `group: 'other' | 'staking' | 'trade' | 'transfer'`
+- `label: string`
+- `source: 'semantic_fact' | 'ledger_shape'`
+
+`source` is `semantic_fact` when a surviving fact upgrades the base label and
+`ledger_shape` when the result is pure structural fallback. V1 canonical
+`label` vocabulary is:
+
+- ledger-shape fallback labels: `send`, `receive`, `self_transfer`, `trade`,
+  `fee`
+- semantic upgrades: `bridge/send`, `bridge/receive`,
+  `asset migration/send`, `asset migration/receive`, `swap`, `wrap`,
+  `unwrap`, `staking/reward`, `staking/deposit`, `staking/withdrawal`,
+  `protocol/deposit`, `protocol/withdrawal`, `airdrop/claim`
 
 The helper consumes semantic facts after the caller's evidence policy and
 fact-decision policy have already been applied. It must not resurrect dismissed
@@ -1115,6 +1175,9 @@ A v1 that delivers this architecture is one where:
 - The semantic-fact query API also forces explicit fact-decision policy.
   Canonical semantic reads exclude effectively dismissed facts; audit/debug
   reads may opt into dismissed facts explicitly.
+- `protocol_ref` may be persisted only when deterministically known at fact
+  authoring time, and `counterparty_ref` remains canonical `null` in v1, so
+  later enrichment cannot silently change fact identity.
 - Semantic-fact subjects are transactions or non-fee asset movements. In the
   initial v1 kind set, `staking_reward` is movement-scoped; all other listed
   kinds are transaction-scoped unless a later kind is added explicitly.
@@ -1138,10 +1201,17 @@ A v1 that delivers this architecture is one where:
   movement `staking_reward` existence rather than author identity, and
   downgrades away from `staking_reward` use explicit fact dismissal rather
   than hard-deleting processor-authored facts.
+- Transaction reprocess and movement-role override replay/materialization also
+  rerun `ledger_override_sync` against effective persisted ledger state so the
+  `staking_reward` overlap invariant is restored before canonical semantic
+  reads.
 - Pure structural downstream checks read a ledger-owned `deriveLedgerShape()`
   contract rather than branching on display labels.
 - `deriveOperationLabel()` requires an explicit evidence policy; inferred
   facts do not silently relabel asserted-only surfaces.
+- `deriveOperationLabel()` returns a structured
+  `{ group, label, source }` result; it does not collapse to a bare display
+  string in v1.
 - Negative-signal facts do not replace the primary operation label; they
   surface separately as flags or badges.
 - `staking_reward` is the only v1 movement-scoped kind and is the sole reward
@@ -1155,14 +1225,23 @@ A v1 that delivers this architecture is one where:
 - `bridge` has two non-overlapping shapes: processor-lane single-tx facts with
   `group_key: null`, and grouped / heuristic post-processor facts under the
   grouping contract.
+- Canonical semantic reads suppress processor-lane `bridge` for a transaction
+  when non-dismissed grouped post-processor `bridge` exists for that same
+  transaction. Audit/debug reads may still surface both.
 - Processor-lane `asset_migration` facts are single-transaction facts with
   `group_key: null`. Grouped `asset_migration` facts, when needed, are authored
   only by the ingestion-owned post-processing lane.
+- Processor-lane `asset_migration` is one-sided in v1: at most one fact per
+  transaction with role `source` or `target`. Same-transaction dual-leg
+  migrations wait for a later explicit leg-referencing payload contract.
 - Canonical semantic reads suppress processor-lane `asset_migration` for a
   transaction when non-dismissed grouped post-processor `asset_migration`
   exists for that same transaction. Audit/debug reads may still surface both.
 - Post-processor reruns reconcile an explicit evaluated transaction set; stale
   prior outputs within that set are deleted when candidate groupings change.
+- `derived_from_tx_fingerprints` records the minimal support set needed to keep
+  a fact valid, not every candidate transaction inspected during runtime
+  search.
 - Reprocessing a transaction replaces all processor-authored facts for that
   transaction atomically. Re-running a post-processor over unchanged inputs
   produces identical fact fingerprints.
@@ -1210,23 +1289,34 @@ A v1 that delivers this architecture is one where:
 - `bridge` mirrors `asset_migration` in lane ownership: source-proven
   single-tx facts belong to processors; grouped or heuristic pairing belongs to
   post-processing.
+- Grouped `bridge` supersedes processor-lane single-tx `bridge` for canonical
+  meaning without hard-deleting the original processor row.
 - Grouped `asset_migration` supersedes processor-lane single-tx
   `asset_migration` for canonical meaning without hard-deleting the original
   processor row.
+- Identity-bearing refs stay migration-safe: `protocol_ref` is authored only
+  when deterministically known at write time, and `counterparty_ref` remains
+  canonical `null` for all persisted v1 facts.
 - `group_key` is a post-processor lifecycle key. Non-identity external
   correlation uses `correlation_key` instead of overloading grouped identity.
 - `asset_migration` has two non-overlapping shapes: processor-lane single-tx
   facts with `correlation_key`, and grouped post-processor facts with
   `group_key`.
+- `derived_from_tx_fingerprints` is the minimal support set for validity, not
+  an implementation-level record of every runtime candidate that was inspected.
 - Review rule evaluation belongs in `packages/review/`; ingestion triggers it
   but does not own decision logic.
 - `ledger_override_sync` belongs in ingestion semantic authoring even though it
   is triggered by a ledger-owned override workflow, because it authors semantic
   facts.
+- `ledger_override_sync` is an invariant-reconciliation step after any workflow
+  that rematerializes effective ledger state, including reprocess and override
+  replay/materialization, not just an interactive edit hook.
 - Post-processor persistence is reconcile-not-append within execution scope;
   candidate regrouping must delete stale prior rows.
-- `deriveOperationLabel()` takes explicit evidence policy. Surfaces that
-  allow inferred semantics must opt in.
+- `deriveOperationLabel()` takes explicit evidence policy and returns a
+  structured `{ group, label, source }` value. Surfaces that allow inferred
+  semantics must opt in.
 - Smell to watch: negative observations drifting between semantic facts
   and diagnostics. The closed diagnostic enum is the forcing function;
   protect it.
