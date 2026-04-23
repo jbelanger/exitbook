@@ -63,9 +63,20 @@ V1 lanes are:
 
 `ledger_override_sync` belongs to `reconciler`, not to `post_processor`.
 
+The canonical v1 reconciler emitter identity is:
+
+- `emitter_lane: 'reconciler'`
+- `emitter_id: 'ledger_override_sync'`
+- `evidence: 'asserted'`
+
+Duplicate-authorship enforcement keys on `(emitter_lane, emitter_id)`, so this
+name is load-bearing: reconciler writes must use exactly this id, and no other
+lane may author facts under it.
+
 V1 uses reconciler lane only for the ledger/semantics `staking_reward`
 invariant. The lane remains narrow until a second invariant-driven semantic
-workflow exists.
+workflow exists; any new reconciler workflow must register its own
+`emitter_id` through kind-definition / workflow review before shipping.
 
 ## Identity And Fingerprinting
 
@@ -100,6 +111,37 @@ Explicitly excluded from identity:
 - strings are serialized exactly after any per-kind normalization
 - identity-sensitive decimals should be strings, not floats
 - canonical empty metadata is `{}` exactly
+
+### Canonical target serialization
+
+`target` is serialized as exactly one of these shapes, with no other keys:
+
+- `{ "scope": "transaction", "tx_fingerprint": "<...>" }`
+- `{ "scope": "movement", "movement_fingerprint": "<...>" }`
+
+### Hash recipe
+
+`fact_fingerprint` is:
+
+- the lowercase hex SHA-256 digest of the UTF-8 bytes of one canonical JSON
+  object with exactly these fields:
+  - `kind`
+  - `kind_version`
+  - `target`
+  - `protocol_ref`
+  - `counterparty_ref`
+  - `role`
+  - `group_key`
+  - `metadata`
+- prefixed as `semantic_fact:v1:<sha256_hex>`
+
+`group_key` for grouped post-processor facts is:
+
+- the lowercase hex SHA-256 digest of the UTF-8 bytes of the canonical JSON
+  array of the sorted, deduped `derived_from_tx_fingerprints` set
+- prefixed as `semantic_group:v1:<sha256_hex>`
+
+Single-subject facts write `group_key: null`.
 
 ### Envelope version
 
@@ -250,6 +292,12 @@ Additional rules:
 - `asset_migration.providerSubtype` is descriptive only
 - future exact leg attribution must use explicit `movement_fingerprint` fields
   in the schema, not ad hoc blobs
+- V1 processor-lane `asset_migration` is intentionally one-sided: at most one
+  fact per transaction, with `role: 'source'` or `role: 'target'`. Even when
+  one transaction contains both the old-asset send leg and the new-asset
+  receive leg, processors do **not** emit two same-kind `asset_migration`
+  facts for that one transaction in v1. Same-transaction dual-leg migrations
+  wait for a later schema that names specific `movement_fingerprint` values.
 
 ### Movement scope
 
@@ -301,6 +349,23 @@ Rules:
 `group_key` identifies a lifecycle cohort, not internal topology. If a future
 grouped kind needs ordering or structure, that must be encoded in the kind's
 typed fields, not forced into group identity.
+
+### Three-case sanity check
+
+Any change to the grouping contract must still cleanly cover all three of these
+cases. If any case needs a special path in the contract, stop and re-examine
+before shipping — the model is not yet greenfield-clean.
+
+- **Bridge pair.** Two txs on two chains, one post-processor fact per tx, both
+  sharing a `group_key` derived from the pair's `derived_from` set.
+- **Asset migration.** N txs (old-asset withdrawal + new-asset deposits), N
+  facts sharing a `group_key` derived from the set.
+- **Accounting-role correction.** A user sets a movement's `accounting_role`
+  to `staking_reward`. This remains a ledger-owned override keyed by
+  `movement_fingerprint` and materialized back onto movement state before
+  accounting or linking reads. It is not a semantic fact on its own and does
+  not touch the grouping contract at all; reconciler-authored semantic facts
+  carry `group_key: null`.
 
 ## Duplicate Authorship
 

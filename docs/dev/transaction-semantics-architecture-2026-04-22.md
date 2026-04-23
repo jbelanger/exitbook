@@ -1,6 +1,12 @@
 ---
 last_verified: 2026-04-22
-status: active
+status: superseded
+superseded_by:
+  - docs/dev/transaction-semantics-architecture-2026-04-22/README.md
+note: |
+  Retained as a traceable source snapshot. The maintained design surface lives
+  in docs/dev/transaction-semantics-architecture-2026-04-22/ — see the README
+  and traceability.md there.
 supersedes:
   - docs/dev/archive/transaction-interpretation-superseded-2026-04-22/archived-transaction-interpretation-architecture-2026-04-20.md
   - docs/dev/archive/transaction-interpretation-superseded-2026-04-22/archived-interpretation-coverage-roadmap-2026-04-20.md

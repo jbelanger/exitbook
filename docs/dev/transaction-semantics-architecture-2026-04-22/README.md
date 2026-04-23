@@ -42,3 +42,15 @@ in the source note and are now explicit in the split docs:
   observe stale participation state after a committed write.
 - Fee semantics stay ledger-owned in v1, but future `fee`-scoped semantic facts
   are now explicitly reserved rather than implicitly forbidden.
+
+## Maintaining This Set
+
+The split docs (01–04) are the authoritative contract surfaces. The source
+note at `../transaction-semantics-architecture-2026-04-22.md` is `status:
+superseded` and retained only as a traceable snapshot; do not edit it.
+
+[`traceability.md`](./traceability.md) records how source sections and the
+review-day findings map into the split. Edits to 01–04 that drop, move, or
+substantially change a row in that sheet must update the sheet in the same
+commit. Once the ecosystem relies only on the split docs, the traceability
+sheet may be frozen (`status: archived`) rather than kept live.

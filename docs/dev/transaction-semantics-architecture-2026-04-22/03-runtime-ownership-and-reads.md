@@ -57,6 +57,43 @@ Rules:
   post-processing engine
 - reconciler-owned facts use `group_key: null`
 
+### `staking_reward` overlap workflow
+
+The reconciler reconciles against the transaction's effective persisted
+`accounting_role` state after override materialization, not against the raw
+override event log.
+
+For this workflow, an **equivalent** fact is any movement-scoped
+`staking_reward` fact targeting the same `movement_fingerprint`. Equivalence
+is about satisfying the overlap invariant for that movement — it is not about
+matching `emitter_id`, `emitter_lane`, or `evidence`.
+
+Upgrade path (override sets a movement to effective `staking_reward`), in
+one database transaction:
+
+1. persist (or clear) the ledger override
+2. run the reconciler for the affected transaction
+3. the reconciler may author a movement-scoped `staking_reward` fact only
+   when no equivalent fact already exists for that movement
+4. synced facts use the minimal v1 `staking_reward` payload: canonical empty
+   metadata `{}`, no `role`, no `protocol_ref`, no `counterparty_ref`
+
+Downgrade path (move a movement **away** from effective `staking_reward`) is
+**not** a bare ledger override write. It must run in one database transaction:
+
+1. append `dismiss` review decisions for every movement-scoped
+   `staking_reward` fact targeting that `movement_fingerprint`
+2. persist or clear the ledger override to the new effective `accounting_role`
+3. delete only `ledger_override_sync`-owned rows for that movement
+
+The downgrade workflow never hard-deletes processor-authored `staking_reward`
+facts. They remain persisted audit history and are suppressed from canonical
+semantic reads by the effective review state (`dismiss`).
+
+Clear path: when the ledger override is cleared, the reconciler deletes only
+`ledger_override_sync`-owned rows for that movement and leaves any
+processor-authored same-movement `staking_reward` fact in place.
+
 ## Evaluated Scope And Replacement
 
 Every post-processor run has an explicit `evaluated_tx_fingerprints` set.

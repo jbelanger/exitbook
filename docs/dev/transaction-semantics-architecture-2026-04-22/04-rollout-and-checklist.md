@@ -56,6 +56,32 @@ Near-term implementation should:
 - move semantic post-processing runtime ownership under ingestion while keeping
   fact contracts in `transaction-semantics`
 
+## Incremental Rollout
+
+Duplicate-authorship steady state is defined in the semantic-fact contract
+([02 Semantic Facts And Evolution](./02-semantic-facts-and-evolution.md)): at
+most one `(emitter_lane, emitter_id)` owns any given `fact_fingerprint`.
+Migration must preserve that invariant, not relax it:
+
+- cutovers use feature gating or staged emission so exactly one author owns a
+  given fact tuple at any moment
+- do not leave legacy detector-style emission and new processor /
+  post-processor emission active for the same fact tuple in one run
+- `kind_version` bumps ship with an explicit migration note (data path + a
+  statement about whether any persisted facts must be re-emitted)
+
+If a cutover cannot be made single-author in one slice, gate the new emitter
+off by default until the old path is removed in the same merge.
+
+### Movement-scope change vs source note
+
+The split deliberately softens the v1 movement-scope boundary: the source note
+restricted movement scope to `staking_reward` and said other kinds should not
+choose movement scope ad hoc. The split keeps `staking_reward` as the only v1
+movement-scoped kind shipped, but allows future movement-scoped kinds through
+the kind-definition contract with explicit invariant/read-path notes. This is
+an intentional architecture change, not a carried-over constraint.
+
 ## Deferred / Non-Goals
 
 - counterparty resolver implementation details
@@ -81,7 +107,7 @@ V1 is acceptable when all of the following are true:
   per-kind `kind_version`
 - query APIs force explicit evidence and fact-decision policy
 - duplicate authorship fails the enclosing transaction
-- review uses one effective-state collapse model with user-over-rule
+- review uses one effective-state collapse model with manual-over-rule
   precedence
 - movement-level review remains intentionally non-canonical in v1
 - fact truth decisions and participation decisions are written separately

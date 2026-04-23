@@ -149,8 +149,16 @@ All review subject refs are fingerprint-based:
 `review_decisions` is append-only history. Canonical reads collapse that history
 to one effective state per subject:
 
-1. latest decision from the same reviewer wins for that reviewer
-2. any user decision outranks all rule decisions for the subject
+V1 review authorities are:
+
+- `manual`, the singleton manual authority for the profile
+- one or more named rule authorities
+
+Collapse rules:
+
+1. latest decision from the same authority wins for that authority
+2. if a manual decision exists for the subject, the latest manual decision is
+   effective
 3. otherwise the latest rule decision is effective
 4. otherwise the subject is undecided
 
@@ -193,15 +201,50 @@ For `semantic_fact` subjects:
 - effective `confirm` keeps the fact visible and records trust
 - history/debug surfaces may opt into raw rows plus effective review state
 
+### Workflow atomicity
+
+A review action on a semantic fact never implicitly mutates transaction or
+asset participation. Workflows that intend to change both fact truth and
+participation must write both decisions in the same database transaction.
+
+Canonical example — `spam_inbound`:
+
+- "not spam" workflow writes `dismiss` on the `semantic_fact` subject **and**
+  `include` on the `transaction` subject atomically
+- "confirmed spam" workflow writes `confirm` on the fact **and** `exclude` on
+  the transaction (or asset) atomically
+
+Spam workflows should choose the narrowest subject that matches the intended
+blast radius — `transaction` when the whole tx should drop out, `asset` when
+only the suspicious asset should be pruned while native fees or unrelated legs
+remain in scope.
+
 ### Rule authority
 
 Rule-seeded review is reconcile-not-append at the workflow level.
 
+Each named rule authority evaluates an explicit subject set and appends
+whatever decision is required so that its latest rule-authored state matches
+current rule output for each evaluated subject:
+
+- for participation subjects, when a rule-authored `exclude` no longer applies,
+  the rule appends `include` for that same subject
+- for `semantic_fact` subjects, when a rule-authored `confirm` no longer
+  applies and the fact still exists, the rule appends `dismiss`
+- if a previously-reviewed `semantic_fact` subject no longer exists after
+  reprocess, the historical rule rows remain audit history but are inert on
+  read because the subject ref no longer resolves
+
+Manual-over-rule precedence still applies on top of that reconciled rule
+stream.
+
 V1 constraint:
 
-- at most one rule reviewer may author participation decisions for a subject
+- manual review is a singleton authority per profile; person identity is not
+  part of the architecture contract
+- at most one rule authority may author participation decisions for a subject
   family
-- at most one rule reviewer may author semantic-fact truth decisions for a
+- at most one rule authority may author semantic-fact truth decisions for a
   subject family
 
 If multiple rule authorities need the same subject family later, explicit rule
