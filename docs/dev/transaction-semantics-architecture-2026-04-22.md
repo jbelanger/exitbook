@@ -138,6 +138,37 @@ For non-semantic policy code, the ledger package also owns a structural helper
 That helper answers structural questions only. Downstream policy code must not
 branch on rendered label text.
 
+V1 `deriveLedgerShape()` rules are fixed:
+
+- The helper classifies from **contributing non-fee movements**.
+- If the transaction has one or more `principal` movements, contributing
+  movements are the `principal` inflows/outflows only. `staking_reward`,
+  `protocol_overhead`, and `refund_rebate` do not affect ledger shape in that
+  case.
+- If the transaction has no `principal` movements, contributing movements fall
+  back to all non-fee asset movements regardless of `accounting_role`, so
+  structurally one-sided reward/rebate/overhead transactions still produce a
+  shape.
+- Fee rows never contribute to `send` / `receive` / `self_transfer` / `trade`.
+  They matter only for the fee-only case below.
+
+Classification order:
+
+1. no contributing inflows and no contributing outflows, with one or more fee
+   rows present -> `fee`
+2. one or more contributing inflows and no contributing outflows -> `receive`
+3. one or more contributing outflows and no contributing inflows -> `send`
+4. both sides present and the contributing inflow/outflow asset-id sets have
+   any exact overlap -> `self_transfer`
+5. both sides present and the contributing inflow/outflow asset-id sets are
+   disjoint -> `trade`
+
+If a transaction has neither contributing movements nor fee rows, that is an
+authoring bug and reads should fail loud rather than invent a fallback shape.
+
+`self_transfer` here is a structural same-asset in+out shape inside one
+transaction. It is not, by itself, a verified same-owner counterparty claim.
+
 ### 2. Semantic Facts — "what happened?"
 
 The shared machine-semantic surface. The only place consumers read for
@@ -247,6 +278,48 @@ All fingerprint construction must use one shared metadata canonicalizer in
 `semantic-fact-fingerprint.ts`. Per-kind code may normalize semantic fields
 before handing metadata to that canonicalizer, but must not invent alternate
 serialization rules.
+
+V1 canonical serialization and hash recipe is fixed:
+
+- fingerprinted values must be representable as plain JSON values only:
+  objects, arrays, strings, booleans, numbers, or `null`
+- `undefined`, `Date`, `Decimal`, `Map`, `Set`, `bigint`, functions, and
+  non-finite numbers are invalid in fingerprint material
+- object keys are serialized with recursive lexicographic key ordering
+- arrays preserve their authored order
+- strings are serialized exactly as authored after any per-kind normalization;
+  there is no additional case-folding or whitespace trimming inside the
+  canonicalizer
+- numbers, when present, use normal JSON number serialization; identity-
+  sensitive decimal quantities should be represented as strings in metadata,
+  not floating-point numbers
+- canonical empty metadata serializes as the literal JSON object string `{}`
+
+`fact_fingerprint` is:
+
+- the lowercase hex SHA-256 digest of the UTF-8 bytes of one canonical JSON
+  object with exactly these fields:
+  - `kind`
+  - `target`
+  - `protocol_ref`
+  - `counterparty_ref`
+  - `role`
+  - `group_key`
+  - `metadata`
+- prefixed as `semantic_fact:v1:<sha256_hex>`
+
+`target` serializes as exactly one of:
+
+- `{ "scope": "transaction", "tx_fingerprint": "<...>" }`
+- `{ "scope": "movement", "movement_fingerprint": "<...>" }`
+
+`group_key` for grouped post-processor facts is:
+
+- the lowercase hex SHA-256 digest of the UTF-8 bytes of the canonical JSON
+  array of the sorted, deduped `derived_from_tx_fingerprints` set
+- prefixed as `semantic_group:v1:<sha256_hex>`
+
+Single-subject facts still write `group_key: null`.
 
 For kinds whose schema has no payload fields in v1, canonical metadata is the
 empty object `{}`. Emitters must not create identity drift by alternating
@@ -485,6 +558,13 @@ Rule-seeded review is a reconciled derived workflow, not a one-way append.
 Each named rule reviewer evaluates an explicit subject set and appends whatever
 decision is required so that its latest rule-authored state matches current rule
 output for each evaluated subject.
+
+V1 constraint: overlapping rule authority is not allowed. For any given
+subject family, at most one rule reviewer may author participation decisions
+and at most one rule reviewer may author semantic-fact truth decisions. If a
+later slice needs multiple rule reviewers to target the same subject family,
+an explicit rule-precedence contract must be added first; append order across
+independent rules must not become semantics.
 
 - for participation subjects, when a rule-authored `exclude` no longer applies,
   the rule appends `include` for that same subject
@@ -858,15 +938,15 @@ The helper returns a structured result, not a bare string:
   `unwrap`, `staking/reward`, `staking/deposit`, `staking/withdrawal`,
   `protocol/deposit`, `protocol/withdrawal`, `airdrop/claim`
 
-The helper consumes semantic facts after the caller's evidence policy and
-fact-decision policy have already been applied. It must not resurrect dismissed
-facts or ignored processor-lane `asset_migration` facts that were superseded by
-grouped post-processor migration.
+The helper's core contract is pure projection over semantic facts that already
+survived the caller's evidence policy and fact-decision policy. It must not
+resurrect dismissed facts or ignored processor-lane `asset_migration` facts
+that were superseded by grouped post-processor migration.
 
-Its evidence contract is explicit: the caller must pass either facts already
-filtered to a chosen evidence policy, or an `evidence_policy` argument that
-the helper itself enforces. There is no implicit default. V1 uses two
-policies:
+`deriveOperationLabel()` itself does not query stores or apply hidden evidence
+filtering. If a convenience wrapper filters facts before calling it, that
+wrapper must still require an explicit evidence policy from its caller. There
+is no implicit default. V1 uses two policies:
 
 - `asserted_only` — accounting, tax, readiness, portfolio, exports, and any
   surface that must not let heuristics change canonical meaning
@@ -1207,6 +1287,11 @@ A v1 that delivers this architecture is one where:
 - The v1 per-kind payload matrix is fixed and identity-safe. Kinds with empty
   payload schemas persist canonical empty metadata `{}` rather than drifting
   between omitted and empty payloads.
+- Semantic fact identity uses one explicit canonical JSON + SHA-256 recipe:
+  canonical empty metadata serializes as literal `{}`, `fact_fingerprint`
+  persists as `semantic_fact:v1:<sha256_hex>`, and grouped `group_key`
+  persists as `semantic_group:v1:<sha256_hex>` over the sorted, deduped
+  `derived_from_tx_fingerprints` set.
 - The fact query API forces `kinds` and `evidence` selection. Heuristic /
   inferred facts cannot silently drive tax or readiness consumers.
 - The semantic-fact query API also forces explicit fact-decision policy.
@@ -1223,6 +1308,9 @@ A v1 that delivers this architecture is one where:
 - Review reads use one effective review state with a fixed verb / subject
   matrix, one user authority per profile, user-over-rule precedence, and
   deterministic append-order semantics.
+- V1 review rule authority does not overlap by subject family. If multiple rule
+  reviewers need to target the same subject family, explicit rule precedence is
+  added before that slice ships.
 - Rule-seeded review is reconciled over current evaluated subjects rather than
   append-only accumulation. When a rule-authored participation decision no
   longer applies, the rule appends the neutralizing latest state.
@@ -1244,8 +1332,13 @@ A v1 that delivers this architecture is one where:
   reads.
 - Pure structural downstream checks read a ledger-owned `deriveLedgerShape()`
   contract rather than branching on display labels.
-- `deriveOperationLabel()` requires an explicit evidence policy; inferred
-  facts do not silently relabel asserted-only surfaces.
+- `deriveLedgerShape()` has one fixed structural classification contract over
+  contributing non-fee movements, with fee-only transactions mapping to `fee`,
+  overlapping exact asset-id in/out mapping to `self_transfer`, and disjoint
+  in/out asset-id sets mapping to `trade`.
+- `deriveOperationLabel()` is a pure projection over already-effective facts.
+  It does not apply hidden evidence filtering; inferred facts do not silently
+  relabel asserted-only surfaces.
 - `deriveOperationLabel()` returns a structured
   `{ group, label, source }` result; it does not collapse to a bare display
   string in v1.
