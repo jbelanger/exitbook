@@ -23,25 +23,26 @@ surfaces.
 - [04. Rollout And Checklist](./04-rollout-and-checklist.md)
 - [Traceability Sheet](./traceability.md)
 
-## Design Closures Added During The Split
+## New Decisions Introduced By The Split
 
-These are the main architecture closures that were implicit or under-specified
-in the source note and are now explicit in the split docs:
+These are deliberate architecture decisions introduced during the split rather
+than direct carry-forward from the source note. Their accepted/open/revert
+status is tracked in [Traceability Sheet](./traceability.md).
 
 - Semantic kinds are owned through a typed kind-definition contract and central
   registry, not by ad hoc edits across multiple unrelated modules.
-- `kind` remains a small global semantic family key. Chain-specific detail
-  belongs in typed per-kind metadata or future typed refs, not in ad hoc
-  namespacing conventions.
 - Semantic fact identity now has both an envelope version
   (`semantic_fact:v1`) and a per-kind `kind_version` for identity-bearing
   payload evolution.
 - `ledger_override_sync` is treated as reconciler-owned semantic authoring, not
   as ordinary processor or post-processor behavior.
-- Effective participation freshness is now a contract: canonical reads may not
-  observe stale participation state after a committed write.
+- `bridge` and `asset_migration` share one grouped correlated-kind contract
+  rather than two separate special cases.
 - Fee semantics stay ledger-owned in v1, but future `fee`-scoped semantic facts
-  are now explicitly reserved rather than implicitly forbidden.
+  are explicitly reserved.
+- Movement scope remains `staking_reward`-only in shipped v1 kinds, but future
+  movement-scoped kinds are allowed through the kind-definition contract with
+  explicit invariant/read-path review.
 
 ## Maintaining This Set
 
@@ -50,7 +51,8 @@ note at `../transaction-semantics-architecture-2026-04-22.md` is `status:
 superseded` and retained only as a traceable snapshot; do not edit it.
 
 [`traceability.md`](./traceability.md) records how source sections and the
-review-day findings map into the split. Edits to 01–04 that drop, move, or
-substantially change a row in that sheet must update the sheet in the same
-commit. Once the ecosystem relies only on the split docs, the traceability
-sheet may be frozen (`status: archived`) rather than kept live.
+review-day findings map into the split and records the status of any
+split-introduced decisions. Edits to 01–04 that drop, move, or substantially
+change a row in that sheet must update the sheet in the same commit. Once the
+ecosystem relies only on the split docs, the traceability sheet may be frozen
+(`status: archived`) rather than kept live.

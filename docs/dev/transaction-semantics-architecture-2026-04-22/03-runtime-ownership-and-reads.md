@@ -232,42 +232,46 @@ V1 precedence:
 Keep precedence declarative and kind-owned through the kind-definition
 registry.
 
-## Package Ownership
+## Capability Ownership And Port Boundaries
 
-- `packages/ledger/`
-  - transactions
-  - movements with `accounting_role`
-  - fees
-  - links
-  - ledger-shape projection
-- `packages/transaction-semantics/`
-  - fact types
-  - kind definitions and registry
-  - schemas
-  - fingerprinting
-  - query API
-  - protocol/counterparty refs and resolvers
-  - operation-label projection
-- `packages/review/`
-  - decision writes
-  - rule evaluation
-  - effective review state
-  - effective participation state
-- `packages/ingestion/`
-  - processors
-  - `ProcessorOutput`
-  - diagnostics
-  - post-processing runtime
-  - reconciler workflows
-- `packages/accounting/`
-  - gap analysis
-  - readiness
-  - transfer policy
-  - residual attribution
-  - cost basis
-  - portfolio
+These ownership statements are binding. Final package extraction is not.
+Package boundaries, dependency direction, and adapter placement must follow
+[`docs/architecture/architecture-package-contract.md`](../../architecture/architecture-package-contract.md).
 
-## Corrected Target Folder Hierarchy
+The capabilities in this design may land as dedicated packages, capability
+subpaths inside existing feature packages, or workflow packages. Whatever
+shape is chosen, consumers own app-internal ports and `data` implements them.
+
+- Ledger capability owns transactions, movements with `accounting_role`, fees,
+  links, and ledger-shape projection.
+- Transaction semantics capability owns fact types, kind definitions and
+  registry, schemas, fingerprinting, semantic read policies, protocol /
+  counterparty refs, and operation-label projection.
+- Review capability owns decision writes, rule evaluation, effective review
+  state, and effective participation state.
+- Ingestion capability owns processors, `ProcessorOutput`, diagnostics,
+  post-processing runtime, and reconciler workflows.
+- Accounting capability owns gap analysis, readiness, transfer policy,
+  residual attribution, cost basis, and portfolio behavior.
+
+Consumer-owned ports should be explicit rather than implied by package names.
+Examples:
+
+- accounting owns the app-internal ports it needs for ledger reads, effective
+  semantic facts, and effective participation state
+- history / audit surfaces own broader semantic-fact read ports when they need
+  dismissed, superseded, or inferred rows
+- ingestion owns the persistence ports it needs for writing semantic facts,
+  diagnostics, and reconciler-side coordinated changes
+- hosts compose these capabilities, but do not absorb business-policy
+  orchestration that belongs in a workflow package
+
+## Illustrative Package Sketch
+
+This sketch is non-binding. It shows one possible extraction if the repo later
+chooses dedicated packages for these capabilities. The final shape must still
+follow [`docs/architecture/architecture-package-contract.md`](../../architecture/architecture-package-contract.md),
+including consumer-owned ports and no direct feature-to-feature imports.
 
 ```text
 packages/
@@ -287,8 +291,8 @@ packages/
         semantic-fact-types.ts
         semantic-fact-schemas.ts
         semantic-fact-fingerprint.ts
-        semantic-fact-query.ts
-        semantic-fact-store.ts
+        semantic-fact-read-model.ts
+        semantic-fact-ports.ts
       kinds/
         bridge.ts
         swap.ts
@@ -314,15 +318,15 @@ packages/
     src/
       decisions/
         review-decision-types.ts
-        review-decision-store.ts
+        review-decision-ports.ts
       rules/
         review-rule-registry.ts
         review-rule-runner.ts
         spam-inbound-rule.ts
-      participation/
+      effective-state/
+        effective-review-state.ts
         effective-participation-state.ts
       authority/
-      asset-review/
       index.ts
 
   ingestion/

@@ -32,7 +32,9 @@ authorities.
 | Review                | Should we trust or include it? | `review_decisions` plus effective review/participation projections |
 | Diagnostics           | Why was this uncertain or odd? | `diagnostics`                                                      |
 
-Every signal about a transaction belongs to exactly one channel.
+Every signal about a transaction has one primary channel. V1 also carries one
+explicit cross-channel invariant documented below: `staking_reward` appears in
+both ledger and semantics.
 
 ## Ledger
 
@@ -100,8 +102,8 @@ Classification order:
    rows -> `fee`
 2. one or more contributing inflows and no contributing outflows -> `receive`
 3. one or more contributing outflows and no contributing inflows -> `send`
-4. both sides present and inflow/outflow asset-id sets overlap exactly ->
-   `self_transfer`
+4. both sides present and inflow/outflow asset-id sets share one or more exact
+   asset ids -> `self_transfer`
 5. both sides present and inflow/outflow asset-id sets are disjoint -> `trade`
 
 `self_transfer` is structural only. It is not a same-owner proof.

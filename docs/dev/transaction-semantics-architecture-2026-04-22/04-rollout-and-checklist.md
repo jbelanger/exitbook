@@ -21,7 +21,7 @@ derived_from:
 - diagnostic-to-annotation reprojection detectors
 - free-form semantic metadata blobs
 - consumer-owned helpers living inside the semantics package
-- standalone `protocol-catalog` package
+- package-placement assumptions that bypass the repo architecture contract
 - stored `transaction.operation` as canonical meaning
 
 ## Guardrails
@@ -33,6 +33,9 @@ derived_from:
 - ingestion post-processing emits facts only, never diagnostics
 - processors never emit decisions
 - review authorities never emit observations
+- do not treat capability ownership as an automatic package move; package
+  boundaries stay subject to
+  [`docs/architecture/architecture-package-contract.md`](../../architecture/architecture-package-contract.md)
 - keep the diagnostic enum small and closed
 
 ## Naming Changes
@@ -42,7 +45,6 @@ derived_from:
 - `movementRole` -> `accounting_role`
 - `detectorId` -> `emitter_id`
 - `transaction-interpretation` -> `transaction-semantics`
-- `protocol-catalog` -> folded into `transaction-semantics/protocol/`
 
 ## Immediate Direction
 
@@ -53,8 +55,12 @@ Near-term implementation should:
 - convert asserted single-transaction semantics to processor-authored facts
 - preserve replay and invalidation guarantees for persisted semantic state
 - keep heuristic bridge pairing only in ingestion-owned post-processing
+- define consumer-owned ports for semantic, review, and ledger reads before
+  locking any package moves
 - move semantic post-processing runtime ownership under ingestion while keeping
   fact contracts in `transaction-semantics`
+- treat any `protocol-catalog` relocation as a separate package-boundary review,
+  not as an automatic carry-forward from the source note
 
 ## Incremental Rollout
 
