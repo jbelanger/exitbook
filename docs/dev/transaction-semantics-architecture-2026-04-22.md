@@ -12,6 +12,12 @@ supersedes:
 
 Owner: Joel + Codex
 
+> Split note:
+> This source snapshot has been decomposed into the maintained doc set under
+> [`docs/dev/transaction-semantics-architecture-2026-04-22/`](./transaction-semantics-architecture-2026-04-22/README.md).
+> The split docs are the maintained surfaces. This file is retained as a
+> traceable source snapshot for migration coverage and review history.
+
 ## Goal
 
 Define **one** semantic surface for transactions, with clear ownership of who
