@@ -904,6 +904,43 @@ deterministic tie-breaker. That tie-break is for rendering determinism only;
 it should be treated as an authoring smell, not as permission to emit
 semantically overlapping fact families indefinitely.
 
+#### Implementation note: keep label projection thin
+
+The architectural goal is for `deriveOperationLabel()` to stay a projection
+layer, not become a second semantic policy engine. The current implementation
+already shows the failure mode to avoid: one central helper owns kind priority,
+label text, and some policy-adjacent meaning, while nearby consumers can drift
+into branching on literal labels such as `bridge/send` or `trade/swap`.
+
+Implementation guidance for the refactor:
+
+- Keep `deriveOperationLabel()` as a thin orchestrator over already-effective
+  semantic facts plus ledger-shape fallback. It should select among typed
+  primary-label candidates; it should not become a growing monolithic switch
+  that embeds every kind's bespoke logic inline.
+- Co-locate primary-label contribution logic with the semantic kind that owns
+  it, or in a nearby typed registry keyed by `kind`. Adding a new kind should
+  normally require one local label-contribution definition plus one registry
+  entry, not edits scattered across unrelated consumer policy code.
+- Require each fact kind to make an explicit label decision: primary-label
+  contributor, secondary flag/badge only, or no transaction-label effect.
+  Negative-signal kinds stay out of primary-label selection.
+- Keep precedence declarative data, not control-flow structure. The orchestrator
+  should consume ordered typed definitions and apply the existing deterministic
+  tie-break rules, rather than encoding precedence by branch order.
+- Do not let downstream policy helpers infer behavior from rendered label
+  strings. Transaction-direction overrides, gap heuristics, readiness checks,
+  and similar policy code should read ledger shape, semantic facts, or other
+  typed projections directly. Labels are for transaction-facing presentation.
+- Add exhaustiveness tests around the label registry / definitions so a newly
+  added `kind` cannot silently bypass label review, accidentally start
+  contributing a primary label, or change precedence without an intentional
+  test update.
+
+This note is guidance about implementation shape, not a second semantic
+contract. Equivalent internal designs are fine if they preserve those
+properties.
+
 Consumers rendering user-facing transaction labels, filters, exports, or
 history rows should call `deriveOperationLabel()` with an explicit evidence
 policy. Direct calls to `deriveLedgerShapeLabel()` are reserved for
