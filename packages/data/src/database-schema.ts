@@ -20,6 +20,14 @@ import type {
   ProcessingStatus,
   ProjectionStatus,
 } from '@exitbook/core';
+import type {
+  AccountingJournalKind,
+  AccountingJournalRelationshipKind,
+  AccountingOverrideKind,
+  AccountingPostingRole,
+  AccountingSettlement,
+  AccountingSourceComponentKind,
+} from '@exitbook/ledger';
 import type { Generated, ColumnType } from '@exitbook/sqlite';
 import type { AnnotationKind, AnnotationRole, AnnotationTier } from '@exitbook/transaction-interpretation';
 
@@ -122,9 +130,127 @@ export interface RawTransactionTable {
 }
 
 /**
- * Transactions table - stores transactions from all sources with standardized structure
- * Using TEXT for decimal values to preserve precision
- * Scoped by account - each account owns its processed transactions
+ * Source activities table - thin non-accounting container for processed source events.
+ * This is the target replacement for accounting-bearing transaction rows.
+ */
+export interface SourceActivitiesTable {
+  id: Generated<number>;
+  account_id: number; // FK to accounts.id
+  platform_key: string;
+  platform_kind: PlatformKind;
+  source_activity_fingerprint: string;
+  activity_status: 'pending' | 'success' | 'failed' | 'open' | 'closed' | 'canceled';
+  activity_datetime: DateTime;
+  activity_timestamp_ms: number | null;
+  from_address: string | null;
+  to_address: string | null;
+  blockchain_name: string | null;
+  blockchain_block_height: number | null;
+  blockchain_transaction_hash: string | null;
+  blockchain_is_confirmed: boolean | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Join table linking one source activity to the raw rows that produced it.
+ */
+export interface SourceActivityRawBindingsTable {
+  source_activity_id: number; // FK to source_activities.id
+  raw_transaction_id: number; // FK to raw_transactions.id
+}
+
+/**
+ * Accounting journals table - persisted grouping row for accounting events inside a source activity.
+ */
+export interface AccountingJournalsTable {
+  id: Generated<number>;
+  source_activity_id: number; // FK to source_activities.id
+  journal_fingerprint: string;
+  journal_stable_key: string;
+  journal_kind: AccountingJournalKind;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Accounting postings table - canonical signed asset effects owned by journals.
+ */
+export interface AccountingPostingsTable {
+  id: Generated<number>;
+  journal_id: number; // FK to accounting_journals.id
+  posting_fingerprint: string;
+  posting_stable_key: string;
+  asset_id: string;
+  asset_symbol: string;
+  quantity: DecimalString;
+  posting_role: AccountingPostingRole;
+  settlement: AccountingSettlement | null;
+  price_amount: DecimalString | null;
+  price_currency: string | null;
+  price_source: string | null;
+  price_fetched_at: DateTime | null;
+  price_granularity: 'exact' | 'minute' | 'hour' | 'day' | null;
+  fx_rate_to_usd: DecimalString | null;
+  fx_source: string | null;
+  fx_timestamp: DateTime | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Source component bindings table - posting-level provenance with stable component identity.
+ */
+export interface AccountingPostingSourceComponentsTable {
+  id: Generated<number>;
+  posting_id: number; // FK to accounting_postings.id
+  source_component_fingerprint: string;
+  source_activity_fingerprint: string;
+  component_kind: AccountingSourceComponentKind;
+  component_id: string;
+  occurrence: number | null;
+  asset_id: string | null;
+  quantity: DecimalString;
+}
+
+/**
+ * Accounting journal relationships table - transfer, carryover, bridge, and migration links.
+ */
+export interface AccountingJournalRelationshipsTable {
+  id: Generated<number>;
+  source_journal_id: number; // FK to accounting_journals.id
+  target_journal_id: number; // FK to accounting_journals.id
+  source_posting_id: number | null; // FK to accounting_postings.id
+  target_posting_id: number | null; // FK to accounting_postings.id
+  relationship_stable_key: string;
+  relationship_kind: AccountingJournalRelationshipKind;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Accounting overrides table - current journal/posting corrections keyed by stable ledger fingerprints.
+ * Durable override events remain in the separate overrides database; this table is the materialized ledger-facing state.
+ */
+export interface AccountingOverridesTable {
+  id: Generated<number>;
+  profile_id: number; // FK to profiles.id
+  target_scope: 'journal' | 'posting';
+  target_journal_fingerprint: string | null;
+  target_posting_fingerprint: string | null;
+  override_kind: AccountingOverrideKind;
+  journal_kind: AccountingJournalKind | null;
+  posting_role: AccountingPostingRole | null;
+  settlement: AccountingSettlement | null;
+  stale_reason: string | null;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Legacy processed transactions table - still used by current repositories until the ledger rewrite completes.
+ * Using TEXT for decimal values to preserve precision.
+ * Scoped by account - each account owns its processed transactions.
  */
 export interface TransactionsTable {
   // Core identification
@@ -436,6 +562,13 @@ export interface DatabaseSchema {
   accounts: AccountsTable;
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
+  source_activities: SourceActivitiesTable;
+  source_activity_raw_bindings: SourceActivityRawBindingsTable;
+  accounting_journals: AccountingJournalsTable;
+  accounting_postings: AccountingPostingsTable;
+  accounting_posting_source_components: AccountingPostingSourceComponentsTable;
+  accounting_journal_relationships: AccountingJournalRelationshipsTable;
+  accounting_overrides: AccountingOverridesTable;
   transaction_raw_bindings: TransactionRawBindingsTable;
   transaction_movements: TransactionMovementsTable;
   transaction_links: TransactionLinksTable;

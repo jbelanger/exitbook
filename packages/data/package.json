@@ -31,6 +31,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/foundation": "workspace:*",
     "@exitbook/ingestion": "workspace:*",
+    "@exitbook/ledger": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "@exitbook/sqlite": "workspace:*",
     "@exitbook/transaction-interpretation": "workspace:*",

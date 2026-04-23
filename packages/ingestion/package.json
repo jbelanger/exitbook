@@ -35,12 +35,14 @@
     "@exitbook/events": "workspace:*",
     "@exitbook/exchange-providers": "workspace:*",
     "@exitbook/foundation": "workspace:*",
+    "@exitbook/ledger": "workspace:*",
     "@exitbook/logger": "workspace:*",
     "csv-parse": "^6.2.1",
     "decimal.js": "^10.6.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@exitbook/accounting": "workspace:*",
     "tsconfig": "workspace:*"
   }
 }

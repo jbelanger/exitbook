@@ -1,11 +1,17 @@
 ---
 last_verified: 2026-04-22
-status: active
+status: deferred
 derived_from:
   - ../transaction-semantics-architecture-2026-04-22.md
+deferred_by:
+  - ../accounting-ledger-rewrite-plan-2026-04-23.md
 ---
 
 # Runtime Ownership And Reads
+
+Implementation from this contract is deferred pending the accounting ledger
+rewrite. Re-evaluate this document after the processor-to-accounting boundary
+lands.
 
 ## Processor Authoring
 

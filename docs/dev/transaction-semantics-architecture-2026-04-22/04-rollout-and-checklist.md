@@ -1,11 +1,17 @@
 ---
 last_verified: 2026-04-22
-status: active
+status: deferred
 derived_from:
   - ../transaction-semantics-architecture-2026-04-22.md
+deferred_by:
+  - ../accounting-ledger-rewrite-plan-2026-04-23.md
 ---
 
 # Rollout And Checklist
+
+Implementation from this checklist is deferred pending the accounting ledger
+rewrite. Re-evaluate this document after the processor-to-accounting boundary
+lands.
 
 This document is transitional implementation guidance for moving the codebase
 to the target architecture. Unlike 01–03, it is not part of the enduring

@@ -1,0 +1,35 @@
+{
+  "name": "@exitbook/ledger",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./journals": "./src/journals/index.ts",
+    "./overrides": "./src/overrides/index.ts",
+    "./postings": "./src/postings/index.ts",
+    "./relationships": "./src/relationships/index.ts",
+    "./source-activities": "./src/source-activities/index.ts",
+    "./source-components": "./src/source-components/index.ts"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/foundation": "workspace:*",
+    "decimal.js": "^10.6.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*"
+  }
+}

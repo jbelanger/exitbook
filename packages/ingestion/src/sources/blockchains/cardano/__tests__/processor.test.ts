@@ -1,64 +1,19 @@
-import {
-  type CardanoTransaction,
-  type CardanoTransactionInput,
-  type CardanoTransactionOutput,
-} from '@exitbook/blockchain-providers/cardano';
+import type { CardanoTransaction } from '@exitbook/blockchain-providers/cardano';
 import { describe, expect, test } from 'vitest';
 
 import { CardanoProcessor } from '../processor.js';
 
-const USER_ADDRESS = 'addr1quser1111111111111111111111111111111111111111111111111111';
-const SIBLING_USER_ADDRESS = 'addr1qsibling11111111111111111111111111111111111111111111111111';
-const EXTERNAL_ADDRESS = 'addr1qexternal11111111111111111111111111111111111111111111111';
+import {
+  EXTERNAL_ADDRESS,
+  SIBLING_USER_ADDRESS,
+  USER_ADDRESS,
+  createInput,
+  createOutput,
+  createTransaction,
+} from './test-utils.js';
 
 function createProcessor() {
   return new CardanoProcessor();
-}
-
-function createInput(
-  address: string,
-  amounts: { quantity: string; unit: string }[] | string,
-  unit = 'lovelace',
-  overrides: Partial<CardanoTransactionInput> = {}
-): CardanoTransactionInput {
-  return {
-    address,
-    amounts: typeof amounts === 'string' ? [{ quantity: amounts, unit }] : amounts,
-    outputIndex: 0,
-    txHash: 'prev-tx',
-    ...overrides,
-  };
-}
-
-function createOutput(
-  address: string,
-  amounts: { quantity: string; unit: string }[] | string,
-  unit = 'lovelace',
-  overrides: Partial<CardanoTransactionOutput> = {}
-): CardanoTransactionOutput {
-  return {
-    address,
-    amounts: typeof amounts === 'string' ? [{ quantity: amounts, unit }] : amounts,
-    outputIndex: 0,
-    ...overrides,
-  };
-}
-
-function createTransaction(overrides: Partial<CardanoTransaction> = {}): CardanoTransaction {
-  return {
-    blockHeight: 9000000,
-    currency: 'ADA',
-    eventId: '0xevent',
-    feeAmount: '0.17',
-    feeCurrency: 'ADA',
-    id: 'tx-default',
-    inputs: [createInput(EXTERNAL_ADDRESS, '2170000')],
-    outputs: [createOutput(USER_ADDRESS, '2000000')],
-    providerName: 'blockfrost',
-    status: 'success',
-    timestamp: Date.now(),
-    ...overrides,
-  } as CardanoTransaction;
 }
 
 describe('CardanoProcessor', () => {

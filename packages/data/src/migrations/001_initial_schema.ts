@@ -167,6 +167,343 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     ON raw_transactions(account_id, event_id)
   `.execute(db);
 
+  // Ledger rewrite draft tables.
+  // These coexist with legacy processed transaction tables until repositories and processors move.
+
+  await db.schema
+    .createTable('source_activities')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
+    .addColumn('platform_key', 'text', (col) => col.notNull())
+    .addColumn('platform_kind', 'text', (col) => col.notNull())
+    .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('activity_status', 'text', (col) => col.notNull().defaultTo('pending'))
+    .addColumn('activity_datetime', 'text', (col) => col.notNull())
+    .addColumn('activity_timestamp_ms', 'integer')
+    .addColumn('from_address', 'text')
+    .addColumn('to_address', 'text')
+    .addColumn('blockchain_name', 'text')
+    .addColumn('blockchain_block_height', 'integer')
+    .addColumn('blockchain_transaction_hash', 'text')
+    .addColumn('blockchain_is_confirmed', 'boolean')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint('source_activities_platform_kind_valid', sql`platform_kind IN ('blockchain', 'exchange')`)
+    .addCheckConstraint(
+      'source_activities_status_valid',
+      sql`activity_status IN ('pending', 'success', 'failed', 'open', 'closed', 'canceled')`
+    )
+    .addCheckConstraint('source_activities_fingerprint_not_empty', sql`trim(source_activity_fingerprint) <> ''`)
+    .addCheckConstraint('source_activities_platform_key_not_empty', sql`trim(platform_key) <> ''`)
+    .addCheckConstraint('source_activities_datetime_not_empty', sql`trim(activity_datetime) <> ''`)
+    .addCheckConstraint(
+      'source_activities_blockchain_hash_not_empty',
+      sql`blockchain_transaction_hash IS NULL OR trim(blockchain_transaction_hash) <> ''`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_source_activities_account_id')
+    .on('source_activities')
+    .column('account_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_source_activities_fingerprint')
+    .on('source_activities')
+    .column('source_activity_fingerprint')
+    .unique()
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_source_activities_account_blockchain_hash
+    ON source_activities(account_id, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
+
+  await db.schema
+    .createTable('source_activity_raw_bindings')
+    .addColumn('source_activity_id', 'integer', (col) =>
+      col.notNull().references('source_activities.id').onDelete('cascade')
+    )
+    .addColumn('raw_transaction_id', 'integer', (col) =>
+      col.notNull().references('raw_transactions.id').onDelete('cascade')
+    )
+    .addPrimaryKeyConstraint('pk_source_activity_raw_bindings', ['source_activity_id', 'raw_transaction_id'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_source_activity_raw_bindings_raw_transaction_id')
+    .on('source_activity_raw_bindings')
+    .column('raw_transaction_id')
+    .execute();
+
+  await db.schema
+    .createTable('accounting_journals')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('source_activity_id', 'integer', (col) =>
+      col.notNull().references('source_activities.id').onDelete('cascade')
+    )
+    .addColumn('journal_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('journal_stable_key', 'text', (col) => col.notNull())
+    .addColumn('journal_kind', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'accounting_journals_kind_valid',
+      sql`journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'unknown')`
+    )
+    .addCheckConstraint('accounting_journals_fingerprint_not_empty', sql`trim(journal_fingerprint) <> ''`)
+    .addCheckConstraint('accounting_journals_stable_key_not_empty', sql`trim(journal_stable_key) <> ''`)
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journals_source_activity_id')
+    .on('accounting_journals')
+    .column('source_activity_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journals_fingerprint')
+    .on('accounting_journals')
+    .column('journal_fingerprint')
+    .unique()
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_journals_source_activity_stable_key
+    ON accounting_journals(source_activity_id, journal_stable_key)
+  `.execute(db);
+
+  await db.schema
+    .createTable('accounting_postings')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('journal_id', 'integer', (col) => col.notNull().references('accounting_journals.id').onDelete('cascade'))
+    .addColumn('posting_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('posting_stable_key', 'text', (col) => col.notNull())
+    .addColumn('asset_id', 'text', (col) => col.notNull())
+    .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('quantity', 'text', (col) => col.notNull())
+    .addColumn('posting_role', 'text', (col) => col.notNull())
+    .addColumn('settlement', 'text')
+    .addColumn('price_amount', 'text')
+    .addColumn('price_currency', 'text')
+    .addColumn('price_source', 'text')
+    .addColumn('price_fetched_at', 'text')
+    .addColumn('price_granularity', 'text')
+    .addColumn('fx_rate_to_usd', 'text')
+    .addColumn('fx_source', 'text')
+    .addColumn('fx_timestamp', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint('accounting_postings_fingerprint_not_empty', sql`trim(posting_fingerprint) <> ''`)
+    .addCheckConstraint('accounting_postings_stable_key_not_empty', sql`trim(posting_stable_key) <> ''`)
+    .addCheckConstraint('accounting_postings_asset_id_not_empty', sql`trim(asset_id) <> ''`)
+    .addCheckConstraint('accounting_postings_asset_symbol_not_empty', sql`trim(asset_symbol) <> ''`)
+    .addCheckConstraint('accounting_postings_quantity_not_empty', sql`trim(quantity) <> ''`)
+    .addCheckConstraint(
+      'accounting_postings_role_valid',
+      sql`posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+    )
+    .addCheckConstraint(
+      'accounting_postings_settlement_valid',
+      sql`settlement IS NULL OR settlement IN ('on-chain', 'balance', 'external')`
+    )
+    .addCheckConstraint(
+      'accounting_postings_fee_requires_settlement',
+      sql`(posting_role = 'fee' AND settlement IS NOT NULL) OR posting_role != 'fee'`
+    )
+    .addCheckConstraint(
+      'accounting_postings_price_all_or_nothing',
+      sql`(price_amount IS NULL AND price_currency IS NULL AND price_source IS NULL AND price_fetched_at IS NULL AND price_granularity IS NULL) OR (price_amount IS NOT NULL AND price_currency IS NOT NULL AND price_source IS NOT NULL AND price_fetched_at IS NOT NULL)`
+    )
+    .addCheckConstraint(
+      'accounting_postings_price_granularity_valid',
+      sql`price_granularity IS NULL OR price_granularity IN ('exact', 'minute', 'hour', 'day')`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_postings_journal_id')
+    .on('accounting_postings')
+    .column('journal_id')
+    .execute();
+  await db.schema
+    .createIndex('idx_accounting_postings_asset_id')
+    .on('accounting_postings')
+    .column('asset_id')
+    .execute();
+  await db.schema
+    .createIndex('idx_accounting_postings_fingerprint')
+    .on('accounting_postings')
+    .column('posting_fingerprint')
+    .unique()
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_postings_journal_stable_key
+    ON accounting_postings(journal_id, posting_stable_key)
+  `.execute(db);
+
+  await db.schema
+    .createTable('accounting_posting_source_components')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('posting_id', 'integer', (col) => col.notNull().references('accounting_postings.id').onDelete('cascade'))
+    .addColumn('source_component_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('source_activity_fingerprint', 'text', (col) =>
+      col.notNull().references('source_activities.source_activity_fingerprint').onDelete('cascade')
+    )
+    .addColumn('component_kind', 'text', (col) => col.notNull())
+    .addColumn('component_id', 'text', (col) => col.notNull())
+    .addColumn('occurrence', 'integer')
+    .addColumn('asset_id', 'text')
+    .addColumn('quantity', 'text', (col) => col.notNull())
+    .addCheckConstraint(
+      'accounting_posting_source_components_fingerprint_not_empty',
+      sql`trim(source_component_fingerprint) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_posting_source_components_source_activity_not_empty',
+      sql`trim(source_activity_fingerprint) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_posting_source_components_component_kind_valid',
+      sql`component_kind IN ('raw_event', 'exchange_fill', 'exchange_fee', 'utxo_input', 'utxo_output', 'account_delta', 'staking_reward', 'message', 'network_fee')`
+    )
+    .addCheckConstraint('accounting_posting_source_components_component_id_not_empty', sql`trim(component_id) <> ''`)
+    .addCheckConstraint(
+      'accounting_posting_source_components_occurrence_valid',
+      sql`occurrence IS NULL OR occurrence > 0`
+    )
+    .addCheckConstraint('accounting_posting_source_components_quantity_not_empty', sql`trim(quantity) <> ''`)
+    .addCheckConstraint(
+      'accounting_posting_source_components_asset_id_not_empty',
+      sql`asset_id IS NULL OR trim(asset_id) <> ''`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_posting_source_components_posting_id')
+    .on('accounting_posting_source_components')
+    .column('posting_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_posting_source_components_component_fingerprint')
+    .on('accounting_posting_source_components')
+    .column('source_component_fingerprint')
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_posting_source_components_posting_component
+    ON accounting_posting_source_components(posting_id, source_component_fingerprint)
+  `.execute(db);
+
+  await db.schema
+    .createTable('accounting_journal_relationships')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('source_journal_id', 'integer', (col) =>
+      col.notNull().references('accounting_journals.id').onDelete('cascade')
+    )
+    .addColumn('target_journal_id', 'integer', (col) =>
+      col.notNull().references('accounting_journals.id').onDelete('cascade')
+    )
+    .addColumn('source_posting_id', 'integer', (col) => col.references('accounting_postings.id').onDelete('cascade'))
+    .addColumn('target_posting_id', 'integer', (col) => col.references('accounting_postings.id').onDelete('cascade'))
+    .addColumn('relationship_stable_key', 'text', (col) => col.notNull())
+    .addColumn('relationship_kind', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'accounting_journal_relationships_stable_key_not_empty',
+      sql`trim(relationship_stable_key) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationships_kind_valid',
+      sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration')`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationships_source_journal_id')
+    .on('accounting_journal_relationships')
+    .column('source_journal_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationships_target_journal_id')
+    .on('accounting_journal_relationships')
+    .column('target_journal_id')
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_journal_relationships_source_stable_key
+    ON accounting_journal_relationships(source_journal_id, relationship_stable_key)
+  `.execute(db);
+
+  await db.schema
+    .createTable('accounting_overrides')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id'))
+    .addColumn('target_scope', 'text', (col) => col.notNull())
+    .addColumn('target_journal_fingerprint', 'text')
+    .addColumn('target_posting_fingerprint', 'text')
+    .addColumn('override_kind', 'text', (col) => col.notNull())
+    .addColumn('journal_kind', 'text')
+    .addColumn('posting_role', 'text')
+    .addColumn('settlement', 'text')
+    .addColumn('stale_reason', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint('accounting_overrides_target_scope_valid', sql`target_scope IN ('journal', 'posting')`)
+    .addCheckConstraint(
+      'accounting_overrides_target_scope_shape',
+      sql`(target_scope = 'journal' AND target_journal_fingerprint IS NOT NULL AND target_posting_fingerprint IS NULL) OR (target_scope = 'posting' AND target_posting_fingerprint IS NOT NULL AND target_journal_fingerprint IS NULL)`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_target_fingerprint_not_empty',
+      sql`(target_journal_fingerprint IS NULL OR trim(target_journal_fingerprint) <> '') AND (target_posting_fingerprint IS NULL OR trim(target_posting_fingerprint) <> '')`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_override_kind_valid',
+      sql`override_kind IN ('journal_kind', 'posting_role', 'posting_settlement')`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_journal_kind_valid',
+      sql`journal_kind IS NULL OR journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'unknown')`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_posting_role_valid',
+      sql`posting_role IS NULL OR posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_settlement_valid',
+      sql`settlement IS NULL OR settlement IN ('on-chain', 'balance', 'external')`
+    )
+    .addCheckConstraint(
+      'accounting_overrides_payload_shape',
+      sql`(override_kind = 'journal_kind' AND journal_kind IS NOT NULL AND posting_role IS NULL) OR (override_kind = 'posting_role' AND posting_role IS NOT NULL AND journal_kind IS NULL) OR (override_kind = 'posting_settlement' AND journal_kind IS NULL AND posting_role IS NULL)`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_overrides_profile_id')
+    .on('accounting_overrides')
+    .column('profile_id')
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_overrides_journal_target_kind
+    ON accounting_overrides(profile_id, target_journal_fingerprint, override_kind)
+    WHERE target_scope = 'journal'
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_overrides_posting_target_kind
+    ON accounting_overrides(profile_id, target_posting_fingerprint, override_kind)
+    WHERE target_scope = 'posting'
+  `.execute(db);
+
   // Create transactions table
   await db.schema
     .createTable('transactions')
@@ -975,8 +1312,14 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('cost_basis_failure_snapshots').ifExists().execute();
   await db.schema.dropTable('cost_basis_snapshots').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
+  await db.schema.dropTable('accounting_overrides').ifExists().execute();
+  await db.schema.dropTable('accounting_journal_relationships').ifExists().execute();
+  await db.schema.dropTable('accounting_posting_source_components').ifExists().execute();
+  await db.schema.dropTable('accounting_postings').ifExists().execute();
+  await db.schema.dropTable('accounting_journals').ifExists().execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
+  await db.schema.dropTable('source_activity_raw_bindings').ifExists().execute();
   await db.schema.dropTable('transaction_raw_bindings').execute();
   // Drop transaction linking table
   await db.schema.dropTable('transaction_links').execute();
@@ -985,6 +1328,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('token_metadata').ifExists().execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
+  await db.schema.dropTable('source_activities').ifExists().execute();
   await db.schema.dropTable('raw_transactions').execute();
   await db.schema.dropTable('import_sessions').execute();
   // Drop accounts and profiles tables
