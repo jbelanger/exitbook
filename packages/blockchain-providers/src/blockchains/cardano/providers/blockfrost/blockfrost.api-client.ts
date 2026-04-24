@@ -29,13 +29,19 @@ import { createRawBalanceData } from '../../utils.js';
 
 import { lovelaceToAda, mapBlockfrostTransaction } from './blockfrost.mapper-utils.js';
 import type {
+  BlockfrostDelegationCertificate,
+  BlockfrostMirCertificate,
+  BlockfrostStakeCertificate,
   BlockfrostTransactionHash,
   BlockfrostTransactionWithMetadata,
   BlockfrostWithdrawal,
 } from './blockfrost.schemas.js';
 import {
   BlockfrostAddressSchema,
+  BlockfrostDelegationCertificateSchema,
   BlockfrostHealthSchema,
+  BlockfrostMirCertificateSchema,
+  BlockfrostStakeCertificateSchema,
   BlockfrostTransactionDetailsSchema,
   BlockfrostTransactionHashSchema,
   BlockfrostTransactionUtxosSchema,
@@ -45,11 +51,14 @@ import {
 /**
  * Blockfrost API client for Cardano blockchain data.
  *
- * Implements a conditional three/four-call pattern to fetch complete transaction data:
+ * Implements a conditional transaction enrichment pattern:
  * 1. GET /addresses/{address}/transactions - Fetches transaction hashes with basic metadata
  * 2. GET /txs/{hash} - Fetches complete transaction details including fees and block info
  * 3. GET /txs/{hash}/utxos - Fetches detailed UTXO data for each transaction
  * 4. GET /txs/{hash}/withdrawals - Fetches staking reward withdrawals when present
+ * 5. GET /txs/{hash}/stakes - Fetches stake key registration/deregistration certificates when present
+ * 6. GET /txs/{hash}/delegations - Fetches pool delegation certificates when present
+ * 7. GET /txs/{hash}/mirs - Fetches MIR reward certificates when present
  *
  * Blockfrost requires an API key provided via the BLOCKFROST_API_KEY environment variable.
  * The API key is sent in the "project_id" header for authentication.
@@ -354,12 +363,39 @@ export class BlockfrostApiClient extends BaseApiClient {
     return ok(allTxHashes);
   }
 
+  private async fetchOptionalTransactionList<T>(params: {
+    address: string;
+    count: number;
+    label: string;
+    path: string;
+    schema: z.ZodType<T>;
+    txHash: string;
+  }): Promise<Result<T[], Error>> {
+    if (params.count <= 0) {
+      return ok([]);
+    }
+
+    const result = await this.httpClient.get<T[]>(`/txs/${params.txHash}/${params.path}`, {
+      headers: { project_id: this.apiKey },
+      schema: z.array(params.schema),
+    });
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch ${params.label} for transaction - TxHash: ${params.txHash}, Address: ${maskAddress(params.address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    return ok(result.value);
+  }
+
   private streamAddressTransactions(
     address: string,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<CardanoTransaction>, Error>> {
-    // Use smaller page size to minimize API usage (each tx = 3-4 API calls depending on withdrawals)
-    // 10 transactions = 31-41 API calls per batch (1 for hashes + 10 details + 10 utxos + optional 10 withdrawals)
+    // Use smaller page size to minimize API usage. Each transaction always needs details and UTXOs,
+    // with optional certificate/withdrawal subresource calls when Blockfrost reports those counts.
     const pageSize = 10;
 
     const fetchPage = async (
@@ -451,21 +487,52 @@ export class BlockfrostApiClient extends BaseApiClient {
 
         const rawUtxo = utxoResult.value;
 
-        let withdrawals: BlockfrostWithdrawal[] = [];
-        if (txDetails.withdrawal_count > 0) {
-          const withdrawalsResult = await this.httpClient.get(`/txs/${txHash}/withdrawals`, {
-            headers: { project_id: this.apiKey },
-            schema: z.array(BlockfrostWithdrawalSchema),
-          });
+        const withdrawalsResult = await this.fetchOptionalTransactionList<BlockfrostWithdrawal>({
+          address,
+          count: txDetails.withdrawal_count,
+          label: 'staking withdrawals',
+          path: 'withdrawals',
+          schema: BlockfrostWithdrawalSchema,
+          txHash,
+        });
+        if (withdrawalsResult.isErr()) {
+          return err(withdrawalsResult.error);
+        }
 
-          if (withdrawalsResult.isErr()) {
-            this.logger.error(
-              `Failed to fetch staking withdrawals for transaction - TxHash: ${txHash}, Address: ${maskAddress(address)}, Error: ${getErrorMessage(withdrawalsResult.error)}`
-            );
-            return err(withdrawalsResult.error);
-          }
+        const stakeCertificatesResult = await this.fetchOptionalTransactionList<BlockfrostStakeCertificate>({
+          address,
+          count: txDetails.stake_cert_count,
+          label: 'stake certificates',
+          path: 'stakes',
+          schema: BlockfrostStakeCertificateSchema,
+          txHash,
+        });
+        if (stakeCertificatesResult.isErr()) {
+          return err(stakeCertificatesResult.error);
+        }
 
-          withdrawals = withdrawalsResult.value;
+        const delegationCertificatesResult = await this.fetchOptionalTransactionList<BlockfrostDelegationCertificate>({
+          address,
+          count: txDetails.delegation_count,
+          label: 'delegation certificates',
+          path: 'delegations',
+          schema: BlockfrostDelegationCertificateSchema,
+          txHash,
+        });
+        if (delegationCertificatesResult.isErr()) {
+          return err(delegationCertificatesResult.error);
+        }
+
+        const mirCertificatesResult = await this.fetchOptionalTransactionList<BlockfrostMirCertificate>({
+          address,
+          count: txDetails.mir_cert_count,
+          label: 'MIR certificates',
+          path: 'mirs',
+          schema: BlockfrostMirCertificateSchema,
+          txHash,
+        });
+        if (mirCertificatesResult.isErr()) {
+          return err(mirCertificatesResult.error);
         }
 
         // Combine UTXO data with transaction metadata
@@ -474,10 +541,15 @@ export class BlockfrostApiClient extends BaseApiClient {
           block_height: txDetails.block_height,
           block_time: txDetails.block_time,
           block_hash: txDetails.block,
+          delegation_certificates: delegationCertificatesResult.value,
+          deposit: txDetails.deposit,
           fees: txDetails.fees,
+          mir_certificates: mirCertificatesResult.value,
+          stake_certificates: stakeCertificatesResult.value,
+          treasury_donation: txDetails.treasury_donation,
           tx_index: txHashEntry.tx_index,
           valid_contract: txDetails.valid_contract,
-          withdrawals,
+          withdrawals: withdrawalsResult.value,
         };
 
         transactions.push(combinedData);

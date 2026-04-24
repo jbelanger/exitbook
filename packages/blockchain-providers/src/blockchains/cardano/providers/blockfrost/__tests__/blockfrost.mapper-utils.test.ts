@@ -191,7 +191,10 @@ describe('blockfrost.mapper-utils', () => {
       block_height: 8129403,
       block_time: new Date('2024-01-15T10:30:00.000Z'),
       block_hash: '7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9',
+      delegation_certificates: [],
       fees: '170000',
+      mir_certificates: [],
+      stake_certificates: [],
       tx_index: 5,
       valid_contract: true,
       withdrawals: [],
@@ -294,6 +297,65 @@ describe('blockfrost.mapper-utils', () => {
               address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
               amount: '10.524451',
               currency: 'ADA',
+            },
+          ]);
+        }
+      });
+
+      it('should map staking certificates, delegations, MIRs, and signed deposit amounts', () => {
+        const mockTransaction: BlockfrostTransactionWithMetadata = {
+          ...createBaseFixture(),
+          delegation_certificates: [
+            {
+              active_epoch: 500,
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              cert_index: 1,
+              pool_id: 'pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy',
+            },
+          ],
+          deposit: '-2000000',
+          mir_certificates: [
+            {
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              amount: '3000000',
+              cert_index: 2,
+              pot: 'reserve',
+            },
+          ],
+          stake_certificates: [
+            {
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              cert_index: 0,
+              registration: false,
+            },
+          ],
+          treasury_donation: '1000000',
+        };
+
+        const result = mapBlockfrostTransaction(mockTransaction);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.protocolDepositDeltaAmount).toBe('-2');
+          expect(result.value.treasuryDonationAmount).toBe('1');
+          expect(result.value.stakeCertificates).toEqual([
+            {
+              action: 'deregistration',
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              certificateIndex: 0,
+            },
+          ]);
+          expect(result.value.delegationCertificates?.[0]).toMatchObject({
+            activeEpoch: 500,
+            certificateIndex: 1,
+            poolId: 'pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy',
+          });
+          expect(result.value.mirCertificates).toEqual([
+            {
+              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+              amount: '3',
+              certificateIndex: 2,
+              pot: 'reserve',
             },
           ]);
         }
@@ -807,7 +869,10 @@ describe('blockfrost.mapper-utils', () => {
           block_height: 9234567,
           block_time: new Date('2024-03-20T14:45:30.000Z'),
           block_hash: 'abc1234567890def1234567890abc1234567890def1234567890abc1234567890',
+          delegation_certificates: [],
           fees: '300000',
+          mir_certificates: [],
+          stake_certificates: [],
           tx_index: 12,
           valid_contract: true,
           withdrawals: [],

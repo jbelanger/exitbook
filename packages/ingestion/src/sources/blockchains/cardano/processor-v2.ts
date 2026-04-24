@@ -1,6 +1,7 @@
 import { type CardanoTransaction, CardanoTransactionSchema } from '@exitbook/blockchain-providers/cardano';
-import { err, ok, resultDo, type Result } from '@exitbook/foundation';
-import { validateAccountingJournalDraft } from '@exitbook/ledger';
+import { err, ok, type Result } from '@exitbook/foundation';
+
+import { processLedgerProcessorItems } from '../shared/ledger-processor-v2-utils.js';
 
 import {
   assembleCardanoLedgerDraft,
@@ -8,55 +9,23 @@ import {
   type CardanoProcessorV2Context,
 } from './journal-assembler.js';
 
-function parseCardanoTransactions(normalizedData: unknown[]): Result<CardanoTransaction[], Error> {
-  const transactions: CardanoTransaction[] = [];
-
-  for (let i = 0; i < normalizedData.length; i++) {
-    const result = CardanoTransactionSchema.safeParse(normalizedData[i]);
-    if (!result.success) {
-      const errorDetail = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
-      return err(new Error(`Input validation failed for cardano v2 item at index ${i}: ${errorDetail}`));
-    }
-
-    transactions.push(result.data);
-  }
-
-  return ok(transactions);
-}
-
 function buildCardanoTransactionComparisonMaterial(transaction: CardanoTransaction): string {
   return JSON.stringify({
     blockHeight: transaction.blockHeight,
+    delegationCertificates: transaction.delegationCertificates ?? [],
     feeAmount: transaction.feeAmount,
     feeCurrency: transaction.feeCurrency,
     id: transaction.id,
     inputs: transaction.inputs,
+    mirCertificates: transaction.mirCertificates ?? [],
     outputs: transaction.outputs,
+    protocolDepositDeltaAmount: transaction.protocolDepositDeltaAmount,
     status: transaction.status,
+    stakeCertificates: transaction.stakeCertificates ?? [],
     timestamp: transaction.timestamp,
+    treasuryDonationAmount: transaction.treasuryDonationAmount,
     withdrawals: transaction.withdrawals ?? [],
   });
-}
-
-function dedupeCardanoTransactionsById(
-  transactions: readonly CardanoTransaction[]
-): Result<CardanoTransaction[], Error> {
-  const transactionsById = new Map<string, { material: string; transaction: CardanoTransaction }>();
-
-  for (const transaction of transactions) {
-    const material = buildCardanoTransactionComparisonMaterial(transaction);
-    const existing = transactionsById.get(transaction.id);
-    if (!existing) {
-      transactionsById.set(transaction.id, { material, transaction });
-      continue;
-    }
-
-    if (existing.material !== material) {
-      return err(new Error(`Cardano v2 received conflicting normalized payloads for transaction ${transaction.id}`));
-    }
-  }
-
-  return ok([...transactionsById.values()].map((entry) => entry.transaction));
 }
 
 function assembleCardanoLedgerDraftWithContext(
@@ -71,41 +40,19 @@ function assembleCardanoLedgerDraftWithContext(
   return ok(draftResult.value);
 }
 
-function validateCardanoLedgerDraftJournals(
-  transaction: CardanoTransaction,
-  draft: CardanoLedgerDraft
-): Result<void, Error> {
-  for (const journal of draft.journals) {
-    const validationResult = validateAccountingJournalDraft(journal);
-    if (validationResult.isErr()) {
-      return err(
-        new Error(
-          `Cardano v2 journal validation failed for ${transaction.id} journal ${journal.journalStableKey}: ${validationResult.error.message}`
-        )
-      );
-    }
-  }
-
-  return ok(undefined);
-}
-
 export class CardanoProcessorV2 {
   async process(
     normalizedData: unknown[],
     context: CardanoProcessorV2Context
   ): Promise<Result<CardanoLedgerDraft[], Error>> {
-    return resultDo(function* () {
-      const transactions = yield* parseCardanoTransactions(normalizedData);
-      const uniqueTransactions = yield* dedupeCardanoTransactionsById(transactions);
-      const drafts: CardanoLedgerDraft[] = [];
-
-      for (const transaction of uniqueTransactions) {
-        const draft = yield* assembleCardanoLedgerDraftWithContext(transaction, context);
-        yield* validateCardanoLedgerDraftJournals(transaction, draft);
-        drafts.push(draft);
-      }
-
-      return drafts;
+    return processLedgerProcessorItems({
+      assemble: (transaction) => assembleCardanoLedgerDraftWithContext(transaction, context),
+      buildComparisonMaterial: buildCardanoTransactionComparisonMaterial,
+      conflictLabel: 'Cardano v2',
+      inputLabel: 'cardano v2',
+      normalizedData,
+      processorLabel: 'Cardano v2',
+      schema: CardanoTransactionSchema,
     });
   }
 }

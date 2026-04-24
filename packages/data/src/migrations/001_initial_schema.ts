@@ -303,7 +303,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint('accounting_postings_quantity_not_empty', sql`trim(quantity) <> ''`)
     .addCheckConstraint(
       'accounting_postings_role_valid',
-      sql`posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+      sql`posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate')`
     )
     .addCheckConstraint(
       'accounting_postings_settlement_valid',
@@ -368,7 +368,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addCheckConstraint(
       'accounting_posting_source_components_component_kind_valid',
-      sql`component_kind IN ('raw_event', 'exchange_fill', 'exchange_fee', 'utxo_input', 'utxo_output', 'account_delta', 'staking_reward', 'message', 'network_fee')`
+      sql`component_kind IN ('raw_event', 'exchange_fill', 'exchange_fee', 'utxo_input', 'utxo_output', 'cardano_collateral_input', 'cardano_collateral_return', 'cardano_stake_certificate', 'cardano_delegation_certificate', 'cardano_mir_certificate', 'account_delta', 'staking_reward', 'message', 'network_fee')`
     )
     .addCheckConstraint('accounting_posting_source_components_component_id_not_empty', sql`trim(component_id) <> ''`)
     .addCheckConstraint(
@@ -474,7 +474,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addCheckConstraint(
       'accounting_overrides_posting_role_valid',
-      sql`posting_role IS NULL OR posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_overhead', 'refund_rebate')`
+      sql`posting_role IS NULL OR posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate')`
     )
     .addCheckConstraint(
       'accounting_overrides_settlement_valid',

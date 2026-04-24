@@ -113,6 +113,38 @@ function buildTransactionWithdrawalsResponse() {
   ];
 }
 
+function buildTransactionStakesResponse() {
+  return [
+    {
+      address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+      cert_index: 0,
+      registration: true,
+    },
+  ];
+}
+
+function buildTransactionDelegationsResponse() {
+  return [
+    {
+      active_epoch: 500,
+      address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+      cert_index: 1,
+      pool_id: 'pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy',
+    },
+  ];
+}
+
+function buildTransactionMirsResponse() {
+  return [
+    {
+      address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+      amount: '3000000',
+      cert_index: 2,
+      pot: 'reserve',
+    },
+  ];
+}
+
 // ── Test suite ──────────────────────────────────────────────────────
 
 describe('BlockfrostApiClient', () => {
@@ -413,6 +445,54 @@ describe('BlockfrostApiClient', () => {
           address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
           amount: '10.524451',
           currency: 'ADA',
+        },
+      ]);
+    });
+
+    it('should fetch and map Cardano staking lifecycle certificates when present', async () => {
+      mockGet.mockResolvedValueOnce(ok([buildTransactionHashResponse()]));
+      mockGet.mockResolvedValueOnce(
+        ok({
+          ...buildTransactionDetailsResponse(),
+          delegation_count: 1,
+          deposit: '2000000',
+          mir_cert_count: 1,
+          stake_cert_count: 1,
+        })
+      );
+      mockGet.mockResolvedValueOnce(ok(buildTransactionUtxosResponse()));
+      mockGet.mockResolvedValueOnce(ok(buildTransactionStakesResponse()));
+      mockGet.mockResolvedValueOnce(ok(buildTransactionDelegationsResponse()));
+      mockGet.mockResolvedValueOnce(ok(buildTransactionMirsResponse()));
+
+      const transactions: CardanoTransaction[] = [];
+      for await (const result of client.executeStreaming<CardanoTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions[0]?.protocolDepositDeltaAmount).toBe('2');
+      expect(transactions[0]?.stakeCertificates).toEqual([
+        {
+          action: 'registration',
+          address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+          certificateIndex: 0,
+        },
+      ]);
+      expect(transactions[0]?.delegationCertificates?.[0]).toMatchObject({
+        activeEpoch: 500,
+        certificateIndex: 1,
+        poolId: 'pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy',
+      });
+      expect(transactions[0]?.mirCertificates).toEqual([
+        {
+          address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+          amount: '3',
+          certificateIndex: 2,
+          pot: 'reserve',
         },
       ]);
     });

@@ -15,6 +15,9 @@ import {
 import {
   BlockfrostTransactionWithMetadataSchema,
   type BlockfrostAssetAmount,
+  type BlockfrostDelegationCertificate,
+  type BlockfrostMirCertificate,
+  type BlockfrostStakeCertificate,
   type BlockfrostWithdrawal,
   type BlockfrostTransactionWithMetadata,
   type BlockfrostUtxoInput,
@@ -118,6 +121,32 @@ function mapBlockfrostTransactionInternal(
           currency: 'ADA' as const,
         }))
       : undefined;
+  const stakeCertificates =
+    rawData.stake_certificates.length > 0
+      ? rawData.stake_certificates.map((certificate: BlockfrostStakeCertificate) => ({
+          action: certificate.registration ? ('registration' as const) : ('deregistration' as const),
+          address: certificate.address,
+          certificateIndex: certificate.cert_index,
+        }))
+      : undefined;
+  const delegationCertificates =
+    rawData.delegation_certificates.length > 0
+      ? rawData.delegation_certificates.map((certificate: BlockfrostDelegationCertificate) => ({
+          activeEpoch: certificate.active_epoch,
+          address: certificate.address,
+          certificateIndex: certificate.cert_index,
+          poolId: certificate.pool_id,
+        }))
+      : undefined;
+  const mirCertificates =
+    rawData.mir_certificates.length > 0
+      ? rawData.mir_certificates.map((certificate: BlockfrostMirCertificate) => ({
+          address: certificate.address,
+          amount: lovelaceToAda(certificate.amount),
+          certificateIndex: certificate.cert_index,
+          pot: certificate.pot,
+        }))
+      : undefined;
 
   // Determine transaction status based on smart contract validation
   // valid_contract = false means the smart contract failed
@@ -146,6 +175,11 @@ function mapBlockfrostTransactionInternal(
     providerName: 'blockfrost',
     status,
     timestamp,
+    delegationCertificates,
+    ...(rawData.deposit ? { protocolDepositDeltaAmount: lovelaceToAda(rawData.deposit) } : {}),
+    mirCertificates,
+    stakeCertificates,
+    ...(rawData.treasury_donation ? { treasuryDonationAmount: lovelaceToAda(rawData.treasury_donation) } : {}),
     withdrawals,
   };
 

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-23
+last_verified: 2026-04-24
 status: active
 ---
 
@@ -195,6 +195,8 @@ Initial posting roles:
 - `principal`
 - `fee`
 - `staking_reward`
+- `protocol_deposit`
+- `protocol_refund`
 - `protocol_overhead`
 - `refund_rebate`
 
@@ -214,6 +216,11 @@ export interface SourceComponentRef {
     | 'exchange_fee'
     | 'utxo_input'
     | 'utxo_output'
+    | 'cardano_collateral_input'
+    | 'cardano_collateral_return'
+    | 'cardano_stake_certificate'
+    | 'cardano_delegation_certificate'
+    | 'cardano_mir_certificate'
     | 'account_delta'
     | 'staking_reward'
     | 'message'
@@ -461,6 +468,25 @@ Completed in this phase:
   a `staking_reward` posting. This intentionally corrects the old
   address-scoped behavior where a wallet-scoped staking withdrawal became a
   diagnostic component.
+- Cardano provider normalization now fetches Blockfrost transaction
+  withdrawals, stake certificates, delegation certificates, and MIR
+  certificates when the transaction metadata says those subresources exist.
+- Cardano provider normalization exposes `stakeCertificates`,
+  `delegationCertificates`, `mirCertificates`,
+  `protocolDepositDeltaAmount`, and `treasuryDonationAmount` directly on the
+  normalized transaction.
+- Cardano v2 materializes stake key registration deposits as
+  `protocol_deposit` postings and stake key deregistration refunds as
+  `protocol_refund` postings. These are processor-owned ledger effects, not
+  deferred semantic facts.
+- Cardano v2 keeps delegation-only wallet transactions as `protocol_event`
+  journals with fee postings instead of collapsing them into generic
+  `expense_only` activity.
+- Cardano v2 validates fees, withdrawals, MIR certificate amounts, signed
+  protocol deposit deltas, and treasury donations before journal assembly.
+- Cardano v2 preserves MIR certificates as chain evidence and diagnostics.
+  They do not become spendable wallet postings until they appear as staking
+  reward withdrawals.
 - The legacy Cardano processor remains untouched.
 - `processor-v2.shadow.test.ts` now runs v1 and v2 against the same Cardano
   fixtures for ordinary UTXO cases and documents the intentional staking
@@ -482,6 +508,11 @@ Remaining in this phase:
   v2 path
 - prove source component refs survive Cardano same-hash/internal-transfer
   cases without escape hatches
+- wire explicit wallet stake-address ownership into the production Cardano v2
+  context instead of relying on the current fee-payer fallback
+- decide whether delegation and MIR certificate evidence needs first-class
+  persisted ledger evidence beyond diagnostics when no spendable asset posting
+  is created
 - expand the shadow reconciliation coverage from external same-hash groups to
   internal/carryover same-hash groups
 - design the wallet-scope persistence flow that maps child-address raw
@@ -529,8 +560,12 @@ Acceptance criteria:
 - Cardano staking reward/residual cases are represented as ledger postings and
   source component refs, with intentional legacy divergences recorded as model
   corrections
+- Cardano stake registration deposits, stake deregistration refunds, and
+  delegation-only transactions are represented as ledger-owned protocol events
+  without semantic annotations
 - v2 does not need semantic annotations or `staking_reward_component`
-- no persistence changes yet
+- no consumer cutover or processing pipeline dependency on ledger persistence
+  yet
 
 Kill criteria:
 
@@ -575,13 +610,19 @@ Completed in this phase:
   effect for the supplied wallet address scope.
 - Focused Bitcoin v2 tests cover incoming transfers, sends with change,
   fee-only effects, sibling wallet inputs, distinct same-asset UTXO provenance,
-  duplicate raw rows, missing UTXO identity, and invalid negative amounts.
+  duplicate raw rows, conflicting duplicate payloads, missing UTXO identity,
+  and invalid negative amounts.
+- Cardano and Bitcoin now share the v2 processor shell for schema validation,
+  duplicate-payload rejection, draft assembly, and journal validation.
+- Cardano and Bitcoin now share small assembler primitives for account-context
+  validation, strict decimal parsing, and positive source-component quantity
+  refs.
 
 Remaining in this phase:
 
-- decide whether Cardano and Bitcoin now have enough repeated UTXO assembly
-  logic to justify a shared UTXO ledger helper, or whether the differences are
-  still clearer locally
+- keep UTXO wallet math local until another UTXO chain proves the abstraction;
+  the shared code should stay limited to repeated processor and source-ref
+  primitives for now
 - pilot Cosmos staking/undelegation reward-principal splitting
 - pilot EVM gas/value handling
 - sketch one exchange processor to confirm the common journal shape stays

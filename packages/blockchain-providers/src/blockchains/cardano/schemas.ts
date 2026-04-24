@@ -90,6 +90,46 @@ const CardanoWithdrawalSchema = z.object({
 });
 
 /**
+ * Schema for Cardano stake address registration certificates.
+ *
+ * These certificates do not describe a token transfer by themselves. They
+ * explain protocol-level balance changes such as refundable stake key
+ * deposits and refunds, so processors must receive them alongside UTXOs.
+ */
+const CardanoStakeCertificateSchema = z.object({
+  action: z.enum(['registration', 'deregistration']),
+  address: CardanoAddressSchema,
+  certificateIndex: z.number().int().nonnegative('Certificate index must be non-negative'),
+});
+
+/**
+ * Schema for Cardano delegation certificates.
+ *
+ * Delegations change staking participation and pool routing. They usually
+ * have no direct asset posting beyond the transaction fee, but they are
+ * accounting-owned evidence because they disambiguate staking lifecycle events.
+ */
+const CardanoDelegationCertificateSchema = z.object({
+  activeEpoch: z.number().int().nonnegative('Active epoch must be non-negative'),
+  address: CardanoAddressSchema,
+  certificateIndex: z.number().int().nonnegative('Certificate index must be non-negative'),
+  poolId: z.string().min(1, 'Pool ID must not be empty'),
+});
+
+/**
+ * Schema for Cardano MIR certificates.
+ *
+ * MIR certificates can credit stake addresses from reserves or treasury. They
+ * are reward-like accounting facts, distinct from ordinary reward withdrawals.
+ */
+const CardanoMirCertificateSchema = z.object({
+  address: CardanoAddressSchema,
+  amount: DecimalStringSchema,
+  certificateIndex: z.number().int().nonnegative('Certificate index must be non-negative'),
+  pot: z.enum(['reserve', 'treasury']),
+});
+
+/**
  * Schema for normalized Cardano transaction
  *
  * Extends NormalizedTransactionBaseSchema to ensure consistent identity handling.
@@ -109,6 +149,11 @@ export const CardanoTransactionSchema = NormalizedTransactionBaseSchema.extend({
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
+  delegationCertificates: z.array(CardanoDelegationCertificateSchema).optional(),
+  protocolDepositDeltaAmount: DecimalStringSchema.optional(),
+  mirCertificates: z.array(CardanoMirCertificateSchema).optional(),
+  stakeCertificates: z.array(CardanoStakeCertificateSchema).optional(),
+  treasuryDonationAmount: DecimalStringSchema.optional(),
   withdrawals: z.array(CardanoWithdrawalSchema).optional(),
 });
 
@@ -117,4 +162,7 @@ export type CardanoAssetAmount = z.infer<typeof CardanoAssetAmountSchema>;
 export type CardanoTransactionInput = z.infer<typeof CardanoTransactionInputSchema>;
 export type CardanoTransactionOutput = z.infer<typeof CardanoTransactionOutputSchema>;
 export type CardanoWithdrawal = z.infer<typeof CardanoWithdrawalSchema>;
+export type CardanoStakeCertificate = z.infer<typeof CardanoStakeCertificateSchema>;
+export type CardanoDelegationCertificate = z.infer<typeof CardanoDelegationCertificateSchema>;
+export type CardanoMirCertificate = z.infer<typeof CardanoMirCertificateSchema>;
 export type CardanoTransaction = z.infer<typeof CardanoTransactionSchema>;

@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { CardanoAddressSchema } from '../../schemas.js';
 
+const UnsignedIntegerAmountSchema = z.string().regex(/^\d+$/, 'Asset quantity must be a numeric string');
+const UnsignedLovelaceAmountSchema = z.string().regex(/^\d+$/, 'Amount must be a numeric string (lovelace)');
+const SignedLovelaceAmountSchema = z.string().regex(/^-?\d+$/, 'Amount must be a signed numeric string (lovelace)');
+
 /**
  * Schema for Blockfrost transaction hash entry from /addresses/{address}/transactions
  * Returns a simplified list of transaction hashes for an address
@@ -31,7 +35,7 @@ export const BlockfrostTransactionHashSchema = z
 export const BlockfrostAssetAmountSchema = z
   .object({
     unit: z.string().min(1, 'Asset unit must not be empty'),
-    quantity: z.string().regex(/^\d+$/, 'Asset quantity must be a numeric string'),
+    quantity: UnsignedIntegerAmountSchema,
   })
   .strict();
 
@@ -104,7 +108,43 @@ export const BlockfrostTransactionUtxosSchema = z
 export const BlockfrostWithdrawalSchema = z
   .object({
     address: CardanoAddressSchema,
-    amount: z.string().regex(/^\d+$/, 'Withdrawal amount must be a numeric string (lovelace)'),
+    amount: UnsignedLovelaceAmountSchema,
+  })
+  .strict();
+
+/**
+ * Schema for Blockfrost stake address certificates from /txs/{hash}/stakes.
+ */
+export const BlockfrostStakeCertificateSchema = z
+  .object({
+    cert_index: z.number().int().nonnegative('Certificate index must be non-negative'),
+    address: CardanoAddressSchema,
+    registration: z.boolean(),
+  })
+  .strict();
+
+/**
+ * Schema for Blockfrost delegation certificates from /txs/{hash}/delegations.
+ */
+export const BlockfrostDelegationCertificateSchema = z
+  .object({
+    index: z.number().int().nonnegative('Deprecated delegation index must be non-negative').optional(),
+    cert_index: z.number().int().nonnegative('Certificate index must be non-negative'),
+    address: CardanoAddressSchema,
+    pool_id: z.string().min(1, 'Pool ID must not be empty'),
+    active_epoch: z.number().int().nonnegative('Active epoch must be non-negative'),
+  })
+  .strict();
+
+/**
+ * Schema for Blockfrost MIR certificates from /txs/{hash}/mirs.
+ */
+export const BlockfrostMirCertificateSchema = z
+  .object({
+    pot: z.enum(['reserve', 'treasury']),
+    cert_index: z.number().int().nonnegative('Certificate index must be non-negative'),
+    address: CardanoAddressSchema,
+    amount: UnsignedLovelaceAmountSchema,
   })
   .strict();
 
@@ -138,12 +178,12 @@ export const BlockfrostTransactionDetailsSchema = z
       .array(
         z.object({
           unit: z.string(),
-          quantity: z.string(),
+          quantity: UnsignedIntegerAmountSchema,
         })
       )
       .nullish(),
-    deposit: z.string().regex(/^\d+$/, 'Deposit must be a numeric string (lovelace)').nullish(),
-    treasury_donation: z.string().regex(/^\d+$/, 'Treasury donation must be a numeric string (lovelace)').nullish(),
+    deposit: SignedLovelaceAmountSchema.nullish(),
+    treasury_donation: SignedLovelaceAmountSchema.nullish(),
   })
   .strict();
 
@@ -158,6 +198,11 @@ export const BlockfrostTransactionWithMetadataSchema = BlockfrostTransactionUtxo
   fees: z.string().regex(/^\d+$/, 'Fee must be a numeric string (lovelace)'),
   tx_index: z.number().nonnegative('Transaction index must be non-negative'),
   valid_contract: z.boolean(),
+  delegation_certificates: z.array(BlockfrostDelegationCertificateSchema),
+  deposit: SignedLovelaceAmountSchema.nullish(),
+  mir_certificates: z.array(BlockfrostMirCertificateSchema),
+  stake_certificates: z.array(BlockfrostStakeCertificateSchema),
+  treasury_donation: SignedLovelaceAmountSchema.nullish(),
   withdrawals: z.array(BlockfrostWithdrawalSchema),
 });
 
@@ -189,7 +234,11 @@ export const BlockfrostHealthSchema = z
 export type BlockfrostTransactionHash = z.infer<typeof BlockfrostTransactionHashSchema>;
 export type BlockfrostAssetAmount = z.infer<typeof BlockfrostAssetAmountSchema>;
 export type BlockfrostWithdrawal = z.infer<typeof BlockfrostWithdrawalSchema>;
+export type BlockfrostStakeCertificate = z.infer<typeof BlockfrostStakeCertificateSchema>;
+export type BlockfrostDelegationCertificate = z.infer<typeof BlockfrostDelegationCertificateSchema>;
+export type BlockfrostMirCertificate = z.infer<typeof BlockfrostMirCertificateSchema>;
 export type BlockfrostUtxoInput = z.infer<typeof BlockfrostUtxoInputSchema>;
 export type BlockfrostUtxoOutput = z.infer<typeof BlockfrostUtxoOutputSchema>;
 export type BlockfrostTransactionWithMetadata = z.infer<typeof BlockfrostTransactionWithMetadataSchema>;
 export type BlockfrostAddress = z.infer<typeof BlockfrostAddressSchema>;
+export type BlockfrostTransactionDetails = z.infer<typeof BlockfrostTransactionDetailsSchema>;

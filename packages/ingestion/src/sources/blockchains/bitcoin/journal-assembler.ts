@@ -12,7 +12,6 @@ import {
   parseCurrency,
   parseDecimal,
   resultDo,
-  tryParseDecimal,
   type Currency,
   type Result,
 } from '@exitbook/foundation';
@@ -25,6 +24,12 @@ import {
   type SourceComponentQuantityRef,
 } from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
+
+import {
+  buildSourceComponentQuantityRef,
+  parseLedgerDecimalAmount,
+  validateLedgerProcessorAccountContext,
+} from '../shared/ledger-assembler-utils.js';
 
 export interface BitcoinProcessorV2AccountContext {
   fingerprint: string;
@@ -53,6 +58,13 @@ interface WalletNativeTotals {
   walletOutputs: BitcoinTransactionOutput[];
 }
 
+interface BitcoinJournalAssemblyParts {
+  diagnostics: readonly AccountingDiagnosticDraft[];
+  feePosting: AccountingPostingDraft | undefined;
+  principalPosting: AccountingPostingDraft | undefined;
+  sourceActivityFingerprint: string;
+}
+
 function normalizeWalletAddressSet(walletAddresses: readonly string[]): Result<ReadonlySet<string>, Error> {
   const normalizedAddresses = walletAddresses
     .map((address) => address.trim())
@@ -67,15 +79,10 @@ function normalizeWalletAddressSet(walletAddresses: readonly string[]): Result<R
 }
 
 function validateBitcoinProcessorV2Context(context: BitcoinProcessorV2Context): Result<ReadonlySet<string>, Error> {
-  if (!Number.isInteger(context.account.id) || context.account.id <= 0) {
-    return err(new Error(`Bitcoin v2 account id must be a positive integer, got ${context.account.id}`));
-  }
-
-  if (context.account.fingerprint.trim() === '') {
-    return err(new Error('Bitcoin v2 account fingerprint must not be empty'));
-  }
-
-  return normalizeWalletAddressSet(context.walletAddresses);
+  return resultDo(function* () {
+    yield* validateLedgerProcessorAccountContext(context.account, 'Bitcoin v2');
+    return yield* normalizeWalletAddressSet(context.walletAddresses);
+  });
 }
 
 function validateBitcoinChainConfig(chainConfig: BitcoinChainConfig): Result<void, Error> {
@@ -115,31 +122,12 @@ function validateBitcoinTransactionCurrency(
   return ok(undefined);
 }
 
-function parseBitcoinTransactionAmount(params: {
-  allowMissing?: boolean | undefined;
-  label: string;
-  transactionId: string;
-  value: string | undefined;
-}): Result<Decimal, Error> {
-  if (params.value === undefined && params.allowMissing !== true) {
-    return err(new Error(`Bitcoin v2 transaction ${params.transactionId} ${params.label} amount is missing`));
-  }
-
-  const parsed = { value: new Decimal(0) };
-  if (!tryParseDecimal(params.value ?? '0', parsed)) {
-    return err(
-      new Error(`Bitcoin v2 transaction ${params.transactionId} ${params.label} amount must be a valid decimal`)
-    );
-  }
-
-  return ok(parsed.value);
-}
-
 function validateBitcoinTransactionAmounts(transaction: BitcoinTransaction): Result<Decimal, Error> {
   return resultDo(function* () {
     for (const input of transaction.inputs) {
-      const amount = yield* parseBitcoinTransactionAmount({
+      const amount = yield* parseLedgerDecimalAmount({
         label: 'input',
+        processorLabel: 'Bitcoin v2',
         transactionId: transaction.id,
         value: input.value,
       });
@@ -149,8 +137,9 @@ function validateBitcoinTransactionAmounts(transaction: BitcoinTransaction): Res
     }
 
     for (const output of transaction.outputs) {
-      const amount = yield* parseBitcoinTransactionAmount({
+      const amount = yield* parseLedgerDecimalAmount({
         label: 'output',
+        processorLabel: 'Bitcoin v2',
         transactionId: transaction.id,
         value: output.value,
       });
@@ -159,9 +148,10 @@ function validateBitcoinTransactionAmounts(transaction: BitcoinTransaction): Res
       }
     }
 
-    const feeAmount = yield* parseBitcoinTransactionAmount({
+    const feeAmount = yield* parseLedgerDecimalAmount({
       allowMissing: true,
       label: 'fee',
+      processorLabel: 'Bitcoin v2',
       transactionId: transaction.id,
       value: transaction.feeAmount,
     });
@@ -234,24 +224,6 @@ function buildBitcoinNativeAssetRef(chainConfig: BitcoinChainConfig): Result<Bit
   });
 }
 
-function buildPostingComponentRef(
-  sourceActivityFingerprint: string,
-  componentKind: 'network_fee' | 'utxo_input' | 'utxo_output',
-  componentId: string,
-  assetId: string,
-  quantity: Decimal
-): SourceComponentQuantityRef {
-  return {
-    component: {
-      sourceActivityFingerprint,
-      componentKind,
-      componentId,
-      assetId,
-    },
-    quantity: quantity.abs(),
-  };
-}
-
 function buildUtxoInputComponentId(transactionId: string, input: BitcoinTransactionInput): Result<string, Error> {
   if (!input.txid?.trim()) {
     return err(new Error(`Bitcoin v2 wallet input in transaction ${transactionId} is missing previous txid`));
@@ -291,7 +263,13 @@ function buildPrincipalInputComponentRefs(params: {
 
       const componentId = yield* buildUtxoInputComponentId(params.transactionId, input);
       refs.push(
-        buildPostingComponentRef(params.sourceActivityFingerprint, 'utxo_input', componentId, params.assetId, quantity)
+        buildSourceComponentQuantityRef({
+          assetId: params.assetId,
+          componentId,
+          componentKind: 'utxo_input',
+          quantity,
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+        })
       );
     }
 
@@ -317,7 +295,13 @@ function buildPrincipalOutputComponentRefs(params: {
 
       const componentId = yield* buildUtxoOutputComponentId(params.transactionId, output);
       refs.push(
-        buildPostingComponentRef(params.sourceActivityFingerprint, 'utxo_output', componentId, params.assetId, quantity)
+        buildSourceComponentQuantityRef({
+          assetId: params.assetId,
+          componentId,
+          componentKind: 'utxo_output',
+          quantity,
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+        })
       );
     }
 
@@ -422,13 +406,13 @@ function buildNetworkFeePosting(
     role: 'fee',
     settlement: 'on-chain',
     sourceComponentRefs: [
-      buildPostingComponentRef(
+      buildSourceComponentQuantityRef({
+        assetId: assetRef.assetId,
+        componentId: `${transaction.id}:network_fee:native`,
+        componentKind: 'network_fee',
+        quantity: feeAmount,
         sourceActivityFingerprint,
-        'network_fee',
-        `${transaction.id}:network_fee:native`,
-        assetRef.assetId,
-        feeAmount
-      ),
+      }),
     ],
   };
 }
@@ -451,19 +435,14 @@ function buildOptionalNetworkFeePosting(
   });
 }
 
-function buildBitcoinJournals(
-  sourceActivityFingerprint: string,
-  principalPosting: AccountingPostingDraft | undefined,
-  feePosting: AccountingPostingDraft | undefined,
-  diagnostics: readonly AccountingDiagnosticDraft[]
-): AccountingJournalDraft[] {
-  const journalDiagnostics = diagnostics.length > 0 ? [...diagnostics] : undefined;
+function buildBitcoinJournals(parts: BitcoinJournalAssemblyParts): AccountingJournalDraft[] {
+  const journalDiagnostics = parts.diagnostics.length > 0 ? [...parts.diagnostics] : undefined;
 
-  if (principalPosting) {
-    const postings = feePosting ? [principalPosting, feePosting] : [principalPosting];
+  if (parts.principalPosting) {
+    const postings = parts.feePosting ? [parts.principalPosting, parts.feePosting] : [parts.principalPosting];
     return [
       {
-        sourceActivityFingerprint,
+        sourceActivityFingerprint: parts.sourceActivityFingerprint,
         journalStableKey: 'transfer',
         journalKind: 'transfer',
         postings,
@@ -472,13 +451,13 @@ function buildBitcoinJournals(
     ];
   }
 
-  if (feePosting) {
+  if (parts.feePosting) {
     return [
       {
-        sourceActivityFingerprint,
+        sourceActivityFingerprint: parts.sourceActivityFingerprint,
         journalStableKey: 'network_fee',
         journalKind: 'expense_only',
-        postings: [feePosting],
+        postings: [parts.feePosting],
         ...(journalDiagnostics ? { diagnostics: journalDiagnostics } : {}),
       },
     ];
@@ -622,7 +601,12 @@ export function assembleBitcoinLedgerDraft(
       nativeDecimals: chainConfig.nativeDecimals,
     });
     const diagnostics = buildBitcoinDiagnostics(transaction, walletNativeTotals);
-    const journals = buildBitcoinJournals(sourceActivityFingerprint, principalPosting, feePosting, diagnostics);
+    const journals = buildBitcoinJournals({
+      diagnostics,
+      feePosting,
+      principalPosting,
+      sourceActivityFingerprint,
+    });
     const sourceActivity = buildBitcoinSourceActivityDraft({
       chainConfig,
       context,

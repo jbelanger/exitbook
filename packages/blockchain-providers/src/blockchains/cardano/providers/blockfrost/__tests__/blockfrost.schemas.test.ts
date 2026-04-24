@@ -693,7 +693,7 @@ describe('blockfrost.schemas', () => {
         }
       });
 
-      it('should validate transaction with optional deposit field', () => {
+      it('should validate transaction with signed protocol deposit delta fields', () => {
         const valid = {
           hash: 'tx123',
           block: 'block123',
@@ -713,7 +713,8 @@ describe('blockfrost.schemas', () => {
           asset_mint_or_burn_count: 0,
           redeemer_count: 0,
           valid_contract: true,
-          deposit: '2000000',
+          deposit: '-2000000',
+          treasury_donation: '1000000',
         };
 
         const result = BlockfrostTransactionDetailsSchema.safeParse(valid);
@@ -839,7 +840,7 @@ describe('blockfrost.schemas', () => {
         }
       });
 
-      it('should reject negative fee amount in deposit', () => {
+      it('should reject non-numeric protocol deposit delta', () => {
         const invalid = {
           hash: 'tx123',
           block: 'block123',
@@ -859,13 +860,13 @@ describe('blockfrost.schemas', () => {
           asset_mint_or_burn_count: 0,
           redeemer_count: 0,
           valid_contract: true,
-          deposit: '-100',
+          deposit: 'not-a-number',
         };
 
         const result = BlockfrostTransactionDetailsSchema.safeParse(invalid);
         expect(result.success).toBe(false);
         if (!result.success) {
-          expect(result.error.issues[0]?.message).toContain('Deposit must be a numeric string (lovelace)');
+          expect(result.error.issues[0]?.message).toContain('Amount must be a signed numeric string (lovelace)');
         }
       });
 
@@ -1072,6 +1073,9 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 5,
           valid_contract: true,
+          delegation_certificates: [],
+          mir_certificates: [],
+          stake_certificates: [],
           withdrawals: [],
         };
 
@@ -1103,6 +1107,9 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 0,
           valid_contract: false,
+          delegation_certificates: [],
+          mir_certificates: [],
+          stake_certificates: [],
           withdrawals: [],
         };
 
@@ -1161,6 +1168,9 @@ describe('blockfrost.schemas', () => {
           fees: 'not-a-number',
           tx_index: 0,
           valid_contract: true,
+          delegation_certificates: [],
+          mir_certificates: [],
+          stake_certificates: [],
           withdrawals: [],
         };
 
@@ -1195,6 +1205,9 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: 0,
           valid_contract: true,
+          delegation_certificates: [],
+          mir_certificates: [],
+          stake_certificates: [],
           withdrawals: [],
         };
 
@@ -1226,6 +1239,9 @@ describe('blockfrost.schemas', () => {
           fees: '170000',
           tx_index: -1,
           valid_contract: true,
+          delegation_certificates: [],
+          mir_certificates: [],
+          stake_certificates: [],
           withdrawals: [],
         };
 

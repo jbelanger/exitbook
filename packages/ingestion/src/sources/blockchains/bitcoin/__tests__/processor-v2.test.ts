@@ -296,6 +296,29 @@ describe('BitcoinProcessorV2', () => {
     expect(result.value[0]?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('2');
   });
 
+  test('rejects duplicate raw rows with conflicting transaction evidence', async () => {
+    const sharedTransaction = createTransaction({
+      id: 'tx-duplicate-conflict-1',
+      inputs: [createInput(EXTERNAL_ADDRESS, '200010000', { txid: 'prev-duplicate-conflict-1' })],
+      outputs: [createOutput(USER_ADDRESS, '200000000')],
+    });
+
+    const result = await processTransactions([
+      sharedTransaction,
+      {
+        ...sharedTransaction,
+        outputs: [createOutput(USER_ADDRESS, '199990000')],
+      },
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain(
+      'Bitcoin v2 received conflicting normalized payloads for transaction tx-duplicate-conflict-1'
+    );
+  });
+
   test('rejects wallet-owned inputs without stable UTXO identity', async () => {
     const result = await processTransactions([
       createTransaction({

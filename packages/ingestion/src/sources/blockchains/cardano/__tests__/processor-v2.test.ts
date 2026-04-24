@@ -8,6 +8,7 @@ import {
   ACCOUNT_ID,
   EXTERNAL_ADDRESS,
   SIBLING_USER_ADDRESS,
+  STAKE_ADDRESS,
   USER_ADDRESS,
   createInput,
   createOutput,
@@ -18,7 +19,11 @@ function createProcessor() {
   return new CardanoProcessorV2();
 }
 
-async function processTransactions(transactions: CardanoTransaction[], walletAddresses: string[] = [USER_ADDRESS]) {
+async function processTransactions(
+  transactions: CardanoTransaction[],
+  walletAddresses: string[] = [USER_ADDRESS],
+  stakeAddresses?: string[]
+) {
   const processor = createProcessor();
 
   return processor.process(transactions, {
@@ -26,6 +31,7 @@ async function processTransactions(transactions: CardanoTransaction[], walletAdd
       id: ACCOUNT_ID,
       fingerprint: ACCOUNT_FINGERPRINT,
     },
+    stakeAddresses,
     walletAddresses,
   });
 }
@@ -246,6 +252,65 @@ describe('CardanoProcessorV2', () => {
     ]);
   });
 
+  test('rejects an explicitly empty stake address scope', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-empty-stake-scope-1',
+          feeAmount: '0.17',
+          inputs: [createInput(USER_ADDRESS, '170000', 'lovelace', { txHash: 'prev-empty-stake-scope-1' })],
+          outputs: [createOutput(USER_ADDRESS, '1000000')],
+          withdrawals: [
+            {
+              address: STAKE_ADDRESS,
+              amount: '1',
+              currency: 'ADA',
+            },
+          ],
+        }),
+      ],
+      [USER_ADDRESS],
+      []
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('Cardano v2 stake address scope must contain at least one address');
+  });
+
+  test('uses explicit stake address scope to ignore non-wallet staking withdrawals', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-external-stake-withdrawal-1',
+          feeAmount: '0.17',
+          inputs: [createInput(USER_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-external-stake-withdrawal-1' })],
+          outputs: [createOutput(EXTERNAL_ADDRESS, '1000000')],
+          withdrawals: [
+            {
+              address: 'stake1u9zsg3p7ue6adtx8m2yqdqppjly7m8s37zjpfxqad8cn7msqv8u5c',
+              amount: '1',
+              currency: 'ADA',
+            },
+          ],
+        }),
+      ],
+      [USER_ADDRESS],
+      [STAKE_ADDRESS]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
+    expect(draft?.journals[0]?.postings.map((posting) => [posting.role, posting.quantity.toFixed()])).toEqual([
+      ['principal', '-1'],
+      ['fee', '-0.17'],
+    ]);
+  });
+
   test('deduplicates repeated raw rows for the same wallet transaction', async () => {
     const sharedTransaction = createTransaction({
       id: 'tx-duplicate-wallet-row-1',
@@ -259,6 +324,36 @@ describe('CardanoProcessorV2', () => {
 
     expect(result.value).toHaveLength(1);
     expect(result.value[0]?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('2');
+  });
+
+  test('rejects duplicate raw rows with conflicting staking certificate evidence', async () => {
+    const sharedTransaction = createTransaction({
+      id: 'tx-duplicate-staking-evidence-1',
+      inputs: [createInput(USER_ADDRESS, '5000000', 'lovelace', { txHash: 'prev-duplicate-staking-evidence-1' })],
+      outputs: [createOutput(USER_ADDRESS, '4830000')],
+    });
+
+    const result = await processTransactions([
+      sharedTransaction,
+      {
+        ...sharedTransaction,
+        protocolDepositDeltaAmount: '2',
+        stakeCertificates: [
+          {
+            action: 'registration',
+            address: STAKE_ADDRESS,
+            certificateIndex: 0,
+          },
+        ],
+      },
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain(
+      'Cardano v2 received conflicting normalized payloads for transaction tx-duplicate-staking-evidence-1'
+    );
   });
 
   test('emits reward-funded external sends as transfer plus staking reward journals', async () => {
@@ -317,6 +412,113 @@ describe('CardanoProcessorV2', () => {
     expect(draft?.journals[0]?.postings[0]?.role).toBe('staking_reward');
     expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
     expect(draft?.journals[0]?.postings[1]?.role).toBe('fee');
+  });
+
+  test('materializes stake key registration deposits as refundable protocol deposits', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-stake-registration-1',
+          protocolDepositDeltaAmount: '2',
+          feeAmount: '0.17',
+          inputs: [createInput(USER_ADDRESS, '5000000', 'lovelace', { txHash: 'prev-stake-registration-1' })],
+          outputs: [createOutput(USER_ADDRESS, '2830000')],
+          stakeCertificates: [
+            {
+              action: 'registration',
+              address: STAKE_ADDRESS,
+              certificateIndex: 0,
+            },
+          ],
+        }),
+      ],
+      [USER_ADDRESS],
+      [STAKE_ADDRESS]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(draft?.journals[0]?.journalStableKey).toBe('staking_lifecycle');
+    expect(draft?.journals[0]?.postings.map((posting) => [posting.role, posting.quantity.toFixed()])).toEqual([
+      ['protocol_deposit', '-2'],
+      ['fee', '-0.17'],
+    ]);
+    expect(draft?.journals[0]?.postings[0]?.sourceComponentRefs[0]?.component.componentKind).toBe(
+      'cardano_stake_certificate'
+    );
+  });
+
+  test('materializes stake key deregistration deposits as protocol refunds', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-stake-deregistration-1',
+          protocolDepositDeltaAmount: '-2',
+          feeAmount: '0.17',
+          inputs: [createInput(USER_ADDRESS, '5000000', 'lovelace', { txHash: 'prev-stake-deregistration-1' })],
+          outputs: [createOutput(USER_ADDRESS, '6830000')],
+          stakeCertificates: [
+            {
+              action: 'deregistration',
+              address: STAKE_ADDRESS,
+              certificateIndex: 0,
+            },
+          ],
+        }),
+      ],
+      [USER_ADDRESS],
+      [STAKE_ADDRESS]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(draft?.journals[0]?.journalStableKey).toBe('staking_lifecycle');
+    expect(draft?.journals[0]?.postings.map((posting) => [posting.role, posting.quantity.toFixed()])).toEqual([
+      ['protocol_refund', '2'],
+      ['fee', '-0.17'],
+    ]);
+  });
+
+  test('keeps delegation-only transactions as protocol events instead of generic fee-only expenses', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-stake-delegation-1',
+          feeAmount: '0.17',
+          inputs: [createInput(USER_ADDRESS, '5000000', 'lovelace', { txHash: 'prev-stake-delegation-1' })],
+          outputs: [createOutput(USER_ADDRESS, '4830000')],
+          delegationCertificates: [
+            {
+              activeEpoch: 500,
+              address: STAKE_ADDRESS,
+              certificateIndex: 1,
+              poolId: 'pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy',
+            },
+          ],
+        }),
+      ],
+      [USER_ADDRESS],
+      [STAKE_ADDRESS]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(draft?.journals[0]?.journalStableKey).toBe('staking_lifecycle');
+    expect(draft?.journals[0]?.postings.map((posting) => [posting.role, posting.quantity.toFixed()])).toEqual([
+      ['fee', '-0.17'],
+    ]);
+    expect(draft?.journals[0]?.diagnostics?.map((diagnostic) => diagnostic.code)).toContain(
+      'cardano_delegation_certificates'
+    );
   });
 
   test('uses expense_only only when the fee is the entire account effect', async () => {

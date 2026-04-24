@@ -23,6 +23,7 @@ export const USER_ADDRESS = 'addr1quser11111111111111111111111111111111111111111
 export const SIBLING_USER_ADDRESS = 'addr1qsibling11111111111111111111111111111111111111111111111111';
 export const THIRD_USER_ADDRESS = 'addr1qthird111111111111111111111111111111111111111111111111111';
 export const EXTERNAL_ADDRESS = 'addr1qexternal11111111111111111111111111111111111111111111111';
+export const STAKE_ADDRESS = 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha';
 
 export function buildCardanoAccountFingerprint(accountId: number): string {
   return sha256Hex(`default|wallet|cardano|identifier-${accountId}`);
