@@ -444,6 +444,13 @@ Completed in this phase:
   input/output identity, not consolidated movement identity.
 - Cardano v2 staking reward source component refs are built from raw withdrawal
   components.
+- Cardano v2 quarantines legacy fund-flow `CardanoMovement` values at the
+  assembler boundary and uses local `CardanoAssetDelta` language internally.
+- Cardano v2 validates every emitted journal draft before returning shadow
+  output.
+- Cardano v2 emits normal network fees as `fee` postings inside the richer
+  transfer or staking reward journal; `expense_only` is reserved for fee-only
+  activity.
 - The legacy Cardano processor remains untouched.
 - `processor-v2.shadow.test.ts` now runs v1 and v2 against the same Cardano
   fixtures and reconciles ledger effects against
