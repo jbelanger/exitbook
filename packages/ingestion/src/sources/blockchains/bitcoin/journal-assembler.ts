@@ -18,6 +18,7 @@ import {
 } from '@exitbook/foundation';
 import {
   computeSourceActivityFingerprint,
+  type AccountingDiagnosticDraft,
   type AccountingJournalDraft,
   type AccountingPostingDraft,
   type SourceActivityDraft,
@@ -453,8 +454,11 @@ function buildOptionalNetworkFeePosting(
 function buildBitcoinJournals(
   sourceActivityFingerprint: string,
   principalPosting: AccountingPostingDraft | undefined,
-  feePosting: AccountingPostingDraft | undefined
+  feePosting: AccountingPostingDraft | undefined,
+  diagnostics: readonly AccountingDiagnosticDraft[]
 ): AccountingJournalDraft[] {
+  const journalDiagnostics = diagnostics.length > 0 ? [...diagnostics] : undefined;
+
   if (principalPosting) {
     const postings = feePosting ? [principalPosting, feePosting] : [principalPosting];
     return [
@@ -463,6 +467,7 @@ function buildBitcoinJournals(
         journalStableKey: 'transfer',
         journalKind: 'transfer',
         postings,
+        ...(journalDiagnostics ? { diagnostics: journalDiagnostics } : {}),
       },
     ];
   }
@@ -474,11 +479,47 @@ function buildBitcoinJournals(
         journalStableKey: 'network_fee',
         journalKind: 'expense_only',
         postings: [feePosting],
+        ...(journalDiagnostics ? { diagnostics: journalDiagnostics } : {}),
       },
     ];
   }
 
   return [];
+}
+
+function isBitcoinMessageOutput(output: BitcoinTransactionOutput): boolean {
+  const scriptType = output.scriptType?.toLowerCase();
+  if (scriptType && ['null-data', 'nulldata', 'op_return', 'op-return'].includes(scriptType)) {
+    return true;
+  }
+
+  return output.script?.trim().toLowerCase().startsWith('6a') === true;
+}
+
+function buildBitcoinDiagnostics(
+  transaction: BitcoinTransaction,
+  walletNativeTotals: WalletNativeTotals
+): AccountingDiagnosticDraft[] {
+  const diagnostics: AccountingDiagnosticDraft[] = [];
+  const messageOutputCount = transaction.outputs.filter(isBitcoinMessageOutput).length;
+
+  if (messageOutputCount > 0) {
+    diagnostics.push({
+      code: 'bitcoin_message_output',
+      message: `Bitcoin transaction ${transaction.id} contains ${messageOutputCount} OP_RETURN/message output(s); message data is non-accounting evidence.`,
+      severity: 'info',
+    });
+  }
+
+  if (walletNativeTotals.walletInputs.length > 1 && walletNativeTotals.walletOutputs.length > 1) {
+    diagnostics.push({
+      code: 'bitcoin_many_to_many_utxo',
+      message: `Bitcoin transaction ${transaction.id} has multiple wallet inputs and outputs; accounting is wallet-netted because output-level intent is ambiguous.`,
+      severity: 'info',
+    });
+  }
+
+  return diagnostics;
 }
 
 function computeBitcoinSourceActivityFingerprint(
@@ -580,7 +621,8 @@ export function assembleBitcoinLedgerDraft(
       walletPaysNetworkFee,
       nativeDecimals: chainConfig.nativeDecimals,
     });
-    const journals = buildBitcoinJournals(sourceActivityFingerprint, principalPosting, feePosting);
+    const diagnostics = buildBitcoinDiagnostics(transaction, walletNativeTotals);
+    const journals = buildBitcoinJournals(sourceActivityFingerprint, principalPosting, feePosting, diagnostics);
     const sourceActivity = buildBitcoinSourceActivityDraft({
       chainConfig,
       context,

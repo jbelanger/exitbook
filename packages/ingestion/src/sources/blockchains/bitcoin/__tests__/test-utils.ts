@@ -43,16 +43,21 @@ export function createInput(
 }
 
 export function createOutput(
-  address: string,
+  address: string | undefined,
   value: string,
   overrides: Partial<BitcoinTransactionOutput> = {}
 ): BitcoinTransactionOutput {
-  return {
-    address,
+  const output: BitcoinTransactionOutput = {
     index: 0,
     value,
     ...overrides,
   };
+
+  if (address !== undefined) {
+    output.address = address;
+  }
+
+  return output;
 }
 
 export function createTransaction(overrides: Partial<BitcoinTransaction> = {}): BitcoinTransaction {

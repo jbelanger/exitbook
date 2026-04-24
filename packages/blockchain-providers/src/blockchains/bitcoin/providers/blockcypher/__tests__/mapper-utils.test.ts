@@ -60,6 +60,7 @@ describe('mapBlockCypherTransaction', () => {
     expect(normalized.inputs).toHaveLength(1);
     expect(normalized.inputs[0]).toMatchObject({
       address: 'input-address',
+      scriptType: 'pay-to-pubkey-hash',
       txid: 'prev-hash',
       vout: 0,
       value: '3000',
@@ -69,6 +70,8 @@ describe('mapBlockCypherTransaction', () => {
     expect(normalized.outputs[0]).toMatchObject({
       address: 'output-address',
       index: 0,
+      script: 'script',
+      scriptType: 'pay-to-pubkey-hash',
       value: '2600',
     });
   });
@@ -155,6 +158,8 @@ describe('mapBlockCypherTransaction', () => {
 
     expect(normalized.inputs[0]?.address).toBeUndefined();
     expect(normalized.outputs[0]?.address).toBeUndefined();
+    expect(normalized.inputs[0]?.scriptType).toBe('nulldata');
+    expect(normalized.outputs[0]?.scriptType).toBe('nulldata');
   });
 
   it('should handle zero fee', () => {

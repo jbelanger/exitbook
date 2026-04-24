@@ -175,6 +175,70 @@ describe('BitcoinProcessorV2', () => {
     expect(draft?.journals[0]?.postings[0]?.role).toBe('fee');
   });
 
+  test('keeps OP_RETURN message outputs as non-accounting diagnostics on the fee journal', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-op-return-1',
+        inputs: [createInput(USER_ADDRESS, '10000', { txid: 'prev-op-return-1' })],
+        outputs: [
+          createOutput(undefined, '0', {
+            script: '6a0464617461',
+            scriptType: 'nulldata',
+          }),
+        ],
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['expense_only']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-0.0001');
+    expect(draft?.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'bitcoin_message_output',
+        message:
+          'Bitcoin transaction tx-op-return-1 contains 1 OP_RETURN/message output(s); message data is non-accounting evidence.',
+        severity: 'info',
+      },
+    ]);
+  });
+
+  test('marks wallet-netted many-to-many UTXO activity as diagnostically ambiguous', async () => {
+    const result = await processTransactions(
+      [
+        createTransaction({
+          id: 'tx-many-to-many-1',
+          inputs: [
+            createInput(USER_ADDRESS, '40000000', { txid: 'prev-many-a' }),
+            createInput(SIBLING_USER_ADDRESS, '30010000', { txid: 'prev-many-b', vout: 1 }),
+          ],
+          outputs: [
+            createOutput(USER_ADDRESS, '20000000'),
+            createOutput(SIBLING_USER_ADDRESS, '30000000', { index: 1 }),
+            createOutput(EXTERNAL_ADDRESS, '20000000', { index: 2 }),
+          ],
+        }),
+      ],
+      [USER_ADDRESS, SIBLING_USER_ADDRESS]
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-0.2');
+    expect(draft?.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'bitcoin_many_to_many_utxo',
+        message:
+          'Bitcoin transaction tx-many-to-many-1 has multiple wallet inputs and outputs; accounting is wallet-netted because output-level intent is ambiguous.',
+        severity: 'info',
+      },
+    ]);
+  });
+
   test('materializes wallet-scoped spends across sibling inputs', async () => {
     const result = await processTransactions(
       [

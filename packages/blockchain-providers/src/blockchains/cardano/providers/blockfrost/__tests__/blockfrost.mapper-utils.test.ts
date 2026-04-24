@@ -298,6 +298,40 @@ describe('blockfrost.mapper-utils', () => {
           ]);
         }
       });
+
+      it('should preserve collateral and reference UTXO flags', () => {
+        const mockTransaction: BlockfrostTransactionWithMetadata = {
+          ...createBaseFixture(),
+          inputs: [
+            {
+              ...createBaseFixture().inputs[0]!,
+              collateral: true,
+              reference: true,
+            },
+          ],
+          outputs: [
+            {
+              ...createBaseFixture().outputs[0]!,
+              collateral: true,
+              reference: false,
+            },
+          ],
+        };
+
+        const result = mapBlockfrostTransaction(mockTransaction);
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.inputs[0]).toMatchObject({
+            isCollateral: true,
+            isReference: true,
+          });
+          expect(result.value.outputs[0]).toMatchObject({
+            isCollateral: true,
+            isReference: false,
+          });
+        }
+      });
     });
 
     describe('Fee conversion from lovelace to ADA', () => {

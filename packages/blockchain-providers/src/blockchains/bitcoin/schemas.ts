@@ -39,6 +39,7 @@ export const BitcoinAddressSchema = z
  */
 const BitcoinTransactionInputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
+  scriptType: z.string().min(1, 'Input script type must not be empty').optional(),
   txid: z.string().optional(),
   value: DecimalStringSchema,
   vout: z.number().optional(),
@@ -50,6 +51,8 @@ const BitcoinTransactionInputSchema = z.object({
 const BitcoinTransactionOutputSchema = z.object({
   address: BitcoinAddressSchema.optional(),
   index: z.number(),
+  script: z.string().min(1, 'Output script must not be empty').optional(),
+  scriptType: z.string().min(1, 'Output script type must not be empty').optional(),
   value: DecimalStringSchema,
 });
 

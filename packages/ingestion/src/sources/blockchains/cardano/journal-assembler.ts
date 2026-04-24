@@ -17,8 +17,11 @@ import {
 } from '@exitbook/foundation';
 import {
   computeSourceActivityFingerprint,
+  type AccountingDiagnosticDraft,
   type AccountingJournalDraft,
   type AccountingPostingDraft,
+  type AccountingPostingRole,
+  type AccountingSourceComponentKind,
   type SourceActivityDraft,
   type SourceComponentQuantityRef,
 } from '@exitbook/ledger';
@@ -59,6 +62,8 @@ interface WalletAssetTotals {
   walletOutputs: CardanoTransactionOutput[];
 }
 
+type CardanoWalletDeltaJournalKind = 'protocol_event' | 'transfer';
+
 interface ValidatedCardanoAmounts {
   feeAmount: Decimal;
   withdrawalAmounts: readonly Decimal[];
@@ -90,6 +95,38 @@ function validateCardanoProcessorV2Context(context: CardanoProcessorV2Context): 
 
 function isWalletAddress(address: string, walletAddresses: ReadonlySet<string>): boolean {
   return walletAddresses.has(address);
+}
+
+function isEffectiveCardanoInput(
+  transactionStatus: CardanoTransaction['status'],
+  hasCollateralInputs: boolean,
+  input: CardanoTransactionInput
+): boolean {
+  if (input.isReference === true) {
+    return false;
+  }
+
+  if (transactionStatus === 'failed' && hasCollateralInputs) {
+    return input.isCollateral === true;
+  }
+
+  if (transactionStatus !== 'failed' && input.isCollateral === true) {
+    return false;
+  }
+
+  return true;
+}
+
+function isEffectiveCardanoOutput(
+  transactionStatus: CardanoTransaction['status'],
+  hasCollateralOutputs: boolean,
+  output: CardanoTransactionOutput
+): boolean {
+  if (transactionStatus === 'failed' && hasCollateralOutputs) {
+    return output.isCollateral === true;
+  }
+
+  return true;
 }
 
 function parseCardanoTransactionAmount(params: {
@@ -284,8 +321,16 @@ function collectWalletAssetTotals(
   return resultDo(function* () {
     const inputsByUnit = new Map<string, WalletAssetAmount>();
     const outputsByUnit = new Map<string, WalletAssetAmount>();
-    const walletInputs = transaction.inputs.filter((input) => isWalletAddress(input.address, walletAddresses));
-    const walletOutputs = transaction.outputs.filter((output) => isWalletAddress(output.address, walletAddresses));
+    const hasCollateralInputs = transaction.inputs.some((input) => input.isCollateral === true);
+    const hasCollateralOutputs = transaction.outputs.some((output) => output.isCollateral === true);
+    const effectiveInputs = transaction.inputs.filter((input) =>
+      isEffectiveCardanoInput(transaction.status, hasCollateralInputs, input)
+    );
+    const effectiveOutputs = transaction.outputs.filter((output) =>
+      isEffectiveCardanoOutput(transaction.status, hasCollateralOutputs, output)
+    );
+    const walletInputs = effectiveInputs.filter((input) => isWalletAddress(input.address, walletAddresses));
+    const walletOutputs = effectiveOutputs.filter((output) => isWalletAddress(output.address, walletAddresses));
 
     for (const input of walletInputs) {
       for (const assetAmount of input.amounts) {
@@ -321,7 +366,7 @@ function validateWalletScopeEffect(
 
 function buildPostingComponentRef(
   sourceActivityFingerprint: string,
-  componentKind: 'network_fee' | 'staking_reward' | 'utxo_input' | 'utxo_output',
+  componentKind: AccountingSourceComponentKind,
   componentId: string,
   assetId: string,
   quantity: Decimal,
@@ -347,6 +392,14 @@ function buildUtxoOutputComponentId(transactionId: string, output: CardanoTransa
   return `utxo:${transactionId}:${output.outputIndex}`;
 }
 
+function resolveCardanoInputComponentKind(input: CardanoTransactionInput): AccountingSourceComponentKind {
+  return input.isCollateral === true ? 'cardano_collateral_input' : 'utxo_input';
+}
+
+function resolveCardanoOutputComponentKind(output: CardanoTransactionOutput): AccountingSourceComponentKind {
+  return output.isCollateral === true ? 'cardano_collateral_return' : 'utxo_output';
+}
+
 function findFirstExternalAddress(
   entries: readonly { address: string }[],
   walletAddresses: ReadonlySet<string>
@@ -354,7 +407,7 @@ function findFirstExternalAddress(
   return entries.find((entry) => !isWalletAddress(entry.address, walletAddresses))?.address;
 }
 
-function buildPrincipalInputComponentRefs(params: {
+function buildWalletDeltaInputComponentRefs(params: {
   sourceActivityFingerprint: string;
   transactionId: string;
   unit: string;
@@ -382,7 +435,7 @@ function buildPrincipalInputComponentRefs(params: {
         refs.push(
           buildPostingComponentRef(
             params.sourceActivityFingerprint,
-            'utxo_input',
+            resolveCardanoInputComponentKind(input),
             buildUtxoInputComponentId(input),
             assetRef.assetId,
             quantity
@@ -395,7 +448,7 @@ function buildPrincipalInputComponentRefs(params: {
   });
 }
 
-function buildPrincipalOutputComponentRefs(params: {
+function buildWalletDeltaOutputComponentRefs(params: {
   sourceActivityFingerprint: string;
   transaction: CardanoTransaction;
   unit: string;
@@ -423,7 +476,7 @@ function buildPrincipalOutputComponentRefs(params: {
         refs.push(
           buildPostingComponentRef(
             params.sourceActivityFingerprint,
-            'utxo_output',
+            resolveCardanoOutputComponentKind(output),
             buildUtxoOutputComponentId(params.transaction.id, output),
             assetRef.assetId,
             quantity
@@ -436,7 +489,7 @@ function buildPrincipalOutputComponentRefs(params: {
   });
 }
 
-function buildPrincipalComponentRefs(params: {
+function buildWalletDeltaComponentRefs(params: {
   sourceActivityFingerprint: string;
   transaction: CardanoTransaction;
   unit: string;
@@ -450,7 +503,7 @@ function buildPrincipalComponentRefs(params: {
 
     if (params.walletInputAmount.gt(0)) {
       refs.push(
-        ...(yield* buildPrincipalInputComponentRefs({
+        ...(yield* buildWalletDeltaInputComponentRefs({
           sourceActivityFingerprint: params.sourceActivityFingerprint,
           transactionId: params.transaction.id,
           unit: params.unit,
@@ -461,7 +514,7 @@ function buildPrincipalComponentRefs(params: {
 
     if (params.walletOutputAmount.gt(0)) {
       refs.push(
-        ...(yield* buildPrincipalOutputComponentRefs({
+        ...(yield* buildWalletDeltaOutputComponentRefs({
           sourceActivityFingerprint: params.sourceActivityFingerprint,
           transaction: params.transaction,
           unit: params.unit,
@@ -473,7 +526,7 @@ function buildPrincipalComponentRefs(params: {
     if (refs.length === 0) {
       yield* err(
         new Error(
-          `Cardano v2 principal posting for transaction ${params.transaction.id} unit ${params.unit} has no source component refs`
+          `Cardano v2 wallet delta posting for transaction ${params.transaction.id} unit ${params.unit} has no source component refs`
         )
       );
     }
@@ -482,9 +535,10 @@ function buildPrincipalComponentRefs(params: {
   });
 }
 
-function buildPrincipalPosting(params: {
+function buildWalletDeltaPosting(params: {
   assetAmount: WalletAssetAmount;
   quantity: Decimal;
+  role: AccountingPostingRole;
   sourceActivityFingerprint: string;
   transaction: CardanoTransaction;
   walletInputAmount: Decimal;
@@ -498,7 +552,7 @@ function buildPrincipalPosting(params: {
 
   return resultDo(function* () {
     const assetRef = yield* buildCardanoAssetRefFromUnit(params.assetAmount.unit, params.assetAmount.symbol);
-    const sourceComponentRefs = yield* buildPrincipalComponentRefs({
+    const sourceComponentRefs = yield* buildWalletDeltaComponentRefs({
       walletInputAmount: params.walletInputAmount,
       walletOutputAmount: params.walletOutputAmount,
       walletInputs: params.walletInputs,
@@ -509,11 +563,11 @@ function buildPrincipalPosting(params: {
     });
 
     return {
-      postingStableKey: `principal:${params.assetAmount.unit}`,
+      postingStableKey: `wallet_delta:${params.assetAmount.unit}`,
       assetId: assetRef.assetId,
       assetSymbol: assetRef.assetSymbol,
       quantity: params.quantity,
-      role: 'principal',
+      role: params.role,
       sourceComponentRefs,
     };
   });
@@ -565,16 +619,17 @@ function buildStakingRewardComponentRef(
   );
 }
 
-function buildPrincipalPostings(
+function buildWalletDeltaPostings(
   transaction: CardanoTransaction,
   sourceActivityFingerprint: string,
   walletAssetTotals: WalletAssetTotals,
   walletPaysNetworkFee: boolean,
   feeAmount: Decimal,
-  walletWithdrawalAmount: Decimal
+  walletWithdrawalAmount: Decimal,
+  walletDeltaRole: AccountingPostingRole
 ): Result<AccountingPostingDraft[], Error> {
   return resultDo(function* () {
-    const principalPostings: AccountingPostingDraft[] = [];
+    const walletDeltaPostings: AccountingPostingDraft[] = [];
     const units = new Set([...walletAssetTotals.inputsByUnit.keys(), ...walletAssetTotals.outputsByUnit.keys()]);
 
     for (const unit of [...units].sort()) {
@@ -590,9 +645,10 @@ function buildPrincipalPostings(
         continue;
       }
 
-      const posting = yield* buildPrincipalPosting({
+      const posting = yield* buildWalletDeltaPosting({
         assetAmount,
         quantity,
+        role: walletDeltaRole,
         sourceActivityFingerprint,
         transaction,
         walletInputAmount,
@@ -602,11 +658,11 @@ function buildPrincipalPostings(
       });
 
       if (posting) {
-        principalPostings.push(posting);
+        walletDeltaPostings.push(posting);
       }
     }
 
-    return principalPostings;
+    return walletDeltaPostings;
   });
 }
 
@@ -673,47 +729,137 @@ function sumWalletWithdrawalAmount(withdrawalAmounts: readonly Decimal[], wallet
 
 function buildCardanoJournals(
   sourceActivityFingerprint: string,
-  principalPostings: AccountingPostingDraft[],
+  walletDeltaPostings: AccountingPostingDraft[],
   rewardPosting: AccountingPostingDraft | undefined,
-  feePosting: AccountingPostingDraft | undefined
+  feePosting: AccountingPostingDraft | undefined,
+  walletDeltaJournalKind: CardanoWalletDeltaJournalKind,
+  diagnostics: readonly AccountingDiagnosticDraft[]
 ): AccountingJournalDraft[] {
   const journals: AccountingJournalDraft[] = [];
   let pendingFeePosting = feePosting;
+  let pendingDiagnostics = diagnostics.length > 0 ? [...diagnostics] : undefined;
 
-  if (principalPostings.length > 0) {
-    const postings = pendingFeePosting ? [...principalPostings, pendingFeePosting] : principalPostings;
+  function attachDiagnostics(journal: AccountingJournalDraft): AccountingJournalDraft {
+    if (!pendingDiagnostics) {
+      return journal;
+    }
+
+    const diagnosticsToAttach = pendingDiagnostics;
+    pendingDiagnostics = undefined;
+    return {
+      ...journal,
+      diagnostics: diagnosticsToAttach,
+    };
+  }
+
+  if (walletDeltaPostings.length > 0) {
+    const postings = pendingFeePosting ? [...walletDeltaPostings, pendingFeePosting] : walletDeltaPostings;
     pendingFeePosting = undefined;
 
-    journals.push({
-      sourceActivityFingerprint,
-      journalStableKey: 'transfer',
-      journalKind: 'transfer',
-      postings,
-    });
+    journals.push(
+      attachDiagnostics({
+        sourceActivityFingerprint,
+        journalStableKey: walletDeltaJournalKind,
+        journalKind: walletDeltaJournalKind,
+        postings,
+      })
+    );
   }
 
   if (rewardPosting) {
     const postings = pendingFeePosting ? [rewardPosting, pendingFeePosting] : [rewardPosting];
     pendingFeePosting = undefined;
 
-    journals.push({
-      sourceActivityFingerprint,
-      journalStableKey: 'staking_reward',
-      journalKind: 'staking_reward',
-      postings,
-    });
+    journals.push(
+      attachDiagnostics({
+        sourceActivityFingerprint,
+        journalStableKey: 'staking_reward',
+        journalKind: 'staking_reward',
+        postings,
+      })
+    );
   }
 
   if (pendingFeePosting) {
-    journals.push({
-      sourceActivityFingerprint,
-      journalStableKey: 'network_fee',
-      journalKind: 'expense_only',
-      postings: [pendingFeePosting],
-    });
+    journals.push(
+      attachDiagnostics({
+        sourceActivityFingerprint,
+        journalStableKey: walletDeltaJournalKind === 'protocol_event' ? 'protocol_event' : 'network_fee',
+        journalKind: walletDeltaJournalKind === 'protocol_event' ? 'protocol_event' : 'expense_only',
+        postings: [pendingFeePosting],
+      })
+    );
   }
 
   return journals;
+}
+
+function hasCollateralWalletEffect(walletAssetTotals: WalletAssetTotals): boolean {
+  return (
+    walletAssetTotals.walletInputs.some((input) => input.isCollateral === true) ||
+    walletAssetTotals.walletOutputs.some((output) => output.isCollateral === true)
+  );
+}
+
+function resolveCardanoWalletDeltaJournalKind(
+  transaction: CardanoTransaction,
+  walletAssetTotals: WalletAssetTotals
+): CardanoWalletDeltaJournalKind {
+  return transaction.status === 'failed' && hasCollateralWalletEffect(walletAssetTotals)
+    ? 'protocol_event'
+    : 'transfer';
+}
+
+function resolveCardanoWalletDeltaRole(
+  transaction: CardanoTransaction,
+  walletAssetTotals: WalletAssetTotals
+): AccountingPostingRole {
+  return transaction.status === 'failed' && hasCollateralWalletEffect(walletAssetTotals)
+    ? 'protocol_overhead'
+    : 'principal';
+}
+
+function buildCardanoDiagnostics(
+  transaction: CardanoTransaction,
+  walletAssetTotals: WalletAssetTotals
+): AccountingDiagnosticDraft[] {
+  const diagnostics: AccountingDiagnosticDraft[] = [];
+  const referenceInputCount = transaction.inputs.filter((input) => input.isReference === true).length;
+  const ignoredSuccessfulCollateralInputCount = transaction.inputs.filter(
+    (input) => transaction.status !== 'failed' && input.isCollateral === true
+  ).length;
+  const collateralWalletInputCount = walletAssetTotals.walletInputs.filter(
+    (input) => input.isCollateral === true
+  ).length;
+  const collateralWalletOutputCount = walletAssetTotals.walletOutputs.filter(
+    (output) => output.isCollateral === true
+  ).length;
+
+  if (referenceInputCount > 0) {
+    diagnostics.push({
+      code: 'cardano_reference_inputs_ignored',
+      message: `Cardano transaction ${transaction.id} contains ${referenceInputCount} reference input(s); reference inputs are read-only and excluded from wallet balance accounting.`,
+      severity: 'info',
+    });
+  }
+
+  if (ignoredSuccessfulCollateralInputCount > 0) {
+    diagnostics.push({
+      code: 'cardano_collateral_inputs_ignored',
+      message: `Cardano transaction ${transaction.id} contains ${ignoredSuccessfulCollateralInputCount} collateral input(s) on a successful script transaction; collateral inputs are excluded because they were not consumed.`,
+      severity: 'info',
+    });
+  }
+
+  if (transaction.status === 'failed' && (collateralWalletInputCount > 0 || collateralWalletOutputCount > 0)) {
+    diagnostics.push({
+      code: 'cardano_failed_script_collateral',
+      message: `Cardano transaction ${transaction.id} failed script validation; wallet accounting uses collateral inputs and collateral return outputs.`,
+      severity: 'warning',
+    });
+  }
+
+  return diagnostics;
 }
 
 function computeCardanoSourceActivityFingerprint(
@@ -810,19 +956,23 @@ export function assembleCardanoLedgerDraft(
     yield* validateWalletScopeEffect(transaction, walletAssetTotals);
     const walletPaysNetworkFee = walletAssetTotals.walletInputs.length > 0;
     const walletWithdrawalAmount = sumWalletWithdrawalAmount(validatedAmounts.withdrawalAmounts, walletPaysNetworkFee);
+    const walletDeltaJournalKind = resolveCardanoWalletDeltaJournalKind(transaction, walletAssetTotals);
+    const walletDeltaRole = resolveCardanoWalletDeltaRole(transaction, walletAssetTotals);
+    const diagnostics = buildCardanoDiagnostics(transaction, walletAssetTotals);
     const feePosting = yield* buildOptionalNetworkFeePosting(
       sourceActivityFingerprint,
       transaction,
       walletPaysNetworkFee,
       validatedAmounts.feeAmount
     );
-    const principalPostings = yield* buildPrincipalPostings(
+    const walletDeltaPostings = yield* buildWalletDeltaPostings(
       transaction,
       sourceActivityFingerprint,
       walletAssetTotals,
       walletPaysNetworkFee,
       validatedAmounts.feeAmount,
-      walletWithdrawalAmount
+      walletWithdrawalAmount,
+      walletDeltaRole
     );
     const rewardPosting = yield* buildStakingRewardPosting(
       transaction,
@@ -831,7 +981,14 @@ export function assembleCardanoLedgerDraft(
       validatedAmounts.withdrawalAmounts,
       walletWithdrawalAmount
     );
-    const journals = buildCardanoJournals(sourceActivityFingerprint, principalPostings, rewardPosting, feePosting);
+    const journals = buildCardanoJournals(
+      sourceActivityFingerprint,
+      walletDeltaPostings,
+      rewardPosting,
+      feePosting,
+      walletDeltaJournalKind,
+      diagnostics
+    );
     const sourceActivity = buildCardanoSourceActivityDraft(
       transaction,
       context,

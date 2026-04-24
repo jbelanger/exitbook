@@ -340,6 +340,142 @@ describe('CardanoProcessorV2', () => {
     expect(draft?.journals[0]?.postings[0]?.role).toBe('fee');
   });
 
+  test('ignores Cardano reference inputs because they are read-only evidence', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-reference-input-1',
+        inputs: [
+          createInput(USER_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-spend-input' }),
+          createInput(USER_ADDRESS, '10000000', 'lovelace', {
+            isReference: true,
+            outputIndex: 1,
+            txHash: 'prev-reference-input',
+          }),
+        ],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '1000000')],
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-1');
+    expect(
+      draft?.journals[0]?.postings[0]?.sourceComponentRefs.map((ref) => ({
+        componentId: ref.component.componentId,
+        componentKind: ref.component.componentKind,
+        quantity: ref.quantity.toFixed(),
+      }))
+    ).toEqual([
+      {
+        componentId: 'utxo:prev-spend-input:0',
+        componentKind: 'utxo_input',
+        quantity: '1.17',
+      },
+    ]);
+    expect(draft?.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'cardano_reference_inputs_ignored',
+        message:
+          'Cardano transaction tx-reference-input-1 contains 1 reference input(s); reference inputs are read-only and excluded from wallet balance accounting.',
+        severity: 'info',
+      },
+    ]);
+  });
+
+  test('ignores successful-script collateral inputs because they are not consumed', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-success-collateral-1',
+        inputs: [
+          createInput(USER_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-success-spend-input' }),
+          createInput(USER_ADDRESS, '5000000', 'lovelace', {
+            isCollateral: true,
+            outputIndex: 1,
+            txHash: 'prev-success-collateral-input',
+          }),
+        ],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '1000000')],
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-1');
+    expect(draft?.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'cardano_collateral_inputs_ignored',
+        message:
+          'Cardano transaction tx-success-collateral-1 contains 1 collateral input(s) on a successful script transaction; collateral inputs are excluded because they were not consumed.',
+        severity: 'info',
+      },
+    ]);
+  });
+
+  test('models failed-script collateral losses as protocol overhead with collateral source refs', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-failed-collateral-1',
+        feeAmount: '0.17',
+        inputs: [
+          createInput(USER_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-ignored-normal-input' }),
+          createInput(USER_ADDRESS, '5000000', 'lovelace', {
+            isCollateral: true,
+            outputIndex: 1,
+            txHash: 'prev-failed-collateral-input',
+          }),
+        ],
+        outputs: [
+          createOutput(USER_ADDRESS, '10000000', 'lovelace', { outputIndex: 0 }),
+          createOutput(USER_ADDRESS, '4000000', 'lovelace', {
+            isCollateral: true,
+            outputIndex: 1,
+          }),
+        ],
+        status: 'failed',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-0.83');
+    expect(draft?.journals[0]?.postings[0]?.role).toBe('protocol_overhead');
+    expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
+    expect(draft?.journals[0]?.postings[1]?.role).toBe('fee');
+    expect(
+      draft?.journals[0]?.postings[0]?.sourceComponentRefs.map((ref) => ({
+        componentId: ref.component.componentId,
+        componentKind: ref.component.componentKind,
+        quantity: ref.quantity.toFixed(),
+      }))
+    ).toEqual([
+      {
+        componentId: 'utxo:prev-failed-collateral-input:1',
+        componentKind: 'cardano_collateral_input',
+        quantity: '5',
+      },
+      {
+        componentId: 'utxo:tx-failed-collateral-1:1',
+        componentKind: 'cardano_collateral_return',
+        quantity: '4',
+      },
+    ]);
+    expect(draft?.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'cardano_failed_script_collateral',
+        message:
+          'Cardano transaction tx-failed-collateral-1 failed script validation; wallet accounting uses collateral inputs and collateral return outputs.',
+        severity: 'warning',
+      },
+    ]);
+  });
+
   test('rejects wallet-paid fee postings when provider data omits the fee currency', async () => {
     const transaction = createTransaction({
       id: 'tx-missing-fee-currency-1',

@@ -95,6 +95,8 @@ function mapBlockfrostTransactionInternal(
   const inputs: CardanoTransactionInput[] = rawData.inputs.map((input: BlockfrostUtxoInput) => ({
     address: input.address,
     amounts: mapAssetAmounts(input.amount),
+    ...(typeof input.collateral === 'boolean' ? { isCollateral: input.collateral } : {}),
+    ...(typeof input.reference === 'boolean' ? { isReference: input.reference } : {}),
     outputIndex: input.output_index,
     txHash: input.tx_hash,
   }));
@@ -103,6 +105,8 @@ function mapBlockfrostTransactionInternal(
   const outputs: CardanoTransactionOutput[] = rawData.outputs.map((output: BlockfrostUtxoOutput) => ({
     address: output.address,
     amounts: mapAssetAmounts(output.amount),
+    ...(typeof output.collateral === 'boolean' ? { isCollateral: output.collateral } : {}),
+    ...(typeof output.reference === 'boolean' ? { isReference: output.reference } : {}),
     outputIndex: output.output_index,
   }));
 

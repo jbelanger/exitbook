@@ -6,6 +6,8 @@ export const AccountingSourceComponentKindSchema = z.enum([
   'exchange_fee',
   'utxo_input',
   'utxo_output',
+  'cardano_collateral_input',
+  'cardano_collateral_return',
   'account_delta',
   'staking_reward',
   'message',

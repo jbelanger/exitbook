@@ -26,6 +26,7 @@ export function mapBlockCypherTransaction(
 
   const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input) => ({
     address: input.addresses && input.addresses.length > 0 ? input.addresses[0] : undefined,
+    scriptType: input.script_type,
     txid: input.prev_hash,
     value: input.output_value ? input.output_value.toString() : '0',
     vout: input.output_index,
@@ -34,6 +35,8 @@ export function mapBlockCypherTransaction(
   const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
     address: output.addresses && output.addresses.length > 0 ? output.addresses[0] : undefined,
     index,
+    script: output.script,
+    scriptType: output.script_type,
     value: output.value.toString(),
   }));
 

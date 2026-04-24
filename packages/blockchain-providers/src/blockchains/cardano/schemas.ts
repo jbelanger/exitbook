@@ -59,6 +59,8 @@ const CardanoAssetAmountSchema = z.object({
 const CardanoTransactionInputSchema = z.object({
   address: CardanoAddressSchema,
   amounts: z.array(CardanoAssetAmountSchema).min(1, 'Input must have at least one asset'),
+  isCollateral: z.boolean().optional(),
+  isReference: z.boolean().optional(),
   outputIndex: z.number().nonnegative('Output index must be non-negative'),
   txHash: z.string().min(1, 'Transaction hash must not be empty'),
 });
@@ -69,6 +71,8 @@ const CardanoTransactionInputSchema = z.object({
 const CardanoTransactionOutputSchema = z.object({
   address: CardanoAddressSchema,
   amounts: z.array(CardanoAssetAmountSchema).min(1, 'Output must have at least one asset'),
+  isCollateral: z.boolean().optional(),
+  isReference: z.boolean().optional(),
   outputIndex: z.number().nonnegative('Output index must be non-negative'),
 });
 
