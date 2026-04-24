@@ -540,7 +540,7 @@ Kill criteria:
 
 ### Phase 3: Second And Third Hard Pilots
 
-Status: pending.
+Status: in progress; Bitcoin UTXO pilot started.
 
 Candidate files:
 
@@ -558,6 +558,34 @@ Steps:
 3. Pilot Bitcoin or another UTXO family member if Cardano-specific logic hid a
    generic UTXO requirement.
 4. Extract shared helpers only after duplication is visible across two slices.
+
+Completed in this phase:
+
+- Bitcoin v2 emits wallet-scoped source activity plus accounting journals
+  directly from normalized UTXO inputs, outputs, and native network fees.
+- Bitcoin v2 de-duplicates repeated raw rows for the same transaction hash and
+  rejects conflicting payloads for the same hash.
+- Bitcoin v2 preserves provider-native UTXO input/output component refs:
+  previous transaction hash plus output index for inputs, current transaction
+  hash plus output index for outputs.
+- Bitcoin v2 nets wallet change out of the principal transfer posting and emits
+  native network fees as a separate `fee` posting inside the transfer journal.
+- Bitcoin v2 uses `expense_only` only when the wallet effect is fee-only.
+- Bitcoin v2 rejects processor-context mismatches where a transaction has no
+  effect for the supplied wallet address scope.
+- Focused Bitcoin v2 tests cover incoming transfers, sends with change,
+  fee-only effects, sibling wallet inputs, distinct same-asset UTXO provenance,
+  duplicate raw rows, missing UTXO identity, and invalid negative amounts.
+
+Remaining in this phase:
+
+- decide whether Cardano and Bitcoin now have enough repeated UTXO assembly
+  logic to justify a shared UTXO ledger helper, or whether the differences are
+  still clearer locally
+- pilot Cosmos staking/undelegation reward-principal splitting
+- pilot EVM gas/value handling
+- sketch one exchange processor to confirm the common journal shape stays
+  ergonomic for non-UTXO imports
 
 Acceptance criteria:
 
@@ -728,6 +756,7 @@ New files:
 - `packages/accounting/src/balance-v2/__tests__/balance-v2-runner.test.ts`
 - `packages/accounting/src/balance-v2/__tests__/balance-v2-shadow.test.ts`
 - `packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.balance-shadow.test.ts`
+- `packages/ingestion/src/sources/blockchains/bitcoin/__tests__/processor-v2.balance-shadow.test.ts`
 
 Files to compare against:
 
@@ -747,6 +776,10 @@ Steps:
    - Cardano wallet-scoped staking cases assert corrected ledger balances
      directly because v2 intentionally accounts reward-funded sends differently
      from the legacy address-scoped transaction model.
+   - Bitcoin processor-v2 balance shadow compares legacy balance impact against
+     ledger postings for ordinary incoming transfers, then records intentional
+     diffs where the legacy movement model double-counts change outputs on
+     sends and fee-only self-change transactions.
 3. Produce a shadow diff report keyed by:
    - account id
    - asset id
