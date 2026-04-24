@@ -10,6 +10,7 @@ import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 import { createCliAccountLifecycleService } from '../account-service.js';
 
 import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
+import { AccountLedgerBalanceShadowBuilder } from './account-ledger-balance-shadow-builder.js';
 import { AccountsRefreshRunner } from './accounts-refresh-runner.js';
 
 export interface AccountsRefreshScope {
@@ -43,6 +44,7 @@ export async function withAccountsRefreshScope<T>(
 
     const accountService = createCliAccountLifecycleService(database);
     const detailBuilder = new AccountBalanceDetailBuilder(database);
+    const ledgerBalanceShadowBuilder = new AccountLedgerBalanceShadowBuilder(database);
     const capabilityFactories = createCliCommandResourceFactories(runtime, database);
 
     if (!options.needsWorkflow) {
@@ -52,6 +54,7 @@ export async function withAccountsRefreshScope<T>(
         refreshRunner: new AccountsRefreshRunner({
           accountService,
           detailBuilder,
+          ledgerBalanceShadowBuilder,
           balanceWorkflow: undefined,
         }),
       });
@@ -62,6 +65,7 @@ export async function withAccountsRefreshScope<T>(
     const refreshRunner = new AccountsRefreshRunner({
       accountService,
       detailBuilder,
+      ledgerBalanceShadowBuilder,
       balanceWorkflow,
     });
     runtime.onCleanup(async () => {

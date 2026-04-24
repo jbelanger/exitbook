@@ -176,6 +176,7 @@ export function logSingleRefreshResult(result: SingleRefreshResult): void {
         `Assets: ${result.assets.length} · coverage ${result.verificationResult.coverage.status} (${result.verificationResult.coverage.confidence})`
       )
     );
+    logLedgerBalanceShadowSummary(result);
     return;
   }
 
@@ -190,6 +191,7 @@ export function logSingleRefreshResult(result: SingleRefreshResult): void {
       `Assets: ${summary.totalCurrencies} · coverage ${result.verificationResult.coverage.status} (${result.verificationResult.coverage.confidence})`
     )
   );
+  logLedgerBalanceShadowSummary(result);
 }
 
 function completeRefreshSpinner(spinner: SpinnerWrapper, label: string, result: RefreshCompletionResult): void {
@@ -267,6 +269,17 @@ function buildRefreshOutcomeDetailsLine(totals: RefreshTextProgressTotals): stri
 
 function formatPartialCoverageResultCount(count: number): string {
   return `${count} partial coverage result${count === 1 ? '' : 's'}`;
+}
+
+function logLedgerBalanceShadowSummary(result: SingleRefreshResult): void {
+  const shadow = result.ledgerBalanceShadow;
+  if (shadow === undefined || shadow.status === 'unavailable') {
+    return;
+  }
+
+  const message = `Ledger balance shadow: ${shadow.status} · ${shadow.summary.liveMatches} live match · ${shadow.summary.liveMismatches} live mismatch · ${shadow.summary.legacyDiffs} legacy diff`;
+  const formatter = shadow.status === 'failed' ? pc.red : shadow.status === 'warning' ? pc.yellow : pc.dim;
+  console.log(formatter(message));
 }
 
 function buildRefreshImportGuidanceLine(): string {

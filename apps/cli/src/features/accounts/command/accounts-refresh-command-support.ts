@@ -188,6 +188,7 @@ function buildAccountsRefreshSingleJsonCompletion(result: SingleRefreshResult): 
           })),
     summary: verificationResult.summary,
     coverage: verificationResult.coverage,
+    ledgerBalanceShadow: result.ledgerBalanceShadow,
     source: {
       type: account.accountType === 'blockchain' ? 'blockchain' : 'exchange',
       name: account.platformKey,

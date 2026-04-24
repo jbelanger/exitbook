@@ -1,5 +1,11 @@
 import { err, ok, type Result } from '@exitbook/foundation';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
+
+import {
+  buildLedgerBalancesFromPostings,
+  type LedgerAssetBalance,
+  type LedgerBalancePostingInput,
+} from '../ledger-balance.js';
 
 export interface BalanceV2PostingInput {
   accountId: number;
@@ -27,126 +33,72 @@ export interface BalanceV2Result {
   balances: readonly BalanceV2AssetBalance[];
 }
 
-interface MutableBalanceV2AssetBalance {
-  accountId: number;
-  assetId: string;
-  assetSymbol: string;
-  journalFingerprints: Set<string>;
-  postingFingerprints: Set<string>;
-  quantity: Decimal;
-  sourceActivityFingerprints: Set<string>;
-  transactionFingerprints: Set<string>;
-}
-
 function buildBalanceV2Key(params: Pick<BalanceV2AssetBalance, 'accountId' | 'assetId'>): string {
   return `${params.accountId}\u0000${params.assetId}`;
 }
 
-function validateBalanceV2Posting(posting: BalanceV2PostingInput): Result<void, Error> {
-  if (!Number.isInteger(posting.accountId) || posting.accountId <= 0) {
-    return err(new Error(`Balance-v2 posting account id must be a positive integer, received ${posting.accountId}`));
-  }
-
-  if (posting.assetId.trim().length === 0) {
-    return err(new Error('Balance-v2 posting asset id must not be empty'));
-  }
-
-  if (posting.assetSymbol.trim().length === 0) {
-    return err(new Error(`Balance-v2 posting ${posting.assetId} asset symbol must not be empty`));
-  }
-
-  if (posting.quantity.isZero()) {
-    return err(new Error(`Balance-v2 posting ${posting.assetId} quantity must not be zero`));
-  }
-
-  return ok(undefined);
-}
-
-function createMutableBalance(posting: BalanceV2PostingInput): MutableBalanceV2AssetBalance {
+function toLedgerPostingInput(posting: BalanceV2PostingInput): LedgerBalancePostingInput {
   return {
-    accountId: posting.accountId,
+    ownerAccountId: posting.accountId,
     assetId: posting.assetId,
     assetSymbol: posting.assetSymbol,
-    journalFingerprints: new Set(),
-    postingFingerprints: new Set(),
-    quantity: new Decimal(0),
-    sourceActivityFingerprints: new Set(),
-    transactionFingerprints: new Set(),
+    quantity: posting.quantity,
+    journalFingerprint: posting.journalFingerprint,
+    postingFingerprint: posting.postingFingerprint,
+    sourceActivityFingerprint: posting.sourceActivityFingerprint,
   };
 }
 
-function addOptionalSetValue(values: Set<string>, value: string | undefined): void {
-  if (value !== undefined && value.trim().length > 0) {
-    values.add(value);
+function collectTransactionFingerprints(postings: readonly BalanceV2PostingInput[]): Map<string, readonly string[]> {
+  const fingerprintsByKey = new Map<string, Set<string>>();
+
+  for (const posting of postings) {
+    if (posting.transactionFingerprint === undefined || posting.transactionFingerprint.trim().length === 0) {
+      continue;
+    }
+
+    const key = buildBalanceV2Key(posting);
+    const fingerprints = fingerprintsByKey.get(key) ?? new Set<string>();
+    fingerprints.add(posting.transactionFingerprint);
+    fingerprintsByKey.set(key, fingerprints);
   }
+
+  return new Map([...fingerprintsByKey.entries()].map(([key, values]) => [key, [...values].sort()]));
 }
 
-function applyPosting(
-  balancesByKey: Map<string, MutableBalanceV2AssetBalance>,
-  posting: BalanceV2PostingInput
-): Result<void, Error> {
-  const validationResult = validateBalanceV2Posting(posting);
-  if (validationResult.isErr()) {
-    return err(validationResult.error);
-  }
+function toBalanceV2AssetBalance(
+  balance: LedgerAssetBalance,
+  transactionFingerprintsByKey: Map<string, readonly string[]>
+): BalanceV2AssetBalance {
+  const accountId = balance.ownerAccountId;
+  const key = buildBalanceV2Key({
+    accountId,
+    assetId: balance.assetId,
+  });
 
-  const key = buildBalanceV2Key(posting);
-  const balance = balancesByKey.get(key) ?? createMutableBalance(posting);
-
-  if (balance.assetSymbol !== posting.assetSymbol) {
-    return err(
-      new Error(
-        `Balance-v2 asset ${posting.assetId} on account ${posting.accountId} has conflicting symbols: ${balance.assetSymbol} vs ${posting.assetSymbol}`
-      )
-    );
-  }
-
-  balance.quantity = balance.quantity.plus(posting.quantity);
-  addOptionalSetValue(balance.journalFingerprints, posting.journalFingerprint);
-  addOptionalSetValue(balance.postingFingerprints, posting.postingFingerprint);
-  addOptionalSetValue(balance.sourceActivityFingerprints, posting.sourceActivityFingerprint);
-  addOptionalSetValue(balance.transactionFingerprints, posting.transactionFingerprint);
-  balancesByKey.set(key, balance);
-
-  return ok(undefined);
-}
-
-function materializeBalance(balance: MutableBalanceV2AssetBalance): BalanceV2AssetBalance {
   return {
-    accountId: balance.accountId,
+    accountId,
     assetId: balance.assetId,
     assetSymbol: balance.assetSymbol,
     quantity: balance.quantity,
-    journalFingerprints: [...balance.journalFingerprints].sort(),
-    postingFingerprints: [...balance.postingFingerprints].sort(),
-    sourceActivityFingerprints: [...balance.sourceActivityFingerprints].sort(),
-    transactionFingerprints: [...balance.transactionFingerprints].sort(),
+    journalFingerprints: balance.journalFingerprints,
+    postingFingerprints: balance.postingFingerprints,
+    sourceActivityFingerprints: balance.sourceActivityFingerprints,
+    transactionFingerprints: transactionFingerprintsByKey.get(key) ?? [],
   };
 }
 
-function sortBalances(balances: BalanceV2AssetBalance[]): BalanceV2AssetBalance[] {
-  return balances.sort((left, right) => {
-    const accountComparison = left.accountId - right.accountId;
-    if (accountComparison !== 0) {
-      return accountComparison;
-    }
-
-    return left.assetId.localeCompare(right.assetId);
-  });
-}
-
 export function buildBalanceV2FromPostings(postings: readonly BalanceV2PostingInput[]): Result<BalanceV2Result, Error> {
-  const balancesByKey = new Map<string, MutableBalanceV2AssetBalance>();
-
-  for (const posting of postings) {
-    const applyResult = applyPosting(balancesByKey, posting);
-    if (applyResult.isErr()) {
-      return err(applyResult.error);
-    }
+  const ledgerResult = buildLedgerBalancesFromPostings(postings.map(toLedgerPostingInput));
+  if (ledgerResult.isErr()) {
+    return err(ledgerResult.error);
   }
 
+  const transactionFingerprintsByKey = collectTransactionFingerprints(postings);
   return ok({
-    balances: sortBalances([...balancesByKey.values()].map(materializeBalance)),
+    balances: ledgerResult.value.balances.map((balance) =>
+      toBalanceV2AssetBalance(balance, transactionFingerprintsByKey)
+    ),
   });
 }
 

@@ -48,10 +48,10 @@ Consumers read journals/postings, not generic movement rows.
 - Pull the schema draft forward before the first processor-v2 pilot. The dev DB
   is disposable, so schema churn is cheap and should be used to force the real
   persistence decisions early.
-- Treat shadow `balance-v2` reconciliation as a migration gate. Do not cut
-  accounting consumers over to the ledger model until a ledger-backed balance
-  runner can execute in parallel against the same processed transaction scopes
-  and reconcile diffs intentionally.
+- Treat shadow `ledger-balance` reconciliation as the `balance-v2` migration
+  gate. Do not cut accounting consumers over to the ledger model until the
+  ledger-backed balance runner can execute in parallel against the same
+  processed transaction scopes and reconcile diffs intentionally.
 
 ## Current Surfaces
 
@@ -339,7 +339,7 @@ Override identity rule:
   accounting journal relationships, not semantic facts.
 - Diagnostics record uncertainty or processor problems; consumers do not read
   diagnostics for accounting meaning.
-- Consumer cutover is blocked until `balance-v2` reconciles ledger-backed
+- Consumer cutover is blocked until `ledger-balance` reconciles ledger-backed
   balances against representative processed-transaction scopes.
 - No silent defaults for unexpected accounting state. Use `Result<T, Error>`
   and log recoverable inconsistencies with `logger.warn()`.
@@ -352,16 +352,16 @@ Rules:
 
 - Do not cut accounting consumers directly from legacy processed-transaction
   reads to ledger-backed reads without a parallel balance check.
-- Build and run a side `balance-v2` over the new ledger model before consumer
+- Build and run `ledger-balance` over the new ledger model before consumer
   migration starts.
-- Run `balance-v2` against the same processed transaction scopes used by the
-  current balance/portfolio path.
+- Run `ledger-balance` against the same processed transaction scopes used by
+  the current balance/portfolio path.
 - Treat every non-zero diff as one of:
   - ledger model bug
   - legacy behavior bug
   - intentional accounting behavior change that must be approved explicitly
-- Do not remove legacy accounting reconstruction until `balance-v2` is green on
-  the pilot processors and representative imported datasets.
+- Do not remove legacy accounting reconstruction until `ledger-balance` is
+  green on the pilot processors and representative imported datasets.
 
 ## Phase Plan
 
@@ -780,8 +780,8 @@ Acceptance criteria:
   relationship endpoints, and rejected-draft rollback
 - repository reads can load ledger postings for a full account scope, including
   parent plus child accounts
-- no consumer reads the new tables until `balance-v2` and the pilot processor
-  migration gates are green
+- no consumer reads the new tables until `ledger-balance` and the pilot
+  processor migration gates are green
 
 Completed in this phase:
 
@@ -907,12 +907,20 @@ Acceptance criteria:
 - failed validation aborts the enclosing transaction
 - no best-effort partial ledger writes
 
-### Phase 7: Shadow Balance-V2
+### Phase 7: Ledger Balance Shadow
 
-Status: pure runner and shadow diff started; persistence/CLI integration
+Status: canonical runner, compatibility wrapper, tests, and single-account CLI
+shadow output complete; all-account text presentation and consumer cutover
 pending.
 
 New files:
+
+- `packages/accounting/src/ledger-balance.ts`
+- `packages/accounting/src/ledger-balance/ledger-balance-runner.ts`
+- `packages/accounting/src/ledger-balance/__tests__/ledger-balance-runner.test.ts`
+- `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
+
+Compatibility files:
 
 - `packages/accounting/src/balance-v2.ts`
 - `packages/accounting/src/balance-v2/balance-v2-runner.ts`
@@ -930,12 +938,13 @@ Files to compare against:
 
 Steps:
 
-1. Build a ledger-backed `balance-v2` that aggregates signed postings by
-   account and asset for a processed transaction scope.
-2. Run `balance-v2` in parallel with the current balance/portfolio derivation
+1. Build `ledger-balance`, a ledger-backed runner that aggregates signed
+   postings by owner account and asset for a processed transaction scope.
+2. Run `ledger-balance` in parallel with the current balance/portfolio
+   derivation
    over the same processed transaction inputs.
    - First harness: Cardano processor-v2 balance shadow compares previous
-     processor plus balance-v1 impact against processor-v2 plus balance-v2
+     processor plus balance-v1 impact against processor-v2 plus ledger balance
      postings on the same normalized fixtures for ordinary UTXO cases.
    - Cardano wallet-scoped staking cases assert corrected ledger balances
      directly because v2 intentionally accounts reward-funded sends differently
@@ -958,13 +967,19 @@ Steps:
    - negative balance behavior
 5. Treat unresolved diffs as blockers for consumer migration.
 
+Implementation note:
+
+- `balance-v2` remains as a compatibility/shadow-test facade, but its posting
+  aggregation delegates to `ledger-balance` so there is one canonical balance
+  algorithm.
+
 Acceptance criteria:
 
-- `balance-v2` runs side-by-side without replacing current balance reads or
+- `ledger-balance` runs side-by-side without replacing current balance reads or
   stored balance snapshots
 - pilot processor datasets reconcile at account/asset balance level
 - intentional behavior changes are documented explicitly
-- consumer migration does not start until `balance-v2` is accepted
+- consumer migration does not start until `ledger-balance` is accepted
 
 ### Phase 8: Consumer Migration
 

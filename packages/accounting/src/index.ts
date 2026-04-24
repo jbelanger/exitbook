@@ -6,6 +6,7 @@
  * - `@exitbook/accounting/balance-v2`
  * - `@exitbook/accounting/cost-basis`
  * - `@exitbook/accounting/issues`
+ * - `@exitbook/accounting/ledger-balance`
  * - `@exitbook/accounting/linking`
  * - `@exitbook/accounting/portfolio`
  * - `@exitbook/accounting/price-enrichment`

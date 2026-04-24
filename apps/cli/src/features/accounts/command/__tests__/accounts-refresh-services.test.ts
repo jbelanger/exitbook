@@ -105,11 +105,31 @@ function createRefreshServices(
   accountService: ReturnType<typeof createMockAccountService>
 ) {
   const detailBuilder = new AccountBalanceDetailBuilder(mockDb as unknown as DataSession);
+  const ledgerBalanceShadowBuilder = {
+    build: vi.fn().mockResolvedValue(
+      ok({
+        status: 'unavailable',
+        reason: 'No persisted ledger postings exist for this account scope.',
+        summary: {
+          totalCurrencies: 0,
+          liveMatches: 0,
+          liveMismatches: 0,
+          legacyMatches: 0,
+          legacyDiffs: 0,
+          sourceActivities: 0,
+          journals: 0,
+          postings: 0,
+        },
+        balances: [],
+      })
+    ),
+  };
 
   return {
     refreshRunner: new AccountsRefreshRunner({
       accountService,
       detailBuilder,
+      ledgerBalanceShadowBuilder: ledgerBalanceShadowBuilder as never,
       balanceWorkflow: balanceWorkflow as never,
     }),
   };

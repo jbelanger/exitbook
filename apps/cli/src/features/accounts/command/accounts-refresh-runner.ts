@@ -8,6 +8,7 @@ import type { EventRelay } from '../../../ui/shared/event-relay.js';
 import { formatAccountSelectorLabel } from '../account-selector.js';
 
 import { AccountBalanceDetailBuilder } from './account-balance-detail-builder.js';
+import { AccountLedgerBalanceShadowBuilder } from './account-ledger-balance-shadow-builder.js';
 import type {
   AccountsRefreshEvent,
   AllAccountsRefreshResult,
@@ -27,6 +28,7 @@ function buildStoredCredentialMissingError(account: Account, reason: string): Er
 interface AccountsRefreshRunnerDeps {
   accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   detailBuilder: AccountBalanceDetailBuilder;
+  ledgerBalanceShadowBuilder: AccountLedgerBalanceShadowBuilder;
   balanceWorkflow: BalanceWorkflow | undefined;
 }
 
@@ -34,12 +36,14 @@ export class AccountsRefreshRunner {
   private abortController: AbortController | undefined;
   private readonly accountService: Pick<AccountLifecycleService, 'listTopLevel' | 'requireOwned'>;
   private readonly detailBuilder: AccountBalanceDetailBuilder;
+  private readonly ledgerBalanceShadowBuilder: AccountLedgerBalanceShadowBuilder;
   private readonly balanceWorkflow: BalanceWorkflow | undefined;
   private streamPromise: Promise<'aborted' | 'completed'> | undefined;
 
   constructor(deps: AccountsRefreshRunnerDeps) {
     this.accountService = deps.accountService;
     this.detailBuilder = deps.detailBuilder;
+    this.ledgerBalanceShadowBuilder = deps.ledgerBalanceShadowBuilder;
     this.balanceWorkflow = deps.balanceWorkflow;
   }
 
@@ -104,6 +108,9 @@ export class AccountsRefreshRunner {
 
       const verificationResult = result.value;
       const scopeAccount = verificationResult.account;
+      const ledgerBalanceShadowResult = await this.ledgerBalanceShadowBuilder.build(scopeAccount, verificationResult);
+      if (ledgerBalanceShadowResult.isErr()) return err(ledgerBalanceShadowResult.error);
+      const ledgerBalanceShadow = ledgerBalanceShadowResult.value;
 
       if (verificationResult.mode === 'calculated-only') {
         const snapshotAssetsResult = await this.detailBuilder.buildStoredSnapshotAssets(scopeAccount);
@@ -114,6 +121,7 @@ export class AccountsRefreshRunner {
           account: scopeAccount,
           requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
           assets: snapshotAssetsResult.value,
+          ledgerBalanceShadow,
           verificationResult,
           streamMetadata: this.extractStreamMetadata(scopeAccount),
         });
@@ -127,6 +135,7 @@ export class AccountsRefreshRunner {
         account: scopeAccount,
         requestedAccount: requestedAccount.id === scopeAccount.id ? undefined : requestedAccount,
         comparisons: comparisonsResult.value,
+        ledgerBalanceShadow,
         verificationResult,
         streamMetadata: this.extractStreamMetadata(scopeAccount),
       });
@@ -188,6 +197,23 @@ export class AccountsRefreshRunner {
         }
 
         const verificationResult = result.value;
+        const ledgerBalanceShadowResult = await this.ledgerBalanceShadowBuilder.build(
+          verificationResult.account,
+          verificationResult
+        );
+        if (ledgerBalanceShadowResult.isErr()) {
+          errors++;
+          accountResults.push({
+            accountId: account.id,
+            platformKey: account.platformKey,
+            accountType: account.accountType,
+            status: 'error',
+            error: ledgerBalanceShadowResult.error.message,
+          });
+          continue;
+        }
+        const ledgerBalanceShadow = ledgerBalanceShadowResult.value;
+
         matchTotal += verificationResult.summary.matches;
         mismatchTotal += verificationResult.summary.mismatches;
         warningTotal += Math.max(
@@ -230,6 +256,7 @@ export class AccountsRefreshRunner {
           partialFailures: verificationResult.partialFailures,
           warnings: verificationResult.warnings,
           comparisons,
+          ledgerBalanceShadow,
         });
       }
 

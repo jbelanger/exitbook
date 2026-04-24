@@ -17,6 +17,36 @@ export interface AssetComparisonItem {
   diagnostics: StoredBalanceAssetDiagnostics;
 }
 
+export interface LedgerBalanceShadowAssetComparison {
+  assetId: string;
+  assetSymbol: string;
+  ledgerBalance: string;
+  legacyCalculatedBalance?: string | undefined;
+  liveBalance?: string | undefined;
+  ledgerVsLegacyDifference?: string | undefined;
+  ledgerVsLiveDifference?: string | undefined;
+  status: 'match' | 'warning' | 'mismatch';
+  sourceActivityCount: number;
+  journalCount: number;
+  postingCount: number;
+}
+
+export interface LedgerBalanceShadowResult {
+  status: 'success' | 'warning' | 'failed' | 'unavailable';
+  summary: {
+    journals: number;
+    legacyDiffs: number;
+    legacyMatches: number;
+    liveMatches: number;
+    liveMismatches: number;
+    postings: number;
+    sourceActivities: number;
+    totalCurrencies: number;
+  };
+  balances: LedgerBalanceShadowAssetComparison[];
+  reason?: string | undefined;
+}
+
 export interface AccountsRefreshProgressItem {
   accountId: number;
   platformKey: string;
@@ -54,6 +84,7 @@ export interface SingleVerificationRefreshResult {
   account: Account;
   requestedAccount?: Account | undefined;
   comparisons: AssetComparisonItem[];
+  ledgerBalanceShadow?: LedgerBalanceShadowResult | undefined;
   verificationResult: BalanceVerificationResult;
   streamMetadata?: Record<string, unknown> | undefined;
 }
@@ -63,6 +94,7 @@ export interface SingleCalculatedRefreshResult {
   account: Account;
   requestedAccount?: Account | undefined;
   assets: StoredBalanceAssetViewItem[];
+  ledgerBalanceShadow?: LedgerBalanceShadowResult | undefined;
   verificationResult: BalanceVerificationResult;
   streamMetadata?: Record<string, unknown> | undefined;
 }
@@ -79,6 +111,7 @@ export interface RefreshAccountJsonResult {
   summary?: unknown;
   coverage?: unknown;
   comparisons?: AssetComparisonItem[] | undefined;
+  ledgerBalanceShadow?: LedgerBalanceShadowResult | undefined;
   partialFailures?: unknown;
   warnings?: unknown;
 }
