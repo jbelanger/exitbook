@@ -33,15 +33,15 @@ export type {
 } from './import-ports.js';
 export type { BalancePorts, BalanceTransactionQuery } from './balance-ports.js';
 export {
-  loadBalanceScopeContext,
-  loadBalanceScopeMemberAccounts,
-  resolveBalanceScopeAccount,
-  resolveBalanceScopeAccountId,
-} from './balance-scope.js';
+  loadAccountScopeContext,
+  loadAccountScopeMemberAccounts,
+  resolveAccountScopeAccount,
+  resolveAccountScopeAccountId,
+} from './account-scope.js';
 export type {
-  BalanceScopeAccount,
-  BalanceScopeContext,
-  IBalanceScopeAccountLookup,
-  IBalanceScopeHierarchyLookup,
-  ResolveBalanceScopeOptions,
-} from './balance-scope.js';
+  AccountScopeAccount,
+  AccountScopeContext,
+  IAccountScopeAccountLookup,
+  IAccountScopeHierarchyLookup,
+  ResolveAccountScopeOptions,
+} from './account-scope.js';

@@ -21,9 +21,9 @@ const noopLogger: Logger = {
   warn: vi.fn(),
 };
 
-function createSourceActivity(sourceKey: string, accountId = 1) {
+function createSourceActivity(sourceKey: string, ownerAccountId = 1) {
   return {
-    accountId,
+    ownerAccountId,
     sourceActivityFingerprint: `source_activity:${sourceKey}`,
     platformKey: 'cardano',
     platformKind: 'blockchain' as const,

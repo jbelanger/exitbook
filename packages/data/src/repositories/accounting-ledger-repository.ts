@@ -12,6 +12,7 @@ import {
   type AccountingSettlement,
   type SourceActivityDraft,
 } from '@exitbook/ledger';
+import { sql } from '@exitbook/sqlite';
 import type { Insertable, Updateable } from '@exitbook/sqlite';
 import { Decimal } from 'decimal.js';
 
@@ -44,7 +45,7 @@ export interface ReplaceAccountingLedgerSummary {
 }
 
 export interface AccountingLedgerPostingRecord {
-  accountId: number;
+  ownerAccountId: number;
   sourceActivityId: number;
   sourceActivityFingerprint: string;
   journalId: number;
@@ -77,7 +78,6 @@ interface PersistedPostingRef {
 
 interface RawTransactionAssignmentScope {
   rawAccountId: number;
-  rawParentAccountId: number | null;
   rawTransactionId: number;
 }
 
@@ -104,25 +104,25 @@ export class AccountingLedgerRepository extends BaseRepository {
     );
   }
 
-  async findPostingsByAccountId(accountId: number): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
-    return this.findPostingsByAccountIds([accountId]);
+  async findPostingsByOwnerAccountId(ownerAccountId: number): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
+    return this.findPostingsByOwnerAccountIds([ownerAccountId]);
   }
 
-  async countSourceActivities(accountIds?: readonly number[]): Promise<Result<number, Error>> {
+  async countSourceActivities(ownerAccountIds?: readonly number[]): Promise<Result<number, Error>> {
     try {
-      if (accountIds !== undefined && accountIds.length === 0) {
+      if (ownerAccountIds !== undefined && ownerAccountIds.length === 0) {
         return ok(0);
       }
 
       let totalCount = 0;
-      const accountIdBatches =
-        accountIds === undefined ? [undefined] : chunkItems([...accountIds], SQLITE_SAFE_IN_BATCH_SIZE);
+      const ownerAccountIdBatches =
+        ownerAccountIds === undefined ? [undefined] : chunkItems([...ownerAccountIds], SQLITE_SAFE_IN_BATCH_SIZE);
 
-      for (const accountIdBatch of accountIdBatches) {
+      for (const ownerAccountIdBatch of ownerAccountIdBatches) {
         let query = this.db.selectFrom('source_activities').select(({ fn }) => [fn.count<number>('id').as('count')]);
 
-        if (accountIdBatch !== undefined) {
-          query = query.where('account_id', 'in', accountIdBatch);
+        if (ownerAccountIdBatch !== undefined) {
+          query = query.where('owner_account_id', 'in', ownerAccountIdBatch);
         }
 
         const result = await query.executeTakeFirst();
@@ -135,17 +135,17 @@ export class AccountingLedgerRepository extends BaseRepository {
     }
   }
 
-  async deleteSourceActivitiesByAccountIds(accountIds: readonly number[]): Promise<Result<number, Error>> {
+  async deleteSourceActivitiesByOwnerAccountIds(ownerAccountIds: readonly number[]): Promise<Result<number, Error>> {
     try {
-      if (accountIds.length === 0) {
+      if (ownerAccountIds.length === 0) {
         return ok(0);
       }
 
       let deletedCount = 0;
-      for (const accountIdBatch of chunkItems([...accountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+      for (const ownerAccountIdBatch of chunkItems([...ownerAccountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
         const result = await this.db
           .deleteFrom('source_activities')
-          .where('account_id', 'in', accountIdBatch)
+          .where('owner_account_id', 'in', ownerAccountIdBatch)
           .executeTakeFirst();
         deletedCount += Number(result.numDeletedRows);
       }
@@ -165,16 +165,16 @@ export class AccountingLedgerRepository extends BaseRepository {
     }
   }
 
-  async findPostingsByAccountIds(
-    accountIds: readonly number[]
+  async findPostingsByOwnerAccountIds(
+    ownerAccountIds: readonly number[]
   ): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
-    const normalizedAccountIdsResult = normalizeAccountIds(accountIds);
-    if (normalizedAccountIdsResult.isErr()) {
-      return err(normalizedAccountIdsResult.error);
+    const normalizedOwnerAccountIdsResult = normalizeOwnerAccountIds(ownerAccountIds);
+    if (normalizedOwnerAccountIdsResult.isErr()) {
+      return err(normalizedOwnerAccountIdsResult.error);
     }
 
-    const normalizedAccountIds = normalizedAccountIdsResult.value;
-    if (normalizedAccountIds.length === 0) {
+    const normalizedOwnerAccountIds = normalizedOwnerAccountIdsResult.value;
+    if (normalizedOwnerAccountIds.length === 0) {
       return ok([]);
     }
 
@@ -184,7 +184,7 @@ export class AccountingLedgerRepository extends BaseRepository {
         .innerJoin('accounting_journals', 'accounting_journals.id', 'accounting_postings.journal_id')
         .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
         .select([
-          'source_activities.account_id as account_id',
+          'source_activities.owner_account_id as owner_account_id',
           'source_activities.id as source_activity_id',
           'source_activities.source_activity_fingerprint as source_activity_fingerprint',
           'accounting_journals.id as journal_id',
@@ -200,8 +200,8 @@ export class AccountingLedgerRepository extends BaseRepository {
           'accounting_postings.posting_role as posting_role',
           'accounting_postings.settlement as settlement',
         ])
-        .where('source_activities.account_id', 'in', normalizedAccountIds)
-        .orderBy('source_activities.account_id', 'asc')
+        .where('source_activities.owner_account_id', 'in', normalizedOwnerAccountIds)
+        .orderBy('source_activities.owner_account_id', 'asc')
         .orderBy('source_activities.activity_datetime', 'asc')
         .orderBy('accounting_journals.journal_stable_key', 'asc')
         .orderBy('accounting_postings.posting_stable_key', 'asc')
@@ -209,7 +209,7 @@ export class AccountingLedgerRepository extends BaseRepository {
 
       return ok(
         rows.map((row) => ({
-          accountId: row.account_id,
+          ownerAccountId: row.owner_account_id,
           sourceActivityId: row.source_activity_id,
           sourceActivityFingerprint: row.source_activity_fingerprint,
           journalId: row.journal_id,
@@ -333,10 +333,10 @@ export class AccountingLedgerRepository extends BaseRepository {
   }
 }
 
-function normalizeAccountIds(accountIds: readonly number[]): Result<number[], Error> {
+function normalizeOwnerAccountIds(accountIds: readonly number[]): Result<number[], Error> {
   for (const accountId of accountIds) {
     if (!Number.isInteger(accountId) || accountId <= 0) {
-      return err(new Error(`Account id must be a positive integer, received ${accountId}`));
+      return err(new Error(`Owner account id must be a positive integer, received ${accountId}`));
     }
   }
 
@@ -397,14 +397,23 @@ async function validateRawTransactionAssignments(
     );
   }
 
+  const ownerAccountScopeIds = await loadOwnerAccountScopeIds(db, sourceActivity.ownerAccountId);
+  if (!ownerAccountScopeIds.has(sourceActivity.ownerAccountId)) {
+    return err(
+      new Error(
+        `Source activity ${sourceActivity.sourceActivityFingerprint} references missing owner account ${sourceActivity.ownerAccountId}`
+      )
+    );
+  }
+
   const outOfScopeRawTransactions = rawTransactionScopes.filter(
-    (scope) => !isInSourceActivityAccountScope(scope, sourceActivity.accountId)
+    (scope) => !ownerAccountScopeIds.has(scope.rawAccountId)
   );
   if (outOfScopeRawTransactions.length > 0) {
     const rawTransactionIdsText = outOfScopeRawTransactions.map((scope) => scope.rawTransactionId).join(', ');
     return err(
       new Error(
-        `Source activity ${sourceActivity.sourceActivityFingerprint} for account ${sourceActivity.accountId} cannot assign raw transaction ids outside that account scope: ${rawTransactionIdsText}`
+        `Source activity ${sourceActivity.sourceActivityFingerprint} for owner account ${sourceActivity.ownerAccountId} cannot assign raw transaction ids outside that account scope: ${rawTransactionIdsText}`
       )
     );
   }
@@ -439,13 +448,6 @@ async function validateRawTransactionAssignments(
   return ok(undefined);
 }
 
-function isInSourceActivityAccountScope(
-  scope: RawTransactionAssignmentScope,
-  sourceActivityAccountId: number
-): boolean {
-  return scope.rawAccountId === sourceActivityAccountId || scope.rawParentAccountId === sourceActivityAccountId;
-}
-
 async function loadRawTransactionAssignmentScopes(
   db: KyselyDB,
   rawTransactionIds: readonly number[]
@@ -453,20 +455,31 @@ async function loadRawTransactionAssignmentScopes(
   const rows = await db
     .selectFrom('raw_transactions')
     .innerJoin('accounts', 'accounts.id', 'raw_transactions.account_id')
-    .select([
-      'raw_transactions.id as raw_transaction_id',
-      'raw_transactions.account_id as raw_account_id',
-      'accounts.parent_account_id as raw_parent_account_id',
-    ])
+    .select(['raw_transactions.id as raw_transaction_id', 'raw_transactions.account_id as raw_account_id'])
     .where('raw_transactions.id', 'in', rawTransactionIds)
     .orderBy('raw_transactions.id', 'asc')
     .execute();
 
   return rows.map((row) => ({
     rawAccountId: row.raw_account_id,
-    rawParentAccountId: row.raw_parent_account_id,
     rawTransactionId: row.raw_transaction_id,
   }));
+}
+
+async function loadOwnerAccountScopeIds(db: KyselyDB, ownerAccountId: number): Promise<ReadonlySet<number>> {
+  const rows = await sql<{ id: number }>`
+    WITH RECURSIVE account_scope(id, path) AS (
+      SELECT id, ',' || id || ',' FROM accounts WHERE id = ${ownerAccountId}
+      UNION ALL
+      SELECT accounts.id, account_scope.path || accounts.id || ','
+      FROM accounts
+      INNER JOIN account_scope ON accounts.parent_account_id = account_scope.id
+      WHERE instr(account_scope.path, ',' || accounts.id || ',') = 0
+    )
+    SELECT id FROM account_scope
+  `.execute(db);
+
+  return new Set(rows.rows.map((row) => row.id));
 }
 
 function findMissingRawTransactionIds(
@@ -482,15 +495,15 @@ async function upsertSourceActivity(db: KyselyDB, draft: SourceActivityDraft): P
   const row = toSourceActivityRow(draft, now);
   const existing = await db
     .selectFrom('source_activities')
-    .select(['id', 'account_id'])
+    .select(['id', 'owner_account_id'])
     .where('source_activity_fingerprint', '=', draft.sourceActivityFingerprint)
     .executeTakeFirst();
 
   if (existing) {
-    if (existing.account_id !== draft.accountId) {
+    if (existing.owner_account_id !== draft.ownerAccountId) {
       return err(
         new Error(
-          `Source activity ${draft.sourceActivityFingerprint} already belongs to account ${existing.account_id}, not ${draft.accountId}`
+          `Source activity ${draft.sourceActivityFingerprint} already belongs to owner account ${existing.owner_account_id}, not ${draft.ownerAccountId}`
         )
       );
     }
@@ -510,7 +523,7 @@ async function upsertSourceActivity(db: KyselyDB, draft: SourceActivityDraft): P
 
 function toSourceActivityRow(draft: SourceActivityDraft, now: string): Insertable<SourceActivitiesTable> {
   return {
-    account_id: draft.accountId,
+    owner_account_id: draft.ownerAccountId,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,
@@ -530,7 +543,7 @@ function toSourceActivityRow(draft: SourceActivityDraft, now: string): Insertabl
 
 function toSourceActivityUpdateRow(draft: SourceActivityDraft, now: string): Updateable<SourceActivitiesTable> {
   return {
-    account_id: draft.accountId,
+    owner_account_id: draft.ownerAccountId,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,

@@ -135,7 +135,7 @@ export interface RawTransactionTable {
  */
 export interface SourceActivitiesTable {
   id: Generated<number>;
-  account_id: number; // FK to accounts.id
+  owner_account_id: number; // FK to accounts.id; accounting owner, not necessarily the raw/import account
   platform_key: string;
   platform_kind: PlatformKind;
   source_activity_fingerprint: string;

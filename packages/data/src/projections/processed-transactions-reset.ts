@@ -1,5 +1,5 @@
-import { resultDoAsync } from '@exitbook/foundation';
-import type { IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
+import { resultDoAsync, type Result } from '@exitbook/foundation';
+import { resolveAccountScopeAccountId, type IProcessedTransactionsReset } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
 
@@ -21,7 +21,8 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
         const transactions = yield* await (accountIds
           ? db.transactions.count({ accountIds, includeExcluded: true })
           : db.transactions.count({ includeExcluded: true }));
-        const ledgerSourceActivities = yield* await db.accountingLedger.countSourceActivities(accountIds);
+        const ownerAccountIds = yield* await resolveOwnerAccountIds(db, accountIds);
+        const ledgerSourceActivities = yield* await db.accountingLedger.countSourceActivities(ownerAccountIds);
 
         return { ledgerSourceActivities, transactions };
       });
@@ -33,9 +34,14 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
           const transactions = yield* await (accountIds
             ? tx.transactions.deleteByAccountIds(accountIds)
             : tx.transactions.deleteAll());
-          const ledgerSourceActivities = yield* await (accountIds
-            ? tx.accountingLedger.deleteSourceActivitiesByAccountIds(accountIds)
-            : tx.accountingLedger.deleteAllSourceActivities());
+          const ownerAccountIds = yield* await resolveOwnerAccountIds(tx, accountIds);
+          let ledgerSourceActivities: number;
+          if (ownerAccountIds === undefined) {
+            ledgerSourceActivities = yield* await tx.accountingLedger.deleteAllSourceActivities();
+          } else {
+            ledgerSourceActivities =
+              yield* await tx.accountingLedger.deleteSourceActivitiesByOwnerAccountIds(ownerAccountIds);
+          }
 
           // Reset raw data to pending so reprocessing picks them up
           if (accountIds) {
@@ -67,4 +73,34 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
       );
     },
   };
+}
+
+async function resolveOwnerAccountIds(
+  db: DataSession,
+  accountIds: readonly number[] | undefined
+): Promise<Result<number[] | undefined, Error>> {
+  return resultDoAsync(async function* () {
+    if (accountIds === undefined) {
+      return undefined;
+    }
+
+    const ownerAccountIds = new Set<number>();
+    const scopeCache = new Map<number, number>();
+
+    for (const accountId of accountIds) {
+      const account = yield* await db.accounts.getById(accountId);
+      const ownerAccountId = yield* await resolveAccountScopeAccountId(
+        account,
+        {
+          findById: (id) => db.accounts.findById(id),
+        },
+        {
+          cache: scopeCache,
+        }
+      );
+      ownerAccountIds.add(ownerAccountId);
+    }
+
+    return [...ownerAccountIds];
+  });
 }

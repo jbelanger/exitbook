@@ -177,7 +177,7 @@ describe('CardanoProcessorV2 shadow reconciliation', () => {
 
     expect(result.value).toHaveLength(1);
     const [draft] = result.value;
-    expect(draft?.sourceActivity.accountId).toBe(ACCOUNT_ID);
+    expect(draft?.sourceActivity.ownerAccountId).toBe(ACCOUNT_ID);
     expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer', 'staking_reward']);
     expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-2679.718442');
     expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.191373');

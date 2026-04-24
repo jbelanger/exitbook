@@ -14,8 +14,8 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import { loadAccountScopeContext as loadSharedAccountScopeContext } from '../../ports/account-scope.js';
 import type { BalancePorts } from '../../ports/balance-ports.js';
-import { loadBalanceScopeContext as loadSharedBalanceScopeContext } from '../../ports/balance-scope.js';
 
 import {
   fetchBlockchainBalance,
@@ -40,7 +40,7 @@ export interface BalanceParams {
   credentials?: ExchangeCredentials | undefined;
 }
 
-interface BalanceScopeContext {
+interface AccountScopeContext {
   memberAccounts: Account[];
   requestedAccount: Account;
   scopeAccount: Account;
@@ -65,7 +65,7 @@ export class BalanceWorkflow {
    * Rebuild the calculated-only balance snapshot for the requested scope.
    */
   async rebuildCalculatedSnapshot(params: BalanceParams): Promise<Result<BalanceRebuildResult, Error>> {
-    const scopeContextResult = await this.loadBalanceScopeContext(params.accountId);
+    const scopeContextResult = await this.loadAccountScopeContext(params.accountId);
     if (scopeContextResult.isErr()) return err(scopeContextResult.error);
 
     const scopeContext = scopeContextResult.value;
@@ -101,7 +101,7 @@ export class BalanceWorkflow {
    * Refresh live balance verification for the requested scope.
    */
   async refreshVerification(params: BalanceParams): Promise<Result<BalanceVerificationResult, Error>> {
-    const scopeContextResult = await this.loadBalanceScopeContext(params.accountId);
+    const scopeContextResult = await this.loadAccountScopeContext(params.accountId);
     if (scopeContextResult.isErr()) return err(scopeContextResult.error);
 
     const scopeContext = scopeContextResult.value;
@@ -285,12 +285,12 @@ export class BalanceWorkflow {
     }
   }
 
-  private async loadBalanceScopeContext(accountId: number): Promise<Result<BalanceScopeContext, Error>> {
+  private async loadAccountScopeContext(accountId: number): Promise<Result<AccountScopeContext, Error>> {
     const requestedAccountResult = await this.ports.findById(accountId);
     if (requestedAccountResult.isErr()) return err(requestedAccountResult.error);
     if (!requestedAccountResult.value) return err(new Error(`No account found with ID ${accountId}`));
 
-    return loadSharedBalanceScopeContext(requestedAccountResult.value, this.ports);
+    return loadSharedAccountScopeContext(requestedAccountResult.value, this.ports);
   }
 
   private buildVerificationCoverage(
@@ -368,7 +368,7 @@ export class BalanceWorkflow {
     }
   }
 
-  private async getLastImportTimestamp(scopeContext: BalanceScopeContext): Promise<Result<number | undefined, Error>> {
+  private async getLastImportTimestamp(scopeContext: AccountScopeContext): Promise<Result<number | undefined, Error>> {
     const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
     try {
@@ -399,7 +399,7 @@ export class BalanceWorkflow {
   }
 
   private async calculateBalancesFromTransactions(
-    scopeContext: BalanceScopeContext
+    scopeContext: AccountScopeContext
   ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
@@ -463,7 +463,7 @@ export class BalanceWorkflow {
   }
 
   private async fetchBlockchainLiveBalance(
-    scopeContext: BalanceScopeContext
+    scopeContext: AccountScopeContext
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     const childAccounts = scopeContext.memberAccounts.filter((account) => account.id !== scopeContext.scopeAccount.id);
     if (childAccounts.length > 0) {
@@ -484,7 +484,7 @@ export class BalanceWorkflow {
   }
 
   private async getExcludedAssetInfo(
-    scopeContext: BalanceScopeContext
+    scopeContext: AccountScopeContext
   ): Promise<Result<{ balanceAdjustments: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
@@ -510,7 +510,7 @@ export class BalanceWorkflow {
   }
 
   private async fetchLiveBalance(
-    scopeContext: BalanceScopeContext,
+    scopeContext: AccountScopeContext,
     credentials?: ExchangeCredentials
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     const account = scopeContext.scopeAccount;
@@ -521,7 +521,7 @@ export class BalanceWorkflow {
   }
 
   private resolveLiveBalanceSupport(
-    scopeContext: BalanceScopeContext
+    scopeContext: AccountScopeContext
   ): Result<{ supported: true } | { reason: string; supported: false }, Error> {
     if (scopeContext.scopeAccount.accountType !== 'blockchain') {
       return ok({ supported: true });
@@ -556,13 +556,13 @@ export class BalanceWorkflow {
     );
   }
 
-  private getRequestedAddressCount(scopeContext: BalanceScopeContext): number {
+  private getRequestedAddressCount(scopeContext: AccountScopeContext): number {
     const childAccounts = scopeContext.memberAccounts.filter((account) => account.id !== scopeContext.scopeAccount.id);
     return childAccounts.length > 0 ? childAccounts.length : 1;
   }
 
   private async persistCalculatedSnapshot(
-    scopeContext: BalanceScopeContext,
+    scopeContext: AccountScopeContext,
     calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> }
   ): Promise<Result<void, Error>> {
     try {
@@ -598,7 +598,7 @@ export class BalanceWorkflow {
   }
 
   private async persistUnavailableSnapshot(
-    scopeContext: BalanceScopeContext,
+    scopeContext: AccountScopeContext,
     calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> },
     reason: string
   ): Promise<Result<void, Error>> {
@@ -657,7 +657,7 @@ export class BalanceWorkflow {
   }
 
   private async persistVerifiedSnapshot(
-    scopeContext: BalanceScopeContext,
+    scopeContext: AccountScopeContext,
     calculatedBalances: Record<string, Decimal>,
     comparisons: BalanceComparison[],
     status: 'success' | 'warning' | 'failed',

@@ -3,6 +3,7 @@ import { err, ok } from '@exitbook/foundation';
 import type { AccountingJournalDraft, SourceActivityDraft } from '@exitbook/ledger';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ProcessingAccountInfo } from '../../../ports/account-lookup.js';
 import type { ProcessingPorts } from '../../../ports/processing-ports.js';
 import { ProcessingWorkflow } from '../process-workflow.js';
 
@@ -27,6 +28,7 @@ function createWorkflow(params?: {
     accountLookup: {
       getAccountInfo: vi.fn().mockResolvedValue(
         ok({
+          id: 14,
           accountType: 'blockchain',
           accountFingerprint,
           identifier: '0xlukso',
@@ -35,6 +37,7 @@ function createWorkflow(params?: {
           profileId: 1,
         })
       ),
+      findChildAccounts: vi.fn().mockResolvedValue(ok([])),
       getProfileAddresses: vi.fn().mockResolvedValue(ok([])),
     },
     accountingLedgerSink: {
@@ -53,6 +56,7 @@ function createWorkflow(params?: {
       countPending: vi.fn().mockResolvedValue(ok(0)),
       countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
       fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+      fetchByTransactionHashesForAccounts: vi.fn().mockResolvedValue(ok([])),
       fetchPendingByTransactionHash: vi.fn().mockResolvedValue(ok([])),
       findAccountsWithPendingData,
       findAccountsWithRawData,
@@ -131,7 +135,7 @@ describe('ProcessingWorkflow', () => {
 
       const result = await workflow.processImportedSessions([14]);
 
-      expect(result.isOk()).toBe(true);
+      expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
       if (result.isOk()) {
         expect(result.value.errors).toHaveLength(1);
         expect(result.value.errors[0]).toContain('abcdef1234');
@@ -153,7 +157,7 @@ describe('ProcessingWorkflow', () => {
 
       const result = await workflow.processImportedSessions([14]);
 
-      expect(result.isOk()).toBe(true);
+      expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
       expect(mocks.materializeStoredOverrides).toHaveBeenCalledWith({ accountIds: [14] });
       expect(mocks.rebuildTransactionInterpretation).toHaveBeenCalledWith([14]);
       expect(mocks.markProcessedTransactionsFresh).toHaveBeenCalledWith([14]);
@@ -233,6 +237,7 @@ describe('ProcessingWorkflow', () => {
         accountLookup: {
           getAccountInfo: vi.fn().mockResolvedValue(
             ok({
+              id: 14,
               accountType: 'blockchain',
               accountFingerprint: 'acct-fingerprint',
               identifier: '0xabc',
@@ -240,6 +245,7 @@ describe('ProcessingWorkflow', () => {
               profileId: 1,
             })
           ),
+          findChildAccounts: vi.fn().mockResolvedValue(ok([])),
           getProfileAddresses: vi.fn().mockResolvedValue(ok(['0xabc'])),
         },
         accountingLedgerSink: {
@@ -249,6 +255,7 @@ describe('ProcessingWorkflow', () => {
           countPending: vi.fn().mockResolvedValue(ok(1)),
           countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
           fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+          fetchByTransactionHashesForAccounts: vi.fn().mockResolvedValue(ok([])),
           fetchPendingByTransactionHash: vi.fn().mockImplementation(async () => {
             if (batchFetched) {
               return ok([]);
@@ -306,7 +313,7 @@ describe('ProcessingWorkflow', () => {
 
       const result = await workflow.processAccountTransactions(14);
 
-      expect(result.isOk()).toBe(true);
+      expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
       expect(saveProcessedBatch).toHaveBeenCalledWith(
         [{ rawTransactionIds: [rawTransaction.id], transaction: legacyTransaction }],
         14
@@ -326,6 +333,193 @@ describe('ProcessingWorkflow', () => {
       expect(saveOrder).toBeLessThan(ledgerOrder);
       expect(ledgerOrder).toBeLessThan(markOrder);
     });
+
+    it('persists UTXO ledger-v2 source activities on the parent wallet without marking sibling raw rows processed', async () => {
+      const childRawTransaction = createRawTransaction({
+        id: 201,
+        accountId: 2,
+        blockchainTransactionHash: 'bitcoin-hash',
+        eventId: 'raw-child-201',
+        normalizedData: { id: 'bitcoin-hash', view: 'child' },
+      });
+      const siblingRawTransaction = createRawTransaction({
+        id: 202,
+        accountId: 3,
+        blockchainTransactionHash: 'bitcoin-hash',
+        eventId: 'raw-sibling-202',
+        normalizedData: { id: 'bitcoin-hash', view: 'sibling' },
+      });
+      const legacyTransaction: TransactionDraft = {
+        ...createLegacyTransactionDraft(),
+        platformKey: 'bitcoin',
+        blockchain: {
+          is_confirmed: true,
+          name: 'bitcoin',
+          transaction_hash: 'bitcoin-hash',
+        },
+      };
+      const sourceActivity = createSourceActivityDraft({
+        ownerAccountId: 1,
+        blockchainName: 'bitcoin',
+        blockchainTransactionHash: 'bitcoin-hash',
+        platformKey: 'bitcoin',
+      });
+      const ledgerJournal = createLedgerJournalDraft(sourceActivity.sourceActivityFingerprint);
+      const saveProcessedBatch = vi.fn().mockResolvedValue(ok({ duplicates: 0, saved: 1 }));
+      const replaceSourceActivities = vi.fn().mockResolvedValue(
+        ok({
+          diagnostics: 0,
+          journals: 1,
+          postings: 0,
+          rawAssignments: 2,
+          sourceActivities: 1,
+          sourceComponents: 0,
+        })
+      );
+      const markProcessed = vi.fn().mockResolvedValue(ok(undefined));
+      const legacyProcess = vi.fn().mockResolvedValue(ok([legacyTransaction]));
+      const ledgerProcess = vi.fn().mockResolvedValue(ok([{ journals: [ledgerJournal], sourceActivity }]));
+
+      let batchFetched = false;
+      const accounts = new Map<number, ProcessingAccountInfo>([
+        [
+          1,
+          {
+            id: 1,
+            accountType: 'blockchain',
+            accountFingerprint: 'parent-fingerprint',
+            identifier: 'xpub-parent',
+            platformKey: 'bitcoin',
+            profileId: 1,
+          },
+        ],
+        [
+          2,
+          {
+            id: 2,
+            accountType: 'blockchain',
+            accountFingerprint: 'child-fingerprint',
+            identifier: 'bc1qchild',
+            parentAccountId: 1,
+            platformKey: 'bitcoin',
+            profileId: 1,
+          },
+        ],
+        [
+          3,
+          {
+            id: 3,
+            accountType: 'blockchain',
+            accountFingerprint: 'sibling-fingerprint',
+            identifier: 'bc1qsibling',
+            parentAccountId: 1,
+            platformKey: 'bitcoin',
+            profileId: 1,
+          },
+        ],
+      ]);
+      const fetchByTransactionHashesForAccounts = vi
+        .fn()
+        .mockResolvedValue(ok([childRawTransaction, siblingRawTransaction]));
+
+      const ports: ProcessingPorts = {
+        accountLookup: {
+          getAccountInfo: vi.fn().mockImplementation(async (accountId: number) => ok(accounts.get(accountId)!)),
+          findChildAccounts: vi
+            .fn()
+            .mockImplementation(async (parentAccountId: number) =>
+              ok([...accounts.values()].filter((account) => account.parentAccountId === parentAccountId))
+            ),
+          getProfileAddresses: vi.fn().mockResolvedValue(ok(['xpub-parent', 'bc1qchild', 'bc1qsibling'])),
+        },
+        accountingLedgerSink: {
+          replaceSourceActivities,
+        },
+        batchSource: {
+          countPending: vi.fn().mockResolvedValue(ok(1)),
+          countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
+          fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+          fetchByTransactionHashesForAccounts,
+          fetchPendingByTransactionHash: vi.fn().mockImplementation(async () => {
+            if (batchFetched) {
+              return ok([]);
+            }
+            batchFetched = true;
+            return ok([childRawTransaction]);
+          }),
+          findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
+          findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),
+          markProcessed,
+        },
+        importSessionLookup: {
+          findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+        },
+        markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
+        nearBatchSource: {} as never,
+        rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+        rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
+        transactionOverrides: {
+          materializeStoredOverrides: vi.fn().mockResolvedValue(ok(0)),
+        },
+        transactionSink: {
+          saveProcessedBatch,
+        },
+        withTransaction: async (fn) => fn(ports),
+      };
+
+      const workflow = new ProcessingWorkflow(
+        ports,
+        {
+          getProviders: vi.fn().mockReturnValue([]),
+          getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
+        } as never,
+        { emit: vi.fn() } as never,
+        {
+          getBlockchain: vi.fn().mockReturnValue(
+            ok({
+              blockchain: 'bitcoin',
+              chainModel: 'utxo',
+              createImporter: vi.fn(),
+              createProcessor: () => ({ process: legacyProcess }),
+              createLedgerProcessor: () => ({ process: ledgerProcess }),
+              deriveAddressesFromXpub: vi.fn(),
+              isExtendedPublicKey: (identifier: string) => identifier.startsWith('xpub'),
+              normalizeAddress: vi.fn(),
+            })
+          ),
+          getExchange: vi.fn(),
+          getAllBlockchains: vi.fn(),
+          getAllExchanges: vi.fn(),
+          hasBlockchain: vi.fn(),
+          hasExchange: vi.fn(),
+        } as never
+      );
+
+      const result = await workflow.processAccountTransactions(2);
+
+      expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
+      expect(ledgerProcess).toHaveBeenCalledWith(
+        [childRawTransaction.normalizedData, siblingRawTransaction.normalizedData],
+        expect.objectContaining({
+          account: {
+            fingerprint: 'parent-fingerprint',
+            id: 1,
+          },
+          walletAddresses: ['bc1qchild', 'bc1qsibling'],
+        })
+      );
+      expect(fetchByTransactionHashesForAccounts).toHaveBeenCalledWith([1, 2, 3], ['bitcoin-hash']);
+      expect(replaceSourceActivities).toHaveBeenCalledWith([
+        {
+          journals: [ledgerJournal],
+          rawTransactionIds: [childRawTransaction.id, siblingRawTransaction.id],
+          sourceActivity,
+        },
+      ]);
+      expect(markProcessed).toHaveBeenCalledWith([childRawTransaction.id]);
+    });
   });
 
   describe('prepareReprocess', () => {
@@ -342,7 +536,7 @@ describe('ProcessingWorkflow', () => {
   });
 });
 
-function createRawTransaction(): RawTransaction {
+function createRawTransaction(overrides: Partial<RawTransaction> = {}): RawTransaction {
   return {
     id: 101,
     accountId: 14,
@@ -356,6 +550,7 @@ function createRawTransaction(): RawTransaction {
     providerData: {},
     providerName: 'test',
     timestamp: 1_700_000_000_000,
+    ...overrides,
   };
 }
 
@@ -383,9 +578,9 @@ function createLegacyTransactionDraft(): TransactionDraft {
   };
 }
 
-function createSourceActivityDraft(): SourceActivityDraft {
+function createSourceActivityDraft(overrides: Partial<SourceActivityDraft> = {}): SourceActivityDraft {
   return {
-    accountId: 14,
+    ownerAccountId: 14,
     activityDatetime: '2023-11-14T22:13:20.000Z',
     activityStatus: 'success',
     activityTimestampMs: 1_700_000_000_000,
@@ -394,6 +589,7 @@ function createSourceActivityDraft(): SourceActivityDraft {
     platformKey: 'ethereum',
     platformKind: 'blockchain',
     sourceActivityFingerprint: 'source-activity-fingerprint',
+    ...overrides,
   };
 }
 

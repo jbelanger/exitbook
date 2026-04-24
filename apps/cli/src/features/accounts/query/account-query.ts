@@ -1,6 +1,6 @@
 import type { Account, BalanceSnapshot } from '@exitbook/core';
 import { err, ok, type Result, wrapError } from '@exitbook/foundation';
-import { resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
+import { resolveAccountScopeAccountId } from '@exitbook/ingestion/ports';
 import { getLogger } from '@exitbook/logger';
 
 import type { AccountQueryPorts } from './account-query-ports.js';
@@ -355,7 +355,7 @@ export class AccountQuery {
     const scopeAccountIds = new Map<number, number>();
 
     for (const account of accounts) {
-      const scopeAccountIdResult = await resolveBalanceScopeAccountId(
+      const scopeAccountIdResult = await resolveAccountScopeAccountId(
         account,
         {
           findById: (accountId: number) => this.ports.findAccountById(accountId),

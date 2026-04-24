@@ -99,8 +99,8 @@ or correlated source event group.
 
 It carries:
 
-- account id
-- source activity fingerprint derived from the same account fingerprint
+- owner account id
+- source activity fingerprint derived from the same owner account fingerprint
 - platform key and platform kind
 - transaction/source fingerprint
 - timestamp and datetime
@@ -108,11 +108,12 @@ It carries:
 - source address fields when present
 - raw transaction lineage
 
-The processor-facing source activity context must pass account identity as one
-grouped value, not as loose `accountId` and `accountFingerprint` parameters.
+The processor-facing source activity context must pass owner account identity as
+one grouped value, not as loose `accountId` and `accountFingerprint`
+parameters.
 The persistence layer must source both values from the same account record when
-materializing journals. A source activity fingerprint for one account must
-never be stored on another account id.
+materializing journals. A source activity fingerprint for one owner account
+must never be stored on another owner account id.
 
 It must not carry:
 
@@ -790,8 +791,7 @@ Completed in this phase:
 - `AccountingLedgerRepository.replaceForSourceActivity()` validates raw
   bindings before writing:
   - every raw transaction id must exist
-  - each raw row must belong to the source activity account or a direct child
-    account
+  - each raw row must belong to the source activity owner account scope
   - no raw row may already be assigned to a different source activity
 - Journal diagnostics now persist in `accounting_journal_diagnostics` with
   stable per-journal ordering, severity, and optional JSON metadata. This keeps
@@ -806,14 +806,16 @@ Completed in this phase:
   Cardano, Bitcoin, EVM, and Theta register v2 ledger processors while keeping
   their legacy processors as the consumer-facing projection source.
 - `ProcessingWorkflow` runs the legacy processor and the ledger-v2 processor
-  over the same raw batch, then writes legacy transactions, ledger artifacts,
-  and raw processed status inside one database transaction. Ledger-v2 failures
-  fail the batch for v2-enabled chains instead of producing partial shadow
-  state.
+  in parallel, then writes legacy transactions, ledger artifacts, and raw
+  processed status inside one database transaction. For UTXO chains, the legacy
+  processor remains child-address scoped while the ledger-v2 shadow path reads
+  same-hash raw rows across the owner wallet scope and writes one parent-owned
+  source activity. Ledger-v2 failures fail the batch for v2-enabled chains
+  instead of producing partial shadow state.
 - Processed-data reset now deletes `source_activities` and cascaded ledger
-  rows alongside legacy `transactions`, then resets raw rows to pending for a
-  clean rebuild. Clear/account/profile removal previews report ledger source
-  activities as processed derived data.
+  rows by owner account scope alongside legacy `transactions`, then resets raw
+  rows to pending for a clean rebuild. Clear/account/profile removal previews
+  report ledger source activities as processed derived data.
 
 ### Phase 5: Accounting Overrides
 
@@ -1093,6 +1095,8 @@ Naming issues:
 
 - prefer `source_activity` over accounting-heavy `transaction` when referring
   to the non-accounting container
+- prefer `ownerAccountId` over `accountId` on source activities; raw rows keep
+  `accountId` because they are import-account scoped
 - prefer `journal` and `posting` over `entry` when persistence becomes the
   canonical accounting model
 - prefer `source_component_ref` over `provenanceInputs`

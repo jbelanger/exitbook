@@ -3,7 +3,7 @@ import type { Account } from '@exitbook/core';
 import { buildBalancesFreshnessPorts } from '@exitbook/data/balances';
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
-import { loadBalanceScopeMemberAccounts, resolveBalanceScopeAccountId } from '@exitbook/ingestion/ports';
+import { loadAccountScopeMemberAccounts, resolveAccountScopeAccountId } from '@exitbook/ingestion/ports';
 
 import {
   type BalanceImportReadiness,
@@ -130,7 +130,7 @@ async function loadBalanceImportReadiness(
   database: DataSession,
   scopeAccount: Account
 ): Promise<Result<BalanceImportReadiness, Error>> {
-  const memberAccountsResult = await loadBalanceScopeMemberAccounts(scopeAccount, {
+  const memberAccountsResult = await loadAccountScopeMemberAccounts(scopeAccount, {
     findChildAccounts: async (parentAccountId: number) => {
       const childAccountsResult = await database.accounts.findAll({
         parentAccountId,
@@ -196,7 +196,7 @@ async function resolveOwnedScopeAccount(
   requestedAccount: Account,
   profileId: number
 ): Promise<Result<Account, Error>> {
-  const scopeAccountIdResult = await resolveBalanceScopeAccountId(requestedAccount, {
+  const scopeAccountIdResult = await resolveAccountScopeAccountId(requestedAccount, {
     findById: (accountId: number) => accountService.findById(accountId),
   });
   if (scopeAccountIdResult.isErr()) {

@@ -28,6 +28,16 @@ export interface IProcessingBatchSource {
    */
   fetchPendingByTransactionHash(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>>;
 
+  /**
+   * Fetch raw blockchain rows for known hashes across an account scope.
+   * Used by ledger-v2 shadow materialization to bind wallet-scope UTXO source
+   * activities without taking ownership of legacy child-account processing.
+   */
+  fetchByTransactionHashesForAccounts(
+    accountIds: readonly number[],
+    transactionHashes: readonly string[]
+  ): Promise<Result<RawTransaction[], Error>>;
+
   /** Mark raw data items as processed after successful transformation. */
   markProcessed(ids: number[]): Promise<Result<void, Error>>;
 }

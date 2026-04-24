@@ -53,7 +53,7 @@ function buildCardanoSourceActivityDraft(
   walletAddresses: ReadonlySet<string>
 ): SourceActivityDraft {
   return {
-    accountId: context.account.id,
+    ownerAccountId: context.account.id,
     sourceActivityFingerprint,
     platformKey: 'cardano',
     platformKind: 'blockchain',

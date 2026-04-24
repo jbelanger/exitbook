@@ -64,19 +64,19 @@ describe('buildProcessedTransactionsResetPorts', () => {
     return result.id;
   }
 
-  async function seedSourceActivity(accountId: number) {
+  async function seedSourceActivity(ownerAccountId: number) {
     await db
       .insertInto('source_activities')
       .values({
-        account_id: accountId,
+        owner_account_id: ownerAccountId,
         platform_key: 'bitcoin',
         platform_kind: 'blockchain',
-        source_activity_fingerprint: `source-${accountId}-${globalThis.crypto.randomUUID()}`,
+        source_activity_fingerprint: `source-${ownerAccountId}-${globalThis.crypto.randomUUID()}`,
         activity_status: 'success',
         activity_datetime: '2025-01-01T00:00:00.000Z',
         activity_timestamp_ms: Date.parse('2025-01-01T00:00:00.000Z'),
         blockchain_name: 'bitcoin',
-        blockchain_transaction_hash: `hash-${accountId}-${globalThis.crypto.randomUUID()}`,
+        blockchain_transaction_hash: `hash-${ownerAccountId}-${globalThis.crypto.randomUUID()}`,
         blockchain_is_confirmed: true,
         created_at: new Date().toISOString(),
       })
@@ -166,6 +166,25 @@ describe('buildProcessedTransactionsResetPorts', () => {
 
     const childBalanceState = assertOk(await ctx.projectionState.find('balances', 'balance:2'));
     expect(childBalanceState).toBeUndefined();
+  });
+
+  it('deletes parent-owned ledger source activities when resetting a child account scope', async () => {
+    await seedAccount(db, 2, 'blockchain', 'bitcoin', { parentAccountId: 1 });
+    await seedImportSession(db, 2, 2);
+    await seedRawTransaction(2, 'processed');
+    await seedTransaction(2);
+    await seedSourceActivity(1);
+
+    const reset = buildProcessedTransactionsResetPorts(ctx);
+    const impact = assertOk(await reset.reset([2]));
+
+    expect(impact.transactions).toBe(1);
+    expect(impact.ledgerSourceActivities).toBe(1);
+    expect(assertOk(await ctx.accountingLedger.countSourceActivities())).toBe(0);
+
+    const rawRows = await db.selectFrom('raw_transactions').selectAll().execute();
+    expect(rawRows).toHaveLength(1);
+    expect(rawRows[0]?.processing_status).toBe('pending');
   });
 
   it('keeps processed-transactions reset state scoped to the affected profile', async () => {

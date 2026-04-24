@@ -60,7 +60,7 @@ function resolveLegacySourceKey(transaction: Transaction): string {
 function resolveLedgerSourceKey(sourceActivity: SourceActivityDraft): string {
   const blockchainTransactionHash = sourceActivity.blockchainTransactionHash?.trim();
   if (sourceActivity.platformKind === 'blockchain' && blockchainTransactionHash) {
-    return `${sourceActivity.platformKey}:${sourceActivity.accountId}:${blockchainTransactionHash}`;
+    return `${sourceActivity.platformKey}:${sourceActivity.ownerAccountId}:${blockchainTransactionHash}`;
   }
 
   return sourceActivity.sourceActivityFingerprint;

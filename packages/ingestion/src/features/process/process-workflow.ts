@@ -9,10 +9,12 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
 import type { ProcessingAccountInfo } from '../../ports/account-lookup.js';
+import { loadAccountScopeContext, type IAccountScopeHierarchyLookup } from '../../ports/account-scope.js';
 import type { AccountingLedgerWrite } from '../../ports/accounting-ledger-sink.js';
 import type { ProcessedTransactionWrite } from '../../ports/processed-transaction-sink.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
+import { isUtxoAdapter, type UtxoBlockchainAdapter } from '../../shared/types/blockchain-adapter.js';
 import type {
   BatchProcessSummary,
   AddressContext,
@@ -39,6 +41,19 @@ export interface ReprocessPlan {
 const TRANSACTION_SAVE_BATCH_SIZE = 500;
 const RAW_DATA_MARK_BATCH_SIZE = 500;
 const RAW_DATA_HASH_BATCH_SIZE = 100; // For blockchain accounts, process in hash-grouped batches to ensure correlation integrity
+
+type LedgerAddressScope = Pick<
+  BlockchainLedgerProcessorContext,
+  'primaryAddress' | 'userAddresses' | 'walletAddresses'
+>;
+
+type LedgerRawBindingScope = { kind: 'currentBatch' } | { accountIds: readonly number[]; kind: 'walletAccountScope' };
+
+interface LedgerProcessingScope {
+  ledgerContext: BlockchainLedgerProcessorContext;
+  rawBindingScope: LedgerRawBindingScope;
+}
+
 function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'name'>): string {
   if (account.name !== undefined && account.name.trim() !== '') {
     return account.name;
@@ -48,23 +63,67 @@ function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'acco
 }
 
 function buildBlockchainLedgerProcessorContext(
-  account: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'identifier'>,
-  accountId: number,
-  addressContext: AddressContext
+  ownerAccount: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'id'>,
+  addressScope: LedgerAddressScope
 ): BlockchainLedgerProcessorContext {
-  const primaryAddress = addressContext.primaryAddress || account.identifier;
-  const userAddresses =
-    addressContext.userAddresses.length > 0 ? addressContext.userAddresses : primaryAddress ? [primaryAddress] : [];
-
   return {
     account: {
-      fingerprint: account.accountFingerprint,
-      id: accountId,
+      fingerprint: ownerAccount.accountFingerprint,
+      id: ownerAccount.id,
     },
+    primaryAddress: addressScope.primaryAddress,
+    userAddresses: addressScope.userAddresses,
+    walletAddresses: addressScope.walletAddresses,
+  };
+}
+
+function buildDefaultLedgerAddressScope(
+  account: Pick<ProcessingAccountInfo, 'identifier'>,
+  addressContext: AddressContext
+): LedgerAddressScope {
+  const primaryAddress = addressContext.primaryAddress || account.identifier;
+  const userAddresses =
+    addressContext.userAddresses.length > 0 ? addressContext.userAddresses : nonEmptyAddressList(primaryAddress);
+
+  return {
     primaryAddress,
     userAddresses,
     walletAddresses: userAddresses,
   };
+}
+
+function nonEmptyAddressList(address: string): string[] {
+  return address ? [address] : [];
+}
+
+function collectUtxoWalletAddresses(
+  accounts: readonly Pick<ProcessingAccountInfo, 'identifier'>[],
+  adapter: UtxoBlockchainAdapter
+): string[] {
+  const walletAddresses = accounts
+    .map((account) => account.identifier.trim())
+    .filter((identifier) => identifier.length > 0 && !adapter.isExtendedPublicKey(identifier));
+
+  return [...new Set(walletAddresses)];
+}
+
+function collectRequiredBlockchainTransactionHashes(rawDataItems: readonly RawTransaction[]): Result<string[], Error> {
+  const transactionHashes: string[] = [];
+
+  for (const rawDataItem of rawDataItems) {
+    const transactionHash = rawDataItem.blockchainTransactionHash?.trim();
+    if (!transactionHash) {
+      return err(
+        new Error(
+          `Raw transaction ${rawDataItem.id} is missing blockchain_transaction_hash for wallet-scope ledger binding`
+        )
+      );
+    }
+
+    transactionHashes.push(transactionHash);
+  }
+
+  return ok([...new Set(transactionHashes)]);
 }
 
 export class ProcessingWorkflow {
@@ -237,7 +296,17 @@ export class ProcessingWorkflow {
     // 1. Resolve all accounts with raw data
     let accountIds: number[];
     if (accountId) {
-      accountIds = [accountId];
+      const accountResult = await this.ports.accountLookup.getAccountInfo(accountId);
+      if (accountResult.isErr()) {
+        return err(new Error(`Failed to load account metadata for reprocess planning: ${accountResult.error.message}`));
+      }
+
+      const scopeContextResult = await loadAccountScopeContext(accountResult.value, this.createAccountScopeLookup());
+      if (scopeContextResult.isErr()) {
+        return err(scopeContextResult.error);
+      }
+
+      accountIds = scopeContextResult.value.memberAccounts.map((memberAccount) => memberAccount.id);
     } else {
       const accountIdsResult = await this.ports.batchSource.findAccountsWithRawData(profileId);
       if (accountIdsResult.isErr()) return err(accountIdsResult.error);
@@ -466,7 +535,14 @@ export class ProcessingWorkflow {
       return err(ledgerProcessorResult.error);
     }
     const ledgerProcessor = ledgerProcessorResult.value;
-    const ledgerContext = buildBlockchainLedgerProcessorContext(account, accountId, addressContext);
+    let ledgerProcessingScope: LedgerProcessingScope | undefined;
+    if (ledgerProcessor !== undefined) {
+      const ledgerProcessingScopeResult = await this.buildLedgerProcessingScope(account, addressContext);
+      if (ledgerProcessingScopeResult.isErr()) {
+        return err(ledgerProcessingScopeResult.error);
+      }
+      ledgerProcessingScope = ledgerProcessingScopeResult.value;
+    }
 
     // Process batches until no more pending data
     while (batchProvider.hasMore()) {
@@ -552,8 +628,8 @@ export class ProcessingWorkflow {
       const ledgerWritesResult = await this.buildAccountingLedgerShadowWrites({
         accountId,
         batchNumber,
-        ledgerContext,
         ledgerProcessor,
+        ledgerProcessingScope,
         platformKind: account.accountType,
         processorInputs,
         rawDataItems,
@@ -661,6 +737,81 @@ export class ProcessingWorkflow {
       }
     }
     return addressContext;
+  }
+
+  private async buildLedgerProcessingScope(
+    account: ProcessingAccountInfo,
+    addressContext: AddressContext
+  ): Promise<Result<LedgerProcessingScope, Error>> {
+    const defaultAddressScope = buildDefaultLedgerAddressScope(account, addressContext);
+
+    if (account.accountType !== 'blockchain') {
+      return ok({
+        ledgerContext: buildBlockchainLedgerProcessorContext(account, defaultAddressScope),
+        rawBindingScope: { kind: 'currentBatch' },
+      });
+    }
+
+    const adapterResult = this.registry.getBlockchain(account.platformKey.toLowerCase());
+    if (adapterResult.isErr()) {
+      return err(adapterResult.error);
+    }
+
+    const adapter = adapterResult.value;
+    if (!isUtxoAdapter(adapter)) {
+      return ok({
+        ledgerContext: buildBlockchainLedgerProcessorContext(account, defaultAddressScope),
+        rawBindingScope: { kind: 'currentBatch' },
+      });
+    }
+
+    const scopeContextResult = await loadAccountScopeContext(account, this.createAccountScopeLookup());
+    if (scopeContextResult.isErr()) {
+      return err(scopeContextResult.error);
+    }
+
+    const scopeContext = scopeContextResult.value;
+    const walletAddresses = collectUtxoWalletAddresses(scopeContext.memberAccounts, adapter);
+    const firstWalletAddress = walletAddresses[0];
+    if (firstWalletAddress === undefined) {
+      return err(
+        new Error(
+          `UTXO ledger shadow scope for account ${account.id} (${account.platformKey}) has no derived wallet addresses`
+        )
+      );
+    }
+
+    const requestedIdentifier = account.identifier.trim();
+    const ledgerPrimaryAddress =
+      requestedIdentifier.length > 0 && !adapter.isExtendedPublicKey(requestedIdentifier)
+        ? requestedIdentifier
+        : firstWalletAddress;
+
+    return ok({
+      ledgerContext: buildBlockchainLedgerProcessorContext(scopeContext.scopeAccount, {
+        primaryAddress: ledgerPrimaryAddress,
+        userAddresses: walletAddresses,
+        walletAddresses,
+      }),
+      rawBindingScope: {
+        accountIds: scopeContext.memberAccounts.map((memberAccount) => memberAccount.id),
+        kind: 'walletAccountScope',
+      },
+    });
+  }
+
+  private createAccountScopeLookup(): IAccountScopeHierarchyLookup<ProcessingAccountInfo> {
+    return {
+      findById: async (id) => {
+        const accountResult = await this.ports.accountLookup.getAccountInfo(id);
+        if (accountResult.isErr()) {
+          return err(accountResult.error);
+        }
+
+        return ok(accountResult.value);
+      },
+      findChildAccounts: (parentAccountId) => this.ports.accountLookup.findChildAccounts(parentAccountId),
+    };
   }
 
   private createProcessor(platformKey: string, platformKind: string): Result<ITransactionProcessor, Error> {
@@ -786,7 +937,7 @@ export class ProcessingWorkflow {
   private async buildAccountingLedgerShadowWrites(params: {
     accountId: number;
     batchNumber: number;
-    ledgerContext: BlockchainLedgerProcessorContext;
+    ledgerProcessingScope: LedgerProcessingScope | undefined;
     ledgerProcessor: IAccountingLedgerProcessor | undefined;
     platformKind: string;
     processorInputs: unknown[];
@@ -795,8 +946,39 @@ export class ProcessingWorkflow {
     if (!params.ledgerProcessor) {
       return ok([]);
     }
+    const ledgerProcessingScope = params.ledgerProcessingScope;
+    if (ledgerProcessingScope === undefined) {
+      return err(new Error(`Ledger v2 shadow scope missing for account ${params.accountId}`));
+    }
 
-    const ledgerDraftsResult = await params.ledgerProcessor.process(params.processorInputs, params.ledgerContext);
+    const ledgerRawDataResult = await this.loadRawDataForLedgerShadow({
+      accountId: params.accountId,
+      batchNumber: params.batchNumber,
+      ledgerProcessingScope,
+      rawDataItems: params.rawDataItems,
+    });
+    if (ledgerRawDataResult.isErr()) {
+      return err(ledgerRawDataResult.error);
+    }
+
+    const ledgerRawDataItems = ledgerRawDataResult.value;
+    const ledgerProcessorInputsResult =
+      ledgerRawDataItems === params.rawDataItems
+        ? ok(params.processorInputs)
+        : this.unpackForProcessor(ledgerRawDataItems, params.platformKind);
+    if (ledgerProcessorInputsResult.isErr()) {
+      return err(
+        new Error(
+          `Cannot proceed: Account ${params.accountId} ledger v2 raw scope normalization failed at batch ${params.batchNumber}. ` +
+            `${ledgerProcessorInputsResult.error.message}. This would leave ledger lineage incomplete.`
+        )
+      );
+    }
+
+    const ledgerDraftsResult = await params.ledgerProcessor.process(
+      ledgerProcessorInputsResult.value,
+      ledgerProcessingScope.ledgerContext
+    );
     if (ledgerDraftsResult.isErr()) {
       this.logger.error(
         `CRITICAL: Ledger v2 shadow processing failed for account ${params.accountId} batch ${params.batchNumber} - ${ledgerDraftsResult.error.message}`
@@ -812,7 +994,7 @@ export class ProcessingWorkflow {
     const ledgerWritesResult = buildAccountingLedgerWrites({
       ledgerDrafts: ledgerDraftsResult.value,
       platformKind: params.platformKind,
-      rawTransactions: params.rawDataItems,
+      rawTransactions: ledgerRawDataItems,
     });
     if (ledgerWritesResult.isErr()) {
       this.logger.error(
@@ -827,6 +1009,52 @@ export class ProcessingWorkflow {
     }
 
     return ok(ledgerWritesResult.value);
+  }
+
+  private async loadRawDataForLedgerShadow(params: {
+    accountId: number;
+    batchNumber: number;
+    ledgerProcessingScope: LedgerProcessingScope;
+    rawDataItems: RawTransaction[];
+  }): Promise<Result<RawTransaction[], Error>> {
+    const rawBindingScope = params.ledgerProcessingScope.rawBindingScope;
+
+    if (rawBindingScope.kind === 'currentBatch') {
+      return ok(params.rawDataItems);
+    }
+
+    const transactionHashesResult = collectRequiredBlockchainTransactionHashes(params.rawDataItems);
+    if (transactionHashesResult.isErr()) {
+      return err(
+        new Error(
+          `Cannot proceed: Account ${params.accountId} ledger v2 wallet-scope binding failed at batch ${params.batchNumber}. ` +
+            `${transactionHashesResult.error.message}`
+        )
+      );
+    }
+
+    const scopedRawDataResult = await this.ports.batchSource.fetchByTransactionHashesForAccounts(
+      rawBindingScope.accountIds,
+      transactionHashesResult.value
+    );
+    if (scopedRawDataResult.isErr()) {
+      return err(scopedRawDataResult.error);
+    }
+
+    const scopedRawData = scopedRawDataResult.value;
+    const scopedRawDataIds = new Set(scopedRawData.map((rawDataItem) => rawDataItem.id));
+    const missingCurrentBatchIds = params.rawDataItems
+      .map((rawDataItem) => rawDataItem.id)
+      .filter((rawDataId) => !scopedRawDataIds.has(rawDataId));
+    if (missingCurrentBatchIds.length > 0) {
+      return err(
+        new Error(
+          `Ledger v2 wallet-scope raw lookup did not return current batch raw ids: ${missingCurrentBatchIds.join(', ')}`
+        )
+      );
+    }
+
+    return ok(scopedRawData);
   }
 
   private async markRawDataAsProcessedWithPorts(

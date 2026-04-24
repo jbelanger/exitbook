@@ -1,6 +1,6 @@
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, type Result } from '@exitbook/foundation';
-import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
+import { loadAccountScopeMemberAccounts } from '@exitbook/ingestion/ports';
 
 import {
   buildAccountSelectorFilters,
@@ -33,7 +33,7 @@ export async function resolveTransactionsAccountFilter(
     return ok(undefined);
   }
 
-  const memberAccountsResult = await loadBalanceScopeMemberAccounts(selector.account, {
+  const memberAccountsResult = await loadAccountScopeMemberAccounts(selector.account, {
     findChildAccounts: async (parentAccountId: number) => {
       const childAccountsResult = await database.accounts.findAll({
         parentAccountId,

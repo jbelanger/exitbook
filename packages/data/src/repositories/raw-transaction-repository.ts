@@ -27,6 +27,8 @@ interface RawTransactionCountParams {
   processingStatus?: ProcessingStatus | undefined;
 }
 
+const RAW_HASH_SCOPE_QUERY_BATCH_SIZE = Math.floor(SQLITE_SAFE_IN_BATCH_SIZE / 2);
+
 function isEventIdConstraintViolation(errorMessage: string): boolean {
   return (
     errorMessage.includes('idx_raw_tx_account_event_id') ||
@@ -78,6 +80,49 @@ function toRawTransactions(rows: Selectable<RawTransactionTable>[]): Result<RawT
   }
 
   return ok(transactions);
+}
+
+function normalizeRawTransactionAccountIds(accountIds: readonly number[]): Result<number[], Error> {
+  for (const accountId of accountIds) {
+    if (!Number.isInteger(accountId) || accountId <= 0) {
+      return err(new Error(`Account id must be a positive integer, received ${accountId}`));
+    }
+  }
+
+  return ok([...new Set(accountIds)].sort((left, right) => left - right));
+}
+
+function normalizeBlockchainTransactionHashes(transactionHashes: readonly string[]): Result<string[], Error> {
+  const normalizedHashes: string[] = [];
+
+  for (const transactionHash of transactionHashes) {
+    const normalizedHash = transactionHash.trim();
+    if (normalizedHash === '') {
+      return err(new Error('Blockchain transaction hash must be non-empty'));
+    }
+
+    normalizedHashes.push(normalizedHash);
+  }
+
+  return ok([...new Set(normalizedHashes)].sort((left, right) => left.localeCompare(right)));
+}
+
+function compareRawTransactionRows(
+  left: Selectable<RawTransactionTable>,
+  right: Selectable<RawTransactionTable>
+): number {
+  const hashComparison = (left.blockchain_transaction_hash ?? '').localeCompare(
+    right.blockchain_transaction_hash ?? ''
+  );
+  if (hashComparison !== 0) {
+    return hashComparison;
+  }
+
+  if (left.account_id !== right.account_id) {
+    return left.account_id - right.account_id;
+  }
+
+  return left.id - right.id;
 }
 
 export class RawTransactionRepository extends BaseRepository {
@@ -379,6 +424,60 @@ export class RawTransactionRepository extends BaseRepository {
       return ok(transactionsResult.value);
     } catch (error) {
       return wrapError(error, 'Failed to load pending data by hash batch');
+    }
+  }
+
+  async findByAccountIdsAndHashes(
+    accountIds: readonly number[],
+    transactionHashes: readonly string[]
+  ): Promise<Result<RawTransaction[], Error>> {
+    try {
+      const accountIdsResult = normalizeRawTransactionAccountIds(accountIds);
+      if (accountIdsResult.isErr()) {
+        return err(accountIdsResult.error);
+      }
+
+      const transactionHashesResult = normalizeBlockchainTransactionHashes(transactionHashes);
+      if (transactionHashesResult.isErr()) {
+        return err(transactionHashesResult.error);
+      }
+
+      const normalizedAccountIds = accountIdsResult.value;
+      const normalizedHashes = transactionHashesResult.value;
+      if (normalizedAccountIds.length === 0 || normalizedHashes.length === 0) {
+        return ok([]);
+      }
+
+      const rows: Selectable<RawTransactionTable>[] = [];
+      const accountIdBatches = chunkItems(normalizedAccountIds, RAW_HASH_SCOPE_QUERY_BATCH_SIZE);
+      const hashBatches = chunkItems(normalizedHashes, RAW_HASH_SCOPE_QUERY_BATCH_SIZE);
+
+      for (const accountIdBatch of accountIdBatches) {
+        for (const hashBatch of hashBatches) {
+          const batchRows = await this.db
+            .selectFrom('raw_transactions')
+            .selectAll()
+            .where('account_id', 'in', accountIdBatch)
+            .where('blockchain_transaction_hash', 'in', hashBatch)
+            .orderBy('blockchain_transaction_hash', 'asc')
+            .orderBy('account_id', 'asc')
+            .orderBy('id', 'asc')
+            .execute();
+
+          rows.push(...batchRows);
+        }
+      }
+
+      rows.sort(compareRawTransactionRows);
+
+      const transactionsResult = toRawTransactions(rows);
+      if (transactionsResult.isErr()) {
+        return err(transactionsResult.error);
+      }
+
+      return ok(transactionsResult.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to load raw data by account scope and transaction hashes');
     }
   }
 

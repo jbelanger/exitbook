@@ -173,7 +173,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('source_activities')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-    .addColumn('account_id', 'integer', (col) => col.notNull().references('accounts.id'))
+    .addColumn('owner_account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('platform_kind', 'text', (col) => col.notNull())
     .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
@@ -203,9 +203,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('idx_source_activities_account_id')
+    .createIndex('idx_source_activities_owner_account_id')
     .on('source_activities')
-    .column('account_id')
+    .column('owner_account_id')
     .execute();
 
   await db.schema
@@ -216,8 +216,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await sql`
-    CREATE UNIQUE INDEX idx_source_activities_account_blockchain_hash
-    ON source_activities(account_id, blockchain_transaction_hash)
+    CREATE UNIQUE INDEX idx_source_activities_owner_account_blockchain_hash
+    ON source_activities(owner_account_id, blockchain_transaction_hash)
     WHERE blockchain_transaction_hash IS NOT NULL
   `.execute(db);
 

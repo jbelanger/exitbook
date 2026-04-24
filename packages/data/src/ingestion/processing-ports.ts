@@ -92,6 +92,9 @@ export function buildProcessingPorts(
 
       fetchPendingByTransactionHash: (accountId, hashLimit) => db.rawTransactions.findByHashes(accountId, hashLimit),
 
+      fetchByTransactionHashesForAccounts: (accountIds, transactionHashes) =>
+        db.rawTransactions.findByAccountIdsAndHashes(accountIds, transactionHashes),
+
       markProcessed: (ids) => db.rawTransactions.markProcessed(ids),
     },
 
@@ -144,6 +147,8 @@ export function buildProcessingPorts(
 
     accountLookup: {
       getAccountInfo: (accountId) => db.accounts.getById(accountId),
+
+      findChildAccounts: (parentAccountId) => db.accounts.findAll({ parentAccountId }),
 
       getProfileAddresses: (profileId, blockchain) =>
         resultDoAsync(async function* () {

@@ -42,7 +42,7 @@ describe('ledger schema draft', () => {
       .insertInto('source_activities')
       .values({
         id: 1,
-        account_id: 1,
+        owner_account_id: 1,
         platform_key: 'cardano',
         platform_kind: 'blockchain',
         source_activity_fingerprint: 'source_activity:v1:1',
@@ -249,7 +249,7 @@ describe('ledger schema draft', () => {
       .insertInto('source_activities')
       .values({
         id: 1,
-        account_id: 1,
+        owner_account_id: 1,
         platform_key: 'cardano',
         platform_kind: 'blockchain',
         source_activity_fingerprint: 'source_activity:v1:fee-test',

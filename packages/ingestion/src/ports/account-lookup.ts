@@ -5,10 +5,12 @@ import type { Result } from '@exitbook/foundation';
  * Avoids exposing full Account domain object to the processing pipeline.
  */
 export interface ProcessingAccountInfo {
+  id: number;
   accountType: string;
   accountFingerprint: string;
   identifier: string;
   name?: string | undefined;
+  parentAccountId?: number | undefined;
   platformKey: string;
   profileId: number;
 }
@@ -19,6 +21,9 @@ export interface ProcessingAccountInfo {
 export interface IAccountLookup {
   /** Load account metadata needed for processing decisions. */
   getAccountInfo(accountId: number): Promise<Result<ProcessingAccountInfo, Error>>;
+
+  /** Load direct child accounts for a hierarchy owner. */
+  findChildAccounts(parentAccountId: number): Promise<Result<ProcessingAccountInfo[], Error>>;
 
   /**
    * Load all addresses the profile owns on a given blockchain.

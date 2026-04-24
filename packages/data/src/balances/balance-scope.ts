@@ -1,8 +1,8 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 import {
-  resolveBalanceScopeAccountId as resolvePortBalanceScopeAccountId,
-  type BalanceScopeAccount,
-  type IBalanceScopeAccountLookup,
+  resolveAccountScopeAccountId as resolvePortAccountScopeAccountId,
+  type AccountScopeAccount,
+  type IAccountScopeAccountLookup,
 } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
@@ -17,7 +17,7 @@ export async function resolveBalanceScopeAccountId(db: DataSession, accountId: n
     return err(requestedAccountResult.error);
   }
 
-  return resolvePortBalanceScopeAccountId(requestedAccountResult.value, createBalanceScopeLookup(db));
+  return resolvePortAccountScopeAccountId(requestedAccountResult.value, createBalanceScopeLookup(db));
 }
 
 export async function resolveBalanceScopeAccountIds(
@@ -38,7 +38,7 @@ export async function resolveBalanceScopeAccountIds(
       return err(requestedAccountResult.error);
     }
 
-    const scopeAccountIdResult = await resolvePortBalanceScopeAccountId(requestedAccountResult.value, lookup, {
+    const scopeAccountIdResult = await resolvePortAccountScopeAccountId(requestedAccountResult.value, lookup, {
       cache: scopeCache,
     });
     if (scopeAccountIdResult.isErr()) {
@@ -51,7 +51,7 @@ export async function resolveBalanceScopeAccountIds(
   return ok([...scopeIds]);
 }
 
-function createBalanceScopeLookup(db: DataSession): IBalanceScopeAccountLookup<BalanceScopeAccount> {
+function createBalanceScopeLookup(db: DataSession): IAccountScopeAccountLookup<AccountScopeAccount> {
   return {
     findById(id) {
       return db.accounts.findById(id);
@@ -59,7 +59,7 @@ function createBalanceScopeLookup(db: DataSession): IBalanceScopeAccountLookup<B
   };
 }
 
-async function loadRequestedAccount(db: DataSession, accountId: number): Promise<Result<BalanceScopeAccount, Error>> {
+async function loadRequestedAccount(db: DataSession, accountId: number): Promise<Result<AccountScopeAccount, Error>> {
   const accountResult = await db.accounts.getById(accountId);
   if (accountResult.isErr()) {
     return err(accountResult.error);

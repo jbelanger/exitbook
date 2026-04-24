@@ -559,7 +559,7 @@ function buildBitcoinSourceActivityDraft(params: {
   walletNativeTotals: WalletNativeTotals;
 }): SourceActivityDraft {
   return {
-    accountId: params.context.account.id,
+    ownerAccountId: params.context.account.id,
     sourceActivityFingerprint: params.sourceActivityFingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',

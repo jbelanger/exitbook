@@ -2,7 +2,7 @@ import { PlatformKindSchema, TransactionStatusSchema } from '@exitbook/core';
 import { z } from 'zod';
 
 export const SourceActivityDraftSchema = z.object({
-  accountId: z.number().int().positive('Account id must be a positive integer'),
+  ownerAccountId: z.number().int().positive('Owner account id must be a positive integer'),
   sourceActivityFingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
   platformKey: z.string().min(1, 'Platform key must not be empty'),
   platformKind: PlatformKindSchema,

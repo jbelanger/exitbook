@@ -110,7 +110,7 @@ describe('AccountingLedgerRepository', () => {
       metadata_json: '{"detectionSource":"method_id","methodId":"0x095ea7b3"}',
     });
 
-    const postings = assertOk(await repository.findPostingsByAccountId(ACCOUNT_ID));
+    const postings = assertOk(await repository.findPostingsByOwnerAccountId(ACCOUNT_ID));
     expect(postings).toHaveLength(2);
     expect(postings.map((posting) => posting.postingStableKey)).toEqual(['posting:fee', 'posting:principal:out']);
     expect(postings[0]?.quantity.toFixed()).toBe('-0.2');
@@ -151,7 +151,7 @@ describe('AccountingLedgerRepository', () => {
         'raw_transaction_source_activity_assignments.raw_transaction_id'
       )
       .select([
-        'source_activities.account_id as source_activity_account_id',
+        'source_activities.owner_account_id as source_activity_owner_account_id',
         'raw_transactions.account_id as raw_account_id',
         'raw_transactions.blockchain_transaction_hash as raw_hash',
         'raw_transaction_source_activity_assignments.raw_transaction_id as raw_transaction_id',
@@ -161,18 +161,36 @@ describe('AccountingLedgerRepository', () => {
 
     expect(assignments).toEqual([
       {
-        source_activity_account_id: ACCOUNT_ID,
+        source_activity_owner_account_id: ACCOUNT_ID,
         raw_account_id: 2,
         raw_hash: 'txhash-wallet-scope',
         raw_transaction_id: 21,
       },
       {
-        source_activity_account_id: ACCOUNT_ID,
+        source_activity_owner_account_id: ACCOUNT_ID,
         raw_account_id: 3,
         raw_hash: 'txhash-wallet-scope',
         raw_transaction_id: 22,
       },
     ]);
+  });
+
+  it('allows source activity raw assignments from descendant account scopes', async () => {
+    await seedAccount(db, 2, 'blockchain', 'cardano', { parentAccountId: ACCOUNT_ID });
+    await seedAccount(db, 4, 'blockchain', 'cardano', { parentAccountId: 2 });
+    await seedRawTransaction(41, { accountId: 4, blockchainTransactionHash: 'txhash-descendant-scope' });
+
+    const summary = assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity({
+          blockchainTransactionHash: 'txhash-descendant-scope',
+        }),
+        journals: [makeJournal()],
+        rawTransactionIds: [41],
+      })
+    );
+
+    expect(summary.rawAssignmentCount).toBe(1);
   });
 
   it('rejects raw assignments outside the source activity account scope', async () => {
@@ -266,7 +284,7 @@ describe('AccountingLedgerRepository', () => {
 
     const firstSourceActivity = makeSourceActivity();
     const secondSourceActivity = makeSourceActivity({
-      accountId: 2,
+      ownerAccountId: 2,
       sourceActivityFingerprint: 'source_activity:v1:test-activity-2',
       blockchainTransactionHash: 'txhash-ledger-2',
     });
@@ -308,24 +326,24 @@ describe('AccountingLedgerRepository', () => {
       })
     );
 
-    const postings = assertOk(await repository.findPostingsByAccountIds([2, 1, 1]));
+    const postings = assertOk(await repository.findPostingsByOwnerAccountIds([2, 1, 1]));
 
     expect(
       postings.map((posting) => ({
-        accountId: posting.accountId,
+        ownerAccountId: posting.ownerAccountId,
         postingStableKey: posting.postingStableKey,
         quantity: posting.quantity.toFixed(),
       }))
     ).toEqual([
-      { accountId: 1, postingStableKey: 'posting:account-1', quantity: '-3' },
-      { accountId: 2, postingStableKey: 'posting:account-2', quantity: '5' },
+      { ownerAccountId: 1, postingStableKey: 'posting:account-1', quantity: '-3' },
+      { ownerAccountId: 2, postingStableKey: 'posting:account-2', quantity: '5' },
     ]);
   });
 
   it('rejects invalid account ids when reading ledger postings', async () => {
-    const result = await repository.findPostingsByAccountIds([0]);
+    const result = await repository.findPostingsByOwnerAccountIds([0]);
 
-    expect(assertErr(result).message).toContain('Account id must be a positive integer');
+    expect(assertErr(result).message).toContain('Owner account id must be a positive integer');
   });
 
   it('replaces an existing source activity ledger atomically', async () => {
@@ -396,7 +414,7 @@ describe('AccountingLedgerRepository', () => {
     expect(activity.from_address).toBe('addr_test1updated');
     expect(activity.updated_at).not.toBeNull();
 
-    const postings = assertOk(await repository.findPostingsByAccountId(ACCOUNT_ID));
+    const postings = assertOk(await repository.findPostingsByOwnerAccountId(ACCOUNT_ID));
     expect(postings.map((posting) => posting.postingStableKey)).toEqual(['posting:replacement-fee']);
   });
 
@@ -566,7 +584,7 @@ describe('AccountingLedgerRepository', () => {
 
   function makeSourceActivity(overrides: Partial<SourceActivityDraft> = {}): SourceActivityDraft {
     return {
-      accountId: ACCOUNT_ID,
+      ownerAccountId: ACCOUNT_ID,
       sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
       platformKey: 'cardano',
       platformKind: 'blockchain',

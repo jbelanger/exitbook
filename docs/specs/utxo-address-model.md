@@ -13,8 +13,8 @@ How Exitbook ingests, stores, and processes UTXO blockchains (Bitcoin family, Ca
 
 | Concept             | Key Rule                                                                                                                                                   |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Storage granularity | One raw + processed record per `(account_id, tx_hash)`; no cross-account dedup for UTXO chains                                                             |
-| Adapter flag        | `blockchainAdapter.isUTXOChain = true` enables per-address handling (Bitcoin\*, Cardano)                                                                   |
+| Storage granularity | Legacy raw + processed rows stay per `(account_id, tx_hash)`; ledger-v2 source activities are owned by the root wallet account                             |
+| Adapter model       | `chainModel: 'utxo'` enables per-address handling (Bitcoin\*, Cardano)                                                                                     |
 | Fund-flow scope     | Processed rows remain per-address; Bitcoin stays `primaryAddress`-only, while Cardano may use sibling ownership summary without aggregating processed rows |
 | Operation type      | All UTXO movements are recorded as `category: 'transfer', type: 'transfer'`                                                                                |
 | Fees                | Network fees use `settlement='on-chain'`; outflow `grossAmount` already includes the fee, so balance calc skips subtracting it again                       |
@@ -34,15 +34,15 @@ How Exitbook ingests, stores, and processes UTXO blockchains (Bitcoin family, Ca
 
 ## Definitions
 
-### UTXO Chain Adapter Flag
+### UTXO Chain Adapter Model
 
 ```ts
 interface BlockchainAdapter {
-  isUTXOChain?: boolean; // true => per-address model
+  chainModel: 'account-based' | 'utxo';
 }
 ```
 
-Set to `true` for Bitcoin-like chains (`packages/ingestion/.../bitcoin/adapter.ts`) and Cardano (`.../cardano/adapter.ts`).
+Set `chainModel` to `'utxo'` for Bitcoin-like chains (`packages/ingestion/.../bitcoin/adapter.ts`) and Cardano (`.../cardano/adapter.ts`).
 
 ### Processing Context (subset)
 
@@ -59,10 +59,18 @@ interface ProcessingContext {
 
 - **Per-address raw rows:** For UTXO chains, imports keep one `raw_transactions` row per account/address even when the same `blockchain_transaction_hash` touches multiple derived addresses. No cross-account deduplication (see xpub import integration test expectation). Unique constraint remains `(account_id, blockchain_transaction_hash)`.
 - **Xpub children:** Each derived address becomes its own account; shared tx hashes are stored separately under each child.
+- **Ledger-v2 ownership:** The persisted accounting ledger writes one
+  `source_activities` row per wallet-owned blockchain transaction hash. Its
+  `owner_account_id` is the root wallet/xpub account; raw assignments may point
+  at any descendant child-address raw rows for that same hash.
 
 ### Fund-Flow Analysis & Classification
 
 - **Scope root:** Processed UTXO rows remain per-address. No UTXO processor may collapse multiple owned addresses into one wallet-scope processed transaction.
+- **Ledger scope:** Ledger-v2 processors use the root wallet account as the
+  accounting owner and receive the derived child addresses as `walletAddresses`.
+  This wallet scope applies only to the ledger shadow/cutover path, not to
+  legacy processed rows.
 - **Bitcoin scope:** Bitcoin-family fund-flow functions examine only `context.primaryAddress`.
 - **Cardano scope:** Cardano still persists one processed row per derived payment address, but may consult deterministic sibling ownership summary across `context.userAddresses` for two purposes only:
   - proportionally allocating the shared on-chain ADA fee across sibling owned inputs
@@ -132,15 +140,20 @@ Stores one row per address/tx. No uniqueness across accounts, allowing multiple 
 
 ## Pipeline / Flow
 
-1. **Import:** Adapter marked `isUTXOChain` streams transactions per address; importer writes a row per `(account, tx_hash)` without deduping siblings.
+1. **Import:** UTXO adapters stream transactions per address; importer writes a row per `(account, tx_hash)` without deduping siblings.
 2. **Process:** Processor produces per-address processed rows; Cardano may use sibling ownership summary for deterministic fee allocation and wallet-scoped withdrawal diagnostics without changing the per-address storage granularity.
-3. **Balance:** `buildTransactionBalanceImpact()` / `calculateBalances()` subtract and add movement gross; on-chain fees are already embedded and are not subtracted a second time.
-4. **Linking:** `transaction-linking-service` auto-links same `blockchain_transaction_hash` across accounts as internal transfers.
+3. **Ledger shadow:** For v2-enabled UTXO chains, processing uses the current
+   child-account batch for legacy output, then loads same-hash raw rows across
+   the root wallet scope to replace one parent-owned source activity.
+4. **Balance:** `buildTransactionBalanceImpact()` / `calculateBalances()` subtract and add movement gross; on-chain fees are already embedded and are not subtracted a second time.
+5. **Linking:** `transaction-linking-service` auto-links same `blockchain_transaction_hash` across accounts as internal transfers.
 
 ## Invariants
 
 - Each UTXO transaction appears at most once per account (DB unique constraint) and may appear in multiple accounts when multiple derived addresses are involved.
 - UTXO processors must not collapse sibling addresses into one wallet-scope processed transaction.
+- Ledger-v2 UTXO source activities must use the root wallet account as
+  `owner_account_id`; child address rows remain raw/import provenance.
 - Bitcoin-family processors must remain `primaryAddress`-only.
 - Cardano may use sibling ownership summary only for deterministic per-address refinements that preserve one processed row per address/tx.
 - UTXO movements must set `operation.type = 'transfer'`.

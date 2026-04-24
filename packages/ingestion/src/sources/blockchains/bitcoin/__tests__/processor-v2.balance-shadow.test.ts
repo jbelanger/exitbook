@@ -109,7 +109,7 @@ function toJournalBalanceV2PostingInputs(
   const journalFingerprint = assertOk(computeAccountingJournalFingerprint(journal));
 
   return journal.postings.map((posting) => ({
-    accountId: draft.sourceActivity.accountId,
+    accountId: draft.sourceActivity.ownerAccountId,
     assetId: posting.assetId,
     assetSymbol: posting.assetSymbol,
     quantity: posting.quantity,

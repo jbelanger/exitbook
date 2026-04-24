@@ -2,7 +2,7 @@ import type { Account, BalanceSnapshotAsset, Transaction } from '@exitbook/core'
 import type { DataSession } from '@exitbook/data/session';
 import { err, ok, parseDecimal, wrapError, type Result } from '@exitbook/foundation';
 import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
-import { loadBalanceScopeMemberAccounts } from '@exitbook/ingestion/ports';
+import { loadAccountScopeMemberAccounts } from '@exitbook/ingestion/ports';
 
 import {
   buildStoredBalanceAssetDiagnostics,
@@ -102,7 +102,7 @@ export class AccountBalanceDetailBuilder {
   }
 
   private async loadAccountTransactions(account: Account): Promise<Result<Transaction[], Error>> {
-    const memberAccountsResult = await loadBalanceScopeMemberAccounts(account, {
+    const memberAccountsResult = await loadAccountScopeMemberAccounts(account, {
       findChildAccounts: async (parentAccountId: number) => {
         const childAccountsResult = await this.db.accounts.findAll({
           parentAccountId,

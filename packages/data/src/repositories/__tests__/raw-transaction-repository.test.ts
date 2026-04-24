@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- null needed for db */
-import { assertOk } from '@exitbook/foundation/test-utils';
+import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../../database.js';
@@ -340,6 +340,33 @@ describe('RawTransactionRepository', () => {
 
       expect(txs.every((t) => t.blockchainTransactionHash !== 'hash-4')).toBe(true);
       expect(txs.every((t) => t.processingStatus === 'pending')).toBe(true);
+    });
+
+    it('loads known hashes across an account scope regardless of processing status', async () => {
+      const txs = assertOk(await repo.findByAccountIdsAndHashes([1, 2], ['hash-4', 'hash-other']));
+
+      expect(
+        txs.map((tx) => ({
+          accountId: tx.accountId,
+          hash: tx.blockchainTransactionHash,
+          status: tx.processingStatus,
+        }))
+      ).toEqual([
+        { accountId: 2, hash: 'hash-4', status: 'processed' },
+        { accountId: 1, hash: 'hash-other', status: 'pending' },
+      ]);
+    });
+
+    it('rejects invalid account scope ids for known-hash loading', async () => {
+      const error = assertErr(await repo.findByAccountIdsAndHashes([0], ['hash-1']));
+
+      expect(error.message).toContain('Account id must be a positive integer');
+    });
+
+    it('rejects blank transaction hashes for known-hash loading', async () => {
+      const error = assertErr(await repo.findByAccountIdsAndHashes([1], [' ']));
+
+      expect(error.message).toContain('Blockchain transaction hash must be non-empty');
     });
 
     it('returns an empty array when all records are processed', async () => {

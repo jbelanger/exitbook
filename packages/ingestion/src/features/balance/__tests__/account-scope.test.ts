@@ -3,13 +3,13 @@ import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  loadBalanceScopeContext,
-  resolveBalanceScopeAccountId,
-  type BalanceScopeAccount,
-  type IBalanceScopeHierarchyLookup,
-} from '../../../ports/balance-scope.js';
+  loadAccountScopeContext,
+  resolveAccountScopeAccountId,
+  type AccountScopeAccount,
+  type IAccountScopeHierarchyLookup,
+} from '../../../ports/account-scope.js';
 
-interface TestAccount extends BalanceScopeAccount {
+interface TestAccount extends AccountScopeAccount {
   label: string;
 }
 
@@ -21,7 +21,7 @@ function createAccount(id: number, parentAccountId?: number): TestAccount {
   };
 }
 
-function createLookup(accounts: TestAccount[]): IBalanceScopeHierarchyLookup<TestAccount> & {
+function createLookup(accounts: TestAccount[]): IAccountScopeHierarchyLookup<TestAccount> & {
   findById: ReturnType<typeof vi.fn<(id: number) => Promise<ReturnType<typeof ok<TestAccount | undefined>>>>>;
 } {
   const accountsById = new Map(accounts.map((account) => [account.id, account]));
@@ -34,15 +34,15 @@ function createLookup(accounts: TestAccount[]): IBalanceScopeHierarchyLookup<Tes
   };
 }
 
-describe('balance-scope helpers', () => {
+describe('account-scope helpers', () => {
   it('resolves a nested child to the owning root scope and loads all scope members', async () => {
     const root = createAccount(1);
     const child = createAccount(2, root.id);
     const grandchild = createAccount(3, child.id);
     const lookup = createLookup([root, child, grandchild]);
 
-    const scopeAccountId = assertOk(await resolveBalanceScopeAccountId(grandchild, lookup));
-    const scopeContext = assertOk(await loadBalanceScopeContext(grandchild, lookup));
+    const scopeAccountId = assertOk(await resolveAccountScopeAccountId(grandchild, lookup));
+    const scopeContext = assertOk(await loadAccountScopeContext(grandchild, lookup));
 
     expect(scopeAccountId).toBe(root.id);
     expect(scopeContext.scopeAccount.id).toBe(root.id);
@@ -54,15 +54,15 @@ describe('balance-scope helpers', () => {
     const child = createAccount(2, 1);
     const lookup = createLookup([root, child]);
 
-    const error = assertErr(await resolveBalanceScopeAccountId(child, lookup));
+    const error = assertErr(await resolveAccountScopeAccountId(child, lookup));
 
-    expect(error.message).toContain('Circular account hierarchy detected while resolving balance scope');
+    expect(error.message).toContain('Circular account hierarchy detected while resolving account scope');
   });
 
   it('fails when descendant loading contains a cycle', async () => {
     const root = createAccount(1);
     const child = createAccount(2, root.id);
-    const lookup: IBalanceScopeHierarchyLookup<TestAccount> = {
+    const lookup: IAccountScopeHierarchyLookup<TestAccount> = {
       findById: vi.fn(async (id: number) => ok(id === root.id ? root : child)),
       findChildAccounts: vi.fn(async (parentAccountId: number) => {
         if (parentAccountId === root.id) {
@@ -75,7 +75,7 @@ describe('balance-scope helpers', () => {
       }),
     };
 
-    const error = assertErr(await loadBalanceScopeContext(root, lookup));
+    const error = assertErr(await loadAccountScopeContext(root, lookup));
 
     expect(error.message).toContain('Circular account hierarchy detected while loading descendants');
   });
