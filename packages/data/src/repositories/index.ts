@@ -1,4 +1,5 @@
 export { AccountRepository } from './account-repository.js';
+export { AccountingLedgerRepository } from './accounting-ledger-repository.js';
 export { AssetReviewRepository } from './asset-review-repository.js';
 export { BalanceSnapshotRepository } from './balance-snapshot-repository.js';
 export { CostBasisFailureSnapshotRepository } from './cost-basis-failure-snapshot-repository.js';

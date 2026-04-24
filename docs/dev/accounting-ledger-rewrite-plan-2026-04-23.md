@@ -548,22 +548,29 @@ Acceptance criteria:
 
 ### Phase 4: Persistence Design And Schema Rewrite
 
-Status: draft schema started; repositories and materialization pending.
+Status: draft schema started; atomic ledger materialization repository started.
 
 Files to update:
 
 - `packages/data/src/database-schema.ts`
 - `packages/data/src/migrations/001_initial_schema.ts`
+- `packages/data/src/data-session.ts`
+- `packages/data/src/repositories/index.ts`
 - `packages/data/src/repositories/transaction-repository.ts`
 - `packages/data/src/repositories/transaction-persistence-support.ts`
 - `packages/data/src/repositories/transaction-materialization-support.ts`
 
 New repository files:
 
-- `packages/data/src/repositories/source-activity-repository.ts`
-- `packages/data/src/repositories/accounting-journal-repository.ts`
-- `packages/data/src/repositories/accounting-posting-repository.ts`
-- `packages/data/src/repositories/accounting-relationship-repository.ts`
+- `packages/data/src/repositories/accounting-ledger-repository.ts`
+
+Do not split source activity, journal, posting, component-ref, and relationship
+materialization across separate write repositories yet. The safe write unit is a
+complete source activity ledger replacement: validate the source activity and
+all journals, upsert the source activity, delete existing derived ledger rows
+for that source activity, then insert journals, postings, posting source
+components, relationships, and raw bindings in one DB transaction. Split read
+ports later only when consumers need narrower query shapes.
 
 Schema direction:
 
@@ -585,9 +592,10 @@ Schema direction:
 
 Acceptance criteria:
 
-- initial migration creates only the new model
+- draft migration creates the new model alongside legacy tables until cutover
 - database schema types match the new tables
-- repository tests cover round-trip persistence and deterministic ordering
+- repository tests cover round-trip persistence, deterministic replacement,
+  relationship endpoints, and rejected-draft rollback
 - no consumer reads the new tables until Phase 6 materialization is ready
 
 ### Phase 5: Accounting Overrides
