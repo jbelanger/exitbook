@@ -30,6 +30,7 @@ import {
   parseLedgerDecimalAmount,
   validateLedgerProcessorAccountContext,
 } from '../shared/ledger-assembler-utils.js';
+import { buildUtxoSourceComponentId } from '../shared/ledger-utxo-utils.js';
 
 export interface BitcoinProcessorV2AccountContext {
   fingerprint: string;
@@ -234,7 +235,12 @@ function buildUtxoInputComponentId(transactionId: string, input: BitcoinTransact
     return err(new Error(`Bitcoin v2 wallet input ${input.txid} in transaction ${transactionId} is missing vout`));
   }
 
-  return ok(`utxo:${input.txid}:${vout}`);
+  return ok(
+    buildUtxoSourceComponentId({
+      outputIndex: vout,
+      transactionHash: input.txid,
+    })
+  );
 }
 
 function buildUtxoOutputComponentId(transactionId: string, output: BitcoinTransactionOutput): Result<string, Error> {
@@ -242,7 +248,12 @@ function buildUtxoOutputComponentId(transactionId: string, output: BitcoinTransa
     return err(new Error(`Bitcoin v2 wallet output in transaction ${transactionId} is missing output index`));
   }
 
-  return ok(`utxo:${transactionId}:${output.index}`);
+  return ok(
+    buildUtxoSourceComponentId({
+      outputIndex: output.index,
+      transactionHash: transactionId,
+    })
+  );
 }
 
 function buildPrincipalInputComponentRefs(params: {
