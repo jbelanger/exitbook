@@ -50,6 +50,7 @@ describe('withAccountsRemoveCommandScope', () => {
     };
     const runtime = {
       database: vi.fn().mockResolvedValue(database),
+      openDatabaseSession: vi.fn().mockResolvedValue(database),
     };
 
     mockResolveCommandProfile.mockResolvedValue(ok(profile));
@@ -72,6 +73,7 @@ describe('withAccountsRemoveCommandScope', () => {
   it('wraps profile-resolution failures', async () => {
     const runtime = {
       database: vi.fn().mockResolvedValue({ tag: 'db' }),
+      openDatabaseSession: vi.fn().mockResolvedValue({ tag: 'db' }),
     };
 
     mockResolveCommandProfile.mockResolvedValue(err(new Error('profile lookup failed')));

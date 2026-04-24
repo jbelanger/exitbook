@@ -1424,7 +1424,7 @@ describe('TransactionRepository', () => {
         .where('movement_fingerprint', '=', movementFingerprint!)
         .executeTakeFirstOrThrow();
       expect(row).toMatchObject({
-        movement_role: null,
+        movement_role: 'principal',
         movement_role_override: null,
       });
     });

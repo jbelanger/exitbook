@@ -31,6 +31,8 @@ const {
   mockCreate: vi.fn(),
   mockCtx: {
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
+    closeDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockGetByFingerprintRef: vi.fn(),
@@ -111,6 +113,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockCtx.database.mockResolvedValue({ tag: 'db' });
+  mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+  mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
   mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
     const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
     await fn?.(mockCtx);

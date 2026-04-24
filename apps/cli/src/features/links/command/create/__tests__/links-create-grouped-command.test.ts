@@ -87,6 +87,8 @@ describe('links create-grouped command', () => {
         runtime: {
           dataDir: '/tmp/exitbook-links',
           database: async () => ({ tag: 'db' }),
+          openDatabaseSession: async () => ({ tag: 'db' }),
+          closeDatabaseSession: async () => undefined,
         },
         prepared: preparedResult.value,
       });

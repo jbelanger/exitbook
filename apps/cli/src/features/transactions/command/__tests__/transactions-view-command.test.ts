@@ -363,7 +363,7 @@ describe('transactions view command', () => {
     await expect(
       program.parseAsync(['transactions', 'view', 'abc123', '--platform', 'kraken'], { from: 'user' })
     ).rejects.toThrow(
-      'CLI:transactions-view:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, or --no-price:2'
+      'CLI:transactions-view:text:Transaction selector cannot be combined with --account, --platform, --asset, --asset-id, --address, --from, --to, --since, --until, --operation-type, --annotation-kind, --annotation-tier, or --no-price:2'
     );
 
     expect(mockFindByFingerprintRef).not.toHaveBeenCalled();

@@ -30,6 +30,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-assets',
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
+    closeDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
@@ -108,6 +110,8 @@ describe('assets command modules', () => {
     vi.clearAllMocks();
     setTerminalInteractivity(false);
     mockCtx.database.mockResolvedValue({ tag: 'db' });
+    mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+    mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });
@@ -162,8 +166,14 @@ describe('assets command modules', () => {
         changed: true,
         reviewStatus: 'confirmed-safe',
         accountingBlocked: true,
+        action: 'confirm',
+        confirmationIsStale: false,
+        evidenceFingerprint: 'evidence-asset-2',
+        referenceStatus: 'known',
+        reviewSummarySource: 'refreshed',
         reason: 'ambiguous symbol',
         evidence: [{ kind: 'same-symbol-ambiguity' }],
+        warnings: [],
       })
     );
 

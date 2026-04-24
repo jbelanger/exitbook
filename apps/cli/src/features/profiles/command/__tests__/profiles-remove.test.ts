@@ -23,6 +23,8 @@ const {
     activeProfileSource: 'state' as 'default' | 'env' | 'state',
     dataDir: '/tmp/exitbook',
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
+    closeDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
@@ -79,6 +81,8 @@ beforeEach(() => {
   mockCtx.activeProfileSource = 'state';
   mockCtx.dataDir = '/tmp/exitbook';
   mockCtx.database.mockResolvedValue({ tag: 'db' });
+  mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+  mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);
   });

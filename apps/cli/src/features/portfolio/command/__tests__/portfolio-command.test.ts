@@ -74,7 +74,9 @@ import { registerPortfolioCommand } from '../portfolio.js';
 
 interface MockCtx {
   closeDatabase: ReturnType<typeof vi.fn>;
+  closeDatabaseSession: ReturnType<typeof vi.fn>;
   database: ReturnType<typeof vi.fn>;
+  openDatabaseSession: ReturnType<typeof vi.fn>;
 }
 
 function createProgram(): Command {
@@ -88,7 +90,9 @@ function createProgram(): Command {
 describe('portfolio command', () => {
   const ctx: MockCtx = {
     closeDatabase: vi.fn(),
+    closeDatabaseSession: vi.fn(),
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
   };
   const scope = {
     handler: {},
@@ -126,6 +130,10 @@ describe('portfolio command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    ctx.database.mockResolvedValue({ tag: 'db' });
+    ctx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+    ctx.closeDatabase.mockResolvedValue(undefined);
+    ctx.closeDatabaseSession.mockResolvedValue(undefined);
     mockRunCommand.mockImplementation(async (appOrFn: unknown, maybeFn?: (runtime: MockCtx) => Promise<void>) => {
       const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
       await fn?.(ctx);
@@ -191,7 +199,7 @@ describe('portfolio command', () => {
 
     expect(mockCreateSpinner).toHaveBeenCalledWith('Calculating portfolio...', false);
     expect(mockStopSpinner).toHaveBeenCalled();
-    expect(ctx.closeDatabase).toHaveBeenCalledOnce();
+    expect(ctx.closeDatabaseSession).toHaveBeenCalledOnce();
     expect(renderedElement?.type).toBe('PortfolioApp');
   });
 

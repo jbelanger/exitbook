@@ -17,6 +17,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-links',
     database: vi.fn().mockResolvedValue({ tag: 'db' }),
+    openDatabaseSession: vi.fn().mockResolvedValue({ tag: 'db' }),
+    closeDatabaseSession: vi.fn().mockResolvedValue(undefined),
     tag: 'command-runtime',
   },
   mockCreate: vi.fn(),
@@ -81,6 +83,9 @@ describe('links create command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCtx.database.mockResolvedValue({ tag: 'db' });
+    mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+    mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
     mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
       await fn(mockCtx);
     });

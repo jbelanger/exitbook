@@ -143,7 +143,7 @@ describe('LinkingOrchestrator', () => {
     expect(assertErr(result).message).toContain('load failed');
   });
 
-  it('loads asserted bridge annotations for the fetched transaction set', async () => {
+  it('loads link-relevant annotations for the fetched transaction set', async () => {
     const transactions = [
       createTransaction({
         id: 1,
@@ -167,8 +167,8 @@ describe('LinkingOrchestrator', () => {
 
     expect(assertOk(result).totalSourceCandidates).toBeGreaterThanOrEqual(0);
     expect(loadTransactionAnnotations).toHaveBeenCalledWith({
-      kinds: ['bridge_participant'],
-      tiers: ['asserted'],
+      kinds: ['asset_migration_participant', 'bridge_participant'],
+      tiers: ['asserted', 'heuristic'],
       transactionIds: [1],
     });
   });

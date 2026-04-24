@@ -93,7 +93,7 @@ describe('prices-enrich-runtime', () => {
   it('registers an abort handler for text-mode runtimes and always cleans up the price runtime', async () => {
     const priceRuntime = createPriceRuntime();
     const scope = {
-      openPriceProviderRuntime: vi.fn().mockResolvedValue(priceRuntime),
+      createManagedPriceProviderRuntime: vi.fn().mockResolvedValue(priceRuntime),
     };
 
     let abortRuntime: (() => void) | undefined;
@@ -118,7 +118,7 @@ describe('prices-enrich-runtime', () => {
 
     expect(assertOk(result)).toBe('done');
     expect(mockBuildPricingPorts).toHaveBeenCalledWith({ tag: 'db' }, 7);
-    expect(scope.openPriceProviderRuntime).toHaveBeenCalledWith(
+    expect(scope.createManagedPriceProviderRuntime).toHaveBeenCalledWith(
       expect.objectContaining({
         eventBus: expect.anything(),
         instrumentation: expect.anything(),
@@ -133,7 +133,7 @@ describe('prices-enrich-runtime', () => {
 
   it('fails setup cleanly when text-mode runtime creation throws after the controller exists', async () => {
     const scope = {
-      openPriceProviderRuntime: vi.fn().mockRejectedValue(new Error('price runtime init failed')),
+      createManagedPriceProviderRuntime: vi.fn().mockRejectedValue(new Error('price runtime init failed')),
     };
 
     const result = await withCliPriceEnrichmentRuntime(
@@ -154,7 +154,7 @@ describe('prices-enrich-runtime', () => {
   it('logs cleanup failures without overriding the operation result', async () => {
     const priceRuntime = createPriceRuntime(err(new Error('cleanup failed')));
     const scope = {
-      openPriceProviderRuntime: vi.fn().mockResolvedValue(priceRuntime),
+      createManagedPriceProviderRuntime: vi.fn().mockResolvedValue(priceRuntime),
     };
 
     const result = await withCliPriceEnrichmentRuntime(

@@ -16,6 +16,8 @@ const {
   mockCtx: {
     dataDir: '/tmp/exitbook-test',
     database: vi.fn(),
+    openDatabaseSession: vi.fn(),
+    closeDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockOutputSuccess: vi.fn(),
@@ -70,6 +72,9 @@ function createProgram(): Command {
 beforeEach(() => {
   vi.clearAllMocks();
 
+  mockCtx.database.mockResolvedValue({ tag: 'db' });
+  mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+  mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
   mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
     await fn(mockCtx);
   });

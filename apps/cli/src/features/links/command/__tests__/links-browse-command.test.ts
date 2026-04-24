@@ -113,8 +113,10 @@ describe('links-browse-command interactive review', () => {
   it('routes explorer confirm/reject actions through the shared review flow and profile issue refresh seam', async () => {
     const runtime = {
       closeDatabase: vi.fn().mockResolvedValue(undefined),
+      closeDatabaseSession: vi.fn().mockResolvedValue(undefined),
       dataDir: '/tmp/exitbook-links',
       database: vi.fn().mockResolvedValue({ tag: 'db' }),
+      openDatabaseSession: vi.fn().mockResolvedValue({ tag: 'db' }),
     };
 
     const result = await executePreparedLinksBrowseCommand(runtime as never, {
