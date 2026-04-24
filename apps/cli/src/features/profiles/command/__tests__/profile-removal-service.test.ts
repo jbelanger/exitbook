@@ -7,7 +7,7 @@ import { ProfileRemovalService } from '../profile-removal-service.js';
 vi.mock('../../../../runtime/projection-reset.js', () => ({
   countProjectionResetImpact: vi.fn().mockResolvedValue(
     ok({
-      processedTransactions: { transactions: 0 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
       links: { links: 0 },
       assetReview: { assets: 0 },
       balances: { scopes: 0, assetRows: 0 },
@@ -15,7 +15,7 @@ vi.mock('../../../../runtime/projection-reset.js', () => ({
   ),
   resetProjections: vi.fn().mockResolvedValue(
     ok({
-      processedTransactions: { transactions: 0 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
       links: { links: 0 },
       assetReview: { assets: 0 },
       balances: { scopes: 0, assetRows: 0 },

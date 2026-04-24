@@ -38,7 +38,7 @@ describe('AccountRemovalService', () => {
         assetReview: { assets: 2 },
         balances: { assetRows: 5, scopes: 3 },
         links: { links: 7 },
-        processedTransactions: { transactions: 11 },
+        processedTransactions: { ledgerSourceActivities: 3, transactions: 11 },
       })
     );
     mockBuildCostBasisResetPorts.mockReturnValue({
@@ -73,7 +73,7 @@ describe('AccountRemovalService', () => {
           balances: { assetRows: 5, scopes: 3 },
           costBasisSnapshots: { snapshots: 13 },
           links: { links: 7 },
-          processedTransactions: { transactions: 11 },
+          processedTransactions: { ledgerSourceActivities: 3, transactions: 11 },
           purge: {
             accounts: 17,
             rawData: 19,
@@ -83,6 +83,7 @@ describe('AccountRemovalService', () => {
       })
     ).toEqual({
       transactions: 11,
+      ledgerSourceActivities: 3,
       links: 7,
       assetReviewStates: 2,
       balanceSnapshots: 3,
@@ -145,6 +146,7 @@ describe('AccountRemovalService', () => {
     expect(assertOk(result)).toEqual({
       deleted: {
         transactions: 11,
+        ledgerSourceActivities: 3,
         links: 7,
         assetReviewStates: 2,
         balanceSnapshots: 3,

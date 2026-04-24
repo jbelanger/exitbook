@@ -27,6 +27,7 @@ interface AccountRemovePreview {
 
 export interface AccountRemovalImpactCounts {
   transactions: number;
+  ledgerSourceActivities: number;
   links: number;
   assetReviewStates: number;
   balanceSnapshots: number;
@@ -44,6 +45,7 @@ interface AccountRemoveResult {
 export function flattenAccountRemovePreview(preview: AccountRemovePreview): AccountRemovalImpactCounts {
   return {
     transactions: preview.deleted.processedTransactions.transactions,
+    ledgerSourceActivities: preview.deleted.processedTransactions.ledgerSourceActivities,
     links: preview.deleted.links.links,
     assetReviewStates: preview.deleted.assetReview.assets,
     balanceSnapshots: preview.deleted.balances.scopes,

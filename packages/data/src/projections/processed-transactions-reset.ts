@@ -11,6 +11,7 @@ import { markDownstreamProjectionsStale } from './projection-invalidation.js';
  *
  * Owns:
  * - transactions (processing output)
+ * - source activities and ledger journals/postings (shadow processing output)
  * - raw processing status reset back to pending
  */
 export function buildProcessedTransactionsResetPorts(db: DataSession): IProcessedTransactionsReset {
@@ -20,8 +21,9 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
         const transactions = yield* await (accountIds
           ? db.transactions.count({ accountIds, includeExcluded: true })
           : db.transactions.count({ includeExcluded: true }));
+        const ledgerSourceActivities = yield* await db.accountingLedger.countSourceActivities(accountIds);
 
-        return { transactions };
+        return { ledgerSourceActivities, transactions };
       });
     },
 
@@ -31,6 +33,9 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
           const transactions = yield* await (accountIds
             ? tx.transactions.deleteByAccountIds(accountIds)
             : tx.transactions.deleteAll());
+          const ledgerSourceActivities = yield* await (accountIds
+            ? tx.accountingLedger.deleteSourceActivitiesByAccountIds(accountIds)
+            : tx.accountingLedger.deleteAllSourceActivities());
 
           // Reset raw data to pending so reprocessing picks them up
           if (accountIds) {
@@ -57,7 +62,7 @@ export function buildProcessedTransactionsResetPorts(db: DataSession): IProcesse
             reason: 'upstream-reset:processed-transactions',
           });
 
-          return { transactions };
+          return { ledgerSourceActivities, transactions };
         })
       );
     },

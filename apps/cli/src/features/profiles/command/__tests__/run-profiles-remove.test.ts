@@ -9,7 +9,7 @@ vi.mock('../profile-removal-service.js', () => ({
       balances: { assetRows: number; scopes: number };
       costBasisSnapshots: { snapshots: number };
       links: { links: number };
-      processedTransactions: { transactions: number };
+      processedTransactions: { ledgerSourceActivities: number; transactions: number };
       profiles: number;
       purge: { accounts: number; rawData: number; sessions: number };
     };
@@ -19,6 +19,7 @@ vi.mock('../profile-removal-service.js', () => ({
     rawData: preview.deleted.purge.rawData,
     sessions: preview.deleted.purge.sessions,
     transactions: preview.deleted.processedTransactions.transactions,
+    ledgerSourceActivities: preview.deleted.processedTransactions.ledgerSourceActivities,
     links: preview.deleted.links.links,
     assetReviewStates: preview.deleted.assetReview.assets,
     balanceSnapshots: preview.deleted.balances.scopes,
@@ -32,7 +33,7 @@ vi.mock('../profile-removal-service.js', () => ({
         deleted: {
           profiles: 1,
           purge: { accounts: accountIds.length, rawData: 0, sessions: 0 },
-          processedTransactions: { transactions: 0 },
+          processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
           links: { links: 0 },
           assetReview: { assets: 0 },
           balances: { scopes: 0, assetRows: 0 },

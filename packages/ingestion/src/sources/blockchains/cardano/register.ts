@@ -10,6 +10,7 @@ import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/bl
 
 import { normalizeCardanoAddress } from './address-utils.js';
 import { CardanoImporter } from './importer.js';
+import { CardanoProcessorV2 } from './processor-v2.js';
 import { CardanoProcessor } from './processor.js';
 
 export const cardanoAdapters: BlockchainAdapter[] = [
@@ -56,5 +57,17 @@ export const cardanoAdapters: BlockchainAdapter[] = [
       new CardanoImporter(providerRuntime, { preferredProvider: providerName }),
 
     createProcessor: ({ scamDetector }) => new CardanoProcessor(scamDetector),
+
+    createLedgerProcessor: () => {
+      const processor = new CardanoProcessorV2();
+      return {
+        process: (normalizedData, context) =>
+          processor.process(normalizedData, {
+            account: context.account,
+            ...(context.stakeAddresses === undefined ? {} : { stakeAddresses: context.stakeAddresses }),
+            walletAddresses: context.walletAddresses,
+          }),
+      };
+    },
   },
 ];

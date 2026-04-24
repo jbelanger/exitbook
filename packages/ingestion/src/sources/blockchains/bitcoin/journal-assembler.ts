@@ -30,7 +30,7 @@ import {
   parseLedgerDecimalAmount,
   validateLedgerProcessorAccountContext,
 } from '../shared/ledger-assembler-utils.js';
-import { buildUtxoSourceComponentId } from '../shared/ledger-utxo-utils.js';
+import { buildUtxoComponentId } from '../shared/ledger-utxo-utils.js';
 
 export interface BitcoinProcessorV2AccountContext {
   fingerprint: string;
@@ -236,7 +236,7 @@ function buildUtxoInputComponentId(transactionId: string, input: BitcoinTransact
   }
 
   return ok(
-    buildUtxoSourceComponentId({
+    buildUtxoComponentId({
       outputIndex: vout,
       transactionHash: input.txid,
     })
@@ -249,7 +249,7 @@ function buildUtxoOutputComponentId(transactionId: string, output: BitcoinTransa
   }
 
   return ok(
-    buildUtxoSourceComponentId({
+    buildUtxoComponentId({
       outputIndex: output.index,
       transactionHash: transactionId,
     })

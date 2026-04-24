@@ -276,6 +276,46 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   `.execute(db);
 
   await db.schema
+    .createTable('accounting_journal_diagnostics')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('journal_id', 'integer', (col) => col.notNull().references('accounting_journals.id').onDelete('cascade'))
+    .addColumn('diagnostic_order', 'integer', (col) => col.notNull())
+    .addColumn('diagnostic_code', 'text', (col) => col.notNull())
+    .addColumn('diagnostic_message', 'text', (col) => col.notNull())
+    .addColumn('severity', 'text')
+    .addColumn('metadata_json', 'text')
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addCheckConstraint('accounting_journal_diagnostics_order_valid', sql`diagnostic_order > 0`)
+    .addCheckConstraint('accounting_journal_diagnostics_code_not_empty', sql`trim(diagnostic_code) <> ''`)
+    .addCheckConstraint('accounting_journal_diagnostics_message_not_empty', sql`trim(diagnostic_message) <> ''`)
+    .addCheckConstraint(
+      'accounting_journal_diagnostics_severity_valid',
+      sql`severity IS NULL OR severity IN ('info', 'warning', 'error')`
+    )
+    .addCheckConstraint(
+      'accounting_journal_diagnostics_metadata_json_valid',
+      sql`metadata_json IS NULL OR json_valid(metadata_json)`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_diagnostics_journal_id')
+    .on('accounting_journal_diagnostics')
+    .column('journal_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_diagnostics_code')
+    .on('accounting_journal_diagnostics')
+    .column('diagnostic_code')
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_accounting_journal_diagnostics_journal_order
+    ON accounting_journal_diagnostics(journal_id, diagnostic_order)
+  `.execute(db);
+
+  await db.schema
     .createTable('accounting_postings')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('journal_id', 'integer', (col) => col.notNull().references('accounting_journals.id').onDelete('cascade'))
@@ -1316,6 +1356,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('accounting_journal_relationships').ifExists().execute();
   await db.schema.dropTable('accounting_posting_source_components').ifExists().execute();
   await db.schema.dropTable('accounting_postings').ifExists().execute();
+  await db.schema.dropTable('accounting_journal_diagnostics').ifExists().execute();
   await db.schema.dropTable('accounting_journals').ifExists().execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();

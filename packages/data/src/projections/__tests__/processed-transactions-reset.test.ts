@@ -64,28 +64,53 @@ describe('buildProcessedTransactionsResetPorts', () => {
     return result.id;
   }
 
+  async function seedSourceActivity(accountId: number) {
+    await db
+      .insertInto('source_activities')
+      .values({
+        account_id: accountId,
+        platform_key: 'bitcoin',
+        platform_kind: 'blockchain',
+        source_activity_fingerprint: `source-${accountId}-${globalThis.crypto.randomUUID()}`,
+        activity_status: 'success',
+        activity_datetime: '2025-01-01T00:00:00.000Z',
+        activity_timestamp_ms: Date.parse('2025-01-01T00:00:00.000Z'),
+        blockchain_name: 'bitcoin',
+        blockchain_transaction_hash: `hash-${accountId}-${globalThis.crypto.randomUUID()}`,
+        blockchain_is_confirmed: true,
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+  }
+
   it('counts impact correctly', async () => {
     await seedTransaction(1);
     await seedTransaction(1);
+    await seedSourceActivity(1);
 
     const reset = buildProcessedTransactionsResetPorts(ctx);
     const impact = assertOk(await reset.countResetImpact());
     expect(impact.transactions).toBe(2);
+    expect(impact.ledgerSourceActivities).toBe(1);
   });
 
   it('resets all data and marks raw as pending', async () => {
     await seedRawTransaction(1, 'processed');
     await seedTransaction(1);
     await seedTransaction(1);
+    await seedSourceActivity(1);
 
     const reset = buildProcessedTransactionsResetPorts(ctx);
     const impact = assertOk(await reset.reset());
 
     expect(impact.transactions).toBe(2);
+    expect(impact.ledgerSourceActivities).toBe(1);
 
     // Verify transactions are deleted
     const txCount = assertOk(await ctx.transactions.count({ includeExcluded: true }));
     expect(txCount).toBe(0);
+    const sourceActivityCount = assertOk(await ctx.accountingLedger.countSourceActivities());
+    expect(sourceActivityCount).toBe(0);
 
     // Verify raw data is reset to pending
     const rawRows = await db.selectFrom('raw_transactions').selectAll().execute();
@@ -120,15 +145,20 @@ describe('buildProcessedTransactionsResetPorts', () => {
     await seedRawTransaction(2, 'processed');
     await seedTransaction(1);
     await seedTransaction(2);
+    await seedSourceActivity(1);
+    await seedSourceActivity(2);
 
     const reset = buildProcessedTransactionsResetPorts(ctx);
     const impact = assertOk(await reset.reset([1]));
 
     expect(impact.transactions).toBe(1);
+    expect(impact.ledgerSourceActivities).toBe(1);
 
     // Account 2 transactions should still exist
     const txCount = assertOk(await ctx.transactions.count({ includeExcluded: true }));
     expect(txCount).toBe(1);
+    const sourceActivityCount = assertOk(await ctx.accountingLedger.countSourceActivities());
+    expect(sourceActivityCount).toBe(1);
 
     const parentBalanceState = assertOk(await ctx.projectionState.find('balances', 'balance:1'));
     expect(parentBalanceState?.status).toBe('stale');

@@ -1533,7 +1533,7 @@ describe('EvmProcessor - Classification Uncertainty', () => {
     expect(transaction.movements.inflows).toHaveLength(1);
   });
 
-  test('adds note for contract interaction with zero value', async () => {
+  test('adds token approval diagnostics for approval contract calls', async () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
@@ -1562,9 +1562,9 @@ describe('EvmProcessor - Classification Uncertainty', () => {
     if (!transaction) return;
 
     expect(transaction.diagnostics).toBeDefined();
-    expect(transaction.diagnostics?.[0]?.code).toBe('contract_interaction');
-    expect(transaction.diagnostics?.[0]?.message).toContain('Contract interaction');
-    expect(transaction.diagnostics?.[0]?.message).toContain('zero value');
+    expect(transaction.diagnostics?.[0]?.code).toBe('token_approval');
+    expect(transaction.diagnostics?.[0]?.message).toContain('Token approval');
+    expect(transaction.diagnostics?.[1]?.code).toBe('contract_interaction');
 
     // Still classified as transfer
     expect(transaction.operation.category).toBe('transfer');

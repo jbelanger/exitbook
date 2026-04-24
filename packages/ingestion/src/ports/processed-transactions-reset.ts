@@ -1,6 +1,7 @@
 import type { Result } from '@exitbook/foundation';
 
 export interface ProcessedTransactionsResetImpact {
+  ledgerSourceActivities: number;
   transactions: number;
 }
 
@@ -9,6 +10,7 @@ export interface ProcessedTransactionsResetImpact {
  *
  * Owns:
  * - transactions (processing output)
+ * - source activities and ledger journals/postings (shadow processing output)
  * - raw processing status reset back to pending
  */
 export interface IProcessedTransactionsReset {

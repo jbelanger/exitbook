@@ -1,5 +1,6 @@
 import type { TransactionDraft } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { AccountingJournalDraft, SourceActivityDraft } from '@exitbook/ledger';
 
 export interface BatchProcessSummary {
   errors: string[];
@@ -33,4 +34,33 @@ export interface ITransactionProcessor {
    * Process normalized data with explicit typed context into TransactionDraft objects.
    */
   process(normalizedData: unknown[], context: AddressContext): Promise<Result<TransactionDraft[], Error>>;
+}
+
+export interface BlockchainLedgerProcessorAccountContext {
+  fingerprint: string;
+  id: number;
+}
+
+export interface BlockchainLedgerProcessorContext {
+  account: BlockchainLedgerProcessorAccountContext;
+  primaryAddress: string;
+  stakeAddresses?: readonly string[] | undefined;
+  userAddresses: readonly string[];
+  walletAddresses: readonly string[];
+}
+
+export interface AccountingLedgerDraft {
+  journals: readonly AccountingJournalDraft[];
+  sourceActivity: SourceActivityDraft;
+}
+
+/**
+ * Shadow processor contract for the accounting-ledger model. Consumers keep
+ * reading the legacy projection until their v2 ports are ready.
+ */
+export interface IAccountingLedgerProcessor {
+  process(
+    normalizedData: unknown[],
+    context: BlockchainLedgerProcessorContext
+  ): Promise<Result<AccountingLedgerDraft[], Error>>;
 }

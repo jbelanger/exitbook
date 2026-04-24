@@ -21,12 +21,12 @@ import type {
 import { Decimal } from 'decimal.js';
 
 import { buildSourceComponentQuantityRef } from '../shared/ledger-assembler-utils.js';
-import { buildUtxoSourceComponentId } from '../shared/ledger-utxo-utils.js';
+import { buildUtxoComponentId } from '../shared/ledger-utxo-utils.js';
 
 import { buildCardanoAssetRefFromUnit, normalizeCardanoAssetQuantity } from './journal-assembler-amounts.js';
 import type {
-  CardanoLedgerStakeCertificate,
-  CardanoLedgerWithdrawal,
+  CardanoStakeCertificateSource,
+  CardanoWithdrawalSource,
   CardanoWalletScope,
   WalletAssetAmount,
   WalletAssetTotals,
@@ -52,14 +52,14 @@ function buildPostingComponentRef(
 }
 
 function buildUtxoInputComponentId(input: CardanoTransactionInput): string {
-  return buildUtxoSourceComponentId({
+  return buildUtxoComponentId({
     outputIndex: input.outputIndex,
     transactionHash: input.txHash,
   });
 }
 
 function buildUtxoOutputComponentId(transactionId: string, output: CardanoTransactionOutput): string {
-  return buildUtxoSourceComponentId({
+  return buildUtxoComponentId({
     outputIndex: output.outputIndex,
     transactionHash: transactionId,
   });
@@ -291,7 +291,7 @@ export function buildOptionalNetworkFeePosting(
 
 function buildStakingRewardComponentRef(
   sourceActivityFingerprint: string,
-  withdrawal: CardanoLedgerWithdrawal,
+  withdrawal: CardanoWithdrawalSource,
   withdrawalIndex: number,
   assetId: string,
   withdrawalAmount: Decimal
@@ -424,7 +424,7 @@ export function buildStakingRewardPosting(
 
 function buildStakeCertificateComponentRef(
   sourceActivityFingerprint: string,
-  certificate: CardanoLedgerStakeCertificate,
+  certificate: CardanoStakeCertificateSource,
   assetId: string,
   quantity: Decimal
 ): SourceComponentQuantityRef {
@@ -575,7 +575,7 @@ export function buildProtocolEventPostings(
 }
 
 export function sumWalletWithdrawalAmount(
-  withdrawals: readonly CardanoLedgerWithdrawal[],
+  withdrawals: readonly CardanoWithdrawalSource[],
   withdrawalAmounts: readonly Decimal[],
   walletPaysNetworkFee: boolean,
   walletScope: CardanoWalletScope

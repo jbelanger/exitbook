@@ -11,22 +11,85 @@ import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-sw
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
-const EVM_BRIDGE_WITHDRAWAL_HINTS: Record<
+const EVM_BRIDGE_FUNCTION_HINTS: Record<
   string,
   {
     bridgeFamily: string;
     message: string;
   }
 > = {
+  bridgeerc20: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack bridgeERC20.',
+  },
+  bridgeerc20to: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack bridgeERC20To.',
+  },
+  bridgeeth: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack bridgeETH.',
+  },
+  bridgeethto: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack bridgeETHTo.',
+  },
+  depositerc20: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack depositERC20.',
+  },
+  depositerc20to: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack depositERC20To.',
+  },
+  depositeth: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack depositETH.',
+  },
+  depositethto: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack depositETHTo.',
+  },
+  depositforburn: {
+    bridgeFamily: 'cctp',
+    message: 'Potential bridge transfer via CCTP depositForBurn.',
+  },
+  depositforburnwithcaller: {
+    bridgeFamily: 'cctp',
+    message: 'Potential bridge transfer via CCTP depositForBurnWithCaller.',
+  },
+  outboundtransfer: {
+    bridgeFamily: 'arbitrum_bridge',
+    message: 'Potential bridge transfer via Arbitrum outboundTransfer.',
+  },
+  outboundtransfercustomrefund: {
+    bridgeFamily: 'arbitrum_bridge',
+    message: 'Potential bridge transfer via Arbitrum outboundTransferCustomRefund.',
+  },
   sendtoinjective: {
     bridgeFamily: 'injective_peggy',
-    message: 'Bridge withdrawal via Injective sendToInjective.',
+    message: 'Potential bridge transfer via Injective sendToInjective.',
   },
   transfertokenswithpayload: {
     bridgeFamily: 'wormhole',
-    message: 'Bridge withdrawal via Wormhole transferTokensWithPayload.',
+    message: 'Potential bridge transfer via Wormhole transferTokensWithPayload.',
   },
 };
+
+const EVM_APPROVAL_FUNCTION_NAMES = new Set([
+  'approve',
+  'decreaseallowance',
+  'increaseallowance',
+  'permit',
+  'setapprovalforall',
+]);
+const EVM_APPROVAL_METHOD_IDS = new Set([
+  '0x095ea7b3', // ERC-20/ERC-721 approve(address,uint256)
+  '0xa22cb465', // ERC-721/ERC-1155 setApprovalForAll(address,bool)
+  '0x39509351', // ERC-20 increaseAllowance(address,uint256)
+  '0xa457c2d7', // ERC-20 decreaseAllowance(address,uint256)
+  '0xd505accf', // EIP-2612 permit(...)
+]);
 
 export interface AccountBasedNativeCurrencyConfig {
   nativeCurrency: Currency;
@@ -167,35 +230,84 @@ export function determineEvmOperationFromFundFlow(
     };
   }
 
-  const bridgeWithdrawalDiagnostic = detectEvmBridgeWithdrawalDiagnostic(txGroup, fundFlow);
+  const ledgerCueDiagnostics = detectEvmLedgerCueDiagnostics(txGroup, fundFlow);
   const classification = determineAccountBasedOperationFromFundFlow(fundFlow);
-  if (!bridgeWithdrawalDiagnostic) {
+  if (ledgerCueDiagnostics.length === 0) {
     return classification;
   }
 
   return {
     ...classification,
     diagnostics: classification.diagnostics
-      ? [bridgeWithdrawalDiagnostic, ...classification.diagnostics]
-      : [bridgeWithdrawalDiagnostic],
+      ? [...ledgerCueDiagnostics, ...classification.diagnostics]
+      : [...ledgerCueDiagnostics],
   };
 }
 
-function detectEvmBridgeWithdrawalDiagnostic(
+function detectEvmLedgerCueDiagnostics(
+  txGroup: readonly EvmTransaction[],
+  fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
+): TransactionDiagnostic[] {
+  return [detectEvmApprovalDiagnostic(txGroup, fundFlow), detectEvmBridgeDiagnostic(txGroup, fundFlow)].filter(
+    (diagnostic): diagnostic is TransactionDiagnostic => diagnostic !== undefined
+  );
+}
+
+function detectEvmApprovalDiagnostic(
   txGroup: readonly EvmTransaction[],
   fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
 ): TransactionDiagnostic | undefined {
-  if (fundFlow.outflows.length === 0 || fundFlow.inflows.length > 0) {
+  if (fundFlow.inflows.length > 0 || fundFlow.outflows.length > 0) {
+    return undefined;
+  }
+
+  const approvalTx = txGroup.find(isEvmApprovalTransaction);
+  if (!approvalTx) {
+    return undefined;
+  }
+
+  return {
+    code: 'token_approval',
+    message: 'Token approval transaction. Ledger impact is network fee only.',
+    metadata: {
+      detectionSource: EVM_APPROVAL_METHOD_IDS.has(approvalTx.methodId?.toLowerCase() ?? '')
+        ? 'method_id'
+        : 'function_name',
+      functionName: approvalTx.functionName,
+      methodId: approvalTx.methodId,
+    },
+    severity: 'info',
+  };
+}
+
+function isEvmApprovalTransaction(tx: EvmTransaction): boolean {
+  const methodId = tx.methodId?.toLowerCase();
+  if (methodId && EVM_APPROVAL_METHOD_IDS.has(methodId)) {
+    return true;
+  }
+
+  const functionName = normalizeEvmFunctionName(tx.functionName);
+  return functionName !== undefined && EVM_APPROVAL_FUNCTION_NAMES.has(functionName);
+}
+
+function detectEvmBridgeDiagnostic(
+  txGroup: readonly EvmTransaction[],
+  fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
+): TransactionDiagnostic | undefined {
+  const hasOneSidedValueFlow =
+    (fundFlow.outflows.length > 0 && fundFlow.inflows.length === 0) ||
+    (fundFlow.inflows.length > 0 && fundFlow.outflows.length === 0);
+  if (!hasOneSidedValueFlow) {
     return undefined;
   }
 
   for (const tx of txGroup) {
-    const normalizedFunctionName = tx.functionName?.toLowerCase().replace(/\(.*\)/, '');
+    const normalizedFunctionName = normalizeEvmFunctionName(tx.functionName);
     if (!normalizedFunctionName) {
       continue;
     }
 
-    const bridgeHint = EVM_BRIDGE_WITHDRAWAL_HINTS[normalizedFunctionName];
+    const bridgeHint = EVM_BRIDGE_FUNCTION_HINTS[normalizedFunctionName];
     if (!bridgeHint) {
       continue;
     }
@@ -213,6 +325,11 @@ function detectEvmBridgeWithdrawalDiagnostic(
   }
 
   return undefined;
+}
+
+function normalizeEvmFunctionName(functionName: string | undefined): string | undefined {
+  const normalized = functionName?.toLowerCase().replace(/\(.*\)/, '');
+  return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
 export function determineAccountBasedOperationFromFundFlow(fundFlow: EvmFundFlow): OperationClassification {

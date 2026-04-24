@@ -2,7 +2,9 @@ import { NearStreamEventSchema, type NearStreamEvent } from '@exitbook/blockchai
 import type { RawTransaction, TransactionDraft } from '@exitbook/core';
 import { err, ok, type Result } from '@exitbook/foundation';
 
+import type { AccountingLedgerWrite } from '../../ports/accounting-ledger-sink.js';
 import type { ProcessedTransactionWrite } from '../../ports/processed-transaction-sink.js';
+import type { AccountingLedgerDraft } from '../../shared/types/processors.js';
 
 interface BuildProcessedTransactionWritesParams {
   platformKey: string;
@@ -27,6 +29,49 @@ export function buildProcessedTransactionWrites(
   }
 
   return buildBlockchainTransactionWrites(params.transactions, params.rawTransactions);
+}
+
+export function buildAccountingLedgerWrites(params: {
+  ledgerDrafts: readonly AccountingLedgerDraft[];
+  platformKind: string;
+  rawTransactions: readonly RawTransaction[];
+}): Result<AccountingLedgerWrite[], Error> {
+  if (params.ledgerDrafts.length === 0) {
+    return ok([]);
+  }
+
+  if (params.platformKind !== 'blockchain') {
+    return err(new Error(`Accounting ledger shadow writes are not supported for ${params.platformKind} sources yet`));
+  }
+
+  const rawTransactionIdsByHash = buildRawTransactionIdsByBlockchainHash(params.rawTransactions);
+  const writes: AccountingLedgerWrite[] = [];
+
+  for (const draft of params.ledgerDrafts) {
+    const transactionHash = draft.sourceActivity.blockchainTransactionHash?.trim();
+    if (!transactionHash) {
+      return err(
+        new Error(
+          `Ledger source activity ${draft.sourceActivity.sourceActivityFingerprint} is missing blockchainTransactionHash`
+        )
+      );
+    }
+
+    const rawTransactionIds = rawTransactionIdsByHash.get(transactionHash);
+    if (!rawTransactionIds || rawTransactionIds.length === 0) {
+      return err(
+        new Error(`Could not resolve raw transaction binding for ledger source activity hash ${transactionHash}`)
+      );
+    }
+
+    writes.push({
+      journals: draft.journals,
+      rawTransactionIds: dedupeRawTransactionIds(rawTransactionIds),
+      sourceActivity: draft.sourceActivity,
+    });
+  }
+
+  return ok(writes);
 }
 
 function buildExchangeTransactionWrites(
@@ -72,17 +117,7 @@ function buildBlockchainTransactionWrites(
   transactions: TransactionDraft[],
   rawTransactions: RawTransaction[]
 ): Result<ProcessedTransactionWrite[], Error> {
-  const rawTransactionIdsByHash = new Map<string, number[]>();
-  for (const rawTransaction of rawTransactions) {
-    const hash = rawTransaction.blockchainTransactionHash?.trim();
-    if (!hash) {
-      continue;
-    }
-
-    const ids = rawTransactionIdsByHash.get(hash) ?? [];
-    ids.push(rawTransaction.id);
-    rawTransactionIdsByHash.set(hash, ids);
-  }
+  const rawTransactionIdsByHash = buildRawTransactionIdsByBlockchainHash(rawTransactions);
 
   const writes: ProcessedTransactionWrite[] = [];
   for (const transaction of transactions) {
@@ -107,6 +142,22 @@ function buildBlockchainTransactionWrites(
   }
 
   return ok(writes);
+}
+
+function buildRawTransactionIdsByBlockchainHash(rawTransactions: readonly RawTransaction[]): Map<string, number[]> {
+  const rawTransactionIdsByHash = new Map<string, number[]>();
+  for (const rawTransaction of rawTransactions) {
+    const hash = rawTransaction.blockchainTransactionHash?.trim();
+    if (!hash) {
+      continue;
+    }
+
+    const ids = rawTransactionIdsByHash.get(hash) ?? [];
+    ids.push(rawTransaction.id);
+    rawTransactionIdsByHash.set(hash, ids);
+  }
+
+  return rawTransactionIdsByHash;
 }
 
 function buildNearTransactionWrites(

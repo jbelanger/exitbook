@@ -545,7 +545,7 @@ describe('determineEvmOperationFromFundFlow', () => {
   });
 
   describe('Pattern 1: Contract interaction with zero value', () => {
-    it('classifies approval as transfer with note', () => {
+    it('classifies approval as transfer with token approval diagnostics', () => {
       const fundFlow: EvmFundFlow = {
         inflows: [],
         outflows: [],
@@ -559,12 +559,30 @@ describe('determineEvmOperationFromFundFlow', () => {
         hasInternalTransactions: false,
         hasTokenTransfers: false,
       };
+      const approvalTx: EvmTransaction = {
+        amount: '0',
+        currency: 'ETH',
+        eventId: 'approval-evt',
+        feeAmount: '1000000000000000',
+        feeCurrency: 'ETH' as Currency,
+        from: '0x123',
+        functionName: 'approve(address,uint256)',
+        id: '0xapproval',
+        methodId: '0x095ea7b3',
+        providerName: 'etherscan',
+        status: 'success',
+        timestamp: 1,
+        to: '0x456',
+        tokenType: 'native',
+        type: 'contract_call',
+      };
 
-      const result = determineEvmOperationFromFundFlow(fundFlow, []);
+      const result = determineEvmOperationFromFundFlow(fundFlow, [approvalTx]);
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'transfer' });
-      expect(result.diagnostics?.[0]?.code).toBe('contract_interaction');
+      expect(result.diagnostics?.[0]?.code).toBe('token_approval');
       expect(result.diagnostics?.[0]?.severity).toBe('info');
+      expect(result.diagnostics?.[1]?.code).toBe('contract_interaction');
     });
 
     it('classifies staking operation as transfer with note', () => {
@@ -791,6 +809,49 @@ describe('determineEvmOperationFromFundFlow', () => {
       expect(result.diagnostics?.[0]?.metadata?.['functionName']).toBe(
         'transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)'
       );
+    });
+
+    it('adds bridge diagnostics for CCTP depositForBurn withdrawals', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [],
+        outflows: [{ asset: 'USDC' as Currency, amount: '25' }],
+        primary: { asset: 'USDC' as Currency, amount: '25' },
+        feeAmount: '0.001',
+        feeCurrency: 'ETH' as Currency,
+        fromAddress: '0x123',
+        toAddress: '0x456',
+        transactionCount: 1,
+        hasContractInteraction: true,
+        hasInternalTransactions: false,
+        hasTokenTransfers: true,
+      };
+      const txGroup: EvmTransaction[] = [
+        {
+          amount: '25000000',
+          currency: 'USDC',
+          eventId: 'cctp-withdrawal-evt',
+          feeAmount: '1000000000000000',
+          feeCurrency: 'ETH' as Currency,
+          from: '0x123',
+          functionName: 'depositForBurn(uint256,uint32,bytes32,address)',
+          id: '0xcctp-withdrawal',
+          providerName: 'etherscan',
+          status: 'success',
+          timestamp: 1,
+          to: '0xbridge',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          tokenDecimals: 6,
+          tokenSymbol: 'USDC',
+          tokenType: 'erc20',
+          type: 'token_transfer',
+        },
+      ];
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, txGroup);
+
+      expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+      expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.metadata?.['bridgeFamily']).toBe('cctp');
     });
 
     it('classifies multi-asset withdrawal when multiple outflows present', () => {

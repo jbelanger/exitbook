@@ -40,10 +40,11 @@ Consumers read journals/postings, not generic movement rows.
 - Do not persist the current `packages/accounting/src/accounting-model` shape
   unchanged unless the processor-v2 pilot proves that it is still the cleanest
   contract.
-- Use the processor-v2 path as a shadow path first. Journal/posting schema can
-  exist as a disposable draft, but consumers must not read it and the processing
-  pipeline must not depend on it until the draft contract survives hard
-  processor pilots.
+- Use the processor-v2 path as a shadow path first. V2-enabled processors write
+  ledger source activities, journals, and postings in parallel with the legacy
+  processed-transaction projection, but consumers must not read the ledger
+  tables until the migration gates pass. Chains without a v2 ledger processor
+  continue on the legacy path only.
 - Pull the schema draft forward before the first processor-v2 pilot. The dev DB
   is disposable, so schema churn is cheap and should be used to force the real
   persistence decisions early.
@@ -137,6 +138,17 @@ export interface AccountingJournalDraft {
   postings: readonly AccountingPostingDraft[];
   relationships?: readonly AccountingJournalRelationshipDraft[] | undefined;
   diagnostics?: readonly AccountingDiagnosticDraft[] | undefined;
+}
+```
+
+Diagnostic drafts preserve optional machine metadata:
+
+```ts
+export interface AccountingDiagnosticDraft {
+  code: string;
+  message: string;
+  severity?: 'info' | 'warning' | 'error' | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 ```
 
@@ -575,7 +587,7 @@ Kill criteria:
 
 ### Phase 3: Second And Third Hard Pilots
 
-Status: in progress; Bitcoin UTXO pilot started.
+Status: in progress; Bitcoin UTXO and EVM-family account-based pilots started.
 
 Candidate files:
 
@@ -583,6 +595,7 @@ Candidate files:
 - `packages/ingestion/src/sources/blockchains/cosmos/journal-assembler.ts`
 - `packages/ingestion/src/sources/blockchains/evm/processor-v2.ts`
 - `packages/ingestion/src/sources/blockchains/evm/journal-assembler.ts`
+- `packages/ingestion/src/sources/blockchains/theta/processor-v2.ts`
 - `packages/ingestion/src/sources/blockchains/bitcoin/processor-v2.ts`
 - `packages/ingestion/src/sources/blockchains/bitcoin/journal-assembler.ts`
 
@@ -617,14 +630,85 @@ Completed in this phase:
 - Cardano and Bitcoin now share small assembler primitives for account-context
   validation, strict decimal parsing, and positive source-component quantity
   refs.
+- EVM v2 emits source activity plus accounting journals directly from
+  provider-normalized transaction groups keyed by transaction hash.
+- EVM v2 de-duplicates repeated normalized events by `eventId` and rejects
+  conflicting payloads for the same event id.
+- EVM v2 preserves event-level provenance with `account_delta`,
+  `staking_reward`, and `network_fee` source component refs.
+- EVM v2 handles native transfers, ERC-20 style token transfers, swaps, network
+  gas, zero-value contract calls, and partial beacon withdrawals as ledger
+  postings.
+- EVM v2 intentionally treats failed EVM transactions as gas-only ledger
+  effects. Attempted value/token movement is removed before fund-flow
+  accounting because failed EVM execution does not settle value transfers.
+- EVM-family v2 skips provider-returned transaction groups that have no wallet
+  ledger effect instead of emitting empty source activities.
+- EVM v2 accepts an optional token metadata resolver and applies canonical
+  token symbols before event de-duplication and journal assembly. This keeps
+  ledger display symbols aligned with token-contract asset identity when
+  providers emit chain-specific symbols such as bridged USDT variants.
+- Focused EVM v2 tests cover incoming native value, outgoing native value plus
+  gas, swaps, contract-call fee-only activity, failed gas-only transactions,
+  no-effect provider rows, partial beacon staking rewards, duplicate event
+  de-duplication, token metadata canonicalization, and conflicting duplicate
+  event evidence.
+- Theta v2 reuses the account-based ledger assembler with a Theta-specific
+  chain config: TFUEL remains the gas/native fee asset, while THETA is modeled
+  as a symbol-backed native asset instead of requiring a token contract address.
+- Focused Theta v2 tests cover TFUEL native postings and THETA postings without
+  accidental base-unit normalization.
+- Local real-data shadow validation covered the provided Arbitrum, Avalanche,
+  Ethereum, and Theta accounts: 111 raw rows became 82 source activities, 82
+  journals, and 108 postings with zero v2 processor failures.
+- A local EVM-family stress runner compared v2 ledger postings against
+  persisted v1 balance impacts for the same raw corpus. After applying the
+  token metadata resolver, the stress pass had zero balance diffs across all
+  82 source activities.
+- Rotki EVM decoder review added two safe processor-owned cues to the EVM
+  pilot:
+  - ERC-20/ERC-721 approval calls are identified as token approvals and kept as
+    `expense_only` fee journals when the wallet has no value movement.
+  - Exact bridge function hints are recognized for CCTP, OP Stack standard
+    bridge, Arbitrum bridge, Injective Peggy, and Wormhole. These remain
+    diagnostics until cross-chain journal relationships are persisted.
+
+Rotki EVM findings that should shape the model before EVM cutover:
+
+- Failed transactions are accounting-owned gas burns. Current v2 behavior
+  matches this: failed execution removes attempted value transfers and keeps
+  network fee postings.
+- L2 chains with separate L1 data fees need explicit provider normalization
+  before production EVM cutover. Rotki handles Optimism/Base/Scroll with
+  total fee = execution gas + L1 fee; our provider schema currently has only
+  one normalized `feeAmount`.
+- Bridge and asset migration truth should be ledger relationships, not
+  semantic facts. Function-name diagnostics are only a temporary cue until
+  event/log-level bridge decoders can create `bridge` relationships.
+- Wrap/unwrap, LP deposits/withdrawals, lending debt generation/payback,
+  liquidation, protocol interest, MEV/block rewards, airdrops, refunds, and
+  spam tokens are common EVM cases in Rotki. Do not add generic posting roles
+  from names alone; add them only when a processor decoder has protocol
+  evidence and source component refs.
+- Approval, governance, Safe/multisig, ERC-4337 account abstraction, and other
+  no-value state changes should stay fee-only ledger activity plus
+  diagnostics unless they create spendable asset effects.
 
 Remaining in this phase:
 
 - keep UTXO wallet math local until another UTXO chain proves the abstraction;
   the shared code should stay limited to repeated processor and source-ref
   primitives for now
+- promote the local EVM-family stress runner into repeatable e2e or CLI
+  tooling before pipeline cutover
+- add L2 L1-data-fee normalization to provider schemas before Optimism/Base
+  style chains are accepted as fully covered by EVM v2
+- design bridge/wrap relationship materialization on top of postings before
+  replacing existing bridge or wrap semantic annotations
+- decide whether EVM event-level source component refs need more specific
+  component kinds than `account_delta` after persistence and override replay
+  are exercised
 - pilot Cosmos staking/undelegation reward-principal splitting
-- pilot EVM gas/value handling
 - sketch one exchange processor to confirm the common journal shape stays
   ergonomic for non-UTXO imports
 
@@ -637,8 +721,8 @@ Acceptance criteria:
 
 ### Phase 4: Persistence Design And Schema Rewrite
 
-Status: draft schema started; atomic ledger materialization repository and
-scoped posting reads started.
+Status: draft schema started; atomic ledger materialization repository, scoped
+posting reads, journal diagnostics, and shadow workflow persistence started.
 
 Files to update:
 
@@ -649,6 +733,9 @@ Files to update:
 - `packages/data/src/repositories/transaction-repository.ts`
 - `packages/data/src/repositories/transaction-persistence-support.ts`
 - `packages/data/src/repositories/transaction-materialization-support.ts`
+- `packages/ingestion/src/ports/accounting-ledger-sink.ts`
+- `packages/ingestion/src/ports/processing-ports.ts`
+- `packages/ingestion/src/features/process/process-workflow.ts`
 
 New repository files:
 
@@ -670,10 +757,14 @@ Schema direction:
   meaning
 - drop `transaction_movements`
 - add `accounting_journals`
+- add `accounting_journal_diagnostics`
 - add `accounting_postings`
 - add `accounting_posting_source_components`
 - add `accounting_journal_relationships`
-- move diagnostics and notes to separate tables if still needed in this slice
+- persist processor diagnostics on journals, with metadata, as rebuild-owned
+  artifacts
+- keep user notes out of source activities; add a separate notes table only when
+  a v2 user-note workflow is designed
 - do not keep `operation_category`, `operation_type`,
   `excluded_from_accounting`, `diagnostics_json`, or `user_notes_json` on the
   source activity row
@@ -688,7 +779,8 @@ Acceptance criteria:
   relationship endpoints, and rejected-draft rollback
 - repository reads can load ledger postings for a full account scope, including
   parent plus child accounts
-- no consumer reads the new tables until Phase 6 materialization is ready
+- no consumer reads the new tables until `balance-v2` and the pilot processor
+  migration gates are green
 
 Completed in this phase:
 
@@ -701,8 +793,27 @@ Completed in this phase:
   - each raw row must belong to the source activity account or a direct child
     account
   - no raw row may already be assigned to a different source activity
+- Journal diagnostics now persist in `accounting_journal_diagnostics` with
+  stable per-journal ordering, severity, and optional JSON metadata. This keeps
+  processor cues such as EVM token approvals and bridge candidates available
+  without reintroducing `diagnostics_json` on source activity rows.
 - Repository tests cover wallet-scope UTXO lineage: one parent source activity
   assigned to multiple child-address raw rows.
+- `IAccountingLedgerSink` gives the processing workflow a narrow shadow
+  persistence port. The data adapter materializes complete source activities
+  through `AccountingLedgerRepository.replaceForSourceActivity()`.
+- Blockchain adapters can now expose an optional `createLedgerProcessor()`.
+  Cardano, Bitcoin, EVM, and Theta register v2 ledger processors while keeping
+  their legacy processors as the consumer-facing projection source.
+- `ProcessingWorkflow` runs the legacy processor and the ledger-v2 processor
+  over the same raw batch, then writes legacy transactions, ledger artifacts,
+  and raw processed status inside one database transaction. Ledger-v2 failures
+  fail the batch for v2-enabled chains instead of producing partial shadow
+  state.
+- Processed-data reset now deletes `source_activities` and cascaded ledger
+  rows alongside legacy `transactions`, then resets raw rows to pending for a
+  clean rebuild. Clear/account/profile removal previews report ledger source
+  activities as processed derived data.
 
 ### Phase 5: Accounting Overrides
 
@@ -742,7 +853,7 @@ Acceptance criteria:
 
 ### Phase 6: Processing Pipeline Cutover
 
-Status: pending.
+Status: shadow materialization started; full consumer-facing cutover pending.
 
 Files to update:
 
@@ -752,7 +863,17 @@ Files to update:
 - `packages/ingestion/src/ports/processed-transaction-sink.ts`
 - `packages/data/src/ingestion/processing-ports.ts`
 
-Steps:
+Shadow steps now landed:
+
+1. Keep legacy processors returning `TransactionDraft[]`.
+2. Add optional blockchain `createLedgerProcessor()` registrations for
+   v2-enabled chains.
+3. Run legacy and ledger-v2 processors against the same raw batch.
+4. Persist ledger writes through `IAccountingLedgerSink` in the same workflow
+   transaction as legacy transaction writes and raw processed-status updates.
+5. Leave consumers on legacy transaction reads.
+
+Remaining cutover steps:
 
 1. Replace `TransactionDraft` processor output with source activity plus
    accounting journal drafts.

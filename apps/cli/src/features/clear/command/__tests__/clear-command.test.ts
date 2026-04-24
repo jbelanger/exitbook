@@ -103,7 +103,7 @@ function makePreview(overrides: Partial<DeletionPreview> = {}): DeletionPreview 
     assetReview: { assets: 0 },
     balances: { assetRows: 0, scopes: 0 },
     links: { links: 0 },
-    processedTransactions: { transactions: 0 },
+    processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
     costBasisSnapshots: { snapshots: 0 },
     purge: undefined,
     ...overrides,
@@ -171,10 +171,10 @@ describe('clear command', () => {
     const program = createProgram();
     let renderedElement: ReactElement | undefined;
     const previewWithoutRaw = makePreview({
-      processedTransactions: { transactions: 2 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 2 },
     });
     const previewWithRaw = makePreview({
-      processedTransactions: { transactions: 2 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 2 },
       purge: {
         accounts: 1,
         rawData: 3,
@@ -208,7 +208,7 @@ describe('clear command', () => {
   it('resolves an account selector before building the clear TUI state', async () => {
     const program = createProgram();
     const preview = makePreview({
-      processedTransactions: { transactions: 2 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 2 },
     });
 
     mockGetByName.mockResolvedValue(ok(makeAccountSelection({ id: 12, name: 'wallet-main' })));
@@ -242,6 +242,7 @@ describe('clear command', () => {
       {
         deleted: {
           transactions: 0,
+          ledgerSourceActivities: 0,
           links: 0,
           assetReviewStates: 0,
           balanceSnapshots: 0,
@@ -260,7 +261,7 @@ describe('clear command', () => {
     const program = createProgram();
     const spinner = { ora: { tag: 'spinner' } };
     const preview = makePreview({
-      processedTransactions: { transactions: 2 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 2 },
       links: { links: 1 },
     });
 

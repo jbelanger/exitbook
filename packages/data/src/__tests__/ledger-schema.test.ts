@@ -93,6 +93,19 @@ describe('ledger schema draft', () => {
       .execute();
 
     await db
+      .insertInto('accounting_journal_diagnostics')
+      .values({
+        journal_id: 1,
+        diagnostic_order: 1,
+        diagnostic_code: 'bridge_transfer',
+        diagnostic_message: 'Potential bridge transfer via CCTP depositForBurn.',
+        severity: 'info',
+        metadata_json: '{"bridgeFamily":"cctp"}',
+        created_at: '2026-04-23T00:00:00.000Z',
+      })
+      .execute();
+
+    await db
       .insertInto('accounting_postings')
       .values([
         {
@@ -207,6 +220,10 @@ describe('ledger schema draft', () => {
         .select(({ fn }) => fn.countAll<number>().as('count'))
         .executeTakeFirstOrThrow(),
       db
+        .selectFrom('accounting_journal_diagnostics')
+        .select(({ fn }) => fn.countAll<number>().as('count'))
+        .executeTakeFirstOrThrow(),
+      db
         .selectFrom('accounting_postings')
         .select(({ fn }) => fn.countAll<number>().as('count'))
         .executeTakeFirstOrThrow(),
@@ -224,7 +241,7 @@ describe('ledger schema draft', () => {
         .executeTakeFirstOrThrow(),
     ]);
 
-    expect(counts.map((row) => row.count)).toEqual([1, 2, 2, 2, 1, 1]);
+    expect(counts.map((row) => row.count)).toEqual([1, 2, 1, 2, 2, 1, 1]);
   });
 
   it('rejects fee postings without settlement', async () => {

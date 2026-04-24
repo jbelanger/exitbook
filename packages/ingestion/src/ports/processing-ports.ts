@@ -1,6 +1,7 @@
 import type { Result } from '@exitbook/foundation';
 
 import type { IAccountLookup } from './account-lookup.js';
+import type { IAccountingLedgerSink } from './accounting-ledger-sink.js';
 import type { IImportSessionLookup } from './import-session-guard.js';
 import type { INearBatchSource } from './near-batch-source.js';
 import type { IProcessedTransactionSink } from './processed-transaction-sink.js';
@@ -20,6 +21,7 @@ export interface ProcessingPorts {
   batchSource: IProcessingBatchSource;
   nearBatchSource: INearBatchSource;
   transactionSink: IProcessedTransactionSink;
+  accountingLedgerSink: IAccountingLedgerSink;
   accountLookup: IAccountLookup;
   importSessionLookup: IImportSessionLookup;
   transactionOverrides: ITransactionOverrideProjection;

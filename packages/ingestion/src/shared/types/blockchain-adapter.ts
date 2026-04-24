@@ -4,7 +4,7 @@ import type { Result } from '@exitbook/foundation';
 import type { ScamDetector } from '../../features/scam-detection/contracts.js';
 
 import type { IImporter } from './importers.js';
-import type { ITransactionProcessor } from './processors.js';
+import type { IAccountingLedgerProcessor, ITransactionProcessor } from './processors.js';
 
 export interface DerivedAddress {
   address: string;
@@ -21,6 +21,7 @@ interface BlockchainAdapterBase {
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) => IImporter;
   createProcessor: (deps: CommonBlockchainProcessorContext) => ITransactionProcessor;
+  createLedgerProcessor?: ((deps: CommonBlockchainProcessorContext) => IAccountingLedgerProcessor) | undefined;
 }
 
 export interface AccountBasedBlockchainAdapter extends BlockchainAdapterBase {

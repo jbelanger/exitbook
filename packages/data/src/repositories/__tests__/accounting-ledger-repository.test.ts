@@ -44,6 +44,17 @@ describe('AccountingLedgerRepository', () => {
 
     const sourceActivity = makeSourceActivity();
     const transferJournal = makeJournal({
+      diagnostics: [
+        {
+          code: 'token_approval',
+          message: 'Token approval transaction. Ledger impact is network fee only.',
+          metadata: {
+            detectionSource: 'method_id',
+            methodId: '0x095ea7b3',
+          },
+          severity: 'info',
+        },
+      ],
       postings: [
         makePosting({
           postingStableKey: 'posting:principal:out',
@@ -72,6 +83,7 @@ describe('AccountingLedgerRepository', () => {
 
     expect(typeof summary.sourceActivityId).toBe('number');
     expect(summary.journalCount).toBe(1);
+    expect(summary.diagnosticCount).toBe(1);
     expect(summary.postingCount).toBe(2);
     expect(summary.sourceComponentCount).toBe(2);
     expect(summary.rawAssignmentCount).toBe(2);
@@ -79,10 +91,23 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 1,
       rawAssignments: 2,
+      diagnostics: 1,
       journals: 1,
       postings: 2,
       sourceComponents: 2,
       relationships: 0,
+    });
+
+    const diagnostic = await db
+      .selectFrom('accounting_journal_diagnostics')
+      .select(['diagnostic_order', 'diagnostic_code', 'diagnostic_message', 'severity', 'metadata_json'])
+      .executeTakeFirstOrThrow();
+    expect(diagnostic).toEqual({
+      diagnostic_order: 1,
+      diagnostic_code: 'token_approval',
+      diagnostic_message: 'Token approval transaction. Ledger impact is network fee only.',
+      severity: 'info',
+      metadata_json: '{"detectionSource":"method_id","methodId":"0x095ea7b3"}',
     });
 
     const postings = assertOk(await repository.findPostingsByAccountId(ACCOUNT_ID));
@@ -164,6 +189,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 0,
       rawAssignments: 0,
+      diagnostics: 0,
       journals: 0,
       postings: 0,
       sourceComponents: 0,
@@ -182,6 +208,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 0,
       rawAssignments: 0,
+      diagnostics: 0,
       journals: 0,
       postings: 0,
       sourceComponents: 0,
@@ -226,6 +253,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 1,
       rawAssignments: 1,
+      diagnostics: 0,
       journals: 1,
       postings: 1,
       sourceComponents: 1,
@@ -353,6 +381,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 1,
       rawAssignments: 1,
+      diagnostics: 0,
       journals: 1,
       postings: 1,
       sourceComponents: 1,
@@ -476,6 +505,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 1,
       rawAssignments: 0,
+      diagnostics: 0,
       journals: 1,
       postings: 1,
       sourceComponents: 1,
@@ -497,6 +527,7 @@ describe('AccountingLedgerRepository', () => {
     await expectCounts({
       sourceActivities: 0,
       rawAssignments: 0,
+      diagnostics: 0,
       journals: 0,
       postings: 0,
       sourceComponents: 0,
@@ -610,6 +641,7 @@ describe('AccountingLedgerRepository', () => {
   }
 
   async function expectCounts(expected: {
+    diagnostics: number;
     journals: number;
     postings: number;
     rawAssignments: number;
@@ -620,6 +652,7 @@ describe('AccountingLedgerRepository', () => {
     await expect(countRows('source_activities')).resolves.toBe(expected.sourceActivities);
     await expect(countRows('raw_transaction_source_activity_assignments')).resolves.toBe(expected.rawAssignments);
     await expect(countRows('accounting_journals')).resolves.toBe(expected.journals);
+    await expect(countRows('accounting_journal_diagnostics')).resolves.toBe(expected.diagnostics);
     await expect(countRows('accounting_postings')).resolves.toBe(expected.postings);
     await expect(countRows('accounting_posting_source_components')).resolves.toBe(expected.sourceComponents);
     await expect(countRows('accounting_journal_relationships')).resolves.toBe(expected.relationships);
@@ -630,6 +663,7 @@ describe('AccountingLedgerRepository', () => {
       | 'source_activities'
       | 'raw_transaction_source_activity_assignments'
       | 'accounting_journals'
+      | 'accounting_journal_diagnostics'
       | 'accounting_postings'
       | 'accounting_posting_source_components'
       | 'accounting_journal_relationships'

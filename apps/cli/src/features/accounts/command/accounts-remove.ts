@@ -134,6 +134,11 @@ function outputRemovalPreview(accountLabel: string, preview: AccountRemovalImpac
 
   outputRemovalPreviewSection('Derived data', [
     { count: preview.transactions, singularLabel: 'transaction' },
+    {
+      count: preview.ledgerSourceActivities,
+      singularLabel: 'ledger source activity',
+      pluralLabel: 'ledger source activities',
+    },
     { count: preview.links, singularLabel: 'transaction link' },
     { count: preview.assetReviewStates, singularLabel: 'review item' },
     {

@@ -174,6 +174,20 @@ export interface AccountingJournalsTable {
 }
 
 /**
+ * Accounting journal diagnostics table - processor/rebuild diagnostics attached to a persisted journal.
+ */
+export interface AccountingJournalDiagnosticsTable {
+  id: Generated<number>;
+  journal_id: number; // FK to accounting_journals.id
+  diagnostic_order: number;
+  diagnostic_code: string;
+  diagnostic_message: string;
+  severity: 'info' | 'warning' | 'error' | null;
+  metadata_json: JSONString | null;
+  created_at: DateTime;
+}
+
+/**
  * Accounting postings table - canonical signed asset effects owned by journals.
  */
 export interface AccountingPostingsTable {
@@ -565,6 +579,7 @@ export interface DatabaseSchema {
   source_activities: SourceActivitiesTable;
   raw_transaction_source_activity_assignments: RawTransactionSourceActivityAssignmentsTable;
   accounting_journals: AccountingJournalsTable;
+  accounting_journal_diagnostics: AccountingJournalDiagnosticsTable;
   accounting_postings: AccountingPostingsTable;
   accounting_posting_source_components: AccountingPostingSourceComponentsTable;
   accounting_journal_relationships: AccountingJournalRelationshipsTable;

@@ -105,6 +105,7 @@ beforeEach(() => {
         rawData: 4,
         sessions: 2,
         transactions: 8,
+        ledgerSourceActivities: 2,
         links: 3,
         assetReviewStates: 1,
         balanceSnapshots: 1,
@@ -121,6 +122,7 @@ beforeEach(() => {
         rawData: 4,
         sessions: 2,
         transactions: 8,
+        ledgerSourceActivities: 2,
         links: 3,
         assetReviewStates: 1,
         balanceSnapshots: 1,
@@ -188,6 +190,7 @@ describe('profiles remove command', () => {
     expect(consoleError).toHaveBeenCalledWith('  - 4 raw import data items');
     expect(consoleError).toHaveBeenCalledWith('Derived data:');
     expect(consoleError).toHaveBeenCalledWith('  - 8 transactions');
+    expect(consoleError).toHaveBeenCalledWith('  - 2 ledger source activities');
     expect(consoleError).toHaveBeenCalledWith('  - 3 transaction links');
     expect(consoleError).toHaveBeenCalledWith('  - 1 review item');
     expect(consoleError).toHaveBeenCalledWith('  - 6 balances');
@@ -220,6 +223,7 @@ describe('profiles remove command', () => {
           rawData: 4,
           sessions: 2,
           transactions: 8,
+          ledgerSourceActivities: 2,
           links: 3,
           assetReviewStates: 1,
           balanceSnapshots: 1,

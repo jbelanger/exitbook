@@ -41,6 +41,7 @@ export interface ClearResult {
 /** Flattened counts for display purposes. */
 export interface FlatDeletionPreview {
   transactions: number;
+  ledgerSourceActivities: number;
   links: number;
   assetReviewStates: number;
   balanceSnapshots: number;
@@ -54,6 +55,7 @@ export interface FlatDeletionPreview {
 export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
   return {
     transactions: preview.processedTransactions.transactions,
+    ledgerSourceActivities: preview.processedTransactions.ledgerSourceActivities,
     links: preview.links.links,
     assetReviewStates: preview.assetReview.assets,
     balanceSnapshots: preview.balances.scopes,
@@ -68,6 +70,7 @@ export function flattenPreview(preview: DeletionPreview): FlatDeletionPreview {
 export function calculateTotalDeletionItems(flat: FlatDeletionPreview): number {
   return (
     flat.transactions +
+    flat.ledgerSourceActivities +
     flat.links +
     flat.assetReviewStates +
     flat.balanceSnapshots +

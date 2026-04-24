@@ -16,12 +16,15 @@ import type { Insertable, Updateable } from '@exitbook/sqlite';
 import { Decimal } from 'decimal.js';
 
 import type {
+  AccountingJournalDiagnosticsTable,
   AccountingPostingsTable,
   AccountingPostingSourceComponentsTable,
   SourceActivitiesTable,
 } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { withControlledTransaction } from '../utils/controlled-transaction.js';
+import { serializeToJson } from '../utils/json-column-codec.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -33,6 +36,7 @@ export interface ReplaceAccountingLedgerParams {
 
 export interface ReplaceAccountingLedgerSummary {
   sourceActivityId: number;
+  diagnosticCount: number;
   journalCount: number;
   postingCount: number;
   sourceComponentCount: number;
@@ -102,6 +106,63 @@ export class AccountingLedgerRepository extends BaseRepository {
 
   async findPostingsByAccountId(accountId: number): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
     return this.findPostingsByAccountIds([accountId]);
+  }
+
+  async countSourceActivities(accountIds?: readonly number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds !== undefined && accountIds.length === 0) {
+        return ok(0);
+      }
+
+      let totalCount = 0;
+      const accountIdBatches =
+        accountIds === undefined ? [undefined] : chunkItems([...accountIds], SQLITE_SAFE_IN_BATCH_SIZE);
+
+      for (const accountIdBatch of accountIdBatches) {
+        let query = this.db.selectFrom('source_activities').select(({ fn }) => [fn.count<number>('id').as('count')]);
+
+        if (accountIdBatch !== undefined) {
+          query = query.where('account_id', 'in', accountIdBatch);
+        }
+
+        const result = await query.executeTakeFirst();
+        totalCount += result?.count ?? 0;
+      }
+
+      return ok(totalCount);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async deleteSourceActivitiesByAccountIds(accountIds: readonly number[]): Promise<Result<number, Error>> {
+    try {
+      if (accountIds.length === 0) {
+        return ok(0);
+      }
+
+      let deletedCount = 0;
+      for (const accountIdBatch of chunkItems([...accountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await this.db
+          .deleteFrom('source_activities')
+          .where('account_id', 'in', accountIdBatch)
+          .executeTakeFirst();
+        deletedCount += Number(result.numDeletedRows);
+      }
+
+      return ok(deletedCount);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async deleteAllSourceActivities(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db.deleteFrom('source_activities').executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   async findPostingsByAccountIds(
@@ -209,6 +270,7 @@ export class AccountingLedgerRepository extends BaseRepository {
     const rawAssignmentCount = await persistRawTransactionAssignments(db, sourceActivityId, rawTransactionIds);
     const journalRefs = new Map<string, PersistedJournalRef>();
     const postingRefs = new Map<string, PersistedPostingRef>();
+    let diagnosticCount = 0;
     let postingCount = 0;
     let sourceComponentCount = 0;
 
@@ -220,6 +282,12 @@ export class AccountingLedgerRepository extends BaseRepository {
 
       const journalRef = journalRefResult.value;
       journalRefs.set(buildJournalRefKey(journal.sourceActivityFingerprint, journal.journalStableKey), journalRef);
+
+      const diagnosticsResult = await persistJournalDiagnostics(db, journalRef.id, journal);
+      if (diagnosticsResult.isErr()) {
+        return err(diagnosticsResult.error);
+      }
+      diagnosticCount += diagnosticsResult.value;
 
       for (const posting of journal.postings) {
         const postingRefResult = await persistPosting(db, journalRef.id, journalRef.fingerprint, posting);
@@ -256,6 +324,7 @@ export class AccountingLedgerRepository extends BaseRepository {
 
     return ok({
       sourceActivityId,
+      diagnosticCount,
       journalCount: params.journals.length,
       postingCount,
       sourceComponentCount,
@@ -528,6 +597,42 @@ async function persistJournal(
     id: inserted.id,
     fingerprint: journalFingerprintResult.value,
   });
+}
+
+async function persistJournalDiagnostics(
+  db: KyselyDB,
+  journalId: number,
+  journal: AccountingJournalDraft
+): Promise<Result<number, Error>> {
+  const diagnostics = journal.diagnostics ?? [];
+  if (diagnostics.length === 0) {
+    return ok(0);
+  }
+
+  const now = new Date().toISOString();
+  const rows: Insertable<AccountingJournalDiagnosticsTable>[] = [];
+  for (let index = 0; index < diagnostics.length; index++) {
+    const diagnostic = diagnostics[index]!;
+    const metadataJsonResult = serializeToJson(diagnostic.metadata);
+    if (metadataJsonResult.isErr()) {
+      return err(
+        new Error(`Failed to serialize diagnostic ${diagnostic.code} metadata: ${metadataJsonResult.error.message}`)
+      );
+    }
+
+    rows.push({
+      journal_id: journalId,
+      diagnostic_order: index + 1,
+      diagnostic_code: diagnostic.code,
+      diagnostic_message: diagnostic.message,
+      severity: diagnostic.severity ?? null,
+      metadata_json: metadataJsonResult.value ?? null,
+      created_at: now,
+    });
+  }
+
+  await db.insertInto('accounting_journal_diagnostics').values(rows).execute();
+  return ok(rows.length);
 }
 
 async function persistPosting(

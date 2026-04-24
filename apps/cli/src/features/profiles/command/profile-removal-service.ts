@@ -29,6 +29,7 @@ interface ProfileRemovePreview {
 export interface ProfileRemovalImpactCounts {
   profiles: number;
   transactions: number;
+  ledgerSourceActivities: number;
   links: number;
   assetReviewStates: number;
   balanceSnapshots: number;
@@ -47,6 +48,7 @@ export function flattenProfileRemovePreview(preview: ProfileRemovePreview): Prof
   return {
     profiles: preview.deleted.profiles,
     transactions: preview.deleted.processedTransactions.transactions,
+    ledgerSourceActivities: preview.deleted.processedTransactions.ledgerSourceActivities,
     links: preview.deleted.links.links,
     assetReviewStates: preview.deleted.assetReview.assets,
     balanceSnapshots: preview.deleted.balances.scopes,
@@ -67,7 +69,7 @@ function createEmptyProfileRemovePreview(accountIds: number[], costBasisSnapshot
       balances: { scopes: 0, assetRows: 0 },
       costBasisSnapshots: { snapshots: costBasisSnapshots },
       links: { links: 0 },
-      processedTransactions: { transactions: 0 },
+      processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
       purge: {
         accounts: accountIds.length,
         rawData: 0,

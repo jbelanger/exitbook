@@ -5,6 +5,7 @@ import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter
 
 import { normalizeEvmAddress } from './address-utils.js';
 import { EvmImporter } from './importer.js';
+import { EvmProcessorV2 } from './processor-v2.js';
 import { EvmProcessor } from './processor.js';
 
 export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap((chainName) => {
@@ -23,6 +24,24 @@ export const evmAdapters: BlockchainAdapter[] = Object.keys(EVM_CHAINS).flatMap(
       }),
 
     createProcessor: ({ providerRuntime, scamDetector }) => new EvmProcessor(config, providerRuntime, scamDetector),
+
+    createLedgerProcessor: ({ providerRuntime }) => {
+      const processor = new EvmProcessorV2(config, {
+        tokenMetadataResolver: {
+          getTokenMetadata: (chainName, contractAddresses) =>
+            providerRuntime.getTokenMetadata(chainName, [...contractAddresses]),
+        },
+      });
+
+      return {
+        process: (normalizedData, context) =>
+          processor.process(normalizedData, {
+            account: context.account,
+            primaryAddress: context.primaryAddress,
+            userAddresses: context.userAddresses,
+          }),
+      };
+    },
   };
 
   return [adapter];

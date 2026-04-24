@@ -31,7 +31,7 @@ describe('run-accounts-remove helpers', () => {
               balances: { assetRows: 5, scopes: 3 },
               costBasisSnapshots: { snapshots: 7 },
               links: { links: 11 },
-              processedTransactions: { transactions: 13 },
+              processedTransactions: { ledgerSourceActivities: 3, transactions: 13 },
               purge: {
                 accounts: 17,
                 rawData: 19,
@@ -73,6 +73,7 @@ describe('run-accounts-remove helpers', () => {
       accountIds: [4, 5],
       preview: {
         transactions: 13,
+        ledgerSourceActivities: 3,
         links: 11,
         assetReviewStates: 2,
         balanceSnapshots: 3,

@@ -43,6 +43,7 @@ export function buildClearSuccessCompletion(
 function buildClearCompletionMessage(flat: FlatDeletionPreview): string {
   const parts: string[] = [];
   if (flat.transactions > 0) parts.push(`${flat.transactions} transactions`);
+  if (flat.ledgerSourceActivities > 0) parts.push(`${flat.ledgerSourceActivities} ledger source activities`);
   if (flat.links > 0) parts.push(`${flat.links} links`);
   if (flat.assetReviewStates > 0) parts.push(`${flat.assetReviewStates} asset review states`);
   if (flat.balanceSnapshots > 0) parts.push(`${flat.balanceSnapshots} balance snapshots`);

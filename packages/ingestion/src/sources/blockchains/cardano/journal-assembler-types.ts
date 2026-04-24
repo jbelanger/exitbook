@@ -72,5 +72,5 @@ export interface ValidatedCardanoAmounts {
   withdrawalAmounts: readonly Decimal[];
 }
 
-export type CardanoLedgerWithdrawal = NonNullable<CardanoTransaction['withdrawals']>[number];
-export type CardanoLedgerStakeCertificate = NonNullable<CardanoTransaction['stakeCertificates']>[number];
+export type CardanoWithdrawalSource = NonNullable<CardanoTransaction['withdrawals']>[number];
+export type CardanoStakeCertificateSource = NonNullable<CardanoTransaction['stakeCertificates']>[number];

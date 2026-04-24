@@ -1,4 +1,6 @@
+import type { RawTransaction, TransactionDraft } from '@exitbook/core';
 import { err, ok } from '@exitbook/foundation';
+import type { AccountingJournalDraft, SourceActivityDraft } from '@exitbook/ledger';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ProcessingPorts } from '../../../ports/processing-ports.js';
@@ -34,6 +36,18 @@ function createWorkflow(params?: {
         })
       ),
       getProfileAddresses: vi.fn().mockResolvedValue(ok([])),
+    },
+    accountingLedgerSink: {
+      replaceSourceActivities: vi.fn().mockResolvedValue(
+        ok({
+          diagnostics: 0,
+          journals: 0,
+          postings: 0,
+          rawAssignments: 0,
+          sourceActivities: 0,
+          sourceComponents: 0,
+        })
+      ),
     },
     batchSource: {
       countPending: vi.fn().mockResolvedValue(ok(0)),
@@ -193,6 +207,127 @@ describe('ProcessingWorkflow', () => {
     });
   });
 
+  describe('processAccountTransactions', () => {
+    it('persists ledger-v2 source activities in the same batch transaction as legacy transactions', async () => {
+      const rawTransaction = createRawTransaction();
+      const legacyTransaction = createLegacyTransactionDraft();
+      const sourceActivity = createSourceActivityDraft();
+      const ledgerJournal = createLedgerJournalDraft(sourceActivity.sourceActivityFingerprint);
+      const saveProcessedBatch = vi.fn().mockResolvedValue(ok({ duplicates: 0, saved: 1 }));
+      const replaceSourceActivities = vi.fn().mockResolvedValue(
+        ok({
+          diagnostics: 0,
+          journals: 1,
+          postings: 0,
+          rawAssignments: 1,
+          sourceActivities: 1,
+          sourceComponents: 0,
+        })
+      );
+      const markProcessed = vi.fn().mockResolvedValue(ok(undefined));
+      const legacyProcess = vi.fn().mockResolvedValue(ok([legacyTransaction]));
+      const ledgerProcess = vi.fn().mockResolvedValue(ok([{ journals: [ledgerJournal], sourceActivity }]));
+
+      let batchFetched = false;
+      const ports: ProcessingPorts = {
+        accountLookup: {
+          getAccountInfo: vi.fn().mockResolvedValue(
+            ok({
+              accountType: 'blockchain',
+              accountFingerprint: 'acct-fingerprint',
+              identifier: '0xabc',
+              platformKey: 'ethereum',
+              profileId: 1,
+            })
+          ),
+          getProfileAddresses: vi.fn().mockResolvedValue(ok(['0xabc'])),
+        },
+        accountingLedgerSink: {
+          replaceSourceActivities,
+        },
+        batchSource: {
+          countPending: vi.fn().mockResolvedValue(ok(1)),
+          countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
+          fetchAllPending: vi.fn().mockResolvedValue(ok([])),
+          fetchPendingByTransactionHash: vi.fn().mockImplementation(async () => {
+            if (batchFetched) {
+              return ok([]);
+            }
+            batchFetched = true;
+            return ok([rawTransaction]);
+          }),
+          findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
+          findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),
+          markProcessed,
+        },
+        importSessionLookup: {
+          findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+        },
+        markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
+        nearBatchSource: {} as never,
+        rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+        rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
+        transactionOverrides: {
+          materializeStoredOverrides: vi.fn().mockResolvedValue(ok(0)),
+        },
+        transactionSink: {
+          saveProcessedBatch,
+        },
+        withTransaction: async (fn) => fn(ports),
+      };
+
+      const workflow = new ProcessingWorkflow(
+        ports,
+        {
+          getProviders: vi.fn().mockReturnValue([]),
+          getTokenMetadata: vi.fn().mockResolvedValue(ok(new Map())),
+        } as never,
+        { emit: vi.fn() } as never,
+        {
+          getBlockchain: vi.fn().mockReturnValue(
+            ok({
+              blockchain: 'ethereum',
+              chainModel: 'account-based',
+              createImporter: vi.fn(),
+              createProcessor: () => ({ process: legacyProcess }),
+              createLedgerProcessor: () => ({ process: ledgerProcess }),
+              normalizeAddress: vi.fn(),
+            })
+          ),
+          getExchange: vi.fn(),
+          getAllBlockchains: vi.fn(),
+          getAllExchanges: vi.fn(),
+          hasBlockchain: vi.fn(),
+          hasExchange: vi.fn(),
+        } as never
+      );
+
+      const result = await workflow.processAccountTransactions(14);
+
+      expect(result.isOk()).toBe(true);
+      expect(saveProcessedBatch).toHaveBeenCalledWith(
+        [{ rawTransactionIds: [rawTransaction.id], transaction: legacyTransaction }],
+        14
+      );
+      expect(replaceSourceActivities).toHaveBeenCalledWith([
+        {
+          journals: [ledgerJournal],
+          rawTransactionIds: [rawTransaction.id],
+          sourceActivity,
+        },
+      ]);
+      expect(markProcessed).toHaveBeenCalledWith([rawTransaction.id]);
+
+      const saveOrder = saveProcessedBatch.mock.invocationCallOrder[0]!;
+      const ledgerOrder = replaceSourceActivities.mock.invocationCallOrder[0]!;
+      const markOrder = markProcessed.mock.invocationCallOrder[0]!;
+      expect(saveOrder).toBeLessThan(ledgerOrder);
+      expect(ledgerOrder).toBeLessThan(markOrder);
+    });
+  });
+
   describe('prepareReprocess', () => {
     it('uses the provided profile scope for raw-data account discovery', async () => {
       const { workflow, mocks } = createWorkflow();
@@ -206,3 +341,67 @@ describe('ProcessingWorkflow', () => {
     });
   });
 });
+
+function createRawTransaction(): RawTransaction {
+  return {
+    id: 101,
+    accountId: 14,
+    blockchainTransactionHash: '0xhash',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    eventId: 'raw-event-101',
+    normalizedData: {
+      id: '0xhash',
+    },
+    processingStatus: 'pending',
+    providerData: {},
+    providerName: 'test',
+    timestamp: 1_700_000_000_000,
+  };
+}
+
+function createLegacyTransactionDraft(): TransactionDraft {
+  return {
+    datetime: '2023-11-14T22:13:20.000Z',
+    fees: [],
+    movements: {
+      inflows: [],
+      outflows: [],
+    },
+    operation: {
+      category: 'transfer',
+      type: 'transfer',
+    },
+    platformKey: 'ethereum',
+    platformKind: 'blockchain',
+    status: 'success',
+    timestamp: 1_700_000_000_000,
+    blockchain: {
+      is_confirmed: true,
+      name: 'ethereum',
+      transaction_hash: '0xhash',
+    },
+  };
+}
+
+function createSourceActivityDraft(): SourceActivityDraft {
+  return {
+    accountId: 14,
+    activityDatetime: '2023-11-14T22:13:20.000Z',
+    activityStatus: 'success',
+    activityTimestampMs: 1_700_000_000_000,
+    blockchainName: 'ethereum',
+    blockchainTransactionHash: '0xhash',
+    platformKey: 'ethereum',
+    platformKind: 'blockchain',
+    sourceActivityFingerprint: 'source-activity-fingerprint',
+  };
+}
+
+function createLedgerJournalDraft(sourceActivityFingerprint: string): AccountingJournalDraft {
+  return {
+    journalKind: 'transfer',
+    journalStableKey: 'wallet_delta',
+    postings: [],
+    sourceActivityFingerprint,
+  };
+}

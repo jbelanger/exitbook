@@ -12,7 +12,7 @@ export interface ProjectionResetImpact {
   assetReview: { assets: number };
   balances: { assetRows: number; scopes: number };
   links: { links: number };
-  processedTransactions: { transactions: number };
+  processedTransactions: { ledgerSourceActivities: number; transactions: number };
 }
 
 export async function countProjectionResetImpact(
@@ -109,7 +109,7 @@ type ProjectionIdToImpactKey<T extends ProjectionId> = T extends 'asset-review'
 
 function createEmptyProjectionResetImpact(): ProjectionResetImpact {
   return {
-    processedTransactions: { transactions: 0 },
+    processedTransactions: { ledgerSourceActivities: 0, transactions: 0 },
     assetReview: { assets: 0 },
     balances: { scopes: 0, assetRows: 0 },
     links: { links: 0 },

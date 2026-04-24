@@ -11,6 +11,7 @@ import type { BlockchainAdapter, DerivedAddress } from '../../../shared/types/bl
 
 import { normalizeBitcoinAddress } from './address-utils.js';
 import { BitcoinImporter } from './importer.js';
+import { BitcoinProcessorV2 } from './processor-v2.js';
 import { BitcoinProcessor } from './processor.js';
 
 export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).flatMap((chainName) => {
@@ -23,6 +24,16 @@ export const bitcoinAdapters: BlockchainAdapter[] = Object.keys(BITCOIN_CHAINS).
     createImporter: (providerRuntime, preferredProvider) =>
       new BitcoinImporter(config, providerRuntime, { preferredProvider }),
     createProcessor: ({ scamDetector }) => new BitcoinProcessor(config, scamDetector),
+    createLedgerProcessor: () => {
+      const processor = new BitcoinProcessorV2(config);
+      return {
+        process: (normalizedData, context) =>
+          processor.process(normalizedData, {
+            account: context.account,
+            walletAddresses: context.walletAddresses,
+          }),
+      };
+    },
 
     isExtendedPublicKey: isBitcoinXpub,
 

@@ -58,6 +58,7 @@ export function calculateTotalToDelete(state: ClearViewState): number {
   const preview = getActivePreview(state);
   return (
     preview.transactions +
+    preview.ledgerSourceActivities +
     preview.links +
     preview.assetReviewStates +
     preview.balanceSnapshots +
@@ -81,6 +82,13 @@ export function buildCategoryItems(state: ClearViewState): ClearCategoryItem[] {
       count: preview.transactions,
       group: 'processed',
       status: preview.transactions > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'ledgerSourceActivities',
+      label: 'Ledger source activities',
+      count: preview.ledgerSourceActivities,
+      group: 'processed',
+      status: preview.ledgerSourceActivities > 0 ? 'will-delete' : 'empty',
     },
     {
       key: 'links',
@@ -179,6 +187,13 @@ export function buildResultCategoryItems(result: FlatDeletionPreview): ClearCate
       count: result.transactions,
       group: 'processed',
       status: result.transactions > 0 ? 'will-delete' : 'empty',
+    },
+    {
+      key: 'ledgerSourceActivities',
+      label: 'Ledger source activities',
+      count: result.ledgerSourceActivities,
+      group: 'processed',
+      status: result.ledgerSourceActivities > 0 ? 'will-delete' : 'empty',
     },
     {
       key: 'links',

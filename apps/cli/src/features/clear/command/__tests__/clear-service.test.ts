@@ -7,7 +7,7 @@ import { calculateTotalDeletionItems, ClearService, flattenPreview } from '../cl
 vi.mock('../../../../runtime/projection-reset.js', () => ({
   countProjectionResetImpact: vi.fn().mockResolvedValue(
     ok({
-      processedTransactions: { transactions: 5 },
+      processedTransactions: { ledgerSourceActivities: 3, transactions: 5 },
       links: { links: 2 },
       assetReview: { assets: 7 },
       balances: { scopes: 3, assetRows: 11 },
@@ -43,6 +43,7 @@ describe('ClearService', () => {
 
     const flat = flattenPreview(previewResult.value);
     expect(flat.transactions).toBe(5);
+    expect(flat.ledgerSourceActivities).toBe(3);
     expect(flat.links).toBe(2);
     expect(flat.assetReviewStates).toBe(7);
     expect(flat.balanceSnapshots).toBe(3);
@@ -50,6 +51,7 @@ describe('ClearService', () => {
     expect(flat.costBasisSnapshots).toBe(4);
     expect(calculateTotalDeletionItems(flat)).toBe(
       flat.transactions +
+        flat.ledgerSourceActivities +
         flat.links +
         flat.assetReviewStates +
         flat.balanceSnapshots +

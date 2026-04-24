@@ -9,10 +9,17 @@ import { getLogger } from '@exitbook/logger';
 
 import type { IngestionEvent } from '../../events.js';
 import type { ProcessingAccountInfo } from '../../ports/account-lookup.js';
+import type { AccountingLedgerWrite } from '../../ports/accounting-ledger-sink.js';
 import type { ProcessedTransactionWrite } from '../../ports/processed-transaction-sink.js';
 import type { ProcessingPorts } from '../../ports/processing-ports.js';
 import type { AdapterRegistry } from '../../shared/types/adapter-registry.js';
-import type { BatchProcessSummary, AddressContext, ITransactionProcessor } from '../../shared/types/processors.js';
+import type {
+  BatchProcessSummary,
+  AddressContext,
+  BlockchainLedgerProcessorContext,
+  IAccountingLedgerProcessor,
+  ITransactionProcessor,
+} from '../../shared/types/processors.js';
 import type { ScamDetector } from '../scam-detection/contracts.js';
 import { ScamDetectionService } from '../scam-detection/scam-detection-service.js';
 
@@ -22,7 +29,7 @@ import {
   NearStreamBatchProvider,
   type IRawDataBatchProvider,
 } from './batch-providers/index.js';
-import { buildProcessedTransactionWrites } from './raw-transaction-lineage.js';
+import { buildAccountingLedgerWrites, buildProcessedTransactionWrites } from './raw-transaction-lineage.js';
 import { createScamBatchReportingDetector } from './scam-detection-reporting.js';
 
 export interface ReprocessPlan {
@@ -38,6 +45,26 @@ function formatProcessingAccountLabel(account: Pick<ProcessingAccountInfo, 'acco
   }
 
   return formatAccountFingerprintRef(account.accountFingerprint);
+}
+
+function buildBlockchainLedgerProcessorContext(
+  account: Pick<ProcessingAccountInfo, 'accountFingerprint' | 'identifier'>,
+  accountId: number,
+  addressContext: AddressContext
+): BlockchainLedgerProcessorContext {
+  const primaryAddress = addressContext.primaryAddress || account.identifier;
+  const userAddresses =
+    addressContext.userAddresses.length > 0 ? addressContext.userAddresses : primaryAddress ? [primaryAddress] : [];
+
+  return {
+    account: {
+      fingerprint: account.accountFingerprint,
+      id: accountId,
+    },
+    primaryAddress,
+    userAddresses,
+    walletAddresses: userAddresses,
+  };
 }
 
 export class ProcessingWorkflow {
@@ -405,7 +432,7 @@ export class ProcessingWorkflow {
    */
   private async processAccountWithBatchProvider(
     accountId: number,
-    account: { accountType: string; identifier: string; platformKey: string; profileId: number },
+    account: ProcessingAccountInfo,
     batchProvider: IRawDataBatchProvider
   ): Promise<Result<BatchProcessSummary, Error>> {
     const platformKey = account.platformKey.toLowerCase();
@@ -434,6 +461,12 @@ export class ProcessingWorkflow {
       return err(processorResult.error);
     }
     const processor = processorResult.value;
+    const ledgerProcessorResult = this.createLedgerProcessor(platformKey, account.accountType);
+    if (ledgerProcessorResult.isErr()) {
+      return err(ledgerProcessorResult.error);
+    }
+    const ledgerProcessor = ledgerProcessorResult.value;
+    const ledgerContext = buildBlockchainLedgerProcessorContext(account, accountId, addressContext);
 
     // Process batches until no more pending data
     while (batchProvider.hasMore()) {
@@ -516,12 +549,32 @@ export class ProcessingWorkflow {
       }
 
       const transactionWrites = transactionWritesResult.value;
+      const ledgerWritesResult = await this.buildAccountingLedgerShadowWrites({
+        accountId,
+        batchNumber,
+        ledgerContext,
+        ledgerProcessor,
+        platformKind: account.accountType,
+        processorInputs,
+        rawDataItems,
+      });
+      if (ledgerWritesResult.isErr()) {
+        return err(ledgerWritesResult.error);
+      }
+      const ledgerWrites = ledgerWritesResult.value;
       totalProcessed += rawDataItems.length;
 
       // Atomically: save processed transactions + mark raw data as processed
       const commitResult = await this.ports.withTransaction(async (tx) => {
         const saveResult = await this.saveTransactionsWithPorts(tx, transactionWrites, accountId);
         if (saveResult.isErr()) return err(saveResult.error);
+
+        if (ledgerWrites.length > 0) {
+          const ledgerResult = await tx.accountingLedgerSink.replaceSourceActivities(ledgerWrites);
+          if (ledgerResult.isErr()) {
+            return err(ledgerResult.error);
+          }
+        }
 
         const markResult = await this.markRawDataAsProcessedWithPorts(tx, rawDataItems);
         if (markResult.isErr()) return err(markResult.error);
@@ -584,7 +637,7 @@ export class ProcessingWorkflow {
   }
 
   private async buildAddressContext(
-    account: { accountType: string; identifier: string; platformKey: string; profileId: number },
+    account: Pick<ProcessingAccountInfo, 'accountType' | 'identifier' | 'platformKey' | 'profileId'>,
     accountId: number
   ): Promise<AddressContext> {
     const addressContext: AddressContext = {
@@ -634,6 +687,36 @@ export class ProcessingWorkflow {
       }
       return ok(adapterResult.value.createProcessor());
     }
+  }
+
+  private createLedgerProcessor(
+    platformKey: string,
+    platformKind: string
+  ): Result<IAccountingLedgerProcessor | undefined, Error> {
+    if (platformKind !== 'blockchain') {
+      return ok(undefined);
+    }
+
+    const adapterResult = this.registry.getBlockchain(platformKey);
+    if (adapterResult.isErr()) {
+      return err(adapterResult.error);
+    }
+
+    const createLedgerProcessor = adapterResult.value.createLedgerProcessor;
+    if (!createLedgerProcessor) {
+      return ok(undefined);
+    }
+
+    return ok(
+      createLedgerProcessor({
+        providerRuntime: this.providerRuntime,
+        scamDetector: createScamBatchReportingDetector({
+          blockchain: platformKey,
+          detector: this.scamDetector,
+          emit: (event) => this.eventBus.emit(event),
+        }),
+      })
+    );
   }
 
   private unpackForProcessor(rawDataItems: RawTransaction[], platformKind: string): Result<unknown[], Error> {
@@ -698,6 +781,52 @@ export class ProcessingWorkflow {
     }
 
     return ok({ saved: savedCount, duplicates: duplicateCount });
+  }
+
+  private async buildAccountingLedgerShadowWrites(params: {
+    accountId: number;
+    batchNumber: number;
+    ledgerContext: BlockchainLedgerProcessorContext;
+    ledgerProcessor: IAccountingLedgerProcessor | undefined;
+    platformKind: string;
+    processorInputs: unknown[];
+    rawDataItems: RawTransaction[];
+  }): Promise<Result<AccountingLedgerWrite[], Error>> {
+    if (!params.ledgerProcessor) {
+      return ok([]);
+    }
+
+    const ledgerDraftsResult = await params.ledgerProcessor.process(params.processorInputs, params.ledgerContext);
+    if (ledgerDraftsResult.isErr()) {
+      this.logger.error(
+        `CRITICAL: Ledger v2 shadow processing failed for account ${params.accountId} batch ${params.batchNumber} - ${ledgerDraftsResult.error.message}`
+      );
+      return err(
+        new Error(
+          `Cannot proceed: Account ${params.accountId} ledger v2 shadow processing failed at batch ${params.batchNumber}. ` +
+            `${ledgerDraftsResult.error.message}. This would leave the legacy and ledger projections out of sync.`
+        )
+      );
+    }
+
+    const ledgerWritesResult = buildAccountingLedgerWrites({
+      ledgerDrafts: ledgerDraftsResult.value,
+      platformKind: params.platformKind,
+      rawTransactions: params.rawDataItems,
+    });
+    if (ledgerWritesResult.isErr()) {
+      this.logger.error(
+        `CRITICAL: Failed to bind ledger v2 raw lineage for account ${params.accountId} batch ${params.batchNumber} - ${ledgerWritesResult.error.message}`
+      );
+      return err(
+        new Error(
+          `Cannot proceed: Account ${params.accountId} ledger v2 lineage binding failed at batch ${params.batchNumber}. ` +
+            `${ledgerWritesResult.error.message}. This would lose source provenance for ledger source activities.`
+        )
+      );
+    }
+
+    return ok(ledgerWritesResult.value);
   }
 
   private async markRawDataAsProcessedWithPorts(

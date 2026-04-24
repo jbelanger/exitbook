@@ -111,6 +111,37 @@ export function buildProcessingPorts(
       saveProcessedBatch: (transactions, accountId) => db.transactions.createBatch(transactions, accountId),
     },
 
+    accountingLedgerSink: {
+      replaceSourceActivities: (writes) =>
+        resultDoAsync(async function* () {
+          const summary = {
+            diagnostics: 0,
+            journals: 0,
+            postings: 0,
+            rawAssignments: 0,
+            sourceActivities: 0,
+            sourceComponents: 0,
+          };
+
+          for (const write of writes) {
+            const result = yield* await db.accountingLedger.replaceForSourceActivity({
+              journals: write.journals,
+              rawTransactionIds: write.rawTransactionIds,
+              sourceActivity: write.sourceActivity,
+            });
+
+            summary.diagnostics += result.diagnosticCount;
+            summary.journals += result.journalCount;
+            summary.postings += result.postingCount;
+            summary.rawAssignments += result.rawAssignmentCount;
+            summary.sourceActivities += 1;
+            summary.sourceComponents += result.sourceComponentCount;
+          }
+
+          return summary;
+        }),
+    },
+
     accountLookup: {
       getAccountInfo: (accountId) => db.accounts.getById(accountId),
 
