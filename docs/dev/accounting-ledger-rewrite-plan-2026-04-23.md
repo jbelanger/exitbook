@@ -693,6 +693,7 @@ New files:
 - `packages/accounting/src/balance-v2/balance-v2-shadow.ts`
 - `packages/accounting/src/balance-v2/__tests__/balance-v2-runner.test.ts`
 - `packages/accounting/src/balance-v2/__tests__/balance-v2-shadow.test.ts`
+- `packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.balance-shadow.test.ts`
 
 Files to compare against:
 
@@ -706,6 +707,9 @@ Steps:
    account and asset for a processed transaction scope.
 2. Run `balance-v2` in parallel with the current balance/portfolio derivation
    over the same processed transaction inputs.
+   - First harness: Cardano processor-v2 balance shadow compares previous
+     processor plus balance-v1 impact against processor-v2 plus balance-v2
+     postings on the same normalized fixtures.
 3. Produce a shadow diff report keyed by:
    - account id
    - asset id
