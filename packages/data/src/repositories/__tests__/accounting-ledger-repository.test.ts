@@ -95,6 +95,73 @@ describe('AccountingLedgerRepository', () => {
     expect(postings[1]?.journalKind).toBe('transfer');
   });
 
+  it('reads ledger postings across an account scope', async () => {
+    await seedAccount(db, 2, 'blockchain', 'cardano');
+
+    const firstSourceActivity = makeSourceActivity();
+    const secondSourceActivity = makeSourceActivity({
+      accountId: 2,
+      sourceActivityFingerprint: 'source_activity:v1:test-activity-2',
+      blockchainTransactionHash: 'txhash-ledger-2',
+    });
+
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: firstSourceActivity,
+        journals: [
+          makeJournal({
+            postings: [
+              makePosting({
+                postingStableKey: 'posting:account-1',
+                quantity: '-3',
+                componentKind: 'utxo_input',
+                componentId: 'input:account-1',
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: secondSourceActivity,
+        journals: [
+          makeJournal({
+            sourceActivityFingerprint: secondSourceActivity.sourceActivityFingerprint,
+            postings: [
+              makePosting({
+                sourceActivityFingerprint: secondSourceActivity.sourceActivityFingerprint,
+                postingStableKey: 'posting:account-2',
+                quantity: '5',
+                componentKind: 'utxo_output',
+                componentId: 'output:account-2',
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    const postings = assertOk(await repository.findPostingsByAccountIds([2, 1, 1]));
+
+    expect(
+      postings.map((posting) => ({
+        accountId: posting.accountId,
+        postingStableKey: posting.postingStableKey,
+        quantity: posting.quantity.toFixed(),
+      }))
+    ).toEqual([
+      { accountId: 1, postingStableKey: 'posting:account-1', quantity: '-3' },
+      { accountId: 2, postingStableKey: 'posting:account-2', quantity: '5' },
+    ]);
+  });
+
+  it('rejects invalid account ids when reading ledger postings', async () => {
+    const result = await repository.findPostingsByAccountIds([0]);
+
+    expect(assertErr(result).message).toContain('Account id must be a positive integer');
+  });
+
   it('replaces an existing source activity ledger atomically', async () => {
     await seedRawTransaction(1);
     await seedRawTransaction(2);
@@ -370,7 +437,10 @@ describe('AccountingLedgerRepository', () => {
     quantity: string;
     role?: AccountingPostingRole | undefined;
     settlement?: AccountingPostingDraft['settlement'];
+    sourceActivityFingerprint?: string | undefined;
   }): AccountingPostingDraft {
+    const sourceActivityFingerprint = params.sourceActivityFingerprint ?? ACTIVITY_FINGERPRINT;
+
     return {
       postingStableKey: params.postingStableKey,
       assetId: CARDANO_ASSET_ID,
@@ -381,7 +451,7 @@ describe('AccountingLedgerRepository', () => {
       sourceComponentRefs: [
         {
           component: {
-            sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
+            sourceActivityFingerprint,
             componentKind: params.componentKind,
             componentId: params.componentId,
             occurrence: 1,

@@ -95,6 +95,22 @@ export class AccountingLedgerRepository extends BaseRepository {
   }
 
   async findPostingsByAccountId(accountId: number): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
+    return this.findPostingsByAccountIds([accountId]);
+  }
+
+  async findPostingsByAccountIds(
+    accountIds: readonly number[]
+  ): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
+    const normalizedAccountIdsResult = normalizeAccountIds(accountIds);
+    if (normalizedAccountIdsResult.isErr()) {
+      return err(normalizedAccountIdsResult.error);
+    }
+
+    const normalizedAccountIds = normalizedAccountIdsResult.value;
+    if (normalizedAccountIds.length === 0) {
+      return ok([]);
+    }
+
     try {
       const rows = await this.db
         .selectFrom('accounting_postings')
@@ -117,7 +133,8 @@ export class AccountingLedgerRepository extends BaseRepository {
           'accounting_postings.posting_role as posting_role',
           'accounting_postings.settlement as settlement',
         ])
-        .where('source_activities.account_id', '=', accountId)
+        .where('source_activities.account_id', 'in', normalizedAccountIds)
+        .orderBy('source_activities.account_id', 'asc')
         .orderBy('source_activities.activity_datetime', 'asc')
         .orderBy('accounting_journals.journal_stable_key', 'asc')
         .orderBy('accounting_postings.posting_stable_key', 'asc')
@@ -221,6 +238,16 @@ export class AccountingLedgerRepository extends BaseRepository {
       rawBindingCount,
     });
   }
+}
+
+function normalizeAccountIds(accountIds: readonly number[]): Result<number[], Error> {
+  for (const accountId of accountIds) {
+    if (!Number.isInteger(accountId) || accountId <= 0) {
+      return err(new Error(`Account id must be a positive integer, received ${accountId}`));
+    }
+  }
+
+  return ok([...new Set(accountIds)].sort((left, right) => left - right));
 }
 
 function validateSourceActivityLedgerDraft(params: ReplaceAccountingLedgerParams): Result<void, Error> {

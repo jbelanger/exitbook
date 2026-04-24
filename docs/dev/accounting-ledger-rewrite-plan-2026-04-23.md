@@ -548,7 +548,8 @@ Acceptance criteria:
 
 ### Phase 4: Persistence Design And Schema Rewrite
 
-Status: draft schema started; atomic ledger materialization repository started.
+Status: draft schema started; atomic ledger materialization repository and
+scoped posting reads started.
 
 Files to update:
 
@@ -596,6 +597,8 @@ Acceptance criteria:
 - database schema types match the new tables
 - repository tests cover round-trip persistence, deterministic replacement,
   relationship endpoints, and rejected-draft rollback
+- repository reads can load ledger postings for a full account scope, including
+  parent plus child accounts
 - no consumer reads the new tables until Phase 6 materialization is ready
 
 ### Phase 5: Accounting Overrides
@@ -680,12 +683,15 @@ Acceptance criteria:
 
 ### Phase 7: Shadow Balance-V2
 
-Status: pending.
+Status: pure runner and shadow diff started; persistence/CLI integration
+pending.
 
 New files:
 
+- `packages/accounting/src/balance-v2.ts`
 - `packages/accounting/src/balance-v2/balance-v2-runner.ts`
 - `packages/accounting/src/balance-v2/balance-v2-shadow.ts`
+- `packages/accounting/src/balance-v2/__tests__/balance-v2-runner.test.ts`
 - `packages/accounting/src/balance-v2/__tests__/balance-v2-shadow.test.ts`
 
 Files to compare against:
@@ -716,7 +722,8 @@ Steps:
 
 Acceptance criteria:
 
-- `balance-v2` runs side-by-side without replacing current balance reads
+- `balance-v2` runs side-by-side without replacing current balance reads or
+  stored balance snapshots
 - pilot processor datasets reconcile at account/asset balance level
 - intentional behavior changes are documented explicitly
 - consumer migration does not start until `balance-v2` is accepted

@@ -3,6 +3,7 @@
  *
  * Use one of:
  * - `@exitbook/accounting/accounting-model`
+ * - `@exitbook/accounting/balance-v2`
  * - `@exitbook/accounting/cost-basis`
  * - `@exitbook/accounting/issues`
  * - `@exitbook/accounting/linking`
