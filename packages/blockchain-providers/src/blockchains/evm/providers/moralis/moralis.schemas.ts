@@ -155,7 +155,7 @@ export const MoralisWalletHistoryTransactionSchema = z
     nonce: z.string(),
     possible_spam: z.boolean(),
     receipt_gas_used: z.string().regex(/^\d*$/, 'Receipt gas used must be numeric string or empty'),
-    receipt_status: z.string().regex(/^[01]$/, 'Receipt status must be 0 or 1'),
+    receipt_status: z.enum(['0', '1']).nullish(),
     summary: z.string().nullish(),
     to_address: EvmAddressSchema.nullish(), // null for contract creation
     transaction_fee: z.string(), // Already in decimal ETH (e.g. "0.000121971142461")

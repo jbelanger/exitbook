@@ -152,18 +152,26 @@ export class ProviderFailoverEngine {
 
       try {
         const iterator = provider.executeStreaming(operation, adjustedCursor);
+        const providerKey = getProviderKey(blockchain, provider.name);
 
         let providerFailed = false;
+        let batchStartedAt = Date.now();
         for await (const batchResult of iterator) {
+          const responseTime = Date.now() - batchStartedAt;
+          batchStartedAt = Date.now();
+
           if (batchResult.isErr()) {
             lastErrorMessage = getErrorMessage(batchResult.error);
             lastFailedProvider = provider.name;
             logger.error(`Provider ${provider.name} batch failed (${operationDesc}): ${lastErrorMessage}`);
-            this.recordProviderFailure(blockchain, provider.name, lastErrorMessage);
+            this.recordProviderFailure(blockchain, provider.name, lastErrorMessage, responseTime);
             providerIndex++;
             providerFailed = true;
             break;
           }
+
+          this.statsStore.updateHealth(providerKey, true, responseTime);
+          this.circuitBreakers.recordSuccess(providerKey, Date.now());
 
           const batch = batchResult.value;
 
@@ -198,8 +206,6 @@ export class ProviderFailoverEngine {
           }
 
           currentCursor = batch.cursor;
-
-          this.circuitBreakers.recordSuccess(getProviderKey(blockchain, provider.name), Date.now());
         }
 
         // If provider failed during streaming, continue to next provider
@@ -408,12 +414,17 @@ export class ProviderFailoverEngine {
     }
   }
 
-  private recordProviderFailure(blockchain: string, providerName: string, errorMessage: string): void {
+  private recordProviderFailure(
+    blockchain: string,
+    providerName: string,
+    errorMessage: string,
+    responseTime = 0
+  ): void {
     const providerKey = getProviderKey(blockchain, providerName);
     const circuitState = this.circuitBreakers.getOrCreate(providerKey);
     const now = Date.now();
     const newCircuitState = this.circuitBreakers.recordFailure(providerKey, now);
     this.emitCircuitOpenIfTriggered(blockchain, providerName, circuitState, newCircuitState, errorMessage);
-    this.statsStore.updateHealth(providerKey, false, 0, errorMessage);
+    this.statsStore.updateHealth(providerKey, false, responseTime, errorMessage);
   }
 }

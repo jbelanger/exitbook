@@ -95,6 +95,7 @@ class MockProvider implements IBlockchainProvider {
         totalFetched: data.length,
         metadata: { providerName: this.name, updatedAt: Date.now(), isComplete: true },
       },
+      isComplete: true,
     } as unknown as StreamingBatchResult<T>);
   }
 
@@ -272,6 +273,36 @@ describe('BlockchainProviderManager', () => {
 
     tokenExecuteSpy.mockRestore();
     basicExecuteSpy.mockRestore();
+  });
+
+  test('streaming success updates provider health after a previous streaming failure', async () => {
+    const streamingProvider = new MockProvider('streaming-provider', 'ethereum');
+    manager.registerProviders('ethereum', [streamingProvider]);
+
+    streamingProvider.setFailureMode(true);
+    const failedResults = [];
+    for await (const result of manager.streamAddressTransactions('ethereum', '0x123', { streamType: 'normal' })) {
+      failedResults.push(result);
+    }
+
+    expect(failedResults).toHaveLength(1);
+    expect(failedResults[0]!.isErr()).toBe(true);
+
+    let health = manager.getProviderHealth('ethereum').get('streaming-provider');
+    expect(health?.consecutiveFailures).toBe(1);
+
+    streamingProvider.setFailureMode(false);
+    const successfulResults = [];
+    for await (const result of manager.streamAddressTransactions('ethereum', '0x123', { streamType: 'normal' })) {
+      successfulResults.push(result);
+    }
+
+    expect(successfulResults).toHaveLength(1);
+    expect(successfulResults[0]!.isOk()).toBe(true);
+
+    health = manager.getProviderHealth('ethereum').get('streaming-provider');
+    expect(health?.consecutiveFailures).toBe(0);
+    expect(health?.isHealthy).toBe(true);
   });
 
   test('should handle cache expiration correctly', async () => {

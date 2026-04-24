@@ -149,7 +149,10 @@ export function createStreamingIterator<Raw, Tx extends NormalizedTransactionBas
           const emptyBatch: TransactionWithRawData<Tx>[] = [];
           const cursorState = createEmptyCompletionCursor({
             providerName,
-            operationType: opts.operation.type,
+            operationType:
+              opts.operation.type === 'getAddressTransactions'
+                ? (opts.operation.streamType ?? opts.operation.type)
+                : opts.operation.type,
             identifier: opts.operation.type === 'getAddressTransactions' ? opts.operation.address : opts.operation.type,
           });
           yield ok({ data: emptyBatch, cursor: cursorState, isComplete: true });

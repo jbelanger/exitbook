@@ -33,7 +33,7 @@ export function mapMoralisWalletHistoryTransaction(
 ): Result<EvmTransaction[], NormalizationError> {
   const timestamp = new Date(rawData.block_timestamp).getTime();
   const blockHeight = parseInt(rawData.block_number);
-  const status = rawData.receipt_status === '1' ? 'success' : ('failed' as const);
+  const status: EvmTransaction['status'] = rawData.receipt_status === '0' ? 'failed' : 'success';
   const from = normalizeEvmAddress(rawData.from_address) ?? '';
   const to = normalizeEvmAddress(rawData.to_address);
 

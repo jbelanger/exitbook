@@ -24,7 +24,6 @@ import {
   type StreamingPage,
   type StreamingPageContext,
 } from '../../../../runtime/streaming/adapter.js';
-import { createEmptyCompletionCursor } from '../../../../runtime/streaming/cursor-state.js';
 import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
 import { convertWeiToDecimal } from '../../balance-utils.js';
 import type { EvmChainConfig } from '../../chain-config.interface.js';
@@ -39,6 +38,8 @@ import {
   MoralisWalletHistoryResponseSchema,
   type MoralisWalletHistoryTransaction,
 } from './moralis.schemas.js';
+
+type MoralisWalletHistoryStreamType = 'internal' | 'normal' | 'token';
 
 /**
  * Maps EVM chain names to Moralis-specific chain identifiers
@@ -183,28 +184,13 @@ export class MoralisApiClient extends BaseApiClient {
       return;
     }
 
-    // The wallet history endpoint returns ALL transaction types (normal, internal, token)
-    // in a single unified stream. For the 'normal' stream type, we fetch everything.
-    // For 'internal' and 'token' stream types, yield empty batches since everything
-    // is already captured by the 'normal' stream.
     const streamType = operation.streamType || 'normal';
-    if (streamType === 'internal' || streamType === 'token') {
-      this.logger.info(
-        `Moralis wallet history includes ${streamType} transactions in the normal stream - yielding empty batch`
-      );
-      yield ok({
-        data: [],
-        cursor: createEmptyCompletionCursor({
-          providerName: this.name,
-          operationType: streamType,
-          identifier: operation.address,
-        }),
-        isComplete: true,
-      });
+    if (!isMoralisWalletHistoryStreamType(streamType)) {
+      yield err(new Error(`Unsupported transaction type: ${streamType}`));
       return;
     }
 
-    yield* this.streamWalletHistory(operation.address, resumeCursor) as AsyncIterableIterator<
+    yield* this.streamWalletHistory(operation.address, streamType, resumeCursor) as AsyncIterableIterator<
       Result<StreamingBatchResult<T>, Error>
     >;
   }
@@ -356,6 +342,7 @@ export class MoralisApiClient extends BaseApiClient {
    */
   private streamWalletHistory(
     address: string,
+    streamType: MoralisWalletHistoryStreamType,
     resumeCursor?: CursorState
   ): AsyncIterableIterator<Result<StreamingBatchResult<EvmTransaction>, Error>> {
     const fetchPage = async (
@@ -385,8 +372,19 @@ export class MoralisApiClient extends BaseApiClient {
       }
 
       const response = result.value;
+      const items = response.result || [];
+      const missingReceiptStatusCount = items.filter(
+        (item) => item.receipt_status === null || item.receipt_status === undefined
+      ).length;
+
+      if (missingReceiptStatusCount > 0) {
+        this.logger.warn(
+          `Moralis wallet history returned ${missingReceiptStatusCount} transaction(s) without receipt_status; treating them as success because Moralis emitted confirmed history records`
+        );
+      }
+
       return ok({
-        items: response.result || [],
+        items: items.filter((item) => isWalletHistoryItemRelevantToStream(item, streamType)),
         nextPageToken: response.cursor ?? undefined,
         isComplete: !response.cursor,
       });
@@ -394,7 +392,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     return createStreamingIterator<MoralisWalletHistoryTransaction, EvmTransaction>({
       providerName: this.name,
-      operation: { type: 'getAddressTransactions', address },
+      operation: { type: 'getAddressTransactions', streamType, address },
       resumeCursor,
       fetchPage,
       mapItem: (raw) => {
@@ -405,7 +403,7 @@ export class MoralisApiClient extends BaseApiClient {
           return err(new Error(`Provider data validation failed: ${errorMessage}`));
         }
 
-        const evmTransactions = mapped.value;
+        const evmTransactions = mapped.value.filter((normalized) => isTransactionInStream(normalized, streamType));
         const results: TransactionWithRawData<EvmTransaction>[] = evmTransactions.map((normalized) => ({
           raw,
           normalized,
@@ -424,5 +422,34 @@ export class MoralisApiClient extends BaseApiClient {
       dedupWindowSize: 500,
       logger: this.logger,
     });
+  }
+}
+
+function isMoralisWalletHistoryStreamType(streamType: string): streamType is MoralisWalletHistoryStreamType {
+  return streamType === 'normal' || streamType === 'internal' || streamType === 'token';
+}
+
+function isWalletHistoryItemRelevantToStream(
+  item: MoralisWalletHistoryTransaction,
+  streamType: MoralisWalletHistoryStreamType
+): boolean {
+  switch (streamType) {
+    case 'normal':
+      return true;
+    case 'internal':
+      return item.native_transfers.some((transfer) => transfer.internal_transaction);
+    case 'token':
+      return item.erc20_transfers.length > 0;
+  }
+}
+
+function isTransactionInStream(transaction: EvmTransaction, streamType: MoralisWalletHistoryStreamType): boolean {
+  switch (streamType) {
+    case 'normal':
+      return transaction.type === 'transfer' || transaction.type === 'contract_call';
+    case 'internal':
+      return transaction.type === 'internal';
+    case 'token':
+      return transaction.type === 'token_transfer';
   }
 }

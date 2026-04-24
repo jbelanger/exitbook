@@ -38,6 +38,63 @@ vi.mock('@exitbook/logger', () => ({
 
 const TEST_ADDRESS = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
 const CONTRACT_ADDRESS = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+const OTHER_ADDRESS = '0x1111111111111111111111111111111111111111';
+
+const createNativeTransfer = (overrides: Record<string, unknown> = {}) => ({
+  direction: 'receive',
+  from_address: OTHER_ADDRESS,
+  from_address_label: null,
+  internal_transaction: false,
+  to_address: TEST_ADDRESS,
+  to_address_label: null,
+  token_symbol: 'ETH',
+  value: '1000000000000000000',
+  value_formatted: '1.0',
+  ...overrides,
+});
+
+const createErc20Transfer = (overrides: Record<string, unknown> = {}) => ({
+  address: CONTRACT_ADDRESS,
+  direction: 'receive',
+  from_address: OTHER_ADDRESS,
+  from_address_label: null,
+  log_index: 7,
+  possible_spam: false,
+  security_score: null,
+  to_address: TEST_ADDRESS,
+  to_address_label: null,
+  token_decimals: '6',
+  token_logo: null,
+  token_name: 'USD Coin',
+  token_symbol: 'USDC',
+  value: '1000000',
+  value_formatted: '1.0',
+  verified_contract: true,
+  ...overrides,
+});
+
+const createWalletHistoryItem = (overrides: Record<string, unknown> = {}) => ({
+  block_hash: '0xabcdef0000000000000000000000000000000000000000000000000000000000',
+  block_number: '12345',
+  block_timestamp: 1700000000,
+  category: 'receive',
+  erc20_transfers: [],
+  from_address: OTHER_ADDRESS,
+  gas_price: '1000000000',
+  hash: '0xdeadbeef00000000000000000000000000000000000000000000000000000001',
+  internal_transactions: [],
+  method_label: null,
+  native_transfers: [createNativeTransfer()],
+  nonce: '0',
+  possible_spam: false,
+  receipt_gas_used: '21000',
+  receipt_status: '1',
+  summary: 'Received 1 ETH',
+  to_address: TEST_ADDRESS,
+  transaction_fee: '0.000021',
+  value: '1000000000000000000',
+  ...overrides,
+});
 
 // ── Test suite ──────────────────────────────────────────────────────
 
@@ -251,7 +308,7 @@ describe('MoralisApiClient', () => {
   describe('executeStreaming', () => {
     it('should yield error for non-getAddressTransactions operation', async () => {
       const results = [];
-      for await (const result of client.executeStreaming({
+      for await (const result of client.executeStreaming<EvmTransaction>({
         type: 'getAddressBalances',
         address: TEST_ADDRESS,
       } as never)) {
@@ -263,36 +320,71 @@ describe('MoralisApiClient', () => {
       expect(error.message).toContain('Streaming not yet implemented');
     });
 
-    it('should yield empty batch for internal stream type (unified in normal stream)', async () => {
-      const batches = [];
-      for await (const result of client.executeStreaming({
+    it('should stream internal transactions for internal stream type', async () => {
+      mockGet.mockResolvedValue(
+        ok({
+          cursor: null,
+          page: 1,
+          page_size: 100,
+          result: [
+            createWalletHistoryItem({
+              native_transfers: [
+                createNativeTransfer({ internal_transaction: false }),
+                createNativeTransfer({
+                  internal_transaction: true,
+                  value: '500000000000000000',
+                  value_formatted: '0.5',
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
         type: 'getAddressTransactions',
         address: TEST_ADDRESS,
         streamType: 'internal',
       })) {
-        batches.push(result);
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
       }
 
-      expect(batches).toHaveLength(1);
-      const batch = expectOk(batches[0]!);
-      expect(batch.data).toHaveLength(0);
-      expect(batch.isComplete).toBe(true);
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]!.type).toBe('internal');
+      expect(transactions[0]!.amount).toBe('500000000000000000');
+      expect(mockGet.mock.calls[0]?.[0]).toContain('include_internal_transactions=true');
     });
 
-    it('should yield empty batch for token stream type (unified in normal stream)', async () => {
-      const batches = [];
-      for await (const result of client.executeStreaming({
+    it('should stream token transfers for token stream type', async () => {
+      mockGet.mockResolvedValue(
+        ok({
+          cursor: null,
+          page: 1,
+          page_size: 100,
+          result: [
+            createWalletHistoryItem({
+              erc20_transfers: [createErc20Transfer()],
+              value: '0',
+            }),
+          ],
+        })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
         type: 'getAddressTransactions',
         address: TEST_ADDRESS,
         streamType: 'token',
       })) {
-        batches.push(result);
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
       }
 
-      expect(batches).toHaveLength(1);
-      const batch = expectOk(batches[0]!);
-      expect(batch.data).toHaveLength(0);
-      expect(batch.isComplete).toBe(true);
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]!.type).toBe('token_transfer');
+      expect(transactions[0]!.tokenAddress).toBe(CONTRACT_ADDRESS);
     });
 
     it('should propagate API errors during normal streaming', async () => {
@@ -310,46 +402,47 @@ describe('MoralisApiClient', () => {
       expect(gotError).toBe(true);
     });
 
-    it('should stream wallet history transactions', async () => {
+    it('should accept null receipt status from wallet history', async () => {
+      mockGet.mockResolvedValue(
+        ok({
+          cursor: null,
+          page: 1,
+          page_size: 100,
+          result: [createWalletHistoryItem({ receipt_status: null })],
+        })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]!.status).toBe('success');
+    });
+
+    it('should stream normal wallet history transactions without leaking token or internal events', async () => {
       mockGet.mockResolvedValue(
         ok({
           cursor: null,
           page: 1,
           page_size: 100,
           result: [
-            {
-              block_hash: '0xabcdef0000000000000000000000000000000000000000000000000000000000',
-              block_number: '12345',
-              block_timestamp: 1700000000,
-              category: 'receive',
-              erc20_transfers: [],
-              from_address: '0x1111111111111111111111111111111111111111',
-              gas_price: '1000000000',
-              hash: '0xdeadbeef00000000000000000000000000000000000000000000000000000001',
-              internal_transactions: [],
-              method_label: null,
+            createWalletHistoryItem({
+              erc20_transfers: [createErc20Transfer()],
               native_transfers: [
-                {
-                  direction: 'receive',
-                  from_address: '0x1111111111111111111111111111111111111111',
-                  from_address_label: null,
-                  internal_transaction: false,
-                  to_address: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-                  to_address_label: null,
-                  token_symbol: 'ETH',
-                  value: '1000000000000000000',
-                  value_formatted: '1.0',
-                },
+                createNativeTransfer({ internal_transaction: false }),
+                createNativeTransfer({
+                  internal_transaction: true,
+                  value: '500000000000000000',
+                  value_formatted: '0.5',
+                }),
               ],
-              nonce: '0',
-              possible_spam: false,
-              receipt_gas_used: '21000',
-              receipt_status: '1',
-              summary: 'Received 1 ETH',
-              to_address: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-              transaction_fee: '0.000021',
-              value: '1000000000000000000',
-            },
+            }),
           ],
         })
       );
@@ -363,8 +456,9 @@ describe('MoralisApiClient', () => {
         transactions.push(...batch.data.map((item) => item.normalized));
       }
 
-      expect(transactions.length).toBeGreaterThanOrEqual(1);
+      expect(transactions).toHaveLength(1);
       expect(transactions[0]!.providerName).toBe('moralis');
+      expect(transactions[0]!.type).toBe('transfer');
     });
   });
 
