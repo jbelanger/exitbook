@@ -356,4 +356,111 @@ describe('CardanoProcessorV2', () => {
 
     expect(result.error.message).toContain('missing fee currency');
   });
+
+  test('rejects transactions outside the wallet address scope', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-outside-wallet-scope-1',
+        inputs: [createInput(EXTERNAL_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-outside-wallet-scope-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '1000000')],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('has no effect for the wallet address scope');
+  });
+
+  test('rejects negative input amounts before accounting math', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-negative-input-1',
+        inputs: [createInput(USER_ADDRESS, '-1000000', 'lovelace', { txHash: 'prev-negative-input-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '830000')],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('input amount must not be negative');
+  });
+
+  test('rejects negative output amounts before accounting math', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-negative-output-1',
+        inputs: [createInput(EXTERNAL_ADDRESS, '1170000', 'lovelace', { txHash: 'prev-negative-output-1' })],
+        outputs: [createOutput(USER_ADDRESS, '-1000000')],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('output amount must not be negative');
+  });
+
+  test('rejects negative fee amounts before accounting math', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-negative-fee-1',
+        feeAmount: '-0.17',
+        inputs: [createInput(USER_ADDRESS, '1000000', 'lovelace', { txHash: 'prev-negative-fee-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '830000')],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('fee amount must not be negative');
+  });
+
+  test('rejects negative withdrawal amounts before accounting math', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-negative-withdrawal-1',
+        feeAmount: '0.17',
+        inputs: [createInput(USER_ADDRESS, '1000000', 'lovelace', { txHash: 'prev-negative-withdrawal-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '830000')],
+        withdrawals: [
+          {
+            address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+            amount: '-1',
+            currency: 'ADA',
+          },
+        ],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('withdrawal amount must not be negative');
+  });
+
+  test('rejects fractional token decimals before accounting math', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-fractional-decimals-1',
+        inputs: [
+          createInput(USER_ADDRESS, [
+            {
+              decimals: 1.5,
+              quantity: '1000',
+              unit: 'token-with-fractional-decimals',
+            },
+          ]),
+        ],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '830000')],
+      }),
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('decimals must be a non-negative integer');
+  });
 });

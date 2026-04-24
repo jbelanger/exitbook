@@ -10,8 +10,8 @@ import {
   err,
   ok,
   parseCurrency,
-  parseDecimal,
   resultDo,
+  tryParseDecimal,
   type Currency,
   type Result,
 } from '@exitbook/foundation';
@@ -24,7 +24,7 @@ import {
 } from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
 
-import { normalizeCardanoAmount, parseCardanoAssetUnit } from './processor-utils.js';
+import { parseCardanoAssetUnit } from './processor-utils.js';
 
 export interface CardanoProcessorV2AccountContext {
   fingerprint: string;
@@ -55,8 +55,13 @@ interface WalletAssetAmount {
 interface WalletAssetTotals {
   inputsByUnit: Map<string, WalletAssetAmount>;
   outputsByUnit: Map<string, WalletAssetAmount>;
-  ownedInputs: CardanoTransactionInput[];
-  ownedOutputs: CardanoTransactionOutput[];
+  walletInputs: CardanoTransactionInput[];
+  walletOutputs: CardanoTransactionOutput[];
+}
+
+interface ValidatedCardanoAmounts {
+  feeAmount: Decimal;
+  withdrawalAmounts: readonly Decimal[];
 }
 
 type CardanoWithdrawal = NonNullable<CardanoTransaction['withdrawals']>[number];
@@ -87,6 +92,133 @@ function isWalletAddress(address: string, walletAddresses: ReadonlySet<string>):
   return walletAddresses.has(address);
 }
 
+function parseCardanoTransactionAmount(params: {
+  allowMissing?: boolean | undefined;
+  label: string;
+  transactionId: string;
+  value: string | undefined;
+}): Result<Decimal, Error> {
+  if (params.value === undefined && params.allowMissing !== true) {
+    return err(new Error(`Cardano v2 transaction ${params.transactionId} ${params.label} amount is missing`));
+  }
+
+  const parsed = { value: new Decimal(0) };
+  if (!tryParseDecimal(params.value ?? '0', parsed)) {
+    return err(
+      new Error(`Cardano v2 transaction ${params.transactionId} ${params.label} amount must be a valid decimal`)
+    );
+  }
+
+  return ok(parsed.value);
+}
+
+function validateCardanoAssetDecimals(params: {
+  assetUnit: string;
+  decimals: number | undefined;
+  label: string;
+  transactionId: string;
+}): Result<number | undefined, Error> {
+  if (params.decimals === undefined) {
+    return ok(undefined);
+  }
+
+  if (!Number.isInteger(params.decimals) || params.decimals < 0) {
+    return err(
+      new Error(
+        `Cardano v2 transaction ${params.transactionId} ${params.label} asset ${params.assetUnit} decimals must be a non-negative integer`
+      )
+    );
+  }
+
+  return ok(params.decimals);
+}
+
+function normalizeCardanoAssetQuantity(params: {
+  assetAmount: CardanoAssetAmount;
+  label: string;
+  transactionId: string;
+}): Result<Decimal, Error> {
+  return resultDo(function* () {
+    const amount = yield* parseCardanoTransactionAmount({
+      label: params.label,
+      transactionId: params.transactionId,
+      value: params.assetAmount.quantity,
+    });
+    if (amount.isNegative()) {
+      return yield* err(
+        new Error(`Cardano v2 transaction ${params.transactionId} ${params.label} amount must not be negative`)
+      );
+    }
+
+    const decimals = yield* validateCardanoAssetDecimals({
+      assetUnit: params.assetAmount.unit,
+      decimals: params.assetAmount.decimals,
+      label: params.label,
+      transactionId: params.transactionId,
+    });
+    const { isAda } = parseCardanoAssetUnit(params.assetAmount.unit);
+    const normalizedDecimals = isAda ? 6 : decimals;
+    if (normalizedDecimals === undefined || normalizedDecimals === 0) {
+      return amount;
+    }
+
+    return amount.dividedBy(new Decimal(10).pow(normalizedDecimals));
+  });
+}
+
+function validateCardanoTransactionAmounts(transaction: CardanoTransaction): Result<ValidatedCardanoAmounts, Error> {
+  return resultDo(function* () {
+    for (const input of transaction.inputs) {
+      for (const assetAmount of input.amounts) {
+        yield* normalizeCardanoAssetQuantity({
+          assetAmount,
+          label: 'input',
+          transactionId: transaction.id,
+        });
+      }
+    }
+
+    for (const output of transaction.outputs) {
+      for (const assetAmount of output.amounts) {
+        yield* normalizeCardanoAssetQuantity({
+          assetAmount,
+          label: 'output',
+          transactionId: transaction.id,
+        });
+      }
+    }
+
+    const withdrawalAmounts: Decimal[] = [];
+    for (const withdrawal of transaction.withdrawals ?? []) {
+      const amount = yield* parseCardanoTransactionAmount({
+        label: 'withdrawal',
+        transactionId: transaction.id,
+        value: withdrawal.amount,
+      });
+      if (amount.isNegative()) {
+        return yield* err(new Error(`Cardano v2 transaction ${transaction.id} withdrawal amount must not be negative`));
+      }
+
+      withdrawalAmounts.push(amount);
+    }
+
+    const feeAmount = yield* parseCardanoTransactionAmount({
+      allowMissing: true,
+      label: 'fee',
+      transactionId: transaction.id,
+      value: transaction.feeAmount,
+    });
+    if (feeAmount.isNegative()) {
+      return yield* err(new Error(`Cardano v2 transaction ${transaction.id} fee amount must not be negative`));
+    }
+
+    return {
+      feeAmount,
+      withdrawalAmounts,
+    };
+  });
+}
+
 function buildCardanoAssetRefFromUnit(unit: string, symbol?: string): Result<CardanoAssetRef, Error> {
   return resultDo(function* () {
     const isNativeAda = unit === 'lovelace';
@@ -103,48 +235,46 @@ function buildCardanoAssetRefFromUnit(unit: string, symbol?: string): Result<Car
   });
 }
 
-function normalizeCardanoAssetQuantity(assetAmount: CardanoAssetAmount): Decimal {
-  const { isAda } = parseCardanoAssetUnit(assetAmount.unit);
-  const decimals = isAda ? 6 : assetAmount.decimals;
-  return parseDecimal(normalizeCardanoAmount(assetAmount.quantity, decimals));
-}
-
 function addAssetAmount(
   amountsByUnit: Map<string, WalletAssetAmount>,
-  assetAmount: CardanoAssetAmount
+  assetAmount: CardanoAssetAmount,
+  label: 'input' | 'output',
+  transactionId: string
 ): Result<void, Error> {
-  const quantity = normalizeCardanoAssetQuantity(assetAmount);
-  if (quantity.isZero()) {
-    return ok(undefined);
-  }
+  return resultDo(function* () {
+    const quantity = yield* normalizeCardanoAssetQuantity({ assetAmount, label, transactionId });
+    if (quantity.isZero()) {
+      return undefined;
+    }
 
-  const existing = amountsByUnit.get(assetAmount.unit);
-  if (!existing) {
+    const existing = amountsByUnit.get(assetAmount.unit);
+    if (!existing) {
+      amountsByUnit.set(assetAmount.unit, {
+        amount: quantity,
+        symbol: assetAmount.symbol,
+        unit: assetAmount.unit,
+      });
+      return undefined;
+    }
+
+    const hasConflictingSymbol =
+      existing.symbol !== undefined && assetAmount.symbol !== undefined && existing.symbol !== assetAmount.symbol;
+    if (hasConflictingSymbol) {
+      return yield* err(
+        new Error(
+          `Cardano v2 asset unit ${assetAmount.unit} has conflicting symbols: ${existing.symbol} vs ${assetAmount.symbol}`
+        )
+      );
+    }
+
     amountsByUnit.set(assetAmount.unit, {
-      amount: quantity,
-      symbol: assetAmount.symbol,
-      unit: assetAmount.unit,
+      ...existing,
+      amount: existing.amount.plus(quantity),
+      symbol: existing.symbol ?? assetAmount.symbol,
     });
-    return ok(undefined);
-  }
 
-  const hasConflictingSymbol =
-    existing.symbol !== undefined && assetAmount.symbol !== undefined && existing.symbol !== assetAmount.symbol;
-  if (hasConflictingSymbol) {
-    return err(
-      new Error(
-        `Cardano v2 asset unit ${assetAmount.unit} has conflicting symbols: ${existing.symbol} vs ${assetAmount.symbol}`
-      )
-    );
-  }
-
-  amountsByUnit.set(assetAmount.unit, {
-    ...existing,
-    amount: existing.amount.plus(quantity),
-    symbol: existing.symbol ?? assetAmount.symbol,
+    return undefined;
   });
-
-  return ok(undefined);
 }
 
 function collectWalletAssetTotals(
@@ -154,28 +284,39 @@ function collectWalletAssetTotals(
   return resultDo(function* () {
     const inputsByUnit = new Map<string, WalletAssetAmount>();
     const outputsByUnit = new Map<string, WalletAssetAmount>();
-    const ownedInputs = transaction.inputs.filter((input) => isWalletAddress(input.address, walletAddresses));
-    const ownedOutputs = transaction.outputs.filter((output) => isWalletAddress(output.address, walletAddresses));
+    const walletInputs = transaction.inputs.filter((input) => isWalletAddress(input.address, walletAddresses));
+    const walletOutputs = transaction.outputs.filter((output) => isWalletAddress(output.address, walletAddresses));
 
-    for (const input of ownedInputs) {
+    for (const input of walletInputs) {
       for (const assetAmount of input.amounts) {
-        yield* addAssetAmount(inputsByUnit, assetAmount);
+        yield* addAssetAmount(inputsByUnit, assetAmount, 'input', transaction.id);
       }
     }
 
-    for (const output of ownedOutputs) {
+    for (const output of walletOutputs) {
       for (const assetAmount of output.amounts) {
-        yield* addAssetAmount(outputsByUnit, assetAmount);
+        yield* addAssetAmount(outputsByUnit, assetAmount, 'output', transaction.id);
       }
     }
 
     return {
       inputsByUnit,
       outputsByUnit,
-      ownedInputs,
-      ownedOutputs,
+      walletInputs,
+      walletOutputs,
     };
   });
+}
+
+function validateWalletScopeEffect(
+  transaction: CardanoTransaction,
+  walletAssetTotals: WalletAssetTotals
+): Result<void, Error> {
+  if (walletAssetTotals.inputsByUnit.size === 0 && walletAssetTotals.outputsByUnit.size === 0) {
+    return err(new Error(`Cardano v2 transaction ${transaction.id} has no effect for the wallet address scope`));
+  }
+
+  return ok(undefined);
 }
 
 function buildPostingComponentRef(
@@ -213,29 +354,34 @@ function findFirstExternalAddress(
   return entries.find((entry) => !isWalletAddress(entry.address, walletAddresses))?.address;
 }
 
-function buildPrincipalInputComponentRefs(
-  ownedInputs: readonly CardanoTransactionInput[],
-  sourceActivityFingerprint: string,
-  unit: string
-): Result<SourceComponentQuantityRef[], Error> {
+function buildPrincipalInputComponentRefs(params: {
+  sourceActivityFingerprint: string;
+  transactionId: string;
+  unit: string;
+  walletInputs: readonly CardanoTransactionInput[];
+}): Result<SourceComponentQuantityRef[], Error> {
   return resultDo(function* () {
-    const assetRef = yield* buildCardanoAssetRefFromUnit(unit);
+    const assetRef = yield* buildCardanoAssetRefFromUnit(params.unit);
     const refs: SourceComponentQuantityRef[] = [];
 
-    for (const input of ownedInputs) {
+    for (const input of params.walletInputs) {
       for (const assetAmount of input.amounts) {
-        if (assetAmount.unit !== unit) {
+        if (assetAmount.unit !== params.unit) {
           continue;
         }
 
-        const quantity = normalizeCardanoAssetQuantity(assetAmount);
+        const quantity = yield* normalizeCardanoAssetQuantity({
+          assetAmount,
+          label: 'input',
+          transactionId: params.transactionId,
+        });
         if (quantity.isZero()) {
           continue;
         }
 
         refs.push(
           buildPostingComponentRef(
-            sourceActivityFingerprint,
+            params.sourceActivityFingerprint,
             'utxo_input',
             buildUtxoInputComponentId(input),
             assetRef.assetId,
@@ -249,32 +395,36 @@ function buildPrincipalInputComponentRefs(
   });
 }
 
-function buildPrincipalOutputComponentRefs(
-  transaction: CardanoTransaction,
-  ownedOutputs: readonly CardanoTransactionOutput[],
-  sourceActivityFingerprint: string,
-  unit: string
-): Result<SourceComponentQuantityRef[], Error> {
+function buildPrincipalOutputComponentRefs(params: {
+  sourceActivityFingerprint: string;
+  transaction: CardanoTransaction;
+  unit: string;
+  walletOutputs: readonly CardanoTransactionOutput[];
+}): Result<SourceComponentQuantityRef[], Error> {
   return resultDo(function* () {
-    const assetRef = yield* buildCardanoAssetRefFromUnit(unit);
+    const assetRef = yield* buildCardanoAssetRefFromUnit(params.unit);
     const refs: SourceComponentQuantityRef[] = [];
 
-    for (const output of ownedOutputs) {
+    for (const output of params.walletOutputs) {
       for (const assetAmount of output.amounts) {
-        if (assetAmount.unit !== unit) {
+        if (assetAmount.unit !== params.unit) {
           continue;
         }
 
-        const quantity = normalizeCardanoAssetQuantity(assetAmount);
+        const quantity = yield* normalizeCardanoAssetQuantity({
+          assetAmount,
+          label: 'output',
+          transactionId: params.transaction.id,
+        });
         if (quantity.isZero()) {
           continue;
         }
 
         refs.push(
           buildPostingComponentRef(
-            sourceActivityFingerprint,
+            params.sourceActivityFingerprint,
             'utxo_output',
-            buildUtxoOutputComponentId(transaction.id, output),
+            buildUtxoOutputComponentId(params.transaction.id, output),
             assetRef.assetId,
             quantity
           )
@@ -287,31 +437,36 @@ function buildPrincipalOutputComponentRefs(
 }
 
 function buildPrincipalComponentRefs(params: {
-  inputAmount: Decimal;
-  outputAmount: Decimal;
-  ownedInputs: readonly CardanoTransactionInput[];
-  ownedOutputs: readonly CardanoTransactionOutput[];
   sourceActivityFingerprint: string;
   transaction: CardanoTransaction;
   unit: string;
+  walletInputAmount: Decimal;
+  walletInputs: readonly CardanoTransactionInput[];
+  walletOutputAmount: Decimal;
+  walletOutputs: readonly CardanoTransactionOutput[];
 }): Result<SourceComponentQuantityRef[], Error> {
   return resultDo(function* () {
     const refs: SourceComponentQuantityRef[] = [];
 
-    if (params.inputAmount.gt(0)) {
+    if (params.walletInputAmount.gt(0)) {
       refs.push(
-        ...(yield* buildPrincipalInputComponentRefs(params.ownedInputs, params.sourceActivityFingerprint, params.unit))
+        ...(yield* buildPrincipalInputComponentRefs({
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+          transactionId: params.transaction.id,
+          unit: params.unit,
+          walletInputs: params.walletInputs,
+        }))
       );
     }
 
-    if (params.outputAmount.gt(0)) {
+    if (params.walletOutputAmount.gt(0)) {
       refs.push(
-        ...(yield* buildPrincipalOutputComponentRefs(
-          params.transaction,
-          params.ownedOutputs,
-          params.sourceActivityFingerprint,
-          params.unit
-        ))
+        ...(yield* buildPrincipalOutputComponentRefs({
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+          transaction: params.transaction,
+          unit: params.unit,
+          walletOutputs: params.walletOutputs,
+        }))
       );
     }
 
@@ -329,13 +484,13 @@ function buildPrincipalComponentRefs(params: {
 
 function buildPrincipalPosting(params: {
   assetAmount: WalletAssetAmount;
-  inputAmount: Decimal;
-  outputAmount: Decimal;
-  ownedInputs: readonly CardanoTransactionInput[];
-  ownedOutputs: readonly CardanoTransactionOutput[];
   quantity: Decimal;
   sourceActivityFingerprint: string;
   transaction: CardanoTransaction;
+  walletInputAmount: Decimal;
+  walletInputs: readonly CardanoTransactionInput[];
+  walletOutputAmount: Decimal;
+  walletOutputs: readonly CardanoTransactionOutput[];
 }): Result<AccountingPostingDraft | undefined, Error> {
   if (params.quantity.isZero()) {
     return ok(undefined);
@@ -344,10 +499,10 @@ function buildPrincipalPosting(params: {
   return resultDo(function* () {
     const assetRef = yield* buildCardanoAssetRefFromUnit(params.assetAmount.unit, params.assetAmount.symbol);
     const sourceComponentRefs = yield* buildPrincipalComponentRefs({
-      inputAmount: params.inputAmount,
-      outputAmount: params.outputAmount,
-      ownedInputs: params.ownedInputs,
-      ownedOutputs: params.ownedOutputs,
+      walletInputAmount: params.walletInputAmount,
+      walletOutputAmount: params.walletOutputAmount,
+      walletInputs: params.walletInputs,
+      walletOutputs: params.walletOutputs,
       sourceActivityFingerprint: params.sourceActivityFingerprint,
       transaction: params.transaction,
       unit: params.assetAmount.unit,
@@ -397,14 +552,15 @@ function buildStakingRewardComponentRef(
   sourceActivityFingerprint: string,
   withdrawal: CardanoWithdrawal,
   withdrawalIndex: number,
-  assetId: string
+  assetId: string,
+  withdrawalAmount: Decimal
 ): SourceComponentQuantityRef {
   return buildPostingComponentRef(
     sourceActivityFingerprint,
     'staking_reward',
     `withdrawal:${withdrawal.address}`,
     assetId,
-    parseDecimal(withdrawal.amount),
+    withdrawalAmount,
     withdrawalIndex + 1
   );
 }
@@ -422,12 +578,12 @@ function buildPrincipalPostings(
     const units = new Set([...walletAssetTotals.inputsByUnit.keys(), ...walletAssetTotals.outputsByUnit.keys()]);
 
     for (const unit of [...units].sort()) {
-      const inputAmount = walletAssetTotals.inputsByUnit.get(unit)?.amount ?? new Decimal(0);
-      const outputAmount = walletAssetTotals.outputsByUnit.get(unit)?.amount ?? new Decimal(0);
+      const walletInputAmount = walletAssetTotals.inputsByUnit.get(unit)?.amount ?? new Decimal(0);
+      const walletOutputAmount = walletAssetTotals.outputsByUnit.get(unit)?.amount ?? new Decimal(0);
       const feeAdjustment = walletPaysNetworkFee && unit === 'lovelace' ? feeAmount : new Decimal(0);
       const rewardFundingAdjustment =
         walletPaysNetworkFee && unit === 'lovelace' ? walletWithdrawalAmount : new Decimal(0);
-      const quantity = outputAmount.minus(inputAmount).plus(feeAdjustment).minus(rewardFundingAdjustment);
+      const quantity = walletOutputAmount.minus(walletInputAmount).plus(feeAdjustment).minus(rewardFundingAdjustment);
       const assetAmount = walletAssetTotals.outputsByUnit.get(unit) ?? walletAssetTotals.inputsByUnit.get(unit);
 
       if (!assetAmount) {
@@ -436,13 +592,13 @@ function buildPrincipalPostings(
 
       const posting = yield* buildPrincipalPosting({
         assetAmount,
-        inputAmount,
-        outputAmount,
         quantity,
-        ownedInputs: walletAssetTotals.ownedInputs,
-        ownedOutputs: walletAssetTotals.ownedOutputs,
         sourceActivityFingerprint,
         transaction,
+        walletInputAmount,
+        walletInputs: walletAssetTotals.walletInputs,
+        walletOutputAmount,
+        walletOutputs: walletAssetTotals.walletOutputs,
       });
 
       if (posting) {
@@ -458,6 +614,7 @@ function buildStakingRewardPosting(
   transaction: CardanoTransaction,
   sourceActivityFingerprint: string,
   walletPaysNetworkFee: boolean,
+  withdrawalAmounts: readonly Decimal[],
   walletWithdrawalAmount: Decimal
 ): Result<AccountingPostingDraft | undefined, Error> {
   return resultDo(function* () {
@@ -467,11 +624,27 @@ function buildStakingRewardPosting(
     }
 
     const assetRef = yield* buildCardanoAssetRefFromUnit('lovelace', 'ADA');
-    const sourceComponentRefs = withdrawals
-      .map((withdrawal, index) =>
-        buildStakingRewardComponentRef(sourceActivityFingerprint, withdrawal, index, assetRef.assetId)
-      )
-      .filter((ref) => !ref.quantity.isZero());
+    const sourceComponentRefs: SourceComponentQuantityRef[] = [];
+    for (let index = 0; index < withdrawals.length; index++) {
+      const withdrawal = withdrawals[index];
+      const withdrawalAmount = withdrawalAmounts[index];
+      if (!withdrawal || withdrawalAmount === undefined) {
+        return yield* err(
+          new Error(`Cardano v2 staking reward posting for transaction ${transaction.id} is missing withdrawal amount`)
+        );
+      }
+
+      const ref = buildStakingRewardComponentRef(
+        sourceActivityFingerprint,
+        withdrawal,
+        index,
+        assetRef.assetId,
+        withdrawalAmount
+      );
+      if (!ref.quantity.isZero()) {
+        sourceComponentRefs.push(ref);
+      }
+    }
 
     if (sourceComponentRefs.length === 0) {
       return yield* err(
@@ -490,15 +663,12 @@ function buildStakingRewardPosting(
   });
 }
 
-function sumWalletWithdrawalAmount(transaction: CardanoTransaction, walletPaysNetworkFee: boolean): Decimal {
+function sumWalletWithdrawalAmount(withdrawalAmounts: readonly Decimal[], walletPaysNetworkFee: boolean): Decimal {
   if (!walletPaysNetworkFee) {
     return new Decimal(0);
   }
 
-  return (transaction.withdrawals ?? []).reduce(
-    (sum, withdrawal) => sum.plus(parseDecimal(withdrawal.amount)),
-    new Decimal(0)
-  );
+  return withdrawalAmounts.reduce((sum, withdrawalAmount) => sum.plus(withdrawalAmount), new Decimal(0));
 }
 
 function buildCardanoJournals(
@@ -585,7 +755,7 @@ function resolveSourceActivityFromAddress(
   walletAddresses: ReadonlySet<string>
 ): string | undefined {
   return (
-    walletAssetTotals.ownedInputs[0]?.address ??
+    walletAssetTotals.walletInputs[0]?.address ??
     findFirstExternalAddress(transaction.inputs, walletAddresses) ??
     transaction.inputs[0]?.address
   );
@@ -597,11 +767,11 @@ function resolveSourceActivityToAddress(
   walletAddresses: ReadonlySet<string>
 ): string | undefined {
   const externalOutputAddress = findFirstExternalAddress(transaction.outputs, walletAddresses);
-  if (walletAssetTotals.ownedInputs.length > 0 && externalOutputAddress !== undefined) {
+  if (walletAssetTotals.walletInputs.length > 0 && externalOutputAddress !== undefined) {
     return externalOutputAddress;
   }
 
-  return walletAssetTotals.ownedOutputs[0]?.address ?? externalOutputAddress ?? transaction.outputs[0]?.address;
+  return walletAssetTotals.walletOutputs[0]?.address ?? externalOutputAddress ?? transaction.outputs[0]?.address;
 }
 
 function buildCardanoSourceActivityDraft(
@@ -622,7 +792,7 @@ function buildCardanoSourceActivityDraft(
     fromAddress: resolveSourceActivityFromAddress(transaction, walletAssetTotals, walletAddresses),
     toAddress: resolveSourceActivityToAddress(transaction, walletAssetTotals, walletAddresses),
     blockchainName: 'cardano',
-    blockchainBlockHeight: transaction.blockHeight,
+    ...(transaction.blockHeight === undefined ? {} : { blockchainBlockHeight: transaction.blockHeight }),
     blockchainTransactionHash: transaction.id,
     blockchainIsConfirmed: transaction.status === 'success',
   };
@@ -633,30 +803,32 @@ export function assembleCardanoLedgerDraft(
   context: CardanoProcessorV2Context
 ): Result<CardanoLedgerDraft, Error> {
   return resultDo(function* () {
+    const validatedAmounts = yield* validateCardanoTransactionAmounts(transaction);
     const walletAddresses = yield* validateCardanoProcessorV2Context(context);
     const sourceActivityFingerprint = yield* computeCardanoSourceActivityFingerprint(transaction, context);
     const walletAssetTotals = yield* collectWalletAssetTotals(transaction, walletAddresses);
-    const feeAmount = parseDecimal(transaction.feeAmount ?? '0');
-    const walletPaysNetworkFee = walletAssetTotals.ownedInputs.length > 0;
-    const walletWithdrawalAmount = sumWalletWithdrawalAmount(transaction, walletPaysNetworkFee);
+    yield* validateWalletScopeEffect(transaction, walletAssetTotals);
+    const walletPaysNetworkFee = walletAssetTotals.walletInputs.length > 0;
+    const walletWithdrawalAmount = sumWalletWithdrawalAmount(validatedAmounts.withdrawalAmounts, walletPaysNetworkFee);
     const feePosting = yield* buildOptionalNetworkFeePosting(
       sourceActivityFingerprint,
       transaction,
       walletPaysNetworkFee,
-      feeAmount
+      validatedAmounts.feeAmount
     );
     const principalPostings = yield* buildPrincipalPostings(
       transaction,
       sourceActivityFingerprint,
       walletAssetTotals,
       walletPaysNetworkFee,
-      feeAmount,
+      validatedAmounts.feeAmount,
       walletWithdrawalAmount
     );
     const rewardPosting = yield* buildStakingRewardPosting(
       transaction,
       sourceActivityFingerprint,
       walletPaysNetworkFee,
+      validatedAmounts.withdrawalAmounts,
       walletWithdrawalAmount
     );
     const journals = buildCardanoJournals(sourceActivityFingerprint, principalPostings, rewardPosting, feePosting);

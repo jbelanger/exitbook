@@ -115,10 +115,15 @@ function validateBitcoinTransactionCurrency(
 }
 
 function parseBitcoinTransactionAmount(params: {
+  allowMissing?: boolean | undefined;
   label: string;
   transactionId: string;
   value: string | undefined;
 }): Result<Decimal, Error> {
+  if (params.value === undefined && params.allowMissing !== true) {
+    return err(new Error(`Bitcoin v2 transaction ${params.transactionId} ${params.label} amount is missing`));
+  }
+
   const parsed = { value: new Decimal(0) };
   if (!tryParseDecimal(params.value ?? '0', parsed)) {
     return err(
@@ -154,6 +159,7 @@ function validateBitcoinTransactionAmounts(transaction: BitcoinTransaction): Res
     }
 
     const feeAmount = yield* parseBitcoinTransactionAmount({
+      allowMissing: true,
       label: 'fee',
       transactionId: transaction.id,
       value: transaction.feeAmount,

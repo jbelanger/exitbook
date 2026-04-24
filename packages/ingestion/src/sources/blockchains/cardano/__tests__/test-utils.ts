@@ -1,4 +1,5 @@
 import {
+  type CardanoAssetAmount,
   type CardanoTransaction,
   type CardanoTransactionInput,
   type CardanoTransactionOutput,
@@ -29,7 +30,7 @@ export function buildCardanoAccountFingerprint(accountId: number): string {
 
 export function createInput(
   address: string,
-  amounts: { quantity: string; unit: string }[] | string,
+  amounts: CardanoAssetAmount[] | string,
   unit = 'lovelace',
   overrides: Partial<CardanoTransactionInput> = {}
 ): CardanoTransactionInput {
@@ -44,7 +45,7 @@ export function createInput(
 
 export function createOutput(
   address: string,
-  amounts: { quantity: string; unit: string }[] | string,
+  amounts: CardanoAssetAmount[] | string,
   unit = 'lovelace',
   overrides: Partial<CardanoTransactionOutput> = {}
 ): CardanoTransactionOutput {
