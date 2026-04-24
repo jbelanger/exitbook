@@ -24,6 +24,41 @@ function parseCardanoTransactions(normalizedData: unknown[]): Result<CardanoTran
   return ok(transactions);
 }
 
+function buildCardanoTransactionComparisonMaterial(transaction: CardanoTransaction): string {
+  return JSON.stringify({
+    blockHeight: transaction.blockHeight,
+    feeAmount: transaction.feeAmount,
+    feeCurrency: transaction.feeCurrency,
+    id: transaction.id,
+    inputs: transaction.inputs,
+    outputs: transaction.outputs,
+    status: transaction.status,
+    timestamp: transaction.timestamp,
+    withdrawals: transaction.withdrawals ?? [],
+  });
+}
+
+function dedupeCardanoTransactionsById(
+  transactions: readonly CardanoTransaction[]
+): Result<CardanoTransaction[], Error> {
+  const transactionsById = new Map<string, { material: string; transaction: CardanoTransaction }>();
+
+  for (const transaction of transactions) {
+    const material = buildCardanoTransactionComparisonMaterial(transaction);
+    const existing = transactionsById.get(transaction.id);
+    if (!existing) {
+      transactionsById.set(transaction.id, { material, transaction });
+      continue;
+    }
+
+    if (existing.material !== material) {
+      return err(new Error(`Cardano v2 received conflicting normalized payloads for transaction ${transaction.id}`));
+    }
+  }
+
+  return ok([...transactionsById.values()].map((entry) => entry.transaction));
+}
+
 function assembleCardanoLedgerDraftWithContext(
   transaction: CardanoTransaction,
   context: CardanoProcessorV2Context
@@ -61,9 +96,10 @@ export class CardanoProcessorV2 {
   ): Promise<Result<CardanoLedgerDraft[], Error>> {
     return resultDo(function* () {
       const transactions = yield* parseCardanoTransactions(normalizedData);
+      const uniqueTransactions = yield* dedupeCardanoTransactionsById(transactions);
       const drafts: CardanoLedgerDraft[] = [];
 
-      for (const transaction of transactions) {
+      for (const transaction of uniqueTransactions) {
         const draft = yield* assembleCardanoLedgerDraftWithContext(transaction, context);
         yield* validateCardanoLedgerDraftJournals(transaction, draft);
         drafts.push(draft);

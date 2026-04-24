@@ -7,12 +7,12 @@ import { CardanoProcessorV2 } from '../processor-v2.js';
 import { CardanoProcessor } from '../processor.js';
 
 import {
+  ACCOUNT_FINGERPRINT,
   ACCOUNT_ID,
   EXTERNAL_ADDRESS,
   SIBLING_USER_ADDRESS,
   THIRD_USER_ADDRESS,
   USER_ADDRESS,
-  buildCardanoAccountFingerprint,
   createInput,
   createOutput,
   createTransaction,
@@ -35,62 +35,33 @@ function createLedgerProcessor() {
   return new CardanoProcessorV2();
 }
 
-async function reconcileScenario(normalizedData: CardanoTransaction[], userAddresses: string[]) {
-  return reconcileScenarios([
-    {
-      accountId: ACCOUNT_ID,
-      normalizedData,
-      primaryAddress: USER_ADDRESS,
-      userAddresses,
-    },
-  ]);
-}
-
-async function reconcileScenarios(
-  scenarios: {
-    accountId: number;
-    normalizedData: CardanoTransaction[];
-    primaryAddress: string;
-    userAddresses: string[];
-  }[]
-) {
-  const legacyTransactions = [];
-  const ledgerDrafts = [];
-  let nextTransactionId = 1;
-
-  for (const scenario of scenarios) {
-    const legacyProcessor = createLegacyProcessor();
-    const legacyResult = await legacyProcessor.process(scenario.normalizedData, {
-      primaryAddress: scenario.primaryAddress,
-      userAddresses: scenario.userAddresses,
-    });
-    if (legacyResult.isErr()) {
-      throw legacyResult.error;
-    }
-
-    legacyTransactions.push(
-      ...legacyResult.value.map((draft) =>
-        materializeProcessedTransaction(draft, nextTransactionId++, scenario.accountId)
-      )
-    );
-
-    const ledgerProcessor = createLedgerProcessor();
-    const ledgerResult = await ledgerProcessor.process(scenario.normalizedData, {
-      account: {
-        id: scenario.accountId,
-        fingerprint: buildCardanoAccountFingerprint(scenario.accountId),
-      },
-      primaryAddress: scenario.primaryAddress,
-      userAddresses: scenario.userAddresses,
-    });
-    if (ledgerResult.isErr()) {
-      throw ledgerResult.error;
-    }
-
-    ledgerDrafts.push(...ledgerResult.value);
+async function reconcileSingleAddressScenario(normalizedData: CardanoTransaction[]) {
+  const legacyProcessor = createLegacyProcessor();
+  const legacyResult = await legacyProcessor.process(normalizedData, {
+    primaryAddress: USER_ADDRESS,
+    userAddresses: [USER_ADDRESS],
+  });
+  if (legacyResult.isErr()) {
+    throw legacyResult.error;
   }
 
-  return reconcileLegacyAccountingToLedgerDrafts(legacyTransactions, ledgerDrafts, noopLogger);
+  const legacyTransactions = legacyResult.value.map((draft, index) =>
+    materializeProcessedTransaction(draft, index + 1, ACCOUNT_ID)
+  );
+
+  const ledgerProcessor = createLedgerProcessor();
+  const ledgerResult = await ledgerProcessor.process(normalizedData, {
+    account: {
+      id: ACCOUNT_ID,
+      fingerprint: ACCOUNT_FINGERPRINT,
+    },
+    walletAddresses: [USER_ADDRESS],
+  });
+  if (ledgerResult.isErr()) {
+    throw ledgerResult.error;
+  }
+
+  return reconcileLegacyAccountingToLedgerDrafts(legacyTransactions, ledgerResult.value, noopLogger);
 }
 
 function createMultiSourceExternalSendTransaction(): CardanoTransaction {
@@ -121,16 +92,13 @@ function createMultiSourceExternalSendTransaction(): CardanoTransaction {
 
 describe('CardanoProcessorV2 shadow reconciliation', () => {
   test('matches legacy accounting effects for incoming transfers', async () => {
-    const reconciliationResult = await reconcileScenario(
-      [
-        createTransaction({
-          id: 'tx-incoming-1',
-          inputs: [createInput(EXTERNAL_ADDRESS, '2170000', 'lovelace', { txHash: 'prev-incoming-1' })],
-          outputs: [createOutput(USER_ADDRESS, '2000000')],
-        }),
-      ],
-      [USER_ADDRESS]
-    );
+    const reconciliationResult = await reconcileSingleAddressScenario([
+      createTransaction({
+        id: 'tx-incoming-1',
+        inputs: [createInput(EXTERNAL_ADDRESS, '2170000', 'lovelace', { txHash: 'prev-incoming-1' })],
+        outputs: [createOutput(USER_ADDRESS, '2000000')],
+      }),
+    ]);
 
     expect(reconciliationResult.isOk()).toBe(true);
     if (reconciliationResult.isErr()) return;
@@ -139,109 +107,80 @@ describe('CardanoProcessorV2 shadow reconciliation', () => {
   });
 
   test('matches legacy accounting effects for transfers with change', async () => {
-    const reconciliationResult = await reconcileScenario(
-      [
-        createTransaction({
-          id: 'tx-change-1',
-          inputs: [createInput(USER_ADDRESS, '10170000', 'lovelace', { txHash: 'prev-change-1' })],
-          outputs: [
-            createOutput(EXTERNAL_ADDRESS, '3000000'),
-            createOutput(USER_ADDRESS, '7000000', 'lovelace', { outputIndex: 1 }),
-          ],
-        }),
-      ],
-      [USER_ADDRESS]
-    );
-
-    expect(reconciliationResult.isOk()).toBe(true);
-    if (reconciliationResult.isErr()) return;
-
-    expect(reconciliationResult.value.diffs).toEqual([]);
-  });
-
-  test('matches legacy accounting effects for attributable staking withdrawals', async () => {
-    const reconciliationResult = await reconcileScenario(
-      [
-        createTransaction({
-          id: 'tx-withdrawal-1',
-          feeAmount: '0.17',
-          inputs: [createInput(USER_ADDRESS, '10000000', 'lovelace', { txHash: 'prev-withdrawal-1' })],
-          outputs: [createOutput(EXTERNAL_ADDRESS, '10830000')],
-          withdrawals: [
-            {
-              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
-              amount: '1',
-              currency: 'ADA',
-            },
-          ],
-        }),
-      ],
-      [USER_ADDRESS]
-    );
-
-    expect(reconciliationResult.isOk()).toBe(true);
-    if (reconciliationResult.isErr()) return;
-
-    expect(reconciliationResult.value.diffs).toEqual([]);
-  });
-
-  test('matches legacy accounting effects for unattributed sibling-input withdrawals', async () => {
-    const reconciliationResult = await reconcileScenario(
-      [
-        createTransaction({
-          id: 'tx-withdrawal-2',
-          feeAmount: '0.17',
-          inputs: [
-            createInput(USER_ADDRESS, '6000000', 'lovelace', { txHash: 'prev-a' }),
-            createInput(SIBLING_USER_ADDRESS, '4000000', 'lovelace', { txHash: 'prev-b', outputIndex: 1 }),
-          ],
-          outputs: [createOutput(EXTERNAL_ADDRESS, '10830000')],
-          withdrawals: [
-            {
-              address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
-              amount: '1',
-              currency: 'ADA',
-            },
-          ],
-        }),
-      ],
-      [USER_ADDRESS, SIBLING_USER_ADDRESS]
-    );
-
-    expect(reconciliationResult.isOk()).toBe(true);
-    if (reconciliationResult.isErr()) return;
-
-    expect(reconciliationResult.value.diffs).toEqual([]);
-  });
-
-  test('matches legacy accounting effects for same-hash multi-source external sends with wallet-scope withdrawals', async () => {
-    const sharedTransaction = createMultiSourceExternalSendTransaction();
-    const userAddresses = [USER_ADDRESS, SIBLING_USER_ADDRESS, THIRD_USER_ADDRESS];
-
-    const reconciliationResult = await reconcileScenarios([
-      {
-        accountId: 87,
-        normalizedData: [sharedTransaction],
-        primaryAddress: USER_ADDRESS,
-        userAddresses,
-      },
-      {
-        accountId: 89,
-        normalizedData: [sharedTransaction],
-        primaryAddress: SIBLING_USER_ADDRESS,
-        userAddresses,
-      },
-      {
-        accountId: 91,
-        normalizedData: [sharedTransaction],
-        primaryAddress: THIRD_USER_ADDRESS,
-        userAddresses,
-      },
+    const reconciliationResult = await reconcileSingleAddressScenario([
+      createTransaction({
+        id: 'tx-change-1',
+        inputs: [createInput(USER_ADDRESS, '10170000', 'lovelace', { txHash: 'prev-change-1' })],
+        outputs: [
+          createOutput(EXTERNAL_ADDRESS, '3000000'),
+          createOutput(USER_ADDRESS, '7000000', 'lovelace', { outputIndex: 1 }),
+        ],
+      }),
     ]);
 
     expect(reconciliationResult.isOk()).toBe(true);
     if (reconciliationResult.isErr()) return;
 
     expect(reconciliationResult.value.diffs).toEqual([]);
+  });
+
+  test('documents the intentional staking withdrawal divergence from legacy address-scope accounting', async () => {
+    const reconciliationResult = await reconcileSingleAddressScenario([
+      createTransaction({
+        id: 'tx-withdrawal-1',
+        feeAmount: '0.17',
+        inputs: [createInput(USER_ADDRESS, '10000000', 'lovelace', { txHash: 'prev-withdrawal-1' })],
+        outputs: [createOutput(EXTERNAL_ADDRESS, '10830000')],
+        withdrawals: [
+          {
+            address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+            amount: '1',
+            currency: 'ADA',
+          },
+        ],
+      }),
+    ]);
+
+    expect(reconciliationResult.isOk()).toBe(true);
+    if (reconciliationResult.isErr()) return;
+
+    expect(
+      reconciliationResult.value.diffs.map((diff) => ({
+        delta: diff.delta.toFixed(),
+        ledgerQuantity: diff.ledgerQuantity?.toFixed(),
+        legacyQuantity: diff.legacyQuantity?.toFixed(),
+        role: diff.role,
+      }))
+    ).toEqual([
+      {
+        delta: '-1',
+        ledgerQuantity: '-10.83',
+        legacyQuantity: '-9.83',
+        role: 'principal',
+      },
+    ]);
+  });
+
+  test('emits one wallet-scope ledger activity for duplicated same-hash child-address raw rows', async () => {
+    const processor = createLedgerProcessor();
+    const sharedTransaction = createMultiSourceExternalSendTransaction();
+    const result = await processor.process([sharedTransaction, sharedTransaction, sharedTransaction], {
+      account: {
+        id: ACCOUNT_ID,
+        fingerprint: ACCOUNT_FINGERPRINT,
+      },
+      walletAddresses: [USER_ADDRESS, SIBLING_USER_ADDRESS, THIRD_USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(result.value).toHaveLength(1);
+    const [draft] = result.value;
+    expect(draft?.sourceActivity.accountId).toBe(ACCOUNT_ID);
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer', 'staking_reward']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-2679.718442');
+    expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.191373');
+    expect(draft?.journals[1]?.postings[0]?.quantity.toFixed()).toBe('10.524451');
   });
 });

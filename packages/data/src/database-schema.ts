@@ -153,11 +153,11 @@ export interface SourceActivitiesTable {
 }
 
 /**
- * Join table linking one source activity to the raw rows that produced it.
+ * Raw-row assignment table linking each raw transaction row to one source activity.
  */
-export interface SourceActivityRawBindingsTable {
+export interface RawTransactionSourceActivityAssignmentsTable {
   source_activity_id: number; // FK to source_activities.id
-  raw_transaction_id: number; // FK to raw_transactions.id
+  raw_transaction_id: number; // FK to raw_transactions.id, primary key
 }
 
 /**
@@ -563,7 +563,7 @@ export interface DatabaseSchema {
   raw_transactions: RawTransactionTable;
   import_sessions: ImportSessionsTable;
   source_activities: SourceActivitiesTable;
-  source_activity_raw_bindings: SourceActivityRawBindingsTable;
+  raw_transaction_source_activity_assignments: RawTransactionSourceActivityAssignmentsTable;
   accounting_journals: AccountingJournalsTable;
   accounting_postings: AccountingPostingsTable;
   accounting_posting_source_components: AccountingPostingSourceComponentsTable;

@@ -74,11 +74,11 @@ describe('AccountingLedgerRepository', () => {
     expect(summary.journalCount).toBe(1);
     expect(summary.postingCount).toBe(2);
     expect(summary.sourceComponentCount).toBe(2);
-    expect(summary.rawBindingCount).toBe(2);
+    expect(summary.rawAssignmentCount).toBe(2);
 
     await expectCounts({
       sourceActivities: 1,
-      rawBindings: 2,
+      rawAssignments: 2,
       journals: 1,
       postings: 2,
       sourceComponents: 2,
@@ -93,6 +93,144 @@ describe('AccountingLedgerRepository', () => {
     expect(postings[0]?.settlement).toBe('on-chain');
     expect(postings[1]?.quantity.toFixed()).toBe('-10');
     expect(postings[1]?.journalKind).toBe('transfer');
+  });
+
+  it('assigns one wallet-scope source activity to multiple child-address raw rows', async () => {
+    await seedAccount(db, 2, 'blockchain', 'cardano', { parentAccountId: ACCOUNT_ID });
+    await seedAccount(db, 3, 'blockchain', 'cardano', { parentAccountId: ACCOUNT_ID });
+    await seedRawTransaction(21, { accountId: 2, blockchainTransactionHash: 'txhash-wallet-scope' });
+    await seedRawTransaction(22, { accountId: 3, blockchainTransactionHash: 'txhash-wallet-scope' });
+
+    const summary = assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity({
+          blockchainTransactionHash: 'txhash-wallet-scope',
+        }),
+        journals: [makeJournal()],
+        rawTransactionIds: [22, 21],
+      })
+    );
+
+    expect(summary.rawAssignmentCount).toBe(2);
+
+    const assignments = await db
+      .selectFrom('raw_transaction_source_activity_assignments')
+      .innerJoin(
+        'source_activities',
+        'source_activities.id',
+        'raw_transaction_source_activity_assignments.source_activity_id'
+      )
+      .innerJoin(
+        'raw_transactions',
+        'raw_transactions.id',
+        'raw_transaction_source_activity_assignments.raw_transaction_id'
+      )
+      .select([
+        'source_activities.account_id as source_activity_account_id',
+        'raw_transactions.account_id as raw_account_id',
+        'raw_transactions.blockchain_transaction_hash as raw_hash',
+        'raw_transaction_source_activity_assignments.raw_transaction_id as raw_transaction_id',
+      ])
+      .orderBy('raw_transaction_source_activity_assignments.raw_transaction_id', 'asc')
+      .execute();
+
+    expect(assignments).toEqual([
+      {
+        source_activity_account_id: ACCOUNT_ID,
+        raw_account_id: 2,
+        raw_hash: 'txhash-wallet-scope',
+        raw_transaction_id: 21,
+      },
+      {
+        source_activity_account_id: ACCOUNT_ID,
+        raw_account_id: 3,
+        raw_hash: 'txhash-wallet-scope',
+        raw_transaction_id: 22,
+      },
+    ]);
+  });
+
+  it('rejects raw assignments outside the source activity account scope', async () => {
+    await seedAccount(db, 2, 'blockchain', 'cardano');
+    await seedRawTransaction(21, { accountId: 2, blockchainTransactionHash: 'txhash-other-wallet' });
+
+    const result = await repository.replaceForSourceActivity({
+      sourceActivity: makeSourceActivity(),
+      journals: [makeJournal()],
+      rawTransactionIds: [21],
+    });
+
+    expect(assertErr(result).message).toContain('cannot assign raw transaction ids outside that account scope: 21');
+    await expectCounts({
+      sourceActivities: 0,
+      rawAssignments: 0,
+      journals: 0,
+      postings: 0,
+      sourceComponents: 0,
+      relationships: 0,
+    });
+  });
+
+  it('rejects raw assignments for missing raw transaction rows', async () => {
+    const result = await repository.replaceForSourceActivity({
+      sourceActivity: makeSourceActivity(),
+      journals: [makeJournal()],
+      rawTransactionIds: [404],
+    });
+
+    expect(assertErr(result).message).toContain('references missing raw transaction ids: 404');
+    await expectCounts({
+      sourceActivities: 0,
+      rawAssignments: 0,
+      journals: 0,
+      postings: 0,
+      sourceComponents: 0,
+      relationships: 0,
+    });
+  });
+
+  it('rejects raw assignments already assigned to another source activity', async () => {
+    await seedRawTransaction(21);
+
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity(),
+        journals: [makeJournal()],
+        rawTransactionIds: [21],
+      })
+    );
+
+    const result = await repository.replaceForSourceActivity({
+      sourceActivity: makeSourceActivity({
+        sourceActivityFingerprint: 'source_activity:v1:test-activity-2',
+        blockchainTransactionHash: 'txhash-ledger-2',
+      }),
+      journals: [
+        makeJournal({
+          sourceActivityFingerprint: 'source_activity:v1:test-activity-2',
+          postings: [
+            makePosting({
+              sourceActivityFingerprint: 'source_activity:v1:test-activity-2',
+              postingStableKey: 'posting:other',
+              quantity: '1',
+              componentKind: 'utxo_output',
+              componentId: 'output:other',
+            }),
+          ],
+        }),
+      ],
+      rawTransactionIds: [21],
+    });
+
+    expect(assertErr(result).message).toContain('already assigned to another source activity');
+    await expectCounts({
+      sourceActivities: 1,
+      rawAssignments: 1,
+      journals: 1,
+      postings: 1,
+      sourceComponents: 1,
+      relationships: 0,
+    });
   });
 
   it('reads ledger postings across an account scope', async () => {
@@ -214,7 +352,7 @@ describe('AccountingLedgerRepository', () => {
     expect(secondSummary.sourceActivityId).toBe(firstSummary.sourceActivityId);
     await expectCounts({
       sourceActivities: 1,
-      rawBindings: 1,
+      rawAssignments: 1,
       journals: 1,
       postings: 1,
       sourceComponents: 1,
@@ -337,7 +475,7 @@ describe('AccountingLedgerRepository', () => {
     expect(summary.journalCount).toBe(1);
     await expectCounts({
       sourceActivities: 1,
-      rawBindings: 0,
+      rawAssignments: 0,
       journals: 1,
       postings: 1,
       sourceComponents: 1,
@@ -358,7 +496,7 @@ describe('AccountingLedgerRepository', () => {
     expect(assertErr(result).message).toContain('belongs to source_activity:v1:other');
     await expectCounts({
       sourceActivities: 0,
-      rawBindings: 0,
+      rawAssignments: 0,
       journals: 0,
       postings: 0,
       sourceComponents: 0,
@@ -366,17 +504,25 @@ describe('AccountingLedgerRepository', () => {
     });
   });
 
-  async function seedRawTransaction(rawTransactionId: number): Promise<void> {
+  async function seedRawTransaction(
+    rawTransactionId: number,
+    options: {
+      accountId?: number | undefined;
+      blockchainTransactionHash?: string | undefined;
+      sourceAddress?: string | undefined;
+    } = {}
+  ): Promise<void> {
+    const accountId = options.accountId ?? ACCOUNT_ID;
     await db
       .insertInto('raw_transactions')
       .values({
         id: rawTransactionId,
-        account_id: ACCOUNT_ID,
+        account_id: accountId,
         provider_name: 'cardano-provider',
         event_id: `raw:${rawTransactionId}`,
-        blockchain_transaction_hash: `txhash-${rawTransactionId}`,
+        blockchain_transaction_hash: options.blockchainTransactionHash ?? `txhash-${rawTransactionId}`,
         timestamp: 1_713_830_400_000 + rawTransactionId,
-        source_address: 'addr_test1source',
+        source_address: options.sourceAddress ?? `addr_test1source${accountId}`,
         transaction_type_hint: 'transfer',
         provider_data: '{}',
         normalized_data: '{}',
@@ -466,13 +612,13 @@ describe('AccountingLedgerRepository', () => {
   async function expectCounts(expected: {
     journals: number;
     postings: number;
-    rawBindings: number;
+    rawAssignments: number;
     relationships: number;
     sourceActivities: number;
     sourceComponents: number;
   }): Promise<void> {
     await expect(countRows('source_activities')).resolves.toBe(expected.sourceActivities);
-    await expect(countRows('source_activity_raw_bindings')).resolves.toBe(expected.rawBindings);
+    await expect(countRows('raw_transaction_source_activity_assignments')).resolves.toBe(expected.rawAssignments);
     await expect(countRows('accounting_journals')).resolves.toBe(expected.journals);
     await expect(countRows('accounting_postings')).resolves.toBe(expected.postings);
     await expect(countRows('accounting_posting_source_components')).resolves.toBe(expected.sourceComponents);
@@ -482,7 +628,7 @@ describe('AccountingLedgerRepository', () => {
   async function countRows(
     table:
       | 'source_activities'
-      | 'source_activity_raw_bindings'
+      | 'raw_transaction_source_activity_assignments'
       | 'accounting_journals'
       | 'accounting_postings'
       | 'accounting_posting_source_components'

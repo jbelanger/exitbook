@@ -18,7 +18,7 @@ function createProcessor() {
   return new CardanoProcessorV2();
 }
 
-async function processTransactions(transactions: CardanoTransaction[], userAddresses: string[] = [USER_ADDRESS]) {
+async function processTransactions(transactions: CardanoTransaction[], walletAddresses: string[] = [USER_ADDRESS]) {
   const processor = createProcessor();
 
   return processor.process(transactions, {
@@ -26,8 +26,7 @@ async function processTransactions(transactions: CardanoTransaction[], userAddre
       id: ACCOUNT_ID,
       fingerprint: ACCOUNT_FINGERPRINT,
     },
-    primaryAddress: USER_ADDRESS,
-    userAddresses,
+    walletAddresses,
   });
 }
 
@@ -45,6 +44,8 @@ describe('CardanoProcessorV2', () => {
     if (result.isErr()) return;
 
     const [draft] = result.value;
+    expect(draft?.sourceActivity.fromAddress).toBe(EXTERNAL_ADDRESS);
+    expect(draft?.sourceActivity.toAddress).toBe(USER_ADDRESS);
     expect(draft?.journals).toHaveLength(1);
     expect(draft?.journals[0]?.journalKind).toBe('transfer');
     expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('2');
@@ -66,6 +67,8 @@ describe('CardanoProcessorV2', () => {
     if (result.isErr()) return;
 
     const [draft] = result.value;
+    expect(draft?.sourceActivity.fromAddress).toBe(USER_ADDRESS);
+    expect(draft?.sourceActivity.toAddress).toBe(EXTERNAL_ADDRESS);
     expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
     expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-3');
     expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
@@ -171,13 +174,13 @@ describe('CardanoProcessorV2', () => {
 
     const [draft] = result.value;
     expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer', 'staking_reward']);
-    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-9.83');
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-10.83');
     expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
     expect(draft?.journals[0]?.postings[1]?.role).toBe('fee');
     expect(draft?.journals[1]?.postings[0]?.quantity.toFixed()).toBe('1');
   });
 
-  test('does not materialize a staking reward journal for unattributed sibling-input withdrawals', async () => {
+  test('materializes wallet-scoped staking rewards across sibling-input withdrawals', async () => {
     const result = await processTransactions(
       [
         createTransaction({
@@ -204,19 +207,97 @@ describe('CardanoProcessorV2', () => {
     if (result.isErr()) return;
 
     const [draft] = result.value;
-    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
-    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-5.898');
-    expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.102');
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer', 'staking_reward']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-10.83');
+    expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
     expect(draft?.journals[0]?.postings[1]?.role).toBe('fee');
+    expect(draft?.journals[1]?.postings[0]?.quantity.toFixed()).toBe('1');
+    expect(draft?.journals[1]?.postings[0]?.role).toBe('staking_reward');
+    expect(
+      draft?.journals[0]?.postings[0]?.sourceComponentRefs.map((ref) => ({
+        componentId: ref.component.componentId,
+        componentKind: ref.component.componentKind,
+        quantity: ref.quantity.toFixed(),
+      }))
+    ).toEqual([
+      {
+        componentId: 'utxo:prev-a:0',
+        componentKind: 'utxo_input',
+        quantity: '6',
+      },
+      {
+        componentId: 'utxo:prev-b:1',
+        componentKind: 'utxo_input',
+        quantity: '4',
+      },
+    ]);
+    expect(
+      draft?.journals[1]?.postings[0]?.sourceComponentRefs.map((ref) => ({
+        componentId: ref.component.componentId,
+        componentKind: ref.component.componentKind,
+        quantity: ref.quantity.toFixed(),
+      }))
+    ).toEqual([
+      {
+        componentId: 'withdrawal:stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+        componentKind: 'staking_reward',
+        quantity: '1',
+      },
+    ]);
   });
 
-  test('emits reward-only claim fees inside the staking reward journal', async () => {
+  test('deduplicates repeated raw rows for the same wallet transaction', async () => {
+    const sharedTransaction = createTransaction({
+      id: 'tx-duplicate-wallet-row-1',
+      inputs: [createInput(EXTERNAL_ADDRESS, '2170000', 'lovelace', { txHash: 'prev-duplicate-wallet-row-1' })],
+      outputs: [createOutput(USER_ADDRESS, '2000000')],
+    });
+    const result = await processTransactions([sharedTransaction, sharedTransaction]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(result.value).toHaveLength(1);
+    expect(result.value[0]?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('2');
+  });
+
+  test('emits reward-funded external sends as transfer plus staking reward journals', async () => {
     const result = await processTransactions([
       createTransaction({
         id: 'tx-reward-only-fee-1',
         feeAmount: '0.17',
         inputs: [createInput(USER_ADDRESS, '170000', 'lovelace', { txHash: 'prev-reward-only-fee-1' })],
         outputs: [createOutput(EXTERNAL_ADDRESS, '1000000')],
+        withdrawals: [
+          {
+            address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
+            amount: '1',
+            currency: 'ADA',
+          },
+        ],
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer', 'staking_reward']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-1');
+    expect(draft?.journals[0]?.postings[0]?.role).toBe('principal');
+    expect(draft?.journals[0]?.postings[1]?.quantity.toFixed()).toBe('-0.17');
+    expect(draft?.journals[0]?.postings[1]?.role).toBe('fee');
+    expect(draft?.journals[1]?.postings[0]?.quantity.toFixed()).toBe('1');
+    expect(draft?.journals[1]?.postings[0]?.role).toBe('staking_reward');
+  });
+
+  test('keeps claim-to-self fees inside the staking reward journal', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        id: 'tx-reward-claim-to-self-1',
+        feeAmount: '0.17',
+        inputs: [createInput(USER_ADDRESS, '170000', 'lovelace', { txHash: 'prev-reward-claim-to-self-1' })],
+        outputs: [createOutput(USER_ADDRESS, '1000000')],
         withdrawals: [
           {
             address: 'stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zqgk4hha',
@@ -252,8 +333,27 @@ describe('CardanoProcessorV2', () => {
     if (result.isErr()) return;
 
     const [draft] = result.value;
+    expect(draft?.sourceActivity.fromAddress).toBe(USER_ADDRESS);
+    expect(draft?.sourceActivity.toAddress).toBe(USER_ADDRESS);
     expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['expense_only']);
     expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe('-0.17');
     expect(draft?.journals[0]?.postings[0]?.role).toBe('fee');
+  });
+
+  test('rejects wallet-paid fee postings when provider data omits the fee currency', async () => {
+    const transaction = createTransaction({
+      id: 'tx-missing-fee-currency-1',
+      feeAmount: '0.17',
+      inputs: [createInput(USER_ADDRESS, '1000000', 'lovelace', { txHash: 'prev-missing-fee-currency-1' })],
+      outputs: [createOutput(USER_ADDRESS, '830000')],
+    });
+    delete transaction.feeCurrency;
+
+    const result = await processTransactions([transaction]);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+
+    expect(result.error.message).toContain('missing fee currency');
   });
 });

@@ -222,20 +222,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   `.execute(db);
 
   await db.schema
-    .createTable('source_activity_raw_bindings')
+    .createTable('raw_transaction_source_activity_assignments')
     .addColumn('source_activity_id', 'integer', (col) =>
       col.notNull().references('source_activities.id').onDelete('cascade')
     )
     .addColumn('raw_transaction_id', 'integer', (col) =>
       col.notNull().references('raw_transactions.id').onDelete('cascade')
     )
-    .addPrimaryKeyConstraint('pk_source_activity_raw_bindings', ['source_activity_id', 'raw_transaction_id'])
+    .addPrimaryKeyConstraint('pk_raw_transaction_source_activity_assignments', ['raw_transaction_id'])
     .execute();
 
   await db.schema
-    .createIndex('idx_source_activity_raw_bindings_raw_transaction_id')
-    .on('source_activity_raw_bindings')
-    .column('raw_transaction_id')
+    .createIndex('idx_raw_transaction_source_activity_assignments_source_activity_id')
+    .on('raw_transaction_source_activity_assignments')
+    .column('source_activity_id')
     .execute();
 
   await db.schema
@@ -1319,7 +1319,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('accounting_journals').ifExists().execute();
   // Drop transaction_movements BEFORE transactions (FK constraint)
   await db.schema.dropTable('transaction_movements').execute();
-  await db.schema.dropTable('source_activity_raw_bindings').ifExists().execute();
+  await db.schema.dropTable('raw_transaction_source_activity_assignments').ifExists().execute();
   await db.schema.dropTable('transaction_raw_bindings').execute();
   // Drop transaction linking table
   await db.schema.dropTable('transaction_links').execute();

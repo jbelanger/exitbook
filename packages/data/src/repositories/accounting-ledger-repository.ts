@@ -36,7 +36,7 @@ export interface ReplaceAccountingLedgerSummary {
   journalCount: number;
   postingCount: number;
   sourceComponentCount: number;
-  rawBindingCount: number;
+  rawAssignmentCount: number;
 }
 
 export interface AccountingLedgerPostingRecord {
@@ -69,6 +69,12 @@ interface PersistedJournalRef {
 interface PersistedPostingRef {
   id: number;
   fingerprint: string;
+}
+
+interface RawTransactionAssignmentScope {
+  rawAccountId: number;
+  rawParentAccountId: number | null;
+  rawTransactionId: number;
 }
 
 export class AccountingLedgerRepository extends BaseRepository {
@@ -173,6 +179,21 @@ export class AccountingLedgerRepository extends BaseRepository {
       return err(validationResult.error);
     }
 
+    const rawTransactionIdsResult = normalizeRawTransactionIds(params.rawTransactionIds);
+    if (rawTransactionIdsResult.isErr()) {
+      return err(rawTransactionIdsResult.error);
+    }
+
+    const rawTransactionIds = rawTransactionIdsResult.value;
+    const rawAssignmentValidation = await validateRawTransactionAssignments(
+      db,
+      params.sourceActivity,
+      rawTransactionIds
+    );
+    if (rawAssignmentValidation.isErr()) {
+      return err(rawAssignmentValidation.error);
+    }
+
     const sourceActivityIdResult = await upsertSourceActivity(db, params.sourceActivity);
     if (sourceActivityIdResult.isErr()) {
       return err(sourceActivityIdResult.error);
@@ -180,9 +201,12 @@ export class AccountingLedgerRepository extends BaseRepository {
 
     const sourceActivityId = sourceActivityIdResult.value;
     await db.deleteFrom('accounting_journals').where('source_activity_id', '=', sourceActivityId).execute();
-    await db.deleteFrom('source_activity_raw_bindings').where('source_activity_id', '=', sourceActivityId).execute();
+    await db
+      .deleteFrom('raw_transaction_source_activity_assignments')
+      .where('source_activity_id', '=', sourceActivityId)
+      .execute();
 
-    const rawBindingCount = await persistRawBindings(db, sourceActivityId, params.rawTransactionIds);
+    const rawAssignmentCount = await persistRawTransactionAssignments(db, sourceActivityId, rawTransactionIds);
     const journalRefs = new Map<string, PersistedJournalRef>();
     const postingRefs = new Map<string, PersistedPostingRef>();
     let postingCount = 0;
@@ -235,7 +259,7 @@ export class AccountingLedgerRepository extends BaseRepository {
       journalCount: params.journals.length,
       postingCount,
       sourceComponentCount,
-      rawBindingCount,
+      rawAssignmentCount,
     });
   }
 }
@@ -248,6 +272,17 @@ function normalizeAccountIds(accountIds: readonly number[]): Result<number[], Er
   }
 
   return ok([...new Set(accountIds)].sort((left, right) => left - right));
+}
+
+function normalizeRawTransactionIds(rawTransactionIds: readonly number[] | undefined): Result<number[], Error> {
+  const ids = rawTransactionIds ?? [];
+  for (const rawTransactionId of ids) {
+    if (!Number.isInteger(rawTransactionId) || rawTransactionId <= 0) {
+      return err(new Error(`Raw transaction id must be a positive integer, received ${rawTransactionId}`));
+    }
+  }
+
+  return ok([...new Set(ids)].sort((left, right) => left - right));
 }
 
 function validateSourceActivityLedgerDraft(params: ReplaceAccountingLedgerParams): Result<void, Error> {
@@ -272,6 +307,105 @@ function validateSourceActivityLedgerDraft(params: ReplaceAccountingLedgerParams
   }
 
   return ok(undefined);
+}
+
+async function validateRawTransactionAssignments(
+  db: KyselyDB,
+  sourceActivity: SourceActivityDraft,
+  rawTransactionIds: readonly number[]
+): Promise<Result<void, Error>> {
+  if (rawTransactionIds.length === 0) {
+    return ok(undefined);
+  }
+
+  const rawTransactionScopes = await loadRawTransactionAssignmentScopes(db, rawTransactionIds);
+  const missingRawTransactionIds = findMissingRawTransactionIds(rawTransactionIds, rawTransactionScopes);
+  if (missingRawTransactionIds.length > 0) {
+    return err(
+      new Error(
+        `Source activity ${sourceActivity.sourceActivityFingerprint} references missing raw transaction ids: ${missingRawTransactionIds.join(', ')}`
+      )
+    );
+  }
+
+  const outOfScopeRawTransactions = rawTransactionScopes.filter(
+    (scope) => !isInSourceActivityAccountScope(scope, sourceActivity.accountId)
+  );
+  if (outOfScopeRawTransactions.length > 0) {
+    const rawTransactionIdsText = outOfScopeRawTransactions.map((scope) => scope.rawTransactionId).join(', ');
+    return err(
+      new Error(
+        `Source activity ${sourceActivity.sourceActivityFingerprint} for account ${sourceActivity.accountId} cannot assign raw transaction ids outside that account scope: ${rawTransactionIdsText}`
+      )
+    );
+  }
+
+  const conflictingAssignments = await db
+    .selectFrom('raw_transaction_source_activity_assignments')
+    .innerJoin(
+      'source_activities',
+      'source_activities.id',
+      'raw_transaction_source_activity_assignments.source_activity_id'
+    )
+    .select([
+      'raw_transaction_source_activity_assignments.raw_transaction_id as raw_transaction_id',
+      'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+    ])
+    .where('raw_transaction_source_activity_assignments.raw_transaction_id', 'in', rawTransactionIds)
+    .where('source_activities.source_activity_fingerprint', '!=', sourceActivity.sourceActivityFingerprint)
+    .orderBy('raw_transaction_source_activity_assignments.raw_transaction_id', 'asc')
+    .execute();
+
+  if (conflictingAssignments.length > 0) {
+    const conflicts = conflictingAssignments
+      .map((row) => `${row.raw_transaction_id}->${row.source_activity_fingerprint}`)
+      .join(', ');
+    return err(
+      new Error(
+        `Source activity ${sourceActivity.sourceActivityFingerprint} cannot assign raw transactions already assigned to another source activity: ${conflicts}`
+      )
+    );
+  }
+
+  return ok(undefined);
+}
+
+function isInSourceActivityAccountScope(
+  scope: RawTransactionAssignmentScope,
+  sourceActivityAccountId: number
+): boolean {
+  return scope.rawAccountId === sourceActivityAccountId || scope.rawParentAccountId === sourceActivityAccountId;
+}
+
+async function loadRawTransactionAssignmentScopes(
+  db: KyselyDB,
+  rawTransactionIds: readonly number[]
+): Promise<RawTransactionAssignmentScope[]> {
+  const rows = await db
+    .selectFrom('raw_transactions')
+    .innerJoin('accounts', 'accounts.id', 'raw_transactions.account_id')
+    .select([
+      'raw_transactions.id as raw_transaction_id',
+      'raw_transactions.account_id as raw_account_id',
+      'accounts.parent_account_id as raw_parent_account_id',
+    ])
+    .where('raw_transactions.id', 'in', rawTransactionIds)
+    .orderBy('raw_transactions.id', 'asc')
+    .execute();
+
+  return rows.map((row) => ({
+    rawAccountId: row.raw_account_id,
+    rawParentAccountId: row.raw_parent_account_id,
+    rawTransactionId: row.raw_transaction_id,
+  }));
+}
+
+function findMissingRawTransactionIds(
+  expectedRawTransactionIds: readonly number[],
+  rawTransactionScopes: readonly RawTransactionAssignmentScope[]
+): number[] {
+  const foundRawTransactionIds = new Set(rawTransactionScopes.map((scope) => scope.rawTransactionId));
+  return expectedRawTransactionIds.filter((rawTransactionId) => !foundRawTransactionIds.has(rawTransactionId));
 }
 
 async function upsertSourceActivity(db: KyselyDB, draft: SourceActivityDraft): Promise<Result<number, Error>> {
@@ -344,27 +478,26 @@ function toSourceActivityUpdateRow(draft: SourceActivityDraft, now: string): Upd
   };
 }
 
-async function persistRawBindings(
+async function persistRawTransactionAssignments(
   db: KyselyDB,
   sourceActivityId: number,
-  rawTransactionIds: readonly number[] | undefined
+  rawTransactionIds: readonly number[]
 ): Promise<number> {
-  const uniqueRawTransactionIds = Array.from(new Set(rawTransactionIds ?? [])).sort((left, right) => left - right);
-  if (uniqueRawTransactionIds.length === 0) {
+  if (rawTransactionIds.length === 0) {
     return 0;
   }
 
   await db
-    .insertInto('source_activity_raw_bindings')
+    .insertInto('raw_transaction_source_activity_assignments')
     .values(
-      uniqueRawTransactionIds.map((rawTransactionId) => ({
+      rawTransactionIds.map((rawTransactionId) => ({
         source_activity_id: sourceActivityId,
         raw_transaction_id: rawTransactionId,
       }))
     )
     .execute();
 
-  return uniqueRawTransactionIds.length;
+  return rawTransactionIds.length;
 }
 
 async function persistJournal(

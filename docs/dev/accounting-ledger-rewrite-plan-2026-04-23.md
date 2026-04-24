@@ -439,28 +439,41 @@ Completed in this phase:
 
 - `processor-v2.ts` and `journal-assembler.ts` exist and emit
   `sourceActivity + journals` in memory.
-- Cardano v2 account identity is grouped as one context value.
+- Cardano v2 account identity is grouped as one context value and represents
+  the wallet/accounting owner, not the derived child address that happened to
+  import a raw row.
+- Cardano v2 takes a wallet address scope and assembles one ledger activity per
+  unique on-chain transaction hash, de-duplicating repeated child-address raw
+  rows before journal construction.
 - Cardano v2 principal source component refs are built from raw UTXO
   input/output identity, not consolidated movement identity.
 - Cardano v2 staking reward source component refs are built from raw withdrawal
   components.
-- Cardano v2 quarantines legacy fund-flow `CardanoMovement` values at the
-  assembler boundary and uses local `CardanoAssetDelta` language internally.
+- Cardano v2 no longer derives journal drafts from legacy Cardano
+  `CardanoMovement` values; wallet-scope UTXO totals are extracted directly
+  from provider-normalized inputs, outputs, fees, and withdrawals.
 - Cardano v2 validates every emitted journal draft before returning shadow
   output.
 - Cardano v2 emits normal network fees as `fee` postings inside the richer
   transfer or staking reward journal; `expense_only` is reserved for fee-only
   activity.
+- Cardano v2 treats reward-funded external sends as a principal transfer plus
+  a `staking_reward` posting. This intentionally corrects the old
+  address-scoped behavior where a wallet-scoped staking withdrawal became a
+  diagnostic component.
 - The legacy Cardano processor remains untouched.
 - `processor-v2.shadow.test.ts` now runs v1 and v2 against the same Cardano
-  fixtures and reconciles ledger effects against
-  `buildAccountingModelFromTransactions()`.
+  fixtures for ordinary UTXO cases and documents the intentional staking
+  withdrawal divergence from legacy address-scope accounting.
+- `processor-v2.balance-shadow.test.ts` requires balance parity for ordinary
+  UTXO cases and asserts explicit corrected ledger balances for wallet-scoped
+  staking reward spends.
 - The shadow harness currently covers:
   - incoming transfers
   - transfers with change
   - distinct same-asset UTXO input/output provenance
-  - attributable staking withdrawals
-  - unattributed sibling-input staking withdrawals
+  - reward-funded external sends
+  - claim-to-self staking rewards
   - same-hash multi-source external sends with wallet-scope withdrawals
 
 Remaining in this phase:
@@ -471,6 +484,9 @@ Remaining in this phase:
   cases without escape hatches
 - expand the shadow reconciliation coverage from external same-hash groups to
   internal/carryover same-hash groups
+- design the wallet-scope persistence flow that maps child-address raw
+  transaction rows to one parent-account source activity without duplicating
+  journals/postings
 
 New files:
 
@@ -508,7 +524,11 @@ Same-hash handling:
 Acceptance criteria:
 
 - Cardano same-hash internal transfer cases reconcile
-- Cardano staking reward/residual cases reconcile
+- Cardano ordinary UTXO cases reconcile with legacy where the accounting model
+  is intentionally unchanged
+- Cardano staking reward/residual cases are represented as ledger postings and
+  source component refs, with intentional legacy divergences recorded as model
+  corrections
 - v2 does not need semantic annotations or `staking_reward_component`
 - no persistence changes yet
 
@@ -570,7 +590,7 @@ materialization across separate write repositories yet. The safe write unit is a
 complete source activity ledger replacement: validate the source activity and
 all journals, upsert the source activity, delete existing derived ledger rows
 for that source activity, then insert journals, postings, posting source
-components, relationships, and raw bindings in one DB transaction. Split read
+components, relationships, and raw assignments in one DB transaction. Split read
 ports later only when consumers need narrower query shapes.
 
 Schema direction:
@@ -600,6 +620,20 @@ Acceptance criteria:
 - repository reads can load ledger postings for a full account scope, including
   parent plus child accounts
 - no consumer reads the new tables until Phase 6 materialization is ready
+
+Completed in this phase:
+
+- `raw_transaction_source_activity_assignments` treats each raw transaction row
+  as assigned to one ledger source activity. This prevents the same raw input
+  from being counted into two source activities.
+- `AccountingLedgerRepository.replaceForSourceActivity()` validates raw
+  bindings before writing:
+  - every raw transaction id must exist
+  - each raw row must belong to the source activity account or a direct child
+    account
+  - no raw row may already be assigned to a different source activity
+- Repository tests cover wallet-scope UTXO lineage: one parent source activity
+  assigned to multiple child-address raw rows.
 
 ### Phase 5: Accounting Overrides
 
@@ -653,7 +687,7 @@ Steps:
 
 1. Replace `TransactionDraft` processor output with source activity plus
    accounting journal drafts.
-2. Persist source activity, raw bindings, journals, postings, posting source
+2. Persist source activity, raw assignments, journals, postings, posting source
    components, and relationships in one database transaction.
 3. Validate all journal drafts before writing.
 4. Delete and replace all journals/postings for a reprocessed source activity
@@ -669,7 +703,7 @@ yield *
   dataSession.accountingLedger.replaceForSourceActivities({
     sourceActivities: output.sourceActivities,
     journals: output.journals,
-    rawBindings: output.rawBindings,
+    rawAssignments: output.rawAssignments,
   });
 yield * dataSession.accountingOverrides.applyEffectiveOverrides(scope);
 ```
@@ -709,7 +743,10 @@ Steps:
    over the same processed transaction inputs.
    - First harness: Cardano processor-v2 balance shadow compares previous
      processor plus balance-v1 impact against processor-v2 plus balance-v2
-     postings on the same normalized fixtures.
+     postings on the same normalized fixtures for ordinary UTXO cases.
+   - Cardano wallet-scoped staking cases assert corrected ledger balances
+     directly because v2 intentionally accounts reward-funded sends differently
+     from the legacy address-scoped transaction model.
 3. Produce a shadow diff report keyed by:
    - account id
    - asset id

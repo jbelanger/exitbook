@@ -61,7 +61,7 @@ describe('ledger schema draft', () => {
       .execute();
 
     await db
-      .insertInto('source_activity_raw_bindings')
+      .insertInto('raw_transaction_source_activity_assignments')
       .values({
         source_activity_id: 1,
         raw_transaction_id: 1,
