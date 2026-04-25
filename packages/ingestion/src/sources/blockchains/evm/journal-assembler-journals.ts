@@ -26,11 +26,13 @@ function resolveEvmJournalKind(valuePostings: readonly AccountingPostingDraft[])
     principalPostings.filter((posting) => posting.quantity.lt(0)).map((posting) => posting.assetId)
   );
 
-  if (
-    positivePrincipalAssets.size === 1 &&
-    negativePrincipalAssets.size === 1 &&
-    [...positivePrincipalAssets][0] !== [...negativePrincipalAssets][0]
-  ) {
+  const hasAcquisition = positivePrincipalAssets.size > 0;
+  const hasDisposition = negativePrincipalAssets.size > 0;
+  const hasDifferentAssetsAcrossSides =
+    [...positivePrincipalAssets].some((assetId) => !negativePrincipalAssets.has(assetId)) ||
+    [...negativePrincipalAssets].some((assetId) => !positivePrincipalAssets.has(assetId));
+
+  if (hasAcquisition && hasDisposition && hasDifferentAssetsAcrossSides) {
     return 'trade';
   }
 

@@ -151,9 +151,7 @@ function handleProviderRequestSucceeded(
   const count = stats.responsesByStatus.get(event.status) || 0;
   stats.responsesByStatus.set(event.status, count + 1);
 
-  const metric = [...instrumentation.getMetrics()]
-    .reverse()
-    .find((candidate) => candidate.provider === event.provider && candidate.status === event.status);
+  const metric = instrumentation.getLastMetricFor(event.provider, event.status);
 
   if (metric) {
     stats.latencies.push(metric.durationMs);
@@ -201,11 +199,7 @@ function handleProviderRequestFailed(
     }
   }
 
-  const metric = [...instrumentation.getMetrics()]
-    .reverse()
-    .find(
-      (candidate) => candidate.provider === event.provider && (event.status ? candidate.status === event.status : true)
-    );
+  const metric = instrumentation.getLastMetricFor(event.provider, event.status);
 
   if (metric) {
     stats.latencies.push(metric.durationMs);
@@ -287,17 +281,8 @@ function calculateProviderRate(
   providerRuntime: IBlockchainProviderRuntime,
   blockchain: string | undefined
 ): { currentRate: number; maxRate: number | undefined } {
-  const now = Date.now();
-  const windowStart = now - RATE_CALCULATION_WINDOW_MS;
-
-  const recentSuccessful = instrumentation
-    .getMetrics()
-    .filter(
-      (metric) =>
-        metric.provider === provider && metric.timestamp >= windowStart && metric.status >= 200 && metric.status < 300
-    );
-
-  const currentRate = recentSuccessful.length / (RATE_CALCULATION_WINDOW_MS / 1000);
+  const recentSuccessfulCount = instrumentation.countRecentSuccessful(provider, RATE_CALCULATION_WINDOW_MS);
+  const currentRate = recentSuccessfulCount / (RATE_CALCULATION_WINDOW_MS / 1000);
 
   let maxRate: number | undefined;
   if (blockchain) {

@@ -27,6 +27,23 @@ describe('base-unit-utils', () => {
       expect(assertOk(fromBaseUnitsToDecimalString('100000000000000', 6))).toBe('100000000');
     });
 
+    it('should preserve every digit for adversarially large base-unit token amounts', () => {
+      expect(
+        assertOk(
+          fromBaseUnitsToDecimalString(
+            '6527451839994299798814091559663480447843572422886055996696260993032313962545',
+            18
+          )
+        )
+      ).toBe('6527451839994299798814091559663480447843572422886055996696.260993032313962545');
+    });
+
+    it('should normalize signed and zero-padded base-unit amounts exactly', () => {
+      expect(assertOk(fromBaseUnitsToDecimalString('-0001234500', 4))).toBe('-123.45');
+      expect(assertOk(fromBaseUnitsToDecimalString('+00000001', 8))).toBe('0.00000001');
+      expect(assertOk(fromBaseUnitsToDecimalString('00000000', 8))).toBe('0');
+    });
+
     it('should handle very small token amounts', () => {
       // 0.000001 USDC (6 decimals)
       expect(assertOk(fromBaseUnitsToDecimalString('1', 6))).toBe('0.000001');
@@ -58,6 +75,13 @@ describe('base-unit-utils', () => {
       const result = fromBaseUnitsToDecimalString('invalid', 18);
       expect(result.isErr()).toBe(true);
       expect(assertErr(result).message).toContain('Invalid argument');
+    });
+
+    it('should reject fractional base-unit amounts when decimals are known', () => {
+      const result = fromBaseUnitsToDecimalString('123.45', 18);
+
+      expect(result.isErr()).toBe(true);
+      expect(assertErr(result).message).toContain('base-unit amount must be an integer string');
     });
 
     it('should normalize native amount in smallest units to decimal', () => {

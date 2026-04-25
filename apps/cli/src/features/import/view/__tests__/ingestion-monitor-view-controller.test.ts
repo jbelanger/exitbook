@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
 import type { IBlockchainProviderRuntime } from '@exitbook/blockchain-providers';
-import type { InstrumentationCollector } from '@exitbook/observability';
+import { InstrumentationCollector } from '@exitbook/observability';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -21,11 +21,31 @@ interface FakeMetric {
 }
 
 function createInstrumentation(metrics: FakeMetric[] = []) {
+  const collector = new InstrumentationCollector();
+  const recordedMetrics: FakeMetric[] = [];
+  const pushMetric = (metric: FakeMetric): number => {
+    collector.record({
+      endpoint: '/test',
+      method: 'GET',
+      service: 'blockchain',
+      ...metric,
+    });
+    return Array.prototype.push.call(recordedMetrics, metric);
+  };
+
+  recordedMetrics.push = (...items: FakeMetric[]): number => {
+    let length = recordedMetrics.length;
+    for (const item of items) {
+      length = pushMetric(item);
+    }
+    return length;
+  };
+
+  recordedMetrics.push(...metrics);
+
   return {
-    metrics,
-    collector: {
-      getMetrics: () => [...metrics],
-    } as InstrumentationCollector,
+    metrics: recordedMetrics,
+    collector,
   };
 }
 

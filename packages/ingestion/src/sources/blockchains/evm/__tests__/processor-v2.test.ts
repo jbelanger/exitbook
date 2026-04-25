@@ -145,6 +145,109 @@ describe('EvmProcessorV2', () => {
     ]);
   });
 
+  test('preserves exact huge token quantities from adversarial ERC-20 transfers', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '6527451839994299798814091559663480447843572422886055996696260993032313962545',
+        currency: 'ERC20',
+        eventId: '0xhuge-token:log:77',
+        feeAmount: '0',
+        from: EXTERNAL_ADDRESS,
+        id: '0xhuge-token',
+        to: USER_ADDRESS,
+        tokenAddress: '0x96228ba6b17c36a26e2a42d4ad2256e755e4e726',
+        tokenDecimals: 18,
+        tokenSymbol: 'ERC20',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
+    expect(draft?.journals[0]?.postings[0]?.quantity.toFixed()).toBe(
+      '6527451839994299798814091559663480447843572422886055996696.260993032313962545'
+    );
+    expect(draft?.journals[0]?.postings[0]?.sourceComponentRefs[0]?.quantity.toFixed()).toBe(
+      '6527451839994299798814091559663480447843572422886055996696.260993032313962545'
+    );
+  });
+
+  test('classifies multi-asset DeFi exits with one outflow and multiple inflows as trades', async () => {
+    const lpTokenAddress = '0xlp00000000000000000000000000000000000000';
+    const rewardTokenAddress = '0xreward0000000000000000000000000000000000';
+    const result = await processTransactions([
+      createTransaction({
+        amount: '0',
+        currency: 'ETH',
+        eventId: '0xcomplex-exit:contract-call:0',
+        feeAmount: '152552800000000',
+        from: USER_ADDRESS,
+        id: '0xcomplex-exit',
+        to: CONTRACT_ADDRESS,
+        tokenType: 'native',
+        type: 'contract_call',
+      }),
+      createTransaction({
+        amount: '2669269563007826802',
+        currency: 'UNI-V2',
+        eventId: '0xcomplex-exit:log:0',
+        feeAmount: undefined,
+        from: USER_ADDRESS,
+        id: '0xcomplex-exit',
+        to: CONTRACT_ADDRESS,
+        tokenAddress: lpTokenAddress,
+        tokenDecimals: 18,
+        tokenSymbol: 'UNI-V2',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+      createTransaction({
+        amount: '7169852139860988670',
+        currency: 'VB',
+        eventId: '0xcomplex-exit:log:1',
+        feeAmount: undefined,
+        from: CONTRACT_ADDRESS,
+        id: '0xcomplex-exit',
+        to: USER_ADDRESS,
+        tokenAddress: rewardTokenAddress,
+        tokenDecimals: 9,
+        tokenSymbol: 'VB',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+      createTransaction({
+        amount: '1566736405501092547',
+        currency: 'ETH',
+        eventId: '0xcomplex-exit:internal:0',
+        feeAmount: undefined,
+        from: CONTRACT_ADDRESS,
+        id: '0xcomplex-exit',
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'internal',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['trade']);
+    expect(
+      draft?.journals[0]?.postings.map((posting) => [posting.assetSymbol, posting.role, posting.quantity.toFixed()])
+    ).toEqual([
+      ['UNI-V2', 'principal', '-2.669269563007826802'],
+      ['VB', 'principal', '7169852139.86098867'],
+      ['ETH', 'principal', '1.566736405501092547'],
+      ['ETH', 'fee', '-0.0001525528'],
+    ]);
+    expect(draft?.journals[0]?.diagnostics?.[0]?.code).toBe('classification_uncertain');
+  });
+
   test('keeps user-initiated token approvals as fee-only expenses with approval diagnostics', async () => {
     const result = await processTransactions([
       createTransaction({
