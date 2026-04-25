@@ -231,17 +231,34 @@ export function determineEvmOperationFromFundFlow(
   }
 
   const ledgerCueDiagnostics = detectEvmLedgerCueDiagnostics(txGroup, fundFlow);
+  const protocolEventDiagnostics = buildEvmProtocolEventDiagnostics(fundFlow);
   const classification = determineAccountBasedOperationFromFundFlow(fundFlow);
-  if (ledgerCueDiagnostics.length === 0) {
+  const diagnostics = [...protocolEventDiagnostics, ...ledgerCueDiagnostics];
+  if (diagnostics.length === 0) {
     return classification;
   }
 
   return {
     ...classification,
-    diagnostics: classification.diagnostics
-      ? [...ledgerCueDiagnostics, ...classification.diagnostics]
-      : [...ledgerCueDiagnostics],
+    diagnostics: classification.diagnostics ? [...diagnostics, ...classification.diagnostics] : [...diagnostics],
   };
+}
+
+function buildEvmProtocolEventDiagnostics(fundFlow: EvmFundFlow): TransactionDiagnostic[] {
+  return (fundFlow.protocolEvents ?? []).map((event) => ({
+    code: event.kind,
+    message:
+      event.kind === 'wrapped_native_asset'
+        ? 'Wrapped native asset detected. Ledger impact is an asset migration, not a taxable trade.'
+        : 'Unwrapped native asset detected. Ledger impact is an asset migration, not a taxable trade.',
+    metadata: {
+      amountBaseUnits: event.amountBaseUnits,
+      relationshipKind: event.relationshipKind,
+      sourceAssetId: event.sourceAssetId,
+      targetAssetId: event.targetAssetId,
+    },
+    severity: 'info',
+  }));
 }
 
 function detectEvmLedgerCueDiagnostics(
@@ -802,8 +819,22 @@ function updateAddressTracking(
   toMatches: boolean,
   state: { fromAddress: string; toAddress: string | undefined }
 ): void {
-  if (!state.fromAddress && fromMatches) state.fromAddress = tx.from;
-  if (!state.toAddress && toMatches) state.toAddress = tx.to;
+  if (fromMatches) {
+    state.fromAddress = tx.from;
+    state.toAddress = tx.to;
+    return;
+  }
+
+  if (toMatches) {
+    if (!state.fromAddress) {
+      state.fromAddress = tx.from;
+      state.toAddress = tx.to;
+    } else if (!state.toAddress) {
+      state.toAddress = tx.to;
+    }
+    return;
+  }
+
   if (!state.fromAddress) state.fromAddress = tx.from;
   if (!state.toAddress) state.toAddress = tx.to;
 }

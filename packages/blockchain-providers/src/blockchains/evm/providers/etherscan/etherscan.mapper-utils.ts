@@ -8,7 +8,7 @@ import type { NormalizationError } from '../../../../contracts/index.js';
 import { validateOutput } from '../../../../normalization/mapper-validation.js';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
-import { generateBeaconWithdrawalEventId, normalizeEvmAddress } from '../../utils.js';
+import { extractMethodId, generateBeaconWithdrawalEventId, normalizeEvmAddress } from '../../utils.js';
 
 import {
   BEACON_CHAIN_ADDRESS,
@@ -69,6 +69,28 @@ function convertGweiToWei(gweiAmount: string): string {
   const gwei = new Decimal(gweiAmount);
   const wei = gwei.mul(1_000_000_000); // 10^9
   return wei.toFixed(0);
+}
+
+function normalizeDecodedFunctionName(functionName: string | null | undefined): string | undefined {
+  const trimmed = functionName?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeMethodId(
+  methodId: string | null | undefined,
+  inputData: string | null | undefined
+): string | undefined {
+  const candidate = methodId?.trim() || extractMethodId(inputData);
+  if (!candidate || candidate === '0x') {
+    return undefined;
+  }
+
+  return /^0x[0-9a-fA-F]{8}$/.test(candidate) ? candidate.toLowerCase() : undefined;
+}
+
+function normalizeInputData(inputData: string | null | undefined): string | undefined {
+  const trimmed = inputData?.trim();
+  return trimmed && trimmed !== '0x' && /^0x[0-9a-fA-F]+$/.test(trimmed) ? trimmed : undefined;
 }
 
 /**
@@ -207,6 +229,9 @@ export function mapEtherscanNormalTransactionToEvmTransaction(
     const gasUsed = new Decimal(rawData.gasUsed);
     const gasPrice = new Decimal(rawData.gasPrice);
     const feeAmount = gasUsed.mul(gasPrice).toFixed(0);
+    const functionName = normalizeDecodedFunctionName(rawData.functionName);
+    const inputData = normalizeInputData(rawData.input);
+    const methodId = normalizeMethodId(rawData.methodId, rawData.input);
 
     const transaction: EvmTransaction = {
       amount: rawData.value,
@@ -226,6 +251,9 @@ export function mapEtherscanNormalTransactionToEvmTransaction(
       to,
       tokenType: 'native',
       type: 'transfer',
+      ...(functionName === undefined ? {} : { functionName }),
+      ...(inputData === undefined ? {} : { inputData }),
+      ...(methodId === undefined ? {} : { methodId }),
     };
 
     return validateOutput(transaction, EvmTransactionSchema, 'EtherscanNormalTransaction');
@@ -366,6 +394,9 @@ export function mapEtherscanTokenTransactionToEvmTransaction(
     // when multiple transfers of the same token occur in one transaction
     // V2 API: logIndex no longer available, using transactionIndex instead
     const eventId = `${rawData.hash}-token-${contractAddress}-${rawData.transactionIndex}`;
+    const functionName = normalizeDecodedFunctionName(rawData.functionName);
+    const inputData = normalizeInputData(rawData.input);
+    const methodId = normalizeMethodId(rawData.methodId, rawData.input);
 
     const transaction: EvmTransaction = {
       amount: rawData.value,
@@ -388,6 +419,9 @@ export function mapEtherscanTokenTransactionToEvmTransaction(
       tokenAddress: contractAddress,
       tokenSymbol: rawData.tokenSymbol ?? undefined,
       tokenDecimals: rawData.tokenDecimal !== undefined ? parseInt(rawData.tokenDecimal) : undefined,
+      ...(functionName === undefined ? {} : { functionName }),
+      ...(inputData === undefined ? {} : { inputData }),
+      ...(methodId === undefined ? {} : { methodId }),
     };
 
     return validateOutput(transaction, EvmTransactionSchema, 'EtherscanTokenTransaction');

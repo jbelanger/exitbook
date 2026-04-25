@@ -2,6 +2,23 @@ import type { Currency } from '@exitbook/foundation';
 
 import type { ChainProviderHints } from '../../catalog/types.js';
 
+export interface EvmWrappedNativeAssetConfig {
+  /**
+   * Contract address for the chain's canonical wrapped native asset.
+   */
+  contractAddress: string;
+
+  /**
+   * Wrapped native asset symbol (e.g. WETH, WAVAX).
+   */
+  symbol: Currency;
+
+  /**
+   * Number of decimals for the wrapped native asset.
+   */
+  decimals: number;
+}
+
 /**
  * Configuration interface for EVM-compatible blockchains
  *
@@ -33,6 +50,12 @@ export interface EvmChainConfig {
    * Number of decimals for the native currency (typically 18 for EVM chains)
    */
   nativeDecimals: number;
+
+  /**
+   * Optional canonical wrapped native asset used to model wrap/unwrap as an
+   * accounting asset migration instead of a taxable trade.
+   */
+  wrappedNativeAsset?: EvmWrappedNativeAssetConfig | undefined;
 
   /**
    * Transaction types supported by this chain.

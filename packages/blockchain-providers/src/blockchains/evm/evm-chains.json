@@ -4,6 +4,11 @@
     "chainName": "ethereum",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
+    "wrappedNativeAsset": {
+      "contractAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "symbol": "WETH",
+      "decimals": 18
+    },
     "explorerUrls": ["https://etherscan.io"],
     "transactionTypes": ["normal", "internal", "token", "beacon_withdrawal"]
   },
@@ -28,6 +33,11 @@
     "chainName": "arbitrum",
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
+    "wrappedNativeAsset": {
+      "contractAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "symbol": "WETH",
+      "decimals": 18
+    },
     "explorerUrls": ["https://arbiscan.io"],
     "transactionTypes": ["normal", "internal", "token"]
   },
@@ -44,6 +54,11 @@
     "chainName": "avalanche",
     "nativeCurrency": "AVAX",
     "nativeDecimals": 18,
+    "wrappedNativeAsset": {
+      "contractAddress": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+      "symbol": "WAVAX",
+      "decimals": 18
+    },
     "explorerUrls": ["https://snowtrace.io"],
     "transactionTypes": ["normal", "internal", "token"]
   },

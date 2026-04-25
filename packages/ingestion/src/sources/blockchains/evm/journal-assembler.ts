@@ -11,6 +11,7 @@ import {
 } from './journal-assembler-amounts.js';
 import { buildEvmJournals, mapTransactionDiagnostics } from './journal-assembler-journals.js';
 import { buildEvmValuePostings, buildOptionalEvmNetworkFeePosting } from './journal-assembler-postings.js';
+import { expandEvmWrappedNativeProtocolTransactions } from './journal-assembler-protocol-events.js';
 import type {
   AccountBasedLedgerChainConfig,
   EvmLedgerDraft,
@@ -112,7 +113,15 @@ export function assembleEvmLedgerDraft(
     const validatedContext = yield* validateEvmProcessorV2Context(context);
     const effectiveTransactions = zeroFailedValueTransfers(transactions);
     const transactionHash = transactions[0]!.id;
-    const fundFlow = yield* analyzeEvmFundFlow(effectiveTransactions, validatedContext, chainConfig);
+    const protocolExpanded = yield* expandEvmWrappedNativeProtocolTransactions({
+      chainConfig,
+      transactions: effectiveTransactions,
+      userAddresses: validatedContext.userAddresses,
+    });
+    const fundFlow = {
+      ...(yield* analyzeEvmFundFlow(protocolExpanded.transactions, validatedContext, chainConfig)),
+      protocolEvents: protocolExpanded.protocolEvents,
+    };
     const primaryTransaction = selectPrimaryEvmTransaction([...transactions], fundFlow);
     if (!primaryTransaction) {
       return yield* err(new Error(`EVM v2 found no primary transaction for group ${transactionHash}`));
@@ -130,7 +139,7 @@ export function assembleEvmLedgerDraft(
       primaryAddress: validatedContext.primaryAddress,
       sourceActivityFingerprint,
       transactionHash,
-      transactions: effectiveTransactions,
+      transactions: protocolExpanded.transactions,
     });
     const feePosting = yield* buildOptionalEvmNetworkFeePosting({
       chainConfig,
@@ -140,9 +149,10 @@ export function assembleEvmLedgerDraft(
       transactions,
     });
     const diagnostics = mapTransactionDiagnostics(classification.diagnostics);
-    const journals = buildEvmJournals({
+    const journals = yield* buildEvmJournals({
       diagnostics,
       feePosting,
+      protocolEvents: protocolExpanded.protocolEvents,
       sourceActivityFingerprint,
       valuePostings,
     });

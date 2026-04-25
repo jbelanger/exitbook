@@ -12,6 +12,16 @@ export interface EvmMovement {
   tokenDecimals?: number | undefined; // Decimals for tokens
 }
 
+export type EvmProtocolEventKind = 'wrapped_native_asset' | 'unwrapped_native_asset';
+
+export interface EvmProtocolEvent {
+  amountBaseUnits: string;
+  kind: EvmProtocolEventKind;
+  relationshipKind: 'asset_migration';
+  sourceAssetId: string;
+  targetAssetId: string;
+}
+
 /**
  * Unified EVM fund flow analysis result
  *
@@ -45,4 +55,7 @@ export interface EvmFundFlow {
 
   // Classification uncertainty tracking
   classificationUncertainty?: string | undefined; // Reason why classification is uncertain
+
+  // Chain-specific ledger cues that affect accounting treatment directly.
+  protocolEvents?: readonly EvmProtocolEvent[] | undefined;
 }

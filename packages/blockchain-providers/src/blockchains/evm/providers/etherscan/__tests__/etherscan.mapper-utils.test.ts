@@ -1,9 +1,109 @@
 import { describe, expect, it } from 'vitest';
 
-import { mapEtherscanWithdrawalToEvmTransaction, parseEtherscanWithdrawalResponse } from '../etherscan.mapper-utils.js';
-import type { EtherscanBeaconWithdrawal } from '../etherscan.schemas.js';
+import {
+  mapEtherscanNormalTransactionToEvmTransaction,
+  mapEtherscanTokenTransactionToEvmTransaction,
+  mapEtherscanWithdrawalToEvmTransaction,
+  parseEtherscanWithdrawalResponse,
+} from '../etherscan.mapper-utils.js';
+import type {
+  EtherscanBeaconWithdrawal,
+  EtherscanNormalTransaction,
+  EtherscanTokenTransaction,
+} from '../etherscan.schemas.js';
+
+const NORMAL_TX_BASE: EtherscanNormalTransaction = {
+  blockNumber: '19000000',
+  timeStamp: '1700000000',
+  hash: '0xnormal',
+  nonce: '1',
+  blockHash: '0xblock',
+  transactionIndex: '3',
+  from: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+  to: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  value: '15500000000000000000',
+  gas: '21000',
+  gasPrice: '1000000000',
+  isError: '0',
+  txreceipt_status: '1',
+  input: '0xd0e30db0',
+  contractAddress: '',
+  cumulativeGasUsed: '21000',
+  gasUsed: '21000',
+  confirmations: '10',
+  methodId: '0xd0e30db0',
+  functionName: 'deposit()',
+};
+
+const TOKEN_TX_BASE: EtherscanTokenTransaction = {
+  blockNumber: '19000000',
+  timeStamp: '1700000000',
+  hash: '0xtoken',
+  nonce: '1',
+  blockHash: '0xblock',
+  from: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+  contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  to: '0x1111111111111111111111111111111111111111',
+  value: '25000000',
+  tokenName: 'USD Coin',
+  tokenSymbol: 'USDC',
+  tokenDecimal: '6',
+  transactionIndex: '7',
+  gas: '100000',
+  gasPrice: '1000000000',
+  gasUsed: '75000',
+  cumulativeGasUsed: '75000',
+  input: 'deprecated',
+  methodId: '0x6fd3504e',
+  functionName: 'depositForBurn(uint256 _amount,uint32 _destinationDomain,bytes32 _mintRecipient,address _burnToken)',
+  confirmations: '10',
+};
 
 describe('etherscan/mapper-utils', () => {
+  describe('mapEtherscanNormalTransactionToEvmTransaction', () => {
+    it('preserves decoded method cues for contract calls', () => {
+      const result = mapEtherscanNormalTransactionToEvmTransaction(NORMAL_TX_BASE);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.methodId).toBe('0xd0e30db0');
+        expect(result.value.functionName).toBe('deposit()');
+        expect(result.value.inputData).toBe('0xd0e30db0');
+      }
+    });
+
+    it('does not preserve the 0x pseudo-method on plain transfers', () => {
+      const result = mapEtherscanNormalTransactionToEvmTransaction({
+        ...NORMAL_TX_BASE,
+        input: '0x',
+        methodId: '0x',
+        functionName: '',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.methodId).toBeUndefined();
+        expect(result.value.functionName).toBeUndefined();
+        expect(result.value.inputData).toBeUndefined();
+      }
+    });
+  });
+
+  describe('mapEtherscanTokenTransactionToEvmTransaction', () => {
+    it('preserves parent transaction method cues on token transfer rows', () => {
+      const result = mapEtherscanTokenTransactionToEvmTransaction(TOKEN_TX_BASE);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.methodId).toBe('0x6fd3504e');
+        expect(result.value.functionName).toBe(
+          'depositForBurn(uint256 _amount,uint32 _destinationDomain,bytes32 _mintRecipient,address _burnToken)'
+        );
+        expect(result.value.inputData).toBeUndefined();
+      }
+    });
+  });
+
   describe('mapEtherscanWithdrawalToEvmTransaction', () => {
     it('should convert Gwei to Wei correctly', () => {
       const rawWithdrawal: EtherscanBeaconWithdrawal = {

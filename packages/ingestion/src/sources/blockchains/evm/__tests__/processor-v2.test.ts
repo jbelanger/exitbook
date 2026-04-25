@@ -10,6 +10,7 @@ const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
 const USDC_ADDRESS = '0xusdc000000000000000000000000000000000000';
+const WETH_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 
 function createProcessor(tokenMetadataResolver?: EvmProcessorV2TokenMetadataResolver) {
   const chainConfig = getEvmChainConfig('ethereum');
@@ -143,6 +144,89 @@ describe('EvmProcessorV2', () => {
       ['USDC', 'principal', '1000'],
       ['ETH', 'fee', '-0.00015'],
     ]);
+  });
+
+  test('models WETH deposit as an asset migration protocol event', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '15500000000000000000',
+        feeAmount: '100000000000000',
+        from: USER_ADDRESS,
+        id: '0xweth-wrap',
+        eventId: '0xweth-wrap:transfer:0',
+        methodId: '0xd0e30db0',
+        functionName: 'deposit()',
+        inputData: '0xd0e30db0',
+        to: WETH_ADDRESS,
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.sourceActivity.fromAddress).toBe(USER_ADDRESS);
+    expect(draft?.sourceActivity.toAddress).toBe(WETH_ADDRESS);
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(
+      draft?.journals[0]?.postings.map((posting) => [posting.assetSymbol, posting.role, posting.quantity.toFixed()])
+    ).toEqual([
+      ['ETH', 'principal', '-15.5'],
+      ['WETH', 'principal', '15.5'],
+      ['ETH', 'fee', '-0.0001'],
+    ]);
+    expect(draft?.journals[0]?.relationships?.[0]?.relationshipKind).toBe('asset_migration');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.code).toBe('wrapped_native_asset');
+    expect(draft?.journals[0]?.postings[1]?.sourceComponentRefs[0]?.component.componentId).toBe(
+      '0xweth-wrap:transfer:0:wrapped-native:in:token'
+    );
+  });
+
+  test('models WETH withdraw as an asset migration protocol event', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '0',
+        feeAmount: '100000000000000',
+        from: USER_ADDRESS,
+        id: '0xweth-unwrap',
+        eventId: '0xweth-unwrap:transfer:0',
+        methodId: '0x2e1a7d4d',
+        functionName: 'withdraw(uint256 amount)',
+        inputData: '0x2e1a7d4d000000000000000000000000000000000000000000000000e387217ca64cba0e',
+        to: WETH_ADDRESS,
+      }),
+      createTransaction({
+        amount: '16395109787715287566',
+        currency: 'ETH',
+        eventId: '0xweth-unwrap:internal:0',
+        feeAmount: undefined,
+        from: WETH_ADDRESS,
+        id: '0xweth-unwrap',
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'internal',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.sourceActivity.fromAddress).toBe(USER_ADDRESS);
+    expect(draft?.sourceActivity.toAddress).toBe(WETH_ADDRESS);
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['protocol_event']);
+    expect(
+      draft?.journals[0]?.postings.map((posting) => [posting.assetSymbol, posting.role, posting.quantity.toFixed()])
+    ).toEqual([
+      ['WETH', 'principal', '-16.395109787715287566'],
+      ['ETH', 'principal', '16.395109787715287566'],
+      ['ETH', 'fee', '-0.0001'],
+    ]);
+    expect(draft?.journals[0]?.relationships?.[0]?.relationshipKind).toBe('asset_migration');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.code).toBe('unwrapped_native_asset');
+    expect(draft?.journals[0]?.postings[0]?.sourceComponentRefs[0]?.component.componentId).toBe(
+      '0xweth-unwrap:transfer:0:wrapped-native:out:token'
+    );
   });
 
   test('preserves exact huge token quantities from adversarial ERC-20 transfers', async () => {

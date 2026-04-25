@@ -7,7 +7,7 @@ import type {
   SourceActivityDraft,
 } from '@exitbook/ledger';
 
-import type { EvmMovement } from './types.js';
+import type { EvmMovement, EvmProtocolEvent } from './types.js';
 
 export interface AccountBasedLedgerNativeAssetConfig {
   assetIdKind: 'native_asset' | 'symbol_asset';
@@ -20,6 +20,13 @@ export interface AccountBasedLedgerChainConfig {
   nativeAssets?: readonly AccountBasedLedgerNativeAssetConfig[] | undefined;
   nativeCurrency: Currency;
   nativeDecimals: number;
+  wrappedNativeAsset?:
+    | {
+        contractAddress: string;
+        decimals: number;
+        symbol: Currency;
+      }
+    | undefined;
 }
 
 export interface EvmProcessorV2AccountContext {
@@ -58,6 +65,7 @@ export interface EvmMovementPostingInput {
 export interface EvmJournalAssemblyParts {
   diagnostics: readonly AccountingDiagnosticDraft[];
   feePosting: AccountingPostingDraft | undefined;
+  protocolEvents: readonly EvmProtocolEvent[];
   sourceActivityFingerprint: string;
   valuePostings: readonly AccountingPostingDraft[];
 }
