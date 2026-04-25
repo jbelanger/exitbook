@@ -76,6 +76,58 @@ const EVM_BRIDGE_FUNCTION_HINTS: Record<
   },
 };
 
+interface EvmLiquidityFunctionHint {
+  action: 'add' | 'remove';
+  message: string;
+}
+
+const LIQUIDITY_ADD: EvmLiquidityFunctionHint = {
+  action: 'add',
+  message: 'Liquidity position add detected from contract method cue.',
+};
+const LIQUIDITY_ADD_WITH_NATIVE: EvmLiquidityFunctionHint = {
+  action: 'add',
+  message: 'Liquidity position add with native asset detected from contract method cue.',
+};
+const LIQUIDITY_REMOVE: EvmLiquidityFunctionHint = {
+  action: 'remove',
+  message: 'Liquidity position remove detected from contract method cue.',
+};
+const LIQUIDITY_REMOVE_WITH_NATIVE: EvmLiquidityFunctionHint = {
+  action: 'remove',
+  message: 'Liquidity position remove with native asset detected from contract method cue.',
+};
+const LIQUIDITY_REMOVE_WITH_NATIVE_AND_PERMIT: EvmLiquidityFunctionHint = {
+  action: 'remove',
+  message: 'Liquidity position remove with native asset and permit detected from contract method cue.',
+};
+const LIQUIDITY_REMOVE_WITH_PERMIT: EvmLiquidityFunctionHint = {
+  action: 'remove',
+  message: 'Liquidity position remove with permit detected from contract method cue.',
+};
+
+const EVM_LIQUIDITY_FUNCTION_HINTS: Record<string, EvmLiquidityFunctionHint> = {
+  addliquidity: LIQUIDITY_ADD,
+  addliquidityeth: LIQUIDITY_ADD_WITH_NATIVE,
+  addliquidityineth: LIQUIDITY_ADD_WITH_NATIVE,
+  removeliquidity: LIQUIDITY_REMOVE,
+  removeliquidityeth: LIQUIDITY_REMOVE_WITH_NATIVE,
+  removeliquidityethsupportingfeeontransfertokens: LIQUIDITY_REMOVE_WITH_NATIVE,
+  removeliquidityethwithpermit: LIQUIDITY_REMOVE_WITH_NATIVE_AND_PERMIT,
+  removeliquidityethwithpermitsupportingfeeontransfertokens: LIQUIDITY_REMOVE_WITH_NATIVE_AND_PERMIT,
+  removeliquiditywithpermit: LIQUIDITY_REMOVE_WITH_PERMIT,
+};
+
+const EVM_LIQUIDITY_METHOD_HINTS: Record<string, EvmLiquidityFunctionHint> = {
+  '0x2195995c': LIQUIDITY_REMOVE_WITH_PERMIT,
+  '0x5b0d5984': LIQUIDITY_REMOVE_WITH_NATIVE_AND_PERMIT,
+  '0xa9014313': LIQUIDITY_ADD_WITH_NATIVE,
+  '0xaf2979eb': LIQUIDITY_REMOVE_WITH_NATIVE,
+  '0xcf4788cc': LIQUIDITY_ADD_WITH_NATIVE,
+  '0xded9382a': LIQUIDITY_REMOVE_WITH_NATIVE_AND_PERMIT,
+  '0xf305d719': LIQUIDITY_ADD_WITH_NATIVE,
+};
+
 const EVM_APPROVAL_FUNCTION_NAMES = new Set([
   'approve',
   'decreaseallowance',
@@ -238,10 +290,20 @@ export function determineEvmOperationFromFundFlow(
     return classification;
   }
 
+  const classificationDiagnostics = shouldSuppressGenericClassificationUncertainty(diagnostics)
+    ? classification.diagnostics?.filter((diagnostic) => diagnostic.code !== 'classification_uncertain')
+    : classification.diagnostics;
+
   return {
     ...classification,
-    diagnostics: classification.diagnostics ? [...diagnostics, ...classification.diagnostics] : [...diagnostics],
+    diagnostics: classificationDiagnostics ? [...diagnostics, ...classificationDiagnostics] : [...diagnostics],
   };
+}
+
+function shouldSuppressGenericClassificationUncertainty(diagnostics: readonly TransactionDiagnostic[]): boolean {
+  return diagnostics.some(
+    (diagnostic) => diagnostic.code === 'liquidity_position_add' || diagnostic.code === 'liquidity_position_remove'
+  );
 }
 
 function buildEvmProtocolEventDiagnostics(fundFlow: EvmFundFlow): TransactionDiagnostic[] {
@@ -265,9 +327,11 @@ function detectEvmLedgerCueDiagnostics(
   txGroup: readonly EvmTransaction[],
   fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
 ): TransactionDiagnostic[] {
-  return [detectEvmApprovalDiagnostic(txGroup, fundFlow), detectEvmBridgeDiagnostic(txGroup, fundFlow)].filter(
-    (diagnostic): diagnostic is TransactionDiagnostic => diagnostic !== undefined
-  );
+  return [
+    detectEvmApprovalDiagnostic(txGroup, fundFlow),
+    detectEvmBridgeDiagnostic(txGroup, fundFlow),
+    detectEvmLiquidityPositionDiagnostic(txGroup, fundFlow),
+  ].filter((diagnostic): diagnostic is TransactionDiagnostic => diagnostic !== undefined);
 }
 
 function detectEvmApprovalDiagnostic(
@@ -338,6 +402,41 @@ function detectEvmBridgeDiagnostic(
         functionName: tx.functionName,
       },
       severity: 'info',
+    };
+  }
+
+  return undefined;
+}
+
+function detectEvmLiquidityPositionDiagnostic(
+  txGroup: readonly EvmTransaction[],
+  fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
+): TransactionDiagnostic | undefined {
+  for (const tx of txGroup) {
+    const methodId = tx.methodId?.toLowerCase();
+    const liquidityHint =
+      (methodId ? EVM_LIQUIDITY_METHOD_HINTS[methodId] : undefined) ??
+      EVM_LIQUIDITY_FUNCTION_HINTS[normalizeEvmFunctionName(tx.functionName) ?? ''];
+    if (!liquidityHint) {
+      continue;
+    }
+
+    const hasCompleteValueEvidence = fundFlow.inflows.length > 0 && fundFlow.outflows.length > 0;
+    return {
+      code: liquidityHint.action === 'add' ? 'liquidity_position_add' : 'liquidity_position_remove',
+      message: hasCompleteValueEvidence
+        ? liquidityHint.message
+        : `${liquidityHint.message} Provider evidence is one-sided; keep review on this ledger effect.`,
+      metadata: {
+        action: liquidityHint.action,
+        detectionSource: methodId && EVM_LIQUIDITY_METHOD_HINTS[methodId] ? 'method_id' : 'function_name',
+        functionName: tx.functionName,
+        hasCompleteValueEvidence,
+        inflowCount: fundFlow.inflows.length,
+        methodId: tx.methodId,
+        outflowCount: fundFlow.outflows.length,
+      },
+      severity: hasCompleteValueEvidence ? 'info' : 'warning',
     };
   }
 

@@ -79,9 +79,9 @@ describe('ProviderRegistry', () => {
   test('should validate override-based configuration correctly', () => {
     const validOverrideConfig = {
       ethereum: {
-        defaultEnabled: ['routescan', 'moralis'],
+        defaultEnabled: ['alchemy', 'moralis'],
         overrides: {
-          routescan: { priority: 1, rateLimit: { requestsPerSecond: 0.5 } },
+          alchemy: { priority: 1, rateLimit: { requestsPerSecond: 0.5 } },
           moralis: { enabled: false },
         },
       },

@@ -229,6 +229,121 @@ describe('EvmProcessorV2', () => {
     );
   });
 
+  test('tags one-sided add-liquidity evidence without inventing missing LP legs', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '199000000000000000000000000',
+        currency: 'BANGER',
+        eventId: '0xlp-add-partial:log:0',
+        feeAmount: undefined,
+        from: USER_ADDRESS,
+        functionName:
+          'addLiquidityETH(address token, uint256 amountTokenDesired, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline)',
+        id: '0xlp-add-partial',
+        methodId: '0xf305d719',
+        to: CONTRACT_ADDRESS,
+        tokenAddress: '0xa47e0524243601e1db3613c46a1099d520c9f4fa',
+        tokenDecimals: 18,
+        tokenSymbol: 'BANGER',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
+    expect(
+      draft?.journals[0]?.postings.map((posting) => [posting.assetSymbol, posting.role, posting.quantity.toFixed()])
+    ).toEqual([['BANGER', 'principal', '-199000000']]);
+    expect(draft?.journals[0]?.diagnostics?.[0]?.code).toBe('liquidity_position_add');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.severity).toBe('warning');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['hasCompleteValueEvidence']).toBe(false);
+  });
+
+  test('tags complete remove-liquidity exits as LP position trades', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '0',
+        feeAmount: '152552800000000',
+        from: USER_ADDRESS,
+        functionName:
+          'removeLiquidityETHSupportingFeeOnTransferTokens(address token, uint256 liquidity, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline)',
+        id: '0xlp-remove',
+        eventId: '0xlp-remove:contract-call:0',
+        methodId: '0xaf2979eb',
+        to: CONTRACT_ADDRESS,
+        tokenType: 'native',
+        type: 'contract_call',
+      }),
+      createTransaction({
+        amount: '22360679774997896963091',
+        currency: 'UNI-V2',
+        eventId: '0xlp-remove:log:0',
+        feeAmount: undefined,
+        from: USER_ADDRESS,
+        functionName:
+          'removeLiquidityETHSupportingFeeOnTransferTokens(address token, uint256 liquidity, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline)',
+        id: '0xlp-remove',
+        methodId: '0xaf2979eb',
+        to: '0xa05dbff666f155dbef69fe0cde810a85225dcb7f',
+        tokenAddress: '0xa05dbff666f155dbef69fe0cde810a85225dcb7f',
+        tokenDecimals: 18,
+        tokenSymbol: 'UNI-V2',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+      createTransaction({
+        amount: '366467190841005187787057813',
+        currency: 'AWESOME',
+        eventId: '0xlp-remove:log:1',
+        feeAmount: undefined,
+        from: CONTRACT_ADDRESS,
+        functionName:
+          'removeLiquidityETHSupportingFeeOnTransferTokens(address token, uint256 liquidity, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline)',
+        id: '0xlp-remove',
+        methodId: '0xaf2979eb',
+        to: USER_ADDRESS,
+        tokenAddress: '0xc6e8e7cd99f8682dfc7641d5c044e5b748e0cce4',
+        tokenDecimals: 18,
+        tokenSymbol: 'AWESOME',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      }),
+      createTransaction({
+        amount: '1442860140174735088',
+        currency: 'ETH',
+        eventId: '0xlp-remove:internal:0',
+        feeAmount: undefined,
+        from: CONTRACT_ADDRESS,
+        id: '0xlp-remove',
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'internal',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['trade']);
+    expect(
+      draft?.journals[0]?.postings.map((posting) => [posting.assetSymbol, posting.role, posting.quantity.toFixed()])
+    ).toEqual([
+      ['UNI-V2', 'principal', '-22360.679774997896963091'],
+      ['AWESOME', 'principal', '366467190.841005187787057813'],
+      ['ETH', 'principal', '1.442860140174735088'],
+      ['ETH', 'fee', '-0.0001525528'],
+    ]);
+    expect(draft?.journals[0]?.diagnostics?.map((diagnostic) => diagnostic.code)).toEqual([
+      'liquidity_position_remove',
+    ]);
+    expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['hasCompleteValueEvidence']).toBe(true);
+  });
+
   test('preserves exact huge token quantities from adversarial ERC-20 transfers', async () => {
     const result = await processTransactions([
       createTransaction({

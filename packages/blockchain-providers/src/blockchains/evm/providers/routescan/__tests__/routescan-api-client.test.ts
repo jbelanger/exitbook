@@ -3,8 +3,7 @@ import type { CursorState } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OneShotOperation } from '../../../../../contracts/index.js';
-import { createProviderRegistry } from '../../../../../initialize.js';
+import type { OneShotOperation, ProviderConfig } from '../../../../../contracts/index.js';
 import {
   createMockHttpClient,
   expectErr,
@@ -44,6 +43,22 @@ vi.mock('@exitbook/logger', () => ({
 
 const TEST_ADDRESS = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
 const TEST_TIMESTAMP = new Date(1700000000 * 1000);
+
+function createRoutescanConfig(): ProviderConfig {
+  return {
+    baseUrl: routescanMetadata.baseUrl,
+    blockchain: 'ethereum',
+    displayName: routescanMetadata.displayName,
+    enabled: true,
+    metadata: routescanMetadata,
+    name: routescanMetadata.name,
+    priority: 1,
+    rateLimit: routescanMetadata.defaultConfig.rateLimit,
+    requiresApiKey: routescanMetadata.requiresApiKey,
+    retries: routescanMetadata.defaultConfig.retries,
+    timeout: routescanMetadata.defaultConfig.timeout,
+  };
+}
 
 function buildNormalTx(overrides?: Partial<RoutescanTransaction>): RoutescanTransaction {
   return {
@@ -119,7 +134,6 @@ function buildTokenTransfer(overrides?: Partial<RoutescanTokenTransfer>): Routes
 // ── Test suite ──────────────────────────────────────────────────────
 
 describe('RoutescanApiClient', () => {
-  const providerRegistry = createProviderRegistry();
   let client: RoutescanApiClient;
   let mockGet: MockHttpClient['get'];
 
@@ -127,8 +141,7 @@ describe('RoutescanApiClient', () => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
 
-    const config = providerRegistry.createDefaultConfig('ethereum', 'routescan');
-    client = new RoutescanApiClient(config);
+    client = new RoutescanApiClient(createRoutescanConfig());
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
   });

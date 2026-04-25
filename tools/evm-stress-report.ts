@@ -141,15 +141,26 @@ const QUERIES: readonly { name: string; sql: string }[] = [
   {
     name: 'approval_method_cues',
     sql: `
+      WITH decoded_methods AS (
+        SELECT
+          json_extract(provider_data, '$.methodId') AS method_id,
+          json_extract(provider_data, '$.functionName') AS function_name,
+          lower(coalesce(json_extract(provider_data, '$.functionName'), '')) AS normalized_function_name,
+          transaction_type_hint
+        FROM raw_transactions
+      )
       SELECT
-        json_extract(provider_data, '$.methodId') AS method_id,
-        json_extract(provider_data, '$.functionName') AS function_name,
+        method_id,
+        function_name,
         transaction_type_hint,
         count(*) AS rows
-      FROM raw_transactions
-      WHERE lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*approve*'
-        OR lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*permit*'
-        OR json_extract(provider_data, '$.methodId') IN ('0x095ea7b3', '0xa22cb465', '0x39509351', '0xa457c2d7', '0xd505accf')
+      FROM decoded_methods
+      WHERE normalized_function_name GLOB 'approve(*'
+        OR normalized_function_name GLOB 'setapprovalforall(*'
+        OR normalized_function_name GLOB 'increaseallowance(*'
+        OR normalized_function_name GLOB 'decreaseallowance(*'
+        OR normalized_function_name GLOB 'permit(*'
+        OR method_id IN ('0x095ea7b3', '0xa22cb465', '0x39509351', '0xa457c2d7', '0xd505accf')
       GROUP BY method_id, function_name, transaction_type_hint
       ORDER BY rows DESC
       LIMIT 40
@@ -166,11 +177,67 @@ const QUERIES: readonly { name: string; sql: string }[] = [
       FROM raw_transactions
       WHERE lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*addliquidity*'
         OR lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*removeliquidity*'
-        OR lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*mint*'
-        OR lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*burn*'
       GROUP BY method_id, function_name, transaction_type_hint
       ORDER BY rows DESC
       LIMIT 40
+    `,
+  },
+  {
+    name: 'liquidity_group_shapes',
+    sql: `
+      WITH lp_hashes AS (
+        SELECT DISTINCT blockchain_transaction_hash AS hash
+        FROM raw_transactions
+        WHERE lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*addliquidity*'
+          OR lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*removeliquidity*'
+      ),
+      grouped AS (
+        SELECT
+          lp_hashes.hash,
+          SUM(CASE WHEN rt.transaction_type_hint = 'normal' THEN 1 ELSE 0 END) AS normal_rows,
+          SUM(CASE WHEN rt.transaction_type_hint = 'internal' THEN 1 ELSE 0 END) AS internal_rows,
+          SUM(CASE WHEN rt.transaction_type_hint = 'token' THEN 1 ELSE 0 END) AS token_rows,
+          GROUP_CONCAT(DISTINCT json_extract(rt.provider_data, '$.functionName')) AS functions
+        FROM lp_hashes
+        JOIN raw_transactions rt ON rt.blockchain_transaction_hash = lp_hashes.hash
+        GROUP BY lp_hashes.hash
+      )
+      SELECT
+        CASE WHEN lower(functions) LIKE '%addliquidity%' THEN 'add' ELSE 'remove' END AS liquidity_action,
+        normal_rows,
+        internal_rows,
+        token_rows,
+        COUNT(*) AS transactions
+      FROM grouped
+      GROUP BY liquidity_action, normal_rows, internal_rows, token_rows
+      ORDER BY liquidity_action, transactions DESC
+    `,
+  },
+  {
+    name: 'liquidity_complete_samples',
+    sql: `
+      WITH lp_hashes AS (
+        SELECT blockchain_transaction_hash AS hash
+        FROM raw_transactions
+        WHERE lower(coalesce(json_extract(provider_data, '$.functionName'), '')) GLOB '*removeliquidity*'
+        GROUP BY blockchain_transaction_hash
+      ),
+      grouped AS (
+        SELECT
+          rt.blockchain_transaction_hash,
+          SUM(CASE WHEN rt.transaction_type_hint = 'normal' THEN 1 ELSE 0 END) AS normal_rows,
+          SUM(CASE WHEN rt.transaction_type_hint = 'internal' THEN 1 ELSE 0 END) AS internal_rows,
+          SUM(CASE WHEN rt.transaction_type_hint = 'token' THEN 1 ELSE 0 END) AS token_rows,
+          GROUP_CONCAT(json_extract(rt.provider_data, '$.tokenSymbol') || ':' || json_extract(rt.normalized_data, '$.amount'), '; ') AS token_amounts
+        FROM raw_transactions rt
+        JOIN lp_hashes ON lp_hashes.hash = rt.blockchain_transaction_hash
+        GROUP BY rt.blockchain_transaction_hash
+      )
+      SELECT blockchain_transaction_hash, normal_rows, internal_rows, token_rows, token_amounts
+      FROM grouped
+      WHERE normal_rows > 0 AND internal_rows > 0 AND token_rows > 1
+      ORDER BY blockchain_transaction_hash
+      LIMIT 20
     `,
   },
   {
