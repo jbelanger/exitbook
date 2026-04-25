@@ -921,7 +921,83 @@ describe('AccountRepository', () => {
       }
     });
   });
+
+  describe('resetCursors', () => {
+    it('clears cursors for every account when no IDs are provided', async () => {
+      const first = assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xfirst',
+        })
+      );
+      const second = assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xsecond',
+        })
+      );
+      const withoutCursor = assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xwithoutcursor',
+        })
+      );
+
+      await repo.updateCursor(first.id, 'normal', testCursor(18_000_000, 'tx-first', 10));
+      await repo.updateCursor(second.id, 'token', testCursor(18_000_100, 'tx-second', 20));
+
+      const resetCount = assertOk(await repo.resetCursors());
+
+      expect(resetCount).toBe(2);
+      expect(assertOk(await repo.getById(first.id)).lastCursor).toBeUndefined();
+      expect(assertOk(await repo.getById(second.id)).lastCursor).toBeUndefined();
+      expect(assertOk(await repo.getById(withoutCursor.id)).lastCursor).toBeUndefined();
+    });
+
+    it('clears cursors only for matching account IDs', async () => {
+      const first = assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xscopedfirst',
+        })
+      );
+      const second = assertOk(
+        await repo.create({
+          profileId: 1,
+          accountType: 'blockchain',
+          platformKey: 'ethereum',
+          identifier: '0xscopedsecond',
+        })
+      );
+      const secondCursor = testCursor(18_000_100, 'tx-second', 20);
+
+      await repo.updateCursor(first.id, 'normal', testCursor(18_000_000, 'tx-first', 10));
+      await repo.updateCursor(second.id, 'token', secondCursor);
+
+      const resetCount = assertOk(await repo.resetCursors([first.id]));
+
+      expect(resetCount).toBe(1);
+      expect(assertOk(await repo.getById(first.id)).lastCursor).toBeUndefined();
+      expect(assertOk(await repo.getById(second.id)).lastCursor).toEqual({ token: secondCursor });
+    });
+  });
 });
+
+function testCursor(blockNumber: number, lastTransactionId: string, totalFetched: number): CursorState {
+  return {
+    primary: { type: 'blockNumber', value: blockNumber },
+    lastTransactionId,
+    totalFetched,
+  };
+}
 
 function findUniqueFingerprintPrefixLength(target: string, fingerprints: string[]): number {
   for (let length = 1; length <= target.length; length += 1) {

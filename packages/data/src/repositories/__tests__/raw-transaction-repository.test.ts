@@ -384,6 +384,12 @@ describe('RawTransactionRepository', () => {
       expect(txs).toHaveLength(0);
     });
 
+    it('rejects non-positive hash limits', async () => {
+      const error = assertErr(await repo.findByHashes(2, 0));
+
+      expect(error.message).toContain('Hash batch limit must be a positive integer');
+    });
+
     it('returns an error when the database is closed', async () => {
       await db.destroy();
 

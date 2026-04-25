@@ -499,6 +499,35 @@ export class AccountRepository extends BaseRepository {
     );
   }
 
+  async resetCursors(accountIds?: readonly number[]): Promise<Result<number, Error>> {
+    return resultTryAsync(
+      async function* (self) {
+        if (accountIds && accountIds.length === 0) return yield* ok(0);
+
+        const updateData: Updateable<AccountsTable> = {
+          last_cursor: null,
+          updated_at: new Date().toISOString(),
+        };
+
+        const result = await (accountIds
+          ? self.db
+              .updateTable('accounts')
+              .set(updateData)
+              .where('id', 'in', accountIds)
+              .where('last_cursor', 'is not', null)
+              .executeTakeFirst()
+          : self.db.updateTable('accounts').set(updateData).where('last_cursor', 'is not', null).executeTakeFirst());
+
+        const count = Number(result.numUpdatedRows ?? 0);
+        const logContext = accountIds ? { accountIds: [...accountIds], count } : { count };
+        self.logger.debug(logContext, 'Reset account cursors');
+        return yield* ok(count);
+      },
+      this,
+      'Failed to reset account cursors'
+    );
+  }
+
   async deleteByIds(accountIds: number[]): Promise<Result<number, Error>> {
     if (accountIds.length === 0) return ok(0);
 

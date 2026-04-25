@@ -246,6 +246,19 @@ describe('provider manager helpers', () => {
       expect(canProviderResume(provider, cursor)).toBe(false);
     });
 
+    it('should accept a compatible alternative when primary pageToken belongs to another provider', () => {
+      const provider = createMockProvider('test', ['getAddressTransactions'], ['pageToken', 'blockNumber']);
+      const cursor: CursorState = {
+        primary: { type: 'pageToken', value: 'token-123', providerName: 'other-provider' },
+        alternatives: [{ type: 'blockNumber', value: 1000 }],
+        lastTransactionId: 'tx-1',
+        totalFetched: 100,
+        metadata: { providerName: 'other-provider', updatedAt: Date.now() },
+      };
+
+      expect(canProviderResume(provider, cursor)).toBe(true);
+    });
+
     it('should accept pageToken from same provider', () => {
       const provider = createMockProvider('test', ['getAddressTransactions'], ['pageToken']);
       const cursor: CursorState = {

@@ -45,6 +45,7 @@ export function buildIngestionPurgePorts(db: DataSession): IIngestionDataPurge {
             } else {
               yield* await tx.rawTransactions.deleteAll();
               yield* await tx.importSessions.deleteBy();
+              yield* await tx.accounts.resetCursors();
             }
 
             return impact;

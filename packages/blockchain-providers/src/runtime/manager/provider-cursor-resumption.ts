@@ -34,9 +34,12 @@ export function canProviderResume(provider: IBlockchainProvider, cursor: CursorS
   if (supportedTypes.includes(cursor.primary.type)) {
     // If it's a pageToken, must match provider name
     if (cursor.primary.type === 'pageToken') {
-      return cursor.primary.providerName === provider.name;
+      if (cursor.primary.providerName === provider.name) {
+        return true;
+      }
+    } else {
+      return true;
     }
-    return true;
   }
 
   // Check alternatives

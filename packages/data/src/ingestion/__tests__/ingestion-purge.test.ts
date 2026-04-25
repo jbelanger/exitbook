@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/no-null -- acceptable in tests */
+import type { CursorState } from '@exitbook/foundation';
 import { assertOk } from '@exitbook/foundation/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -71,15 +73,51 @@ describe('buildIngestionPurgePorts', () => {
     it('purges all import data when no IDs provided', async () => {
       await seedAccount(db, 1, 'exchange-api', 'kraken');
       await seedImportSession(db, 1, 1);
+      await seedRawTransaction(db, 1);
+      await ctx.accounts.updateCursor(1, 'normal', testCursor());
 
       const ports = buildIngestionPurgePorts(ctx);
       const impact = assertOk(await ports.purgeImportedData(undefined));
 
       expect(impact.sessions).toBe(1);
+      expect(impact.rawData).toBe(1);
 
-      // Import sessions should be deleted (accounts remain when no IDs specified per the logic)
+      // Import sessions and raw data should be deleted; accounts remain but resume cursors are invalidated.
       const sessions = assertOk(await ctx.importSessions.findAll());
+      const rawData = assertOk(await ctx.rawTransactions.findAll());
+      const accounts = assertOk(await ctx.accounts.findAll());
       expect(sessions).toHaveLength(0);
+      expect(rawData).toHaveLength(0);
+      expect(accounts).toHaveLength(1);
+      expect(accounts[0]!.lastCursor).toBeUndefined();
     });
   });
 });
+
+function testCursor(): CursorState {
+  return {
+    primary: { type: 'blockNumber', value: 18_000_000 },
+    lastTransactionId: 'tx-stale',
+    totalFetched: 73_857,
+  };
+}
+
+async function seedRawTransaction(db: KyselyDB, accountId: number): Promise<void> {
+  await db
+    .insertInto('raw_transactions')
+    .values({
+      account_id: accountId,
+      provider_name: 'ethereum',
+      event_id: 'raw-stale',
+      blockchain_transaction_hash: null,
+      source_address: null,
+      transaction_type_hint: null,
+      provider_data: JSON.stringify({ id: 'raw-stale' }),
+      normalized_data: '{}',
+      processing_status: 'pending',
+      processed_at: null,
+      created_at: new Date().toISOString(),
+      timestamp: Date.now(),
+    })
+    .execute();
+}

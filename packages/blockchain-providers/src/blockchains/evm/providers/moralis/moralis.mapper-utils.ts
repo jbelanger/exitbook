@@ -122,7 +122,7 @@ export function mapMoralisWalletHistoryTransaction(
     for (const erc20 of rawData.erc20_transfers) {
       const tokenAddress = normalizeEvmAddress(erc20.address);
       const currency = tokenAddress ?? erc20.address;
-      const tokenDecimals = parseInt(erc20.token_decimals);
+      const tokenDecimals = erc20.token_decimals ? parseInt(erc20.token_decimals, 10) : undefined;
       const erc20From = normalizeEvmAddress(erc20.from_address) ?? '';
       const erc20To = normalizeEvmAddress(erc20.to_address);
 

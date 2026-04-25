@@ -394,8 +394,12 @@ export class RawTransactionRepository extends BaseRepository {
   }
 
   async findByHashes(accountId: number, hashLimit: number): Promise<Result<RawTransaction[], Error>> {
+    if (!Number.isInteger(hashLimit) || hashLimit <= 0) {
+      return err(new Error(`Hash batch limit must be a positive integer, received ${hashLimit}`));
+    }
+
     try {
-      const hashesSubquery = this.db
+      const hashRows = await this.db
         .selectFrom('raw_transactions')
         .select('blockchain_transaction_hash')
         .distinct()
@@ -403,15 +407,23 @@ export class RawTransactionRepository extends BaseRepository {
         .where('processing_status', '=', 'pending')
         .where('blockchain_transaction_hash', 'is not', null)
         .orderBy('blockchain_transaction_hash', 'asc')
-        .limit(hashLimit);
+        .limit(hashLimit)
+        .execute();
+
+      const hashes = hashRows
+        .map((row) => row.blockchain_transaction_hash)
+        .filter((hash): hash is string => hash !== null);
+
+      if (hashes.length === 0) {
+        return ok([]);
+      }
 
       const rows = await this.db
-        .with('hashes', () => hashesSubquery)
         .selectFrom('raw_transactions as rt')
-        .innerJoin('hashes as h', 'rt.blockchain_transaction_hash', 'h.blockchain_transaction_hash')
         .selectAll('rt')
         .where('rt.account_id', '=', accountId)
         .where('rt.processing_status', '=', 'pending')
+        .where('rt.blockchain_transaction_hash', 'in', hashes)
         .orderBy('rt.blockchain_transaction_hash', 'asc')
         .orderBy('rt.id', 'asc')
         .execute();

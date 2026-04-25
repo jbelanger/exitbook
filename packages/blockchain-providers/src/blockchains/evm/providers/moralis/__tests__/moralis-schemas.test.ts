@@ -1,6 +1,7 @@
+/* eslint-disable unicorn/no-null -- null accepted here */
 import { describe, expect, it } from 'vitest';
 
-import { MoralisTokenMetadataSchema } from '../moralis.schemas.js';
+import { MoralisTokenMetadataSchema, MoralisWalletHistoryResponseSchema } from '../moralis.schemas.js';
 
 describe('MoralisTokenMetadataSchema', () => {
   describe('spam detection fields', () => {
@@ -357,5 +358,77 @@ describe('MoralisTokenMetadataSchema', () => {
 
       expect(result.decimals).toBeUndefined();
     });
+  });
+});
+
+describe('MoralisWalletHistoryResponseSchema', () => {
+  it('parses documented wallet history scalar variants', () => {
+    const result = MoralisWalletHistoryResponseSchema.parse({
+      cursor: '<cursor>',
+      page: '2',
+      page_size: '100',
+      result: [
+        {
+          block_hash: '0x9b559aef7ea858608c2e554246fe4a24287e7aeeb976848df2b9a2531f4b9171',
+          block_number: '12386788',
+          block_timestamp: '2021-05-07T11:08:35.000Z',
+          category: 'send',
+          erc20_transfers: [
+            {
+              address: '0x057Ec652A4F150f7FF94f089A38008f49a0DF88e',
+              direction: 'outgoing',
+              from_address: '0xd4a3BebD824189481FC45363602b83C9c7e9cbDf',
+              from_address_label: 'Binance 1',
+              log_index: 2,
+              possible_spam: 'false',
+              security_score: null,
+              to_address: '0x62AED87d21Ad0F3cdE4D147Fdcc9245401Af0044',
+              to_address_label: 'Binance 2',
+              token_decimals: null,
+              token_logo: 'https://cdn.moralis.io/images/325/large/Tether-logo.png',
+              token_name: 'Tether USD',
+              token_symbol: 'USDT',
+              value: 6500000,
+              value_formatted: '1.033',
+              verified_contract: 'false',
+            },
+          ],
+          from_address: '0x267be1c1d684f78cb4f6a176c4911b741e4ffdc0',
+          gas_price: '52500000000',
+          hash: '0x1ed85b3757a6d31d01a4d6677fc52fd3911d649a0af21fe5ca3f886b153773ed',
+          internal_transactions: [],
+          method_label: 'transfer',
+          native_transfers: [
+            {
+              direction: 'outgoing',
+              from_address: '0x057Ec652A4F150f7FF94f089A38008f49a0DF88e',
+              from_address_label: 'Binance 1',
+              internal_transaction: 'false',
+              to_address: '0x057Ec652A4F150f7FF94f089A38008f49a0DF88e',
+              to_address_label: 'Binance 2',
+              token_symbol: 'ETH',
+              value: '1000000000000000',
+              value_formatted: '0.1',
+            },
+          ],
+          nonce: '1848059',
+          possible_spam: 'false',
+          receipt_gas_used: '21000',
+          receipt_status: '1',
+          summary: 'transfer',
+          to_address: '0x003dde3494f30d861d063232c6a8c04394b686ff',
+          transaction_fee: '0.00000000000000063',
+          value: '115580000000000000',
+        },
+      ],
+    });
+
+    expect(result.page).toBe(2);
+    expect(result.page_size).toBe(100);
+    expect(result.result[0]!.possible_spam).toBe(false);
+    expect(result.result[0]!.erc20_transfers[0]!.possible_spam).toBe(false);
+    expect(result.result[0]!.erc20_transfers[0]!.token_decimals).toBeUndefined();
+    expect(result.result[0]!.erc20_transfers[0]!.verified_contract).toBe(false);
+    expect(result.result[0]!.native_transfers[0]!.internal_transaction).toBe(false);
   });
 });

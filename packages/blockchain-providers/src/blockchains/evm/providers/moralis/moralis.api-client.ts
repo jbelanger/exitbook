@@ -383,6 +383,18 @@ export class MoralisApiClient extends BaseApiClient {
         );
       }
 
+      const missingTokenDecimalsCount = items.reduce(
+        (count, item) =>
+          count + item.erc20_transfers.filter((transfer) => transfer.token_decimals === undefined).length,
+        0
+      );
+
+      if (missingTokenDecimalsCount > 0) {
+        this.logger.warn(
+          `Moralis wallet history returned ${missingTokenDecimalsCount} ERC20 transfer(s) without token_decimals; retaining transfers with unknown decimals`
+        );
+      }
+
       return ok({
         items: items.filter((item) => isWalletHistoryItemRelevantToStream(item, streamType)),
         nextPageToken: response.cursor ?? undefined,

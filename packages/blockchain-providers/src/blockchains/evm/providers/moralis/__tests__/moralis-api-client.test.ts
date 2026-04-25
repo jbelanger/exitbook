@@ -387,6 +387,37 @@ describe('MoralisApiClient', () => {
       expect(transactions[0]!.tokenAddress).toBe(CONTRACT_ADDRESS);
     });
 
+    it('should retain token transfers with missing token decimals', async () => {
+      mockGet.mockResolvedValue(
+        ok({
+          cursor: null,
+          page: 1,
+          page_size: 100,
+          result: [
+            createWalletHistoryItem({
+              erc20_transfers: [createErc20Transfer({ token_decimals: null })],
+              value: '0',
+            }),
+          ],
+        })
+      );
+
+      const transactions: EvmTransaction[] = [];
+      for await (const result of client.executeStreaming<EvmTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+        streamType: 'token',
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]!.type).toBe('token_transfer');
+      expect(transactions[0]!.tokenAddress).toBe(CONTRACT_ADDRESS);
+      expect(transactions[0]!.tokenDecimals).toBeUndefined();
+    });
+
     it('should propagate API errors during normal streaming', async () => {
       mockGet.mockResolvedValue(err(new Error('Service unavailable')));
 

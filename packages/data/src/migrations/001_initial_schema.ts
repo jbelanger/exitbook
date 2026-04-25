@@ -153,6 +153,15 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .columns(['account_id', 'processing_status', 'timestamp'])
     .execute();
 
+  // Create composite index for hash-grouped blockchain reprocessing.
+  // The processing loop repeatedly asks for the next pending distinct hashes, so processing_status
+  // must be part of the hash-ordered index to avoid scanning already-processed rows in large accounts.
+  await sql`
+    CREATE INDEX idx_raw_tx_account_status_hash
+    ON raw_transactions(account_id, processing_status, blockchain_transaction_hash)
+    WHERE blockchain_transaction_hash IS NOT NULL
+  `.execute(db);
+
   // Create index on (account_id, blockchain_transaction_hash) for performance only, no deduplication
   // Only applies when blockchain_transaction_hash is not null (blockchain imports, not exchange imports)
   await sql`

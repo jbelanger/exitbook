@@ -4,6 +4,29 @@ import { z } from 'zod';
 import { parseApiBoolean, timestampToDate } from '../../../../normalization/schema-transforms.js';
 import { EvmAddressSchema } from '../../schemas.js';
 
+const numericString = z
+  .union([z.string().regex(/^\d+$/, 'Must be numeric string'), z.number().int().nonnegative()])
+  .transform((value) => String(value));
+
+const pageNumber = numericString.transform((value) => parseInt(value, 10));
+
+const apiBoolean = z.union([z.boolean(), z.string()]).transform((value, ctx) => {
+  const parsed = parseApiBoolean(value);
+  if (parsed === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Must be a boolean or boolean-like string',
+    });
+    return z.NEVER;
+  }
+
+  return parsed;
+});
+
+function apiBooleanWithDefault(defaultValue: boolean) {
+  return apiBoolean.nullish().transform((value) => value ?? defaultValue);
+}
+
 /**
  * Schema for Moralis token balance
  */
@@ -83,10 +106,10 @@ export const MoralisNativeBalanceSchema = z.object({
  * Covers both regular transfers and internal (contract-initiated) transfers.
  */
 const MoralisWalletHistoryNativeTransferSchema = z.object({
-  direction: z.enum(['send', 'receive']),
+  direction: z.string().min(1),
   from_address: EvmAddressSchema,
   from_address_label: z.string().nullish(),
-  internal_transaction: z.boolean(),
+  internal_transaction: apiBooleanWithDefault(false),
   to_address: EvmAddressSchema,
   to_address_label: z.string().nullish(),
   token_symbol: z.string(),
@@ -99,21 +122,21 @@ const MoralisWalletHistoryNativeTransferSchema = z.object({
  */
 const MoralisWalletHistoryErc20TransferSchema = z.object({
   address: EvmAddressSchema, // contract address
-  direction: z.enum(['send', 'receive']),
+  direction: z.string().min(1),
   from_address: EvmAddressSchema,
   from_address_label: z.string().nullish(),
   log_index: z.number(),
-  possible_spam: z.boolean(),
+  possible_spam: apiBooleanWithDefault(false),
   security_score: z.number().nullish(),
   to_address: EvmAddressSchema,
   to_address_label: z.string().nullish(),
-  token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
+  token_decimals: numericString.nullish().transform((value) => value ?? undefined),
   token_logo: z.string().nullish(),
   token_name: z.string().nullish(),
   token_symbol: z.string().nullish(),
   value: DecimalStringSchema,
   value_formatted: z.string(),
-  verified_contract: z.boolean().nullish(),
+  verified_contract: apiBoolean.nullish().transform((value) => value ?? undefined),
 });
 
 /**
@@ -153,7 +176,7 @@ export const MoralisWalletHistoryTransactionSchema = z
     method_label: z.string().nullish(),
     native_transfers: z.array(MoralisWalletHistoryNativeTransferSchema),
     nonce: z.string(),
-    possible_spam: z.boolean(),
+    possible_spam: apiBooleanWithDefault(false),
     receipt_gas_used: z.string().regex(/^\d*$/, 'Receipt gas used must be numeric string or empty'),
     receipt_status: z.enum(['0', '1']).nullish(),
     summary: z.string().nullish(),
@@ -168,8 +191,8 @@ export const MoralisWalletHistoryTransactionSchema = z
  */
 export const MoralisWalletHistoryResponseSchema = z.object({
   cursor: z.string().nullish(),
-  page: z.number(),
-  page_size: z.number(),
+  page: pageNumber,
+  page_size: pageNumber,
   result: z.array(MoralisWalletHistoryTransactionSchema),
 });
 
