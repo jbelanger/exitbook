@@ -11,12 +11,13 @@ import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
 import { TreeChars } from '../../../ui/shared/layout.js';
 import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
+import { useClearReactPerformanceMeasures } from '../../../ui/shared/react-performance.js';
 
 import type { LinksRunState, LoadPhase, MatchPhase, SavePhase } from './links-run-state.js';
 import { createLinksRunState } from './links-run-state.js';
 import { linksRunReducer } from './links-run-updater.js';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 1000;
 
 // --- Hook ---
 
@@ -65,6 +66,8 @@ interface LinksRunMonitorProps {
  */
 export const LinksRunMonitor: FC<LinksRunMonitorProps> = ({ relay, lifecycle }) => {
   const state = useLinksRunState(relay, lifecycle);
+  useClearReactPerformanceMeasures();
+
   return (
     <Box flexDirection="column">
       {/* Blank line before first operation */}

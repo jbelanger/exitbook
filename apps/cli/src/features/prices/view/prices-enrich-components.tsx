@@ -8,11 +8,12 @@ import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 
 import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
 import { ApiFooter, TreeChars } from '../../../ui/shared/layout.js';
 import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
+import { useClearReactPerformanceMeasures } from '../../../ui/shared/react-performance.js';
 
 import { createPricesEnrichState, type PricesEnrichState } from './prices-enrich-state.js';
 import { computeApiCallStats, pricesEnrichReducer } from './prices-enrich-updater.js';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 1000;
 
 // --- Hook ---
 
@@ -66,6 +67,7 @@ interface PricesEnrichMonitorProps {
 
 export const PricesEnrichMonitor: FC<PricesEnrichMonitorProps> = ({ relay, lifecycle, instrumentation }) => {
   const state = usePricesEnrichState(relay, lifecycle, instrumentation);
+  useClearReactPerformanceMeasures();
 
   const hasFailures =
     (state.fxRates?.failures ?? 0) > 0 ||

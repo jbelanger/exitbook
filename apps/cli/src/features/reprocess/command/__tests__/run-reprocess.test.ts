@@ -7,8 +7,13 @@ import { beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import {
   abortReprocessRuntime,
   executeReprocessWithRuntime,
+  runReprocess,
   type ReprocessExecutionRuntime,
 } from '../run-reprocess.js';
+
+const { mockWithIngestionRuntime } = vi.hoisted(() => ({
+  mockWithIngestionRuntime: vi.fn(),
+}));
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: () => ({
@@ -21,6 +26,10 @@ vi.mock('@exitbook/logger', () => ({
 
 vi.mock('../../../../runtime/projection-reset.js', () => ({
   resetProjections: vi.fn().mockResolvedValue(ok(undefined)),
+}));
+
+vi.mock('../../../../runtime/ingestion-runtime.js', () => ({
+  withIngestionRuntime: mockWithIngestionRuntime,
 }));
 
 describe('reprocess runner helpers', () => {
@@ -147,4 +156,29 @@ describe('reprocess runner helpers', () => {
 
     expect(mockIngestionMonitor.abort).toHaveBeenCalledOnce();
   });
+
+  test('should run processing with cache-only token metadata', async () => {
+    const mockRuntime = {
+      openDatabaseSession: vi.fn().mockResolvedValue(mockDatabase),
+    };
+    const reprocessResult = {
+      processed: 1,
+      errors: [],
+      failed: 0,
+      runStats: { total: 0 },
+    };
+    mockWithIngestionRuntime.mockResolvedValueOnce(ok(reprocessResult));
+
+    const result = await runReprocess(mockRuntime as never, { format: 'text' }, { profileId: 1 });
+
+    expect(assertOk(result)).toEqual(reprocessResult);
+    expect(mockWithIngestionRuntimeOptions()).toMatchObject({
+      presentation: 'monitor',
+      processingTokenMetadataMode: 'cache-only',
+    });
+  });
 });
+
+function mockWithIngestionRuntimeOptions(): unknown {
+  return mockWithIngestionRuntime.mock.calls[0]?.[2];
+}

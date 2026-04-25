@@ -1,11 +1,12 @@
 import type { Result } from '@exitbook/foundation';
-import { err, ok } from '@exitbook/foundation';
+import { err, ok, wrapError } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import { closeSqliteDatabase, createSqliteDatabase, runMigrations as runSqliteMigrations } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
 
 import type { DatabaseSchema } from './database-schema.js';
 import { down as initialSchemaDown, up as initialSchemaUp } from './migrations/001_initial_schema.js';
+import { ensureLedgerResetPerformanceIndexes } from './migrations/ledger-reset-performance-indexes.js';
 import { validateAccountFingerprintIntegrity } from './repositories/account-identity-support.js';
 
 export type KyselyDB = Kysely<DatabaseSchema>;
@@ -30,10 +31,17 @@ export function closeDatabase(db: KyselyDB): Promise<Result<void, Error>> {
 
 export async function runMigrations(db: KyselyDB): Promise<Result<void, Error>> {
   const result = await runSqliteMigrations(db, migrations);
-  if (result.isOk()) {
-    migrationsLogger.debug('Migrations completed');
+  if (result.isErr()) {
+    return result;
   }
-  return result;
+
+  try {
+    await ensureLedgerResetPerformanceIndexes(db);
+    migrationsLogger.debug('Migrations completed');
+    return ok(undefined);
+  } catch (error) {
+    return wrapError(error, 'Failed to ensure ledger reset performance indexes');
+  }
 }
 
 export async function initializeDatabase(dbPath: string): Promise<Result<KyselyDB, Error>> {

@@ -22,6 +22,17 @@ export interface BlockchainProviderSelectionOptions {
   preferredProvider?: string | undefined;
 }
 
+export interface BlockchainTokenMetadataQueryOptions extends BlockchainProviderSelectionOptions {
+  /**
+   * When false, reads persisted token metadata only and returns undefined for cache misses.
+   * This also disables stale background refreshes so local rebuild workflows do not depend on
+   * provider availability or rate limits.
+   */
+  allowProviderFetch?: boolean | undefined;
+  /** When false, stale cached rows are returned without scheduling a background refresh. */
+  refreshStale?: boolean | undefined;
+}
+
 export interface BlockchainTransactionStreamOptions extends BlockchainProviderSelectionOptions {
   contractAddress?: string | undefined;
   streamType?: string | undefined;
@@ -56,7 +67,7 @@ export interface IBlockchainProviderRuntime {
   getTokenMetadata(
     blockchain: string,
     contractAddresses: string[],
-    options?: BlockchainProviderSelectionOptions
+    options?: BlockchainTokenMetadataQueryOptions
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>>;
 
   hasAddressTransactions(

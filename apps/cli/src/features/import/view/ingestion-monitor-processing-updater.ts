@@ -141,7 +141,7 @@ function handleMetadataBatchCompleted(
     };
   }
 
-  state.processing.metadata.fetched += event.cacheMisses;
+  state.processing.metadata.fetched += event.providerFetches ?? event.cacheMisses;
   state.processing.metadata.cached += event.cacheHits;
 
   updateProcessingRates(state, deps.instrumentation, deps.providerRuntime);

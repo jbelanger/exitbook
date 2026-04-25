@@ -129,6 +129,7 @@ export async function runReprocess(
       database,
       {
         presentation: options.format === 'json' ? 'headless' : 'monitor',
+        processingTokenMetadataMode: 'cache-only',
         onAbortRegistered: (infra) => {
           const runtime = createReprocessExecutionRuntime(database, infra);
           ctx.onAbort(() => {

@@ -13,6 +13,7 @@ import type {
   AddressInfoData,
   BlockchainBalanceQueryOptions,
   BlockchainProviderSelectionOptions,
+  BlockchainTokenMetadataQueryOptions,
   BlockchainTransactionStreamOptions,
   FailoverExecutionResult,
   FailoverStreamingExecutionResult,
@@ -34,6 +35,16 @@ import type { ProviderRegistry } from '../registry/provider-registry.js';
 import { ProviderFailoverEngine } from './provider-failover-engine.js';
 
 const logger = getLogger('BlockchainProviderManager');
+
+function createEmptyTokenMetadataMap(
+  contractAddresses: readonly string[]
+): Map<string, TokenMetadataRecord | undefined> {
+  const map = new Map<string, TokenMetadataRecord | undefined>();
+  for (const address of contractAddresses) {
+    map.set(address, undefined);
+  }
+  return map;
+}
 
 interface BlockchainProviderManagerOptions {
   explorerConfig?: BlockchainExplorersConfig | undefined;
@@ -216,15 +227,29 @@ export class BlockchainProviderManager {
   async getTokenMetadata(
     blockchain: string,
     contractAddresses: string[],
-    options?: BlockchainProviderSelectionOptions
+    options?: BlockchainTokenMetadataQueryOptions
   ): Promise<Result<Map<string, TokenMetadataRecord | undefined>, Error>> {
+    if (this.tokenMetadataCache && options?.allowProviderFetch === false) {
+      return this.tokenMetadataCache.getBatch(blockchain, contractAddresses, {
+        allowProviderFetch: false,
+        refreshStale: options.refreshStale,
+      });
+    }
+
+    if (!this.tokenMetadataCache && options?.allowProviderFetch === false) {
+      return ok(createEmptyTokenMetadataMap(contractAddresses));
+    }
+
     const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
     if (providerSetupResult.isErr()) {
       return err(providerSetupResult.error);
     }
 
     if (this.tokenMetadataCache) {
-      return this.tokenMetadataCache.getBatch(blockchain, contractAddresses);
+      return this.tokenMetadataCache.getBatch(blockchain, contractAddresses, {
+        allowProviderFetch: options?.allowProviderFetch,
+        refreshStale: options?.refreshStale,
+      });
     }
 
     // No cache — raw fetch, wrap into map
@@ -235,9 +260,7 @@ export class BlockchainProviderManager {
     if (result.isErr()) {
       // Treat NO_PROVIDERS the same as the cache path: return an all-undefined map
       if (result.error.code === 'NO_PROVIDERS') {
-        const map = new Map<string, TokenMetadataRecord | undefined>();
-        for (const addr of contractAddresses) map.set(addr, undefined);
-        return ok(map);
+        return ok(createEmptyTokenMetadataMap(contractAddresses));
       }
       return err(result.error);
     }

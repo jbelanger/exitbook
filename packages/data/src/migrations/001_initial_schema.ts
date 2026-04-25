@@ -1,6 +1,8 @@
 import { sql } from '@exitbook/sqlite';
 import type { Kysely } from '@exitbook/sqlite';
 
+import { ensureLedgerResetPerformanceIndexes } from './ledger-reset-performance-indexes.js';
+
 export async function up(db: Kysely<unknown>): Promise<void> {
   // Create profiles table
   await db.schema
@@ -489,6 +491,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     CREATE UNIQUE INDEX idx_accounting_journal_relationships_source_stable_key
     ON accounting_journal_relationships(source_journal_id, relationship_stable_key)
   `.execute(db);
+
+  await ensureLedgerResetPerformanceIndexes(db);
 
   await db.schema
     .createTable('accounting_overrides')

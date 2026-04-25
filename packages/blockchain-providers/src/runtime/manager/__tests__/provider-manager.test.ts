@@ -17,6 +17,7 @@ import type {
 import { ProviderError, type IBlockchainProvider, type ProviderCapabilities } from '../../../contracts/index.js';
 import type { NormalizedTransactionBase } from '../../../contracts/normalized-transaction.js';
 import { createProviderRegistry } from '../../../initialize.js';
+import type { TokenMetadataRecord } from '../../../token-metadata/contracts.js';
 import { BlockchainProviderManager } from '../provider-manager.js';
 
 // Mock explorer config for tests
@@ -137,6 +138,38 @@ describe('BlockchainProviderManager', () => {
     expect(providers).toHaveLength(2);
     expect(providers[0]?.name).toBe('primary');
     expect(providers[1]?.name).toBe('fallback');
+  });
+
+  test('should serve cache-only token metadata without registering providers', async () => {
+    const metadata: TokenMetadataRecord = {
+      blockchain: 'ethereum',
+      contractAddress: '0xabc',
+      refreshedAt: new Date(),
+      source: 'test',
+      symbol: 'ABC',
+    };
+    const getByContracts = vi.fn().mockResolvedValue(ok(new Map([['0xabc', metadata]])));
+    const cacheOnlyManager = new BlockchainProviderManager(providerRegistry, {
+      explorerConfig: mockExplorerConfig,
+      tokenMetadataQueries: {
+        getByContracts,
+        save: vi.fn(),
+      } as never,
+    });
+
+    const result = await cacheOnlyManager.getTokenMetadata('ethereum', ['0xabc'], {
+      allowProviderFetch: false,
+      refreshStale: false,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.get('0xabc')).toEqual(metadata);
+    }
+    expect(getByContracts).toHaveBeenCalledWith('ethereum', ['0xabc']);
+    expect((cacheOnlyManager as unknown as { providers: Map<string, unknown[]> }).providers.size).toBe(0);
+
+    await cacheOnlyManager.destroy();
   });
 
   test('getProviders is idempotent when providers already exist', () => {

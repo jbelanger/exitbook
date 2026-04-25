@@ -12,6 +12,7 @@ import { type FC, type ReactNode, useEffect, useLayoutEffect, useReducer } from 
 import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
 import { ApiFooter } from '../../../ui/shared/layout.js';
 import { formatDuration, formatWaitTime, type OperationStatus, statusIcon } from '../../../ui/shared/monitoring.js';
+import { useClearReactPerformanceMeasures } from '../../../ui/shared/react-performance.js';
 
 import { type CliEvent, ingestionMonitorReducer } from './ingestion-monitor-view-controller.js';
 import {
@@ -27,7 +28,7 @@ import {
   type XpubImportWrapper,
 } from './ingestion-monitor-view-state.js';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 1000;
 
 // --- Hook ---
 
@@ -81,6 +82,7 @@ interface IngestionMonitorProps {
  */
 export const IngestionMonitor: FC<IngestionMonitorProps> = ({ relay, instrumentation, providerRuntime, lifecycle }) => {
   const state = useIngestionMonitorState(relay, instrumentation, providerRuntime, lifecycle);
+  useClearReactPerformanceMeasures();
 
   return (
     <Box flexDirection="column">

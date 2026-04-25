@@ -133,6 +133,7 @@ export type ProviderEvent =
       cacheHits: number;
       cacheMisses: number;
       durationMs: number;
+      providerFetches?: number | undefined;
       /**
        * Emitted when a batch token metadata lookup completes (cache + fetch).
        * Used for CLI progress display and observability.

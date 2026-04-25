@@ -5,13 +5,14 @@ import { type FC, useEffect, useLayoutEffect, useReducer } from 'react';
 
 import { type EventRelay, type LifecycleBridge } from '../../../ui/shared/controllers.js';
 import { formatDuration, statusIcon } from '../../../ui/shared/monitoring.js';
+import { useClearReactPerformanceMeasures } from '../../../ui/shared/react-performance.js';
 
 import { batchImportMonitorReducer } from './batch-import-monitor-controller.js';
 import type { BatchImportMonitorEvent, BatchImportMonitorState, BatchImportRow } from './batch-import-monitor-state.js';
 import { createBatchImportMonitorState } from './batch-import-monitor-state.js';
 import { IngestionMonitorSections } from './ingestion-monitor-view-components.jsx';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 1000;
 
 function useBatchImportMonitorState(
   relay: EventRelay<BatchImportMonitorEvent>,
@@ -60,6 +61,7 @@ export const BatchImportMonitor: FC<BatchImportMonitorProps> = ({
   providerRuntime,
 }) => {
   const state = useBatchImportMonitorState(relay, lifecycle, instrumentation, providerRuntime);
+  useClearReactPerformanceMeasures();
 
   return (
     <Box flexDirection="column">

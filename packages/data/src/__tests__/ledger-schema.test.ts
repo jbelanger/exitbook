@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- raw SQLite insert tests use explicit nulls for nullable columns */
+import { sql } from '@exitbook/sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { KyselyDB } from '../database.js';
@@ -16,6 +17,23 @@ describe('ledger schema draft', () => {
 
   afterEach(async () => {
     await db.destroy();
+  });
+
+  async function listTableIndexNames(tableName: string): Promise<Set<string>> {
+    const result = await sql<{ name: string }>`
+      select name from sqlite_master where type = 'index' and tbl_name = ${tableName}
+    `.execute(db);
+
+    return new Set(result.rows.map((row) => row.name));
+  }
+
+  it('keeps ledger reset cascade foreign keys index-backed', async () => {
+    const sourceComponentIndexes = await listTableIndexNames('accounting_posting_source_components');
+    expect(sourceComponentIndexes).toContain('idx_accounting_posting_source_components_source_activity');
+
+    const relationshipIndexes = await listTableIndexNames('accounting_journal_relationships');
+    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_source_posting_id');
+    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_target_posting_id');
   });
 
   it('persists the draft ledger table chain', async () => {

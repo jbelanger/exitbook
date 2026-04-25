@@ -28,6 +28,7 @@ export interface IngestionRuntime {
 
 interface CreateIngestionRuntimeOptions {
   presentation?: 'headless' | 'monitor' | undefined;
+  processingTokenMetadataMode?: 'cache-only' | 'read-through' | undefined;
 }
 
 interface WithIngestionRuntimeOptions extends CreateIngestionRuntimeOptions {
@@ -57,6 +58,10 @@ export async function createIngestionRuntime(
       registerCleanup: false,
     });
     cleanupBlockchainProviderRuntime = adaptResultCleanup(providerRuntime.cleanup);
+    const processingProviderRuntime =
+      options.processingTokenMetadataMode === 'cache-only'
+        ? createCacheOnlyTokenMetadataRuntime(providerRuntime)
+        : providerRuntime;
     const capabilityFactories = createCliCommandResourceFactories(ctx, database);
     const processingWorkflowRuntimeResult = createCliProcessingWorkflowRuntime({
       adapterRegistryFactory: ctx.requireAppRuntime().createAdapterRegistry,
@@ -64,7 +69,7 @@ export async function createIngestionRuntime(
       dataDir: ctx.dataDir,
       database,
       eventBus: eventBus as EventBus<IngestionEvent>,
-      providerRuntime,
+      providerRuntime: processingProviderRuntime,
     });
     if (processingWorkflowRuntimeResult.isErr()) {
       return err(processingWorkflowRuntimeResult.error);
@@ -136,6 +141,7 @@ export async function withIngestionRuntime<T>(
 ): Promise<Result<T, Error>> {
   const runtimeResult = await createIngestionRuntime(ctx, database, {
     presentation: options.presentation,
+    processingTokenMetadataMode: options.processingTokenMetadataMode,
   });
   if (runtimeResult.isErr()) {
     return err(runtimeResult.error);
@@ -149,4 +155,39 @@ export async function withIngestionRuntime<T>(
   } finally {
     options.onAbortReleased?.();
   }
+}
+
+function createCacheOnlyTokenMetadataRuntime(runtime: IBlockchainProviderRuntime): IBlockchainProviderRuntime {
+  return {
+    cleanup() {
+      return runtime.cleanup();
+    },
+    getAddressBalances(blockchain, address, options) {
+      return runtime.getAddressBalances(blockchain, address, options);
+    },
+    getAddressInfo(blockchain, address, options) {
+      return runtime.getAddressInfo(blockchain, address, options);
+    },
+    getAddressTokenBalances(blockchain, address, options) {
+      return runtime.getAddressTokenBalances(blockchain, address, options);
+    },
+    getProviders(blockchain, options) {
+      return runtime.getProviders(blockchain, options);
+    },
+    getTokenMetadata: (blockchain, contractAddresses, options) =>
+      runtime.getTokenMetadata(blockchain, contractAddresses, {
+        ...options,
+        allowProviderFetch: false,
+        refreshStale: false,
+      }),
+    hasAddressTransactions(blockchain, address, options) {
+      return runtime.hasAddressTransactions(blockchain, address, options);
+    },
+    hasRegisteredOperationSupport(blockchain, operation) {
+      return runtime.hasRegisteredOperationSupport(blockchain, operation);
+    },
+    streamAddressTransactions(blockchain, address, options, resumeCursor) {
+      return runtime.streamAddressTransactions(blockchain, address, options, resumeCursor);
+    },
+  };
 }
