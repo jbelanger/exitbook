@@ -16,11 +16,16 @@ import type { Decimal } from 'decimal.js';
 
 import { loadAccountScopeContext as loadSharedAccountScopeContext } from '../../ports/account-scope.js';
 import type { BalancePorts } from '../../ports/balance-ports.js';
+import {
+  buildReferenceBalanceAssetScreeningPolicy,
+  type AssetScreeningSuppressionReason,
+} from '../asset-screening/index.js';
 
 import {
   fetchBlockchainBalance,
   fetchChildAccountsBalance,
   fetchExchangeBalance,
+  type FetchBlockchainBalanceOptions,
   type UnifiedBalanceSnapshot,
 } from './balance-fetch-utils.js';
 import {
@@ -165,7 +170,25 @@ export class BalanceWorkflow {
         });
       }
 
-      const liveBalanceResult = await this.fetchLiveBalance(scopeContext, params.credentials);
+      let { balances: calculatedBalances, assetMetadata: calculatedAssetMetadata } = calculatedResult.value;
+
+      const assetScreeningInfoResult = await this.getAssetScreeningInfo(scopeContext, Object.keys(calculatedBalances));
+      if (assetScreeningInfoResult.isErr()) return err(assetScreeningInfoResult.error);
+
+      const { balanceAdjustments, suppressedAssetReasons } = assetScreeningInfoResult.value;
+      const assetScreeningPolicyResult = buildReferenceBalanceAssetScreeningPolicy({
+        balanceAdjustmentAssetIds: Object.keys(balanceAdjustments),
+        blockchain: scopeContext.scopeAccount.platformKey,
+        calculatedAssetIds: Object.keys(calculatedBalances),
+        suppressedAssetReasons,
+      });
+      if (assetScreeningPolicyResult.isErr()) return err(assetScreeningPolicyResult.error);
+
+      const liveBalanceResult = await this.fetchLiveBalance(
+        scopeContext,
+        params.credentials,
+        assetScreeningPolicyResult.value
+      );
       if (liveBalanceResult.isErr()) return err(liveBalanceResult.error);
 
       const liveSnapshot = liveBalanceResult.value;
@@ -178,12 +201,7 @@ export class BalanceWorkflow {
 
       let liveBalances = parseResult.balances;
       let liveAssetMetadata = liveSnapshot.assetMetadata;
-      let { balances: calculatedBalances, assetMetadata: calculatedAssetMetadata } = calculatedResult.value;
 
-      const excludedInfoResult = await this.getExcludedAssetInfo(scopeContext);
-      if (excludedInfoResult.isErr()) return err(excludedInfoResult.error);
-
-      const { balanceAdjustments, spamAssetIds } = excludedInfoResult.value;
       if (Object.keys(balanceAdjustments).length > 0) {
         const excludedAssets = Object.keys(balanceAdjustments);
         logger.info(
@@ -196,15 +214,16 @@ export class BalanceWorkflow {
         liveBalances = applyExcludedBalanceAdjustments(liveBalances, balanceAdjustments);
       }
 
-      if (spamAssetIds.size > 0) {
+      const screenedAssetIds = new Set(suppressedAssetReasons.keys());
+      if (screenedAssetIds.size > 0) {
         logger.info(
-          { scopeAccountId: scopeContext.scopeAccount.id, spamAssetCount: spamAssetIds.size },
-          'Filtering scam assets from balance comparison'
+          { scopeAccountId: scopeContext.scopeAccount.id, screenedAssetCount: screenedAssetIds.size },
+          'Filtering screened assets from balance comparison'
         );
-        liveBalances = removeAssetsById(liveBalances, spamAssetIds);
-        calculatedBalances = removeAssetsById(calculatedBalances, spamAssetIds);
-        liveAssetMetadata = removeAssetsById(liveAssetMetadata, spamAssetIds);
-        calculatedAssetMetadata = removeAssetsById(calculatedAssetMetadata, spamAssetIds);
+        liveBalances = removeAssetsById(liveBalances, screenedAssetIds);
+        calculatedBalances = removeAssetsById(calculatedBalances, screenedAssetIds);
+        liveAssetMetadata = removeAssetsById(liveAssetMetadata, screenedAssetIds);
+        calculatedAssetMetadata = removeAssetsById(calculatedAssetMetadata, screenedAssetIds);
       }
 
       const mergedAssetMetadata = { ...calculatedAssetMetadata, ...liveAssetMetadata };
@@ -463,7 +482,8 @@ export class BalanceWorkflow {
   }
 
   private async fetchBlockchainLiveBalance(
-    scopeContext: AccountScopeContext
+    scopeContext: AccountScopeContext,
+    options: Pick<FetchBlockchainBalanceOptions, 'assetScreeningPolicy'>
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     const childAccounts = scopeContext.memberAccounts.filter((account) => account.id !== scopeContext.scopeAccount.id);
     if (childAccounts.length > 0) {
@@ -472,20 +492,31 @@ export class BalanceWorkflow {
         this.providerRuntime,
         scopeContext.scopeAccount.platformKey,
         scopeContext.scopeAccount.identifier,
-        childAccounts
+        childAccounts,
+        options
       );
     }
 
     return fetchBlockchainBalance(
       this.providerRuntime,
       scopeContext.scopeAccount.platformKey,
-      scopeContext.scopeAccount.identifier
+      scopeContext.scopeAccount.identifier,
+      options
     );
   }
 
-  private async getExcludedAssetInfo(
-    scopeContext: AccountScopeContext
-  ): Promise<Result<{ balanceAdjustments: Record<string, Decimal>; spamAssetIds: Set<string> }, Error>> {
+  private async getAssetScreeningInfo(
+    scopeContext: AccountScopeContext,
+    calculatedAssetIds: string[]
+  ): Promise<
+    Result<
+      {
+        balanceAdjustments: Record<string, Decimal>;
+        suppressedAssetReasons: Map<string, AssetScreeningSuppressionReason>;
+      },
+      Error
+    >
+  > {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
@@ -494,7 +525,7 @@ export class BalanceWorkflow {
 
       const allSessions = sessionsResult.value;
       if (allSessions.length === 0 || !allSessions.some((s) => s.status === 'completed')) {
-        return ok({ balanceAdjustments: {}, spamAssetIds: new Set() });
+        return ok({ balanceAdjustments: {}, suppressedAssetReasons: new Map() });
       }
 
       const excludedTxResult: Result<Transaction[], Error> = await this.ports.findTransactionsByAccountIds({
@@ -503,21 +534,52 @@ export class BalanceWorkflow {
       });
       if (excludedTxResult.isErr()) return err(excludedTxResult.error);
 
-      return ok(collectExcludedAssetInfo(excludedTxResult.value));
+      const excludedInfo = collectExcludedAssetInfo(excludedTxResult.value);
+      const suppressedAssetReasons = new Map<string, AssetScreeningSuppressionReason>();
+      for (const spamAssetId of excludedInfo.spamAssetIds) {
+        suppressedAssetReasons.set(spamAssetId, 'spam-diagnostic');
+      }
+
+      const candidateAssetIds = [
+        ...new Set([
+          ...calculatedAssetIds,
+          ...Object.keys(excludedInfo.balanceAdjustments),
+          ...excludedInfo.spamAssetIds,
+        ]),
+      ];
+      const reviewSummariesResult = await this.ports.findAssetReviewSummariesByAssetIds(
+        scopeContext.scopeAccount.profileId,
+        candidateAssetIds
+      );
+      if (reviewSummariesResult.isErr()) {
+        return err(reviewSummariesResult.error);
+      }
+
+      for (const [assetId, summary] of reviewSummariesResult.value) {
+        if (summary.accountingBlocked) {
+          suppressedAssetReasons.set(assetId, 'accounting-blocked-asset');
+        }
+      }
+
+      return ok({
+        balanceAdjustments: excludedInfo.balanceAdjustments,
+        suppressedAssetReasons,
+      });
     } catch (error) {
-      return wrapError(error, 'Failed to collect excluded asset info');
+      return wrapError(error, 'Failed to collect asset screening info');
     }
   }
 
   private async fetchLiveBalance(
     scopeContext: AccountScopeContext,
-    credentials?: ExchangeCredentials
+    credentials: ExchangeCredentials | undefined,
+    assetScreeningPolicy: FetchBlockchainBalanceOptions['assetScreeningPolicy']
   ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
     const account = scopeContext.scopeAccount;
     const isExchange = account.accountType === 'exchange-api' || account.accountType === 'exchange-csv';
     return isExchange
       ? this.fetchExchangeLiveBalance(account, credentials)
-      : this.fetchBlockchainLiveBalance(scopeContext);
+      : this.fetchBlockchainLiveBalance(scopeContext, { assetScreeningPolicy });
   }
 
   private resolveLiveBalanceSupport(

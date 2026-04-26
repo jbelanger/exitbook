@@ -861,11 +861,6 @@ export class ProcessingWorkflow {
     return ok(
       createLedgerProcessor({
         providerRuntime: this.providerRuntime,
-        scamDetector: createScamBatchReportingDetector({
-          blockchain: platformKey,
-          detector: this.scamDetector,
-          emit: (event) => this.eventBus.emit(event),
-        }),
       })
     );
   }

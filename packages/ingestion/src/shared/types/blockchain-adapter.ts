@@ -11,17 +11,29 @@ export interface DerivedAddress {
   derivationPath: string;
 }
 
-export interface CommonBlockchainProcessorContext {
+/**
+ * Legacy transaction processors still emit TransactionDraft diagnostics during
+ * migration. New ledger processors must not depend on this screening hook.
+ */
+export interface LegacyBlockchainProcessorContext {
   providerRuntime: IBlockchainProviderRuntime;
   scamDetector: ScamDetector | undefined;
+}
+
+/**
+ * Ledger-v2 processors materialize accounting facts only. Asset screening and
+ * review policy run as separate ingestion projections.
+ */
+export interface BlockchainLedgerProcessorFactoryContext {
+  providerRuntime: IBlockchainProviderRuntime;
 }
 
 interface BlockchainAdapterBase {
   blockchain: string;
   normalizeAddress: (address: string) => Result<string, Error>;
   createImporter: (providerRuntime: IBlockchainProviderRuntime, providerName?: string) => IImporter;
-  createProcessor: (deps: CommonBlockchainProcessorContext) => ITransactionProcessor;
-  createLedgerProcessor?: ((deps: CommonBlockchainProcessorContext) => IAccountingLedgerProcessor) | undefined;
+  createProcessor: (deps: LegacyBlockchainProcessorContext) => ITransactionProcessor;
+  createLedgerProcessor?: ((deps: BlockchainLedgerProcessorFactoryContext) => IAccountingLedgerProcessor) | undefined;
 }
 
 export interface AccountBasedBlockchainAdapter extends BlockchainAdapterBase {

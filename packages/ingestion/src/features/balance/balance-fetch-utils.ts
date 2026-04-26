@@ -12,6 +12,8 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
+import type { ReferenceBalanceAssetScreeningPolicy } from '../asset-screening/index.js';
+
 import type { BalancePartialFailure } from './balance-utils.js';
 
 const logger = getLogger('balance-fetch-utils');
@@ -36,6 +38,11 @@ export interface UnifiedBalanceSnapshot {
   platformKey: string;
   coverage?: BalanceCoverageStats | undefined;
   partialFailures?: BalancePartialFailure[] | undefined;
+}
+
+export interface FetchBlockchainBalanceOptions {
+  assetScreeningPolicy?: ReferenceBalanceAssetScreeningPolicy | undefined;
+  providerName?: string | undefined;
 }
 
 /**
@@ -91,9 +98,10 @@ export async function fetchBlockchainBalance(
   providerRuntime: IBlockchainProviderRuntime,
   blockchain: string,
   address: string,
-  providerName?: string
+  options: FetchBlockchainBalanceOptions = {}
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
+    const { assetScreeningPolicy, providerName } = options;
     providerRuntime.getProviders(blockchain, { preferredProvider: providerName });
 
     const balances: Record<string, string> = {};
@@ -128,8 +136,30 @@ export async function fetchBlockchainBalance(
 
     // 3. Fetch token balances if supported
     if (supportsTokenBalances) {
+      const tokenContractAllowlist = assetScreeningPolicy?.getTokenContractAllowlist(blockchain);
+      if (tokenContractAllowlist !== undefined && tokenContractAllowlist.length === 0) {
+        logger.debug(
+          { address, blockchain },
+          'Skipping token balance fetch because asset screening has no tracked token references'
+        );
+
+        return ok({
+          balances,
+          assetMetadata,
+          timestamp: Date.now(),
+          platformKind: 'blockchain',
+          platformKey: `${blockchain}:${address}`,
+          coverage: {
+            failedAddressCount: 0,
+            requestedAddressCount: 1,
+            successfulAddressCount: 1,
+          },
+        });
+      }
+
       const tokenResult = await providerRuntime.getAddressTokenBalances(blockchain, address, {
         preferredProvider: providerName,
+        ...(tokenContractAllowlist !== undefined && { contractAddresses: [...tokenContractAllowlist] }),
       });
 
       if (tokenResult.isErr()) {
@@ -142,10 +172,25 @@ export async function fetchBlockchainBalance(
 
       const { data: tokenBalances } = tokenResult.value;
       for (const tokenBalance of tokenBalances) {
-        if (!tokenBalance.contractAddress) {
+        const tokenAssetResult = buildScreenableTokenAssetId(blockchain, tokenBalance);
+        if (tokenAssetResult.isErr()) {
           logger.warn(
-            { blockchain, symbol: tokenBalance.symbol, tokenBalance },
-            'Skipping token balance without contractAddress - provider data quality issue'
+            { blockchain, error: tokenAssetResult.error, symbol: tokenBalance.symbol, tokenBalance },
+            'Skipping token balance with invalid token identity'
+          );
+          continue;
+        }
+
+        const assetId = tokenAssetResult.value;
+        const screeningDecision = assetScreeningPolicy?.screenReferenceAsset(assetId);
+        if (screeningDecision?.action === 'suppress') {
+          logger.debug(
+            {
+              assetId,
+              blockchain,
+              reason: screeningDecision.reason,
+            },
+            'Screened token balance before metadata enrichment'
           );
           continue;
         }
@@ -168,7 +213,7 @@ export async function fetchBlockchainBalance(
           continue;
         }
 
-        const { amount, assetId, assetSymbol } = balanceResult.value;
+        const { amount, assetSymbol } = balanceResult.value;
         balances[assetId] = amount;
         assetMetadata[assetId] = assetSymbol;
       }
@@ -200,9 +245,10 @@ export async function fetchChildAccountsBalance(
   blockchain: string,
   parentAddress: string,
   childAccounts: { identifier: string }[],
-  providerName?: string
+  options: FetchBlockchainBalanceOptions = {}
 ): Promise<Result<UnifiedBalanceSnapshot, Error>> {
   try {
+    const { providerName } = options;
     if (childAccounts.length === 0) {
       return err(new Error('No child accounts provided for balance aggregation'));
     }
@@ -216,7 +262,7 @@ export async function fetchChildAccountsBalance(
 
     for (const childAccount of childAccounts) {
       const address = childAccount.identifier;
-      const balanceResult = await fetchBlockchainBalance(providerRuntime, blockchain, address, providerName);
+      const balanceResult = await fetchBlockchainBalance(providerRuntime, blockchain, address, options);
 
       if (balanceResult.isErr()) {
         const message = `Failed to fetch child account balance for ${blockchain}:${address}: ${balanceResult.error.message}`;
@@ -270,6 +316,14 @@ export async function fetchChildAccountsBalance(
 /**
  * Enrich RawBalanceData with missing fields by fetching token metadata from cache or provider.
  */
+function buildScreenableTokenAssetId(blockchain: string, balance: RawBalanceData): Result<string, Error> {
+  if (!balance.contractAddress) {
+    return err(new Error('Token balance is missing contractAddress'));
+  }
+
+  return buildBlockchainTokenAssetId(blockchain, balance.contractAddress);
+}
+
 async function enrichBalanceData(
   balance: RawBalanceData,
   blockchain: string,

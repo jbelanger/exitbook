@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ProcessingAccountInfo } from '../../../ports/account-lookup.js';
 import type { ProcessingPorts } from '../../../ports/processing-ports.js';
+import type {
+  BlockchainLedgerProcessorFactoryContext,
+  LegacyBlockchainProcessorContext,
+} from '../../../shared/types/blockchain-adapter.js';
 import { ProcessingWorkflow } from '../process-workflow.js';
 
 function createWorkflow(params?: {
@@ -231,6 +235,10 @@ describe('ProcessingWorkflow', () => {
       const markProcessed = vi.fn().mockResolvedValue(ok(undefined));
       const legacyProcess = vi.fn().mockResolvedValue(ok([legacyTransaction]));
       const ledgerProcess = vi.fn().mockResolvedValue(ok([{ journals: [ledgerJournal], sourceActivity }]));
+      const createLegacyProcessor = vi.fn((_deps: LegacyBlockchainProcessorContext) => ({ process: legacyProcess }));
+      const createLedgerProcessor = vi.fn((_deps: BlockchainLedgerProcessorFactoryContext) => ({
+        process: ledgerProcess,
+      }));
 
       let batchFetched = false;
       const ports: ProcessingPorts = {
@@ -298,8 +306,8 @@ describe('ProcessingWorkflow', () => {
               blockchain: 'ethereum',
               chainModel: 'account-based',
               createImporter: vi.fn(),
-              createProcessor: () => ({ process: legacyProcess }),
-              createLedgerProcessor: () => ({ process: ledgerProcess }),
+              createProcessor: createLegacyProcessor,
+              createLedgerProcessor,
               normalizeAddress: vi.fn(),
             })
           ),
@@ -326,6 +334,11 @@ describe('ProcessingWorkflow', () => {
         },
       ]);
       expect(markProcessed).toHaveBeenCalledWith([rawTransaction.id]);
+      const legacyProcessorDeps = createLegacyProcessor.mock.calls[0]?.[0];
+      expect(typeof legacyProcessorDeps?.scamDetector).toBe('function');
+      const ledgerProcessorDeps = createLedgerProcessor.mock.calls[0]?.[0];
+      expect(ledgerProcessorDeps).toBeDefined();
+      expect(ledgerProcessorDeps).not.toHaveProperty('scamDetector');
 
       const saveOrder = saveProcessedBatch.mock.invocationCallOrder[0]!;
       const ledgerOrder = replaceSourceActivities.mock.invocationCallOrder[0]!;

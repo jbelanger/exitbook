@@ -1,22 +1,18 @@
 ---
-last_verified: 2026-04-24
+last_verified: 2026-04-26
 status: active
 ---
 
 # Accounting Ledger Rewrite Plan
 
+This is a temporary migration tracker. Keep it alive only until the ledger
+rewrite is complete, then move stable behavior into canonical architecture docs
+and delete or archive this file.
+
 ## Goal
 
-Rewrite the transaction/accounting base around processor-authored accounting
-journals and postings.
-
-The current `transactions` plus `transaction_movements` model is a useful
-source-normalized activity shape, but it is too generic to be the primary
-processor contract. Processors know chain- and exchange-specific accounting
-cues that are later reconstructed through `movementRole`, diagnostics,
-annotations, same-hash preparation, transfer links, and semantic mirrors.
-
-The target model removes that lossy middle layer:
+Move accounting truth from generic processed transactions and movements to
+processor-authored ledger artifacts:
 
 ```text
 raw_transactions -> source_activities -> accounting_journals -> accounting_postings
@@ -24,181 +20,75 @@ raw_transactions -> source_activities -> accounting_journals -> accounting_posti
                                       -> accounting_overrides
 ```
 
-Processors emit accounting journal drafts directly. Accounting validates,
-canonicalizes, persists, and applies user accounting-judgment overrides.
-Consumers read journals/postings, not generic movement rows.
+Consumers must eventually read journals/postings, not
+`transaction_movements`, semantic annotations, or reconstructed movement roles.
 
-## Current Direction
+## Current Verdict
 
-- Pause transaction-semantics implementation work.
-- Keep the transaction-semantics documents as historical design input.
-- Re-evaluate those documents after the accounting ledger rewrite lands.
-- Drop existing `transaction_annotations` persistence during the rewrite. Do
-  not migrate that table forward just to preserve deferred semantic work;
-  re-emit any still-useful non-accounting semantics after the ledger model
-  lands.
-- Do not persist the current `packages/accounting/src/accounting-model` shape
-  unchanged unless the processor-v2 pilot proves that it is still the cleanest
-  contract.
-- Use the processor-v2 path as a shadow path first. V2-enabled processors write
-  ledger source activities, journals, and postings in parallel with the legacy
-  processed-transaction projection, but consumers must not read the ledger
-  tables until the migration gates pass. Chains without a v2 ledger processor
-  continue on the legacy path only.
-- Pull the schema draft forward before the first processor-v2 pilot. The dev DB
-  is disposable, so schema churn is cheap and should be used to force the real
-  persistence decisions early.
-- Treat shadow `ledger-balance` reconciliation as the `balance-v2` migration
-  gate. Do not cut accounting consumers over to the ledger model until the
-  ledger-backed balance runner can execute in parallel against the same
-  processed transaction scopes and reconcile diffs intentionally.
+The core ledger vocabulary and identity contracts are mature enough for
+migration work.
 
-## Current Surfaces
+The completed Cardano, Bitcoin, EVM/Theta, and Cosmos pilots challenged the
+model across UTXO, account-based, staking, protocol-custody, failed-transaction,
+token-transfer, and wallet-scope cases. They did not require new core journal
+kinds, posting roles, or chain-specific accounting escape hatches.
 
-Relevant write and processing files today:
+Do not start another account-based chain just to prove the model. The remaining
+risks are migration, reconciliation, exchange ergonomics, live balance
+category support, opening-state acquisition, and cross-source relationship
+materialization.
 
-- [raw-transaction-repository.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/raw-transaction-repository.ts)
-- [transaction-repository.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-repository.ts)
-- [transaction-persistence-support.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-persistence-support.ts)
-- [transaction-materialization-support.ts](/Users/joel/Dev/exitbook/packages/data/src/repositories/transaction-materialization-support.ts)
-- [database-schema.ts](/Users/joel/Dev/exitbook/packages/data/src/database-schema.ts)
-- [001_initial_schema.ts](/Users/joel/Dev/exitbook/packages/data/src/migrations/001_initial_schema.ts)
-- [processors.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/shared/types/processors.ts)
-- [process-workflow.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/features/process/process-workflow.ts)
-
-Hard processor pilot candidates:
-
-- [cardano/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/cardano/processor.ts)
-- [cardano/processor-utils.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/cardano/processor-utils.ts)
-- [bitcoin/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/bitcoin/processor.ts)
-- [cosmos/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/cosmos/processor.ts)
-- [evm/processor.ts](/Users/joel/Dev/exitbook/packages/ingestion/src/sources/blockchains/evm/processor.ts)
-
-Current accounting reconstruction files:
-
-- [build-accounting-model-from-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/build-accounting-model-from-transactions.ts)
-- [prepare-accounting-transactions.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/prepare-accounting-transactions.ts)
-- [accounting-entry-types.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/accounting-entry-types.ts)
-- [validated-transfer-links.ts](/Users/joel/Dev/exitbook/packages/accounting/src/accounting-model/validated-transfer-links.ts)
-
-Consumers that must eventually move to journals/postings:
-
-- cost basis standard matcher and Canada workflow
-- transfer linking and link validation
-- portfolio and balance projections
-- price readiness and price enrichment inputs
-- accounting issues and gap analysis
-- CLI transaction/accounting displays
-
-## Target Concepts
-
-### Enum Documentation Contract
-
-Every ledger enum value must be documented where the enum is introduced.
-Documentation must include:
-
-- the plain-English meaning
-- when processors may emit it
-- whether it affects balance, cost basis, transfer eligibility, or review
-- which values it must not be confused with
-
-Do not add undocumented enum values to `packages/ledger`. Ledger vocabulary is
-small by design; if a new chain forces a new value, record the accounting reason
-at the same time as the code change.
+## Settled Contracts
 
 ### Source Activity
 
 `source_activity` is a non-accounting container for one processed source event
 or correlated source event group.
 
-It carries:
+Required identity:
 
-- owner account id
-- source activity stable key, such as a blockchain transaction hash, exchange
-  event-group key, balance snapshot key, or manual entry key
-- source activity fingerprint derived from the same owner account fingerprint,
-  source activity origin, platform identity, and source activity stable key
-- platform key and platform kind
-- transaction/source fingerprint
-- timestamp and datetime
-- blockchain hash/block metadata when present
-- source address fields when present
-- raw transaction lineage
+- `ownerAccountId`
+- owner account fingerprint sourced from the same account record
+- `platformKind`
+- `platformKey`
+- `sourceActivityOrigin`
+- `sourceActivityStableKey`
 
-The processor-facing source activity context must pass owner account identity as
-one grouped value, not as loose `accountId` and `accountFingerprint`
-parameters.
-The persistence layer must source both values from the same account record when
-materializing journals. A source activity fingerprint for one owner account
-must never be stored on another owner account id.
-The stable key is required for every source activity origin. Do not derive
-non-provider source activities by faking blockchain hashes.
+The source activity fingerprint is derived from owner account fingerprint,
+platform identity, origin, and stable key. Blockchain transaction hash is
+optional blockchain metadata, not the generic identity field.
 
-It must not carry:
+Allowed origins:
 
-- operation category/type
-- accounting inclusion/exclusion
-- accounting role
-- diagnostics JSON
-- user notes JSON
-- semantic meaning
+- `provider_event`
+- `balance_snapshot`
+- `manual_accounting_entry`
 
-Opening balances and other non-provider accounting inputs still need source
-activities, but they must not fake blockchain transaction hashes. Add an
-explicit source-activity origin before implementing them, such as
-`provider_event`, `balance_snapshot`, and `manual_accounting_entry`. A balance
-snapshot source activity may have no raw transaction lineage; that absence must
-be visible in provenance rather than hidden behind synthetic raw rows.
+Rules:
 
-### Opening Balance Acquisition
+- Source activities carry no accounting meaning.
+- Source activities must not carry operation category, operation type,
+  accounting role, accounting inclusion, diagnostics JSON, semantic meaning, or
+  user notes JSON.
+- The stable key is required for every origin.
+- Non-provider activities must not fake blockchain hashes.
+- Balance snapshots may have no raw transaction lineage; that absence must be
+  visible in provenance.
 
-Opening balances are ledger-owned accounting inputs, not imported transactions.
-They exist to establish a position at a cutoff when earlier history is missing
-or economically impractical to backfill.
+Persistence anchor:
 
-Preferred acquisition order:
-
-1. Height-pinned provider state at the cutoff block.
-2. Current provider state minus fully imported ledger deltas after the cutoff.
-3. User-supplied manual balances when neither provider path is complete.
-
-For Cosmos SDK chains, a provider-state opening snapshot should read each
-balance category explicitly:
-
-- liquid bank balances from `/cosmos/bank/v1beta1/balances/{address}`
-- staked balances from
-  `/cosmos/staking/v1beta1/delegations/{delegator_address}`
-- unbonding balances from
-  `/cosmos/staking/v1beta1/delegators/{delegator_address}/unbonding_delegations`
-- reward receivables from
-  `/cosmos/distribution/v1beta1/delegators/{delegator_address}/rewards`
-
-When a Cosmos LCD supports historical state through the
-`x-cosmos-block-height` header, use that header for all four reads at the same
-height and persist the height plus block time in source activity provenance. If
-the endpoint cannot serve the target height, do not silently fall back to
-current state. Use the inferred path only when every post-cutoff ledger delta is
-known; otherwise require a manual opening balance.
-
-Opening balance journals must use:
-
-- `journalKind: opening_balance`
-- `role: opening_position`
-- a balance category that matches the provider state category (`liquid`,
-  `staked`, `unbonding`, or `reward_receivable`)
-- source component refs that identify the snapshot source, provider, chain,
-  address, height or timestamp, denom, and category
-
-Basis can be known or unknown. Unknown basis must stay attached to the opening
-lots it affects; it must not block unrelated assets, unrelated accounts, or
-known-basis lots of the same asset.
+- `packages/data/src/database-schema.ts`
+- `packages/data/src/migrations/001_initial_schema.ts`
+- `packages/data/src/repositories/accounting-ledger-repository.ts`
+- Unique key:
+  `(owner_account_id, platform_kind, platform_key, source_activity_origin, source_activity_stable_key)`
 
 ### Accounting Journal
 
 An accounting journal groups postings that belong to one accounting-relevant
 event inside a source activity.
 
-Draft shape:
+Processor draft:
 
 ```ts
 export interface AccountingJournalDraft {
@@ -211,46 +101,29 @@ export interface AccountingJournalDraft {
 }
 ```
 
-Diagnostic drafts preserve optional machine metadata:
-
-```ts
-export interface AccountingDiagnosticDraft {
-  code: string;
-  message: string;
-  severity?: 'info' | 'warning' | 'error' | undefined;
-  metadata?: Record<string, unknown> | undefined;
-}
-```
+Stable journal fingerprints exclude overridable fields such as `journalKind`.
 
 Initial journal kinds:
 
-| Kind                | Meaning                                                                                             | Cost-basis behavior                                                                                                    |
-| ------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `transfer`          | External movement into or out of the account.                                                       | Can create or dispose lots unless linked as an internal transfer.                                                      |
-| `trade`             | Exchange of one asset for another, including swap-like activity.                                    | Disposes outgoing lots and creates incoming lots.                                                                      |
-| `staking_reward`    | Reward income known by the processor, such as Cosmos distribution reward or Cardano staking reward. | Creates income lots; never duplicate this as a semantic staking fact.                                                  |
-| `protocol_event`    | Accounting-relevant protocol interaction that is not itself a trade, transfer, reward, or refund.   | Depends on posting roles; processors must emit precise roles such as deposit, refund, or overhead.                     |
-| `refund_rebate`     | Return of value from a venue/protocol where the returned asset is not normal trade proceeds.        | Creates a rebate/refund lot according to jurisdiction rules; must not be modeled as staking reward.                    |
-| `internal_transfer` | Movement between owned accounts or addresses.                                                       | Must not create gains/losses once linked; relationship/linking owns transfer eligibility.                              |
-| `expense_only`      | Source activity has no principal asset effect and only spends a fee or overhead.                    | Consumes fee/expense lots only; no principal asset acquisition/disposal.                                               |
-| `opening_balance`   | Explicit cutoff position used when prior history cannot be fully backfilled.                        | Creates opening lots with known or unknown basis; unknown basis blocks only affected asset lots, not unrelated assets. |
-| `unknown`           | Processor could not classify the accounting event.                                                  | Blocks cost-basis only for assets/postings touched by the unknown journal. It must not block unrelated assets.         |
+| Kind                | Meaning                                                                | Consumer effect                                        |
+| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| `transfer`          | External movement into or out of the account.                          | Can create or dispose lots unless linked as internal.  |
+| `trade`             | Exchange of one asset for another.                                     | Disposes outgoing lots and creates incoming lots.      |
+| `staking_reward`    | Processor-known staking reward income.                                 | Creates income lots; not duplicated as semantic truth. |
+| `protocol_event`    | Protocol interaction that is not a trade, transfer, reward, or refund. | Posting roles define accounting behavior.              |
+| `refund_rebate`     | Return of value that is not normal trade proceeds.                     | Creates refund/rebate treatment.                       |
+| `internal_transfer` | Movement between owned accounts or addresses.                          | Must not create gains/losses once linked.              |
+| `expense_only`      | No principal asset effect, only fee or overhead.                       | Consumes expense/fee lots only.                        |
+| `opening_balance`   | Explicit cutoff position when prior history is incomplete.             | Creates opening lots with known or unknown basis.      |
+| `unknown`           | Processor cannot classify the event.                                   | Blocks only affected journals/postings/assets/lots.    |
 
-The exact vocabulary should stay small. If a kind changes accounting postings,
-roles, transfer eligibility, income treatment, or basis behavior, it belongs in
-the accounting journal vocabulary, not transaction semantics.
-
-`fee` is a posting role, not a journal kind. Most fee postings live inside a
-richer journal, such as a trade with an exchange-fee posting or a transfer with
-a network-fee posting. Use `expense_only` only when the source activity has no
-principal asset effect and the accounting event is only an expense, such as a
-failed transaction that burned gas or an approval transaction with only gas.
+`fee` is a posting role, not a journal kind.
 
 ### Accounting Posting
 
 An accounting posting is the canonical asset effect consumers read.
 
-Draft shape:
+Processor draft:
 
 ```ts
 export interface AccountingPostingDraft {
@@ -268,50 +141,50 @@ export interface AccountingPostingDraft {
 
 Rules:
 
-- `quantity` is signed. Positive means account balance increases; negative
-  means account balance decreases.
+- `quantity` is signed.
+- Positive means account balance increases.
+- Negative means account balance decreases.
 - `quantity` must never be zero.
-- `role` is not optional.
-- `balanceCategory` is not optional once opening balances or staking state are
-  emitted. Processors must write the category they mean; consumers must not
-  infer it from missing data.
+- `role` is required.
+- `balanceCategory` is required.
 - `settlement` is required for fee-like postings and optional otherwise.
-- posting reads never coerce missing roles.
-- source component refs are required; no posting can exist without provenance.
+- Every posting must have source component refs.
+- Stable posting fingerprints exclude overridable fields such as role,
+  settlement, review state, override state, and price state.
 
 Initial posting roles:
 
-| Role                | Meaning                                                                                        | Cost-basis behavior                                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `principal`         | Main asset movement for a transfer, trade leg, or account delta.                               | Creates or disposes lots according to journal kind and relationships.                                                   |
-| `fee`               | Network, venue, or protocol fee paid by the account.                                           | Expense/disposal treatment is jurisdiction-specific; settlement is required.                                            |
-| `staking_reward`    | Reward amount earned from staking.                                                             | Creates income lots; must be processor-owned, not semantic-owned.                                                       |
-| `protocol_deposit`  | Asset moved into protocol custody, staking, escrow, wrapping, or similar non-liquid state.     | Usually changes balance category or custody state; must not be treated as a disposal unless the relationship says so.   |
-| `protocol_refund`   | Asset returned from protocol custody or a failed/partial protocol action.                      | Usually restores a previous position; relationship/cost-basis rules decide whether a new lot is created.                |
-| `protocol_overhead` | Non-fee value consumed by protocol mechanics, such as burn/overhead not represented as a fee.  | Blocks only the affected asset if treatment is unknown; must not block unrelated cost-basis runs.                       |
-| `refund_rebate`     | Return of value from a venue/protocol where the returned asset is not ordinary trade proceeds. | Creates rebate/refund treatment; must not be overloaded for staking rewards.                                            |
-| `opening_position`  | Position introduced at a known cutoff because earlier transaction history is incomplete.       | Creates an opening lot. Unknown basis blocks only disposals consuming that opening lot, not other assets or known lots. |
+| Role                | Meaning                                                                 | Consumer effect                                                           |
+| ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `principal`         | Main asset movement for a transfer, trade leg, or account delta.        | Creates/disposes lots according to journal and relationships.             |
+| `fee`               | Network, venue, or protocol fee paid by the account.                    | Expense/disposal treatment is jurisdiction-specific; settlement required. |
+| `staking_reward`    | Reward amount earned from staking.                                      | Creates income lots.                                                      |
+| `protocol_deposit`  | Asset moved into staking, escrow, wrapping, or protocol custody.        | Usually changes category/custody, not a disposal by default.              |
+| `protocol_refund`   | Asset returned from protocol custody or failed/partial protocol action. | Usually restores position; relationship rules decide lot treatment.       |
+| `protocol_overhead` | Non-fee value consumed by protocol mechanics.                           | Blocks only affected asset if treatment is unknown.                       |
+| `refund_rebate`     | Return of value that is not normal trade proceeds.                      | Refund/rebate treatment; not staking reward.                              |
+| `opening_position`  | Cutoff position because earlier history is incomplete.                  | Creates an opening lot.                                                   |
 
-Initial balance categories:
+### Balance Category
 
-| Category            | Meaning                                                                                  | Consumer behavior                                                                                      |
-| ------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `liquid`            | Spendable account balance.                                                               | Included in normal balance aggregation and cost-basis lot availability.                                |
-| `staked`            | Delegated/staked position that remains owned by the account but is not liquid.           | Included in portfolio/balance with a staking category; not spendable until unstaked.                   |
-| `unbonding`         | Staking position in the chain's unbonding period.                                        | Included in balance, with completion metadata sourced from staking state where available.              |
-| `reward_receivable` | Earned staking reward visible in provider state but not yet claimed into liquid balance. | Included as receivable balance; cost basis starts at claim/recognition time according to jurisdiction. |
+Balance projections key by owner account, asset, and balance category.
 
-Cost-basis consumers must be asset- and lot-scoped. An unknown or incomplete
-opening lot for one asset must not block cost-basis calculation for unrelated
-assets, nor for known lots of the same asset that are not consumed by the
-calculation window.
+Initial categories:
+
+| Category            | Meaning                                                              | Consumer behavior                                                    |
+| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `liquid`            | Spendable account balance.                                           | Included in normal liquid balance aggregation and lot availability.  |
+| `staked`            | Delegated/staked position still owned by the account.                | Included in balance/portfolio as staking state, not spendable.       |
+| `unbonding`         | Staking position in the chain's unbonding period.                    | Included in balance with completion metadata when available.         |
+| `reward_receivable` | Earned staking reward visible in provider state but not yet claimed. | Included as receivable; recognition timing is jurisdiction-specific. |
+
+Liquid, staked, unbonding, and reward-receivable positions must never collapse
+into one asset total except in display layers that explicitly ask for totals.
 
 ### Source Component Refs
 
-`sourceComponentRef` must be typed and fingerprinted. It is not a free-form
-string.
-
-Draft shape:
+`sourceComponentRef` is typed and fingerprinted provenance. It is not a
+free-form string.
 
 ```ts
 export interface SourceComponentRef {
@@ -343,50 +216,19 @@ export interface SourceComponentQuantityRef {
 }
 ```
 
-`SourceComponentQuantityRef.quantity` is always positive. Posting quantity owns
-the account balance direction; component kind identifies the provider-native
-source shape, such as UTXO input versus UTXO output. Do not encode direction by
-making source component quantities negative.
+Rules:
 
-Fingerprint recipe:
-
-- canonical JSON over `sourceActivityFingerprint`, `componentKind`,
-  `componentId`, `occurrence`, and `assetId`
-- no DB ids
-- no role, journal kind, settlement, review state, override state, price, or
-  timestamp fields
-
-If a provider exposes no stable component id apart from timestamp-bearing raw
-material, the processor must normalize that material into `componentId` before
-creating the source component ref. Do not add a timestamp field to the shared
-fingerprint recipe.
-
-For UTXO chains, component refs must point at provider-native UTXO components:
-
-- input component id: previous transaction hash plus output index
-- output component id: current transaction hash plus output index
-- `assetId` distinguishes assets inside multi-asset UTXOs
-- `occurrence` is reserved for provider-native duplicate components that still
-  collide after `componentId` and `assetId`
-
-This is the most important contract to get right. UTXO same-hash handling,
-Cardano residual attribution, exchange fill grouping, lot matching, and
-override replay all depend on stable component identity.
-
-For opening balances, use `balance_snapshot` source components. The component id
-must be stable and auditable, such as
-`<accountFingerprint>:<cutoffTimestamp>:<assetId>:<balanceCategory>`. It must
-not impersonate a blockchain transaction hash or provider event id.
-
-Journal-level component refs are derived as the union of posting-level
-component refs. They are not stored on the journal draft, because duplicating
-them creates a second provenance surface to keep consistent.
+- `SourceComponentQuantityRef.quantity` is always positive.
+- Posting quantity owns account balance direction.
+- Fingerprints include source activity fingerprint, component kind,
+  component id, occurrence, and asset id.
+- Fingerprints exclude DB ids, roles, journal kind, settlement, review state,
+  override state, price, and timestamp.
+- Opening balances use `balance_snapshot` component refs.
 
 ### Journal Relationships
 
-Relationships model accounting links between journals/postings.
-
-Initial relationship kinds:
+Relationship kinds:
 
 - `internal_transfer`
 - `external_transfer`
@@ -394,36 +236,30 @@ Initial relationship kinds:
 - `bridge`
 - `asset_migration`
 
-Bridge and asset migration are accounting relationships when they affect
-posting matching, transfer eligibility, cost basis, or disposal treatment.
-Non-accounting product labels can be projected later, but they must not own
-ledger truth.
+Bridge, wrap/unwrap, and asset migration truth is accounting-owned when it
+affects posting matching, transfer eligibility, cost basis, or disposal
+treatment. Diagnostics may carry candidate evidence, but diagnostics do not own
+accounting truth.
 
 ### Accounting Overrides
 
-Move accounting-judgment overrides onto journals/postings.
+Accounting-judgment overrides target journals/postings, not source activities
+or raw rows.
 
 Override categories:
 
 - journal kind override
 - posting role override
 - posting settlement override
-- posting split/merge override, only after the identity contract can support it
-- participation include/exclude, either as accounting participation decisions
-  or review-owned decisions that project into accounting
+- future posting split/merge override after identity supports it
+- participation include/exclude if accounting owns the final decision
 
-Data-correctness fixes are separate. Bad source timestamps, malformed asset ids,
-or provider parse bugs should be fixed by reimport, raw data correction, or
-processor fixes, not by accounting judgment overrides.
+Rules:
 
-Override identity rule:
-
-- journal/posting fingerprints must exclude overridable fields
-- overrides target stable journal/posting fingerprints plus an explicit patch
-- reprocess rebuilds journals/postings from source, then reapplies accounting
-  overrides
-- if a target no longer exists after reprocess, the override becomes stale and
-  visible for review; it must not silently apply to a different posting
+- Data-correctness fixes are not accounting overrides.
+- Reprocess rebuilds journals/postings from source, then reapplies overrides.
+- Missing targets become stale and visible for review.
+- Stale overrides must never silently remap to another journal/posting.
 
 ## Hard Invariants
 
@@ -431,733 +267,334 @@ Override identity rule:
 - `transaction_movements` does not survive as a second canonical per-leg model.
 - Source activity rows carry no accounting meaning.
 - Accounting roles are never optional in canonical accounting reads.
-- Ledger enum values are documented with meaning, emitter rules, and consumer
-  effects before they are added to code.
+- Balance categories are never optional in canonical accounting postings.
+- Ledger enum values require documentation before being added to code.
 - Semantic facts must not duplicate accounting roles or journal kinds.
-- Any kind that affects postings, roles, transfer eligibility, income treatment,
-  or cost basis is accounting-owned.
-- Incomplete history and unknown classification are scoped to the affected
-  journals, postings, assets, and lots. They must not fail-close the entire
-  profile when unrelated assets can be calculated safely.
-- Bridge and asset migration truth that affects accounting is represented as
-  accounting journal relationships, not semantic facts.
-- Diagnostics record uncertainty or processor problems; consumers do not read
+- Diagnostics record uncertainty or processor evidence; consumers do not read
   diagnostics for accounting meaning.
-- Balance projections key by owner account, asset, and balance category.
-  Staked, unbonding, reward-receivable, and liquid positions must not collapse
-  into one asset total except in display layers that explicitly ask for totals.
-- Consumer cutover is blocked until `ledger-balance` reconciles ledger-backed
-  balances against representative processed-transaction scopes.
+- Incomplete history and unknown classification are scoped to affected
+  journals, postings, assets, and lots.
+- Unknown basis on one opening lot must not block unrelated assets or unrelated
+  known lots of the same asset.
+- Consumer cutover is blocked until `ledger-balance` reconciliation is accepted.
 - No silent defaults for unexpected accounting state. Use `Result<T, Error>`
   and log recoverable inconsistencies with `logger.warn()`.
 
-## Migration Constraint
+## Current Implementation State
 
-The migration must remain shadow-verifiable.
+Ledger contracts:
 
-Rules:
-
-- Do not cut accounting consumers directly from legacy processed-transaction
-  reads to ledger-backed reads without a parallel balance check.
-- Build and run `ledger-balance` over the new ledger model before consumer
-  migration starts.
-- Run `ledger-balance` against the same processed transaction scopes used by
-  the current balance/portfolio path.
-- Treat every non-zero diff as one of:
-  - ledger model bug
-  - legacy behavior bug
-  - intentional accounting behavior change that must be approved explicitly
-- Do not remove legacy accounting reconstruction until `ledger-balance` is
-  green on the pilot processors and representative imported datasets.
-
-## Phase Plan
-
-Execution order note:
-
-- After Phase 1 contract work, execute the schema draft before Cardano
-  `processor-v2`.
-- Cardano remains the first hard processor kill-test, but it should target a
-  draft schema that already exists.
-
-### Phase 0: Freeze Semantics And Align The Plan
-
-Status: complete.
-
-Steps:
-
-1. Mark the transaction-semantics doc set as deferred pending this ledger
-   rewrite.
-2. Keep the semantics pass documents as reference-only input.
-3. Stop adding semantic facts, claim/support tables, reconcilers, or review
-   namespace implementation for now.
-4. Use this document as the execution tracker until a canonical spec replaces
-   it.
-
-Acceptance criteria:
-
-- semantics README clearly says implementation is paused
-- ledger rewrite plan exists and names the target model
-- no semantic implementation work is started in parallel
-
-### Phase 1: Draft Contracts
-
-Status: complete.
-
-New files:
-
+- `packages/ledger/src/source-activities/source-activity-draft.ts`
+- `packages/ledger/src/source-activities/source-activity-fingerprint.ts`
 - `packages/ledger/src/journals/journal-draft.ts`
-- `packages/ledger/src/source-components/source-component-ref.ts`
 - `packages/ledger/src/journals/journal-fingerprint.ts`
 - `packages/ledger/src/journals/journal-validation.ts`
-- `packages/ledger/src/journals/__tests__/journal-fingerprint.test.ts`
-- `packages/ledger/src/journals/__tests__/journal-validation.test.ts`
+- `packages/ledger/src/postings/posting-draft.ts`
 
-Steps:
+Persistence:
 
-1. Define `AccountingJournalDraft`, `AccountingPostingDraft`,
-   `SourceComponentRef`, `SourceComponentQuantityRef`, and relationship draft
-   types.
-2. Define canonical fingerprint material builders:
-   - `buildSourceComponentFingerprintMaterial(ref)`
-   - `buildAccountingJournalFingerprintMaterial(draft)`
-   - `buildAccountingPostingFingerprintMaterial(journalFingerprint, draft)`
-3. Explicitly exclude overridable fields from stable fingerprints:
-   - journal fingerprints exclude `journalKind`
-   - posting fingerprints exclude `role`, `settlement`, review state, override
-     state, and price state
-4. Add validation for:
-   - non-empty stable keys
-   - non-zero signed quantities
-   - role/sign compatibility
-   - settlement presence for `fee` role postings
-   - at least one source component per posting
-   - no duplicate posting stable key inside one journal
-5. Export the draft contracts only inside accounting until the first pilot
-   needs ingestion visibility.
+- `source_activities.source_activity_stable_key` is persisted.
+- `accounting_postings.balance_category` is persisted and required.
+- `AccountingLedgerRepository.replaceForSourceActivity()` writes a complete
+  source activity replacement in one transaction.
+- Raw transaction source activity assignments prevent one raw row from being
+  counted into two source activities.
 
-Pseudo-code:
+Parallel ledger processing:
 
-```ts
-export function validateAccountingJournalDraft(draft: AccountingJournalDraft): Result<AccountingJournalDraft, Error> {
-  return resultDo(function* () {
-    yield* validateJournalIdentity(draft);
-    yield* validateJournalKind(draft.journalKind);
-    for (const posting of draft.postings) {
-      yield* validatePostingDraft(posting);
-    }
-    yield* validateJournalHasPostingSourceComponents(draft.postings);
-    yield* validatePostingStableKeyUniqueness(draft.postings);
-    return draft;
-  });
-}
+- `ProcessingWorkflow` can run legacy processors and ledger-v2 processors in
+  parallel.
+- Cardano, Bitcoin, EVM, Theta, and Cosmos register ledger-v2 processors.
+- Ledger-v2 failures fail the batch for v2-enabled chains.
+- Consumers still read legacy processed transactions.
+
+Processor evidence:
+
+- Cardano covers wallet-scoped UTXO, staking withdrawals, deposits/refunds,
+  delegation-only fees, and MIR evidence.
+- Bitcoin covers UTXO inputs/outputs, change, duplicate raw rows, fee-only
+  effects, and conflicting payload rejection.
+- EVM/Theta cover native value, token transfers, swaps, gas-only calls, failed
+  transactions, beacon withdrawals, no-effect provider rows, token metadata
+  canonicalization, and Theta native asset specifics.
+- Cosmos covers inbound/outbound transfers, staking reward claims, delegation,
+  undelegation, redelegation, and category-aware staking postings.
+
+Balance reconciliation groundwork:
+
+- `packages/accounting/src/ledger-balance/ledger-balance-runner.ts` aggregates
+  postings by owner account, asset, and balance category.
+- `packages/accounting/src/balance-v2/balance-v2-runner.ts` remains a
+  compatibility facade over ledger balance behavior.
+- `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
+  is the temporary single-account compatibility bridge until final
+  reconciliation command wiring lands.
+
+## Remaining Work
+
+Work in this order unless a blocker makes the order impossible.
+
+### 0. Asset Screening And Reconciliation Command Boundary
+
+Goal: make live reference-balance acquisition screenable and performant before
+the final reconciliation command lands.
+
+Source landing:
+
+- `packages/ingestion/src/features/asset-screening/**`
+- `packages/ingestion/src/features/balance-reconciliation/**`
+- `apps/cli/src/features/accounts/command/accounts-reconcile.ts`
+- `apps/cli/src/features/accounts/command/accounts-reconcile-*`
+
+Command shape:
+
+```sh
+exitbook accounts reconcile [selector]
+exitbook accounts reconcile --json
+exitbook accounts reconcile --refresh-live
+exitbook accounts reconcile --reference live
+exitbook accounts reconcile --reference stored
+exitbook accounts reconcile --strict
 ```
 
-Acceptance criteria:
+Implementation notes:
 
-- focused accounting journal tests pass
-- contracts do not import ingestion or data
-- contract code has no runtime dependency on persistence
+- `asset-screening` owns machine screening policy for reference balances.
+- `balance-reconciliation` owns pure reconciliation result construction.
+- The CLI command owns selection, orchestration, text/JSON presentation, and
+  exit-code mapping only.
+- Default reconciliation should verify tracked/reference assets. Discovery of
+  unknown live tokens should be an explicit mode, not the default hot path.
+- Processor-v2 factories must not receive the legacy scam detector. V2
+  processors emit accounting ledger facts only; asset screening and review
+  policy run after processing as ingestion projections.
+- Legacy `TransactionDraft` processors may keep their existing diagnostic path
+  until they are retired or migrated behind the projection boundary.
 
-### Phase 2: Cardano Shadow Processor Pilot
+Acceptance:
 
-Status: in progress.
+- Live token balance fetches can be scoped to screened reference assets.
+- Known spam/accounting-blocked assets are not enriched or compared by default.
+- Reconciliation rows are keyed by account, asset, and balance category.
+- Final command source location is settled before command implementation.
+- `createLedgerProcessor` receives a detector-free factory context.
+- Workflow tests guard that the legacy scam detector is not passed to
+  processor-v2 wiring.
 
-Completed in this phase:
+### 1. Promote EVM-Family Stress Validation
 
-- `processor-v2.ts` and `journal-assembler.ts` exist and emit
-  `sourceActivity + journals` in memory.
-- Cardano v2 account identity is grouped as one context value and represents
-  the wallet/accounting owner, not the derived child address that happened to
-  import a raw row.
-- Cardano v2 takes a wallet address scope and assembles one ledger activity per
-  unique on-chain transaction hash, de-duplicating repeated child-address raw
-  rows before journal construction.
-- Cardano v2 principal source component refs are built from raw UTXO
-  input/output identity, not consolidated movement identity.
-- Cardano v2 staking reward source component refs are built from raw withdrawal
-  components.
-- Cardano v2 no longer derives journal drafts from legacy Cardano
-  `CardanoMovement` values; wallet-scope UTXO totals are extracted directly
-  from provider-normalized inputs, outputs, fees, and withdrawals.
-- Cardano v2 validates every emitted journal draft before returning shadow
-  output.
-- Cardano v2 emits normal network fees as `fee` postings inside the richer
-  transfer or staking reward journal; `expense_only` is reserved for fee-only
-  activity.
-- Cardano v2 treats reward-funded external sends as a principal transfer plus
-  a `staking_reward` posting. This intentionally corrects the old
-  address-scoped behavior where a wallet-scoped staking withdrawal became a
-  diagnostic component.
-- Cardano provider normalization now fetches Blockfrost transaction
-  withdrawals, stake certificates, delegation certificates, and MIR
-  certificates when the transaction metadata says those subresources exist.
-- Cardano provider normalization exposes `stakeCertificates`,
-  `delegationCertificates`, `mirCertificates`,
-  `protocolDepositDeltaAmount`, and `treasuryDonationAmount` directly on the
-  normalized transaction.
-- Cardano v2 materializes stake key registration deposits as
-  `protocol_deposit` postings and stake key deregistration refunds as
-  `protocol_refund` postings. These are processor-owned ledger effects, not
-  deferred semantic facts.
-- Cardano v2 keeps delegation-only wallet transactions as `protocol_event`
-  journals with fee postings instead of collapsing them into generic
-  `expense_only` activity.
-- Cardano v2 validates fees, withdrawals, MIR certificate amounts, signed
-  protocol deposit deltas, and treasury donations before journal assembly.
-- Cardano v2 preserves MIR certificates as chain evidence and diagnostics.
-  They do not become spendable wallet postings until they appear as staking
-  reward withdrawals.
-- The legacy Cardano processor remains untouched.
-- `processor-v2.shadow.test.ts` now runs v1 and v2 against the same Cardano
-  fixtures for ordinary UTXO cases and documents the intentional staking
-  withdrawal divergence from legacy address-scope accounting.
-- `processor-v2.balance-shadow.test.ts` requires balance parity for ordinary
-  UTXO cases and asserts explicit corrected ledger balances for wallet-scoped
-  staking reward spends.
-- The shadow harness currently covers:
-  - incoming transfers
-  - transfers with change
-  - distinct same-asset UTXO input/output provenance
-  - reward-funded external sends
-  - claim-to-self staking rewards
-  - same-hash multi-source external sends with wallet-scope withdrawals
+Goal: make the local EVM-family stress runner repeatable from CLI or e2e
+tooling before any pipeline cutover.
 
-Remaining in this phase:
+Files to inspect first:
 
-- move same-hash reduction out of downstream accounting and into the Cardano
-  v2 path
-- prove source component refs survive Cardano same-hash/internal-transfer
-  cases without escape hatches
-- wire explicit wallet stake-address ownership into the production Cardano v2
-  context instead of relying on the current fee-payer fallback
-- decide whether delegation and MIR certificate evidence needs first-class
-  persisted ledger evidence beyond diagnostics when no spendable asset posting
-  is created
-- expand the shadow reconciliation coverage from external same-hash groups to
-  internal/carryover same-hash groups
-- design the wallet-scope persistence flow that maps child-address raw
-  transaction rows to one parent-account source activity without duplicating
-  journals/postings
-
-New files:
-
-- `packages/ingestion/src/sources/blockchains/cardano/processor-v2.ts`
-- `packages/ingestion/src/sources/blockchains/cardano/journal-assembler.ts`
-- `packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.shadow.test.ts`
-- `packages/accounting/src/ledger-shadow/shadow-reconciliation.ts`
-- `packages/accounting/src/ledger-shadow/__tests__/shadow-reconciliation.test.ts`
-
-Steps:
-
-1. Implement a Cardano-only in-memory journal assembler.
-2. Keep the existing Cardano processor untouched.
-3. Run v1 and v2 over the same raw/provider events inside tests.
-4. Convert v2 journals into an aggregate comparison shape:
-   - asset id
-   - signed quantity
-   - posting role
-   - source activity fingerprint
-   - component fingerprints
-5. Compare v2 aggregate output to v1 `buildAccountingModelFromTransactions()`
-   output for known Cardano same-hash and staking scenarios.
-6. Record any mismatch as either:
-   - v2 contract bug
-   - v1 behavior bug
-   - intentional model change requiring approval
-
-Same-hash handling:
-
-- keep the processor interface unified
-- allow Cardano internals to batch by hash before emitting journal drafts
-- do not expose a generic "pre-accounting adapter" unless a second slice proves
-  it needs the same external hook
-
-Acceptance criteria:
-
-- Cardano same-hash internal transfer cases reconcile
-- Cardano ordinary UTXO cases reconcile with legacy where the accounting model
-  is intentionally unchanged
-- Cardano staking reward/residual cases are represented as ledger postings and
-  source component refs, with intentional legacy divergences recorded as model
-  corrections
-- Cardano stake registration deposits, stake deregistration refunds, and
-  delegation-only transactions are represented as ledger-owned protocol events
-  without semantic annotations
-- v2 does not need semantic annotations or `staking_reward_component`
-- no consumer cutover or processing pipeline dependency on ledger persistence
-  yet
-
-Kill criteria:
-
-- the journal/posting model needs a Cardano-only escape hatch
-- source component refs cannot express same-hash reduction provenance
-- stable posting identity cannot survive realistic reprocess changes
-
-### Phase 3: Second And Third Hard Pilots
-
-Status: in progress; Bitcoin UTXO and EVM-family account-based pilots started.
-
-Candidate files:
-
-- `packages/ingestion/src/sources/blockchains/cosmos/processor-v2.ts`
-- `packages/ingestion/src/sources/blockchains/cosmos/journal-assembler.ts`
 - `packages/ingestion/src/sources/blockchains/evm/processor-v2.ts`
 - `packages/ingestion/src/sources/blockchains/evm/journal-assembler.ts`
 - `packages/ingestion/src/sources/blockchains/theta/processor-v2.ts`
-- `packages/ingestion/src/sources/blockchains/bitcoin/processor-v2.ts`
-- `packages/ingestion/src/sources/blockchains/bitcoin/journal-assembler.ts`
-
-Steps:
-
-1. Pilot Cosmos staking/undelegation reward-principal splitting.
-2. Pilot EVM gas/value handling.
-3. Pilot Bitcoin or another UTXO family member if Cardano-specific logic hid a
-   generic UTXO requirement.
-4. Extract shared helpers only after duplication is visible across two slices.
-
-Completed in this phase:
-
-- Bitcoin v2 emits wallet-scoped source activity plus accounting journals
-  directly from normalized UTXO inputs, outputs, and native network fees.
-- Bitcoin v2 de-duplicates repeated raw rows for the same transaction hash and
-  rejects conflicting payloads for the same hash.
-- Bitcoin v2 preserves provider-native UTXO input/output component refs:
-  previous transaction hash plus output index for inputs, current transaction
-  hash plus output index for outputs.
-- Bitcoin v2 nets wallet change out of the principal transfer posting and emits
-  native network fees as a separate `fee` posting inside the transfer journal.
-- Bitcoin v2 uses `expense_only` only when the wallet effect is fee-only.
-- Bitcoin v2 rejects processor-context mismatches where a transaction has no
-  effect for the supplied wallet address scope.
-- Focused Bitcoin v2 tests cover incoming transfers, sends with change,
-  fee-only effects, sibling wallet inputs, distinct same-asset UTXO provenance,
-  duplicate raw rows, conflicting duplicate payloads, missing UTXO identity,
-  and invalid negative amounts.
-- Cardano and Bitcoin now share the v2 processor shell for schema validation,
-  duplicate-payload rejection, draft assembly, and journal validation.
-- Cardano and Bitcoin now share small assembler primitives for account-context
-  validation, strict decimal parsing, and positive source-component quantity
-  refs.
-- EVM v2 emits source activity plus accounting journals directly from
-  provider-normalized transaction groups keyed by transaction hash.
-- EVM v2 de-duplicates repeated normalized events by `eventId` and rejects
-  conflicting payloads for the same event id.
-- EVM v2 preserves event-level provenance with `account_delta`,
-  `staking_reward`, and `network_fee` source component refs.
-- EVM v2 handles native transfers, ERC-20 style token transfers, swaps, network
-  gas, zero-value contract calls, and partial beacon withdrawals as ledger
-  postings.
-- EVM v2 intentionally treats failed EVM transactions as gas-only ledger
-  effects. Attempted value/token movement is removed before fund-flow
-  accounting because failed EVM execution does not settle value transfers.
-- EVM-family v2 skips provider-returned transaction groups that have no wallet
-  ledger effect instead of emitting empty source activities.
-- EVM v2 accepts an optional token metadata resolver and applies canonical
-  token symbols before event de-duplication and journal assembly. This keeps
-  ledger display symbols aligned with token-contract asset identity when
-  providers emit chain-specific symbols such as bridged USDT variants.
-- Focused EVM v2 tests cover incoming native value, outgoing native value plus
-  gas, swaps, contract-call fee-only activity, failed gas-only transactions,
-  no-effect provider rows, partial beacon staking rewards, duplicate event
-  de-duplication, token metadata canonicalization, and conflicting duplicate
-  event evidence.
-- Theta v2 reuses the account-based ledger assembler with a Theta-specific
-  chain config: TFUEL remains the gas/native fee asset, while THETA is modeled
-  as a symbol-backed native asset instead of requiring a token contract address.
-- Focused Theta v2 tests cover TFUEL native postings and THETA postings without
-  accidental base-unit normalization.
-- Local real-data shadow validation covered the provided Arbitrum, Avalanche,
-  Ethereum, and Theta accounts: 111 raw rows became 82 source activities, 82
-  journals, and 108 postings with zero v2 processor failures.
-- A local EVM-family stress runner compared v2 ledger postings against
-  persisted v1 balance impacts for the same raw corpus. After applying the
-  token metadata resolver, the stress pass had zero balance diffs across all
-  82 source activities.
-- Rotki EVM decoder review added two safe processor-owned cues to the EVM
-  pilot:
-  - ERC-20/ERC-721 approval calls are identified as token approvals and kept as
-    `expense_only` fee journals when the wallet has no value movement.
-  - Exact bridge function hints are recognized for CCTP, OP Stack standard
-    bridge, Arbitrum bridge, Injective Peggy, and Wormhole. These remain
-    diagnostics until cross-chain journal relationships are persisted.
-- Cosmos v2 now registers as a shadow ledger processor for all configured
-  Cosmos SDK chains while leaving the legacy `CosmosProcessor` untouched.
-- Cosmos provider-normalized transactions now expose optional staking principal
-  fields separately from claimed reward amount. Claimed rewards remain in
-  `amount`; delegated, undelegated, and redelegated principal lives in
-  `stakingPrincipalAmount`, `stakingPrincipalCurrency`, and
-  `stakingPrincipalDenom`.
-- Cosmos REST and GetBlock mappers populate staking principal evidence for
-  supported staking messages/events, giving the processor enough chain-owned
-  data to model staking custody without semantic annotations.
-- Cosmos v2 emits transfer, staking reward, protocol custody, and fee journals
-  directly from normalized provider rows:
-  - staking reward claims become liquid `staking_reward` postings plus claim
-    fee when paid by the wallet
-  - delegation becomes liquid `protocol_deposit` out plus staked `principal` in
-  - undelegation becomes staked `principal` out plus unbonding
-    `protocol_refund` in, with any claimed reward preserved as a separate
-    `staking_reward` posting in the same source activity
-  - redelegation becomes staked principal out plus staked principal in
-- Focused Cosmos v2 tests cover inbound transfer, outbound transfer plus fee,
-  claimed staking rewards, delegation, undelegation with reward, redelegation,
-  and conflicting duplicate event evidence.
-- Cosmos provider routing now treats chain-specific account-history providers
-  as accounting-critical: Injective uses `injective-explorer`, Akash uses
-  `akash-console`, and Fetch uses generic Cosmos REST with `events=` query
-  parameters. This prevents generic LCD endpoints from producing false-empty
-  histories for chains where an explorer has the real account timeline.
-- Cosmos account-history support is now opt-in by chain. Only Injective, Akash,
-  and Fetch are exposed as import targets. Cosmos Hub remains configured for
-  parser and processor fixtures, but it is disabled as a user-facing import
-  target until full-history backfill or explicit opening-state snapshots make
-  live balance reconciliation defensible. See
-  [cosmos-sdk-processing.md](../specs/cosmos-sdk-processing.md).
-
-Rotki EVM findings that should shape the model before EVM cutover:
-
-- Failed transactions are accounting-owned gas burns. Current v2 behavior
-  matches this: failed execution removes attempted value transfers and keeps
-  network fee postings.
-- L2 chains with separate L1 data fees need explicit provider normalization
-  before production EVM cutover. Rotki handles Optimism/Base/Scroll with
-  total fee = execution gas + L1 fee; our provider schema currently has only
-  one normalized `feeAmount`.
-- Bridge and asset migration truth should be ledger relationships, not
-  semantic facts. Function-name diagnostics are only a temporary cue until
-  event/log-level bridge decoders can create `bridge` relationships.
-- Wrap/unwrap, LP deposits/withdrawals, lending debt generation/payback,
-  liquidation, protocol interest, MEV/block rewards, airdrops, refunds, and
-  spam tokens are common EVM cases in Rotki. Do not add generic posting roles
-  from names alone; add them only when a processor decoder has protocol
-  evidence and source component refs.
-- Approval, governance, Safe/multisig, ERC-4337 account abstraction, and other
-  no-value state changes should stay fee-only ledger activity plus
-  diagnostics unless they create spendable asset effects.
-
-Remaining in this phase:
-
-- keep UTXO wallet math local until another UTXO chain proves the abstraction;
-  the shared code should stay limited to repeated processor and source-ref
-  primitives for now
-- promote the local EVM-family stress runner into repeatable e2e or CLI
-  tooling before pipeline cutover
-- add L2 L1-data-fee normalization to provider schemas before Optimism/Base
-  style chains are accepted as fully covered by EVM v2
-- design bridge/wrap relationship materialization on top of postings before
-  replacing existing bridge or wrap semantic annotations
-- decide whether EVM event-level source component refs need more specific
-  component kinds than `account_delta` after persistence and override replay
-  are exercised
-- keep Cosmos v2 verified against the INJ, AKASH, and FETCH real-data corpora;
-  Cosmos Hub should not be part of user-facing acceptance until the disabled
-  support criteria in the Cosmos account-history spec are met
-- decide how unbonding completion should be modeled when providers expose state
-  but not a transaction history event for the liquid return
-- implement ledger-native Cosmos opening balance snapshots using explicit bank,
-  delegation, unbonding, and reward state reads; use height-pinned LCD state
-  when available and mark inferred/manual openings separately
-- sketch one exchange processor to confirm the common journal shape stays
-  ergonomic for non-UTXO imports
-
-Acceptance criteria:
-
-- at least two non-trivial processor families emit journals cleanly
-- common helpers are extracted only for repeated source-component and validation
-  needs
-- exchange processors are sketched to confirm the common case stays ergonomic
-
-### Phase 4: Persistence Design And Schema Rewrite
-
-Status: draft schema started; atomic ledger materialization repository, scoped
-posting reads, journal diagnostics, and shadow workflow persistence started.
-
-Files to update:
-
-- `packages/data/src/database-schema.ts`
-- `packages/data/src/migrations/001_initial_schema.ts`
-- `packages/data/src/data-session.ts`
-- `packages/data/src/repositories/index.ts`
-- `packages/data/src/repositories/transaction-repository.ts`
-- `packages/data/src/repositories/transaction-persistence-support.ts`
-- `packages/data/src/repositories/transaction-materialization-support.ts`
-- `packages/ingestion/src/ports/accounting-ledger-sink.ts`
-- `packages/ingestion/src/ports/processing-ports.ts`
 - `packages/ingestion/src/features/process/process-workflow.ts`
+- `apps/cli/src/features/import/command/run-import.ts`
+- `apps/cli/src/__tests__/ethereum-workflow.e2e.test.ts`
 
-New repository files:
+Implementation shape:
 
-- `packages/data/src/repositories/accounting-ledger-repository.ts`
+1. Extract the current local stress logic into a reusable test or command
+   helper that loads persisted raw rows for selected EVM-family accounts.
+2. Run the ledger-v2 processor against the same raw scope used by legacy
+   processing.
+3. Convert ledger postings into `LedgerBalancePostingInput`.
+4. Compare against persisted legacy balance impact by asset.
+5. Fail on unexpected non-zero diffs.
+6. Record intentional diffs as explicit fixture expectations, not console
+   notes.
 
-Do not split source activity, journal, posting, component-ref, and relationship
-materialization across separate write repositories yet. The safe write unit is a
-complete source activity ledger replacement: validate the source activity and
-all journals, upsert the source activity, delete existing derived ledger rows
-for that source activity, then insert journals, postings, posting source
-components, relationships, and raw assignments in one DB transaction. Split read
-ports later only when consumers need narrower query shapes.
+Acceptance:
 
-Schema direction:
+- One command or e2e test reruns Arbitrum, Avalanche, Ethereum, and Theta
+  stress coverage.
+- Token metadata resolver is part of the repeatable path.
+- Zero-diff status is machine-enforced.
 
-- keep `raw_transactions`
-- replace accounting-bearing `transactions` with thin `source_activities`
-  or rename `transactions` only if the name avoids churn without preserving old
-  meaning
-- add an explicit source activity origin before non-provider accounting inputs
-  exist; opening balances must use a balance-snapshot/manual origin instead of
-  pretending to be blockchain transactions
-- drop `transaction_movements`
-- add `accounting_journals`
-- add `accounting_journal_diagnostics`
-- add `accounting_postings`
-- add `balance_category` to `accounting_postings` before emitting opening
-  balance, staked, unbonding, or reward-receivable postings
-- add `accounting_posting_source_components`
-- add `accounting_journal_relationships`
-- persist processor diagnostics on journals, with metadata, as rebuild-owned
-  artifacts
-- keep user notes out of source activities; add a separate notes table only when
-  a v2 user-note workflow is designed
-- do not keep `operation_category`, `operation_type`,
-  `excluded_from_accounting`, `diagnostics_json`, or `user_notes_json` on the
-  source activity row
-- drop `transaction_annotations`; non-accounting semantics can be re-emitted
-  later after the ledger rewrite
+### 2. Keep Cosmos Acceptance Narrow
 
-Acceptance criteria:
+Goal: accept only the Cosmos chains with defensible account-history providers
+until opening-state snapshots exist.
 
-- draft migration creates the new model alongside legacy tables until cutover
-- database schema types match the new tables
-- repository tests cover round-trip persistence, deterministic replacement,
-  relationship endpoints, and rejected-draft rollback
-- repository reads can load ledger postings for a full account scope, including
-  parent plus child accounts
-- no consumer reads the new tables until `ledger-balance` and the pilot
-  processor migration gates are green
+Current rule:
 
-Completed in this phase:
+- Enabled real-data corpora: Injective, Akash, Fetch.
+- Cosmos Hub remains disabled for user-facing import.
+- Cosmos Hub can remain available for parser/processor fixtures.
 
-- `raw_transaction_source_activity_assignments` treats each raw transaction row
-  as assigned to one ledger source activity. This prevents the same raw input
-  from being counted into two source activities.
-- `AccountingLedgerRepository.replaceForSourceActivity()` validates raw
-  bindings before writing:
-  - every raw transaction id must exist
-  - each raw row must belong to the source activity owner account scope
-  - no raw row may already be assigned to a different source activity
-- Journal diagnostics now persist in `accounting_journal_diagnostics` with
-  stable per-journal ordering, severity, and optional JSON metadata. This keeps
-  processor cues such as EVM token approvals and bridge candidates available
-  without reintroducing `diagnostics_json` on source activity rows.
-- Repository tests cover wallet-scope UTXO lineage: one parent source activity
-  assigned to multiple child-address raw rows.
-- `IAccountingLedgerSink` gives the processing workflow a narrow shadow
-  persistence port. The data adapter materializes complete source activities
-  through `AccountingLedgerRepository.replaceForSourceActivity()`.
-- Blockchain adapters can now expose an optional `createLedgerProcessor()`.
-  Cardano, Bitcoin, EVM, and Theta register v2 ledger processors while keeping
-  their legacy processors as the consumer-facing projection source.
-- `ProcessingWorkflow` runs the legacy processor and the ledger-v2 processor
-  in parallel, then writes legacy transactions, ledger artifacts, and raw
-  processed status inside one database transaction. For UTXO chains, the legacy
-  processor remains child-address scoped while the ledger-v2 shadow path reads
-  same-hash raw rows across the owner wallet scope and writes one parent-owned
-  source activity. Ledger-v2 failures fail the batch for v2-enabled chains
-  instead of producing partial shadow state.
-- Processed-data reset now deletes `source_activities` and cascaded ledger
-  rows by owner account scope alongside legacy `transactions`, then resets raw
-  rows to pending for a clean rebuild. Clear/account/profile removal previews
-  report ledger source activities as processed derived data.
-- Ledger enum values now have exported documentation metadata and a guard test
-  that fails when a value is added without documentation.
-- `source_activities.source_activity_origin` distinguishes provider events from
-  future balance snapshots and manual accounting entries.
-- `source_activities.source_activity_stable_key` provides one generic identity
-  field for provider events, exchange event groups, balance snapshots, and
-  manual accounting entries. Blockchain transaction hash remains optional
-  blockchain metadata, not the generic identity field.
-- `accounting_postings.balance_category` is persisted and required in posting
-  drafts. Current v2 processors emit `liquid` explicitly until staking/opening
-  balance postings introduce `staked`, `unbonding`, or `reward_receivable`.
+Files:
 
-### Phase 5: Accounting Overrides
+- `docs/specs/cosmos-sdk-processing.md`
+- `packages/ingestion/src/sources/blockchains/cosmos/register.ts`
+- `packages/ingestion/src/sources/blockchains/cosmos/processor-v2.ts`
+- `packages/ingestion/src/sources/blockchains/cosmos/journal-assembler.ts`
+- `packages/blockchain-providers/src/blockchains/cosmos/**`
 
-Status: pending.
+Acceptance:
 
-Files to update or replace:
+- INJ/AKASH/FETCH real-data corpora continue to pass ledger-v2 processing.
+- Cosmos Hub is not exposed as supported live import until full-history
+  backfill or opening snapshots make reconciliation defensible.
+- Delegation must produce liquid outflow plus staked inflow, not zero net asset
+  total.
 
-- `packages/core/src/override/override.ts`
-- `packages/data/src/overrides/transaction-movement-role-replay.ts`
-- `packages/data/src/overrides/transaction-override-materialization.ts`
-- `packages/data/src/overrides/override-store.ts`
+### 3. Implement Cosmos Opening Balances
 
-New files:
+Goal: create ledger-native opening balance source activities when earlier
+Cosmos history is missing or economically impractical to backfill.
 
-- `packages/ledger/src/overrides/override-target.ts`
-- `packages/ledger/src/overrides/override-patch.ts`
-- `packages/ledger/src/overrides/override-application.ts`
-- `packages/data/src/overrides/accounting-override-replay.ts`
+Provider reads for Cosmos SDK chains:
 
-Steps:
+- liquid bank balances:
+  `/cosmos/bank/v1beta1/balances/{address}`
+- staked delegations:
+  `/cosmos/staking/v1beta1/delegations/{delegator_address}`
+- unbonding delegations:
+  `/cosmos/staking/v1beta1/delegators/{delegator_address}/unbonding_delegations`
+- reward receivables:
+  `/cosmos/distribution/v1beta1/delegators/{delegator_address}/rewards`
 
-1. Split data-correctness fixes from accounting-judgment overrides.
-2. Replace movement-role override semantics with posting-role and journal-kind
-   override semantics.
-3. Add stale override reporting for missing journal/posting targets after
-   reprocess.
-4. Keep override application deterministic and ready to run inside ledger
-   materialization.
+Implementation shape:
 
-Acceptance criteria:
+1. Add provider ports for bank, delegation, unbonding, and reward state reads.
+2. Prefer height-pinned reads using `x-cosmos-block-height` when supported.
+3. If a provider cannot serve the target height, do not silently fall back to
+   current state.
+4. Use inferred current-state-minus-deltas only when every post-cutoff ledger
+   delta is known.
+5. Otherwise require manual opening balances.
+6. Emit `sourceActivityOrigin: 'balance_snapshot'`.
+7. Emit `journalKind: 'opening_balance'`.
+8. Emit `role: 'opening_position'`.
+9. Emit category-specific postings for `liquid`, `staked`, `unbonding`, and
+   `reward_receivable`.
+10. Use `balance_snapshot` component refs with stable component ids containing
+    account fingerprint, cutoff, asset id, and balance category.
 
-- user accounting corrections target journals/postings
-- source activity and raw rows remain unmodified by accounting judgment
-- stale overrides are visible and never silently remapped
-- the pipeline cutover has an override API available before it starts writing
-  journals/postings
+Acceptance:
 
-### Phase 6: Processing Pipeline Cutover
+- Opening balances never impersonate provider transactions.
+- Unknown basis is attached to opening lots and blocks only affected lots.
+- Opening snapshots are persisted through the same ledger repository path as
+  provider events.
 
-Status: shadow materialization started; full consumer-facing cutover pending.
+### 4. Sketch One Exchange Processor
 
-Files to update:
+Goal: prove exchange imports fit the same source activity, journal, posting,
+and component identity model before migrating consumers.
 
-- `packages/ingestion/src/shared/types/processors.ts`
-- `packages/ingestion/src/features/process/base-transaction-processor.ts`
-- `packages/ingestion/src/features/process/process-workflow.ts`
-- `packages/ingestion/src/ports/processed-transaction-sink.ts`
-- `packages/data/src/ingestion/processing-ports.ts`
+Preferred order:
 
-Shadow steps now landed:
+1. Kraken if we want a simpler deterministic CSV/API shape.
+2. Coinbase if we want the broadest ergonomic challenge first.
 
-1. Keep legacy processors returning `TransactionDraft[]`.
-2. Add optional blockchain `createLedgerProcessor()` registrations for
-   v2-enabled chains.
-3. Run legacy and ledger-v2 processors against the same raw batch.
-4. Persist ledger writes through `IAccountingLedgerSink` in the same workflow
-   transaction as legacy transaction writes and raw processed-status updates.
-5. Leave consumers on legacy transaction reads.
+Files to inspect first:
 
-Remaining cutover steps:
+- `apps/cli/src/__tests__/kraken-workflow.e2e.test.ts`
+- `apps/cli/src/__tests__/kucoin-workflow.e2e.test.ts`
+- `packages/exchange-providers/src/exchanges/kraken/client.ts`
+- `packages/exchange-providers/src/exchanges/coinbase/client.ts`
+- `packages/ingestion/src/sources/exchanges/**`
+- `packages/ledger/src/source-components/source-component-ref.ts`
 
-1. Replace `TransactionDraft` processor output with source activity plus
-   accounting journal drafts.
-2. Persist source activity, raw assignments, journals, postings, posting source
-   components, and relationships in one database transaction.
-3. Validate all journal drafts before writing.
-4. Delete and replace all journals/postings for a reprocessed source activity
-   scope.
-5. Reapply accounting overrides after rebuild in the same workflow transaction.
+Implementation shape:
 
-Pseudo-code:
+1. Group exchange fills, fees, deposits, withdrawals, and adjustments into
+   source activities using exchange-native stable keys.
+2. Use `exchange_fill` and `exchange_fee` source component refs where the
+   exchange provides fill-level identity.
+3. Do not fake blockchain transaction identity for exchange-only events.
+4. Emit trades, transfers, fees, refunds/rebates, and unknown journals using
+   the settled journal/posting vocabulary.
+5. Compare against legacy exchange balance impact with `ledger-balance`.
 
-```ts
-const output = yield * processor.process(rawBatch);
-yield * accountingJournalValidator.validateAll(output.journals);
-yield *
-  dataSession.accountingLedger.replaceForSourceActivities({
-    sourceActivities: output.sourceActivities,
-    journals: output.journals,
-    rawAssignments: output.rawAssignments,
-  });
-yield * dataSession.accountingOverrides.applyEffectiveOverrides(scope);
-```
+Acceptance:
 
-Acceptance criteria:
+- No new core journal kind or posting role unless the exchange has an
+  accounting reason the current vocabulary cannot express.
+- Source activity stable key works for exchange event groups.
+- Fill and fee component refs are stable enough for override replay.
 
-- process workflow writes the new ledger for at least the pilot processors
-- reprocess is replace-not-append
-- failed validation aborts the enclosing transaction
-- no best-effort partial ledger writes
+### 5. Harden Balance Reconciliation
 
-### Phase 7: Ledger Balance Shadow
+Goal: make ledger balance diffs actionable enough to gate consumer cutover.
 
-Status: canonical runner, compatibility wrapper, tests, and single-account CLI
-shadow output complete; all-account text presentation and consumer cutover
-pending.
+Files:
 
-New files:
-
-- `packages/accounting/src/ledger-balance.ts`
 - `packages/accounting/src/ledger-balance/ledger-balance-runner.ts`
 - `packages/accounting/src/ledger-balance/__tests__/ledger-balance-runner.test.ts`
-- `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
-
-Compatibility files:
-
-- `packages/accounting/src/balance-v2.ts`
-- `packages/accounting/src/balance-v2/balance-v2-runner.ts`
 - `packages/accounting/src/balance-v2/balance-v2-shadow.ts`
-- `packages/accounting/src/balance-v2/__tests__/balance-v2-runner.test.ts`
-- `packages/accounting/src/balance-v2/__tests__/balance-v2-shadow.test.ts`
-- `packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.balance-shadow.test.ts`
-- `packages/ingestion/src/sources/blockchains/bitcoin/__tests__/processor-v2.balance-shadow.test.ts`
+- `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
+- `apps/cli/src/features/accounts/command/accounts-refresh-types.ts`
+- `packages/ingestion/src/features/balance/balance-utils.ts`
 
-Files to compare against:
+Implementation shape:
 
-- `packages/accounting/src/portfolio/portfolio-position-building.ts`
-- `apps/cli/src/features/accounts/command/account-balance-detail-builder.ts`
-- `apps/cli/src/features/accounts/stored-balance/stored-balance-detail-utils.ts`
+1. Keep `ledger-balance` keyed by owner account, asset, and balance category.
+2. Include contributing source activity, journal, and posting fingerprints in
+   diff output.
+3. Rename CLI reconciliation summary fields that still imply currencies only,
+   such as `totalCurrencies`, to category-aware names.
+4. Extend `BalanceComparison` or introduce a ledger-native verification row so
+   live balance checks can represent non-liquid categories.
+5. Treat every non-zero diff as one of:
+   - ledger model bug
+   - legacy behavior bug
+   - intentional accounting behavior change approved explicitly
 
-Steps:
+Acceptance:
 
-1. Build `ledger-balance`, a ledger-backed runner that aggregates signed
-   postings by owner account, asset, and balance category for a processed
-   transaction scope.
-2. Run `ledger-balance` in parallel with the current balance/portfolio
-   derivation
-   over the same processed transaction inputs.
-   - First harness: Cardano processor-v2 balance shadow compares previous
-     processor plus balance-v1 impact against processor-v2 plus ledger balance
-     postings on the same normalized fixtures for ordinary UTXO cases.
-   - Cardano wallet-scoped staking cases assert corrected ledger balances
-     directly because v2 intentionally accounts reward-funded sends differently
-     from the legacy address-scoped transaction model.
-   - Bitcoin processor-v2 balance shadow compares legacy balance impact against
-     ledger postings for ordinary incoming transfers, then records intentional
-     diffs where the legacy movement model double-counts change outputs on
-     sends and fee-only self-change transactions.
-3. Produce a shadow diff report keyed by:
-   - account id
-   - asset id
-   - balance category
-   - expected quantity
-   - actual quantity
-   - contributing source activity or posting fingerprints when available
-4. Reconcile differences in:
-   - fee settlement handling
-   - internal transfer netting
-   - same-hash carryover effects
-   - staking reward attribution
-   - negative balance behavior
-5. Treat unresolved diffs as blockers for consumer migration.
+- Pilot datasets reconcile at account/asset/category level.
+- Non-liquid ledger rows remain visible in CLI output even when legacy/live
+  balance verification has no category-aware counterpart.
+- Consumer migration does not start until unresolved diffs are gone or
+  explicitly accepted.
 
-Implementation note:
+### 6. Materialize Cross-Source Relationships
 
-- `balance-v2` remains as a compatibility/shadow-test facade, but its posting
-  aggregation delegates to `ledger-balance` so there is one canonical balance
-  algorithm.
+Goal: persist relationship truth that spans source activities before consumers
+depend on ledger relationships for transfer, bridge, or migration behavior.
 
-Acceptance criteria:
+Files:
 
-- `ledger-balance` runs side-by-side without replacing current balance reads or
-  stored balance snapshots
-- pilot processor datasets reconcile at account/asset/category balance level
-- intentional behavior changes are documented explicitly
-- consumer migration does not start until `ledger-balance` is accepted
+- `packages/data/src/repositories/accounting-ledger-repository.ts`
+- `packages/ingestion/src/features/process/process-workflow.ts`
+- `packages/accounting/src/linking/**`
+- `packages/accounting/src/ledger-shadow/shadow-reconciliation.ts`
 
-### Phase 8: Consumer Migration
+Implementation shape:
 
-Status: pending.
+1. Keep same-source relationships inside `replaceForSourceActivity()`.
+2. Add a separate materialization path for relationships discovered after
+   multiple source activities exist.
+3. Target journals/postings by stable fingerprints.
+4. Make stale relationship endpoints visible after reprocess.
+5. Do not use diagnostics as relationship truth.
 
-Primary accounting consumers:
+Acceptance:
 
-- [standard-calculator.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/calculation/standard-calculator.ts)
-- [lot-matcher.ts](/Users/joel/Dev/exitbook/packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts)
-- Canada cost-basis workflow files under `packages/accounting/src/cost-basis/canada`
-- linking files under `packages/accounting/src/linking`
-- balance and portfolio projection files under `packages/accounting` and
-  `apps/cli/src/features`
+- Internal transfer, bridge, same-hash carryover, and asset migration
+  relationships can connect journals across source activities.
+- Reprocess does not silently point a relationship at a different posting.
+
+### 7. Migrate Consumers
+
+Consumer migration starts only after the previous gates pass.
+
+Primary consumers:
+
+- `packages/accounting/src/cost-basis/standard/calculation/standard-calculator.ts`
+- `packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts`
+- `packages/accounting/src/cost-basis/canada/**`
+- `packages/accounting/src/linking/**`
+- `packages/accounting/src/portfolio/**`
+- `apps/cli/src/features/accounts/**`
+- `apps/cli/src/features/cost-basis/**`
+- price readiness and enrichment paths under `apps/cli/src/runtime/**` and
+  `apps/cli/src/features/prices/**`
 
 Steps:
 
@@ -1168,122 +605,112 @@ Steps:
 4. Move price readiness/enrichment to posting-level requirements.
 5. Move balance and portfolio to signed posting aggregation.
 6. Move accounting issues/gaps to journal/posting references.
-7. Make cost-basis readiness asset- and lot-scoped. Unknown classifications,
-   incomplete-history markers, and opening positions with unknown basis block
-   only calculations that actually consume those affected lots.
-8. Update CLI transaction/accounting displays to show source activity plus
+7. Update CLI accounting displays to show source activity plus
    journals/postings.
 
-Acceptance criteria:
+Acceptance:
 
-- no accounting consumer reads `transaction_movements`
-- no accounting consumer reads semantic annotations for accounting meaning
-- cost basis, links, portfolio, and balance run from the ledger model
-- a missing-basis Cosmos opening position can block Cosmos ATOM disposals that
-  consume that position without blocking BTC, ETH, unrelated Cosmos IBC assets,
-  or known ATOM lots
+- No accounting consumer reads `transaction_movements`.
+- No accounting consumer reads semantic annotations for accounting meaning.
+- Cost basis, links, portfolio, and balance run from the ledger model.
+- Unknown opening basis blocks only calculations that consume affected lots.
 
-### Phase 9: Remove Legacy Accounting Reconstruction
+### 8. Remove Legacy Accounting Reconstruction
 
-Status: pending.
+Do this only after consumers are migrated.
 
-Files to remove or archive:
+Remove or archive:
 
-- current `packages/accounting/src/accounting-model` files that are replaced by
-  the ledger model
-- transaction movement role replay paths that no longer apply
-- staking reward annotation detector paths used only for accounting recovery
+- `packages/accounting/src/accounting-model/**`
+- movement-role override replay paths that no longer apply
+- staking reward annotation detectors used only for accounting recovery
 - semantic reconciler plans tied to accounting roles
+- `transaction_movements` schema/repository paths if still present
+
+Acceptance:
+
+- One accounting read model remains.
+- No duplicate staking reward truth exists.
+- No reconcilers exist to sync ledger roles with semantics.
+
+### 9. Canonicalize Documentation
+
+Do this last.
 
 Steps:
 
-1. Delete old in-memory accounting reconstruction after all consumers migrate.
-2. Delete `transaction_movements` schema and repository paths if not already
-   removed in Phase 4.
-3. Delete diagnostic-to-annotation accounting recovery paths.
-4. Keep only non-accounting semantic work that still has a proven use case.
-
-Acceptance criteria:
-
-- one accounting read model remains
-- no duplicate staking reward truth exists
-- no reconcilers exist to sync ledger roles with semantics
-
-### Phase 10: Canonical Docs
-
-Status: pending.
-
-Steps:
-
-1. Move stable behavior from this `docs/dev` plan into canonical architecture
+1. Move stable model behavior from this tracker into canonical architecture
    docs.
-2. Rewrite or archive the deferred transaction-semantics docs based on the
-   ledger model that actually landed.
+2. Rewrite or archive deferred transaction-semantics docs based on the ledger
+   model that actually landed.
 3. Document processor-v2 implementation rules per source family.
 4. Document accounting override semantics and stale override behavior.
+5. Delete or archive this temporary tracker.
 
-Acceptance criteria:
+Acceptance:
 
-- `docs/dev` tracker is no longer the only source of truth
-- transaction-semantics docs are either rewritten around the new ledger model or
-  archived as superseded design history
+- `docs/dev` is no longer the only source of truth.
+- Transaction-semantics docs are rewritten around the ledger model or archived
+  as superseded design history.
 
-## Validation Strategy
+## Migration Gates
 
-Per phase:
+Consumer cutover is blocked until all gates are true:
 
-- run focused unit tests for touched contracts
-- run `pnpm vitest run <changed-test-file>` for targeted validation
-- run package build/typecheck before merging schema or processor contract work
-- run e2e/local-safe flows only after persistence and consumers are wired
+- EVM-family stress validation is repeatable and green.
+- Cosmos acceptance remains limited to chains with defensible account history,
+  or opening snapshots exist for unsupported history.
+- One exchange v2 processor sketch proves exchange event grouping and fill/fee
+  provenance without changing the core model.
+- `ledger-balance` reconciles representative datasets at account/asset/category
+  level.
+- Cross-source relationships have a persistence path.
+- Accounting overrides can target journals/postings and report stale targets.
+- Every intentional legacy divergence is documented as approved behavior.
 
-Shadow reconciliation must compare:
+## Validation Commands
 
-- asset-level signed quantities
-- account-level asset balances
-- role assignment
-- fee settlement
-- transfer/carryover relationships
-- stable source component fingerprints
-- price requirement coverage
+Use focused validation for touched areas, then run the broader gates before
+cutover work:
 
-## Open Questions
+```sh
+pnpm vitest run packages/ledger/src/source-activities/__tests__/source-activity-fingerprint.test.ts
+pnpm vitest run packages/accounting/src/ledger-balance/__tests__/ledger-balance-runner.test.ts
+pnpm vitest run packages/data/src/repositories/__tests__/accounting-ledger-repository.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/bitcoin/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/evm/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/theta/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/processor-v2.test.ts
+pnpm build
+pnpm lint --fix
+```
 
-1. Should the thin source container be named `source_activities` immediately, or
-   should `transactions` be kept as a transitional table name with stripped
-   meaning?
-2. Should participation include/exclude be accounting-owned or review-owned with
-   an accounting projection?
-3. Which fields can a posting split/merge override safely patch without
-   invalidating stable identity?
-4. Which exchange processor should be the first common-case ergonomics check
-   after Cardano/Cosmos/EVM?
+If `pnpm lint --fix` is not supported by the script, run the repo's closest
+fix-capable lint command first, then run `pnpm lint`.
 
 ## Decisions And Smells
 
 Decisions:
 
-- Processor-v2 journal drafts are the de-risking path.
-- The semantics work is paused until the ledger rewrite answers accounting
-  ownership.
-- The current accounting model is reference material, not a binding target.
-- Accounting overrides move to journals/postings, not source rows.
+- The ledger model is mature enough for migration work.
+- Do not add another account-based chain before moving forward.
+- Source activity identity is generic stable key plus origin; blockchain hash
+  is source metadata.
+- Balance identity is owner account plus asset plus balance category.
+- Cosmos Hub stays disabled for user-facing import until full-history backfill
+  or opening snapshots exist.
 
 Smells to watch:
 
-- source component refs becoming a vague string escape hatch
-- journal kind and semantic kind vocabularies overlapping
-- keeping `transaction_movements` as a parallel per-leg truth
-- designing a generic framework before Cardano and Cosmos force it
-- making source activity rows carry accounting meaning again
-
-Naming issues:
-
-- prefer `source_activity` over accounting-heavy `transaction` when referring
-  to the non-accounting container
-- prefer `ownerAccountId` over `accountId` on source activities; raw rows keep
-  `accountId` because they are import-account scoped
-- prefer `journal` and `posting` over `entry` when persistence becomes the
-  canonical accounting model
-- prefer `source_component_ref` over `provenanceInputs`
-- prefer `accounting_override` over `movement_role_override`
+- `BalanceComparison` and live provider balance verification still assume
+  liquid asset totals.
+- `balance-v2` is now a compatibility facade over `ledger-balance`; remove or
+  rename it before the migration is considered complete.
+- Cross-source relationships need a dedicated materialization path before
+  consumer cutover.
+- `tokenType: "native"` is too vague for arbitrary Cosmos SDK bank denoms;
+  prefer a future `bank_denom` or `sdk_denom` classification when token
+  metadata is revisited.
+- CLI summary names such as `totalCurrencies` are no longer precise once one
+  asset can produce multiple balance-category rows.

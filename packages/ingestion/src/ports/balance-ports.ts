@@ -1,4 +1,11 @@
-import type { Account, BalanceSnapshot, BalanceSnapshotAsset, ImportSession, Transaction } from '@exitbook/core';
+import type {
+  Account,
+  AssetReviewSummary,
+  BalanceSnapshot,
+  BalanceSnapshotAsset,
+  ImportSession,
+  Transaction,
+} from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
 
 export interface BalanceTransactionQuery {
@@ -14,5 +21,9 @@ export interface BalancePorts {
   markFailed(scopeAccountId: number): Promise<Result<void, Error>>;
   markFresh(scopeAccountId: number): Promise<Result<void, Error>>;
   findByAccountIds(accountIds: number[]): Promise<Result<ImportSession[], Error>>;
+  findAssetReviewSummariesByAssetIds(
+    profileId: number,
+    assetIds: string[]
+  ): Promise<Result<Map<string, AssetReviewSummary>, Error>>;
   findTransactionsByAccountIds(params: BalanceTransactionQuery): Promise<Result<Transaction[], Error>>;
 }

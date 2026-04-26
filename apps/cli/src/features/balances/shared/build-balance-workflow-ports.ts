@@ -12,6 +12,7 @@ export function buildBalanceWorkflowPorts(db: DataSession): BalancePorts {
     markFailed: (scopeAccountId) => db.projectionState.markFailed('balances', toBalanceScopeKey(scopeAccountId)),
     markFresh: (scopeAccountId) => db.projectionState.markFresh('balances', null, toBalanceScopeKey(scopeAccountId)),
     findByAccountIds: (accountIds) => db.importSessions.findAll({ accountIds }),
+    findAssetReviewSummariesByAssetIds: db.assetReview.getByAssetIds.bind(db.assetReview),
     findTransactionsByAccountIds: db.transactions.findAll.bind(db.transactions),
   };
 }

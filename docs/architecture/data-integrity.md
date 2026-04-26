@@ -81,11 +81,13 @@ The strict mode is deliberate. Partial processing (skip invalid records, process
 
 These distinctions matter for cost-basis calculation: on-chain fees reduce disposal proceeds, while balance fees increase acquisition cost. Collapsing them into a single "fee" field forces incorrect accounting for at least one category.
 
-### Scam and spam detection during processing
+### Legacy scam and spam detection during processing
 
-**Decision**: `BaseTransactionProcessor.runScamDetection()` runs during the processing phase, before transactions are saved. Detected spam/scam activity is recorded in `transactionDiagnostics`, but the transaction is still stored.
+**Decision**: Legacy `TransactionDraft` processors may run `BaseTransactionProcessor.runScamDetection()` during the processing phase, before transactions are saved. Detected spam/scam activity is recorded in `transactionDiagnostics`, but the transaction is still stored.
 
-**Why**: Airdrop spam is rampant on EVM chains. Unsolicited token transfers appear as real inflows, inflating portfolio balances and polluting transaction lists. Detecting spam during processing (rather than at display time) ensures the diagnostic is persisted and available to all downstream consumers — balance calculations, cost-basis, and UI filtering.
+This does not apply to processor-v2. Ledger-v2 processors receive a detector-free factory context and materialize accounting facts only. New asset screening and review policy belongs in ingestion-owned projections after processing.
+
+**Why**: Airdrop spam is rampant on EVM chains. Unsolicited token transfers appear as real inflows, inflating portfolio balances and polluting transaction lists. The legacy path keeps diagnostics available to existing consumers while ledger-v2 migration is underway.
 
 Flagged transactions are stored rather than dropped because a false positive on spam detection would silently delete real transactions.
 

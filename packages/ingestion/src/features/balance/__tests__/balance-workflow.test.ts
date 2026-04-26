@@ -5,6 +5,7 @@ import {
 } from '@exitbook/blockchain-providers';
 import type {
   Account,
+  AssetReviewSummary,
   BalanceSnapshot,
   BalanceSnapshotAsset,
   ImportSession,
@@ -144,6 +145,19 @@ function createTransaction(
   };
 }
 
+function createAssetReviewSummary(assetId: string, overrides: Partial<AssetReviewSummary> = {}): AssetReviewSummary {
+  return {
+    assetId,
+    reviewStatus: 'needs-review',
+    referenceStatus: 'unknown',
+    evidenceFingerprint: `asset-review:v1:${assetId}`,
+    confirmationIsStale: false,
+    accountingBlocked: false,
+    evidence: [],
+    ...overrides,
+  };
+}
+
 function createProviderManager(
   providers: { capabilities: { supportedOperations: string[]; supportedTransactionTypes?: string[] | undefined } }[],
   nativeData: RawBalanceData
@@ -166,6 +180,7 @@ function createProviderManager(
 
 function createPortsMock(params: {
   accounts: Account[];
+  assetReviewSummaries?: Map<string, AssetReviewSummary> | undefined;
   excludedTransactions: Transaction[];
   normalTransactions: Transaction[];
   sessions: ImportSession[];
@@ -183,6 +198,7 @@ function createPortsMock(params: {
   >;
 } {
   const accountsById = new Map(params.accounts.map((account) => [account.id, account]));
+  const assetReviewSummaries = params.assetReviewSummaries ?? new Map<string, AssetReviewSummary>();
   const replaceSnapshot = vi
     .fn<(params: { assets: BalanceSnapshotAsset[]; snapshot: BalanceSnapshot }) => Promise<Result<void, Error>>>()
     .mockResolvedValue(ok(undefined));
@@ -212,6 +228,16 @@ function createPortsMock(params: {
       .mockImplementation((accountIds: number[]) =>
         ok(params.sessions.filter((session) => accountIds.includes(session.accountId)))
       ),
+    findAssetReviewSummariesByAssetIds: vi.fn().mockImplementation((_profileId: number, assetIds: string[]) =>
+      ok(
+        new Map(
+          assetIds.flatMap((assetId) => {
+            const summary = assetReviewSummaries.get(assetId);
+            return summary === undefined ? [] : [[assetId, summary] as const];
+          })
+        )
+      )
+    ),
     findTransactionsByAccountIds: vi
       .fn()
       .mockImplementation(
@@ -634,6 +660,91 @@ describe('BalanceWorkflow', () => {
     }
   });
 
+  it('limits live token balance fetches to screened reference assets', async () => {
+    const account = createAccount({ platformKey: 'ethereum', identifier: '0xwallet' });
+    const usdcAssetId = 'blockchain:ethereum:0x1111111111111111111111111111111111111111';
+    const spamAssetId = 'blockchain:ethereum:0x2222222222222222222222222222222222222222';
+
+    const normalTransactions = [
+      createTransaction({
+        platformKey: 'ethereum',
+        movements: {
+          inflows: [
+            {
+              assetId: usdcAssetId,
+              assetSymbol: 'USDC' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('1'),
+            },
+            {
+              assetId: spamAssetId,
+              assetSymbol: 'SPAM' as Currency,
+              grossAmount: parseDecimal('999'),
+              netAmount: parseDecimal('999'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { ports } = createPortsMock({
+      accounts: [account],
+      assetReviewSummaries: new Map([
+        [spamAssetId, createAssetReviewSummary(spamAssetId, { accountingBlocked: true })],
+      ]),
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+    });
+
+    const tokenBalanceResult: FailoverExecutionResult<RawBalanceData[]> = {
+      data: [
+        {
+          rawAmount: '1000000',
+          decimalAmount: '1',
+          symbol: 'USDC',
+          decimals: 6,
+          contractAddress: '0x1111111111111111111111111111111111111111',
+        },
+      ],
+      providerName: 'mock-provider',
+    };
+    const getAddressTokenBalances = vi.fn().mockResolvedValue(ok(tokenBalanceResult));
+    const providerRuntime = {
+      ...createProviderManager(
+        [
+          {
+            capabilities: {
+              supportedOperations: ['getAddressBalances', 'getAddressTokenBalances'],
+            },
+          },
+        ],
+        {
+          rawAmount: '0',
+          decimalAmount: '0',
+          symbol: 'ETH',
+          decimals: 18,
+        }
+      ),
+      getAddressTokenBalances,
+    } as unknown as IBlockchainProviderRuntime;
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(getAddressTokenBalances).toHaveBeenCalledWith('ethereum', '0xwallet', {
+      contractAddresses: ['0x1111111111111111111111111111111111111111'],
+      preferredProvider: undefined,
+    });
+    expect(result.value.comparisons.map((comparison) => comparison.assetId)).toContain(usdcAssetId);
+    expect(result.value.comparisons.map((comparison) => comparison.assetId)).not.toContain(spamAssetId);
+  });
+
   it('subtracts only the net excluded inflow after excluded outflows', async () => {
     const account = createAccount();
 
@@ -794,6 +905,7 @@ describe('BalanceWorkflow', () => {
       markFresh: vi.fn(),
       markFailed: vi.fn(),
       findByAccountIds: vi.fn(),
+      findAssetReviewSummariesByAssetIds: vi.fn(),
       findTransactionsByAccountIds: vi.fn(),
     };
 
