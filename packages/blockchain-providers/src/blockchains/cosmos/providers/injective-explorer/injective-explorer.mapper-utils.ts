@@ -84,6 +84,7 @@ export function mapInjectiveExplorerTransaction(
       amount = bankResult.amount;
       currency = formatDenom(bankResult.currency);
       tokenType = bankResult.tokenType;
+      tokenAddress = bankResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 
@@ -105,6 +106,7 @@ export function mapInjectiveExplorerTransaction(
       amount = bankMultiSendResult.amount;
       currency = formatDenom(bankMultiSendResult.currency);
       tokenType = bankMultiSendResult.tokenType;
+      tokenAddress = bankMultiSendResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 

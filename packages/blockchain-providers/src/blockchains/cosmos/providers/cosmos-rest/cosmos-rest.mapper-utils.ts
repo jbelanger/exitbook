@@ -275,6 +275,7 @@ export function mapCosmosRestTransaction(
       amount = bankResult.amount;
       currency = formatDenom(bankResult.currency, denomFormatOptions);
       tokenType = bankResult.tokenType;
+      tokenAddress = bankResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 
@@ -296,6 +297,7 @@ export function mapCosmosRestTransaction(
       amount = bankMultiSendResult.amount;
       currency = formatDenom(bankMultiSendResult.currency, denomFormatOptions);
       tokenType = bankMultiSendResult.tokenType;
+      tokenAddress = bankMultiSendResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 
@@ -444,7 +446,8 @@ export function mapCosmosRestTransaction(
           // Apply decimal conversion (same as other parsers)
           amount = parseDecimal(firstAmount.amount).div(Math.pow(10, chainConfig.nativeDecimals)).toFixed();
           currency = formatDenom(firstAmount.denom, denomFormatOptions);
-          tokenType = 'native';
+          tokenAddress = firstAmount.denom.toLowerCase().startsWith('ibc/') ? firstAmount.denom : undefined;
+          tokenType = tokenAddress ? 'ibc' : 'native';
           tokenSymbol = currency;
 
           if (isTransactionRelevant(from, to, relevantAddress, amount)) {

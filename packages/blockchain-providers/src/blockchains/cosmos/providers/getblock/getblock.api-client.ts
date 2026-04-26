@@ -61,6 +61,7 @@ interface GetBlockAccountEventSearchMetadata {
 
 const GETBLOCK_COSMOS_CHAIN = 'cosmoshub';
 const GETBLOCK_TENDERMINT_PAGE_SIZE = 100;
+const GETBLOCK_TIMESTAMP_HYDRATION_CONCURRENCY = 3;
 
 const GETBLOCK_ACCOUNT_EVENT_SEARCH_TEMPLATES = [
   { key: 'message_sender', query: "message.sender='${address}'" },
@@ -360,13 +361,42 @@ export class GetBlockCosmosApiClient extends BaseApiClient {
   }
 
   private async hydrateTimestamps(txs: GetBlockTxSearchTx[]): Promise<Result<GetBlockHydratedTx[], Error>> {
+    const uniqueHeights = Array.from(new Set(txs.map((tx) => tx.height)));
+    const timestampsByHeight = new Map<string, string>();
+    let nextHeightIndex = 0;
+    let firstError: Error | undefined;
+
+    const hydrateNextHeight = async (): Promise<void> => {
+      while (nextHeightIndex < uniqueHeights.length && firstError === undefined) {
+        const height = uniqueHeights[nextHeightIndex];
+        nextHeightIndex += 1;
+        if (!height) {
+          continue;
+        }
+
+        const timestamp = await this.fetchBlockTimestamp(height);
+        if (timestamp.isErr()) {
+          firstError = timestamp.error;
+          return;
+        }
+        timestampsByHeight.set(height, timestamp.value);
+      }
+    };
+
+    const workerCount = Math.min(GETBLOCK_TIMESTAMP_HYDRATION_CONCURRENCY, uniqueHeights.length);
+    await Promise.all(Array.from({ length: workerCount }, () => hydrateNextHeight()));
+
+    if (firstError) {
+      return err(firstError);
+    }
+
     const hydrated: GetBlockHydratedTx[] = [];
     for (const tx of txs) {
-      const timestamp = await this.fetchBlockTimestamp(tx.height);
-      if (timestamp.isErr()) {
-        return err(timestamp.error);
+      const timestamp = timestampsByHeight.get(tx.height);
+      if (!timestamp) {
+        return err(new Error(`GetBlock block timestamp hydration missing for height ${tx.height}`));
       }
-      hydrated.push({ ...tx, timestamp: timestamp.value });
+      hydrated.push({ ...tx, timestamp });
     }
     return ok(hydrated);
   }

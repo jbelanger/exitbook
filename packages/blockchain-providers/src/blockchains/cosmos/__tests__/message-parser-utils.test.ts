@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  parseBankMultiSendMessage,
   parseBankSendMessage,
   parseCosmwasmExecuteMessage,
   parseIbcTransferMessage,
@@ -125,6 +126,55 @@ describe('message-parser-utils', () => {
         currency: 'inj',
         tokenType: 'native',
         tokenSymbol: 'inj',
+      });
+    });
+
+    it('should preserve IBC denom identity on bank sends', () => {
+      const denom = 'ibc/B0845B48D3CA9F66B4E2DD610B39E36A7A7CFACA2629D9BA880241AE5688B61D';
+      const message: InjectiveMessage = {
+        type: '/cosmos.bank.v1beta1.MsgSend',
+        value: {
+          from_address: 'cosmos1from',
+          to_address: 'cosmos1to',
+          amount: [{ amount: '11060777744', denom }],
+        },
+      };
+
+      const result = parseBankSendMessage(message, 6);
+
+      expect(result).toEqual({
+        amount: '11060.777744',
+        currency: denom,
+        from: 'cosmos1from',
+        to: 'cosmos1to',
+        tokenAddress: denom,
+        tokenSymbol: denom,
+        tokenType: 'ibc',
+      });
+    });
+  });
+
+  describe('parseBankMultiSendMessage', () => {
+    it('should preserve IBC denom identity on bank multi-send outputs', () => {
+      const denom = 'ibc/915992C8486D299941292A913640167F0BA02DC2F599BFFED0732CE932C2FCC4';
+      const message: InjectiveMessage = {
+        type: '/cosmos.bank.v1beta1.MsgMultiSend',
+        value: {
+          inputs: [{ address: 'cosmos1from', coins: [{ amount: '20000000000', denom }] }],
+          outputs: [{ address: 'cosmos1to', coins: [{ amount: '20000000000', denom }] }],
+        },
+      };
+
+      const result = parseBankMultiSendMessage(message, 'cosmos1to', 6);
+
+      expect(result).toEqual({
+        amount: '20000',
+        currency: denom,
+        from: 'cosmos1from',
+        to: 'cosmos1to',
+        tokenAddress: denom,
+        tokenSymbol: denom,
+        tokenType: 'ibc',
       });
     });
   });

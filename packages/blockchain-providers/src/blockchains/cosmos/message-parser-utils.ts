@@ -29,7 +29,8 @@ interface BankSendResult {
   to: string;
   amount: string;
   currency: string;
-  tokenType: 'native';
+  tokenAddress?: string | undefined;
+  tokenType: 'native' | 'ibc';
   tokenSymbol: string;
 }
 
@@ -45,6 +46,17 @@ interface IbcTransferResult {
   tokenSymbol: string;
   sourceChannel: string | undefined;
   sourcePort: string | undefined;
+}
+
+function bankTokenFieldsForDenom(denom: string): Pick<BankSendResult, 'tokenAddress' | 'tokenType'> {
+  if (denom.toLowerCase().startsWith('ibc/')) {
+    return {
+      tokenAddress: denom,
+      tokenType: 'ibc',
+    };
+  }
+
+  return { tokenType: 'native' };
 }
 
 /**
@@ -136,7 +148,7 @@ export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): 
     to,
     amount,
     currency,
-    tokenType: 'native',
+    ...bankTokenFieldsForDenom(currency),
     tokenSymbol: currency,
   };
 }
@@ -195,7 +207,7 @@ export function parseBankMultiSendMessage(
       to: firstOutput.address,
       amount,
       currency,
-      tokenType: 'native',
+      ...bankTokenFieldsForDenom(currency),
       tokenSymbol: currency,
     };
   }
@@ -223,7 +235,7 @@ export function parseBankMultiSendMessage(
       to: relevantAddress,
       amount,
       currency,
-      tokenType: 'native',
+      ...bankTokenFieldsForDenom(currency),
       tokenSymbol: currency,
     };
   }

@@ -93,6 +93,7 @@ export function mapAkashConsoleTransaction(
       amount = bankResult.amount;
       currency = formatDenom(bankResult.currency, formatDenomOptions);
       tokenType = bankResult.tokenType;
+      tokenAddress = bankResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 
@@ -118,6 +119,7 @@ export function mapAkashConsoleTransaction(
       amount = bankMultiSendResult.amount;
       currency = formatDenom(bankMultiSendResult.currency, formatDenomOptions);
       tokenType = bankMultiSendResult.tokenType;
+      tokenAddress = bankMultiSendResult.tokenAddress;
       tokenSymbol = currency;
       bridgeType = 'native';
 
