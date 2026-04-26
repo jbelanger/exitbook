@@ -19,9 +19,9 @@ intend to reconcile.
 
 ## Current Surfaces
 
-- `packages/ingestion/src/features/balance/balance-fetch-utils.ts`
+- `packages/ingestion/src/features/balance/reference/reference-balance-fetching.ts`
   fetches native and token balances.
-- `packages/ingestion/src/features/balance/balance-workflow.ts`
+- `packages/ingestion/src/features/balance/reference/reference-balance-workflow.ts`
   calculates local balances, fetches live balances, then filters spam/excluded
   assets.
 - `packages/ingestion/src/features/scam-detection/**`
@@ -73,8 +73,8 @@ Files:
 - `packages/ingestion/src/features/asset-screening/asset-screening-policy.ts`
 - `packages/ingestion/src/features/asset-screening/index.ts`
 - `packages/ingestion/src/asset-screening.ts`
-- `packages/ingestion/src/features/balance/balance-fetch-utils.ts`
-- `packages/ingestion/src/features/balance/balance-workflow.ts`
+- `packages/ingestion/src/features/balance/reference/reference-balance-fetching.ts`
+- `packages/ingestion/src/features/balance/reference/reference-balance-workflow.ts`
 - `packages/ingestion/src/ports/balance-ports.ts`
 - `apps/cli/src/features/balances/shared/build-balance-workflow-ports.ts`
 

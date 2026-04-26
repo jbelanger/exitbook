@@ -18,8 +18,8 @@ import { parseDecimal, sha256Hex } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BalancePorts } from '../../../ports/balance-ports.js';
-import { BalanceWorkflow } from '../balance-workflow.js';
+import type { BalancePorts } from '../../../../ports/balance-ports.js';
+import { BalanceWorkflow } from '../reference-balance-workflow.js';
 
 function materializeMovementFingerprint(
   txFingerprint: string,

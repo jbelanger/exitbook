@@ -342,7 +342,7 @@ the final reconciliation command lands.
 Source landing:
 
 - `packages/ingestion/src/features/asset-screening/**`
-- `packages/ingestion/src/features/balance-reconciliation/**`
+- `packages/ingestion/src/features/balance/reconciliation/**`
 - `apps/cli/src/features/accounts/command/accounts-reconcile.ts`
 - `apps/cli/src/features/accounts/command/accounts-reconcile-*`
 
@@ -360,7 +360,9 @@ exitbook accounts reconcile --strict
 Implementation notes:
 
 - `asset-screening` owns machine screening policy for reference balances.
-- `balance-reconciliation` owns pure reconciliation result construction.
+- `balance/reconciliation` owns pure reconciliation result construction.
+- `balance/reference` owns reference balance refresh and verification.
+- `balance/calculation` owns local transaction-derived balance calculation.
 - The CLI command owns selection, orchestration, text/JSON presentation, and
   exit-code mapping only.
 - Default reconciliation should verify tracked/reference assets. Discovery of
@@ -529,7 +531,8 @@ Files:
 - `packages/accounting/src/balance-v2/balance-v2-shadow.ts`
 - `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
 - `apps/cli/src/features/accounts/command/accounts-refresh-types.ts`
-- `packages/ingestion/src/features/balance/balance-utils.ts`
+- `packages/ingestion/src/features/balance/calculation/balance-calculation.ts`
+- `packages/ingestion/src/features/balance/reference/reference-balance-verification.ts`
 
 Implementation shape:
 

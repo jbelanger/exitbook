@@ -1,9 +1,9 @@
-import { buildTransactionBalanceImpact, type Account, type Transaction } from '@exitbook/core';
+import type { Account } from '@exitbook/core';
 import { parseDecimal, tryParseDecimal } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-const logger = getLogger('balance-utils');
+const logger = getLogger('reference-balance-verification');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -20,14 +20,6 @@ export interface BalancePartialFailure {
   accountAddress?: string | undefined;
   assetId?: string | undefined;
   rawAmount?: string | undefined;
-}
-
-/**
- * Result from balance calculation including balances and asset metadata
- */
-export interface BalanceCalculationResult {
-  balances: Record<string, Decimal>; // assetId -> balance
-  assetMetadata: Record<string, string>; // assetId -> assetSymbol
 }
 
 /**
@@ -82,32 +74,6 @@ interface ConvertBalancesToDecimalsResult {
     totalAssetCount: number;
   };
   partialFailures: BalancePartialFailure[];
-}
-
-// ─── Balance calculation ────────────────────────────────────────────────────
-
-/**
- * Calculate balances for all assets from a set of transactions.
- * Returns balances keyed by assetId and metadata mapping assetId -> assetSymbol for display.
- */
-export function calculateBalances(transactions: Transaction[]): BalanceCalculationResult {
-  const balances: Record<string, Decimal> = {};
-  const assetMetadata: Record<string, string> = {};
-
-  for (const transaction of transactions) {
-    const balanceImpact = buildTransactionBalanceImpact(transaction);
-
-    for (const assetImpact of balanceImpact.assets) {
-      if (!balances[assetImpact.assetId]) {
-        balances[assetImpact.assetId] = parseDecimal('0');
-      }
-
-      assetMetadata[assetImpact.assetId] = assetImpact.assetSymbol;
-      balances[assetImpact.assetId] = balances[assetImpact.assetId]!.plus(assetImpact.netBalanceDelta);
-    }
-  }
-
-  return { balances, assetMetadata };
 }
 
 // ─── Balance parsing ────────────────────────────────────────────────────────

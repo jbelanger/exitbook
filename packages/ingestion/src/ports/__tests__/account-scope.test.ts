@@ -7,7 +7,7 @@ import {
   resolveAccountScopeAccountId,
   type AccountScopeAccount,
   type IAccountScopeHierarchyLookup,
-} from '../../../ports/account-scope.js';
+} from '../account-scope.js';
 
 interface TestAccount extends AccountScopeAccount {
   label: string;

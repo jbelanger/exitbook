@@ -12,11 +12,11 @@ import type { Result } from '@exitbook/foundation';
 import { err, ok } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
-import type { ReferenceBalanceAssetScreeningPolicy } from '../asset-screening/index.js';
+import type { ReferenceBalanceAssetScreeningPolicy } from '../../asset-screening/index.js';
 
-import type { BalancePartialFailure } from './balance-utils.js';
+import type { BalancePartialFailure } from './reference-balance-verification.js';
 
-const logger = getLogger('balance-fetch-utils');
+const logger = getLogger('reference-balance-fetching');
 
 export interface BalanceCoverageStats {
   failedAddressCount?: number | undefined;

@@ -14,12 +14,13 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
-import { loadAccountScopeContext as loadSharedAccountScopeContext } from '../../ports/account-scope.js';
-import type { BalancePorts } from '../../ports/balance-ports.js';
+import { loadAccountScopeContext as loadSharedAccountScopeContext } from '../../../ports/account-scope.js';
+import type { BalancePorts } from '../../../ports/balance-ports.js';
 import {
   buildReferenceBalanceAssetScreeningPolicy,
   type AssetScreeningSuppressionReason,
-} from '../asset-screening/index.js';
+} from '../../asset-screening/index.js';
+import { calculateBalances } from '../calculation/balance-calculation.js';
 
 import {
   fetchBlockchainBalance,
@@ -27,16 +28,15 @@ import {
   fetchExchangeBalance,
   type FetchBlockchainBalanceOptions,
   type UnifiedBalanceSnapshot,
-} from './balance-fetch-utils.js';
+} from './reference-balance-fetching.js';
 import {
   type BalanceComparison,
   type BalancePartialFailure,
   type BalanceVerificationResult,
-  calculateBalances,
   compareBalances,
   convertBalancesToDecimals,
   createVerificationResult,
-} from './balance-utils.js';
+} from './reference-balance-verification.js';
 
 const logger = getLogger('BalanceWorkflow');
 

@@ -2,7 +2,7 @@ import type { Transaction } from '@exitbook/core';
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it } from 'vitest';
 
-import { calculateBalances } from '../balance-utils.js';
+import { calculateBalances } from '../balance-calculation.js';
 
 function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
