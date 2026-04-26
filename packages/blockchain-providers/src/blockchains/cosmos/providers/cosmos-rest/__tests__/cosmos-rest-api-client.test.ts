@@ -360,6 +360,33 @@ describe('CosmosRestApiClient', () => {
       }
     });
 
+    it('uses events query parameters for REST chains that require event-list tx search', async () => {
+      const fetchConfig = {
+        ...providerRegistry.createDefaultConfig('fetch', 'cosmos-rest'),
+        chainName: 'fetch',
+      };
+      const fetchClient = new CosmosRestApiClient(fetchConfig);
+      injectMockHttpClient(fetchClient, mockHttp);
+      mockAccountEventSearchResponses();
+
+      const transactions: CosmosTransaction[] = [];
+      for await (const result of fetchClient.executeStreaming<CosmosTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(0);
+      expect(mockGet).toHaveBeenCalledTimes(ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.length);
+      for (const [index, expectedQuery] of ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.entries()) {
+        const params = new URLSearchParams(String(mockGet.mock.calls[index]?.[0]).split('?')[1]);
+        expect(params.get('events')).toBe(expectedQuery);
+        expect(params.get('query')).toBeNull();
+      }
+    });
+
     it('normalizes staking reward withdrawals from withdraw_rewards events', async () => {
       mockAccountEventSearchResponses({
         5: buildApiResponse([buildRewardTxResponse()]),
@@ -405,6 +432,10 @@ describe('CosmosRestApiClient', () => {
         currency: 'ATOM',
         from: 'cosmosvaloper1validator0000000000000000000000',
         messageType: '/cosmos.staking.v1beta1.MsgUndelegate',
+        stakingPrincipalAmount: '0.3',
+        stakingPrincipalCurrency: 'ATOM',
+        stakingPrincipalDenom: 'uatom',
+        stakingValidatorAddress: 'cosmosvaloper1validator0000000000000000000000',
         to: TEST_ADDRESS,
         txType: 'staking_undelegate',
       });

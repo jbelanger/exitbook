@@ -50,6 +50,10 @@ interface CosmosNativeCoinAmount {
   currency: string;
 }
 
+interface CosmosNativeCoinAmountWithDenom extends CosmosNativeCoinAmount {
+  denom: string;
+}
+
 function parseCosmosCoinList(rawAmount: string): ParsedCosmosCoin[] {
   return rawAmount
     .split(',')
@@ -90,6 +94,22 @@ function nativeAmountFromCoinList(
   return {
     amount: decimalAmountFromBaseUnits(nativeCoin.amountBaseUnits, chainConfig.nativeDecimals),
     currency: formatDenom(nativeCoin.denom, denomFormatOptions),
+  };
+}
+
+function nativeAmountFromMessageAmount(
+  amount: CosmosMessage['amount'] | undefined,
+  chainConfig: CosmosChainConfig,
+  denomFormatOptions: { nativeCurrency: string; nativeDenom: string }
+): CosmosNativeCoinAmountWithDenom | undefined {
+  if (amount === undefined || Array.isArray(amount) || amount.denom !== chainConfig.nativeDenom) {
+    return undefined;
+  }
+
+  return {
+    amount: decimalAmountFromBaseUnits(amount.amount, chainConfig.nativeDecimals),
+    currency: formatDenom(amount.denom, denomFormatOptions),
+    denom: amount.denom,
   };
 }
 
@@ -227,6 +247,11 @@ export function mapCosmosRestTransaction(
   let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
   let txType: string | undefined;
   let selectedMessageIndex: number | undefined;
+  let stakingDestinationValidatorAddress: string | undefined;
+  let stakingPrincipalAmount: string | undefined;
+  let stakingPrincipalCurrency: string | undefined;
+  let stakingPrincipalDenom: string | undefined;
+  let stakingValidatorAddress: string | undefined;
 
   // Parse messages to extract transfer information
   for (const [messageIndex, cosmosMessage] of messages.entries()) {
@@ -380,6 +405,11 @@ export function mapCosmosRestTransaction(
       }
 
       const nativeRewardAmount = nativeRewardAmountForMessage(rawData, messageIndex, chainConfig, denomFormatOptions);
+      const nativePrincipalAmount = nativeAmountFromMessageAmount(
+        cosmosMessage.amount,
+        chainConfig,
+        denomFormatOptions
+      );
 
       from = cosmosMessage.validator_address ?? cosmosMessage.validator_src_address ?? delegatorAddress;
       to = delegatorAddress;
@@ -393,6 +423,11 @@ export function mapCosmosRestTransaction(
           : messageType === '/cosmos.staking.v1beta1.MsgUndelegate'
             ? 'staking_undelegate'
             : 'staking_redelegate';
+      stakingDestinationValidatorAddress = cosmosMessage.validator_dst_address;
+      stakingPrincipalAmount = nativePrincipalAmount?.amount;
+      stakingPrincipalCurrency = nativePrincipalAmount?.currency;
+      stakingPrincipalDenom = nativePrincipalAmount?.denom;
+      stakingValidatorAddress = cosmosMessage.validator_address ?? cosmosMessage.validator_src_address;
       selectedMessageIndex = messageIndex;
       break;
     }
@@ -467,6 +502,11 @@ export function mapCosmosRestTransaction(
     sourceChannel,
     sourcePort,
     status,
+    stakingDestinationValidatorAddress,
+    stakingPrincipalAmount,
+    stakingPrincipalCurrency,
+    stakingPrincipalDenom,
+    stakingValidatorAddress,
     timestamp,
     to,
     tokenAddress,

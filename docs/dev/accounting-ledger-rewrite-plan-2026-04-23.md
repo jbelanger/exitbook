@@ -145,6 +145,49 @@ explicit source-activity origin before implementing them, such as
 snapshot source activity may have no raw transaction lineage; that absence must
 be visible in provenance rather than hidden behind synthetic raw rows.
 
+### Opening Balance Acquisition
+
+Opening balances are ledger-owned accounting inputs, not imported transactions.
+They exist to establish a position at a cutoff when earlier history is missing
+or economically impractical to backfill.
+
+Preferred acquisition order:
+
+1. Height-pinned provider state at the cutoff block.
+2. Current provider state minus fully imported ledger deltas after the cutoff.
+3. User-supplied manual balances when neither provider path is complete.
+
+For Cosmos SDK chains, a provider-state opening snapshot should read each
+balance category explicitly:
+
+- liquid bank balances from `/cosmos/bank/v1beta1/balances/{address}`
+- staked balances from
+  `/cosmos/staking/v1beta1/delegations/{delegator_address}`
+- unbonding balances from
+  `/cosmos/staking/v1beta1/delegators/{delegator_address}/unbonding_delegations`
+- reward receivables from
+  `/cosmos/distribution/v1beta1/delegators/{delegator_address}/rewards`
+
+When a Cosmos LCD supports historical state through the
+`x-cosmos-block-height` header, use that header for all four reads at the same
+height and persist the height plus block time in source activity provenance. If
+the endpoint cannot serve the target height, do not silently fall back to
+current state. Use the inferred path only when every post-cutoff ledger delta is
+known; otherwise require a manual opening balance.
+
+Opening balance journals must use:
+
+- `journalKind: opening_balance`
+- `role: opening_position`
+- a balance category that matches the provider state category (`liquid`,
+  `staked`, `unbonding`, or `reward_receivable`)
+- source component refs that identify the snapshot source, provider, chain,
+  address, height or timestamp, denom, and category
+
+Basis can be known or unknown. Unknown basis must stay attached to the opening
+lots it affects; it must not block unrelated assets, unrelated accounts, or
+known-basis lots of the same asset.
+
 ### Accounting Journal
 
 An accounting journal groups postings that belong to one accounting-relevant
@@ -729,6 +772,33 @@ Completed in this phase:
   - Exact bridge function hints are recognized for CCTP, OP Stack standard
     bridge, Arbitrum bridge, Injective Peggy, and Wormhole. These remain
     diagnostics until cross-chain journal relationships are persisted.
+- Cosmos v2 now registers as a shadow ledger processor for all configured
+  Cosmos SDK chains while leaving the legacy `CosmosProcessor` untouched.
+- Cosmos provider-normalized transactions now expose optional staking principal
+  fields separately from claimed reward amount. Claimed rewards remain in
+  `amount`; delegated, undelegated, and redelegated principal lives in
+  `stakingPrincipalAmount`, `stakingPrincipalCurrency`, and
+  `stakingPrincipalDenom`.
+- Cosmos REST and GetBlock mappers populate staking principal evidence for
+  supported staking messages/events, giving the processor enough chain-owned
+  data to model staking custody without semantic annotations.
+- Cosmos v2 emits transfer, staking reward, protocol custody, and fee journals
+  directly from normalized provider rows:
+  - staking reward claims become liquid `staking_reward` postings plus claim
+    fee when paid by the wallet
+  - delegation becomes liquid `protocol_deposit` out plus staked `principal` in
+  - undelegation becomes staked `principal` out plus unbonding
+    `protocol_refund` in, with any claimed reward preserved as a separate
+    `staking_reward` posting in the same source activity
+  - redelegation becomes staked principal out plus staked principal in
+- Focused Cosmos v2 tests cover inbound transfer, outbound transfer plus fee,
+  claimed staking rewards, delegation, undelegation with reward, redelegation,
+  and conflicting duplicate event evidence.
+- Cosmos provider routing now treats chain-specific account-history providers
+  as accounting-critical: Injective uses `injective-explorer`, Akash uses
+  `akash-console`, and Fetch uses generic Cosmos REST with `events=` query
+  parameters. This prevents generic LCD endpoints from producing false-empty
+  histories for chains where an explorer has the real account timeline.
 
 Rotki EVM findings that should shape the model before EVM cutover:
 
@@ -765,7 +835,13 @@ Remaining in this phase:
 - decide whether EVM event-level source component refs need more specific
   component kinds than `account_delta` after persistence and override replay
   are exercised
-- pilot Cosmos staking/undelegation reward-principal splitting
+- run Cosmos v2 against the INJ, AKASH, FETCH, and Cosmos Hub real-data corpora
+  and compare balance-v2 postings against the legacy balance impact
+- decide how unbonding completion should be modeled when providers expose state
+  but not a transaction history event for the liquid return
+- implement ledger-native Cosmos opening balance snapshots using explicit bank,
+  delegation, unbonding, and reward state reads; use height-pinned LCD state
+  when available and mark inferred/manual openings separately
 - sketch one exchange processor to confirm the common journal shape stays
   ergonomic for non-UTXO imports
 

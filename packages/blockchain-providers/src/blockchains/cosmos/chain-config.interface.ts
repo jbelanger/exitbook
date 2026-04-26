@@ -101,6 +101,14 @@ export interface CosmosChainConfig {
   restTxSearchEnabled?: boolean | undefined;
 
   /**
+   * Query parameter used by this chain's REST GetTxsEvent endpoint.
+   *
+   * Older Cosmos SDK REST servers accept a single `query` expression.
+   * Newer servers, including Fetch.ai, require repeated `events` filters.
+   */
+  restTxSearchEventParam?: 'events' | 'query' | undefined;
+
+  /**
    * Optional provider-specific metadata hints used by aggregate catalogs.
    */
   providerHints?: ChainProviderHints | undefined;

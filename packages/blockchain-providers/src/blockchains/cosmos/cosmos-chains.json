@@ -9,7 +9,8 @@
     "bech32Prefix": "inj",
     "explorerUrls": ["https://explorer.injective.network"],
     "rpcEndpoints": ["https://tm.injective.network"],
-    "restEndpoints": ["https://lcd.injective.network"]
+    "restEndpoints": ["https://lcd.injective.network"],
+    "restTxSearchEnabled": false
   },
   "osmosis": {
     "chainId": "osmosis-1",
@@ -472,7 +473,8 @@
     "bech32Prefix": "fetch",
     "explorerUrls": ["https://www.mintscan.io/fetchai"],
     "rpcEndpoints": ["https://rpc-fetchhub.fetch.ai"],
-    "restEndpoints": ["https://rest-fetchhub.fetch.ai"]
+    "restEndpoints": ["https://rest-fetchhub.fetch.ai"],
+    "restTxSearchEventParam": "events"
   },
   "assetmantle": {
     "chainId": "mantle-1",

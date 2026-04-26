@@ -151,12 +151,24 @@ describe('ProviderRegistry', () => {
 
     const metadata = providerRegistry.getMetadata('avalanche', 'moralis');
     expect(metadata?.name).toBe('moralis');
-    expect(providerRegistry.getAvailable('avalanche').some((provider) => provider.name === 'moralis')).toBe(true);
+    const avalancheProvider = providerRegistry
+      .getAvailable('avalanche')
+      .find((provider) => provider.name === 'moralis');
+    expect(avalancheProvider?.blockchain).toBe('avalanche');
   });
 
   test('should apply chain-specific baseUrl for object-format supportedChains', () => {
     const baseConfig = providerRegistry.createDefaultConfig('base', 'alchemy');
     expect(baseConfig.baseUrl).toBe('https://base-mainnet.g.alchemy.com/v2');
+  });
+
+  test('should preserve per-chain provider entries for catalog surfaces', () => {
+    const providers = providerRegistry.getAllAvailable();
+
+    expect(providers.some((provider) => provider.blockchain === 'fetch' && provider.name === 'cosmos-rest')).toBe(true);
+    expect(providers.some((provider) => provider.blockchain === 'injective' && provider.name === 'cosmos-rest')).toBe(
+      false
+    );
   });
 });
 

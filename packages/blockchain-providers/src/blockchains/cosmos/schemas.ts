@@ -73,6 +73,15 @@ export const CosmosTransactionSchema = NormalizedTransactionBaseSchema.extend({
   feeAmount: DecimalStringSchema.optional(),
   feeCurrency: z.string().optional(),
 
+  // Staking principal information. Claimed rewards stay in `amount`; delegated,
+  // undelegated, and redelegated principal lives here so ledger processors can
+  // model staking custody without conflating it with reward income.
+  stakingPrincipalAmount: DecimalStringSchema.optional(),
+  stakingPrincipalCurrency: z.string().optional(),
+  stakingPrincipalDenom: z.string().optional(),
+  stakingValidatorAddress: z.string().optional(),
+  stakingDestinationValidatorAddress: z.string().optional(),
+
   // Token-specific information (tokenAddress can be a bech32 contract address OR a denom string like 'usdc', 'uakt')
   tokenAddress: LowercaseStringSchema.optional(),
   tokenDecimals: z.number().nonnegative().optional(),

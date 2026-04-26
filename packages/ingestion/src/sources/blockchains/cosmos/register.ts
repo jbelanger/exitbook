@@ -5,6 +5,7 @@ import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter
 
 import { normalizeCosmosAddress } from './address-utils.js';
 import { CosmosImporter } from './importer.js';
+import { CosmosProcessorV2 } from './processor-v2.js';
 import { CosmosProcessor } from './processor.js';
 
 export const cosmosAdapters: BlockchainAdapter[] = Object.keys(COSMOS_CHAINS).flatMap((chainName) => {
@@ -23,6 +24,18 @@ export const cosmosAdapters: BlockchainAdapter[] = Object.keys(COSMOS_CHAINS).fl
       }),
 
     createProcessor: ({ scamDetector }) => new CosmosProcessor(config, scamDetector),
+
+    createLedgerProcessor: () => {
+      const processor = new CosmosProcessorV2(config);
+      return {
+        process: (normalizedData, context) =>
+          processor.process(normalizedData, {
+            account: context.account,
+            primaryAddress: context.primaryAddress,
+            userAddresses: context.userAddresses,
+          }),
+      };
+    },
   };
 
   return [adapter];

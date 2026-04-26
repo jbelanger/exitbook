@@ -13,9 +13,9 @@ function resolveMetadataApiKey(metadata: ProviderMetadata): string | undefined {
   return apiKey && apiKey !== 'YourApiKeyToken' ? apiKey : undefined;
 }
 
-function toProviderInfo(metadata: ProviderMetadata): ProviderInfo {
+function toProviderInfo(metadata: ProviderMetadata, blockchain = metadata.blockchain): ProviderInfo {
   return {
-    blockchain: metadata.blockchain,
+    blockchain,
     capabilities: metadata.capabilities,
     defaultConfig: metadata.defaultConfig,
     description: metadata.description,
@@ -107,11 +107,31 @@ export class ProviderRegistry {
   }
 
   /**
+   * Get one provider entry per blockchain/provider registration.
+   *
+   * Unlike getAllProviders(), this preserves multi-chain and per-chain
+   * registrations such as cosmos-rest on each Cosmos SDK chain.
+   */
+  getAllAvailable(): ProviderInfo[] {
+    const providers: ProviderInfo[] = [];
+
+    for (const [blockchain, factories] of this.providersByBlockchain.entries()) {
+      for (const factory of factories) {
+        providers.push(toProviderInfo(factory.metadata, blockchain));
+      }
+    }
+
+    return providers;
+  }
+
+  /**
    * Get all available providers for a blockchain.
    * Supports multi-chain providers via supportedChains metadata.
    */
   getAvailable(blockchain: string): ProviderInfo[] {
-    return (this.providersByBlockchain.get(blockchain) ?? []).map((factory) => toProviderInfo(factory.metadata));
+    return (this.providersByBlockchain.get(blockchain) ?? []).map((factory) =>
+      toProviderInfo(factory.metadata, blockchain)
+    );
   }
 
   /**

@@ -50,6 +50,11 @@ interface MappedEventFields {
   messageType: string;
   sourceChannel?: string | undefined;
   sourcePort?: string | undefined;
+  stakingDestinationValidatorAddress?: string | undefined;
+  stakingPrincipalAmount?: string | undefined;
+  stakingPrincipalCurrency?: string | undefined;
+  stakingPrincipalDenom?: string | undefined;
+  stakingValidatorAddress?: string | undefined;
   to: string;
   tokenAddress?: string | undefined;
   tokenSymbol?: string | undefined;
@@ -236,6 +241,7 @@ function mapStakingOperationEvent(
     }
 
     const reward = rewardForMessage(events, match.messageIndex, chainConfig);
+    const principal = nativeDisplayCoinFromAmount(getAttributeValue(match.event.attributes, 'amount'), chainConfig);
     const sourceValidator =
       getAttributeValue(match.event.attributes, 'validator') ??
       getAttributeValue(match.event.attributes, 'source_validator') ??
@@ -251,6 +257,11 @@ function mapStakingOperationEvent(
       from: candidate.eventType === 'delegate' ? relevantAddress : (sourceValidator ?? relevantAddress),
       messageIndex: match.messageIndex,
       messageType: candidate.messageType,
+      stakingDestinationValidatorAddress: destinationValidator,
+      stakingPrincipalAmount: principal?.amount,
+      stakingPrincipalCurrency: principal?.currency,
+      stakingPrincipalDenom: principal ? (principal.tokenAddress ?? chainConfig.nativeDenom) : undefined,
+      stakingValidatorAddress: sourceValidator,
       to: candidate.eventType === 'delegate' ? (destinationValidator ?? relevantAddress) : relevantAddress,
       tokenAddress: reward?.tokenAddress,
       tokenSymbol: reward?.tokenSymbol ?? chainConfig.nativeCurrency,
@@ -400,6 +411,11 @@ export function mapGetBlockCosmosTransaction(
     sourceChannel: mapped.sourceChannel,
     sourcePort: mapped.sourcePort,
     status,
+    stakingDestinationValidatorAddress: mapped.stakingDestinationValidatorAddress,
+    stakingPrincipalAmount: mapped.stakingPrincipalAmount,
+    stakingPrincipalCurrency: mapped.stakingPrincipalCurrency,
+    stakingPrincipalDenom: mapped.stakingPrincipalDenom,
+    stakingValidatorAddress: mapped.stakingValidatorAddress,
     timestamp,
     to: mapped.to,
     tokenAddress: mapped.tokenAddress,

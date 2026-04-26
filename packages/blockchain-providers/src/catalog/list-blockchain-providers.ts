@@ -8,7 +8,7 @@ export interface BlockchainProviderDescriptor extends ProviderInfo {
 export function listBlockchainProviders(): BlockchainProviderDescriptor[] {
   const registry = createProviderRegistry();
 
-  return registry.getAllProviders().map((provider) => ({
+  return registry.getAllAvailable().map((provider) => ({
     ...provider,
     apiKeyEnvName: registry.getMetadata(provider.blockchain, provider.name)?.apiKeyEnvName ?? undefined,
   }));

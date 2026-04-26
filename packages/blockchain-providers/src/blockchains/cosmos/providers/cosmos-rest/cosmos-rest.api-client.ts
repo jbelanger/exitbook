@@ -329,8 +329,8 @@ export class CosmosRestApiClient extends BaseApiClient {
           'pagination.limit': BATCH_SIZE.toString(),
           'pagination.count_total': 'false',
           order_by: 'ORDER_BY_DESC',
-          query: search.query,
         });
+        params.append(this.chainConfig.restTxSearchEventParam ?? 'query', search.query);
 
         if (search.pageToken) {
           params.append('pagination.key', search.pageToken);

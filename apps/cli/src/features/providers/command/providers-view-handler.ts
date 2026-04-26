@@ -36,7 +36,11 @@ export class ProvidersViewHandler {
       throw providerStatsResult.error;
     }
 
-    const providerMap = groupProvidersByName(listBlockchainProviders());
+    const providers = listBlockchainProviders();
+    const scopedProviders = params.blockchain
+      ? providers.filter((provider) => provider.blockchain === params.blockchain)
+      : providers;
+    const providerMap = groupProvidersByName(scopedProviders);
 
     let items = buildProviderViewItems(providerMap, providerStatsResult.value, this.explorerConfig);
 

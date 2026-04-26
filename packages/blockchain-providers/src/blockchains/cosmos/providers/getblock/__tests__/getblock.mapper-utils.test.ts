@@ -192,6 +192,10 @@ describe('mapGetBlockCosmosTransaction', () => {
       currency: 'ATOM',
       from: VALIDATOR_ADDRESS,
       messageType: '/cosmos.staking.v1beta1.MsgUndelegate',
+      stakingPrincipalAmount: '0.3',
+      stakingPrincipalCurrency: 'ATOM',
+      stakingPrincipalDenom: 'uatom',
+      stakingValidatorAddress: VALIDATOR_ADDRESS,
       to: TEST_ADDRESS,
       txType: 'staking_undelegate',
     });
