@@ -15,6 +15,7 @@ import {
 } from './accounts-browse-command.js';
 import { registerAccountsExploreCommand } from './accounts-explore.js';
 import { registerAccountsListCommand } from './accounts-list.js';
+import { registerAccountsReconcileCommand } from './accounts-reconcile.js';
 import { registerAccountsRefreshCommand } from './accounts-refresh.js';
 import { registerAccountsRemoveCommand } from './accounts-remove.js';
 import { registerAccountsUpdateCommand } from './accounts-update.js';
@@ -31,6 +32,7 @@ const ACCOUNTS_COMMAND_ID = 'accounts';
  *   accounts view <name>     - Static account detail card
  *   accounts explore [name]  - Accounts explorer
  *   accounts refresh [name]  - Refresh stored balances and verify live data
+ *   accounts reconcile [name]- Compare ledger balances against stored or live references
  *   accounts add             - Create an account
  *   accounts update          - Update account properties
  *   accounts remove          - Remove an account and all attached data
@@ -54,6 +56,7 @@ Examples:
   $ exitbook accounts explore kraken-main
   $ exitbook accounts refresh
   $ exitbook accounts refresh kraken-main
+  $ exitbook accounts reconcile kraken-main
   $ exitbook accounts --json
 
 Browse Options:
@@ -64,8 +67,9 @@ Notes:
   - Use "accounts view <selector>" for one static account detail card.
   - Use "accounts explore" for the interactive explorer.
   - Use "accounts refresh" to rebuild stored balances and verify live data.
+  - Use "accounts reconcile" to compare ledger balances against stored or live reference balances.
   - Account selectors may be account names or account fingerprint prefixes.
-  - Account names cannot use reserved command words such as add, explore, list, refresh, remove, update, or view.
+  - Account names cannot use reserved command words such as add, explore, list, reconcile, refresh, remove, update, or view.
 `
     );
 
@@ -103,6 +107,7 @@ Notes:
   registerAccountsViewCommand(accounts);
   registerAccountsExploreCommand(accounts);
   registerAccountsRefreshCommand(accounts, appRuntime);
+  registerAccountsReconcileCommand(accounts, appRuntime);
   registerAccountsUpdateCommand(accounts, appRuntime);
   registerAccountsRemoveCommand(accounts);
 }

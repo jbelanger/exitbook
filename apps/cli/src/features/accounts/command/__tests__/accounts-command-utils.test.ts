@@ -118,7 +118,7 @@ describe('registerAccountsCommand', () => {
     expect(accountsCommand?.description()).toBe('Browse and manage accounts');
     const subcommandNames = accountsCommand?.commands.map((command) => command.name()) ?? [];
     expect(subcommandNames).toEqual(
-      expect.arrayContaining(['add', 'list', 'view', 'explore', 'refresh', 'update', 'remove'])
+      expect.arrayContaining(['add', 'list', 'view', 'explore', 'refresh', 'reconcile', 'update', 'remove'])
     );
     expect(subcommandNames).not.toContain('rename');
   });

@@ -17,6 +17,23 @@ export const AccountsBrowseCommandOptionsSchema = JsonFlagSchema.extend({
 
 export const AccountsRefreshCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(JsonFlagSchema.shape);
 
+export const AccountsReconcileCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(JsonFlagSchema.shape)
+  .extend({
+    all: z.boolean().optional(),
+    reference: z.enum(['stored', 'live']).optional(),
+    refreshLive: z.boolean().optional(),
+    strict: z.boolean().optional(),
+    tolerance: z.string().trim().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.refreshLive === true && data.reference === 'stored') {
+      ctx.addIssue({
+        code: 'custom',
+        message: '--refresh-live cannot be combined with --reference stored',
+      });
+    }
+  });
+
 export const AccountAddCommandOptionsSchema = SourceSelectionSchema.extend(BlockchainFieldsSchema.shape)
   .extend(
     z.object({

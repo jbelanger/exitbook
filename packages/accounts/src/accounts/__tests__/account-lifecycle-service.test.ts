@@ -202,7 +202,7 @@ describe('AccountLifecycleService', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toContain("Account name 'view' is reserved");
-      expect(result.error.message).toContain('add, explore, list, refresh, remove, update, view');
+      expect(result.error.message).toContain('add, explore, list, reconcile, refresh, remove, update, view');
     }
   });
 

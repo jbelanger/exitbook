@@ -32,7 +32,7 @@ Notes:
   - Create exactly one account type per command: exchange API, exchange CSV, or blockchain wallet.
   - Exchange CSV accounts may also store provider credentials for live balance refresh.
   - Use --provider and --xpub-gap only for blockchain accounts.
-  - Account names cannot use reserved command words such as add, explore, list, refresh, remove, update, or view.
+  - Account names cannot use reserved command words such as add, explore, list, reconcile, refresh, remove, update, or view.
 `
     )
     .argument('<name>', 'Account name')
