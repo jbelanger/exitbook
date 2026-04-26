@@ -1,5 +1,13 @@
 export {
+  AccountingBalanceCategoryDocs,
+  AccountingBalanceCategorySchema,
+  AccountingBalanceCategoryValues,
+  type AccountingBalanceCategory,
+} from './balance-category.js';
+export {
+  AccountingPostingRoleDocs,
   AccountingPostingRoleSchema,
+  AccountingPostingRoleValues,
   isAccountingPostingRoleCompatibleWithQuantitySign,
   type AccountingPostingRole,
 } from './posting-role.js';

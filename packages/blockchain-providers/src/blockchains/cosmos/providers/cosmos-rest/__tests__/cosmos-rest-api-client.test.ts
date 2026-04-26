@@ -85,12 +85,114 @@ function buildTxResponse(overrides?: Partial<CosmosTxResponse>): CosmosTxRespons
   };
 }
 
+function buildRewardTxResponse(overrides?: Partial<CosmosTxResponse>): CosmosTxResponse {
+  return buildTxResponse({
+    txhash: 'REWARD1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+    tx: {
+      body: {
+        messages: [
+          {
+            '@type': '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+            delegator_address: TEST_ADDRESS,
+            validator_address: 'cosmosvaloper1validator0000000000000000000000',
+          },
+        ],
+      },
+      auth_info: {
+        fee: {
+          amount: [{ denom: 'uatom', amount: '6800' }],
+          gas_limit: '200000',
+        },
+        signer_infos: [],
+      },
+      signatures: ['sig'],
+    },
+    events: [
+      {
+        type: 'withdraw_rewards',
+        attributes: [
+          { key: 'amount', value: '5ibc/ABCDEF,67732uatom' },
+          { key: 'validator', value: 'cosmosvaloper1validator0000000000000000000000' },
+          { key: 'delegator', value: TEST_ADDRESS },
+          { key: 'msg_index', value: '0' },
+        ],
+      },
+    ],
+    ...overrides,
+  });
+}
+
+function buildUndelegateTxResponse(overrides?: Partial<CosmosTxResponse>): CosmosTxResponse {
+  return buildTxResponse({
+    txhash: 'UNDELEGATE234567890ABCDEF1234567890ABCDEF1234567890ABCDEF123456',
+    tx: {
+      body: {
+        messages: [
+          {
+            '@type': '/cosmos.staking.v1beta1.MsgUndelegate',
+            delegator_address: TEST_ADDRESS,
+            validator_address: 'cosmosvaloper1validator0000000000000000000000',
+            amount: { denom: 'uatom', amount: '300000' },
+          },
+        ],
+      },
+      auth_info: {
+        fee: {
+          amount: [{ denom: 'uatom', amount: '5070' }],
+          gas_limit: '200000',
+        },
+        signer_infos: [],
+      },
+      signatures: ['sig'],
+    },
+    events: [
+      {
+        type: 'withdraw_rewards',
+        attributes: [
+          { key: 'amount', value: '11uatom' },
+          { key: 'validator', value: 'cosmosvaloper1validator0000000000000000000000' },
+          { key: 'delegator', value: TEST_ADDRESS },
+          { key: 'msg_index', value: '0' },
+        ],
+      },
+      {
+        type: 'unbond',
+        attributes: [
+          { key: 'amount', value: '300000uatom' },
+          { key: 'validator', value: 'cosmosvaloper1validator0000000000000000000000' },
+          { key: 'delegator', value: TEST_ADDRESS },
+          { key: 'msg_index', value: '0' },
+        ],
+      },
+    ],
+    ...overrides,
+  });
+}
+
 function buildApiResponse(txResponses: CosmosTxResponse[], nextKey?: string): CosmosRestApiResponse {
   return {
     tx_responses: txResponses,
     txs: [],
     pagination: { next_key: nextKey ?? null },
   };
+}
+
+const ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX = [
+  `message.sender='${TEST_ADDRESS}'`,
+  `coin_spent.spender='${TEST_ADDRESS}'`,
+  `coin_received.receiver='${TEST_ADDRESS}'`,
+  `transfer.sender='${TEST_ADDRESS}'`,
+  `transfer.recipient='${TEST_ADDRESS}'`,
+  `withdraw_rewards.delegator='${TEST_ADDRESS}'`,
+  `delegate.delegator='${TEST_ADDRESS}'`,
+  `unbond.delegator='${TEST_ADDRESS}'`,
+  `redelegate.delegator='${TEST_ADDRESS}'`,
+] as const;
+
+function mockAccountEventSearchResponses(responsesByIndex: Partial<Record<number, CosmosRestApiResponse>> = {}): void {
+  for (const index of ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.keys()) {
+    mockHttp.get.mockResolvedValueOnce(ok(responsesByIndex[index] ?? buildApiResponse([])));
+  }
 }
 
 function buildBalanceResponse(amount: string, denom = 'uatom'): CosmosBalanceResponse {
@@ -234,10 +336,10 @@ describe('CosmosRestApiClient', () => {
       expect(expectErr(results[0]!).message).toContain('Unsupported transaction type');
     });
 
-    it('should stream transactions via dual sender+recipient fetch', async () => {
-      mockGet
-        .mockResolvedValueOnce(ok(buildApiResponse([buildTxResponse()]))) // sender
-        .mockResolvedValueOnce(ok(buildApiResponse([]))); // recipient
+    it('should stream transactions through account event searches', async () => {
+      mockAccountEventSearchResponses({
+        1: buildApiResponse([buildTxResponse()]),
+      });
 
       const transactions: CosmosTransaction[] = [];
       for await (const result of client.executeStreaming<CosmosTransaction>({
@@ -251,12 +353,69 @@ describe('CosmosRestApiClient', () => {
       expect(transactions).toHaveLength(1);
       expect(transactions[0]!.id).toBe(TX_HASH);
       expect(transactions[0]!.providerName).toBe('cosmos-rest');
-      expect(mockGet).toHaveBeenCalledTimes(2);
+      expect(mockGet).toHaveBeenCalledTimes(ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.length);
+      for (const [index, expectedQuery] of ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.entries()) {
+        const params = new URLSearchParams(String(mockGet.mock.calls[index]?.[0]).split('?')[1]);
+        expect(params.get('query')).toBe(expectedQuery);
+      }
+    });
+
+    it('normalizes staking reward withdrawals from withdraw_rewards events', async () => {
+      mockAccountEventSearchResponses({
+        5: buildApiResponse([buildRewardTxResponse()]),
+      });
+
+      const transactions: CosmosTransaction[] = [];
+      for await (const result of client.executeStreaming<CosmosTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]).toMatchObject({
+        amount: '0.067732',
+        currency: 'ATOM',
+        from: 'cosmosvaloper1validator0000000000000000000000',
+        messageType: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+        to: TEST_ADDRESS,
+        txType: 'staking_reward',
+      });
+    });
+
+    it('keeps staking operations with reward components importable', async () => {
+      mockAccountEventSearchResponses({
+        0: buildApiResponse([buildUndelegateTxResponse()]),
+      });
+
+      const transactions: CosmosTransaction[] = [];
+      for await (const result of client.executeStreaming<CosmosTransaction>({
+        type: 'getAddressTransactions',
+        address: TEST_ADDRESS,
+      })) {
+        const batch = expectOk(result);
+        transactions.push(...batch.data.map((item) => item.normalized));
+      }
+
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]).toMatchObject({
+        amount: '0.000011',
+        currency: 'ATOM',
+        from: 'cosmosvaloper1validator0000000000000000000000',
+        messageType: '/cosmos.staking.v1beta1.MsgUndelegate',
+        to: TEST_ADDRESS,
+        txType: 'staking_undelegate',
+      });
     });
 
     it('should deduplicate transactions that appear in both sender and recipient results', async () => {
       const tx = buildTxResponse();
-      mockGet.mockResolvedValueOnce(ok(buildApiResponse([tx]))).mockResolvedValueOnce(ok(buildApiResponse([tx]))); // same tx in both streams
+      mockAccountEventSearchResponses({
+        1: buildApiResponse([tx]),
+        2: buildApiResponse([tx]),
+      });
 
       const transactions: CosmosTransaction[] = [];
       for await (const result of client.executeStreaming<CosmosTransaction>({
@@ -271,7 +430,7 @@ describe('CosmosRestApiClient', () => {
     });
 
     it('should handle empty transaction list', async () => {
-      mockGet.mockResolvedValueOnce(ok(buildApiResponse([]))).mockResolvedValueOnce(ok(buildApiResponse([])));
+      mockAccountEventSearchResponses();
 
       const transactions: CosmosTransaction[] = [];
       for await (const result of client.executeStreaming<CosmosTransaction>({
@@ -285,7 +444,7 @@ describe('CosmosRestApiClient', () => {
       expect(transactions).toHaveLength(0);
     });
 
-    it('should propagate sender stream API errors', async () => {
+    it('should propagate account event search API errors', async () => {
       mockGet.mockResolvedValueOnce(err(new Error('Rate limited')));
 
       let gotError = false;
@@ -300,7 +459,7 @@ describe('CosmosRestApiClient', () => {
       expect(gotError).toBe(true);
     });
 
-    it('should propagate recipient stream API errors', async () => {
+    it('should propagate later account event search API errors', async () => {
       mockGet.mockResolvedValueOnce(ok(buildApiResponse([]))).mockResolvedValueOnce(err(new Error('Network timeout')));
 
       let gotError = false;
@@ -315,7 +474,7 @@ describe('CosmosRestApiClient', () => {
       expect(gotError).toBe(true);
     });
 
-    it('should paginate when next_key is present in sender response', async () => {
+    it('should paginate when next_key is present in an account event search response', async () => {
       const tx1 = buildTxResponse({
         txhash: 'TX1111111111111111111111111111111111111111111111111111111111111111',
         height: '200',
@@ -325,11 +484,10 @@ describe('CosmosRestApiClient', () => {
         height: '100',
       });
 
-      // Page 1: sender has more pages, recipient is complete
-      mockGet
-        .mockResolvedValueOnce(ok(buildApiResponse([tx1], 'next-page-token')))
-        .mockResolvedValueOnce(ok(buildApiResponse([])));
-      // Page 2: sender is now complete (recipient already done — skipped)
+      mockGet.mockResolvedValueOnce(ok(buildApiResponse([tx1], 'next-page-token')));
+      for (let index = 1; index < ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.length; index += 1) {
+        mockGet.mockResolvedValueOnce(ok(buildApiResponse([])));
+      }
       mockGet.mockResolvedValueOnce(ok(buildApiResponse([tx2])));
 
       const transactions: CosmosTransaction[] = [];
@@ -342,8 +500,7 @@ describe('CosmosRestApiClient', () => {
       }
 
       expect(transactions).toHaveLength(2);
-      // 2 calls on page 1 (sender + recipient), 1 call on page 2 (sender only)
-      expect(mockGet).toHaveBeenCalledTimes(3);
+      expect(mockGet).toHaveBeenCalledTimes(ACCOUNT_EVENT_SEARCH_QUERY_BY_INDEX.length + 1);
     });
   });
 

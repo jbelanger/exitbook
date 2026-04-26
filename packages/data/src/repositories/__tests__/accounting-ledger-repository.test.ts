@@ -115,6 +115,7 @@ describe('AccountingLedgerRepository', () => {
     expect(postings.map((posting) => posting.postingStableKey)).toEqual(['posting:fee', 'posting:principal:out']);
     expect(postings[0]?.quantity.toFixed()).toBe('-0.2');
     expect(postings[0]?.role).toBe('fee');
+    expect(postings[0]?.balanceCategory).toBe('liquid');
     expect(postings[0]?.settlement).toBe('on-chain');
     expect(postings[1]?.quantity.toFixed()).toBe('-10');
     expect(postings[1]?.journalKind).toBe('transfer');
@@ -585,6 +586,7 @@ describe('AccountingLedgerRepository', () => {
   function makeSourceActivity(overrides: Partial<SourceActivityDraft> = {}): SourceActivityDraft {
     return {
       ownerAccountId: ACCOUNT_ID,
+      sourceActivityOrigin: 'provider_event',
       sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
       platformKey: 'cardano',
       platformKind: 'blockchain',
@@ -626,6 +628,7 @@ describe('AccountingLedgerRepository', () => {
   }
 
   function makePosting(params: {
+    balanceCategory?: AccountingPostingDraft['balanceCategory'] | undefined;
     componentId: string;
     componentKind: AccountingPostingDraft['sourceComponentRefs'][number]['component']['componentKind'];
     postingStableKey: string;
@@ -642,6 +645,7 @@ describe('AccountingLedgerRepository', () => {
       assetSymbol: ADA,
       quantity: parseDecimal(params.quantity),
       role: params.role ?? 'principal',
+      balanceCategory: params.balanceCategory ?? 'liquid',
       ...(params.settlement === undefined ? {} : { settlement: params.settlement }),
       sourceComponentRefs: [
         {

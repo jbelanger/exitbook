@@ -15,6 +15,7 @@ function createPosting(overrides: Partial<AccountingPostingDraft> = {}): Account
     assetSymbol: ETH,
     quantity: parseDecimal('-1'),
     role: 'principal',
+    balanceCategory: 'liquid',
     sourceComponentRefs: [
       {
         component: {
@@ -30,13 +31,14 @@ function createPosting(overrides: Partial<AccountingPostingDraft> = {}): Account
 }
 
 describe('computeAccountingPostingFingerprint', () => {
-  it('ignores role, settlement, and price when computing the fingerprint', () => {
+  it('ignores role, balance category, settlement, and price when computing the fingerprint', () => {
     const firstFingerprint = assertOk(computeAccountingPostingFingerprint('ledger_journal:v1:abc', createPosting()));
     const secondFingerprint = assertOk(
       computeAccountingPostingFingerprint(
         'ledger_journal:v1:abc',
         createPosting({
           role: 'protocol_overhead',
+          balanceCategory: 'staked',
           settlement: 'balance',
           priceAtTxTime: {
             price: {

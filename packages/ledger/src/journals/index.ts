@@ -1,4 +1,9 @@
-export { AccountingJournalKindSchema, type AccountingJournalKind } from './journal-kind.js';
+export {
+  AccountingJournalKindDocs,
+  AccountingJournalKindSchema,
+  AccountingJournalKindValues,
+  type AccountingJournalKind,
+} from './journal-kind.js';
 export {
   AccountingDiagnosticDraftSchema,
   AccountingJournalDraftSchema,

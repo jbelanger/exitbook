@@ -397,6 +397,7 @@ function buildPrincipalPosting(params: {
       assetSymbol: params.assetRef.assetSymbol,
       quantity,
       role: 'principal',
+      balanceCategory: 'liquid',
       sourceComponentRefs,
     };
   });
@@ -415,6 +416,7 @@ function buildNetworkFeePosting(
     assetSymbol: feeCurrency,
     quantity: feeAmount.negated(),
     role: 'fee',
+    balanceCategory: 'liquid',
     settlement: 'on-chain',
     sourceComponentRefs: [
       buildSourceComponentQuantityRef({
@@ -560,6 +562,7 @@ function buildBitcoinSourceActivityDraft(params: {
 }): SourceActivityDraft {
   return {
     ownerAccountId: params.context.account.id,
+    sourceActivityOrigin: 'provider_event',
     sourceActivityFingerprint: params.sourceActivityFingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',

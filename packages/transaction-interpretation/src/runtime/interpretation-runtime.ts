@@ -309,8 +309,9 @@ export class InterpretationRuntime {
       return err(validationResult.error);
     }
 
-    const replaceResult = await this.#annotationStore.replaceForTransaction({
-      transactionId: input.transactionId,
+    const replaceResult = await this.#annotationStore.replaceForDetectorInputs({
+      detectorId: detector.id,
+      derivedFromTxIds: [input.transactionId],
       annotations: validationResult.value,
     });
 

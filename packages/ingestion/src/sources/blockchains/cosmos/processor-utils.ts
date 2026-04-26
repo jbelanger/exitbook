@@ -10,6 +10,13 @@ import type { CosmosAssetMovement, CosmosFundFlow } from './types.js';
 
 const logger = getLogger('cosmos-processor-utils');
 
+const USER_INITIATED_STAKING_TX_TYPES = new Set([
+  'staking_delegate',
+  'staking_redelegate',
+  'staking_reward',
+  'staking_undelegate',
+]);
+
 /**
  * Checks if a string value represents zero.
  *
@@ -55,6 +62,14 @@ export function deduplicateByEventId(transactions: CosmosTransaction[]): CosmosT
   }
 
   return deduplicated;
+}
+
+export function isUserInitiatedCosmosOperation(transaction: CosmosTransaction, context: AddressContext): boolean {
+  if (transaction.from === context.primaryAddress) {
+    return true;
+  }
+
+  return transaction.to === context.primaryAddress && USER_INITIATED_STAKING_TX_TYPES.has(transaction.txType ?? '');
 }
 
 /**

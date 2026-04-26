@@ -761,7 +761,10 @@ describe('determineEvmOperationFromFundFlow', () => {
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
       expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
       expect(result.diagnostics?.[0]?.message).toContain('Injective');
+      expect(result.diagnostics?.[0]?.metadata?.['bridgeDirection']).toBe('source');
+      expect(result.diagnostics?.[0]?.metadata?.['detectionSource']).toBe('function_name');
       expect(result.diagnostics?.[0]?.metadata?.['functionName']).toBe('sendToInjective(address,string,uint256)');
     });
 
@@ -805,7 +808,10 @@ describe('determineEvmOperationFromFundFlow', () => {
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
       expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
       expect(result.diagnostics?.[0]?.message).toContain('Wormhole');
+      expect(result.diagnostics?.[0]?.metadata?.['bridgeDirection']).toBe('source');
+      expect(result.diagnostics?.[0]?.metadata?.['hasCompleteValueEvidence']).toBe(false);
       expect(result.diagnostics?.[0]?.metadata?.['functionName']).toBe(
         'transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes)'
       );
@@ -835,6 +841,7 @@ describe('determineEvmOperationFromFundFlow', () => {
           from: '0x123',
           functionName: 'depositForBurn(uint256,uint32,bytes32,address)',
           id: '0xcctp-withdrawal',
+          methodId: '0x6fd3504e',
           providerName: 'etherscan',
           status: 'success',
           timestamp: 1,
@@ -851,7 +858,55 @@ describe('determineEvmOperationFromFundFlow', () => {
 
       expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
       expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.severity).toBe('warning');
       expect(result.diagnostics?.[0]?.metadata?.['bridgeFamily']).toBe('cctp');
+      expect(result.diagnostics?.[0]?.metadata?.['detectionSource']).toBe('method_id');
+      expect(result.diagnostics?.[0]?.metadata?.['methodId']).toBe('0x6fd3504e');
+    });
+
+    it('adds bridge diagnostics from Polygon zkEVM bridgeAsset method ids when the provider omits function names', () => {
+      const fundFlow: EvmFundFlow = {
+        inflows: [],
+        outflows: [{ asset: 'ETH' as Currency, amount: '0.01' }],
+        primary: { asset: 'ETH' as Currency, amount: '0.01' },
+        feeAmount: '0.001',
+        feeCurrency: 'ETH' as Currency,
+        fromAddress: '0x123',
+        toAddress: '0x456',
+        transactionCount: 1,
+        hasContractInteraction: true,
+        hasInternalTransactions: false,
+        hasTokenTransfers: false,
+      };
+      const txGroup: EvmTransaction[] = [
+        {
+          amount: '10000000000000000',
+          currency: 'ETH',
+          eventId: 'polygon-zkevm-bridge-withdrawal-evt',
+          feeAmount: '1000000000000000',
+          feeCurrency: 'ETH' as Currency,
+          from: '0x123',
+          id: '0xpolygon-zkevm-bridge-withdrawal',
+          methodId: '0xcd586579',
+          providerName: 'etherscan',
+          status: 'success',
+          timestamp: 1,
+          to: '0xbridge',
+          tokenType: 'native',
+          type: 'contract_call',
+        },
+      ];
+
+      const result = determineEvmOperationFromFundFlow(fundFlow, txGroup);
+
+      expect(result.operation).toEqual({ category: 'transfer', type: 'withdrawal' });
+      expect(result.diagnostics?.[0]?.code).toBe('bridge_transfer');
+      expect(result.diagnostics?.[0]?.metadata).toMatchObject({
+        bridgeDirection: 'source',
+        bridgeFamily: 'polygon_zkevm_bridge',
+        detectionSource: 'method_id',
+        methodId: '0xcd586579',
+      });
     });
 
     it('classifies multi-asset withdrawal when multiple outflows present', () => {

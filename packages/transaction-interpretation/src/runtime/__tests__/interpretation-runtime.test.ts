@@ -162,7 +162,7 @@ function createProfileDetector(annotations: readonly TransactionAnnotation[]): I
 }
 
 describe('InterpretationRuntime', () => {
-  it('persists validated detector output for the requested transaction', async () => {
+  it('replaces only the requested detector output for the requested transaction', async () => {
     const annotation = buildAnnotation();
     const detector = createDetector(annotation);
     const registry = new TransactionAnnotationDetectorRegistry();
@@ -179,10 +179,12 @@ describe('InterpretationRuntime', () => {
     });
 
     expect(assertOk(result)).toBeUndefined();
-    expect(annotationStore.replaceForTransaction).toHaveBeenCalledWith({
-      transactionId: annotation.transactionId,
+    expect(annotationStore.replaceForDetectorInputs).toHaveBeenCalledWith({
+      detectorId: detector.id,
+      derivedFromTxIds: [annotation.transactionId],
       annotations: [annotation],
     });
+    expect(annotationStore.replaceForTransaction).not.toHaveBeenCalled();
     expect(sourceReader.loadTransactionForInterpretation).toHaveBeenCalledWith({
       accountId: annotation.accountId,
       transactionId: annotation.transactionId,

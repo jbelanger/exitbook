@@ -185,6 +185,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('source_activities')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('owner_account_id', 'integer', (col) => col.notNull().references('accounts.id'))
+    .addColumn('source_activity_origin', 'text', (col) => col.notNull())
     .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('platform_kind', 'text', (col) => col.notNull())
     .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
@@ -199,6 +200,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('blockchain_is_confirmed', 'boolean')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'source_activities_origin_valid',
+      sql`source_activity_origin IN ('provider_event', 'balance_snapshot', 'manual_accounting_entry')`
+    )
     .addCheckConstraint('source_activities_platform_kind_valid', sql`platform_kind IN ('blockchain', 'exchange')`)
     .addCheckConstraint(
       'source_activities_status_valid',
@@ -262,7 +267,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updated_at', 'text')
     .addCheckConstraint(
       'accounting_journals_kind_valid',
-      sql`journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'unknown')`
+      sql`journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'opening_balance', 'unknown')`
     )
     .addCheckConstraint('accounting_journals_fingerprint_not_empty', sql`trim(journal_fingerprint) <> ''`)
     .addCheckConstraint('accounting_journals_stable_key_not_empty', sql`trim(journal_stable_key) <> ''`)
@@ -336,6 +341,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('asset_symbol', 'text', (col) => col.notNull())
     .addColumn('quantity', 'text', (col) => col.notNull())
     .addColumn('posting_role', 'text', (col) => col.notNull())
+    .addColumn('balance_category', 'text', (col) => col.notNull())
     .addColumn('settlement', 'text')
     .addColumn('price_amount', 'text')
     .addColumn('price_currency', 'text')
@@ -354,7 +360,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint('accounting_postings_quantity_not_empty', sql`trim(quantity) <> ''`)
     .addCheckConstraint(
       'accounting_postings_role_valid',
-      sql`posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate')`
+      sql`posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate', 'opening_position')`
+    )
+    .addCheckConstraint(
+      'accounting_postings_balance_category_valid',
+      sql`balance_category IN ('liquid', 'staked', 'unbonding', 'reward_receivable')`
     )
     .addCheckConstraint(
       'accounting_postings_settlement_valid',
@@ -419,7 +429,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addCheckConstraint(
       'accounting_posting_source_components_component_kind_valid',
-      sql`component_kind IN ('raw_event', 'exchange_fill', 'exchange_fee', 'utxo_input', 'utxo_output', 'cardano_collateral_input', 'cardano_collateral_return', 'cardano_stake_certificate', 'cardano_delegation_certificate', 'cardano_mir_certificate', 'account_delta', 'staking_reward', 'message', 'network_fee')`
+      sql`component_kind IN ('raw_event', 'exchange_fill', 'exchange_fee', 'utxo_input', 'utxo_output', 'cardano_collateral_input', 'cardano_collateral_return', 'cardano_stake_certificate', 'cardano_delegation_certificate', 'cardano_mir_certificate', 'account_delta', 'staking_reward', 'message', 'network_fee', 'balance_snapshot')`
     )
     .addCheckConstraint('accounting_posting_source_components_component_id_not_empty', sql`trim(component_id) <> ''`)
     .addCheckConstraint(
@@ -523,11 +533,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addCheckConstraint(
       'accounting_overrides_journal_kind_valid',
-      sql`journal_kind IS NULL OR journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'unknown')`
+      sql`journal_kind IS NULL OR journal_kind IN ('transfer', 'trade', 'staking_reward', 'protocol_event', 'refund_rebate', 'internal_transfer', 'expense_only', 'opening_balance', 'unknown')`
     )
     .addCheckConstraint(
       'accounting_overrides_posting_role_valid',
-      sql`posting_role IS NULL OR posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate')`
+      sql`posting_role IS NULL OR posting_role IN ('principal', 'fee', 'staking_reward', 'protocol_deposit', 'protocol_refund', 'protocol_overhead', 'refund_rebate', 'opening_position')`
     )
     .addCheckConstraint(
       'accounting_overrides_settlement_valid',

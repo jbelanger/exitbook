@@ -12,7 +12,12 @@ import type { MovementWithContext, ScamDetector } from '../../../features/scam-d
 import { detectPromoMemoDiagnostic } from '../../../features/scam-detection/scam-detection-utils.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 
-import { analyzeCosmosFundFlow, deduplicateByEventId, determineOperationFromFundFlow } from './processor-utils.js';
+import {
+  analyzeCosmosFundFlow,
+  deduplicateByEventId,
+  determineOperationFromFundFlow,
+  isUserInitiatedCosmosOperation,
+} from './processor-utils.js';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
@@ -57,7 +62,7 @@ export class CosmosProcessor extends BaseTransactionProcessor<CosmosTransaction>
         // 1. Any outflows (sent funds, delegated, swapped, etc.)
         // 2. User-initiated transactions with no outflows (governance votes, contract calls, etc.)
         // Addresses are normalized to lowercase via CosmosAddressSchema.
-        const userInitiatedTransaction = transaction.from === context.primaryAddress;
+        const userInitiatedTransaction = isUserInitiatedCosmosOperation(transaction, context);
         const shouldRecordFeeEntry = fundFlow.outflows.length > 0 || userInitiatedTransaction;
         const promoMemoDiagnostic = detectPromoMemoDiagnostic({
           memo: transaction.memo,

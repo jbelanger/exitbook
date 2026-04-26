@@ -54,6 +54,7 @@ function buildCardanoSourceActivityDraft(
 ): SourceActivityDraft {
   return {
     ownerAccountId: context.account.id,
+    sourceActivityOrigin: 'provider_event',
     sourceActivityFingerprint,
     platformKey: 'cardano',
     platformKind: 'blockchain',

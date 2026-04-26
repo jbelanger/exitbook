@@ -77,6 +77,7 @@ function buildEvmSourceActivityDraft(params: {
 }): SourceActivityDraft {
   return {
     ownerAccountId: params.context.account.id,
+    sourceActivityOrigin: 'provider_event',
     sourceActivityFingerprint: params.sourceActivityFingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',

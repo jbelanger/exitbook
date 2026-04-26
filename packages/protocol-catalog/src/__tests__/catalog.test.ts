@@ -58,6 +58,10 @@ describe('createSeedProtocolCatalog', () => {
       'wormhole',
       'ibc',
       'peggy',
+      'cctp',
+      'op-stack-standard-bridge',
+      'arbitrum-bridge',
+      'polygon-zkevm-bridge',
       'gravity',
       'layerzero',
       'hop',
@@ -70,5 +74,9 @@ describe('createSeedProtocolCatalog', () => {
     const catalog = createSeedProtocolCatalog();
 
     expect(catalog.findByAlias('injective_peggy')?.protocol).toEqual({ id: 'peggy' });
+    expect(catalog.findByAlias('op_stack_standard_bridge')?.protocol).toEqual({
+      id: 'op-stack-standard-bridge',
+    });
+    expect(catalog.findByAlias('polygon_zkevm_bridge')?.protocol).toEqual({ id: 'polygon-zkevm-bridge' });
   });
 });

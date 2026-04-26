@@ -234,6 +234,7 @@ function buildWalletDeltaPosting(params: {
       assetSymbol: assetRef.assetSymbol,
       quantity: params.quantity,
       role: params.role,
+      balanceCategory: 'liquid',
       sourceComponentRefs,
     };
   });
@@ -254,6 +255,7 @@ function buildNetworkFeePosting(
       assetSymbol: feeCurrency,
       quantity: feeAmount.negated(),
       role: 'fee',
+      balanceCategory: 'liquid',
       settlement: 'on-chain',
       sourceComponentRefs: [
         buildPostingComponentRef(
@@ -417,6 +419,7 @@ export function buildStakingRewardPosting(
       assetSymbol: assetRef.assetSymbol,
       quantity: walletWithdrawalAmount,
       role: 'staking_reward',
+      balanceCategory: 'liquid',
       sourceComponentRefs,
     };
   });
@@ -504,6 +507,7 @@ function buildProtocolDepositPosting(
       assetSymbol: assetRef.assetSymbol,
       quantity,
       role: protocolDepositDeltaAmount.gt(0) ? 'protocol_deposit' : 'protocol_refund',
+      balanceCategory: 'liquid',
       sourceComponentRefs,
     };
   });
@@ -528,6 +532,7 @@ function buildTreasuryDonationPosting(
       assetSymbol: assetRef.assetSymbol,
       quantity: treasuryDonationAmount.negated(),
       role: 'protocol_overhead',
+      balanceCategory: 'liquid',
       sourceComponentRefs: [
         buildTreasuryDonationComponentRef(
           sourceActivityFingerprint,

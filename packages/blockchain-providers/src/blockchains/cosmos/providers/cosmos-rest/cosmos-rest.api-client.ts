@@ -39,6 +39,104 @@ interface CosmosRestProviderConfig extends ProviderConfig {
   chainName?: string;
 }
 
+interface CosmosAccountEventSearch {
+  complete: boolean;
+  key: string;
+  pageToken?: string | undefined;
+  query: string;
+}
+
+interface CosmosAccountEventSearchCursor {
+  complete?: boolean | undefined;
+  key?: string | undefined;
+  pageToken?: string | undefined;
+}
+
+interface CosmosAccountEventSearchMetadata {
+  accountEventSearches?: CosmosAccountEventSearchCursor[] | undefined;
+}
+
+const DEFAULT_COSMOS_ACCOUNT_EVENT_SEARCH_TEMPLATES = [
+  { key: 'message_sender', query: "message.sender='${address}'" },
+  { key: 'coin_spent', query: "coin_spent.spender='${address}'" },
+  { key: 'coin_received', query: "coin_received.receiver='${address}'" },
+  { key: 'transfer_sender', query: "transfer.sender='${address}'" },
+  { key: 'transfer_recipient', query: "transfer.recipient='${address}'" },
+  { key: 'withdraw_rewards', query: "withdraw_rewards.delegator='${address}'" },
+  { key: 'delegate', query: "delegate.delegator='${address}'" },
+  { key: 'unbond', query: "unbond.delegator='${address}'" },
+  { key: 'redelegate', query: "redelegate.delegator='${address}'" },
+] as const;
+
+function materializeCosmosEventQuery(queryTemplate: string, address: string): string {
+  return queryTemplate.includes('${address}') ? queryTemplate.replaceAll('${address}', address) : queryTemplate;
+}
+
+function buildCosmosAccountEventSearches(chainConfig: CosmosChainConfig, address: string): CosmosAccountEventSearch[] {
+  const configuredSearches =
+    chainConfig.eventFilters === undefined
+      ? []
+      : [
+          { key: 'configured_sender', query: chainConfig.eventFilters.sender },
+          { key: 'configured_receiver', query: chainConfig.eventFilters.receiver },
+        ];
+
+  const searches = [...configuredSearches, ...DEFAULT_COSMOS_ACCOUNT_EVENT_SEARCH_TEMPLATES].map((search) => ({
+    complete: false,
+    key: search.key,
+    query: materializeCosmosEventQuery(search.query, address),
+  }));
+
+  const uniqueSearches = new Map<string, CosmosAccountEventSearch>();
+  for (const search of searches) {
+    const identity = search.query;
+    if (!uniqueSearches.has(identity)) {
+      uniqueSearches.set(identity, search);
+    }
+  }
+
+  return Array.from(uniqueSearches.values());
+}
+
+function restoreCosmosAccountEventSearches(
+  searches: CosmosAccountEventSearch[],
+  metadata: CosmosAccountEventSearchMetadata | undefined
+): void {
+  const cursorsByKey = new Map((metadata?.accountEventSearches ?? []).map((cursor) => [cursor.key, cursor]));
+  for (const search of searches) {
+    const cursor = cursorsByKey.get(search.key);
+    if (cursor === undefined) {
+      continue;
+    }
+
+    search.complete = cursor.complete ?? false;
+    search.pageToken = cursor.pageToken;
+  }
+}
+
+function serializeCosmosAccountEventSearches(searches: CosmosAccountEventSearch[]): CosmosAccountEventSearchCursor[] {
+  return searches.map((search) => ({
+    complete: search.complete,
+    key: search.key,
+    pageToken: search.pageToken,
+  }));
+}
+
+function pairCosmosTxResponses(response: CosmosRestApiResponse): CosmosTxResponse[] {
+  const txResponses = response.tx_responses || [];
+  const txs = response.txs || [];
+
+  return txResponses.map((txResponse, index) => {
+    if (txResponse.tx) {
+      return txResponse;
+    }
+    if (txs[index]) {
+      return { ...txResponse, tx: txs[index] };
+    }
+    return txResponse;
+  });
+}
+
 // This class is instantiated via per-chain factories exported at the bottom of this file.
 export class CosmosRestApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
@@ -207,138 +305,61 @@ export class CosmosRestApiClient extends BaseApiClient {
   ): AsyncIterableIterator<Result<StreamingBatchResult<CosmosTransaction>, Error>> {
     const BATCH_SIZE = 50;
 
-    // Local state - persists across fetchPage calls in same run
-    let senderPageToken: string | undefined;
-    let recipientPageToken: string | undefined;
-    let senderComplete = false;
-    let recipientComplete = false;
+    const accountEventSearches = buildCosmosAccountEventSearches(this.chainConfig, address);
     let isInitialized = false;
 
     const fetchPage = async (ctx: StreamingPageContext): Promise<Result<StreamingPage<CosmosTxResponse>, Error>> => {
       // Initialize: restore pagination tokens from resume cursor (FIRST CALL ONLY)
       if (!isInitialized) {
-        const customMeta = ctx.resumeCursor?.metadata?.['custom'] as
-          | {
-              recipientComplete?: boolean;
-              recipientPageToken?: string;
-              senderComplete?: boolean;
-              senderPageToken?: string;
-            }
-          | undefined;
-
-        if (customMeta) {
-          senderPageToken = customMeta.senderPageToken;
-          recipientPageToken = customMeta.recipientPageToken;
-          senderComplete = customMeta.senderComplete ?? false;
-          recipientComplete = customMeta.recipientComplete ?? false;
-        } else if (ctx.pageToken) {
-          // Fallback to primary cursor if customMeta is missing
-          senderPageToken = ctx.pageToken;
-        }
-
+        restoreCosmosAccountEventSearches(
+          accountEventSearches,
+          ctx.resumeCursor?.metadata?.['custom'] as CosmosAccountEventSearchMetadata | undefined
+        );
         isInitialized = true;
       }
 
-      // === FETCH SENDER TRANSACTIONS ===
-      let pairedSenderTxs: CosmosTxResponse[] = [];
-      let senderResponse: CosmosRestApiResponse = { tx_responses: [], txs: [], pagination: undefined };
+      const allTxResponses: CosmosTxResponse[] = [];
 
-      if (!senderComplete) {
-        const senderParams = new URLSearchParams({
+      for (const search of accountEventSearches) {
+        if (search.complete) {
+          continue;
+        }
+
+        const params = new URLSearchParams({
           'pagination.limit': BATCH_SIZE.toString(),
           'pagination.count_total': 'false',
           order_by: 'ORDER_BY_DESC',
+          query: search.query,
         });
 
-        if (senderPageToken) {
-          senderParams.append('pagination.key', senderPageToken);
+        if (search.pageToken) {
+          params.append('pagination.key', search.pageToken);
         }
 
-        const senderEvents = this.chainConfig.eventFilters?.sender ?? `coin_spent.spender='${address}'`;
-        const formattedSenderEvents = senderEvents.includes('${address}')
-          ? senderEvents.replace('${address}', address)
-          : senderEvents;
-        senderParams.append('events', formattedSenderEvents);
-
-        const senderEndpoint = `/cosmos/tx/v1beta1/txs?${senderParams.toString()}`;
-        const senderResult = await this.httpClient.get<CosmosRestApiResponse>(senderEndpoint, {
+        const endpoint = `/cosmos/tx/v1beta1/txs?${params.toString()}`;
+        const result = await this.httpClient.get<CosmosRestApiResponse>(endpoint, {
           schema: CosmosRestApiResponseSchema,
         });
 
-        if (senderResult.isErr()) {
+        if (result.isErr()) {
           this.logger.error(
-            `Failed to fetch sender transactions for ${maskAddress(address)} - Error: ${getErrorMessage(senderResult.error)}`
+            `Failed to fetch Cosmos account event search "${search.key}" for ${maskAddress(address)} - Error: ${getErrorMessage(result.error)}`
           );
-          return err(senderResult.error);
+          return err(result.error);
         }
 
-        senderResponse = senderResult.value;
-        const senderTxResponses = senderResponse.tx_responses || [];
-        const senderTxs = senderResponse.txs || [];
+        const response = result.value;
+        allTxResponses.push(...pairCosmosTxResponses(response));
 
-        // Pair tx_responses with txs BEFORE merging
-        pairedSenderTxs = senderTxResponses.map((txResponse, index) => {
-          if (txResponse.tx) {
-            return txResponse;
-          }
-          if (senderTxs[index]) {
-            return { ...txResponse, tx: senderTxs[index] };
-          }
-          return txResponse;
-        });
+        const nextKey = response.pagination?.next_key;
+        const hasMore = Boolean(nextKey && nextKey !== '');
+        search.pageToken = hasMore && nextKey ? nextKey : undefined;
+
+        if (!hasMore) {
+          search.complete = true;
+          this.logger.debug(`Cosmos account event search "${search.key}" complete for ${maskAddress(address)}`);
+        }
       }
-
-      // === FETCH RECIPIENT TRANSACTIONS ===
-      let pairedRecipientTxs: CosmosTxResponse[] = [];
-      let recipientResponse: CosmosRestApiResponse = { tx_responses: [], txs: [], pagination: undefined };
-
-      if (!recipientComplete) {
-        const recipientParams = new URLSearchParams({
-          'pagination.limit': BATCH_SIZE.toString(),
-          'pagination.count_total': 'false',
-          order_by: 'ORDER_BY_DESC',
-        });
-
-        if (recipientPageToken) {
-          recipientParams.append('pagination.key', recipientPageToken);
-        }
-
-        const recipientEvents = this.chainConfig.eventFilters?.receiver ?? `coin_received.receiver='${address}'`;
-        const formattedRecipientEvents = recipientEvents.includes('${address}')
-          ? recipientEvents.replace('${address}', address)
-          : recipientEvents;
-        recipientParams.append('events', formattedRecipientEvents);
-
-        const recipientEndpoint = `/cosmos/tx/v1beta1/txs?${recipientParams.toString()}`;
-        const recipientResult = await this.httpClient.get<CosmosRestApiResponse>(recipientEndpoint, {
-          schema: CosmosRestApiResponseSchema,
-        });
-
-        if (recipientResult.isErr()) {
-          this.logger.error(
-            `Failed to fetch recipient transactions for ${maskAddress(address)} - Error: ${getErrorMessage(recipientResult.error)}`
-          );
-          return err(recipientResult.error);
-        }
-
-        recipientResponse = recipientResult.value;
-        const recipientTxResponses = recipientResponse.tx_responses || [];
-        const recipientTxs = recipientResponse.txs || [];
-
-        // Pair tx_responses with txs BEFORE merging
-        pairedRecipientTxs = recipientTxResponses.map((txResponse, index) => {
-          if (txResponse.tx) {
-            return txResponse;
-          }
-          if (recipientTxs[index]) {
-            return { ...txResponse, tx: recipientTxs[index] };
-          }
-          return txResponse;
-        });
-      }
-
-      // === MERGE AND DEDUPLICATE ===
-      const allTxResponses = [...pairedSenderTxs, ...pairedRecipientTxs];
 
       // Deduplicate by txhash, preferring versions with tx body
       const uniqueTxs = new Map<string, CosmosTxResponse>();
@@ -364,39 +385,14 @@ export class CosmosRestApiClient extends BaseApiClient {
         return heightB - heightA;
       });
 
-      // === UPDATE LOCAL STATE FOR NEXT ITERATION ===
-      const senderNextKey = senderResponse.pagination?.next_key;
-      const recipientNextKey = recipientResponse.pagination?.next_key;
-
-      const senderHasMore = Boolean(senderNextKey && senderNextKey !== '');
-      const recipientHasMore = Boolean(recipientNextKey && recipientNextKey !== '');
-
-      // Update local state (convert null to undefined)
-      senderPageToken = senderHasMore && senderNextKey ? senderNextKey : undefined;
-      recipientPageToken = recipientHasMore && recipientNextKey ? recipientNextKey : undefined;
-
-      // Mark as complete when no more pages
-      if (!senderHasMore && !senderComplete) {
-        senderComplete = true;
-        this.logger.debug(`Sender pagination complete for ${maskAddress(address)}`);
-      }
-      if (!recipientHasMore && !recipientComplete) {
-        recipientComplete = true;
-        this.logger.debug(`Recipient pagination complete for ${maskAddress(address)}`);
-      }
-
-      const hasMore = senderHasMore || recipientHasMore;
+      const hasMore = accountEventSearches.some((search) => !search.complete);
 
       return ok({
         items,
-        nextPageToken: senderPageToken, // Use sender as primary for ctx.pageToken
+        nextPageToken: accountEventSearches.find((search) => !search.complete)?.pageToken,
         isComplete: !hasMore,
-        // Persist both tokens and completion flags for resume
         customMetadata: {
-          senderPageToken,
-          recipientPageToken,
-          senderComplete,
-          recipientComplete,
+          accountEventSearches: serializeCosmosAccountEventSearches(accountEventSearches),
         },
       });
     };

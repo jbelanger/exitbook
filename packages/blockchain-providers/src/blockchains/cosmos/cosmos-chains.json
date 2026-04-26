@@ -32,7 +32,7 @@
     "bech32Prefix": "cosmos",
     "explorerUrls": ["https://www.mintscan.io/cosmos"],
     "rpcEndpoints": ["https://rpc.cosmos.network"],
-    "restEndpoints": ["https://lcd.cosmos.network"],
+    "restEndpoints": ["https://cosmos-api.polkachu.com", "https://lcd.cosmos.network"],
     "nativeDenom": "uatom"
   },
   "terra": {

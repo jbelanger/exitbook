@@ -11,13 +11,36 @@ import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-sw
 import type { EvmFundFlow, EvmMovement } from './types.js';
 
 const logger = getLogger('evm-processor-utils');
-const EVM_BRIDGE_FUNCTION_HINTS: Record<
-  string,
-  {
-    bridgeFamily: string;
-    message: string;
-  }
-> = {
+
+interface EvmBridgeFunctionHint {
+  bridgeFamily: string;
+  message: string;
+}
+
+type EvmBridgeDetectionSource = 'function_name' | 'method_id';
+type EvmBridgeDirection = 'source' | 'target';
+
+interface EvmBridgeCue {
+  detectionSource: EvmBridgeDetectionSource;
+  functionName?: string | undefined;
+  hint: EvmBridgeFunctionHint;
+  methodId?: string | undefined;
+}
+
+const OP_STACK_DEPOSIT_ETH_BRIDGE_HINT: EvmBridgeFunctionHint = {
+  bridgeFamily: 'op_stack_standard_bridge',
+  message: 'Potential bridge transfer via OP Stack depositETH.',
+};
+const CCTP_DEPOSIT_FOR_BURN_BRIDGE_HINT: EvmBridgeFunctionHint = {
+  bridgeFamily: 'cctp',
+  message: 'Potential bridge transfer via CCTP depositForBurn.',
+};
+const POLYGON_ZKEVM_BRIDGE_ASSET_HINT: EvmBridgeFunctionHint = {
+  bridgeFamily: 'polygon_zkevm_bridge',
+  message: 'Potential bridge transfer via Polygon zkEVM bridgeAsset.',
+};
+
+const EVM_BRIDGE_FUNCTION_HINTS: Record<string, EvmBridgeFunctionHint> = {
   bridgeerc20: {
     bridgeFamily: 'op_stack_standard_bridge',
     message: 'Potential bridge transfer via OP Stack bridgeERC20.',
@@ -42,18 +65,20 @@ const EVM_BRIDGE_FUNCTION_HINTS: Record<
     bridgeFamily: 'op_stack_standard_bridge',
     message: 'Potential bridge transfer via OP Stack depositERC20To.',
   },
-  depositeth: {
-    bridgeFamily: 'op_stack_standard_bridge',
-    message: 'Potential bridge transfer via OP Stack depositETH.',
-  },
+  depositeth: OP_STACK_DEPOSIT_ETH_BRIDGE_HINT,
   depositethto: {
     bridgeFamily: 'op_stack_standard_bridge',
     message: 'Potential bridge transfer via OP Stack depositETHTo.',
   },
-  depositforburn: {
-    bridgeFamily: 'cctp',
-    message: 'Potential bridge transfer via CCTP depositForBurn.',
+  finalizebridgeerc20: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack finalizeBridgeERC20.',
   },
+  finalizebridgeeth: {
+    bridgeFamily: 'op_stack_standard_bridge',
+    message: 'Potential bridge transfer via OP Stack finalizeBridgeETH.',
+  },
+  depositforburn: CCTP_DEPOSIT_FOR_BURN_BRIDGE_HINT,
   depositforburnwithcaller: {
     bridgeFamily: 'cctp',
     message: 'Potential bridge transfer via CCTP depositForBurnWithCaller.',
@@ -66,14 +91,29 @@ const EVM_BRIDGE_FUNCTION_HINTS: Record<
     bridgeFamily: 'arbitrum_bridge',
     message: 'Potential bridge transfer via Arbitrum outboundTransferCustomRefund.',
   },
+  bridgeasset: POLYGON_ZKEVM_BRIDGE_ASSET_HINT,
+  claimasset: {
+    bridgeFamily: 'polygon_zkevm_bridge',
+    message: 'Potential bridge transfer via Polygon zkEVM claimAsset.',
+  },
   sendtoinjective: {
     bridgeFamily: 'injective_peggy',
     message: 'Potential bridge transfer via Injective sendToInjective.',
+  },
+  transfertokens: {
+    bridgeFamily: 'wormhole',
+    message: 'Potential bridge transfer via Wormhole transferTokens.',
   },
   transfertokenswithpayload: {
     bridgeFamily: 'wormhole',
     message: 'Potential bridge transfer via Wormhole transferTokensWithPayload.',
   },
+};
+
+const EVM_BRIDGE_METHOD_HINTS: Record<string, EvmBridgeFunctionHint> = {
+  '0x6fd3504e': CCTP_DEPOSIT_FOR_BURN_BRIDGE_HINT,
+  '0xb1a1a882': OP_STACK_DEPOSIT_ETH_BRIDGE_HINT,
+  '0xcd586579': POLYGON_ZKEVM_BRIDGE_ASSET_HINT,
 };
 
 interface EvmLiquidityFunctionHint {
@@ -375,37 +415,75 @@ function detectEvmBridgeDiagnostic(
   txGroup: readonly EvmTransaction[],
   fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
 ): TransactionDiagnostic | undefined {
-  const hasOneSidedValueFlow =
-    (fundFlow.outflows.length > 0 && fundFlow.inflows.length === 0) ||
-    (fundFlow.inflows.length > 0 && fundFlow.outflows.length === 0);
-  if (!hasOneSidedValueFlow) {
+  const bridgeDirection = getOneSidedBridgeDirection(fundFlow);
+  if (bridgeDirection === undefined) {
     return undefined;
   }
 
   for (const tx of txGroup) {
-    const normalizedFunctionName = normalizeEvmFunctionName(tx.functionName);
-    if (!normalizedFunctionName) {
-      continue;
-    }
-
-    const bridgeHint = EVM_BRIDGE_FUNCTION_HINTS[normalizedFunctionName];
-    if (!bridgeHint) {
+    const bridgeCue = getEvmBridgeCue(tx);
+    if (!bridgeCue) {
       continue;
     }
 
     return {
       code: 'bridge_transfer',
-      message: bridgeHint.message,
+      message: bridgeCue.hint.message,
       metadata: {
-        bridgeFamily: bridgeHint.bridgeFamily,
-        detectionSource: 'function_name',
-        functionName: tx.functionName,
+        bridgeFamily: bridgeCue.hint.bridgeFamily,
+        bridgeDirection,
+        detectionSource: bridgeCue.detectionSource,
+        hasCompleteValueEvidence: false,
+        inflowCount: fundFlow.inflows.length,
+        outflowCount: fundFlow.outflows.length,
+        ...(bridgeCue.functionName === undefined ? {} : { functionName: bridgeCue.functionName }),
+        ...(bridgeCue.methodId === undefined ? {} : { methodId: bridgeCue.methodId }),
       },
-      severity: 'info',
+      severity: 'warning',
     };
   }
 
   return undefined;
+}
+
+function getOneSidedBridgeDirection(
+  fundFlow: Pick<EvmFundFlow, 'inflows' | 'outflows'>
+): EvmBridgeDirection | undefined {
+  if (fundFlow.outflows.length > 0 && fundFlow.inflows.length === 0) {
+    return 'source';
+  }
+
+  if (fundFlow.inflows.length > 0 && fundFlow.outflows.length === 0) {
+    return 'target';
+  }
+
+  return undefined;
+}
+
+function getEvmBridgeCue(tx: EvmTransaction): EvmBridgeCue | undefined {
+  const methodId = normalizeEvmMethodId(tx.methodId);
+  const methodHint = methodId === undefined ? undefined : EVM_BRIDGE_METHOD_HINTS[methodId];
+  if (methodHint !== undefined) {
+    return {
+      detectionSource: 'method_id',
+      functionName: tx.functionName,
+      hint: methodHint,
+      methodId,
+    };
+  }
+
+  const normalizedFunctionName = normalizeEvmFunctionName(tx.functionName);
+  const functionHint =
+    normalizedFunctionName === undefined ? undefined : EVM_BRIDGE_FUNCTION_HINTS[normalizedFunctionName];
+  if (functionHint === undefined) {
+    return undefined;
+  }
+
+  return {
+    detectionSource: 'function_name',
+    functionName: tx.functionName,
+    hint: functionHint,
+  };
 }
 
 function detectEvmLiquidityPositionDiagnostic(
@@ -445,6 +523,11 @@ function detectEvmLiquidityPositionDiagnostic(
 
 function normalizeEvmFunctionName(functionName: string | undefined): string | undefined {
   const normalized = functionName?.toLowerCase().replace(/\(.*\)/, '');
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeEvmMethodId(methodId: string | undefined): string | undefined {
+  const normalized = methodId?.trim().toLowerCase();
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 

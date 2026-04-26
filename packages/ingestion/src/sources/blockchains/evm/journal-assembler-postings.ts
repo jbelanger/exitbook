@@ -157,6 +157,7 @@ function buildMovementPosting(params: {
       assetSymbol: assetRef.assetSymbol,
       quantity: params.input.direction === 'in' ? movementAmount : movementAmount.negated(),
       role,
+      balanceCategory: 'liquid',
       sourceComponentRefs,
     };
   });
@@ -250,6 +251,7 @@ export function buildOptionalEvmNetworkFeePosting(params: {
       assetSymbol: feeCurrency,
       quantity: feeAmount.negated(),
       role: 'fee',
+      balanceCategory: 'liquid',
       settlement: 'on-chain',
       sourceComponentRefs: [
         buildSourceComponentQuantityRef({

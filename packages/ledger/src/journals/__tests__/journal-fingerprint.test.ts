@@ -19,6 +19,7 @@ function createJournalDraft(kind: AccountingJournalDraft['journalKind']): Accoun
         assetSymbol: ETH,
         quantity: parseDecimal('-0.1'),
         role: 'principal',
+        balanceCategory: 'liquid',
         sourceComponentRefs: [
           {
             component: {

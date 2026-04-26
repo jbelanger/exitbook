@@ -24,6 +24,7 @@ const noopLogger: Logger = {
 function createSourceActivity(sourceKey: string, ownerAccountId = 1) {
   return {
     ownerAccountId,
+    sourceActivityOrigin: 'provider_event' as const,
     sourceActivityFingerprint: `source_activity:${sourceKey}`,
     platformKey: 'cardano',
     platformKind: 'blockchain' as const,
@@ -68,6 +69,7 @@ function createLedgerDraft(params: {
           assetSymbol: ADA,
           quantity: parseDecimal(params.principalQuantity),
           role: 'principal' as const,
+          balanceCategory: 'liquid' as const,
           sourceComponentRefs: [
             {
               component: {
@@ -96,6 +98,7 @@ function createLedgerDraft(params: {
           assetSymbol: ADA,
           quantity: parseDecimal(params.rewardQuantity),
           role: 'staking_reward' as const,
+          balanceCategory: 'liquid' as const,
           sourceComponentRefs: [
             {
               component: {
@@ -124,6 +127,7 @@ function createLedgerDraft(params: {
           assetSymbol: ADA,
           quantity: parseDecimal(params.feeAmount).negated(),
           role: 'fee' as const,
+          balanceCategory: 'liquid' as const,
           settlement: 'on-chain' as const,
           sourceComponentRefs: [
             {

@@ -500,7 +500,43 @@ describe('EvmProcessorV2', () => {
     const [draft] = result.value;
     expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
     expect(draft?.journals[0]?.diagnostics?.[0]?.code).toBe('bridge_transfer');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.severity).toBe('warning');
     expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['bridgeFamily']).toBe('cctp');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['bridgeDirection']).toBe('source');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['detectionSource']).toBe('method_id');
+    expect(draft?.journals[0]?.diagnostics?.[0]?.metadata?.['methodId']).toBe('0x6fd3504e');
+  });
+
+  test('preserves OP Stack ETH bridge method hints as unmatched bridge warnings', async () => {
+    const result = await processTransactions([
+      createTransaction({
+        amount: '100000000000000000',
+        eventId: '0xop-stack-bridge:contract-call:0',
+        feeAmount: '150000000000000',
+        from: USER_ADDRESS,
+        functionName: 'depositETH(uint32,bytes)',
+        id: '0xop-stack-bridge',
+        methodId: '0xb1a1a882',
+        to: CONTRACT_ADDRESS,
+        type: 'contract_call',
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const [draft] = result.value;
+    expect(draft?.journals.map((journal) => journal.journalKind)).toEqual(['transfer']);
+    expect(draft?.journals[0]?.diagnostics?.[0]).toMatchObject({
+      code: 'bridge_transfer',
+      severity: 'warning',
+      metadata: {
+        bridgeDirection: 'source',
+        bridgeFamily: 'op_stack_standard_bridge',
+        detectionSource: 'method_id',
+        methodId: '0xb1a1a882',
+      },
+    });
   });
 
   test('canonicalizes token metadata before event de-duplication and journal assembly', async () => {

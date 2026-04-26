@@ -4,3 +4,9 @@ export {
   computeSourceActivityFingerprint,
   type SourceActivityFingerprintInput,
 } from './source-activity-fingerprint.js';
+export {
+  SourceActivityOriginDocs,
+  SourceActivityOriginSchema,
+  SourceActivityOriginValues,
+  type SourceActivityOrigin,
+} from './source-activity-origin.js';

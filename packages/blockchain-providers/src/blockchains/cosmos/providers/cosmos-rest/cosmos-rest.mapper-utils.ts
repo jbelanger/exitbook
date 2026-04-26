@@ -40,6 +40,97 @@ function getAttributeValue(attributes: CosmosEventAttribute[], key: string): str
   return attr?.value;
 }
 
+interface ParsedCosmosCoin {
+  amountBaseUnits: string;
+  denom: string;
+}
+
+interface CosmosNativeCoinAmount {
+  amount: string;
+  currency: string;
+}
+
+function parseCosmosCoinList(rawAmount: string): ParsedCosmosCoin[] {
+  return rawAmount
+    .split(',')
+    .map((part) => part.trim())
+    .flatMap((part) => {
+      const match = /^([0-9]+)(.+)$/.exec(part);
+      if (!match) {
+        return [];
+      }
+
+      const [, amountBaseUnits, denom] = match;
+      if (!amountBaseUnits || !denom) {
+        return [];
+      }
+
+      return [{ amountBaseUnits, denom }];
+    });
+}
+
+function decimalAmountFromBaseUnits(amountBaseUnits: string, decimals: number): string {
+  return parseDecimal(amountBaseUnits).div(Math.pow(10, decimals)).toFixed();
+}
+
+function nativeAmountFromCoinList(
+  rawAmount: string | undefined,
+  chainConfig: CosmosChainConfig,
+  denomFormatOptions: { nativeCurrency: string; nativeDenom: string }
+): CosmosNativeCoinAmount | undefined {
+  if (rawAmount === undefined) {
+    return undefined;
+  }
+
+  const nativeCoin = parseCosmosCoinList(rawAmount).find((coin) => coin.denom === chainConfig.nativeDenom);
+  if (nativeCoin === undefined) {
+    return undefined;
+  }
+
+  return {
+    amount: decimalAmountFromBaseUnits(nativeCoin.amountBaseUnits, chainConfig.nativeDecimals),
+    currency: formatDenom(nativeCoin.denom, denomFormatOptions),
+  };
+}
+
+function nativeRewardAmountForMessage(
+  rawData: CosmosTxResponse,
+  messageIndex: number,
+  chainConfig: CosmosChainConfig,
+  denomFormatOptions: { nativeCurrency: string; nativeDenom: string }
+): CosmosNativeCoinAmount | undefined {
+  return nativeAmountFromCoinList(
+    getEventAttributeValue(rawData.events, 'withdraw_rewards', 'amount', messageIndex),
+    chainConfig,
+    denomFormatOptions
+  );
+}
+
+function getEventAttributeValue(
+  events: CosmosEvent[] | undefined,
+  eventType: string,
+  key: string,
+  messageIndex: number
+): string | undefined {
+  for (const event of events ?? []) {
+    if (event.type !== eventType) {
+      continue;
+    }
+
+    const eventMessageIndex = getAttributeValue(event.attributes, 'msg_index');
+    if (eventMessageIndex !== String(messageIndex)) {
+      continue;
+    }
+
+    const value = getAttributeValue(event.attributes, key);
+    if (value !== undefined) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Extract sender and recipient from transaction events
  * This is useful when messages don't contain explicit from/to addresses
@@ -134,6 +225,7 @@ export function mapCosmosRestTransaction(
   let tokenAddress: string | undefined;
   let tokenSymbol: string | undefined;
   let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
+  let txType: string | undefined;
   let selectedMessageIndex: number | undefined;
 
   // Parse messages to extract transfer information
@@ -237,6 +329,74 @@ export function mapCosmosRestTransaction(
       break;
     }
 
+    if (messageType === '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward') {
+      const delegatorAddress = cosmosMessage.delegator_address;
+      const validatorAddress = cosmosMessage.validator_address;
+      if (delegatorAddress !== relevantAddress) {
+        logger.debug(
+          `Skipping staking reward withdrawal not relevant - delegator is not the wallet address. delegator="${delegatorAddress ?? ''}", relevantAddress="${relevantAddress}", tx=${transactionHash}`
+        );
+        continue;
+      }
+
+      const rewardAmount = getEventAttributeValue(rawData.events, 'withdraw_rewards', 'amount', messageIndex);
+      const nativeRewardAmount = nativeAmountFromCoinList(rewardAmount, chainConfig, denomFormatOptions);
+      if (rewardAmount === undefined) {
+        logger.warn(
+          `Skipping staking reward withdrawal without withdraw_rewards amount event. MessageType="${messageType}", relevantAddress="${relevantAddress}", tx=${transactionHash}, msgIndex=${messageIndex}`
+        );
+        continue;
+      }
+
+      if (nativeRewardAmount === undefined) {
+        logger.warn(
+          `Skipping staking reward withdrawal without native ${chainConfig.nativeDenom} reward component. MessageType="${messageType}", relevantAddress="${relevantAddress}", tx=${transactionHash}, msgIndex=${messageIndex}, amount="${rewardAmount}"`
+        );
+        continue;
+      }
+
+      from = validatorAddress ?? '';
+      to = delegatorAddress;
+      amount = nativeRewardAmount.amount;
+      currency = nativeRewardAmount.currency;
+      tokenType = 'native';
+      tokenSymbol = currency;
+      txType = 'staking_reward';
+      selectedMessageIndex = messageIndex;
+      break;
+    }
+
+    if (
+      messageType === '/cosmos.staking.v1beta1.MsgDelegate' ||
+      messageType === '/cosmos.staking.v1beta1.MsgUndelegate' ||
+      messageType === '/cosmos.staking.v1beta1.MsgBeginRedelegate'
+    ) {
+      const delegatorAddress = cosmosMessage.delegator_address;
+      if (delegatorAddress !== relevantAddress) {
+        logger.debug(
+          `Skipping staking operation not relevant - delegator is not the wallet address. delegator="${delegatorAddress ?? ''}", relevantAddress="${relevantAddress}", tx=${transactionHash}`
+        );
+        continue;
+      }
+
+      const nativeRewardAmount = nativeRewardAmountForMessage(rawData, messageIndex, chainConfig, denomFormatOptions);
+
+      from = cosmosMessage.validator_address ?? cosmosMessage.validator_src_address ?? delegatorAddress;
+      to = delegatorAddress;
+      amount = nativeRewardAmount?.amount ?? '0';
+      currency = nativeRewardAmount?.currency ?? chainConfig.nativeCurrency;
+      tokenType = 'native';
+      tokenSymbol = currency;
+      txType =
+        messageType === '/cosmos.staking.v1beta1.MsgDelegate'
+          ? 'staking_delegate'
+          : messageType === '/cosmos.staking.v1beta1.MsgUndelegate'
+            ? 'staking_undelegate'
+            : 'staking_redelegate';
+      selectedMessageIndex = messageIndex;
+      break;
+    }
+
     // Try extracting from events if message parsing failed
     const { sender, recipient } = extractAddressesFromEvents(rawData.events, relevantAddress);
     if (sender && recipient) {
@@ -313,6 +473,7 @@ export function mapCosmosRestTransaction(
     tokenDecimals: undefined,
     tokenSymbol,
     tokenType,
+    txType,
   };
 
   return validateOutput(transaction, CosmosTransactionSchema, 'CosmosRestTransaction');

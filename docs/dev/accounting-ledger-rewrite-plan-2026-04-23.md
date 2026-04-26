@@ -92,6 +92,20 @@ Consumers that must eventually move to journals/postings:
 
 ## Target Concepts
 
+### Enum Documentation Contract
+
+Every ledger enum value must be documented where the enum is introduced.
+Documentation must include:
+
+- the plain-English meaning
+- when processors may emit it
+- whether it affects balance, cost basis, transfer eligibility, or review
+- which values it must not be confused with
+
+Do not add undocumented enum values to `packages/ledger`. Ledger vocabulary is
+small by design; if a new chain forces a new value, record the accounting reason
+at the same time as the code change.
+
 ### Source Activity
 
 `source_activity` is a non-accounting container for one processed source event
@@ -124,6 +138,13 @@ It must not carry:
 - user notes JSON
 - semantic meaning
 
+Opening balances and other non-provider accounting inputs still need source
+activities, but they must not fake blockchain transaction hashes. Add an
+explicit source-activity origin before implementing them, such as
+`provider_event`, `balance_snapshot`, and `manual_accounting_entry`. A balance
+snapshot source activity may have no raw transaction lineage; that absence must
+be visible in provenance rather than hidden behind synthetic raw rows.
+
 ### Accounting Journal
 
 An accounting journal groups postings that belong to one accounting-relevant
@@ -155,14 +176,17 @@ export interface AccountingDiagnosticDraft {
 
 Initial journal kinds:
 
-- `transfer`
-- `trade`
-- `staking_reward`
-- `protocol_event`
-- `refund_rebate`
-- `internal_transfer`
-- `expense_only`
-- `unknown`
+| Kind                | Meaning                                                                                             | Cost-basis behavior                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `transfer`          | External movement into or out of the account.                                                       | Can create or dispose lots unless linked as an internal transfer.                                                      |
+| `trade`             | Exchange of one asset for another, including swap-like activity.                                    | Disposes outgoing lots and creates incoming lots.                                                                      |
+| `staking_reward`    | Reward income known by the processor, such as Cosmos distribution reward or Cardano staking reward. | Creates income lots; never duplicate this as a semantic staking fact.                                                  |
+| `protocol_event`    | Accounting-relevant protocol interaction that is not itself a trade, transfer, reward, or refund.   | Depends on posting roles; processors must emit precise roles such as deposit, refund, or overhead.                     |
+| `refund_rebate`     | Return of value from a venue/protocol where the returned asset is not normal trade proceeds.        | Creates a rebate/refund lot according to jurisdiction rules; must not be modeled as staking reward.                    |
+| `internal_transfer` | Movement between owned accounts or addresses.                                                       | Must not create gains/losses once linked; relationship/linking owns transfer eligibility.                              |
+| `expense_only`      | Source activity has no principal asset effect and only spends a fee or overhead.                    | Consumes fee/expense lots only; no principal asset acquisition/disposal.                                               |
+| `opening_balance`   | Explicit cutoff position used when prior history cannot be fully backfilled.                        | Creates opening lots with known or unknown basis; unknown basis blocks only affected asset lots, not unrelated assets. |
+| `unknown`           | Processor could not classify the accounting event.                                                  | Blocks cost-basis only for assets/postings touched by the unknown journal. It must not block unrelated assets.         |
 
 The exact vocabulary should stay small. If a kind changes accounting postings,
 roles, transfer eligibility, income treatment, or basis behavior, it belongs in
@@ -187,6 +211,7 @@ export interface AccountingPostingDraft {
   assetSymbol: Currency;
   quantity: Decimal;
   role: AccountingPostingRole;
+  balanceCategory: AccountingBalanceCategory;
   settlement?: AccountingSettlement | undefined;
   priceAtTxTime?: PriceAtTxTime | undefined;
   sourceComponentRefs: readonly SourceComponentQuantityRef[];
@@ -199,19 +224,39 @@ Rules:
   means account balance decreases.
 - `quantity` must never be zero.
 - `role` is not optional.
+- `balanceCategory` is not optional once opening balances or staking state are
+  emitted. Processors must write the category they mean; consumers must not
+  infer it from missing data.
 - `settlement` is required for fee-like postings and optional otherwise.
 - posting reads never coerce missing roles.
 - source component refs are required; no posting can exist without provenance.
 
 Initial posting roles:
 
-- `principal`
-- `fee`
-- `staking_reward`
-- `protocol_deposit`
-- `protocol_refund`
-- `protocol_overhead`
-- `refund_rebate`
+| Role                | Meaning                                                                                        | Cost-basis behavior                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `principal`         | Main asset movement for a transfer, trade leg, or account delta.                               | Creates or disposes lots according to journal kind and relationships.                                                   |
+| `fee`               | Network, venue, or protocol fee paid by the account.                                           | Expense/disposal treatment is jurisdiction-specific; settlement is required.                                            |
+| `staking_reward`    | Reward amount earned from staking.                                                             | Creates income lots; must be processor-owned, not semantic-owned.                                                       |
+| `protocol_deposit`  | Asset moved into protocol custody, staking, escrow, wrapping, or similar non-liquid state.     | Usually changes balance category or custody state; must not be treated as a disposal unless the relationship says so.   |
+| `protocol_refund`   | Asset returned from protocol custody or a failed/partial protocol action.                      | Usually restores a previous position; relationship/cost-basis rules decide whether a new lot is created.                |
+| `protocol_overhead` | Non-fee value consumed by protocol mechanics, such as burn/overhead not represented as a fee.  | Blocks only the affected asset if treatment is unknown; must not block unrelated cost-basis runs.                       |
+| `refund_rebate`     | Return of value from a venue/protocol where the returned asset is not ordinary trade proceeds. | Creates rebate/refund treatment; must not be overloaded for staking rewards.                                            |
+| `opening_position`  | Position introduced at a known cutoff because earlier transaction history is incomplete.       | Creates an opening lot. Unknown basis blocks only disposals consuming that opening lot, not other assets or known lots. |
+
+Initial balance categories:
+
+| Category            | Meaning                                                                                  | Consumer behavior                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `liquid`            | Spendable account balance.                                                               | Included in normal balance aggregation and cost-basis lot availability.                                |
+| `staked`            | Delegated/staked position that remains owned by the account but is not liquid.           | Included in portfolio/balance with a staking category; not spendable until unstaked.                   |
+| `unbonding`         | Staking position in the chain's unbonding period.                                        | Included in balance, with completion metadata sourced from staking state where available.              |
+| `reward_receivable` | Earned staking reward visible in provider state but not yet claimed into liquid balance. | Included as receivable balance; cost basis starts at claim/recognition time according to jurisdiction. |
+
+Cost-basis consumers must be asset- and lot-scoped. An unknown or incomplete
+opening lot for one asset must not block cost-basis calculation for unrelated
+assets, nor for known lots of the same asset that are not consumed by the
+calculation window.
 
 ### Source Component Refs
 
@@ -237,7 +282,8 @@ export interface SourceComponentRef {
     | 'account_delta'
     | 'staking_reward'
     | 'message'
-    | 'network_fee';
+    | 'network_fee'
+    | 'balance_snapshot';
   componentId: string;
   occurrence?: number | undefined;
   assetId?: string | undefined;
@@ -278,6 +324,11 @@ For UTXO chains, component refs must point at provider-native UTXO components:
 This is the most important contract to get right. UTXO same-hash handling,
 Cardano residual attribution, exchange fill grouping, lot matching, and
 override replay all depend on stable component identity.
+
+For opening balances, use `balance_snapshot` source components. The component id
+must be stable and auditable, such as
+`<accountFingerprint>:<cutoffTimestamp>:<assetId>:<balanceCategory>`. It must
+not impersonate a blockchain transaction hash or provider event id.
 
 Journal-level component refs are derived as the union of posting-level
 component refs. They are not stored on the journal draft, because duplicating
@@ -332,9 +383,14 @@ Override identity rule:
 - `transaction_movements` does not survive as a second canonical per-leg model.
 - Source activity rows carry no accounting meaning.
 - Accounting roles are never optional in canonical accounting reads.
+- Ledger enum values are documented with meaning, emitter rules, and consumer
+  effects before they are added to code.
 - Semantic facts must not duplicate accounting roles or journal kinds.
 - Any kind that affects postings, roles, transfer eligibility, income treatment,
   or cost basis is accounting-owned.
+- Incomplete history and unknown classification are scoped to the affected
+  journals, postings, assets, and lots. They must not fail-close the entire
+  profile when unrelated assets can be calculated safely.
 - Bridge and asset migration truth that affects accounting is represented as
   accounting journal relationships, not semantic facts.
 - Diagnostics record uncertainty or processor problems; consumers do not read
@@ -756,10 +812,15 @@ Schema direction:
 - replace accounting-bearing `transactions` with thin `source_activities`
   or rename `transactions` only if the name avoids churn without preserving old
   meaning
+- add an explicit source activity origin before non-provider accounting inputs
+  exist; opening balances must use a balance-snapshot/manual origin instead of
+  pretending to be blockchain transactions
 - drop `transaction_movements`
 - add `accounting_journals`
 - add `accounting_journal_diagnostics`
 - add `accounting_postings`
+- add `balance_category` to `accounting_postings` before emitting opening
+  balance, staked, unbonding, or reward-receivable postings
 - add `accounting_posting_source_components`
 - add `accounting_journal_relationships`
 - persist processor diagnostics on journals, with metadata, as rebuild-owned
@@ -816,6 +877,13 @@ Completed in this phase:
   rows by owner account scope alongside legacy `transactions`, then resets raw
   rows to pending for a clean rebuild. Clear/account/profile removal previews
   report ledger source activities as processed derived data.
+- Ledger enum values now have exported documentation metadata and a guard test
+  that fails when a value is added without documentation.
+- `source_activities.source_activity_origin` distinguishes provider events from
+  future balance snapshots and manual accounting entries.
+- `accounting_postings.balance_category` is persisted and required in posting
+  drafts. Current v2 processors emit `liquid` explicitly until staking/opening
+  balance postings introduce `staked`, `unbonding`, or `reward_receivable`.
 
 ### Phase 5: Accounting Overrides
 
@@ -1003,7 +1071,10 @@ Steps:
 4. Move price readiness/enrichment to posting-level requirements.
 5. Move balance and portfolio to signed posting aggregation.
 6. Move accounting issues/gaps to journal/posting references.
-7. Update CLI transaction/accounting displays to show source activity plus
+7. Make cost-basis readiness asset- and lot-scoped. Unknown classifications,
+   incomplete-history markers, and opening positions with unknown basis block
+   only calculations that actually consume those affected lots.
+8. Update CLI transaction/accounting displays to show source activity plus
    journals/postings.
 
 Acceptance criteria:
@@ -1011,6 +1082,9 @@ Acceptance criteria:
 - no accounting consumer reads `transaction_movements`
 - no accounting consumer reads semantic annotations for accounting meaning
 - cost basis, links, portfolio, and balance run from the ledger model
+- a missing-basis Cosmos opening position can block Cosmos ATOM disposals that
+  consume that position without blocking BTC, ETH, unrelated Cosmos IBC assets,
+  or known ATOM lots
 
 ### Phase 9: Remove Legacy Accounting Reconstruction
 

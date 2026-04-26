@@ -171,6 +171,58 @@ describe('BridgeParticipantDetector', () => {
     expect(annotation?.protocolRef).toEqual({ id: 'peggy' });
   });
 
+  it('resolves EVM bridge families seeded by the protocol catalog', async () => {
+    const detector = new BridgeParticipantDetector(createSeedProtocolCatalog());
+    const cctpTransaction = makeTransaction({
+      diagnostics: [
+        {
+          code: 'bridge_transfer',
+          message: 'Potential bridge transfer via CCTP depositForBurn.',
+          severity: 'warning',
+          metadata: {
+            bridgeDirection: 'source',
+            bridgeFamily: 'cctp',
+            detectionSource: 'method_id',
+            methodId: '0x6fd3504e',
+          },
+        },
+      ],
+    });
+    const opStackTransaction = makeTransaction({
+      id: 12,
+      txFingerprint: 'tx-op-stack-bridge',
+      diagnostics: [
+        {
+          code: 'bridge_transfer',
+          message: 'Potential bridge transfer via OP Stack depositETH.',
+          severity: 'warning',
+          metadata: {
+            bridgeDirection: 'source',
+            bridgeFamily: 'op_stack_standard_bridge',
+            detectionSource: 'method_id',
+            methodId: '0xb1a1a882',
+          },
+        },
+      ],
+    });
+
+    const cctpResult = await detector.run({
+      accountId: cctpTransaction.accountId,
+      transactionId: cctpTransaction.id,
+      txFingerprint: cctpTransaction.txFingerprint,
+      transaction: cctpTransaction,
+    });
+    const opStackResult = await detector.run({
+      accountId: opStackTransaction.accountId,
+      transactionId: opStackTransaction.id,
+      txFingerprint: opStackTransaction.txFingerprint,
+      transaction: opStackTransaction,
+    });
+
+    expect(assertOk(cctpResult).annotations[0]?.protocolRef).toEqual({ id: 'cctp' });
+    expect(assertOk(opStackResult).annotations[0]?.protocolRef).toEqual({ id: 'op-stack-standard-bridge' });
+  });
+
   it('does not emit for bridge diagnostics without a resolvable protocol hint', async () => {
     const detector = new BridgeParticipantDetector(createSeedProtocolCatalog());
     const transaction = makeTransaction({

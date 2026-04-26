@@ -23,10 +23,12 @@ import type {
 import type {
   AccountingJournalKind,
   AccountingJournalRelationshipKind,
+  AccountingBalanceCategory,
   AccountingOverrideKind,
   AccountingPostingRole,
   AccountingSettlement,
   AccountingSourceComponentKind,
+  SourceActivityOrigin,
 } from '@exitbook/ledger';
 import type { Generated, ColumnType } from '@exitbook/sqlite';
 import type { AnnotationKind, AnnotationRole, AnnotationTier } from '@exitbook/transaction-interpretation';
@@ -136,6 +138,7 @@ export interface RawTransactionTable {
 export interface SourceActivitiesTable {
   id: Generated<number>;
   owner_account_id: number; // FK to accounts.id; accounting owner, not necessarily the raw/import account
+  source_activity_origin: SourceActivityOrigin;
   platform_key: string;
   platform_kind: PlatformKind;
   source_activity_fingerprint: string;
@@ -199,6 +202,7 @@ export interface AccountingPostingsTable {
   asset_symbol: string;
   quantity: DecimalString;
   posting_role: AccountingPostingRole;
+  balance_category: AccountingBalanceCategory;
   settlement: AccountingSettlement | null;
   price_amount: DecimalString | null;
   price_currency: string | null;

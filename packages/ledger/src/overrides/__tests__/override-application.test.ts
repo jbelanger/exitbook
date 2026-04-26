@@ -16,6 +16,7 @@ describe('applyAccountingOverridePatchToPosting', () => {
       assetSymbol: ETH,
       quantity: parseDecimal('-1'),
       role: 'principal',
+      balanceCategory: 'liquid',
       sourceComponentRefs: [
         {
           component: {
@@ -47,6 +48,7 @@ describe('applyAccountingOverridePatchToPosting', () => {
       assetSymbol: ETH,
       quantity: parseDecimal('-0.01'),
       role: 'fee',
+      balanceCategory: 'liquid',
       settlement: 'on-chain',
       sourceComponentRefs: [
         {

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { SourceComponentQuantityRefSchema } from '../source-components/source-component-ref.js';
 
+import { AccountingBalanceCategorySchema } from './balance-category.js';
 import { AccountingPostingRoleSchema } from './posting-role.js';
 import { AccountingSettlementSchema } from './settlement.js';
 
@@ -13,6 +14,7 @@ export const AccountingPostingDraftSchema = z.object({
   assetSymbol: CurrencySchema,
   quantity: DecimalSchema,
   role: AccountingPostingRoleSchema,
+  balanceCategory: AccountingBalanceCategorySchema,
   settlement: AccountingSettlementSchema.optional(),
   priceAtTxTime: PriceAtTxTimeSchema.optional(),
   sourceComponentRefs: z

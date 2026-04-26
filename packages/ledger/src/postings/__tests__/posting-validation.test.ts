@@ -18,6 +18,7 @@ function createPosting(params: {
     assetSymbol: ADA,
     quantity: parseDecimal(params.quantity),
     role: params.role,
+    balanceCategory: 'liquid',
     sourceComponentRefs: [
       {
         component: {
@@ -83,5 +84,29 @@ describe('validateAccountingPostingDraft', () => {
     );
 
     expect(error.message).toContain('role protocol_refund is incompatible with quantity -2');
+  });
+
+  it('accepts opening positions as positive balance snapshot lots', () => {
+    assertOk(
+      validateAccountingPostingDraft({
+        ...createPosting({
+          postingStableKey: 'opening_position:lovelace',
+          quantity: '42',
+          role: 'opening_position',
+        }),
+        balanceCategory: 'liquid',
+        sourceComponentRefs: [
+          {
+            component: {
+              sourceActivityFingerprint: 'source_activity:v1:opening',
+              componentKind: 'balance_snapshot',
+              componentId: 'account:cutoff:blockchain:cardano:native:liquid',
+              assetId: 'blockchain:cardano:native',
+            },
+            quantity: parseDecimal('42'),
+          },
+        ],
+      })
+    );
   });
 });

@@ -13,6 +13,11 @@ const CosmosPaginationSchema = z.object({
   total: z.string().optional(),
 });
 
+const CosmosCoinSchema = z.object({
+  denom: z.string(),
+  amount: z.string(),
+});
+
 /**
  * Cosmos SDK Message schema
  * Represents individual messages within a transaction
@@ -21,16 +26,13 @@ export const CosmosMessageSchema = z.object({
   '@type': z.string(),
   from_address: z.string().optional(),
   to_address: z.string().optional(),
-  amount: z
-    .array(
-      z.object({
-        denom: z.string(),
-        amount: z.string(),
-      })
-    )
-    .optional(),
+  amount: z.union([CosmosCoinSchema, z.array(CosmosCoinSchema)]).optional(),
   sender: z.string().optional(),
   receiver: z.string().optional(),
+  delegator_address: z.string().optional(),
+  validator_address: z.string().optional(),
+  validator_src_address: z.string().optional(),
+  validator_dst_address: z.string().optional(),
   source_port: z.string().optional(),
   source_channel: z.string().optional(),
   token: z

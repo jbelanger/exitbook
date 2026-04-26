@@ -1,8 +1,11 @@
 import { PlatformKindSchema, TransactionStatusSchema } from '@exitbook/core';
 import { z } from 'zod';
 
+import { SourceActivityOriginSchema } from './source-activity-origin.js';
+
 export const SourceActivityDraftSchema = z.object({
   ownerAccountId: z.number().int().positive('Owner account id must be a positive integer'),
+  sourceActivityOrigin: SourceActivityOriginSchema,
   sourceActivityFingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
   platformKey: z.string().min(1, 'Platform key must not be empty'),
   platformKind: PlatformKindSchema,

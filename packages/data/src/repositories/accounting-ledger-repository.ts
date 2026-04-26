@@ -6,6 +6,7 @@ import {
   computeSourceComponentFingerprint,
   SourceActivityDraftSchema,
   validateAccountingJournalDraft,
+  type AccountingBalanceCategory,
   type AccountingJournalDraft,
   type AccountingJournalKind,
   type AccountingPostingRole,
@@ -59,6 +60,7 @@ export interface AccountingLedgerPostingRecord {
   assetSymbol: string;
   quantity: Decimal;
   role: AccountingPostingRole;
+  balanceCategory: AccountingBalanceCategory;
   settlement: AccountingSettlement | undefined;
 }
 
@@ -198,6 +200,7 @@ export class AccountingLedgerRepository extends BaseRepository {
           'accounting_postings.asset_symbol as asset_symbol',
           'accounting_postings.quantity as quantity',
           'accounting_postings.posting_role as posting_role',
+          'accounting_postings.balance_category as balance_category',
           'accounting_postings.settlement as settlement',
         ])
         .where('source_activities.owner_account_id', 'in', normalizedOwnerAccountIds)
@@ -223,6 +226,7 @@ export class AccountingLedgerRepository extends BaseRepository {
           assetSymbol: row.asset_symbol,
           quantity: parseDecimal(row.quantity),
           role: row.posting_role,
+          balanceCategory: row.balance_category,
           settlement: row.settlement ?? undefined,
         }))
       );
@@ -524,6 +528,7 @@ async function upsertSourceActivity(db: KyselyDB, draft: SourceActivityDraft): P
 function toSourceActivityRow(draft: SourceActivityDraft, now: string): Insertable<SourceActivitiesTable> {
   return {
     owner_account_id: draft.ownerAccountId,
+    source_activity_origin: draft.sourceActivityOrigin,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,
@@ -544,6 +549,7 @@ function toSourceActivityRow(draft: SourceActivityDraft, now: string): Insertabl
 function toSourceActivityUpdateRow(draft: SourceActivityDraft, now: string): Updateable<SourceActivitiesTable> {
   return {
     owner_account_id: draft.ownerAccountId,
+    source_activity_origin: draft.sourceActivityOrigin,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,
@@ -686,6 +692,7 @@ function toPostingRow(
     asset_symbol: posting.assetSymbol,
     quantity: posting.quantity.toFixed(),
     posting_role: posting.role,
+    balance_category: posting.balanceCategory,
     settlement: posting.settlement ?? null,
     price_amount: posting.priceAtTxTime?.price.amount.toFixed() ?? null,
     price_currency: posting.priceAtTxTime?.price.currency ?? null,

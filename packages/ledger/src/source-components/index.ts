@@ -1,4 +1,9 @@
-export { AccountingSourceComponentKindSchema, type AccountingSourceComponentKind } from './source-component-kind.js';
+export {
+  AccountingSourceComponentKindDocs,
+  AccountingSourceComponentKindSchema,
+  AccountingSourceComponentKindValues,
+  type AccountingSourceComponentKind,
+} from './source-component-kind.js';
 export {
   SourceComponentQuantityRefSchema,
   SourceComponentRefSchema,

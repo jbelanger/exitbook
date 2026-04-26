@@ -163,6 +163,37 @@ describe('CosmosProcessor - Fee Accounting (Issue #78 Deep Dive)', () => {
     expect(transaction.from).toBe(USER_ADDRESS);
   });
 
+  test('deducts fee for provider-normalized staking rewards where validator is the reward source', async () => {
+    const processor = createInjectiveProcessor();
+
+    const normalizedData: CosmosTransaction[] = [
+      createTransaction({
+        amount: '100000000000000000', // 0.1 INJ reward
+        blockHeight: 200,
+        from: VALIDATOR_ADDRESS,
+        id: 'txProviderRewardClaim',
+        messageType: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+        to: USER_ADDRESS,
+        txType: 'staking_reward',
+      }),
+    ];
+
+    const result = await processor.process(normalizedData, {
+      primaryAddress: USER_ADDRESS,
+      userAddresses: [USER_ADDRESS],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    expect(transaction.fees.find((f) => f.scope === 'network')?.amount.toFixed()).toBe('500000000000000');
+    expect(transaction.movements.inflows).toHaveLength(1);
+  });
+
   test('does NOT deduct fee when receiving Peggy bridge deposit (validator signs)', async () => {
     const processor = createInjectiveProcessor();
 
