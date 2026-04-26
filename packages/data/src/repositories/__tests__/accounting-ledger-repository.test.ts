@@ -587,6 +587,7 @@ describe('AccountingLedgerRepository', () => {
     return {
       ownerAccountId: ACCOUNT_ID,
       sourceActivityOrigin: 'provider_event',
+      sourceActivityStableKey: 'txhash-ledger',
       sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
       platformKey: 'cardano',
       platformKind: 'blockchain',

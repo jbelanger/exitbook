@@ -3,7 +3,7 @@
 import { err, ok } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OneShotOperation } from '../../../../../contracts/index.js';
+import type { OneShotOperation, ProviderConfig } from '../../../../../contracts/index.js';
 import { createProviderRegistry } from '../../../../../initialize.js';
 import {
   createMockHttpClient,
@@ -202,6 +202,36 @@ function buildBalanceResponse(amount: string, denom = 'uatom'): CosmosBalanceRes
   };
 }
 
+function buildDisabledCosmosHubRestConfig(): ProviderConfig {
+  const fetchFactory = cosmosRestFactories.find((factory) => factory.metadata.blockchain === 'fetch');
+  if (!fetchFactory) {
+    throw new Error('Fetch Cosmos REST factory is required for Cosmos REST tests');
+  }
+
+  const metadata = {
+    ...fetchFactory.metadata,
+    baseUrl: 'https://cosmos-api.polkachu.com',
+    blockchain: 'cosmoshub',
+    description: 'Test-only Cosmos Hub REST metadata; Cosmos Hub is not registered for account-history import.',
+    displayName: 'Cosmos Hub REST API',
+    supportedChains: ['cosmoshub'],
+  };
+
+  return {
+    baseUrl: metadata.baseUrl,
+    blockchain: 'cosmoshub',
+    displayName: metadata.displayName,
+    enabled: true,
+    metadata,
+    name: metadata.name,
+    priority: 1,
+    rateLimit: metadata.defaultConfig.rateLimit,
+    requiresApiKey: metadata.requiresApiKey,
+    retries: metadata.defaultConfig.retries,
+    timeout: metadata.defaultConfig.timeout,
+  };
+}
+
 // ── Test suite ───────────────────────────────────────────────────────
 
 describe('CosmosRestApiClient', () => {
@@ -213,10 +243,7 @@ describe('CosmosRestApiClient', () => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
 
-    const config = {
-      ...providerRegistry.createDefaultConfig('cosmoshub', 'cosmos-rest'),
-      chainName: 'cosmoshub',
-    };
+    const config = { ...buildDisabledCosmosHubRestConfig(), chainName: 'cosmoshub' };
     client = new CosmosRestApiClient(config);
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
@@ -229,9 +256,9 @@ describe('CosmosRestApiClient', () => {
       expect(client.name).toBe('cosmos-rest');
     });
 
-    it('should not require API key', () => {
+    it('does not expose Cosmos Hub through the registered Cosmos REST factories', () => {
       const factory = cosmosRestFactories.find((f) => f.metadata.blockchain === 'cosmoshub');
-      expect(factory?.metadata.requiresApiKey).toBe(false);
+      expect(factory).toBeUndefined();
     });
 
     it('should have correct capabilities', () => {

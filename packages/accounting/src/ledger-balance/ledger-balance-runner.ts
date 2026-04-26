@@ -1,10 +1,12 @@
 import { err, ok, type Result } from '@exitbook/foundation';
+import { AccountingBalanceCategorySchema, type AccountingBalanceCategory } from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
 
 export interface LedgerBalancePostingInput {
   ownerAccountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   quantity: Decimal;
   journalFingerprint?: string | undefined;
   postingFingerprint?: string | undefined;
@@ -15,6 +17,7 @@ export interface LedgerBalanceReferenceInput {
   ownerAccountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   quantity: Decimal;
 }
 
@@ -22,6 +25,7 @@ export interface LedgerAssetBalance {
   ownerAccountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   quantity: Decimal;
   journalCount: number;
   journalFingerprints: readonly string[];
@@ -34,7 +38,7 @@ export interface LedgerAssetBalance {
 export interface LedgerBalanceResult {
   balances: readonly LedgerAssetBalance[];
   summary: {
-    assetBalanceCount: number;
+    assetCategoryBalanceCount: number;
     journalCount: number;
     ownerAccountCount: number;
     postingCount: number;
@@ -46,6 +50,7 @@ export interface LedgerBalanceDiff {
   ownerAccountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   delta: Decimal;
   ledgerQuantity: Decimal;
   referenceQuantity: Decimal;
@@ -58,14 +63,17 @@ interface MutableLedgerAssetBalance {
   ownerAccountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   journalFingerprints: Set<string>;
   postingFingerprints: Set<string>;
   quantity: Decimal;
   sourceActivityFingerprints: Set<string>;
 }
 
-function buildLedgerBalanceKey(params: Pick<LedgerAssetBalance, 'assetId' | 'ownerAccountId'>): string {
-  return `${params.ownerAccountId}\u0000${params.assetId}`;
+function buildLedgerBalanceKey(
+  params: Pick<LedgerAssetBalance, 'assetId' | 'balanceCategory' | 'ownerAccountId'>
+): string {
+  return `${params.ownerAccountId}\u0000${params.assetId}\u0000${params.balanceCategory}`;
 }
 
 function validateLedgerPosting(posting: LedgerBalancePostingInput): Result<void, Error> {
@@ -83,6 +91,15 @@ function validateLedgerPosting(posting: LedgerBalancePostingInput): Result<void,
 
   if (posting.assetSymbol.trim().length === 0) {
     return err(new Error(`Ledger balance posting ${posting.assetId} asset symbol must not be empty`));
+  }
+
+  const categoryResult = AccountingBalanceCategorySchema.safeParse(posting.balanceCategory);
+  if (!categoryResult.success) {
+    return err(
+      new Error(
+        `Ledger balance posting ${posting.assetId} balance category is invalid: ${categoryResult.error.message}`
+      )
+    );
   }
 
   if (posting.quantity.isZero()) {
@@ -109,6 +126,15 @@ function validateReferenceBalance(reference: LedgerBalanceReferenceInput): Resul
     return err(new Error(`Ledger balance reference ${reference.assetId} asset symbol must not be empty`));
   }
 
+  const categoryResult = AccountingBalanceCategorySchema.safeParse(reference.balanceCategory);
+  if (!categoryResult.success) {
+    return err(
+      new Error(
+        `Ledger balance reference ${reference.assetId} balance category is invalid: ${categoryResult.error.message}`
+      )
+    );
+  }
+
   return ok(undefined);
 }
 
@@ -117,6 +143,7 @@ function createMutableBalance(posting: LedgerBalancePostingInput): MutableLedger
     ownerAccountId: posting.ownerAccountId,
     assetId: posting.assetId,
     assetSymbol: posting.assetSymbol,
+    balanceCategory: posting.balanceCategory,
     journalFingerprints: new Set(),
     postingFingerprints: new Set(),
     quantity: new Decimal(0),
@@ -150,6 +177,14 @@ function applyPosting(
     );
   }
 
+  if (balance.balanceCategory !== posting.balanceCategory) {
+    return err(
+      new Error(
+        `Ledger balance asset ${posting.assetId} on owner account ${posting.ownerAccountId} has conflicting balance categories: ${balance.balanceCategory} vs ${posting.balanceCategory}`
+      )
+    );
+  }
+
   balance.quantity = balance.quantity.plus(posting.quantity);
   addOptionalSetValue(balance.journalFingerprints, posting.journalFingerprint);
   addOptionalSetValue(balance.postingFingerprints, posting.postingFingerprint);
@@ -168,6 +203,7 @@ function materializeBalance(balance: MutableLedgerAssetBalance): LedgerAssetBala
     ownerAccountId: balance.ownerAccountId,
     assetId: balance.assetId,
     assetSymbol: balance.assetSymbol,
+    balanceCategory: balance.balanceCategory,
     quantity: balance.quantity,
     journalCount: journalFingerprints.length,
     journalFingerprints,
@@ -185,7 +221,12 @@ function sortBalances(balances: LedgerAssetBalance[]): LedgerAssetBalance[] {
       return accountComparison;
     }
 
-    return left.assetId.localeCompare(right.assetId);
+    const assetComparison = left.assetId.localeCompare(right.assetId);
+    if (assetComparison !== 0) {
+      return assetComparison;
+    }
+
+    return left.balanceCategory.localeCompare(right.balanceCategory);
   });
 }
 
@@ -209,7 +250,7 @@ function buildSummary(balances: readonly LedgerAssetBalance[]): LedgerBalanceRes
   }
 
   return {
-    assetBalanceCount: balances.length,
+    assetCategoryBalanceCount: balances.length,
     journalCount: journalFingerprints.size,
     ownerAccountCount: ownerAccountIds.size,
     postingCount: postingFingerprints.size,
@@ -234,6 +275,14 @@ function indexReferences(
       return err(
         new Error(
           `Ledger balance reference ${reference.assetId} on owner account ${reference.ownerAccountId} has conflicting symbols: ${existing.assetSymbol} vs ${reference.assetSymbol}`
+        )
+      );
+    }
+
+    if (existing !== undefined && existing.balanceCategory !== reference.balanceCategory) {
+      return err(
+        new Error(
+          `Ledger balance reference ${reference.assetId} on owner account ${reference.ownerAccountId} has conflicting balance categories: ${existing.balanceCategory} vs ${reference.balanceCategory}`
         )
       );
     }
@@ -264,7 +313,7 @@ export function buildLedgerBalancesFromPostings(
   });
 }
 
-export function indexLedgerBalancesByOwnerAsset(
+export function indexLedgerBalancesByOwnerAssetCategory(
   balances: readonly LedgerAssetBalance[]
 ): Map<string, LedgerAssetBalance> {
   return new Map(balances.map((balance) => [buildLedgerBalanceKey(balance), balance]));
@@ -280,7 +329,7 @@ export function diffLedgerBalancesAgainstReferences(params: {
     return err(referencesResult.error);
   }
 
-  const ledgerByKey = indexLedgerBalancesByOwnerAsset(params.ledgerBalances);
+  const ledgerByKey = indexLedgerBalancesByOwnerAssetCategory(params.ledgerBalances);
   const referenceByKey = referencesResult.value;
   const allKeys = new Set([...ledgerByKey.keys(), ...referenceByKey.keys()]);
   const tolerance = new Decimal(params.tolerance ?? 0);
@@ -306,6 +355,18 @@ export function diffLedgerBalancesAgainstReferences(params: {
       );
     }
 
+    if (
+      ledgerBalance !== undefined &&
+      referenceBalance !== undefined &&
+      ledgerBalance.balanceCategory !== referenceBalance.balanceCategory
+    ) {
+      return err(
+        new Error(
+          `Ledger balance diff ${reference.assetId} on owner account ${reference.ownerAccountId} has conflicting balance categories: ledger ${ledgerBalance.balanceCategory} vs reference ${referenceBalance.balanceCategory}`
+        )
+      );
+    }
+
     const ledgerQuantity = ledgerBalance?.quantity ?? new Decimal(0);
     const referenceQuantity = referenceBalance?.quantity ?? new Decimal(0);
     const delta = ledgerQuantity.minus(referenceQuantity);
@@ -317,6 +378,7 @@ export function diffLedgerBalancesAgainstReferences(params: {
       ownerAccountId: reference.ownerAccountId,
       assetId: reference.assetId,
       assetSymbol: reference.assetSymbol,
+      balanceCategory: reference.balanceCategory,
       delta,
       ledgerQuantity,
       referenceQuantity,

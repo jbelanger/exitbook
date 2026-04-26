@@ -2,6 +2,8 @@ import type { Currency } from '@exitbook/foundation';
 
 import type { ChainProviderHints } from '../../catalog/types.js';
 
+export type CosmosAccountHistorySupport = 'verified' | 'disabled';
+
 /**
  * Configuration interface for Cosmos SDK-based blockchains
  *
@@ -107,6 +109,23 @@ export interface CosmosChainConfig {
    * Newer servers, including Fetch.ai, require repeated `events` filters.
    */
   restTxSearchEventParam?: 'events' | 'query' | undefined;
+
+  /**
+   * Whether account-history import is exposed through provider and ingestion
+   * registries.
+   *
+   * Unset means the chain config is available for parsing, tests, and future
+   * enablement, but it is not advertised as an importable chain. Cosmos LCD/RPC
+   * endpoints vary too much to treat every configured Cosmos SDK chain as
+   * supportable by default.
+   */
+  accountHistorySupport?: CosmosAccountHistorySupport | undefined;
+
+  /**
+   * Human-readable reason used in docs and support decisions when account
+   * history import is disabled.
+   */
+  accountHistoryDisabledReason?: string | undefined;
 
   /**
    * Optional provider-specific metadata hints used by aggregate catalogs.

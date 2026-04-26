@@ -268,7 +268,7 @@ export function mapCosmosRestTransaction(
     const message = convertMessageFormat(cosmosMessage);
 
     // Try parsing as bank send message
-    const bankResult = parseBankSendMessage(message, chainConfig.nativeDecimals);
+    const bankResult = parseBankSendMessage(message, chainConfig.nativeDecimals, chainConfig.nativeDenom);
     if (bankResult) {
       from = bankResult.from;
       to = bankResult.to;
@@ -290,7 +290,12 @@ export function mapCosmosRestTransaction(
     }
 
     // Try parsing as bank multi-send message
-    const bankMultiSendResult = parseBankMultiSendMessage(message, relevantAddress, chainConfig.nativeDecimals);
+    const bankMultiSendResult = parseBankMultiSendMessage(
+      message,
+      relevantAddress,
+      chainConfig.nativeDecimals,
+      chainConfig.nativeDenom
+    );
     if (bankMultiSendResult) {
       from = bankMultiSendResult.from;
       to = bankMultiSendResult.to;
@@ -446,8 +451,9 @@ export function mapCosmosRestTransaction(
           // Apply decimal conversion (same as other parsers)
           amount = parseDecimal(firstAmount.amount).div(Math.pow(10, chainConfig.nativeDecimals)).toFixed();
           currency = formatDenom(firstAmount.denom, denomFormatOptions);
-          tokenAddress = firstAmount.denom.toLowerCase().startsWith('ibc/') ? firstAmount.denom : undefined;
-          tokenType = tokenAddress ? 'ibc' : 'native';
+          const isNativeDenom = firstAmount.denom.toLowerCase() === chainConfig.nativeDenom.toLowerCase();
+          tokenAddress = isNativeDenom ? undefined : firstAmount.denom;
+          tokenType = firstAmount.denom.toLowerCase().startsWith('ibc/') ? 'ibc' : 'native';
           tokenSymbol = currency;
 
           if (isTransactionRelevant(from, to, relevantAddress, amount)) {

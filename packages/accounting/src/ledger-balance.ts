@@ -1,7 +1,7 @@
 export {
   buildLedgerBalancesFromPostings,
   diffLedgerBalancesAgainstReferences,
-  indexLedgerBalancesByOwnerAsset,
+  indexLedgerBalancesByOwnerAssetCategory,
   type LedgerAssetBalance,
   type LedgerBalanceDiff,
   type LedgerBalancePostingInput,

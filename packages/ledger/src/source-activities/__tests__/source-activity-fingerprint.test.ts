@@ -12,19 +12,21 @@ describe('computeSourceActivityFingerprint', () => {
       accountFingerprint: 'account:1',
       platformKey: 'cardano',
       platformKind: 'blockchain',
-      blockchainTransactionHash: 'tx-hash-1',
+      sourceActivityOrigin: 'provider_event',
+      sourceActivityStableKey: 'tx-hash-1',
     };
 
     expect(assertOk(computeSourceActivityFingerprint(input))).toBe(assertOk(computeSourceActivityFingerprint(input)));
   });
 
-  it('sorts exchange component event ids before hashing', () => {
+  it('uses the stable key as generic source activity identity', () => {
     const first = assertOk(
       computeSourceActivityFingerprint({
         accountFingerprint: 'account:1',
         platformKey: 'kraken',
         platformKind: 'exchange',
-        componentEventIds: ['b', 'a'],
+        sourceActivityOrigin: 'provider_event',
+        sourceActivityStableKey: 'exchange-events:a:b',
       })
     );
     const second = assertOk(
@@ -32,7 +34,8 @@ describe('computeSourceActivityFingerprint', () => {
         accountFingerprint: 'account:1',
         platformKey: 'kraken',
         platformKind: 'exchange',
-        componentEventIds: ['a', 'b'],
+        sourceActivityOrigin: 'provider_event',
+        sourceActivityStableKey: 'exchange-events:a:b',
       })
     );
 

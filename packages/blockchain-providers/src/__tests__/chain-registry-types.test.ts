@@ -3,8 +3,10 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { BITCOIN_CHAINS, getBitcoinChainConfig, type BitcoinChainName } from '../blockchains/bitcoin/index.js';
 import {
   COSMOS_CHAINS,
+  getCosmosAccountHistoryChainNames,
   getAllCosmosChainNames,
   getCosmosChainConfig,
+  isCosmosAccountHistorySupported,
   isCosmosChainSupported,
   type CosmosChainName,
 } from '../blockchains/cosmos/index.js';
@@ -38,5 +40,12 @@ describe('chain registry typing', () => {
     expect(isCosmosChainSupported('injective')).toBe(true);
     expect(isCosmosChainSupported('not-a-chain')).toBe(false);
     expectTypeOf(getAllCosmosChainNames()).toEqualTypeOf<CosmosChainName[]>();
+  });
+
+  it('keeps Cosmos account-history support explicit', () => {
+    expect(getCosmosAccountHistoryChainNames().sort()).toEqual(['akash', 'fetch', 'injective']);
+    expect(isCosmosAccountHistorySupported('injective')).toBe(true);
+    expect(isCosmosAccountHistorySupported('cosmoshub')).toBe(false);
+    expectTypeOf(getCosmosAccountHistoryChainNames()).toEqualTypeOf<CosmosChainName[]>();
   });
 });

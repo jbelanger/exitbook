@@ -77,7 +77,7 @@ export function mapInjectiveExplorerTransaction(
     }
 
     // Try parsing as bank send message
-    const bankResult = parseBankSendMessage(message);
+    const bankResult = parseBankSendMessage(message, 18, 'inj');
     if (bankResult) {
       from = bankResult.from;
       to = bankResult.to;
@@ -99,7 +99,7 @@ export function mapInjectiveExplorerTransaction(
     }
 
     // Try parsing as bank multi-send message
-    const bankMultiSendResult = parseBankMultiSendMessage(message, relevantAddress);
+    const bankMultiSendResult = parseBankMultiSendMessage(message, relevantAddress, 18, 'inj');
     if (bankMultiSendResult) {
       from = bankMultiSendResult.from;
       to = bankMultiSendResult.to;

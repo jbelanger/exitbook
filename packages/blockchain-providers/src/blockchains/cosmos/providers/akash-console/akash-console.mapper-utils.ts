@@ -86,7 +86,7 @@ export function mapAkashConsoleTransaction(
     };
 
     // Try parsing as bank send message
-    const bankResult = parseBankSendMessage(convertedMessage, chainConfig.nativeDecimals);
+    const bankResult = parseBankSendMessage(convertedMessage, chainConfig.nativeDecimals, chainConfig.nativeDenom);
     if (bankResult) {
       from = bankResult.from;
       to = bankResult.to;
@@ -111,7 +111,8 @@ export function mapAkashConsoleTransaction(
     const bankMultiSendResult = parseBankMultiSendMessage(
       convertedMessage,
       relevantAddress,
-      chainConfig.nativeDecimals
+      chainConfig.nativeDecimals,
+      chainConfig.nativeDenom
     );
     if (bankMultiSendResult) {
       from = bankMultiSendResult.from;

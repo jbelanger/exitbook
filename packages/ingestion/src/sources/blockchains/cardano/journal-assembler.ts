@@ -41,7 +41,8 @@ function computeCardanoSourceActivityFingerprint(
     accountFingerprint: context.account.fingerprint,
     platformKey: 'cardano',
     platformKind: 'blockchain',
-    blockchainTransactionHash: transaction.id,
+    sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: transaction.id,
   });
 }
 
@@ -55,6 +56,7 @@ function buildCardanoSourceActivityDraft(
   return {
     ownerAccountId: context.account.id,
     sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: transaction.id,
     sourceActivityFingerprint,
     platformKey: 'cardano',
     platformKind: 'blockchain',

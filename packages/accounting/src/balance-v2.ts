@@ -1,6 +1,6 @@
 export {
   buildBalanceV2FromPostings,
-  indexBalanceV2ByAccountAsset,
+  indexBalanceV2ByAccountAssetCategory,
   type BalanceV2AssetBalance,
   type BalanceV2PostingInput,
   type BalanceV2Result,

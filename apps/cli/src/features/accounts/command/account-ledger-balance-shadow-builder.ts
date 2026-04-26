@@ -53,6 +53,7 @@ export class AccountLedgerBalanceShadowBuilder {
           ownerAccountId: posting.ownerAccountId,
           assetId: posting.assetId,
           assetSymbol: posting.assetSymbol,
+          balanceCategory: posting.balanceCategory,
           quantity: posting.quantity,
           journalFingerprint: posting.journalFingerprint,
           postingFingerprint: posting.postingFingerprint,
@@ -99,13 +100,18 @@ function buildLedgerShadowRows(
   ledgerBalances: readonly LedgerAssetBalance[],
   legacyComparisons: readonly BalanceComparison[]
 ): LedgerBalanceShadowAssetComparison[] {
-  const ledgerByAssetId = new Map(ledgerBalances.map((balance) => [balance.assetId, balance]));
-  const comparisonByAssetId = new Map(legacyComparisons.map((comparison) => [comparison.assetId, comparison]));
-  const assetIds = [...new Set([...ledgerByAssetId.keys(), ...comparisonByAssetId.keys()])].sort();
+  const ledgerByKey = new Map(ledgerBalances.map((balance) => [buildLedgerShadowRowKey(balance), balance] as const));
+  const comparisonByKey = new Map(
+    legacyComparisons.map(
+      (comparison) => [buildLedgerShadowRowKey({ ...comparison, balanceCategory: 'liquid' }), comparison] as const
+    )
+  );
+  const rowKeys = [...new Set([...ledgerByKey.keys(), ...comparisonByKey.keys()])].sort();
 
-  return assetIds.map((assetId) => {
-    const ledgerBalance = ledgerByAssetId.get(assetId);
-    const comparison = comparisonByAssetId.get(assetId);
+  return rowKeys.map((rowKey) => {
+    const ledgerBalance = ledgerByKey.get(rowKey);
+    const comparison = comparisonByKey.get(rowKey);
+    const [assetId, balanceCategory] = parseLedgerShadowRowKey(rowKey);
     const ledgerQuantity = ledgerBalance?.quantity ?? new Decimal(0);
     const legacyQuantity = comparison !== undefined ? parseDecimal(comparison.calculatedBalance) : undefined;
     const liveQuantity = comparison !== undefined ? parseDecimal(comparison.liveBalance) : undefined;
@@ -114,6 +120,7 @@ function buildLedgerShadowRows(
 
     return {
       assetId,
+      balanceCategory,
       assetSymbol: comparison?.assetSymbol ?? ledgerBalance?.assetSymbol ?? assetId,
       ledgerBalance: ledgerQuantity.toFixed(),
       ...(legacyQuantity !== undefined && {
@@ -130,6 +137,21 @@ function buildLedgerShadowRows(
       postingCount: ledgerBalance?.postingCount ?? 0,
     };
   });
+}
+
+function buildLedgerShadowRowKey(params: {
+  assetId: string;
+  balanceCategory: LedgerBalanceShadowAssetComparison['balanceCategory'];
+}): string {
+  return `${params.assetId}\u0000${params.balanceCategory}`;
+}
+
+function parseLedgerShadowRowKey(rowKey: string): [string, LedgerBalanceShadowAssetComparison['balanceCategory']] {
+  const [assetId, balanceCategory] = rowKey.split('\u0000') as [
+    string,
+    LedgerBalanceShadowAssetComparison['balanceCategory'],
+  ];
+  return [assetId, balanceCategory];
 }
 
 function getLedgerShadowRowStatus(

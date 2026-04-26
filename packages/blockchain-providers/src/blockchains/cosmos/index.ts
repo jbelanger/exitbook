@@ -2,11 +2,13 @@
  * Cosmos blockchain provider exports
  */
 
-export type { CosmosChainConfig } from './chain-config.interface.js';
+export type { CosmosAccountHistorySupport, CosmosChainConfig } from './chain-config.interface.js';
 export {
   COSMOS_CHAINS,
+  getCosmosAccountHistoryChainNames,
   getAllCosmosChainNames,
   getCosmosChainConfig,
+  isCosmosAccountHistorySupported,
   isCosmosChainSupported,
   type CosmosChainName,
 } from './chain-registry.js';

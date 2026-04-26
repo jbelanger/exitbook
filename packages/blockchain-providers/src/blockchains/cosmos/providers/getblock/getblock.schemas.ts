@@ -44,7 +44,7 @@ export const GetBlockTxSearchTxSchema = z.object({
   tx_result: z.object({
     code: z.number().optional(),
     codespace: z.string().optional(),
-    data: z.string().optional(),
+    data: z.string().nullish(),
     events: z.array(CosmosEventSchema).optional(),
     gas_used: StringNumberSchema.optional(),
     gas_wanted: StringNumberSchema.optional(),

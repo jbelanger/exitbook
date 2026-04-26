@@ -139,6 +139,7 @@ export interface SourceActivitiesTable {
   id: Generated<number>;
   owner_account_id: number; // FK to accounts.id; accounting owner, not necessarily the raw/import account
   source_activity_origin: SourceActivityOrigin;
+  source_activity_stable_key: string;
   platform_key: string;
   platform_kind: PlatformKind;
   source_activity_fingerprint: string;

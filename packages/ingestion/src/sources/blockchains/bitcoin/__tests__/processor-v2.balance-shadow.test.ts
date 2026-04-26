@@ -112,6 +112,7 @@ function toJournalBalanceV2PostingInputs(
     accountId: draft.sourceActivity.ownerAccountId,
     assetId: posting.assetId,
     assetSymbol: posting.assetSymbol,
+    balanceCategory: posting.balanceCategory,
     quantity: posting.quantity,
     journalFingerprint,
     postingFingerprint: assertOk(computeAccountingPostingFingerprint(journalFingerprint, posting)),

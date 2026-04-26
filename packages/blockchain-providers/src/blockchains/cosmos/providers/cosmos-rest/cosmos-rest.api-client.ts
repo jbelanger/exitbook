@@ -24,7 +24,7 @@ import {
 } from '../../../../runtime/streaming/adapter.js';
 import { convertBalance, createZeroBalance, findNativeBalance } from '../../balance-utils.js';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
-import { COSMOS_CHAINS, getCosmosChainConfig } from '../../chain-registry.js';
+import { COSMOS_CHAINS, getCosmosChainConfig, isCosmosAccountHistorySupported } from '../../chain-registry.js';
 import type { CosmosTransaction } from '../../types.js';
 import { validateBech32Address } from '../../utils.js';
 
@@ -436,7 +436,9 @@ export class CosmosRestApiClient extends BaseApiClient {
 }
 
 export const cosmosRestFactories: ProviderFactory[] = Object.entries(COSMOS_CHAINS)
-  .filter(([, chainConfig]) => chainConfig.restTxSearchEnabled !== false)
+  .filter(([chainName, chainConfig]) => {
+    return isCosmosAccountHistorySupported(chainName) && chainConfig.restTxSearchEnabled !== false;
+  })
   .map(([chainName, chainConfig]) => ({
     create: (config: ProviderConfig) =>
       new CosmosRestApiClient({

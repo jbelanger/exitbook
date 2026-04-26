@@ -107,6 +107,8 @@ export function formatBlockchainName(name: string): string {
     bittensor: 'Bittensor (TAO)',
     solana: 'Solana',
     injective: 'Injective',
+    akash: 'Akash',
+    fetch: 'Fetch.ai',
   };
   return (
     names[name] ??
@@ -153,7 +155,7 @@ export function getBlockchainHint(name: string): string {
     return 'Substrate';
   }
 
-  if (['cosmos', 'injective', 'osmosis'].includes(name)) {
+  if (['akash', 'cosmos', 'fetch', 'injective', 'osmosis'].includes(name)) {
     return 'Cosmos SDK';
   }
 

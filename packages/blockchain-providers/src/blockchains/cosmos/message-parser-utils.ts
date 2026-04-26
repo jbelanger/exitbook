@@ -48,11 +48,21 @@ interface IbcTransferResult {
   sourcePort: string | undefined;
 }
 
-function bankTokenFieldsForDenom(denom: string): Pick<BankSendResult, 'tokenAddress' | 'tokenType'> {
+function bankTokenFieldsForDenom(
+  denom: string,
+  nativeDenom?: string
+): Pick<BankSendResult, 'tokenAddress' | 'tokenType'> {
   if (denom.toLowerCase().startsWith('ibc/')) {
     return {
       tokenAddress: denom,
       tokenType: 'ibc',
+    };
+  }
+
+  if (nativeDenom !== undefined && denom.toLowerCase() !== nativeDenom.toLowerCase()) {
+    return {
+      tokenAddress: denom,
+      tokenType: 'native',
     };
   }
 
@@ -123,7 +133,11 @@ interface PeggyDepositClaimResult {
  * @param decimals - Number of decimals for amount conversion (default: 18)
  * @returns Parsed transfer data, or undefined if not a bank send message
  */
-export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): BankSendResult | undefined {
+export function parseBankSendMessage(
+  message: InjectiveMessage,
+  decimals = 18,
+  nativeDenom?: string
+): BankSendResult | undefined {
   if (message.type !== '/cosmos.bank.v1beta1.MsgSend') {
     return undefined;
   }
@@ -148,7 +162,7 @@ export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): 
     to,
     amount,
     currency,
-    ...bankTokenFieldsForDenom(currency),
+    ...bankTokenFieldsForDenom(currency, nativeDenom),
     tokenSymbol: currency,
   };
 }
@@ -167,7 +181,8 @@ export function parseBankSendMessage(message: InjectiveMessage, decimals = 18): 
 export function parseBankMultiSendMessage(
   message: InjectiveMessage,
   relevantAddress: string,
-  decimals = 18
+  decimals = 18,
+  nativeDenom?: string
 ): BankSendResult | undefined {
   if (message.type !== '/cosmos.bank.v1beta1.MsgMultiSend') {
     return undefined;
@@ -207,7 +222,7 @@ export function parseBankMultiSendMessage(
       to: firstOutput.address,
       amount,
       currency,
-      ...bankTokenFieldsForDenom(currency),
+      ...bankTokenFieldsForDenom(currency, nativeDenom),
       tokenSymbol: currency,
     };
   }
@@ -235,7 +250,7 @@ export function parseBankMultiSendMessage(
       to: relevantAddress,
       amount,
       currency,
-      ...bankTokenFieldsForDenom(currency),
+      ...bankTokenFieldsForDenom(currency, nativeDenom),
       tokenSymbol: currency,
     };
   }

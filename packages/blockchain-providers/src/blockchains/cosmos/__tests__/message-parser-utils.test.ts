@@ -152,6 +152,30 @@ describe('message-parser-utils', () => {
         tokenType: 'ibc',
       });
     });
+
+    it('should preserve non-native bank-send denom identity', () => {
+      const denom = 'cosmosvaloper1gf3dm2mvqhymts6ksrstlyuu2m8pw6dhfp9md2/114786';
+      const message: InjectiveMessage = {
+        type: '/cosmos.bank.v1beta1.MsgSend',
+        value: {
+          from_address: 'cosmos1from',
+          to_address: 'cosmos1to',
+          amount: [{ amount: '1', denom }],
+        },
+      };
+
+      const result = parseBankSendMessage(message, 6, 'uatom');
+
+      expect(result).toEqual({
+        amount: '0.000001',
+        currency: denom,
+        from: 'cosmos1from',
+        to: 'cosmos1to',
+        tokenAddress: denom,
+        tokenSymbol: denom,
+        tokenType: 'native',
+      });
+    });
   });
 
   describe('parseBankMultiSendMessage', () => {

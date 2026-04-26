@@ -523,7 +523,8 @@ function computeBitcoinSourceActivityFingerprint(
     accountFingerprint: context.account.fingerprint,
     platformKey: chainConfig.chainName,
     platformKind: 'blockchain',
-    blockchainTransactionHash: transaction.id,
+    sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: transaction.id,
   });
 }
 
@@ -563,6 +564,7 @@ function buildBitcoinSourceActivityDraft(params: {
   return {
     ownerAccountId: params.context.account.id,
     sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: params.transaction.id,
     sourceActivityFingerprint: params.sourceActivityFingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',

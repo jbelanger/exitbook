@@ -1,8 +1,7 @@
 import { ok, type Result } from '@exitbook/foundation';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StreamingBatchResult } from '../../../../../contracts/index.js';
-import { createProviderRegistry } from '../../../../../initialize.js';
+import type { ProviderConfig, StreamingBatchResult } from '../../../../../contracts/index.js';
 import {
   createMockHttpClient,
   expectOk,
@@ -13,9 +12,31 @@ import {
 import { cosmosProviderFactories } from '../../../register-apis.js';
 import type { CosmosTransaction } from '../../../types.js';
 import { GetBlockCosmosApiClient, getBlockCosmosMetadata } from '../getblock.api-client.js';
-import type { GetBlockBlockResponse, GetBlockTxSearchResponse, GetBlockTxSearchTx } from '../getblock.schemas.js';
+import {
+  GetBlockTxSearchResponseSchema,
+  type GetBlockBlockResponse,
+  type GetBlockTxSearchResponse,
+  type GetBlockTxSearchTx,
+} from '../getblock.schemas.js';
 
 const mockHttp = createMockHttpClient();
+
+function buildDisabledGetBlockCosmosConfig(apiKey: string): ProviderConfig {
+  return {
+    apiKey,
+    baseUrl: getBlockCosmosMetadata.baseUrl,
+    blockchain: 'cosmoshub',
+    displayName: getBlockCosmosMetadata.displayName,
+    enabled: true,
+    metadata: getBlockCosmosMetadata,
+    name: getBlockCosmosMetadata.name,
+    priority: 1,
+    rateLimit: getBlockCosmosMetadata.defaultConfig.rateLimit,
+    requiresApiKey: getBlockCosmosMetadata.requiresApiKey,
+    retries: getBlockCosmosMetadata.defaultConfig.retries,
+    timeout: getBlockCosmosMetadata.defaultConfig.timeout,
+  };
+}
 
 vi.mock('@exitbook/logger', () => ({
   getLogger: vi.fn(() => ({
@@ -105,7 +126,6 @@ function mockAccountSearchesWithTransfer(mockGet: MockHttpClient['get']): void {
 }
 
 describe('GetBlockCosmosApiClient', () => {
-  const providerRegistry = createProviderRegistry();
   let client: GetBlockCosmosApiClient;
   let mockGet: MockHttpClient['get'];
 
@@ -113,18 +133,16 @@ describe('GetBlockCosmosApiClient', () => {
     vi.clearAllMocks();
     resetMockHttpClient(mockHttp);
 
-    const config = {
-      ...providerRegistry.createDefaultConfig('cosmoshub', 'getblock-cosmos'),
-      apiKey: TEST_API_KEY,
-    };
+    const config = buildDisabledGetBlockCosmosConfig(TEST_API_KEY);
     client = new GetBlockCosmosApiClient(config);
     injectMockHttpClient(client, mockHttp);
     mockGet = mockHttp.get;
   });
 
-  it('registers as an API-keyed Cosmos Hub provider', () => {
+  it('keeps GetBlock metadata available but not registered while Cosmos Hub is disabled', () => {
     const factory = cosmosProviderFactories.find((candidate) => candidate.metadata.name === 'getblock-cosmos');
-    expect(factory?.metadata).toMatchObject({
+    expect(factory).toBeUndefined();
+    expect(getBlockCosmosMetadata).toMatchObject({
       apiKeyEnvName: 'GETBLOCK_COSMOS_API_KEY',
       blockchain: 'cosmoshub',
       requiresApiKey: true,
@@ -177,5 +195,22 @@ describe('GetBlockCosmosApiClient', () => {
     });
     expect(mockGet.mock.calls[0]?.[0]).toContain(`/${TEST_API_KEY}/tx_search?`);
     expect(mockGet.mock.calls[9]?.[0]).toBe(`/${TEST_API_KEY}/block?height=30000000`);
+  });
+
+  it('accepts tx_search responses with null tx_result data', () => {
+    const providerNull = JSON.parse('null') as string | null;
+    const response = buildSearchResponse([
+      {
+        ...buildTransferTx(),
+        tx_result: {
+          ...buildTransferTx().tx_result,
+          data: providerNull,
+        },
+      },
+    ]);
+
+    const parsed = GetBlockTxSearchResponseSchema.safeParse(response);
+
+    expect(parsed.success).toBe(true);
   });
 });

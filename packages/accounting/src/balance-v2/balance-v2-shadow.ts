@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 
 import {
   buildBalanceV2FromPostings,
-  indexBalanceV2ByAccountAsset,
+  indexBalanceV2ByAccountAssetCategory,
   type BalanceV2AssetBalance,
   type BalanceV2PostingInput,
   type BalanceV2Result,
@@ -19,6 +19,7 @@ export interface BalanceV2ShadowDiff {
   accountId: number;
   assetId: string;
   assetSymbol: string;
+  balanceCategory: BalanceV2AssetBalance['balanceCategory'];
   delta: Decimal;
   ledgerQuantity: Decimal;
   legacyQuantity: Decimal;
@@ -46,6 +47,7 @@ function toLegacyPostingInput(
     accountId: transaction.accountId,
     assetId: impactAsset.assetId,
     assetSymbol: impactAsset.assetSymbol,
+    balanceCategory: 'liquid',
     quantity: impactAsset.netBalanceDelta,
     transactionFingerprint: transaction.txFingerprint,
   };
@@ -79,8 +81,8 @@ export function diffBalanceV2Results(
   legacyResult: BalanceV2Result,
   ledgerResult: BalanceV2Result
 ): Result<BalanceV2ShadowDiff[], Error> {
-  const legacyByKey = indexBalanceV2ByAccountAsset(legacyResult.balances);
-  const ledgerByKey = indexBalanceV2ByAccountAsset(ledgerResult.balances);
+  const legacyByKey = indexBalanceV2ByAccountAssetCategory(legacyResult.balances);
+  const ledgerByKey = indexBalanceV2ByAccountAssetCategory(ledgerResult.balances);
   const allKeys = new Set([...legacyByKey.keys(), ...ledgerByKey.keys()]);
   const diffs: BalanceV2ShadowDiff[] = [];
 
@@ -110,6 +112,7 @@ export function diffBalanceV2Results(
       accountId: referenceBalance.accountId,
       assetId: referenceBalance.assetId,
       assetSymbol: referenceBalance.assetSymbol,
+      balanceCategory: referenceBalance.balanceCategory,
       delta: ledgerQuantity.minus(legacyQuantity),
       ledgerQuantity,
       legacyQuantity,

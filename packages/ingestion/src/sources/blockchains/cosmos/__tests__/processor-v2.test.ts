@@ -92,6 +92,7 @@ describe('CosmosProcessorV2', () => {
       blockchainTransactionHash: 'tx-inbound',
       ownerAccountId: 42,
       sourceActivityOrigin: 'provider_event',
+      sourceActivityStableKey: 'tx-inbound',
     });
     expect(draft.journals).toHaveLength(1);
     expect(draft.journals[0]).toMatchObject({ journalKind: 'transfer', journalStableKey: 'transfer' });

@@ -3,19 +3,22 @@ import { err, type Result } from '@exitbook/foundation';
 import { canonicalStringify } from '../internal/canonical-json.js';
 import { computeFingerprint } from '../internal/fingerprint-utils.js';
 
+import type { SourceActivityOrigin } from './source-activity-origin.js';
+
 const SOURCE_ACTIVITY_FINGERPRINT_PREFIX = 'source_activity:v1';
 
 export interface SourceActivityFingerprintInput {
   accountFingerprint: string;
   platformKey: string;
   platformKind: 'blockchain' | 'exchange';
-  blockchainTransactionHash?: string | undefined;
-  componentEventIds?: readonly string[] | undefined;
+  sourceActivityOrigin: SourceActivityOrigin;
+  sourceActivityStableKey: string;
 }
 
 export function buildSourceActivityFingerprintMaterial(input: SourceActivityFingerprintInput): Result<string, Error> {
   const accountFingerprint = input.accountFingerprint.trim();
   const platformKey = input.platformKey.trim();
+  const sourceActivityStableKey = input.sourceActivityStableKey.trim();
 
   if (accountFingerprint === '') {
     return err(new Error('accountFingerprint must not be empty'));
@@ -25,34 +28,16 @@ export function buildSourceActivityFingerprintMaterial(input: SourceActivityFing
     return err(new Error('platformKey must not be empty'));
   }
 
-  if (input.platformKind === 'blockchain') {
-    const blockchainTransactionHash = input.blockchainTransactionHash?.trim();
-    if (!blockchainTransactionHash) {
-      return err(new Error('blockchainTransactionHash is required for blockchain source activities'));
-    }
-
-    return canonicalStringify({
-      accountFingerprint,
-      blockchainTransactionHash,
-      platformKey,
-      platformKind: input.platformKind,
-    });
-  }
-
-  const componentEventIds = input.componentEventIds?.map((eventId) => eventId.trim()).sort();
-  if (!componentEventIds || componentEventIds.length === 0) {
-    return err(new Error('componentEventIds is required for exchange source activities'));
-  }
-
-  if (componentEventIds.some((eventId) => eventId === '')) {
-    return err(new Error('componentEventIds must not contain empty values'));
+  if (sourceActivityStableKey === '') {
+    return err(new Error('sourceActivityStableKey must not be empty'));
   }
 
   return canonicalStringify({
     accountFingerprint,
-    componentEventIds,
     platformKey,
     platformKind: input.platformKind,
+    sourceActivityOrigin: input.sourceActivityOrigin,
+    sourceActivityStableKey,
   });
 }
 

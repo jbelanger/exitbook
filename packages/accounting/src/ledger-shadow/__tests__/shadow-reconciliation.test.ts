@@ -25,6 +25,7 @@ function createSourceActivity(sourceKey: string, ownerAccountId = 1) {
   return {
     ownerAccountId,
     sourceActivityOrigin: 'provider_event' as const,
+    sourceActivityStableKey: sourceKey,
     sourceActivityFingerprint: `source_activity:${sourceKey}`,
     platformKey: 'cardano',
     platformKind: 'blockchain' as const,

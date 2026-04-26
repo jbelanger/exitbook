@@ -6,7 +6,7 @@ import { buildBalanceV2FromPostings } from '../balance-v2-runner.js';
 import type { BalanceV2PostingInput } from '../balance-v2-runner.js';
 
 describe('buildBalanceV2FromPostings', () => {
-  it('aggregates signed ledger postings by account and asset', () => {
+  it('aggregates signed ledger postings by account, asset, and balance category', () => {
     const result = assertOk(
       buildBalanceV2FromPostings([
         posting({
@@ -38,6 +38,7 @@ describe('buildBalanceV2FromPostings', () => {
       result.balances.map((balance) => ({
         accountId: balance.accountId,
         assetId: balance.assetId,
+        balanceCategory: balance.balanceCategory,
         quantity: balance.quantity.toFixed(),
         postingFingerprints: balance.postingFingerprints,
         sourceActivityFingerprints: balance.sourceActivityFingerprints,
@@ -46,6 +47,7 @@ describe('buildBalanceV2FromPostings', () => {
       {
         accountId: 1,
         assetId: 'blockchain:cardano:native',
+        balanceCategory: 'liquid',
         quantity: '7',
         postingFingerprints: ['posting:1a', 'posting:1b'],
         sourceActivityFingerprints: ['activity:1a', 'activity:1b'],
@@ -53,10 +55,30 @@ describe('buildBalanceV2FromPostings', () => {
       {
         accountId: 2,
         assetId: 'blockchain:cardano:native',
+        balanceCategory: 'liquid',
         quantity: '5',
         postingFingerprints: ['posting:2'],
         sourceActivityFingerprints: ['activity:2'],
       },
+    ]);
+  });
+
+  it('keeps staked and liquid balances separate', () => {
+    const result = assertOk(
+      buildBalanceV2FromPostings([
+        posting({ quantity: '-5', postingFingerprint: 'posting:liquid-out' }),
+        posting({ balanceCategory: 'staked', quantity: '5', postingFingerprint: 'posting:staked-in' }),
+      ])
+    );
+
+    expect(
+      result.balances.map((balance) => ({
+        balanceCategory: balance.balanceCategory,
+        quantity: balance.quantity.toFixed(),
+      }))
+    ).toEqual([
+      { balanceCategory: 'liquid', quantity: '-5' },
+      { balanceCategory: 'staked', quantity: '5' },
     ]);
   });
 

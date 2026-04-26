@@ -56,6 +56,8 @@ describe('blockchains-catalog-utils', () => {
     });
 
     it('should return cosmos for Cosmos blockchains', () => {
+      expect(getBlockchainCategory('akash')).toBe('cosmos');
+      expect(getBlockchainCategory('fetch')).toBe('cosmos');
       expect(getBlockchainCategory('injective')).toBe('cosmos');
     });
 

@@ -529,6 +529,7 @@ function toSourceActivityRow(draft: SourceActivityDraft, now: string): Insertabl
   return {
     owner_account_id: draft.ownerAccountId,
     source_activity_origin: draft.sourceActivityOrigin,
+    source_activity_stable_key: draft.sourceActivityStableKey,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,
@@ -550,6 +551,7 @@ function toSourceActivityUpdateRow(draft: SourceActivityDraft, now: string): Upd
   return {
     owner_account_id: draft.ownerAccountId,
     source_activity_origin: draft.sourceActivityOrigin,
+    source_activity_stable_key: draft.sourceActivityStableKey,
     platform_key: draft.platformKey,
     platform_kind: draft.platformKind,
     source_activity_fingerprint: draft.sourceActivityFingerprint,

@@ -9,7 +9,7 @@ import { mapToRawTransactions } from '../shared/importer-utils.js';
 
 /**
  * Generic Cosmos SDK transaction importer that fetches raw transaction data from blockchain APIs.
- * Works with any Cosmos SDK-based chain (Injective, Osmosis, Cosmos Hub, Terra, etc.)
+ * Registered only for Cosmos SDK chains with verified account-history support.
  * Uses provider runtime for failover between multiple API providers per chain.
  */
 export class CosmosImporter implements IImporter {

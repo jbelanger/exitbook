@@ -7,6 +7,7 @@ describe('listBlockchainProviders', () => {
     const providers = listBlockchainProviders();
 
     expect(providers.some((provider) => provider.blockchain === 'fetch' && provider.name === 'cosmos-rest')).toBe(true);
+    expect(providers.some((provider) => provider.blockchain === 'cosmoshub')).toBe(false);
     expect(providers.some((provider) => provider.blockchain === 'injective' && provider.name === 'cosmos-rest')).toBe(
       false
     );

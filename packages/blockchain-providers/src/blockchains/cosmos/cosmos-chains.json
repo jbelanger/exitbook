@@ -10,6 +10,7 @@
     "explorerUrls": ["https://explorer.injective.network"],
     "rpcEndpoints": ["https://tm.injective.network"],
     "restEndpoints": ["https://lcd.injective.network"],
+    "accountHistorySupport": "verified",
     "restTxSearchEnabled": false
   },
   "osmosis": {
@@ -34,7 +35,9 @@
     "explorerUrls": ["https://www.mintscan.io/cosmos"],
     "rpcEndpoints": ["https://rpc.cosmos.network"],
     "restEndpoints": ["https://cosmos-api.polkachu.com", "https://lcd.cosmos.network"],
-    "nativeDenom": "uatom"
+    "nativeDenom": "uatom",
+    "accountHistorySupport": "disabled",
+    "accountHistoryDisabledReason": "Disabled until a reliable full-history or opening-state model can reconcile liquid, staked, unbonding, and reward balances."
   },
   "terra": {
     "chainId": "phoenix-1",
@@ -101,6 +104,7 @@
       "https://akash.c29r3.xyz/api"
     ],
     "nativeDenom": "uakt",
+    "accountHistorySupport": "verified",
     "restTxSearchEnabled": false
   },
   "kujira": {
@@ -474,6 +478,7 @@
     "explorerUrls": ["https://www.mintscan.io/fetchai"],
     "rpcEndpoints": ["https://rpc-fetchhub.fetch.ai"],
     "restEndpoints": ["https://rest-fetchhub.fetch.ai"],
+    "accountHistorySupport": "verified",
     "restTxSearchEventParam": "events"
   },
   "assetmantle": {

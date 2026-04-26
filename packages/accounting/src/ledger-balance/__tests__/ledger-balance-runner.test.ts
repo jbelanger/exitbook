@@ -10,7 +10,7 @@ import {
 } from '../ledger-balance-runner.js';
 
 describe('ledger balance runner', () => {
-  it('aggregates signed postings by owner account and asset with provenance counts', () => {
+  it('aggregates signed postings by owner account, asset, and balance category with provenance counts', () => {
     const result = assertOk(
       buildLedgerBalancesFromPostings([
         posting({
@@ -36,7 +36,7 @@ describe('ledger balance runner', () => {
     );
 
     expect(result.summary).toEqual({
-      assetBalanceCount: 2,
+      assetCategoryBalanceCount: 2,
       journalCount: 2,
       ownerAccountCount: 2,
       postingCount: 3,
@@ -46,6 +46,7 @@ describe('ledger balance runner', () => {
       result.balances.map((balance) => ({
         ownerAccountId: balance.ownerAccountId,
         assetId: balance.assetId,
+        balanceCategory: balance.balanceCategory,
         quantity: balance.quantity.toFixed(),
         postingCount: balance.postingCount,
         postingFingerprints: balance.postingFingerprints,
@@ -55,6 +56,7 @@ describe('ledger balance runner', () => {
       {
         ownerAccountId: 1,
         assetId: 'blockchain:cardano:native',
+        balanceCategory: 'liquid',
         quantity: '7',
         postingCount: 2,
         postingFingerprints: ['posting:1a', 'posting:1b'],
@@ -63,11 +65,31 @@ describe('ledger balance runner', () => {
       {
         ownerAccountId: 2,
         assetId: 'blockchain:cardano:native',
+        balanceCategory: 'liquid',
         quantity: '5',
         postingCount: 1,
         postingFingerprints: ['posting:2'],
         sourceActivityCount: 1,
       },
+    ]);
+  });
+
+  it('does not net positions across balance categories', () => {
+    const result = assertOk(
+      buildLedgerBalancesFromPostings([
+        posting({ quantity: '-5', postingFingerprint: 'posting:liquid-out' }),
+        posting({ balanceCategory: 'staked', quantity: '5', postingFingerprint: 'posting:staked-in' }),
+      ])
+    );
+
+    expect(
+      result.balances.map((balance) => ({
+        balanceCategory: balance.balanceCategory,
+        quantity: balance.quantity.toFixed(),
+      }))
+    ).toEqual([
+      { balanceCategory: 'liquid', quantity: '-5' },
+      { balanceCategory: 'staked', quantity: '5' },
     ]);
   });
 
@@ -104,6 +126,7 @@ describe('ledger balance runner', () => {
       ownerAccountId: 1,
       assetId: 'blockchain:cardano:native',
       assetSymbol: 'ADA',
+      balanceCategory: 'liquid',
       postingFingerprints: ['posting:in', 'posting:out'],
     });
     expect(diffs[0]?.ledgerQuantity.toFixed()).toBe('7');
@@ -136,6 +159,7 @@ function posting(
     ownerAccountId: 1,
     assetId: 'blockchain:cardano:native',
     assetSymbol: 'ADA',
+    balanceCategory: 'liquid',
     quantity: parseDecimal(quantity ?? '1'),
     journalFingerprint: 'journal:1',
     postingFingerprint: 'posting:1',
@@ -153,6 +177,7 @@ function reference(
     ownerAccountId: 1,
     assetId: 'blockchain:cardano:native',
     assetSymbol: 'ADA',
+    balanceCategory: 'liquid',
     quantity: parseDecimal(quantity ?? '1'),
     ...rest,
   };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createProviderRegistry } from '../../../initialize.js';
 import { cosmosRestFactories } from '../providers/cosmos-rest/cosmos-rest.api-client.js';
+import { cosmosProviderFactories } from '../register-apis.js';
 
 describe('Cosmos provider registration', () => {
   const providerRegistry = createProviderRegistry();
@@ -23,5 +24,11 @@ describe('Cosmos provider registration', () => {
   it('keeps Fetch on generic Cosmos REST because that endpoint has usable indexed history', () => {
     expect(providerNamesFor('fetch')).toEqual(['cosmos-rest']);
     expect(cosmosRestFactories.some((factory) => factory.metadata.blockchain === 'fetch')).toBe(true);
+  });
+
+  it('does not register Cosmos Hub providers while account history support is disabled', () => {
+    expect(providerNamesFor('cosmoshub')).toEqual([]);
+    expect(cosmosRestFactories.some((factory) => factory.metadata.blockchain === 'cosmoshub')).toBe(false);
+    expect(cosmosProviderFactories.some((factory) => factory.metadata.blockchain === 'cosmoshub')).toBe(false);
   });
 });

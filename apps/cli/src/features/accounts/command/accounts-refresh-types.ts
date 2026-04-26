@@ -1,3 +1,4 @@
+import type { LedgerAssetBalance } from '@exitbook/accounting/ledger-balance';
 import type { Account, AccountType } from '@exitbook/core';
 import type { BalanceVerificationResult } from '@exitbook/ingestion/balance';
 
@@ -20,6 +21,7 @@ export interface AssetComparisonItem {
 export interface LedgerBalanceShadowAssetComparison {
   assetId: string;
   assetSymbol: string;
+  balanceCategory: LedgerAssetBalance['balanceCategory'];
   ledgerBalance: string;
   legacyCalculatedBalance?: string | undefined;
   liveBalance?: string | undefined;

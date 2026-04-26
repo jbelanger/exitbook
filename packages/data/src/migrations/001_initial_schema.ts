@@ -186,6 +186,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('owner_account_id', 'integer', (col) => col.notNull().references('accounts.id'))
     .addColumn('source_activity_origin', 'text', (col) => col.notNull())
+    .addColumn('source_activity_stable_key', 'text', (col) => col.notNull())
     .addColumn('platform_key', 'text', (col) => col.notNull())
     .addColumn('platform_kind', 'text', (col) => col.notNull())
     .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
@@ -204,6 +205,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'source_activities_origin_valid',
       sql`source_activity_origin IN ('provider_event', 'balance_snapshot', 'manual_accounting_entry')`
     )
+    .addCheckConstraint('source_activities_stable_key_not_empty', sql`trim(source_activity_stable_key) <> ''`)
     .addCheckConstraint('source_activities_platform_kind_valid', sql`platform_kind IN ('blockchain', 'exchange')`)
     .addCheckConstraint(
       'source_activities_status_valid',
@@ -232,9 +234,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await sql`
-    CREATE UNIQUE INDEX idx_source_activities_owner_account_blockchain_hash
-    ON source_activities(owner_account_id, blockchain_transaction_hash)
-    WHERE blockchain_transaction_hash IS NOT NULL
+    CREATE UNIQUE INDEX idx_source_activities_owner_platform_origin_stable_key
+    ON source_activities(owner_account_id, platform_kind, platform_key, source_activity_origin, source_activity_stable_key)
   `.execute(db);
 
   await db.schema
@@ -287,7 +288,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await sql`
-    CREATE UNIQUE INDEX idx_accounting_journals_source_activity_stable_key
+    CREATE UNIQUE INDEX idx_accounting_journals_source_activity_journal_stable_key
     ON accounting_journals(source_activity_id, journal_stable_key)
   `.execute(db);
 

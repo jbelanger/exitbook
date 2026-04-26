@@ -114,7 +114,10 @@ or correlated source event group.
 It carries:
 
 - owner account id
-- source activity fingerprint derived from the same owner account fingerprint
+- source activity stable key, such as a blockchain transaction hash, exchange
+  event-group key, balance snapshot key, or manual entry key
+- source activity fingerprint derived from the same owner account fingerprint,
+  source activity origin, platform identity, and source activity stable key
 - platform key and platform kind
 - transaction/source fingerprint
 - timestamp and datetime
@@ -128,6 +131,8 @@ parameters.
 The persistence layer must source both values from the same account record when
 materializing journals. A source activity fingerprint for one owner account
 must never be stored on another owner account id.
+The stable key is required for every source activity origin. Do not derive
+non-provider source activities by faking blockchain hashes.
 
 It must not carry:
 
@@ -438,6 +443,9 @@ Override identity rule:
   accounting journal relationships, not semantic facts.
 - Diagnostics record uncertainty or processor problems; consumers do not read
   diagnostics for accounting meaning.
+- Balance projections key by owner account, asset, and balance category.
+  Staked, unbonding, reward-receivable, and liquid positions must not collapse
+  into one asset total except in display layers that explicitly ask for totals.
 - Consumer cutover is blocked until `ledger-balance` reconciles ledger-backed
   balances against representative processed-transaction scopes.
 - No silent defaults for unexpected accounting state. Use `Result<T, Error>`
@@ -799,6 +807,12 @@ Completed in this phase:
   `akash-console`, and Fetch uses generic Cosmos REST with `events=` query
   parameters. This prevents generic LCD endpoints from producing false-empty
   histories for chains where an explorer has the real account timeline.
+- Cosmos account-history support is now opt-in by chain. Only Injective, Akash,
+  and Fetch are exposed as import targets. Cosmos Hub remains configured for
+  parser and processor fixtures, but it is disabled as a user-facing import
+  target until full-history backfill or explicit opening-state snapshots make
+  live balance reconciliation defensible. See
+  [cosmos-sdk-processing.md](../specs/cosmos-sdk-processing.md).
 
 Rotki EVM findings that should shape the model before EVM cutover:
 
@@ -835,8 +849,9 @@ Remaining in this phase:
 - decide whether EVM event-level source component refs need more specific
   component kinds than `account_delta` after persistence and override replay
   are exercised
-- run Cosmos v2 against the INJ, AKASH, FETCH, and Cosmos Hub real-data corpora
-  and compare balance-v2 postings against the legacy balance impact
+- keep Cosmos v2 verified against the INJ, AKASH, and FETCH real-data corpora;
+  Cosmos Hub should not be part of user-facing acceptance until the disabled
+  support criteria in the Cosmos account-history spec are met
 - decide how unbonding completion should be modeled when providers expose state
   but not a transaction history event for the liquid return
 - implement ledger-native Cosmos opening balance snapshots using explicit bank,
@@ -957,6 +972,10 @@ Completed in this phase:
   that fails when a value is added without documentation.
 - `source_activities.source_activity_origin` distinguishes provider events from
   future balance snapshots and manual accounting entries.
+- `source_activities.source_activity_stable_key` provides one generic identity
+  field for provider events, exchange event groups, balance snapshots, and
+  manual accounting entries. Blockchain transaction hash remains optional
+  blockchain metadata, not the generic identity field.
 - `accounting_postings.balance_category` is persisted and required in posting
   drafts. Current v2 processors emit `liquid` explicitly until staking/opening
   balance postings introduce `staked`, `unbonding`, or `reward_receivable`.
@@ -1083,7 +1102,8 @@ Files to compare against:
 Steps:
 
 1. Build `ledger-balance`, a ledger-backed runner that aggregates signed
-   postings by owner account and asset for a processed transaction scope.
+   postings by owner account, asset, and balance category for a processed
+   transaction scope.
 2. Run `ledger-balance` in parallel with the current balance/portfolio
    derivation
    over the same processed transaction inputs.
@@ -1100,6 +1120,7 @@ Steps:
 3. Produce a shadow diff report keyed by:
    - account id
    - asset id
+   - balance category
    - expected quantity
    - actual quantity
    - contributing source activity or posting fingerprints when available
@@ -1121,7 +1142,7 @@ Acceptance criteria:
 
 - `ledger-balance` runs side-by-side without replacing current balance reads or
   stored balance snapshots
-- pilot processor datasets reconcile at account/asset balance level
+- pilot processor datasets reconcile at account/asset/category balance level
 - intentional behavior changes are documented explicitly
 - consumer migration does not start until `ledger-balance` is accepted
 

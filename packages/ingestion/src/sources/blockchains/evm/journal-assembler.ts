@@ -64,7 +64,8 @@ function computeEvmSourceActivityFingerprint(params: {
     accountFingerprint: params.context.account.fingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',
-    blockchainTransactionHash: params.transactionHash,
+    sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: params.transactionHash,
   });
 }
 
@@ -78,6 +79,7 @@ function buildEvmSourceActivityDraft(params: {
   return {
     ownerAccountId: params.context.account.id,
     sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: params.primaryTransaction.id,
     sourceActivityFingerprint: params.sourceActivityFingerprint,
     platformKey: params.chainConfig.chainName,
     platformKind: 'blockchain',

@@ -582,6 +582,7 @@ function createSourceActivityDraft(overrides: Partial<SourceActivityDraft> = {})
   return {
     ownerAccountId: 14,
     sourceActivityOrigin: 'provider_event',
+    sourceActivityStableKey: '0xhash',
     activityDatetime: '2023-11-14T22:13:20.000Z',
     activityStatus: 'success',
     activityTimestampMs: 1_700_000_000_000,

@@ -70,6 +70,7 @@ describe('buildProcessedTransactionsResetPorts', () => {
       .values({
         owner_account_id: ownerAccountId,
         source_activity_origin: 'provider_event',
+        source_activity_stable_key: `hash-${ownerAccountId}`,
         platform_key: 'bitcoin',
         platform_kind: 'blockchain',
         source_activity_fingerprint: `source-${ownerAccountId}-${globalThis.crypto.randomUUID()}`,
