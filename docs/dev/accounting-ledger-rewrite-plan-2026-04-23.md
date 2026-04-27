@@ -388,6 +388,10 @@ Acceptance:
 Goal: make the local EVM-family stress runner repeatable from CLI or e2e
 tooling before any pipeline cutover.
 
+Command spec:
+
+- `docs/dev/evm-family-ledger-stress-command-spec-2026-04-26.md`
+
 Files to inspect first:
 
 - `packages/ingestion/src/sources/blockchains/evm/processor-v2.ts`
@@ -411,8 +415,10 @@ Implementation shape:
 
 Acceptance:
 
-- One command or e2e test reruns Arbitrum, Avalanche, Ethereum, and Theta
-  stress coverage.
+- `ledger stress evm-family` reruns Arbitrum, Avalanche, Ethereum, and Theta
+  stress coverage from persisted raw rows when matching accounts exist.
+- Live EVM-family workflow tests can call the stress command after
+  import/reprocess for configured real-data accounts.
 - Token metadata resolver is part of the repeatable path.
 - Zero-diff status is machine-enforced.
 

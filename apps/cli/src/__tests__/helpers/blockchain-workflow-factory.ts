@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type {
   AccountsRefreshCommandResult,
   AccountsRefreshVerificationBalance,
+  EvmFamilyLedgerStressCommandResult,
   ImportCommandResult,
   ReprocessCommandResult,
 } from './e2e-test-types.js';
@@ -70,6 +71,11 @@ interface BlockchainConfig {
    * @default 120000 (2 minutes)
    */
   combinedWorkflowTimeout?: number;
+
+  /**
+   * Optional ledger migration stress gate to run after reprocess.
+   */
+  ledgerStressFamily?: 'evm-family' | undefined;
 }
 
 /**
@@ -83,6 +89,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
     minMatchRate = 0.95,
     workflowTimeout = 300000,
     combinedWorkflowTimeout = 120000,
+    ledgerStressFamily,
   } = config;
 
   describe(`${displayName} E2E Workflow`, () => {
@@ -161,8 +168,8 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
             });
           }
 
-          // Step 3: Verify balance
-          console.log('\nStep 3: Verifying balance...');
+          // Step 3: Resolve imported account
+          console.log('\nStep 3: Resolving imported account...');
 
           // Fetch the imported account id dynamically
           const accounts = loadAccountsBrowseItems({
@@ -174,6 +181,32 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           // Find the account matching this address
           const account = accounts.find((acc) => acc.identifier === address);
           expect(account).toBeDefined();
+
+          if (ledgerStressFamily !== undefined) {
+            console.log(`\nStep 4: Running ${ledgerStressFamily} ledger stress gate...`);
+
+            const stressResult = executeCLI([
+              'ledger',
+              'stress',
+              ledgerStressFamily,
+              toAccountsRefreshSelector(account!),
+            ]);
+
+            expect(stressResult.success).toBe(true);
+            expect(stressResult.command).toBe('ledger-stress-evm-family');
+
+            const stressData = stressResult.data as EvmFamilyLedgerStressCommandResult;
+            expect(stressData.status).toBe('passed');
+            expect(stressData.summary.unexpectedDiffs).toBe(0);
+            expect(stressData.summary.staleExpectedDiffs).toBe(0);
+
+            console.log(
+              `  Stress checked ${stressData.summary.checkedAccounts} account(s), ${stressData.summary.ledgerPostings} postings, ${stressData.summary.unexpectedDiffs} unexpected diffs`
+            );
+          }
+
+          // Step 4/5: Verify balance
+          console.log(`\nStep ${ledgerStressFamily === undefined ? 4 : 5}: Verifying balance...`);
 
           const refreshResult = executeCLI(['accounts', 'refresh', toAccountsRefreshSelector(account!)]);
 

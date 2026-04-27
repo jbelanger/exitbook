@@ -44,6 +44,46 @@ export interface ReprocessCommandResult {
   };
 }
 
+export interface EvmFamilyLedgerStressCommandResult {
+  chains: string[];
+  scopes: {
+    account: {
+      accountFingerprint: string;
+      id: number;
+      identifier: string;
+      name?: string | undefined;
+      platformKey: string;
+      type: string;
+    };
+    diagnostics: {
+      ledgerJournals: number;
+      ledgerPostings: number;
+      ledgerSourceActivities: number;
+      legacyTransactions: number;
+      rawRows: number;
+      reason?: string | undefined;
+    };
+    diffs: unknown[];
+    status: 'accepted_diffs' | 'failed' | 'passed' | 'unavailable';
+  }[];
+  staleExpectedDiffs: unknown[];
+  status: 'failed' | 'passed';
+  summary: {
+    acceptedDiffs: number;
+    checkedAccounts: number;
+    failedAccounts: number;
+    ledgerJournals: number;
+    ledgerPostings: number;
+    ledgerSourceActivities: number;
+    legacyTransactions: number;
+    passedAccounts: number;
+    rawRows: number;
+    staleExpectedDiffs: number;
+    unavailableAccounts: number;
+    unexpectedDiffs: number;
+  };
+}
+
 export interface AccountsBrowseItem {
   accountFingerprint: string;
   accountType: string;

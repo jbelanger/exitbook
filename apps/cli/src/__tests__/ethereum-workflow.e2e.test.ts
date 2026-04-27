@@ -27,4 +27,5 @@ createBlockchainWorkflowTests({
   minMatchRate: 0.95, // Ethereum should have exact matches
   workflowTimeout: 300000,
   combinedWorkflowTimeout: 120000,
+  ledgerStressFamily: 'evm-family',
 });
