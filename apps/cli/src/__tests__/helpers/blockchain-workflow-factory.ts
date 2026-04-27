@@ -222,7 +222,7 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
           const comparisons = refreshData.balances as AccountsRefreshVerificationBalance[];
 
           console.log(`\nBalance verification: ${refreshData.status.toUpperCase()}`);
-          console.log(`  Total assets: ${refreshData.summary.totalCurrencies}`);
+          console.log(`  Total balance rows: ${refreshData.summary.totalBalanceRows}`);
           console.log(`  Matches: ${refreshData.summary.matches}`);
           console.log(`  Warnings: ${refreshData.summary.warnings}`);
           console.log(`  Mismatches: ${refreshData.summary.mismatches}`);
@@ -247,10 +247,10 @@ export function createBlockchainWorkflowTests(config: BlockchainConfig): void {
 
           // Assertions on balance verification
           expect(['success', 'warning']).toContain(refreshData.status);
-          expect(refreshData.summary.totalCurrencies).toBeGreaterThan(0);
+          expect(refreshData.summary.totalBalanceRows).toBeGreaterThan(0);
 
           // Verify minimum match rate (blockchain imports typically have exact matches)
-          const matchRate = refreshData.summary.matches / refreshData.summary.totalCurrencies;
+          const matchRate = refreshData.summary.matches / refreshData.summary.totalBalanceRows;
           expect(matchRate).toBeGreaterThan(minMatchRate);
         },
         workflowTimeout

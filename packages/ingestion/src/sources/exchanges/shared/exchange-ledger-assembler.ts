@@ -254,6 +254,12 @@ function buildExchangePostings<TProviderMetadata extends ExchangeProviderMetadat
         continue;
       }
 
+      // Exchange on-chain fees are embedded in the provider-reported principal
+      // balance movement under current legacy balance semantics.
+      if (fee.settlement === 'on-chain') {
+        continue;
+      }
+
       postings.push(
         yield* buildFeePosting({
           fee,
@@ -318,6 +324,7 @@ function buildFeePosting(params: FeePostingInput): Result<AccountingPostingDraft
       assetId: params.fee.assetId,
       assetSymbol: params.fee.assetSymbol,
       feeQuantity,
+      sourceEventIds: params.fee.sourceEventIds,
       sourceActivityFingerprint: params.sourceActivityFingerprint,
       sourceEvents: params.sourceEvents,
     });
@@ -413,11 +420,16 @@ function buildFeeSourceComponentRefs(params: {
   assetSymbol: Currency;
   feeQuantity: ReturnType<typeof parseDecimal>;
   sourceActivityFingerprint: string;
+  sourceEventIds: readonly string[] | undefined;
   sourceEvents: readonly ExchangeCorrelationGroup['events'][number][];
 }): Result<SourceComponentQuantityRef[], Error> {
   const refs: SourceComponentQuantityRef[] = [];
 
   for (const event of params.sourceEvents) {
+    if (params.sourceEventIds !== undefined && !params.sourceEventIds.includes(event.providerEventId)) {
+      continue;
+    }
+
     const feeAmount = parseDecimal(event.rawFee ?? '0');
     if (!feeAmount.gt(0)) {
       continue;

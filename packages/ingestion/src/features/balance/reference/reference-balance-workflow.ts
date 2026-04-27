@@ -162,7 +162,7 @@ export class BalanceWorkflow {
           summary: {
             matches: 0,
             mismatches: 0,
-            totalCurrencies: assetCount,
+            totalBalanceRows: assetCount,
             warnings: 0,
           },
           suggestion: `Stored calculated balances only. Add a balance-capable provider for ${scopeContext.scopeAccount.platformKey} to enable live verification.`,

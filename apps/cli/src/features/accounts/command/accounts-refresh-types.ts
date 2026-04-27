@@ -10,6 +10,7 @@ import type {
 export interface AssetComparisonItem {
   assetId: string;
   assetSymbol: string;
+  balanceCategory: LedgerAssetBalance['balanceCategory'];
   calculatedBalance: string;
   liveBalance: string;
   difference: string;
@@ -43,7 +44,7 @@ export interface LedgerBalanceShadowResult {
     liveMismatches: number;
     postings: number;
     sourceActivities: number;
-    totalCurrencies: number;
+    totalBalanceRows: number;
   };
   balances: LedgerBalanceShadowAssetComparison[];
   reason?: string | undefined;

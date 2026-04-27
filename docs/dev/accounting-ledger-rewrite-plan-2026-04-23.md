@@ -649,22 +649,23 @@ Acceptance:
 
 ### 5. Complete One Exchange Processor
 
-Status: complete. Kraken ledger-v2 is the exchange proof. Focused Kraken
-processor, raw-lineage, and workflow tests cover source activities, journals,
-postings, source components, and representative v1/v2 liquid balance parity.
-Imported-corpus validation also passed against the user's Kraken account:
-677 raw rows, 381 legacy transactions, 381 ledger drafts, 44 v1/v2 balance
-rows, zero v1-v2 diffs, zero v1-live diffs, and zero v2-live diffs. A persisted
-real-corpus stress command has not been promoted because the corpus and live
-credentials are local/private.
+Status: complete. Kraken ledger-v2 is the exchange proof, and Coinbase is the
+second exchange migration using the same shared exchange ledger assembler.
+Focused Kraken, Coinbase, raw-lineage, and workflow tests cover source
+activities, journals, postings, source components, and representative v1/v2
+liquid balance parity. Imported-corpus validation also passed against the
+user's Kraken account: 677 raw rows, 381 legacy transactions, 381 ledger drafts,
+44 v1/v2 balance rows, zero v1-v2 diffs, zero v1-live diffs, and zero v2-live
+diffs. A persisted real-corpus stress command has not been promoted because the
+corpus and live credentials are local/private.
 
 Goal: prove exchange imports fit the same source activity, journal, posting,
 and component identity model before migrating consumers.
 
-Preferred order:
+Exchange migration order:
 
-1. Kraken if we want a simpler deterministic CSV/API shape.
-2. Coinbase if we want the broadest ergonomic challenge first.
+1. Kraken as the simpler deterministic CSV/API proof.
+2. Coinbase as the broader API-ledger ergonomics proof.
 
 Files to inspect first:
 
@@ -676,10 +677,11 @@ Files to inspect first:
 - `packages/ledger/src/source-components/source-component-ref.ts`
 - `docs/dev/kraken-ledger-v2-plan-2026-04-27.md`
 
-Kraken implementation landing:
+Exchange implementation landing:
 
 - `packages/ingestion/src/sources/exchanges/shared/exchange-ledger-assembler.ts`
 - `packages/ingestion/src/sources/exchanges/kraken/processor-v2.ts`
+- `packages/ingestion/src/sources/exchanges/coinbase/processor-v2.ts`
 - `packages/ingestion/src/features/process/raw-transaction-lineage.ts`
 - `packages/ingestion/src/features/process/process-workflow.ts`
 
@@ -704,12 +706,18 @@ Acceptance:
   with no unexpected diffs.
 - Kraken imported-corpus balances reconcile across v1, v2, and live Kraken
   BalanceEx snapshots with no diffs.
+- Coinbase representative fixtures reconcile against legacy liquid balance
+  impact with no unexpected diffs.
+- Exchange on-chain fees stay out of separate liquid balance postings when the
+  provider-reported principal movement already carries the balance impact.
 
 ### 6. Harden Balance Reconciliation
 
-Status: partially complete. Ledger-native aggregation, diff provenance, and the
-`accounts reconcile` CLI are implemented. Remaining work is category-aware live
-reference support beyond liquid balances and consumer cutover discipline.
+Status: implemented for the current migration gate. Ledger-native aggregation,
+diff provenance, the `accounts reconcile` CLI, balance-row summary wording, and
+forward-compatible category-aware live reference handling are implemented. Live
+providers still only emit liquid references until a provider can supply
+non-liquid balances directly.
 
 Goal: make ledger balance diffs actionable enough to gate consumer cutover.
 
@@ -736,11 +744,10 @@ Implemented shape:
 
 Remaining shape:
 
-1. Rename older balance verification summary fields that still imply currencies
-   only, such as `totalCurrencies`, where those legacy DTOs survive.
-2. Extend live reference providers or reference DTOs when they can represent
-   non-liquid categories directly instead of marking them unsupported.
-3. Treat every non-zero diff as one of:
+1. Extend live reference providers when they can source non-liquid categories
+   directly. The reconciliation DTO path already accepts those rows and will not
+   mark a represented category as unsupported.
+2. Treat every non-zero diff as one of:
    - ledger model bug
    - legacy behavior bug
    - intentional accounting behavior change approved explicitly
@@ -888,6 +895,7 @@ pnpm vitest run packages/ingestion/src/sources/blockchains/theta/__tests__/proce
 pnpm vitest run packages/ingestion/src/sources/blockchains/near/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/kraken/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/exchanges/coinbase/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/features/asset-screening/__tests__/asset-screening-policy.test.ts
 pnpm vitest run packages/ingestion/src/features/balance/reconciliation/__tests__/balance-reconciliation.test.ts
 pnpm vitest run apps/cli/src/features/accounts/command/__tests__/accounts-reconcile-runner.test.ts
@@ -911,6 +919,10 @@ Decisions:
   opening-state analysis and support make full reconciliation defensible.
 - Kraken is the completed exchange proof; its imported corpus reconciles across
   v1, v2, and live Kraken balances with no diffs.
+- Continue source/provider v2 migrations before linking v2; run them as shadow
+  evidence and keep consumer cutover gated on cross-source relationship
+  materialization.
+- The remaining provider-v2 queue is KuCoin, Solana, Substrate, and XRP.
 - The account reconciliation command boundary and asset-screening policy are
   already implemented.
 - EVM-family stress validation is already implemented as a repeatable CLI gate.
@@ -922,8 +934,8 @@ Decisions:
 
 Smells to watch:
 
-- `BalanceComparison` and live provider balance verification still assume
-  liquid asset totals.
+- Current live providers still emit liquid reference rows only; category-aware
+  rows are accepted by reconciliation once a provider can supply them.
 - `balance-v2` is now a compatibility facade over `ledger-balance`; remove or
   rename it before the migration is considered complete.
 - Cross-source relationships need a dedicated materialization path before
@@ -931,8 +943,6 @@ Smells to watch:
 - `tokenType: "native"` is too vague for arbitrary Cosmos SDK bank denoms;
   prefer a future `bank_denom` or `sdk_denom` classification when token
   metadata is revisited.
-- CLI summary names such as `totalCurrencies` are no longer precise once one
-  asset can produce multiple balance-category rows.
 - NEAR large-account discovery currently requires starting expensive real
   imports; add provider import budget/preflight tooling before probing more
   NearBlocks accounts.

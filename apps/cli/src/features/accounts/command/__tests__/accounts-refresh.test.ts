@@ -106,6 +106,7 @@ function createVerificationComparison(overrides: Record<string, unknown> = {}): 
   return {
     assetId: 'blockchain:bitcoin:native',
     assetSymbol: 'BTC',
+    balanceCategory: 'liquid',
     calculatedBalance: '1.25',
     liveBalance: '1.25',
     difference: '0',
@@ -148,7 +149,7 @@ function createVerificationResult(
       matches: 1,
       mismatches: 0,
       warnings: 0,
-      totalCurrencies: 1,
+      totalBalanceRows: 1,
       ...summary,
     },
     coverage: createVerificationCoverage(coverage),
@@ -177,7 +178,7 @@ function createCalculatedOnlyVerificationResult(
       matches: 0,
       mismatches: 0,
       warnings: 0,
-      totalCurrencies: 1,
+      totalBalanceRows: 1,
       ...summary,
     },
     coverage: {
@@ -205,7 +206,7 @@ function createCalculatedOnlyVerificationResult(
 function createTextVerificationResult(): Record<string, unknown> {
   return createVerificationResult({
     summary: {
-      totalCurrencies: 1,
+      totalBalanceRows: 1,
     },
   });
 }

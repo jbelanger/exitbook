@@ -41,7 +41,7 @@ export class AccountLedgerBalanceShadowBuilder {
           liveMismatches: 0,
           postings: 0,
           sourceActivities: 0,
-          totalCurrencies: 0,
+          totalBalanceRows: 0,
         },
         balances: [],
       });
@@ -89,7 +89,7 @@ export class AccountLedgerBalanceShadowBuilder {
         liveMismatches,
         postings: ledgerResult.value.summary.postingCount,
         sourceActivities: ledgerResult.value.summary.sourceActivityCount,
-        totalCurrencies: comparisonRows.length,
+        totalBalanceRows: comparisonRows.length,
       },
       balances: comparisonRows,
     });
@@ -102,9 +102,7 @@ function buildLedgerShadowRows(
 ): LedgerBalanceShadowAssetComparison[] {
   const ledgerByKey = new Map(ledgerBalances.map((balance) => [buildLedgerShadowRowKey(balance), balance] as const));
   const comparisonByKey = new Map(
-    legacyComparisons.map(
-      (comparison) => [buildLedgerShadowRowKey({ ...comparison, balanceCategory: 'liquid' }), comparison] as const
-    )
+    legacyComparisons.map((comparison) => [buildLedgerShadowRowKey(comparison), comparison] as const)
   );
   const rowKeys = [...new Set([...ledgerByKey.keys(), ...comparisonByKey.keys()])].sort();
 

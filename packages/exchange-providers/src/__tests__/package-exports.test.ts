@@ -8,11 +8,13 @@ import {
   type ExchangeProviderDescriptor,
 } from '@exitbook/exchange-providers';
 import {
+  RawCoinbaseLedgerEntrySchema,
   createCoinbaseClient,
   type CoinbaseCredentials,
   type RawCoinbaseLedgerEntry,
 } from '@exitbook/exchange-providers/coinbase';
 import {
+  KrakenLedgerEntrySchema,
   createKrakenClient,
   normalizeKrakenAsset,
   type KrakenCredentials,
@@ -56,7 +58,8 @@ describe('published package exports', () => {
   it('exposes a curated coinbase subpath', async () => {
     const moduleExports = await import('@exitbook/exchange-providers/coinbase');
 
-    expect(Object.keys(moduleExports).sort()).toEqual(['createCoinbaseClient']);
+    expect(Object.keys(moduleExports).sort()).toEqual(['RawCoinbaseLedgerEntrySchema', 'createCoinbaseClient']);
+    expect(RawCoinbaseLedgerEntrySchema).toBeDefined();
     expect(typeof createCoinbaseClient).toBe('function');
 
     expectTypeOf<CoinbaseCredentials>().toMatchTypeOf<{
@@ -72,7 +75,12 @@ describe('published package exports', () => {
   it('exposes a curated kraken subpath', async () => {
     const moduleExports = await import('@exitbook/exchange-providers/kraken');
 
-    expect(Object.keys(moduleExports).sort()).toEqual(['createKrakenClient', 'normalizeKrakenAsset']);
+    expect(Object.keys(moduleExports).sort()).toEqual([
+      'KrakenLedgerEntrySchema',
+      'createKrakenClient',
+      'normalizeKrakenAsset',
+    ]);
+    expect(KrakenLedgerEntrySchema).toBeDefined();
     expect(typeof createKrakenClient).toBe('function');
     expect(typeof normalizeKrakenAsset).toBe('function');
 

@@ -188,7 +188,7 @@ export function logSingleRefreshResult(result: SingleRefreshResult): void {
   );
   console.log(
     pc.dim(
-      `Assets: ${summary.totalCurrencies} · coverage ${result.verificationResult.coverage.status} (${result.verificationResult.coverage.confidence})`
+      `Balance rows: ${summary.totalBalanceRows} · coverage ${result.verificationResult.coverage.status} (${result.verificationResult.coverage.confidence})`
     )
   );
   logLedgerBalanceShadowSummary(result);

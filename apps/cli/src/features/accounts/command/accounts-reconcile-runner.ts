@@ -215,8 +215,10 @@ export class AccountsReconcileRunner {
       (asset) => asset.liveBalance !== undefined && !asset.excludedFromAccounting
     );
     const reason = getStoredReferenceUnavailableReason(snapshot, usableLiveAssets);
+    const referenceRows = usableLiveAssets.map((asset) => toStoredReferenceRow(scopeAccount.id, asset));
     const unsupportedRows = buildUnsupportedReferenceRows({
       expectedRows,
+      referenceRows,
       reason:
         reason ??
         'Selected reference source stores liquid live balances only; this balance category is not represented yet.',
@@ -227,7 +229,7 @@ export class AccountsReconcileRunner {
       calculatedAt: snapshot?.calculatedAt,
       lastRefreshAt: snapshot?.lastRefreshAt,
       reason,
-      rows: usableLiveAssets.map((asset) => toStoredReferenceRow(scopeAccount.id, asset)),
+      rows: referenceRows,
       unsupportedRows,
     });
   }
@@ -260,8 +262,20 @@ export class AccountsReconcileRunner {
 
     const verification = verificationResult.value;
     const reason = getLiveReferenceUnavailableReason(verification);
+    const referenceRows =
+      verification.mode === 'verification'
+        ? verification.comparisons.map((comparison) => ({
+            accountId: scopeAccount.id,
+            assetId: comparison.assetId,
+            assetSymbol: comparison.assetSymbol,
+            balanceCategory: comparison.balanceCategory,
+            quantity: comparison.liveBalance,
+            refs: [`live:${scopeAccount.id}:${comparison.assetId}:${comparison.balanceCategory}`],
+          }))
+        : [];
     const unsupportedRows = buildUnsupportedReferenceRows({
       expectedRows,
+      referenceRows,
       reason:
         reason ??
         'Selected reference source exposes liquid live balances only; this balance category is not represented yet.',
@@ -272,17 +286,7 @@ export class AccountsReconcileRunner {
       calculatedAt: new Date(verification.timestamp),
       lastRefreshAt: verification.mode === 'verification' ? new Date(verification.timestamp) : undefined,
       reason,
-      rows:
-        verification.mode === 'verification'
-          ? verification.comparisons.map((comparison) => ({
-              accountId: scopeAccount.id,
-              assetId: comparison.assetId,
-              assetSymbol: comparison.assetSymbol,
-              balanceCategory: 'liquid',
-              quantity: comparison.liveBalance,
-              refs: [`live:${scopeAccount.id}:${comparison.assetId}`],
-            }))
-          : [],
+      rows: referenceRows,
       unsupportedRows,
     });
   }
@@ -372,9 +376,13 @@ function getLiveReferenceUnavailableReason(verification: BalanceVerificationResu
 function buildUnsupportedReferenceRows(params: {
   expectedRows: readonly BalanceReconciliationInputRow[];
   reason: string;
+  referenceRows: readonly BalanceReconciliationInputRow[];
   supportsLiquid: boolean;
 }): BalanceReconciliationUnsupportedReferenceRow[] {
+  const referenceKeys = new Set(params.referenceRows.map((row) => buildReferenceRowKey(row)));
+
   return params.expectedRows
+    .filter((row) => !referenceKeys.has(buildReferenceRowKey(row)))
     .filter((row) => !params.supportsLiquid || row.balanceCategory !== 'liquid')
     .map((row) => ({
       accountId: row.accountId,
@@ -383,6 +391,12 @@ function buildUnsupportedReferenceRows(params: {
       balanceCategory: row.balanceCategory,
       reason: params.reason,
     }));
+}
+
+function buildReferenceRowKey(
+  row: Pick<BalanceReconciliationInputRow, 'accountId' | 'assetId' | 'balanceCategory'>
+): string {
+  return `${row.accountId}\u0000${row.assetId}\u0000${row.balanceCategory}`;
 }
 
 function getScopeStatus(summary: AccountsReconcileScopeResult['summary']): AccountsReconcileStatus {

@@ -58,9 +58,12 @@ export function consolidateFees(fees: ExchangeFeeDraft[]): ExchangeFeeDraft[] {
       continue;
     }
 
+    const sourceEventIds = [...new Set([...(existing.sourceEventIds ?? []), ...(fee.sourceEventIds ?? [])])];
+
     byFee.set(key, {
       ...existing,
       amount: parseDecimal(existing.amount).plus(parseDecimal(fee.amount)).toFixed(),
+      ...(sourceEventIds.length > 0 ? { sourceEventIds } : {}),
     });
   }
 

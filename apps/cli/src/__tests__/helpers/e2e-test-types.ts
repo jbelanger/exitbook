@@ -127,7 +127,7 @@ export interface AccountsRefreshCommandResult {
   summary: {
     matches: number;
     mismatches: number;
-    totalCurrencies: number;
+    totalBalanceRows: number;
     warnings: number;
   };
   source: {

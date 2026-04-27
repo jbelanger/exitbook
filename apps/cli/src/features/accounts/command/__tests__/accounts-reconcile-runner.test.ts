@@ -14,6 +14,12 @@ const STORED_RECONCILE_OPTIONS: AccountsReconcileOptions = {
   strict: false,
 };
 
+const LIVE_RECONCILE_OPTIONS: AccountsReconcileOptions = {
+  includeMatchedRows: false,
+  referenceSource: 'live',
+  strict: false,
+};
+
 function createAccount(overrides: Partial<Account> & Pick<Account, 'id'>): Account {
   return {
     id: overrides.id,
@@ -215,6 +221,83 @@ describe('AccountsReconcileRunner', () => {
     expect(result.scopes[0]?.rows[0]?.referenceUnavailableReason).toContain(
       'Stored balance snapshot contains no usable live reference balances'
     );
+  });
+
+  it('uses category-aware live reference rows when a future provider supplies them', async () => {
+    const account = createAccount({ id: 1, name: 'cosmos-main', platformKey: 'cosmos' });
+    const assetId = 'cosmos:cosmoshub-4/slip44:118';
+    const balanceWorkflow = {
+      refreshVerification: vi.fn(async () =>
+        ok({
+          account,
+          mode: 'verification',
+          timestamp: new Date('2026-04-26T03:00:00.000Z').getTime(),
+          status: 'success',
+          comparisons: [
+            {
+              assetId,
+              assetSymbol: 'ATOM',
+              balanceCategory: 'staked',
+              calculatedBalance: '0',
+              liveBalance: '25',
+              difference: '-25',
+              percentageDiff: 100,
+              status: 'mismatch',
+            },
+          ],
+          coverage: {
+            status: 'complete',
+            confidence: 'high',
+            requestedAddresses: 1,
+            successfulAddresses: 1,
+            failedAddresses: 0,
+            totalAssets: 1,
+            parsedAssets: 1,
+            failedAssets: 0,
+            overallCoverageRatio: 1,
+          },
+          summary: {
+            matches: 0,
+            mismatches: 1,
+            totalBalanceRows: 1,
+            warnings: 0,
+          },
+        })
+      ),
+    };
+    const runner = new AccountsReconcileRunner({
+      balanceWorkflow: balanceWorkflow as never,
+      db: createDataSessionMock({
+        accounts: [account],
+        postingsByAccountId: new Map([
+          [
+            1,
+            [
+              createLedgerPosting({
+                ownerAccountId: 1,
+                assetId,
+                assetSymbol: 'ATOM',
+                balanceCategory: 'staked',
+                quantity: '25',
+              }),
+            ],
+          ],
+        ]),
+      }),
+    });
+
+    const result = assertOk(await runner.reconcileAccounts([account], LIVE_RECONCILE_OPTIONS));
+
+    expect(result.status).toBe('matched');
+    expect(result.summary.categoryUnsupported).toBe(0);
+    expect(result.scopes[0]?.rows[0]).toMatchObject({
+      assetSymbol: 'ATOM',
+      balanceCategory: 'staked',
+      expectedQuantity: '25',
+      referenceQuantity: '25',
+      referenceRefs: [`live:1:${assetId}:staked`],
+      status: 'matched',
+    });
   });
 
   it('marks scopes without persisted ledger postings as unavailable', async () => {

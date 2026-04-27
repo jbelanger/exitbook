@@ -75,6 +75,7 @@ export class AccountBalanceDetailBuilder {
           return {
             assetId: comparison.assetId,
             assetSymbol: comparison.assetSymbol,
+            balanceCategory: comparison.balanceCategory,
             calculatedBalance: comparison.calculatedBalance,
             liveBalance: comparison.liveBalance,
             difference: comparison.difference,

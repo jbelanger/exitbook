@@ -1,5 +1,6 @@
 import type { Account } from '@exitbook/core';
 import { parseDecimal, tryParseDecimal } from '@exitbook/foundation';
+import type { AccountingBalanceCategory } from '@exitbook/ledger';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
@@ -28,6 +29,7 @@ export interface BalancePartialFailure {
 export interface BalanceComparison {
   assetId: string;
   assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
   calculatedBalance: string;
   liveBalance: string;
   difference: string;
@@ -58,7 +60,7 @@ export interface BalanceVerificationResult {
   summary: {
     matches: number;
     mismatches: number;
-    totalCurrencies: number;
+    totalBalanceRows: number;
     warnings: number;
   };
   partialFailures?: BalancePartialFailure[] | undefined;
@@ -185,6 +187,7 @@ export function compareBalances(
     comparisons.push({
       assetId,
       assetSymbol,
+      balanceCategory: 'liquid',
       calculatedBalance: calcBalance.toFixed(),
       liveBalance: liveBalance.toFixed(),
       difference: difference.toFixed(),
@@ -214,7 +217,7 @@ export function createVerificationResult(
   partialFailures?: BalancePartialFailure[]
 ): BalanceVerificationResult {
   const summary = {
-    totalCurrencies: comparisons.length,
+    totalBalanceRows: comparisons.length,
     matches: comparisons.filter((c) => c.status === 'match').length,
     warnings: comparisons.filter((c) => c.status === 'warning').length,
     mismatches: comparisons.filter((c) => c.status === 'mismatch').length,
@@ -292,7 +295,7 @@ export function generateVerificationReport(results: BalanceVerificationResult[])
     report += `## ${result.account.platformKey} (${result.account.accountType})\n`;
     report += `- **Account ID**: ${result.account.id}\n`;
     report += `- **Status**: ${result.status.toUpperCase()}\n`;
-    report += `- **Total Currencies**: ${result.summary.totalCurrencies}\n`;
+    report += `- **Total Balance Rows**: ${result.summary.totalBalanceRows}\n`;
     report += `- **Matches**: ${result.summary.matches}\n`;
     report += `- **Warnings**: ${result.summary.warnings}\n`;
     report += `- **Mismatches**: ${result.summary.mismatches}\n\n`;

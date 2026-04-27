@@ -16,6 +16,7 @@ export interface ExchangeFeeDraft {
   assetSymbol: Currency;
   amount: string;
   scope: 'network' | 'platform' | 'spread' | 'tax' | 'other';
+  sourceEventIds?: readonly string[] | undefined;
   settlement: 'on-chain' | 'balance' | 'external';
 }
 

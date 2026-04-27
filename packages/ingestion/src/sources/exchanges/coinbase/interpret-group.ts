@@ -28,7 +28,8 @@ function getMetadata(event: CoinbaseProviderEvent): CoinbaseProviderMetadata {
 function buildMovementDraft(
   exchangeName: string,
   assetSymbol: Currency,
-  amount: string
+  amount: string,
+  movementRole?: ExchangeMovementDraft['movementRole']
 ): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId(exchangeName, assetSymbol);
   if (assetIdResult.isErr()) {
@@ -40,6 +41,7 @@ function buildMovementDraft(
     assetSymbol,
     grossAmount: amount,
     netAmount: amount,
+    ...(movementRole ? { movementRole } : {}),
   });
 }
 
@@ -47,7 +49,8 @@ function buildFeeDraft(
   exchangeName: string,
   assetSymbol: Currency,
   amount: string,
-  settlement: ExchangeFeeDraft['settlement']
+  settlement: ExchangeFeeDraft['settlement'],
+  sourceEventIds?: readonly string[]
 ): Result<ExchangeFeeDraft, Error> {
   const assetIdResult = buildExchangeAssetId(exchangeName, assetSymbol);
   if (assetIdResult.isErr()) {
@@ -59,6 +62,7 @@ function buildFeeDraft(
     assetSymbol,
     amount,
     scope: 'platform',
+    ...(sourceEventIds !== undefined ? { sourceEventIds } : {}),
     settlement,
   });
 }
@@ -231,7 +235,11 @@ export function interpretCoinbaseGroup(
 
   for (const interpretedEvent of interpretedEvents) {
     const absAmount = interpretedEvent.amount.abs().toFixed();
-    const movementResult = buildMovementDraft('coinbase', interpretedEvent.event.assetSymbol, absAmount);
+    const movementRole =
+      interpretedEvent.metadata.entryType === 'interest' && interpretedEvent.amount.isPositive()
+        ? 'staking_reward'
+        : undefined;
+    const movementResult = buildMovementDraft('coinbase', interpretedEvent.event.assetSymbol, absAmount, movementRole);
     if (movementResult.isErr()) {
       return {
         kind: 'unsupported',
@@ -261,7 +269,8 @@ export function interpretCoinbaseGroup(
         'coinbase',
         interpretedEvent.feeCurrency,
         interpretedEvent.feeAmount.toFixed(),
-        interpretedEvent.metadata.feeSettlementHint === 'balance' ? 'balance' : 'on-chain'
+        interpretedEvent.metadata.feeSettlementHint === 'balance' ? 'balance' : 'on-chain',
+        [interpretedEvent.event.providerEventId]
       );
       if (feeResult.isErr()) {
         return {

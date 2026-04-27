@@ -111,7 +111,7 @@ function createRefreshServices(
         status: 'unavailable',
         reason: 'No persisted ledger postings exist for this account scope.',
         summary: {
-          totalCurrencies: 0,
+          totalBalanceRows: 0,
           liveMatches: 0,
           liveMismatches: 0,
           legacyMatches: 0,
@@ -211,7 +211,7 @@ describe('AccountsRefreshRunner.refreshAllScopes', () => {
             matches: 0,
             mismatches: 0,
             warnings: 0,
-            totalCurrencies: 1,
+            totalBalanceRows: 1,
           },
           warnings: [
             'Live balance verification is unavailable for lukso: no registered provider supports getAddressBalances. Stored calculated balances only.',
@@ -300,7 +300,7 @@ describe('AccountsRefreshRunner.startStream', () => {
           matches: 0,
           mismatches: 0,
           warnings: 0,
-          totalCurrencies: 0,
+          totalBalanceRows: 0,
         },
         suggestion: 'Balances match',
         partialFailures: undefined,
