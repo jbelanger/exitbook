@@ -9,3 +9,9 @@ export const EvmFamilyLedgerStressCommandOptionsSchema = OptionalBareAccountSele
   chains: z.string().trim().min(1).optional(),
   expectedDiffs: z.string().trim().min(1).optional(),
 });
+
+export const NearLedgerStressCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(
+  JsonFlagSchema.shape
+).extend({
+  expectedDiffs: z.string().trim().min(1).optional(),
+});

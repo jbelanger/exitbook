@@ -11,6 +11,7 @@ import {
  * This is the correlated receipt used by the processor after correlation
  */
 export interface NearReceipt {
+  eventId: string;
   receiptId: string;
   transactionHash: string;
   predecessorAccountId: string;

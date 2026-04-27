@@ -5,6 +5,7 @@ import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter
 
 import { normalizeNearAddress } from './address-utils.js';
 import { NearImporter } from './importer.js';
+import { NearProcessorV2 } from './processor-v2.js';
 import { NearProcessor } from './processor.js';
 
 export function createNearAdapters(
@@ -26,6 +27,10 @@ export function createNearAdapters(
 
       createProcessor: ({ providerRuntime, scamDetector }) => {
         return new NearProcessor(providerRuntime, scamDetector, options.nearBatchSource);
+      },
+
+      createLedgerProcessor: ({ providerRuntime }) => {
+        return new NearProcessorV2(providerRuntime, options.nearBatchSource);
       },
     },
   ];

@@ -20,56 +20,50 @@ import { resolveOwnedOptionalAccountSelector } from '../../accounts/account-sele
 import { createCliAccountLifecycleService } from '../../accounts/account-service.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
-import { logEvmFamilyLedgerStressResult } from './evm-family-ledger-stress-presentation.js';
-import {
-  EVM_FAMILY_LEDGER_STRESS_CORE_CHAINS,
-  EvmFamilyLedgerStressRunner,
-  isEvmFamilyChain,
-  normalizeEvmFamilyChains,
-  parseEvmFamilyLedgerStressExpectedDiffFile,
-} from './evm-family-ledger-stress-runner.js';
-import type { EvmFamilyLedgerStressResult } from './evm-family-ledger-stress-types.js';
-import { EvmFamilyLedgerStressCommandOptionsSchema } from './ledger-option-schemas.js';
+import { NearLedgerStressCommandOptionsSchema } from './ledger-option-schemas.js';
 import {
   assertLedgerStressProcessedTransactionsFresh,
   getLedgerStressAccountResolutionExitCode,
   loadLedgerStressExpectedDiffs,
 } from './ledger-stress-command-support.js';
+import { logNearLedgerStressResult } from './near-ledger-stress-presentation.js';
+import {
+  isNearChain,
+  NearLedgerStressRunner,
+  parseNearLedgerStressExpectedDiffFile,
+} from './near-ledger-stress-runner.js';
+import type { NearLedgerStressResult } from './near-ledger-stress-types.js';
 
-type EvmFamilyLedgerStressCommandOptions = z.infer<typeof EvmFamilyLedgerStressCommandOptionsSchema>;
+type NearLedgerStressCommandOptions = z.infer<typeof NearLedgerStressCommandOptionsSchema>;
 
-const EVM_FAMILY_LEDGER_STRESS_COMMAND_ID = 'ledger-stress-evm-family';
+const NEAR_LEDGER_STRESS_COMMAND_ID = 'ledger-stress-near';
 
-interface ExecuteEvmFamilyLedgerStressCommandInput {
+interface ExecuteNearLedgerStressCommandInput {
   appRuntime: CliAppRuntime;
   rawOptions: unknown;
   selector: string | undefined;
 }
 
-export function buildEvmFamilyLedgerStressHelpText(): string {
+export function buildNearLedgerStressHelpText(): string {
   return `
 Examples:
-  $ exitbook ledger stress evm-family
-  $ exitbook ledger stress evm-family ethereum-main
-  $ exitbook ledger stress evm-family --chains ethereum,arbitrum,avalanche,theta
-  $ exitbook ledger stress evm-family --expected-diffs ./fixtures/evm-ledger-diffs.json
-  $ exitbook ledger stress evm-family --json
+  $ exitbook ledger stress near
+  $ exitbook ledger stress near alice.near
+  $ exitbook ledger stress near --expected-diffs ./fixtures/near-ledger-diffs.json
+  $ exitbook ledger stress near --json
 
 Notes:
-  - Stress reruns ledger-v2 from stored raw rows and compares against persisted legacy balance impact.
+  - Stress reruns NEAR ledger-v2 from stored NearBlocks raw rows and compares against persisted legacy balance impact.
   - The command is read-only; run "exitbook reprocess" first when processed transactions are stale.
   - Default mode allows no diffs. Use --expected-diffs for documented intentional divergences.
-  - Core migration coverage should include ${EVM_FAMILY_LEDGER_STRESS_CORE_CHAINS.join(', ')}.
 `;
 }
 
-export async function executeEvmFamilyLedgerStressCommand(
-  input: ExecuteEvmFamilyLedgerStressCommandInput
-): Promise<void> {
+export async function executeNearLedgerStressCommand(input: ExecuteNearLedgerStressCommandInput): Promise<void> {
   const format = detectCliOutputFormat(input.rawOptions);
 
   await runCliRuntimeCommand({
-    command: EVM_FAMILY_LEDGER_STRESS_COMMAND_ID,
+    command: NEAR_LEDGER_STRESS_COMMAND_ID,
     format,
     appRuntime: input.appRuntime,
     prepare: async () =>
@@ -77,7 +71,7 @@ export async function executeEvmFamilyLedgerStressCommand(
         return yield* parseCliCommandOptionsWithOverridesResult(
           input.rawOptions,
           { selector: input.selector },
-          EvmFamilyLedgerStressCommandOptionsSchema
+          NearLedgerStressCommandOptionsSchema
         );
       }),
     action: async (context) => executeCommandResult(context.runtime, context.prepared, format),
@@ -86,7 +80,7 @@ export async function executeEvmFamilyLedgerStressCommand(
 
 async function executeCommandResult(
   ctx: CommandRuntime,
-  options: EvmFamilyLedgerStressCommandOptions,
+  options: NearLedgerStressCommandOptions,
   format: 'json' | 'text'
 ): Promise<CliCommandResult> {
   const database = await ctx.openDatabaseSession();
@@ -101,37 +95,31 @@ async function executeCommandResult(
     return cliErr(freshnessResult.error, ExitCodes.GENERAL_ERROR);
   }
 
-  const chainsResult = parseChainsOption(options.chains);
-  if (chainsResult.isErr()) {
-    return cliErr(chainsResult.error, ExitCodes.INVALID_ARGS);
-  }
-
   const expectedDiffsResult = await loadLedgerStressExpectedDiffs(
     options.expectedDiffs,
-    parseEvmFamilyLedgerStressExpectedDiffFile
+    parseNearLedgerStressExpectedDiffFile
   );
   if (expectedDiffsResult.isErr()) {
     return cliErr(expectedDiffsResult.error, ExitCodes.INVALID_ARGS);
   }
 
-  const accountsResult = await resolveStressAccounts(database, profile.id, options.selector, chainsResult.value);
+  const accountsResult = await resolveStressAccounts(database, profile.id, options.selector);
   if (accountsResult.isErr()) {
     return cliErr(accountsResult.error, getLedgerStressAccountResolutionExitCode(accountsResult.error));
   }
 
   if (accountsResult.value.length === 0) {
-    return cliErr(new Error('No EVM-family accounts found for the selected profile and chains'), ExitCodes.NOT_FOUND);
+    return cliErr(new Error('No NEAR accounts found for the selected profile'), ExitCodes.NOT_FOUND);
   }
 
   const providerRuntime = await ctx.createManagedBlockchainProviderRuntime();
-  const runner = new EvmFamilyLedgerStressRunner({
+  const runner = new NearLedgerStressRunner({
     adapterRegistry: ctx.requireAppRuntime().adapterRegistry,
     db: database,
     providerRuntime,
   });
 
   const result = await runner.run(accountsResult.value, {
-    chains: chainsResult.value,
     expectedDiffs: expectedDiffsResult.value,
   });
   if (result.isErr()) {
@@ -141,19 +129,12 @@ async function executeCommandResult(
   return format === 'json' ? buildJsonCompletion(result.value) : buildTextCompletion(result.value);
 }
 
-function parseChainsOption(value: string | undefined): Result<string[], Error> {
-  const chains = value === undefined ? [] : value.split(',');
-  return normalizeEvmFamilyChains(chains);
-}
-
 async function resolveStressAccounts(
   database: DataSession,
   profileId: number,
-  selector: string | undefined,
-  chains: readonly string[]
+  selector: string | undefined
 ): Promise<Result<Account[], Error>> {
   const accountService = createCliAccountLifecycleService(database);
-  const chainSet = new Set(chains);
 
   if (selector !== undefined && selector.trim().length > 0) {
     const selection = await resolveOwnedOptionalAccountSelector(accountService, profileId, selector);
@@ -165,11 +146,8 @@ async function resolveStressAccounts(
     if (account === undefined) {
       return err(new Error(`Account selector '${selector}' not found`));
     }
-    if (account.accountType !== 'blockchain' || !isEvmFamilyChain(account.platformKey)) {
-      return err(new Error(`Account ${selector} is not an EVM-family blockchain account`));
-    }
-    if (!chainSet.has(account.platformKey)) {
-      return err(new Error(`Account ${selector} is on ${account.platformKey}, outside selected chains`));
+    if (account.accountType !== 'blockchain' || !isNearChain(account.platformKey)) {
+      return err(new Error(`Account ${selector} is not a NEAR blockchain account`));
     }
 
     return ok([account]);
@@ -177,27 +155,24 @@ async function resolveStressAccounts(
 
   const accountsResult = await database.accounts.findAll({
     accountType: 'blockchain',
+    platformKey: 'near',
     profileId,
   });
   if (accountsResult.isErr()) {
     return err(accountsResult.error);
   }
 
-  return ok(
-    accountsResult.value
-      .filter((account) => isEvmFamilyChain(account.platformKey) && chainSet.has(account.platformKey))
-      .sort((left, right) => left.platformKey.localeCompare(right.platformKey) || left.id - right.id)
-  );
+  return ok(accountsResult.value.sort((left, right) => left.id - right.id));
 }
 
-function buildJsonCompletion(result: EvmFamilyLedgerStressResult): Result<CliCompletion, never> {
+function buildJsonCompletion(result: NearLedgerStressResult): Result<CliCompletion, never> {
   return ok(jsonSuccess(result, { timestamp: new Date().toISOString() }, getExitCode(result)));
 }
 
-function buildTextCompletion(result: EvmFamilyLedgerStressResult): Result<CliCompletion, never> {
-  return ok(textSuccess(() => logEvmFamilyLedgerStressResult(result), getExitCode(result)));
+function buildTextCompletion(result: NearLedgerStressResult): Result<CliCompletion, never> {
+  return ok(textSuccess(() => logNearLedgerStressResult(result), getExitCode(result)));
 }
 
-function getExitCode(result: EvmFamilyLedgerStressResult): ExitCode {
+function getExitCode(result: NearLedgerStressResult): ExitCode {
   return result.status === 'passed' ? ExitCodes.SUCCESS : ExitCodes.GENERAL_ERROR;
 }

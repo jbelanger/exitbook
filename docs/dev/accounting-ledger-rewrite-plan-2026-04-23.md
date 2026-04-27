@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-26
+last_verified: 2026-04-27
 status: active
 ---
 
@@ -28,15 +28,21 @@ Consumers must eventually read journals/postings, not
 The core ledger vocabulary and identity contracts are mature enough for
 migration work.
 
-The completed Cardano, Bitcoin, EVM/Theta, and Cosmos pilots challenged the
-model across UTXO, account-based, staking, protocol-custody, failed-transaction,
-token-transfer, and wallet-scope cases. They did not require new core journal
-kinds, posting roles, or chain-specific accounting escape hatches.
+Cardano and EVM are the reference baselines for the current model. Cardano is
+the first completed ledger-v2 implementation and the preferred UTXO, staking,
+and wallet-scope reference. EVM is the preferred account-based reference because
+it has repeatable stress validation and broad token/provider coverage. Theta is
+adjacent EVM-family coverage, not an equally tested reference baseline yet.
 
-Do not start another account-based chain just to prove the model. The remaining
-risks are migration, reconciliation, exchange ergonomics, live balance
-category support, opening-state acquisition, and cross-source relationship
-materialization.
+Bitcoin and Cosmos remain useful evidence, but they are not the reference
+baseline. Bitcoin is a narrower UTXO check than Cardano. Cosmos is a known-gap
+chain until opening-state snapshots make full reconciliation defensible.
+
+The completed pilots did not require new core journal kinds, posting roles, or
+chain-specific accounting escape hatches. The remaining risks are migration,
+reconciliation, exchange ergonomics, live balance category support,
+opening-state acquisition, cross-source relationship materialization, and one
+more complex non-EVM account-chain port.
 
 ## Settled Contracts
 
@@ -311,14 +317,20 @@ Parallel ledger processing:
 Processor evidence:
 
 - Cardano covers wallet-scoped UTXO, staking withdrawals, deposits/refunds,
-  delegation-only fees, and MIR evidence.
+  delegation-only fees, and MIR evidence. Use Cardano as the reference for
+  category-aware staking and UTXO wallet-scope modeling.
 - Bitcoin covers UTXO inputs/outputs, change, duplicate raw rows, fee-only
   effects, and conflicting payload rejection.
-- EVM/Theta cover native value, token transfers, swaps, gas-only calls, failed
+- EVM covers native value, token transfers, swaps, gas-only calls, failed
   transactions, beacon withdrawals, no-effect provider rows, token metadata
-  canonicalization, and Theta native asset specifics.
+  canonicalization, and broad account-chain stress validation. Theta covers
+  adjacent EVM-family native asset specifics but is not the primary reference.
+  Use EVM as the reference for account-based processor structure, token metadata
+  handling, and stress validation.
 - Cosmos covers inbound/outbound transfers, staking reward claims, delegation,
-  undelegation, redelegation, and category-aware staking postings.
+  undelegation, redelegation, and category-aware staking postings. Do not use
+  Cosmos as a reference baseline until opening-state support makes its
+  reconciliation story complete.
 
 Balance reconciliation groundwork:
 
@@ -422,7 +434,66 @@ Acceptance:
 - Token metadata resolver is part of the repeatable path.
 - Zero-diff status is machine-enforced.
 
-### 2. Keep Cosmos Acceptance Narrow
+### 2. Port NEAR Ledger-V2
+
+Goal: validate the ledger model against a complex non-EVM account chain with a
+strong provider before returning to weaker Cosmos support.
+
+Reference baseline:
+
+- Use EVM as the account-based implementation base for processor-v2 wiring,
+  token metadata resolution, and stress comparison.
+- Use Cardano as the reference for the completed ledger-v2 quality bar:
+  source activity identity, component refs, category-aware postings, and
+  processor-owned accounting facts.
+- Do not use Cosmos as a reference while opening-state support is incomplete.
+
+Source files:
+
+- `packages/ingestion/src/sources/blockchains/near/importer.ts`
+- `packages/ingestion/src/sources/blockchains/near/processor.ts`
+- `packages/ingestion/src/sources/blockchains/near/processor-v2.ts`
+- `packages/ingestion/src/sources/blockchains/near/journal-assembler*.ts`
+- `packages/ingestion/src/sources/blockchains/near/near-transaction-correlation.ts`
+- `packages/ingestion/src/sources/blockchains/near/near-fund-flow-extraction.ts`
+- `packages/ingestion/src/sources/blockchains/near/register.ts`
+- `packages/blockchain-providers/src/blockchains/near/providers/nearblocks/nearblocks.api-client.ts`
+- `docs/specs/near-v2-implementation-guide.md`
+
+Implemented shape:
+
+- `processor-v2.ts` validates NearBlocks transaction, receipt,
+  balance-change, and token-transfer stream rows before assembly.
+- Journal assembler modules emit source activities, journals, postings, and
+  component refs from correlated NEAR transaction groups.
+- Native balance changes, token transfers, receipt fees, and balance-change fee
+  fallbacks use signed ledger postings without new journal kinds or posting
+  roles.
+- Token metadata enrichment uses the provider runtime, matching EVM stress
+  ergonomics.
+- Legacy scam detection is not part of the `createLedgerProcessor` path.
+- `createLedgerProcessor` is registered beside the existing legacy processor.
+- `ledger stress near` compares ledger-v2 balances against persisted legacy
+  balance impact and fails on unexpected diffs.
+
+Remaining:
+
+- Run `ledger stress near` on real NearBlocks corpora after `reprocess`.
+- Add expected-diff fixtures only for intentional, documented legacy-vs-ledger
+  projection differences.
+- Expand NEAR fixtures if real data exposes storage staking, account creation,
+  or receipt trees not covered by the current unit cases.
+
+Acceptance:
+
+- NEAR ledger-v2 processing handles transaction, receipt, balance-change, and
+  token-transfer streams without new core journal kinds or posting roles.
+- Gas/fee burn is represented as fee or protocol overhead postings with stable
+  component refs.
+- Token metadata resolution follows the same provider-runtime path as EVM.
+- A repeatable NEAR stress path fails on unexpected diffs.
+
+### 3. Keep Cosmos Acceptance Narrow
 
 Goal: accept only the Cosmos chains with defensible account-history providers
 until opening-state snapshots exist.
@@ -448,8 +519,10 @@ Acceptance:
   backfill or opening snapshots make reconciliation defensible.
 - Delegation must produce liquid outflow plus staked inflow, not zero net asset
   total.
+- Cosmos is not a reference baseline for new chain ports until this section and
+  opening-state support are complete.
 
-### 3. Implement Cosmos Opening Balances
+### 4. Implement Cosmos Opening Balances
 
 Goal: create ledger-native opening balance source activities when earlier
 Cosmos history is missing or economically impractical to backfill.
@@ -489,7 +562,7 @@ Acceptance:
 - Opening snapshots are persisted through the same ledger repository path as
   provider events.
 
-### 4. Sketch One Exchange Processor
+### 5. Sketch One Exchange Processor
 
 Goal: prove exchange imports fit the same source activity, journal, posting,
 and component identity model before migrating consumers.
@@ -526,7 +599,7 @@ Acceptance:
 - Source activity stable key works for exchange event groups.
 - Fill and fee component refs are stable enough for override replay.
 
-### 5. Harden Balance Reconciliation
+### 6. Harden Balance Reconciliation
 
 Goal: make ledger balance diffs actionable enough to gate consumer cutover.
 
@@ -562,7 +635,7 @@ Acceptance:
 - Consumer migration does not start until unresolved diffs are gone or
   explicitly accepted.
 
-### 6. Materialize Cross-Source Relationships
+### 7. Materialize Cross-Source Relationships
 
 Goal: persist relationship truth that spans source activities before consumers
 depend on ledger relationships for transfer, bridge, or migration behavior.
@@ -589,7 +662,7 @@ Acceptance:
   relationships can connect journals across source activities.
 - Reprocess does not silently point a relationship at a different posting.
 
-### 7. Migrate Consumers
+### 8. Migrate Consumers
 
 Consumer migration starts only after the previous gates pass.
 
@@ -624,7 +697,7 @@ Acceptance:
 - Cost basis, links, portfolio, and balance run from the ledger model.
 - Unknown opening basis blocks only calculations that consume affected lots.
 
-### 8. Remove Legacy Accounting Reconstruction
+### 9. Remove Legacy Accounting Reconstruction
 
 Do this only after consumers are migrated.
 
@@ -642,7 +715,7 @@ Acceptance:
 - No duplicate staking reward truth exists.
 - No reconcilers exist to sync ledger roles with semantics.
 
-### 9. Canonicalize Documentation
+### 10. Canonicalize Documentation
 
 Do this last.
 
@@ -666,9 +739,13 @@ Acceptance:
 
 Consumer cutover is blocked until all gates are true:
 
+- Cardano and EVM remain the reference baselines for chain processor behavior.
 - EVM-family stress validation is repeatable and green.
+- NEAR ledger-v2 stress validation is repeatable and green, proving a complex
+  non-EVM account-chain port against the reference baselines.
 - Cosmos acceptance remains limited to chains with defensible account history,
-  or opening snapshots exist for unsupported history.
+  or opening snapshots exist for unsupported history; Cosmos is not used as a
+  reference baseline before that.
 - One exchange v2 processor sketch proves exchange event grouping and fill/fee
   provenance without changing the core model.
 - `ledger-balance` reconciles representative datasets at account/asset/category
@@ -703,7 +780,10 @@ fix-capable lint command first, then run `pnpm lint`.
 Decisions:
 
 - The ledger model is mature enough for migration work.
-- Do not add another account-based chain before moving forward.
+- Cardano and EVM are the chain reference baselines.
+- Port NEAR next as the complex non-EVM account-chain challenge.
+- Do not use Cosmos as a reference baseline until opening-state support makes
+  full reconciliation defensible.
 - Source activity identity is generic stable key plus origin; blockchain hash
   is source metadata.
 - Balance identity is owner account plus asset plus balance category.

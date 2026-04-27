@@ -235,6 +235,7 @@ export function correlateTransactionData(group: NearTransactionBundle): Result<N
   }
 
   const processedReceipts: NearReceipt[] = group.receipts.map((receipt) => ({
+    eventId: receipt.eventId,
     receiptId: receipt.receiptId,
     transactionHash: receipt.transactionHash,
     predecessorAccountId: receipt.predecessorAccountId,
@@ -363,6 +364,7 @@ export function correlateTransactionData(group: NearTransactionBundle): Result<N
     );
 
     processedReceipts.push({
+      eventId: txLevelReceiptId,
       receiptId: txLevelReceiptId,
       transactionHash: group.transaction.transactionHash,
       predecessorAccountId: group.transaction.signerAccountId,
