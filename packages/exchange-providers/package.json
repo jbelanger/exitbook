@@ -25,9 +25,9 @@
     "@exitbook/foundation": "workspace:*",
     "@exitbook/http": "workspace:*",
     "@exitbook/logger": "workspace:*",
-    "ccxt": "^4.5.50",
+    "ccxt": "^4.5.51",
     "decimal.js": "^10.6.0",
-    "jose": "^6.2.2",
+    "jose": "^6.2.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
