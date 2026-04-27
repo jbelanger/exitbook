@@ -13,7 +13,7 @@ export function registerAccountsReconcileCommand(accountsCommand: Command, appRu
     .description('Compare ledger balances against stored or live reference balances')
     .argument('[selector]', 'Account selector (name, fingerprint prefix, or address)')
     .option('--json', 'Output results in JSON format')
-    .option('--reference <source>', 'Reference source: stored or live', 'stored')
+    .option('--reference <source>', 'Reference source: stored or live (default: stored)')
     .option('--refresh-live', 'Refresh live balances before reconciling')
     .option('--all', 'Include matched rows in text output')
     .option('--strict', 'Exit non-zero when any selected scope is not fully matched')
