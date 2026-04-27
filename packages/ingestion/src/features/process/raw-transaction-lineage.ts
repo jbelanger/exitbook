@@ -40,6 +40,10 @@ export function buildAccountingLedgerWrites(params: {
     return ok([]);
   }
 
+  if (params.platformKind === 'exchange-api' || params.platformKind === 'exchange-csv') {
+    return buildExchangeAccountingLedgerWrites(params.ledgerDrafts, params.rawTransactions);
+  }
+
   if (params.platformKind !== 'blockchain') {
     return err(new Error(`Accounting ledger shadow writes are not supported for ${params.platformKind} sources yet`));
   }
@@ -72,6 +76,136 @@ export function buildAccountingLedgerWrites(params: {
   }
 
   return ok(writes);
+}
+
+function buildExchangeAccountingLedgerWrites(
+  ledgerDrafts: readonly AccountingLedgerDraft[],
+  rawTransactions: readonly RawTransaction[]
+): Result<AccountingLedgerWrite[], Error> {
+  const rawIdByEventId = new Map<string, number>();
+  for (const rawTransaction of rawTransactions) {
+    rawIdByEventId.set(rawTransaction.eventId, rawTransaction.id);
+  }
+
+  const writes: AccountingLedgerWrite[] = [];
+  for (const draft of ledgerDrafts) {
+    const eventIdsResult = collectExchangeLedgerEventIds(draft);
+    if (eventIdsResult.isErr()) {
+      return err(eventIdsResult.error);
+    }
+
+    const rawTransactionIds: number[] = [];
+    for (const eventId of eventIdsResult.value) {
+      const rawTransactionId = rawIdByEventId.get(eventId);
+      if (rawTransactionId === undefined) {
+        return err(new Error(`Could not resolve raw transaction binding for exchange ledger eventId ${eventId}`));
+      }
+
+      rawTransactionIds.push(rawTransactionId);
+    }
+
+    writes.push({
+      journals: draft.journals,
+      rawTransactionIds: dedupeRawTransactionIds(rawTransactionIds),
+      sourceActivity: draft.sourceActivity,
+    });
+  }
+
+  return ok(writes);
+}
+
+function collectExchangeLedgerEventIds(draft: AccountingLedgerDraft): Result<string[], Error> {
+  const sourceComponentOwnershipValidation = validateExchangeLedgerSourceComponentOwnership(draft);
+  if (sourceComponentOwnershipValidation.isErr()) {
+    return err(sourceComponentOwnershipValidation.error);
+  }
+
+  const explicitEventIdsResult = normalizeExplicitExchangeLedgerEventIds(draft);
+  if (explicitEventIdsResult.isErr()) {
+    return err(explicitEventIdsResult.error);
+  }
+
+  if (explicitEventIdsResult.value !== undefined) {
+    return ok(explicitEventIdsResult.value);
+  }
+
+  const eventIds = new Set<string>();
+
+  for (const journal of draft.journals) {
+    for (const posting of journal.postings) {
+      for (const sourceComponentRef of posting.sourceComponentRefs) {
+        const { component } = sourceComponentRef;
+        if (
+          component.componentKind === 'raw_event' ||
+          component.componentKind === 'exchange_fill' ||
+          component.componentKind === 'exchange_fee'
+        ) {
+          eventIds.add(component.componentId);
+        }
+      }
+    }
+  }
+
+  if (eventIds.size === 0) {
+    return err(
+      new Error(
+        `Exchange ledger source activity ${draft.sourceActivity.sourceActivityFingerprint} has no raw provider event source components`
+      )
+    );
+  }
+
+  return ok([...eventIds].sort());
+}
+
+function validateExchangeLedgerSourceComponentOwnership(draft: AccountingLedgerDraft): Result<void, Error> {
+  const expectedSourceActivityFingerprint = draft.sourceActivity.sourceActivityFingerprint;
+
+  for (const journal of draft.journals) {
+    for (const posting of journal.postings) {
+      for (const sourceComponentRef of posting.sourceComponentRefs) {
+        const { component } = sourceComponentRef;
+        if (component.sourceActivityFingerprint !== expectedSourceActivityFingerprint) {
+          return err(
+            new Error(
+              `Ledger posting ${posting.postingStableKey} source component belongs to ${component.sourceActivityFingerprint}, expected ${expectedSourceActivityFingerprint}`
+            )
+          );
+        }
+      }
+    }
+  }
+
+  return ok(undefined);
+}
+
+function normalizeExplicitExchangeLedgerEventIds(draft: AccountingLedgerDraft): Result<string[] | undefined, Error> {
+  if (draft.sourceEventIds === undefined) {
+    return ok(undefined);
+  }
+
+  const eventIds = new Set<string>();
+  for (const eventId of draft.sourceEventIds) {
+    const normalizedEventId = eventId.trim();
+    if (normalizedEventId.length === 0) {
+      return err(
+        new Error(
+          `Exchange ledger source activity ${draft.sourceActivity.sourceActivityFingerprint} has a blank event id`
+        )
+      );
+    }
+
+    eventIds.add(normalizedEventId);
+  }
+
+  if (eventIds.size === 0) {
+    return err(
+      new Error(
+        `Exchange ledger source activity ${draft.sourceActivity.sourceActivityFingerprint} has no source event ids`
+      )
+    );
+  }
+
+  return ok([...eventIds].sort());
 }
 
 function buildExchangeTransactionWrites(

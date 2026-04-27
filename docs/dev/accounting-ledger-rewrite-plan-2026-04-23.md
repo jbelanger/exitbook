@@ -35,14 +35,20 @@ it has repeatable stress validation and broad token/provider coverage. Theta is
 adjacent EVM-family coverage, not an equally tested reference baseline yet.
 
 Bitcoin and Cosmos remain useful evidence, but they are not the reference
-baseline. Bitcoin is a narrower UTXO check than Cardano. Cosmos is a known-gap
-chain until opening-state snapshots make full reconciliation defensible.
+baseline. Bitcoin is a narrower UTXO check than Cardano. Cosmos reached v1
+parity on the enabled corpora, but is deferred until opening-state analysis
+makes full reconciliation defensible.
+
+Kraken is the completed exchange proof. Its ledger-v2 processor reconciles
+against legacy balance impact and live Kraken balances on the imported corpus
+without requiring new core journal kinds, posting roles, or exchange-specific
+source activity identity.
 
 The completed pilots did not require new core journal kinds, posting roles, or
 chain-specific accounting escape hatches. The remaining risks are migration,
 reconciliation, exchange ergonomics, live balance category support,
-opening-state acquisition, cross-source relationship materialization, and one
-more complex non-EVM account-chain port.
+opening-state analysis and acquisition, and cross-source relationship
+materialization.
 
 ## Settled Contracts
 
@@ -328,9 +334,14 @@ Processor evidence:
   Use EVM as the reference for account-based processor structure, token metadata
   handling, and stress validation.
 - Cosmos covers inbound/outbound transfers, staking reward claims, delegation,
-  undelegation, redelegation, and category-aware staking postings. Do not use
-  Cosmos as a reference baseline until opening-state support makes its
-  reconciliation story complete.
+  undelegation, redelegation, and category-aware staking postings. It reached
+  v1 parity on enabled corpora, but is deferred until opening-state analysis
+  makes its reconciliation story complete. Do not use Cosmos as a reference
+  baseline before then.
+- Kraken covers exchange provider-event grouping, exchange source activities,
+  trade/transfer/refund journals, fill and fee component refs, dust sweeping,
+  one-sided trade residuals, transfer reversal skips, and full imported-corpus
+  v1/v2/live liquid balance parity.
 
 Balance reconciliation groundwork:
 
@@ -341,12 +352,23 @@ Balance reconciliation groundwork:
 - `apps/cli/src/features/accounts/command/account-ledger-balance-shadow-builder.ts`
   is the temporary single-account compatibility bridge until final
   reconciliation command wiring lands.
+- `apps/cli/src/features/accounts/command/accounts-reconcile*.ts` is the
+  ledger-native account reconciliation command boundary.
+- `packages/ingestion/src/features/balance/reconciliation/**` owns pure
+  account/asset/category balance row reconciliation.
+- `packages/ingestion/src/features/asset-screening/**` owns reference-balance
+  screening policy for live balance acquisition.
+- `apps/cli/src/features/ledger/command/*ledger-stress*` owns repeatable
+  ledger-v2 stress gates for EVM-family and NEAR accounts.
 
 ## Remaining Work
 
 Work in this order unless a blocker makes the order impossible.
 
 ### 0. Asset Screening And Reconciliation Command Boundary
+
+Status: complete for the migration gate. The command boundary, screening
+policy, and category-aware reconciliation rows are implemented.
 
 Goal: make live reference-balance acquisition screenable and performant before
 the final reconciliation command lands.
@@ -369,7 +391,7 @@ exitbook accounts reconcile --reference stored
 exitbook accounts reconcile --strict
 ```
 
-Implementation notes:
+Implemented shape:
 
 - `asset-screening` owns machine screening policy for reference balances.
 - `balance/reconciliation` owns pure reconciliation result construction.
@@ -384,6 +406,15 @@ Implementation notes:
   policy run after processing as ingestion projections.
 - Legacy `TransactionDraft` processors may keep their existing diagnostic path
   until they are retired or migrated behind the projection boundary.
+- `accounts reconcile [selector]` supports stored and live references,
+  `--refresh-live`, `--json`, `--strict`, `--all`, and tolerance.
+- Live token balance fetches use a tracked-token allowlist by default and skip
+  token fetches entirely when no tracked token refs exist.
+- Spam-diagnostic and accounting-blocked assets are suppressed from live
+  reference comparisons after applying excluded-transaction balance
+  adjustments.
+- Non-liquid ledger categories remain visible as `category_unsupported` when
+  the selected live/stored reference source only exposes liquid balances.
 
 Acceptance:
 
@@ -395,7 +426,16 @@ Acceptance:
 - Workflow tests guard that the legacy scam detector is not passed to
   processor-v2 wiring.
 
+Remaining follow-up:
+
+- A discover-all live reference mode exists in the screening policy but is not
+  exposed as a CLI mode yet. Keep default reconciliation on tracked/reference
+  assets until there is a concrete operator workflow for discovery.
+
 ### 1. Promote EVM-Family Stress Validation
+
+Status: complete. `ledger stress evm-family` is implemented as a read-only CLI
+gate over persisted raw rows and legacy processed transactions.
 
 Goal: make the local EVM-family stress runner repeatable from CLI or e2e
 tooling before any pipeline cutover.
@@ -413,7 +453,7 @@ Files to inspect first:
 - `apps/cli/src/features/import/command/run-import.ts`
 - `apps/cli/src/__tests__/ethereum-workflow.e2e.test.ts`
 
-Implementation shape:
+Implemented shape:
 
 1. Extract the current local stress logic into a reusable test or command
    helper that loads persisted raw rows for selected EVM-family accounts.
@@ -424,6 +464,8 @@ Implementation shape:
 5. Fail on unexpected non-zero diffs.
 6. Record intentional diffs as explicit fixture expectations, not console
    notes.
+7. Fail stale expected-diff fixtures when the documented diff is no longer
+   observed.
 
 Acceptance:
 
@@ -436,8 +478,11 @@ Acceptance:
 
 ### 2. Port NEAR Ledger-V2
 
+Status: complete for v1 parity on the available complete NearBlocks corpus.
+
 Goal: validate the ledger model against a complex non-EVM account chain with a
-strong provider before returning to weaker Cosmos support.
+strong provider before returning to weaker Cosmos support. Do not spend more
+NearBlocks quota on blind large-account discovery for this phase.
 
 Reference baseline:
 
@@ -476,13 +521,34 @@ Implemented shape:
 - `ledger stress near` compares ledger-v2 balances against persisted legacy
   balance impact and fails on unexpected diffs.
 
+Verification:
+
+- `near-wallet` complete corpus: 45 raw rows, 10 legacy transactions, 10
+  ledger source activities, 10 journals, 18 postings.
+- `ledger stress near --json` passes with zero unexpected diffs and no expected
+  diff fixtures.
+- Focused NEAR/process tests pass, including native transfers, fee-only calls,
+  action-deposit transfer fees, token swaps with metadata, and contract reward
+  inflows.
+- A larger `watcher03.ref-watchdog.near` probe was intentionally stopped after
+  2,250 transaction-stream rows to protect NearBlocks quota. It was not a
+  complete corpus because receipts, balance changes, and token transfers had
+  not been imported.
+- The partial watchdog probe still showed a useful future fixture shape:
+  high-frequency `update_token_rate` calls from `watcher03.ref-watchdog.near`
+  to `v2.ref-finance.near`, mostly zero deposit, success status, and fee-only
+  economic impact.
+
 Remaining:
 
-- Run `ledger stress near` on real NearBlocks corpora after `reprocess`.
+- Leave NEAR alone for migration progress unless a complete imported corpus
+  later exposes a real v1/v2 diff.
 - Add expected-diff fixtures only for intentional, documented legacy-vs-ledger
   projection differences.
-- Expand NEAR fixtures if real data exposes storage staking, account creation,
-  or receipt trees not covered by the current unit cases.
+- Before trying more large NEAR accounts, add provider import budget/preflight
+  tooling so candidate discovery does not consume monthly credits blindly.
+- Expand NEAR fixtures only if real complete data exposes storage staking,
+  account creation, or receipt trees not covered by the current unit cases.
 
 Acceptance:
 
@@ -493,16 +559,21 @@ Acceptance:
 - Token metadata resolution follows the same provider-runtime path as EVM.
 - A repeatable NEAR stress path fails on unexpected diffs.
 
-### 3. Keep Cosmos Acceptance Narrow
+### 3. Defer Cosmos After V1 Parity
 
-Goal: accept only the Cosmos chains with defensible account-history providers
-until opening-state snapshots exist.
+Status: v1 parity reached on enabled Cosmos corpora. Further Cosmos migration
+work is deferred until opening-state analysis is complete.
+
+Goal: keep Cosmos coverage green without making it a reference baseline or
+advancing consumer reconciliation work on incomplete opening-state assumptions.
 
 Current rule:
 
 - Enabled real-data corpora: Injective, Akash, Fetch.
 - Cosmos Hub remains disabled for user-facing import.
 - Cosmos Hub can remain available for parser/processor fixtures.
+- Do not spend migration time on new Cosmos account coverage until opening
+  balance design decisions are resolved.
 
 Files:
 
@@ -519,15 +590,18 @@ Acceptance:
   backfill or opening snapshots make reconciliation defensible.
 - Delegation must produce liquid outflow plus staked inflow, not zero net asset
   total.
-- Cosmos is not a reference baseline for new chain ports until this section and
-  opening-state support are complete.
+- Cosmos is not a reference baseline for new chain ports until opening-state
+  analysis and support are complete.
 
-### 4. Implement Cosmos Opening Balances
+### 4. Analyze Cosmos Opening Balances
 
-Goal: create ledger-native opening balance source activities when earlier
-Cosmos history is missing or economically impractical to backfill.
+Status: skipped for the current migration slice. Do not implement this as a
+straight provider-read task until the questions below are answered.
 
-Provider reads for Cosmos SDK chains:
+Goal: decide how to create ledger-native opening balance source activities when
+earlier Cosmos history is missing or economically impractical to backfill.
+
+Candidate provider reads for Cosmos SDK chains:
 
 - liquid bank balances:
   `/cosmos/bank/v1beta1/balances/{address}`
@@ -538,7 +612,18 @@ Provider reads for Cosmos SDK chains:
 - reward receivables:
   `/cosmos/distribution/v1beta1/delegators/{delegator_address}/rewards`
 
-Implementation shape:
+Analysis questions:
+
+1. Which providers can serve height-pinned reads per enabled chain, and how do
+   they signal unsupported historical state?
+2. Can current-state-minus-deltas be proven complete for each balance category,
+   or must the command require manual opening balances?
+3. How should opening lots represent unknown basis without blocking unrelated
+   lots?
+4. What operator-facing evidence should be recorded so a future audit can
+   distinguish provider-sourced, inferred, and manually-entered openings?
+
+Candidate implementation shape after analysis:
 
 1. Add provider ports for bank, delegation, unbonding, and reward state reads.
 2. Prefer height-pinned reads using `x-cosmos-block-height` when supported.
@@ -562,7 +647,16 @@ Acceptance:
 - Opening snapshots are persisted through the same ledger repository path as
   provider events.
 
-### 5. Sketch One Exchange Processor
+### 5. Complete One Exchange Processor
+
+Status: complete. Kraken ledger-v2 is the exchange proof. Focused Kraken
+processor, raw-lineage, and workflow tests cover source activities, journals,
+postings, source components, and representative v1/v2 liquid balance parity.
+Imported-corpus validation also passed against the user's Kraken account:
+677 raw rows, 381 legacy transactions, 381 ledger drafts, 44 v1/v2 balance
+rows, zero v1-v2 diffs, zero v1-live diffs, and zero v2-live diffs. A persisted
+real-corpus stress command has not been promoted because the corpus and live
+credentials are local/private.
 
 Goal: prove exchange imports fit the same source activity, journal, posting,
 and component identity model before migrating consumers.
@@ -580,6 +674,14 @@ Files to inspect first:
 - `packages/exchange-providers/src/exchanges/coinbase/client.ts`
 - `packages/ingestion/src/sources/exchanges/**`
 - `packages/ledger/src/source-components/source-component-ref.ts`
+- `docs/dev/kraken-ledger-v2-plan-2026-04-27.md`
+
+Kraken implementation landing:
+
+- `packages/ingestion/src/sources/exchanges/shared/exchange-ledger-assembler.ts`
+- `packages/ingestion/src/sources/exchanges/kraken/processor-v2.ts`
+- `packages/ingestion/src/features/process/raw-transaction-lineage.ts`
+- `packages/ingestion/src/features/process/process-workflow.ts`
 
 Implementation shape:
 
@@ -598,8 +700,16 @@ Acceptance:
   accounting reason the current vocabulary cannot express.
 - Source activity stable key works for exchange event groups.
 - Fill and fee component refs are stable enough for override replay.
+- Kraken representative fixtures reconcile against legacy liquid balance impact
+  with no unexpected diffs.
+- Kraken imported-corpus balances reconcile across v1, v2, and live Kraken
+  BalanceEx snapshots with no diffs.
 
 ### 6. Harden Balance Reconciliation
+
+Status: partially complete. Ledger-native aggregation, diff provenance, and the
+`accounts reconcile` CLI are implemented. Remaining work is category-aware live
+reference support beyond liquid balances and consumer cutover discipline.
 
 Goal: make ledger balance diffs actionable enough to gate consumer cutover.
 
@@ -613,16 +723,24 @@ Files:
 - `packages/ingestion/src/features/balance/calculation/balance-calculation.ts`
 - `packages/ingestion/src/features/balance/reference/reference-balance-verification.ts`
 
-Implementation shape:
+Implemented shape:
 
 1. Keep `ledger-balance` keyed by owner account, asset, and balance category.
 2. Include contributing source activity, journal, and posting fingerprints in
    diff output.
-3. Rename CLI reconciliation summary fields that still imply currencies only,
-   such as `totalCurrencies`, to category-aware names.
-4. Extend `BalanceComparison` or introduce a ledger-native verification row so
-   live balance checks can represent non-liquid categories.
-5. Treat every non-zero diff as one of:
+3. Introduce ledger-native reconciliation rows with expected/reference refs,
+   category-unsupported status, missing-reference status, unexpected-reference
+   status, and quantity-mismatch status.
+4. Expose the command through `accounts reconcile` with text/JSON output and
+   strict exit-code behavior.
+
+Remaining shape:
+
+1. Rename older balance verification summary fields that still imply currencies
+   only, such as `totalCurrencies`, where those legacy DTOs survive.
+2. Extend live reference providers or reference DTOs when they can represent
+   non-liquid categories directly instead of marking them unsupported.
+3. Treat every non-zero diff as one of:
    - ledger model bug
    - legacy behavior bug
    - intentional accounting behavior change approved explicitly
@@ -743,11 +861,11 @@ Consumer cutover is blocked until all gates are true:
 - EVM-family stress validation is repeatable and green.
 - NEAR ledger-v2 stress validation is repeatable and green, proving a complex
   non-EVM account-chain port against the reference baselines.
-- Cosmos acceptance remains limited to chains with defensible account history,
-  or opening snapshots exist for unsupported history; Cosmos is not used as a
+- Cosmos stays deferred after v1 parity until opening-state analysis and
+  support make unsupported history reconcilable; Cosmos is not used as a
   reference baseline before that.
-- One exchange v2 processor sketch proves exchange event grouping and fill/fee
-  provenance without changing the core model.
+- Kraken proves exchange event grouping and fill/fee provenance without
+  changing the core model.
 - `ledger-balance` reconciles representative datasets at account/asset/category
   level.
 - Cross-source relationships have a persistence path.
@@ -767,7 +885,13 @@ pnpm vitest run packages/ingestion/src/sources/blockchains/cardano/__tests__/pro
 pnpm vitest run packages/ingestion/src/sources/blockchains/bitcoin/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/evm/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/theta/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/near/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/exchanges/kraken/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/features/asset-screening/__tests__/asset-screening-policy.test.ts
+pnpm vitest run packages/ingestion/src/features/balance/reconciliation/__tests__/balance-reconciliation.test.ts
+pnpm vitest run apps/cli/src/features/accounts/command/__tests__/accounts-reconcile-runner.test.ts
+pnpm vitest run apps/cli/src/features/ledger/command/__tests__/evm-family-ledger-stress-runner.test.ts
 pnpm build
 pnpm lint --fix
 ```
@@ -781,9 +905,15 @@ Decisions:
 
 - The ledger model is mature enough for migration work.
 - Cardano and EVM are the chain reference baselines.
-- Port NEAR next as the complex non-EVM account-chain challenge.
-- Do not use Cosmos as a reference baseline until opening-state support makes
-  full reconciliation defensible.
+- NEAR reached v1 parity on the available complete corpus; leave NEAR alone
+  unless a complete imported corpus exposes a real v1/v2 diff.
+- Cosmos reached v1 parity on enabled corpora, but is deferred until
+  opening-state analysis and support make full reconciliation defensible.
+- Kraken is the completed exchange proof; its imported corpus reconciles across
+  v1, v2, and live Kraken balances with no diffs.
+- The account reconciliation command boundary and asset-screening policy are
+  already implemented.
+- EVM-family stress validation is already implemented as a repeatable CLI gate.
 - Source activity identity is generic stable key plus origin; blockchain hash
   is source metadata.
 - Balance identity is owner account plus asset plus balance category.
@@ -803,3 +933,11 @@ Smells to watch:
   metadata is revisited.
 - CLI summary names such as `totalCurrencies` are no longer precise once one
   asset can produce multiple balance-category rows.
+- NEAR large-account discovery currently requires starting expensive real
+  imports; add provider import budget/preflight tooling before probing more
+  NearBlocks accounts.
+- Cosmos opening balances are not just provider reads; the design still needs
+  provider height semantics, inference rules, manual-entry boundaries, and audit
+  evidence before implementation.
+- Full Kraken v1/v2/live balance validation is currently manual because it
+  depends on private local imports and API credentials.

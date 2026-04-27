@@ -1,5 +1,6 @@
 import type { RawTransaction, TransactionDraft } from '@exitbook/core';
-import { err, ok } from '@exitbook/foundation';
+import type { Currency } from '@exitbook/foundation';
+import { err, ok, parseDecimal } from '@exitbook/foundation';
 import type { AccountingJournalDraft, SourceActivityDraft } from '@exitbook/ledger';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -532,6 +533,172 @@ describe('ProcessingWorkflow', () => {
         },
       ]);
       expect(markProcessed).toHaveBeenCalledWith([childRawTransaction.id]);
+    });
+
+    it('persists exchange ledger-v2 source activities without legacy scam-detector wiring', async () => {
+      const rawTransaction = createRawTransaction({
+        accountId: 14,
+        blockchainTransactionHash: undefined,
+        eventId: 'kraken-event-1',
+        providerData: { id: 'kraken-event-1' },
+      });
+      const { blockchain: _blockchain, ...baseLegacyTransaction } = createLegacyTransactionDraft();
+      const legacyTransaction: TransactionDraft = {
+        ...baseLegacyTransaction,
+        identityMaterial: {
+          componentEventIds: ['kraken-event-1'],
+        },
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+      };
+      const sourceActivity = createSourceActivityDraft({
+        blockchainName: undefined,
+        blockchainTransactionHash: undefined,
+        ownerAccountId: 14,
+        platformKind: 'exchange',
+        platformKey: 'kraken',
+        sourceActivityFingerprint: 'kraken-source-activity-fingerprint',
+        sourceActivityStableKey: 'provider-event-group:kraken-ref-1',
+      });
+      const ledgerJournal: AccountingJournalDraft = {
+        journalKind: 'transfer',
+        journalStableKey: 'primary',
+        sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
+        postings: [
+          {
+            postingStableKey: 'movement:in:exchange:kraken:btc:1',
+            assetId: 'exchange:kraken:btc',
+            assetSymbol: 'BTC' as Currency,
+            quantity: parseDecimal('1'),
+            role: 'principal',
+            balanceCategory: 'liquid',
+            sourceComponentRefs: [
+              {
+                component: {
+                  sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
+                  componentKind: 'raw_event',
+                  componentId: 'kraken-event-1',
+                  assetId: 'exchange:kraken:btc',
+                },
+                quantity: parseDecimal('1'),
+              },
+            ],
+          },
+        ],
+      };
+      const saveProcessedBatch = vi.fn().mockResolvedValue(ok({ duplicates: 0, saved: 1 }));
+      const replaceSourceActivities = vi.fn().mockResolvedValue(
+        ok({
+          diagnostics: 0,
+          journals: 1,
+          postings: 1,
+          rawAssignments: 1,
+          sourceActivities: 1,
+          sourceComponents: 1,
+        })
+      );
+      const markProcessed = vi.fn().mockResolvedValue(ok(undefined));
+      const legacyProcess = vi.fn().mockResolvedValue(ok([legacyTransaction]));
+      const ledgerProcess = vi.fn().mockResolvedValue(ok([{ journals: [ledgerJournal], sourceActivity }]));
+      const createLegacyProcessor = vi.fn(() => ({ process: legacyProcess }));
+      const createLedgerProcessor = vi.fn(() => ({ process: ledgerProcess }));
+
+      let batchFetched = false;
+      const ports: ProcessingPorts = {
+        accountLookup: {
+          getAccountInfo: vi.fn().mockResolvedValue(
+            ok({
+              id: 14,
+              accountType: 'exchange-api',
+              accountFingerprint: 'kraken-account-fingerprint',
+              identifier: 'kraken',
+              platformKey: 'kraken',
+              profileId: 1,
+            })
+          ),
+          findChildAccounts: vi.fn().mockResolvedValue(ok([])),
+          getProfileAddresses: vi.fn().mockResolvedValue(ok([])),
+        },
+        accountingLedgerSink: {
+          replaceSourceActivities,
+        },
+        batchSource: {
+          countPending: vi.fn().mockResolvedValue(ok(1)),
+          countPendingByStreamType: vi.fn().mockResolvedValue(ok(new Map())),
+          fetchAllPending: vi.fn().mockImplementation(async () => {
+            if (batchFetched) {
+              return ok([]);
+            }
+            batchFetched = true;
+            return ok([rawTransaction]);
+          }),
+          fetchByTransactionHashesForAccounts: vi.fn().mockResolvedValue(ok([])),
+          fetchPendingByTransactionHash: vi.fn().mockResolvedValue(ok([])),
+          findAccountsWithPendingData: vi.fn().mockResolvedValue(ok([])),
+          findAccountsWithRawData: vi.fn().mockResolvedValue(ok([])),
+          markProcessed,
+        },
+        importSessionLookup: {
+          findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+        },
+        markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
+        markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
+        nearBatchSource: {} as never,
+        rebuildAssetReviewProjection: vi.fn().mockResolvedValue(ok(undefined)),
+        rebuildTransactionInterpretation: vi.fn().mockResolvedValue(ok(undefined)),
+        transactionOverrides: {
+          materializeStoredOverrides: vi.fn().mockResolvedValue(ok(0)),
+        },
+        transactionSink: {
+          saveProcessedBatch,
+        },
+        withTransaction: async (fn) => fn(ports),
+      };
+
+      const workflow = new ProcessingWorkflow(
+        ports,
+        {
+          getProviders: vi.fn().mockReturnValue([]),
+        } as never,
+        { emit: vi.fn() } as never,
+        {
+          getBlockchain: vi.fn(),
+          getExchange: vi.fn().mockReturnValue(
+            ok({
+              capabilities: {
+                supportsApi: true,
+                supportsCsv: false,
+              },
+              exchange: 'kraken',
+              createImporter: vi.fn(),
+              createProcessor: createLegacyProcessor,
+              createLedgerProcessor,
+            })
+          ),
+          getAllBlockchains: vi.fn(),
+          getAllExchanges: vi.fn(),
+          hasBlockchain: vi.fn(),
+          hasExchange: vi.fn(),
+        } as never
+      );
+
+      const result = await workflow.processAccountTransactions(14);
+
+      expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
+      expect(createLedgerProcessor).toHaveBeenCalledWith();
+      expect(saveProcessedBatch).toHaveBeenCalledWith(
+        [{ rawTransactionIds: [rawTransaction.id], transaction: legacyTransaction }],
+        14
+      );
+      expect(replaceSourceActivities).toHaveBeenCalledWith([
+        {
+          journals: [ledgerJournal],
+          rawTransactionIds: [rawTransaction.id],
+          sourceActivity,
+        },
+      ]);
+      expect(markProcessed).toHaveBeenCalledWith([rawTransaction.id]);
     });
   });
 

@@ -1,5 +1,5 @@
 import type { IImporter } from './importers.js';
-import type { ITransactionProcessor } from './processors.js';
+import type { IAccountingLedgerProcessor, ITransactionProcessor } from './processors.js';
 
 export interface ExchangeAdapter {
   capabilities: {
@@ -9,4 +9,5 @@ export interface ExchangeAdapter {
   exchange: string;
   createImporter: () => IImporter;
   createProcessor: () => ITransactionProcessor;
+  createLedgerProcessor?: (() => IAccountingLedgerProcessor) | undefined;
 }

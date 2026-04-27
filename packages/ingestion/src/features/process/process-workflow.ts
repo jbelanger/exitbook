@@ -844,25 +844,34 @@ export class ProcessingWorkflow {
     platformKey: string,
     platformKind: string
   ): Result<IAccountingLedgerProcessor | undefined, Error> {
-    if (platformKind !== 'blockchain') {
-      return ok(undefined);
+    if (platformKind === 'blockchain') {
+      const adapterResult = this.registry.getBlockchain(platformKey);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
+      }
+
+      const createLedgerProcessor = adapterResult.value.createLedgerProcessor;
+      if (!createLedgerProcessor) {
+        return ok(undefined);
+      }
+
+      return ok(
+        createLedgerProcessor({
+          providerRuntime: this.providerRuntime,
+        })
+      );
     }
 
-    const adapterResult = this.registry.getBlockchain(platformKey);
-    if (adapterResult.isErr()) {
-      return err(adapterResult.error);
+    if (platformKind === 'exchange-api' || platformKind === 'exchange-csv') {
+      const adapterResult = this.registry.getExchange(platformKey);
+      if (adapterResult.isErr()) {
+        return err(adapterResult.error);
+      }
+
+      return ok(adapterResult.value.createLedgerProcessor?.());
     }
 
-    const createLedgerProcessor = adapterResult.value.createLedgerProcessor;
-    if (!createLedgerProcessor) {
-      return ok(undefined);
-    }
-
-    return ok(
-      createLedgerProcessor({
-        providerRuntime: this.providerRuntime,
-      })
-    );
+    return ok(undefined);
   }
 
   private unpackForProcessor(rawDataItems: RawTransaction[], platformKind: string): Result<unknown[], Error> {

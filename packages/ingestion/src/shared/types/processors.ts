@@ -36,22 +36,26 @@ export interface ITransactionProcessor {
   process(normalizedData: unknown[], context: AddressContext): Promise<Result<TransactionDraft[], Error>>;
 }
 
-export interface BlockchainLedgerProcessorAccountContext {
+export interface AccountingLedgerProcessorAccountContext {
   fingerprint: string;
   id: number;
 }
 
-export interface BlockchainLedgerProcessorContext {
-  account: BlockchainLedgerProcessorAccountContext;
+export interface AccountingLedgerProcessorContext {
+  account: AccountingLedgerProcessorAccountContext;
   primaryAddress: string;
   stakeAddresses?: readonly string[] | undefined;
   userAddresses: readonly string[];
   walletAddresses: readonly string[];
 }
 
+export type BlockchainLedgerProcessorAccountContext = AccountingLedgerProcessorAccountContext;
+export type BlockchainLedgerProcessorContext = AccountingLedgerProcessorContext;
+
 export interface AccountingLedgerDraft {
   journals: readonly AccountingJournalDraft[];
   sourceActivity: SourceActivityDraft;
+  sourceEventIds?: readonly string[] | undefined;
 }
 
 /**
@@ -61,6 +65,6 @@ export interface AccountingLedgerDraft {
 export interface IAccountingLedgerProcessor {
   process(
     normalizedData: unknown[],
-    context: BlockchainLedgerProcessorContext
+    context: AccountingLedgerProcessorContext
   ): Promise<Result<AccountingLedgerDraft[], Error>>;
 }
