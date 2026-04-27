@@ -650,7 +650,8 @@ Acceptance:
 ### 5. Complete One Exchange Processor
 
 Status: complete. Kraken ledger-v2 is the exchange proof, and Coinbase is the
-second exchange migration using the same shared exchange ledger assembler.
+second exchange migration using the same shared exchange ledger processor and
+assembler.
 Focused Kraken, Coinbase, raw-lineage, and workflow tests cover source
 activities, journals, postings, source components, and representative v1/v2
 liquid balance parity. Imported-corpus validation also passed against the
@@ -680,6 +681,7 @@ Files to inspect first:
 Exchange implementation landing:
 
 - `packages/ingestion/src/sources/exchanges/shared/exchange-ledger-assembler.ts`
+- `packages/ingestion/src/sources/exchanges/shared/exchange-ledger-processor.ts`
 - `packages/ingestion/src/sources/exchanges/kraken/processor-v2.ts`
 - `packages/ingestion/src/sources/exchanges/coinbase/processor-v2.ts`
 - `packages/ingestion/src/features/process/raw-transaction-lineage.ts`
@@ -709,7 +711,8 @@ Acceptance:
 - Coinbase representative fixtures reconcile against legacy liquid balance
   impact with no unexpected diffs.
 - Exchange on-chain fees stay out of separate liquid balance postings when the
-  provider-reported principal movement already carries the balance impact.
+  provider-reported principal movement already carries the balance impact, and
+  remain visible as balance-neutral journal diagnostics.
 
 ### 6. Harden Balance Reconciliation
 
@@ -922,7 +925,10 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
-- The remaining provider-v2 queue is KuCoin, Solana, Substrate, and XRP.
+- The remaining provider-v2 queue starts with KuCoin, then Solana, Substrate,
+  and XRP.
+- Exchange asset ids stay exchange-scoped when provider APIs do not supply
+  chain-native asset identity; do not guess chain identity from symbols alone.
 - The account reconciliation command boundary and asset-screening policy are
   already implemented.
 - EVM-family stress validation is already implemented as a repeatable CLI gate.
@@ -936,6 +942,9 @@ Smells to watch:
 
 - Current live providers still emit liquid reference rows only; category-aware
   rows are accepted by reconciliation once a provider can supply them.
+- Exchange APIs may report on-chain fees without chain-native asset identity;
+  those fees are retained as balance-neutral diagnostics until linking or
+  on-chain evidence can attach richer identity.
 - `balance-v2` is now a compatibility facade over `ledger-balance`; remove or
   rename it before the migration is considered complete.
 - Cross-source relationships need a dedicated materialization path before

@@ -95,7 +95,7 @@ export function assembleExchangeLedgerDraft<TProviderMetadata extends ExchangePr
       journalStableKey: 'primary',
       journalKind: resolveExchangeJournalKind(params.draft, postings),
       postings,
-      ...buildOptionalJournalDiagnostics(params.draft.diagnostics),
+      ...buildExchangeJournalDiagnostics(params.draft),
     };
     const journalValidation = validateAccountingJournalDraft(journal);
     if (journalValidation.isErr()) {
@@ -145,21 +145,55 @@ function buildExchangeSourceActivityDraft(params: {
   };
 }
 
-function buildOptionalJournalDiagnostics(
-  diagnostics: readonly TransactionDiagnostic[] | undefined
+function buildExchangeJournalDiagnostics(
+  draft: ConfirmedExchangeTransactionDraft
 ): { diagnostics: AccountingDiagnosticDraft[] } | Record<string, never> {
-  if (diagnostics === undefined || diagnostics.length === 0) {
+  const diagnostics = [
+    ...buildTransactionDiagnostics(draft.diagnostics),
+    ...buildBalanceNeutralOnChainFeeDiagnostics(draft.fees),
+  ];
+
+  if (diagnostics.length === 0) {
     return {};
   }
 
-  return {
-    diagnostics: diagnostics.map((diagnostic) => ({
-      code: diagnostic.code,
-      message: diagnostic.message,
-      ...(diagnostic.severity !== undefined ? { severity: diagnostic.severity } : {}),
-      ...(diagnostic.metadata !== undefined ? { metadata: diagnostic.metadata } : {}),
-    })),
-  };
+  return { diagnostics };
+}
+
+function buildTransactionDiagnostics(
+  diagnostics: readonly TransactionDiagnostic[] | undefined
+): AccountingDiagnosticDraft[] {
+  if (diagnostics === undefined || diagnostics.length === 0) {
+    return [];
+  }
+
+  return diagnostics.map((diagnostic) => ({
+    code: diagnostic.code,
+    message: diagnostic.message,
+    ...(diagnostic.severity !== undefined ? { severity: diagnostic.severity } : {}),
+    ...(diagnostic.metadata !== undefined ? { metadata: diagnostic.metadata } : {}),
+  }));
+}
+
+function buildBalanceNeutralOnChainFeeDiagnostics(fees: readonly ExchangeFeeDraft[]): AccountingDiagnosticDraft[] {
+  return fees
+    .filter((fee) => fee.settlement === 'on-chain')
+    .map((fee) => ({
+      code: 'exchange_on_chain_fee_balance_neutral',
+      severity: 'info' as const,
+      message:
+        'Exchange-reported on-chain fee was retained as balance-neutral evidence because the exchange principal movement already carries the liquid balance impact and the exchange API does not provide chain-native asset identity.',
+      metadata: {
+        amount: fee.amount,
+        assetId: fee.assetId,
+        assetIdentity: 'exchange',
+        assetSymbol: fee.assetSymbol,
+        chainAssetIdentity: 'unavailable',
+        scope: fee.scope,
+        settlement: fee.settlement,
+        ...(fee.sourceEventIds !== undefined ? { sourceEventIds: fee.sourceEventIds } : {}),
+      },
+    }));
 }
 
 function resolveExchangeJournalKind(
@@ -293,6 +327,7 @@ function buildMovementPosting(params: MovementPostingInput): Result<AccountingPo
       operationCategory: params.operationCategory,
       providerName: params.providerName,
       quantity: absoluteQuantity,
+      sourceEventIds: params.movement.sourceEventIds,
       sourceActivityFingerprint: params.sourceActivityFingerprint,
       sourceEvents: params.sourceEvents,
     });
@@ -376,11 +411,16 @@ function buildMovementSourceComponentRefs(params: {
   providerName: string;
   quantity: ReturnType<typeof parseDecimal>;
   sourceActivityFingerprint: string;
+  sourceEventIds: readonly string[] | undefined;
   sourceEvents: readonly ExchangeCorrelationGroup['events'][number][];
 }): Result<SourceComponentQuantityRef[], Error> {
   return resultDo(function* () {
     const refs: SourceComponentQuantityRef[] = [];
     for (const event of params.sourceEvents) {
+      if (params.sourceEventIds !== undefined && !params.sourceEventIds.includes(event.providerEventId)) {
+        continue;
+      }
+
       const eventAssetId = yield* buildExchangeAssetId(params.providerName, event.assetSymbol);
       if (eventAssetId !== params.assetId) {
         continue;

@@ -47,7 +47,8 @@ function getSharedProviderType(interpretedEvents: readonly InterpretedKrakenEven
 function buildMovementDraft(
   assetSymbol: Currency,
   amount: string,
-  movementRole?: ExchangeMovementDraft['movementRole']
+  movementRole?: ExchangeMovementDraft['movementRole'],
+  sourceEventIds?: readonly string[]
 ): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kraken', assetSymbol);
   if (assetIdResult.isErr()) {
@@ -60,10 +61,15 @@ function buildMovementDraft(
     grossAmount: amount,
     netAmount: amount,
     ...(movementRole ? { movementRole } : {}),
+    ...(sourceEventIds !== undefined ? { sourceEventIds } : {}),
   });
 }
 
-function buildFeeDraft(assetSymbol: Currency, amount: string): Result<ExchangeFeeDraft, Error> {
+function buildFeeDraft(
+  assetSymbol: Currency,
+  amount: string,
+  sourceEventIds?: readonly string[]
+): Result<ExchangeFeeDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kraken', assetSymbol);
   if (assetIdResult.isErr()) {
     return err(assetIdResult.error);
@@ -74,6 +80,7 @@ function buildFeeDraft(assetSymbol: Currency, amount: string): Result<ExchangeFe
     assetSymbol,
     amount,
     scope: 'platform',
+    ...(sourceEventIds !== undefined ? { sourceEventIds } : {}),
     settlement: 'balance',
   });
 }
@@ -294,7 +301,9 @@ export function interpretKrakenGroup(
 
   for (const event of interpretedEvents) {
     if (event.amount.isPositive()) {
-      const inflowResult = buildMovementDraft(event.event.assetSymbol, event.amount.abs().toFixed());
+      const inflowResult = buildMovementDraft(event.event.assetSymbol, event.amount.abs().toFixed(), undefined, [
+        event.event.providerEventId,
+      ]);
       if (inflowResult.isErr()) {
         return {
           kind: 'unsupported',
@@ -307,7 +316,9 @@ export function interpretKrakenGroup(
     }
 
     if (event.amount.isNegative()) {
-      const outflowResult = buildMovementDraft(event.event.assetSymbol, event.amount.abs().toFixed());
+      const outflowResult = buildMovementDraft(event.event.assetSymbol, event.amount.abs().toFixed(), undefined, [
+        event.event.providerEventId,
+      ]);
       if (outflowResult.isErr()) {
         return {
           kind: 'unsupported',
@@ -320,7 +331,11 @@ export function interpretKrakenGroup(
     }
 
     if (event.feeAmount.isPositive()) {
-      const feeResult = buildFeeDraft(event.event.rawFeeCurrency ?? event.event.assetSymbol, event.feeAmount.toFixed());
+      const feeResult = buildFeeDraft(
+        event.event.rawFeeCurrency ?? event.event.assetSymbol,
+        event.feeAmount.toFixed(),
+        [event.event.providerEventId]
+      );
       if (feeResult.isErr()) {
         return {
           kind: 'unsupported',

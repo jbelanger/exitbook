@@ -29,7 +29,8 @@ function buildMovementDraft(
   exchangeName: string,
   assetSymbol: Currency,
   amount: string,
-  movementRole?: ExchangeMovementDraft['movementRole']
+  movementRole?: ExchangeMovementDraft['movementRole'],
+  sourceEventIds?: readonly string[]
 ): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId(exchangeName, assetSymbol);
   if (assetIdResult.isErr()) {
@@ -42,6 +43,7 @@ function buildMovementDraft(
     grossAmount: amount,
     netAmount: amount,
     ...(movementRole ? { movementRole } : {}),
+    ...(sourceEventIds !== undefined ? { sourceEventIds } : {}),
   });
 }
 
@@ -239,7 +241,9 @@ export function interpretCoinbaseGroup(
       interpretedEvent.metadata.entryType === 'interest' && interpretedEvent.amount.isPositive()
         ? 'staking_reward'
         : undefined;
-    const movementResult = buildMovementDraft('coinbase', interpretedEvent.event.assetSymbol, absAmount, movementRole);
+    const movementResult = buildMovementDraft('coinbase', interpretedEvent.event.assetSymbol, absAmount, movementRole, [
+      interpretedEvent.event.providerEventId,
+    ]);
     if (movementResult.isErr()) {
       return {
         kind: 'unsupported',

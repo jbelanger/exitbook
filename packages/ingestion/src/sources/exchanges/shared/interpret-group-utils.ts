@@ -23,12 +23,13 @@ export function diagnostic(
 }
 
 export function consolidateMovements(movements: ExchangeMovementDraft[]): ExchangeMovementDraft[] {
-  const byAsset = new Map<string, ExchangeMovementDraft>();
+  const byAssetAndRole = new Map<string, ExchangeMovementDraft>();
 
   for (const movement of movements) {
-    const existing = byAsset.get(movement.assetId);
+    const key = `${movement.assetId}:${movement.movementRole ?? 'principal'}`;
+    const existing = byAssetAndRole.get(key);
     if (!existing) {
-      byAsset.set(movement.assetId, { ...movement });
+      byAssetAndRole.set(key, { ...movement });
       continue;
     }
 
@@ -36,15 +37,17 @@ export function consolidateMovements(movements: ExchangeMovementDraft[]): Exchan
     const existingNet = existing.netAmount ?? existing.grossAmount;
     const movementNet = movement.netAmount ?? movement.grossAmount;
     const netAmount = parseDecimal(existingNet).plus(parseDecimal(movementNet)).toFixed();
+    const sourceEventIds = [...new Set([...(existing.sourceEventIds ?? []), ...(movement.sourceEventIds ?? [])])];
 
-    byAsset.set(movement.assetId, {
+    byAssetAndRole.set(key, {
       ...existing,
       grossAmount,
       netAmount,
+      ...(sourceEventIds.length > 0 ? { sourceEventIds } : {}),
     });
   }
 
-  return Array.from(byAsset.values());
+  return Array.from(byAssetAndRole.values());
 }
 
 export function consolidateFees(fees: ExchangeFeeDraft[]): ExchangeFeeDraft[] {

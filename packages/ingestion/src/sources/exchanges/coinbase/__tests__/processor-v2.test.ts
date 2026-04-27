@@ -171,6 +171,20 @@ describe('CoinbaseProcessorV2', () => {
     expect(principal?.quantity.toFixed()).toBe('-63.63644811');
     expect(principal?.sourceComponentRefs[0]?.component.componentKind).toBe('raw_event');
     expect(postings.some((posting) => posting.role === 'fee')).toBe(false);
+
+    const [diagnostic] = draft?.journals[0]?.diagnostics ?? [];
+    expect(diagnostic).toMatchObject({
+      code: 'exchange_on_chain_fee_balance_neutral',
+      severity: 'info',
+    });
+    expect(diagnostic?.metadata).toMatchObject({
+      amount: '0.05427504',
+      assetId: 'exchange:coinbase:hnt',
+      assetIdentity: 'exchange',
+      assetSymbol: 'HNT',
+      chainAssetIdentity: 'unavailable',
+      sourceEventIds: ['CB_WDR_EVT_001'],
+    });
   });
 
   test('emits trade postings and balance-settled fees for clean swaps', async () => {

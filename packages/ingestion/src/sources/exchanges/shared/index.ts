@@ -1,5 +1,6 @@
 export * from './exchange-correlation-group.js';
 export * from './exchange-ledger-assembler.js';
+export * from './exchange-ledger-processor.js';
 export * from './exchange-interpretation.js';
 export * from './exchange-processing-diagnostic.js';
 export * from './exchange-provider-event.js';
