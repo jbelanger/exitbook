@@ -824,8 +824,9 @@ Acceptance:
 Status: in progress. The durable relationship persistence slice is complete:
 `accounting_journal_relationships` now stores profile scope, relationship
 origin, stable endpoint fingerprints, and nullable current endpoint ids. The
-ledger-native relationship materialization boundary and candidate input read
-port are also in place. The next slice is matching strategy design.
+ledger-native relationship materialization boundary, candidate input read port,
+and first exact-hash deterministic matcher are also in place. The next slice is
+a ledger-native persisted gap projection before broader heuristic matching.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -883,7 +884,14 @@ First implementation slices:
    represent accepted relationships without relying on legacy movements.
 6. Complete. Add a ledger-native data read port that loads candidate input postings
    without exposing legacy transaction movements.
-7. Next. Build matching strategies on top of ledger-native candidates.
+7. Complete. Build the first deterministic matching strategy on top of
+   ledger-native candidates.
+8. Next. Persist ledger-native unresolved gaps and surface them through
+   accounting issues. This comes after deterministic matching so a gap means
+   "eligible candidate left unresolved after the linker ran", not "no matcher
+   exists yet".
+9. Then broaden matching strategies only where processor-v2 ledger facts are
+   already stable enough to support them.
 
 Acceptance:
 
@@ -895,6 +903,8 @@ Acceptance:
 - Reprocess does not silently point a relationship at a different posting.
 - Any required processor-v2 fix is handled upstream before the affected
   relationship class is accepted.
+- Persisted gaps reach parity with the current issue flow, but remain a
+  diagnostic/work-queue projection rather than relationship truth.
 
 ### 8. Migrate Consumers
 
