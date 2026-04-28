@@ -825,7 +825,7 @@ Status: in progress. The durable relationship persistence slice is complete:
 `accounting_journal_relationships` now stores profile scope, relationship
 origin, stable endpoint fingerprints, and nullable current endpoint ids. The
 ledger-native relationship materialization boundary is also in place. The next
-slice is matching-candidate construction.
+slice is the data read port for ledger-linking candidate inputs.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -879,9 +879,11 @@ First implementation slices:
    endpoint identity, and stale cross-source endpoint visibility.
 4. Complete. Add the ledger-native linking module boundary only after the
    persistence model is green.
-5. Next. Build matching candidates after the new table can represent accepted
-   relationships without relying on legacy movements.
-6. Later. Build matching strategies on top of ledger-native candidates.
+5. Complete. Build transfer-style matching candidates after the new table can
+   represent accepted relationships without relying on legacy movements.
+6. Next. Add a ledger-native data read port that loads candidate input postings
+   without exposing legacy transaction movements.
+7. Later. Build matching strategies on top of ledger-native candidates.
 
 Acceptance:
 

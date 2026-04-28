@@ -1,4 +1,12 @@
 export {
+  buildLedgerTransferLinkingCandidates,
+  LedgerLinkingPostingInputSchema,
+  type LedgerLinkingCandidateSkip,
+  type LedgerLinkingPostingInput,
+  type LedgerTransferLinkingCandidate,
+  type LedgerTransferLinkingCandidateBuildResult,
+} from './ledger-linking/candidate-construction.js';
+export {
   LedgerLinkingRelationshipDraftSchema,
   LedgerLinkingRelationshipEndpointRefSchema,
   type ILedgerLinkingRelationshipStore,
