@@ -7,6 +7,7 @@ import {
 } from '../candidates/candidate-construction.js';
 import {
   buildLedgerExactHashTransferRelationships,
+  type LedgerExactHashAssetIdentityBlock,
   type LedgerExactHashTransferAmbiguity,
   type LedgerExactHashTransferMatch,
 } from '../matching/deterministic-transfer-matching.js';
@@ -38,6 +39,7 @@ export type LedgerLinkingPersistenceResult =
 export interface LedgerLinkingRunResult {
   acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
+  exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
   exactHashMatches: readonly LedgerExactHashTransferMatch[];
   matchedSourceCandidateCount: number;
   matchedTargetCandidateCount: number;
@@ -91,6 +93,7 @@ export async function runLedgerLinking(
   return ok({
     acceptedRelationships: exactHashResult.value.relationships,
     exactHashAmbiguities: exactHashResult.value.ambiguities,
+    exactHashAssetIdentityBlocks: exactHashResult.value.assetIdentityBlocks,
     exactHashMatches: exactHashResult.value.matches,
     matchedSourceCandidateCount: matchCounts.matchedSourceCandidateCount,
     matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,

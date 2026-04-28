@@ -121,6 +121,7 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
   });
 
   it('passes dry-run mode through and prints planned materialization', async () => {
@@ -177,6 +178,7 @@ function makeRunResult() {
       },
     ],
     exactHashAmbiguities: [],
+    exactHashAssetIdentityBlocks: [],
     exactHashMatches: [
       {
         strategy: 'exact_hash_transfer',

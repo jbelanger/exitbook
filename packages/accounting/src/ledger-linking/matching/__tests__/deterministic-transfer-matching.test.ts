@@ -9,6 +9,7 @@ import {
 } from '../deterministic-transfer-matching.js';
 
 const ETH = assertOk(parseCurrency('ETH'));
+const USDC = assertOk(parseCurrency('USDC'));
 
 describe('ledgerTransactionHashesMatch', () => {
   it('matches hex hashes case-insensitively and strips one-sided log indexes', () => {
@@ -31,18 +32,18 @@ describe('buildLedgerExactHashTransferRelationships', () => {
         makeCandidate({
           candidateId: 1,
           direction: 'source',
-          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
-          journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
-          postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
           blockchainTransactionHash: '0xabc123',
           ownerAccountId: 1,
         }),
         makeCandidate({
           candidateId: 2,
           direction: 'target',
-          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
-          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
-          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
           blockchainTransactionHash: '0xABC123',
           ownerAccountId: 2,
         }),
@@ -58,14 +59,14 @@ describe('buildLedgerExactHashTransferRelationships', () => {
         relationshipStableKey,
         relationshipKind: 'internal_transfer',
         source: {
-          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
-          journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
-          postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
         },
         target: {
-          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
-          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
-          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
         },
       },
     ]);
@@ -91,6 +92,7 @@ describe('buildLedgerExactHashTransferRelationships', () => {
           direction: 'target',
           postingFingerprint: 'ledger_posting:v1:different-asset',
           assetId: 'blockchain:ethereum:token:usdc',
+          assetSymbol: USDC,
         }),
         makeCandidate({
           candidateId: 3,
@@ -116,6 +118,50 @@ describe('buildLedgerExactHashTransferRelationships', () => {
     expect(result.matches).toEqual([]);
     expect(result.relationships).toEqual([]);
     expect(result.ambiguities).toEqual([]);
+  });
+
+  it('surfaces same-symbol exact-hash pairs blocked by mismatched asset identity', () => {
+    const result = assertOk(
+      buildLedgerExactHashTransferRelationships([
+        makeCandidate({
+          candidateId: 1,
+          direction: 'source',
+          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+          journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+          postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+          assetId: 'exchange:kraken:eth',
+          ownerAccountId: 1,
+        }),
+        makeCandidate({
+          candidateId: 2,
+          direction: 'target',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          assetId: 'blockchain:ethereum:native',
+          ownerAccountId: 2,
+        }),
+      ])
+    );
+
+    expect(result.matches).toEqual([]);
+    expect(result.relationships).toEqual([]);
+    expect(result.ambiguities).toEqual([]);
+    expect(result.assetIdentityBlocks).toEqual([
+      {
+        amount: '1.25',
+        assetSymbol: ETH,
+        reason: 'same_symbol_different_asset_ids',
+        sourceAssetId: 'exchange:kraken:eth',
+        sourceBlockchainTransactionHash: '0xabc123',
+        sourceCandidateId: 1,
+        sourcePostingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        targetAssetId: 'blockchain:ethereum:native',
+        targetBlockchainTransactionHash: '0xabc123',
+        targetCandidateId: 2,
+        targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+      },
+    ]);
   });
 
   it('leaves exact-hash groups unresolved when the counterpart is ambiguous', () => {

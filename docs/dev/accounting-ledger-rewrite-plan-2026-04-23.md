@@ -829,7 +829,8 @@ first exact-hash deterministic matcher, and runner orchestration boundary are
 also in place. A simple non-TUI `ledger linking-v2 run` command now invokes the
 runner for the active profile, with `--dry-run` preview support. Persisted gaps
 are deferred until the linking model is finalized; current dry-run output
-surfaces in-memory matched and unmatched candidate counts only.
+surfaces in-memory matched/unmatched candidate counts and exact-hash asset
+identity blockers only.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -846,8 +847,9 @@ Boundary rules:
   dependency of the new relationship materialization path.
 - If linking-v2 exposes a missing, unstable, or ambiguous processor-v2 ledger
   fact, stop linking work and fix the processor-v2 source artifact first.
-- Do not paper over processor gaps with linking heuristics, diagnostics, symbol
-  guesses, or one-off fallback matching.
+- Do not paper over processor gaps with linking heuristics, symbol guesses, or
+  one-off fallback matching. In-memory blocker counts may surface the stop
+  condition, but must not become accepted relationship truth.
 
 Files:
 
@@ -897,13 +899,17 @@ First implementation slices:
    so candidate recognition can be reviewed before replacing persisted
    ledger-linking relationships. Surface in-memory matched/unmatched candidate
    counts without treating them as persisted gaps.
-10. Next. Decide whether this command should remain migration-only or become
+10. Complete. Keep exact-hash materialization strict on canonical asset id, and
+    surface same-symbol/different-asset-id exact-hash blockers in memory so
+    exchange/chain identity gaps are visible without becoming relationship
+    truth.
+11. Next. Decide whether this command should remain migration-only or become
     part of a broader links workflow after the relationship model proves stable.
-11. Then persist ledger-native unresolved gaps and surface them through
+12. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-12. Then broaden matching strategies only where processor-v2 ledger facts are
+13. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

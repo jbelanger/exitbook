@@ -11,6 +11,7 @@ export {
   buildLedgerExactHashTransferRelationships,
   ledgerTransactionHashesMatch,
   LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
+  type LedgerExactHashAssetIdentityBlock,
   type LedgerExactHashTransferAmbiguity,
   type LedgerExactHashTransferMatch,
   type LedgerExactHashTransferRelationshipResult,

@@ -13,19 +13,19 @@ describe('runLedgerLinking', () => {
     const harness = makeHarness([
       makePosting({
         ownerAccountId: 1,
-        sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
-        journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
-        postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+        journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+        postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
         quantity: '-1.25',
-        platformKey: 'kraken',
-        platformKind: 'exchange',
+        platformKey: 'ethereum',
+        platformKind: 'blockchain',
         blockchainTransactionHash: '0xabc123',
       }),
       makePosting({
         ownerAccountId: 2,
-        sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
-        journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
-        postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+        sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+        journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+        postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
         quantity: '1.25',
         platformKey: 'ethereum',
         platformKind: 'blockchain',
@@ -57,6 +57,7 @@ describe('runLedgerLinking', () => {
       },
     ]);
     expect(result.exactHashAmbiguities).toEqual([]);
+    expect(result.exactHashAssetIdentityBlocks).toEqual([]);
     expect(result.exactHashMatches).toHaveLength(1);
     expect(result.persistence).toEqual({
       mode: 'persisted',
@@ -73,14 +74,14 @@ describe('runLedgerLinking', () => {
           relationshipStableKey: result.acceptedRelationships[0]?.relationshipStableKey,
           relationshipKind: 'internal_transfer',
           source: {
-            sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
-            journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
-            postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
           },
           target: {
-            sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
-            journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
-            postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
           },
         },
       ],
@@ -137,6 +138,67 @@ describe('runLedgerLinking', () => {
       mode: 'persisted',
       materialization: {
         previousCount: 2,
+        resolvedEndpointCount: 0,
+        savedCount: 0,
+        unresolvedEndpointCount: 0,
+      },
+    });
+    expect(harness.savedRelationships).toEqual([[]]);
+  });
+
+  it('reports exact-hash asset identity blocks without materializing them', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 1,
+        sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+        journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+        postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        quantity: '-1.25',
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        assetId: 'exchange:kraken:eth',
+      }),
+      makePosting({
+        ownerAccountId: 2,
+        sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+        journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+        postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+        quantity: '1.25',
+        platformKey: 'ethereum',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:ethereum:native',
+      }),
+    ]);
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.acceptedRelationships).toEqual([]);
+    expect(result.exactHashMatches).toEqual([]);
+    expect(result).toMatchObject({
+      matchedSourceCandidateCount: 0,
+      matchedTargetCandidateCount: 0,
+      unmatchedSourceCandidateCount: 1,
+      unmatchedTargetCandidateCount: 1,
+    });
+    expect(result.exactHashAssetIdentityBlocks).toEqual([
+      {
+        amount: '1.25',
+        assetSymbol: ETH,
+        reason: 'same_symbol_different_asset_ids',
+        sourceAssetId: 'exchange:kraken:eth',
+        sourceBlockchainTransactionHash: '0xabc123',
+        sourceCandidateId: 1,
+        sourcePostingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        targetAssetId: 'blockchain:ethereum:native',
+        targetBlockchainTransactionHash: '0xabc123',
+        targetCandidateId: 2,
+        targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+      },
+    ]);
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
         resolvedEndpointCount: 0,
         savedCount: 0,
         unresolvedEndpointCount: 0,

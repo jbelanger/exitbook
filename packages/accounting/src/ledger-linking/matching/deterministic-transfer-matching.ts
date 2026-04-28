@@ -25,10 +25,25 @@ export interface LedgerExactHashTransferAmbiguity {
   reason: 'multiple_exact_hash_counterparts';
 }
 
+export interface LedgerExactHashAssetIdentityBlock {
+  amount: string;
+  assetSymbol: LedgerTransferLinkingCandidate['assetSymbol'];
+  reason: 'same_symbol_different_asset_ids';
+  sourceAssetId: string;
+  sourceBlockchainTransactionHash: string;
+  sourceCandidateId: number;
+  sourcePostingFingerprint: string;
+  targetAssetId: string;
+  targetBlockchainTransactionHash: string;
+  targetCandidateId: number;
+  targetPostingFingerprint: string;
+}
+
 export interface LedgerExactHashTransferRelationshipResult {
+  assetIdentityBlocks: LedgerExactHashAssetIdentityBlock[];
+  ambiguities: LedgerExactHashTransferAmbiguity[];
   matches: LedgerExactHashTransferMatch[];
   relationships: LedgerLinkingRelationshipDraft[];
-  ambiguities: LedgerExactHashTransferAmbiguity[];
 }
 
 interface ExactHashPotentialPair {
@@ -47,6 +62,10 @@ export function buildLedgerExactHashTransferRelationships(
   const sources = candidates.filter((candidate) => candidate.direction === 'source');
   const targets = candidates.filter((candidate) => candidate.direction === 'target');
   const potentialPairs = buildPotentialExactHashPairs(sources, targets);
+  const assetIdentityBlocksResult = buildExactHashAssetIdentityBlocks(sources, targets);
+  if (assetIdentityBlocksResult.isErr()) {
+    return err(assetIdentityBlocksResult.error);
+  }
   const sourceToTargets = groupCounterpartIds(potentialPairs, 'source');
   const targetToSources = groupCounterpartIds(potentialPairs, 'target');
   const ambiguitiesResult = buildExactHashAmbiguities(sourceToTargets, targetToSources, candidates);
@@ -62,9 +81,10 @@ export function buildLedgerExactHashTransferRelationships(
   const relationships = matches.map((match) => match.relationship);
 
   return ok({
+    assetIdentityBlocks: assetIdentityBlocksResult.value,
+    ambiguities,
     matches,
     relationships,
-    ambiguities,
   });
 }
 
@@ -171,6 +191,17 @@ function isExactHashTransferPair(
   source: LedgerTransferLinkingCandidate,
   target: LedgerTransferLinkingCandidate
 ): boolean {
+  if (source.assetId !== target.assetId) {
+    return false;
+  }
+
+  return hasSharedExactHashTransferEvidence(source, target);
+}
+
+function hasSharedExactHashTransferEvidence(
+  source: LedgerTransferLinkingCandidate,
+  target: LedgerTransferLinkingCandidate
+): boolean {
   if (source.sourceActivityFingerprint === target.sourceActivityFingerprint) {
     return false;
   }
@@ -179,15 +210,72 @@ function isExactHashTransferPair(
     return false;
   }
 
-  if (source.assetId !== target.assetId) {
-    return false;
-  }
-
   if (!source.amount.eq(target.amount)) {
     return false;
   }
 
   return ledgerTransactionHashesMatch(source.blockchainTransactionHash, target.blockchainTransactionHash) === true;
+}
+
+function buildExactHashAssetIdentityBlocks(
+  sources: readonly LedgerTransferLinkingCandidate[],
+  targets: readonly LedgerTransferLinkingCandidate[]
+): Result<LedgerExactHashAssetIdentityBlock[], Error> {
+  const blocks: LedgerExactHashAssetIdentityBlock[] = [];
+
+  for (const source of sources) {
+    for (const target of targets) {
+      if (isExactHashAssetIdentityBlock(source, target)) {
+        const block = buildExactHashAssetIdentityBlock(source, target);
+        if (block.isErr()) {
+          return err(block.error);
+        }
+        blocks.push(block.value);
+      }
+    }
+  }
+
+  return ok(blocks.sort(compareAssetIdentityBlocks));
+}
+
+function isExactHashAssetIdentityBlock(
+  source: LedgerTransferLinkingCandidate,
+  target: LedgerTransferLinkingCandidate
+): boolean {
+  if (source.assetId === target.assetId) {
+    return false;
+  }
+
+  if (source.assetSymbol !== target.assetSymbol) {
+    return false;
+  }
+
+  return hasSharedExactHashTransferEvidence(source, target);
+}
+
+function buildExactHashAssetIdentityBlock(
+  source: LedgerTransferLinkingCandidate,
+  target: LedgerTransferLinkingCandidate
+): Result<LedgerExactHashAssetIdentityBlock, Error> {
+  const sourceHash = source.blockchainTransactionHash;
+  const targetHash = target.blockchainTransactionHash;
+  if (sourceHash === undefined || targetHash === undefined) {
+    return err(new Error('Cannot build exact-hash asset identity block without hashes on both endpoints'));
+  }
+
+  return ok({
+    amount: source.amount.toFixed(),
+    assetSymbol: source.assetSymbol,
+    reason: 'same_symbol_different_asset_ids',
+    sourceAssetId: source.assetId,
+    sourceBlockchainTransactionHash: sourceHash,
+    sourceCandidateId: source.candidateId,
+    sourcePostingFingerprint: source.postingFingerprint,
+    targetAssetId: target.assetId,
+    targetBlockchainTransactionHash: targetHash,
+    targetCandidateId: target.candidateId,
+    targetPostingFingerprint: target.postingFingerprint,
+  });
 }
 
 function groupCounterpartIds(
@@ -347,6 +435,16 @@ function isHexTransactionHash(value: string): boolean {
 }
 
 function compareExactHashMatches(left: LedgerExactHashTransferMatch, right: LedgerExactHashTransferMatch): number {
+  return (
+    left.sourcePostingFingerprint.localeCompare(right.sourcePostingFingerprint) ||
+    left.targetPostingFingerprint.localeCompare(right.targetPostingFingerprint)
+  );
+}
+
+function compareAssetIdentityBlocks(
+  left: LedgerExactHashAssetIdentityBlock,
+  right: LedgerExactHashAssetIdentityBlock
+): number {
   return (
     left.sourcePostingFingerprint.localeCompare(right.sourcePostingFingerprint) ||
     left.targetPostingFingerprint.localeCompare(right.targetPostingFingerprint)

@@ -131,6 +131,7 @@ function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void 
   console.log(`Accepted relationships: ${run.acceptedRelationships.length}`);
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
+  console.log(`Exact-hash asset identity blocks: ${run.exactHashAssetIdentityBlocks.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
 
   if (run.persistence.mode === 'dry_run') {
