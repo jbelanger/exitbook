@@ -5,6 +5,7 @@ export { refreshProfileAccountingIssueProjection } from './accounting/profile-ac
 export { buildCostBasisArtifactFreshnessPorts } from './accounting/cost-basis-artifact-freshness.js';
 export { buildCostBasisPorts } from './accounting/cost-basis-ports.js';
 export { buildCostBasisResetPorts } from './accounting/cost-basis-reset.js';
+export { buildLedgerLinkingRelationshipStore } from './accounting/ledger-linking-ports.js';
 export { buildLinkingPorts } from './accounting/linking-ports.js';
 export { buildLinksFreshnessPorts } from './projections/links-freshness.js';
 export { buildPriceCoverageDataPorts } from './accounting/price-coverage-data.js';

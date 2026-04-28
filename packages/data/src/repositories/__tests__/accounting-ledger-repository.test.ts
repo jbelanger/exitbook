@@ -616,6 +616,103 @@ describe('AccountingLedgerRepository', () => {
     expect(stale.target_posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
   });
 
+  it('materializes ledger-linking relationships by stable endpoint fingerprints', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    const result = assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        {
+          relationshipStableKey: 'relationship:ledger-linking',
+          relationshipKind: 'internal_transfer',
+          source: {
+            sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
+            journalFingerprint: sourceEndpoint.journalFingerprint,
+            postingFingerprint: sourceEndpoint.postingFingerprint,
+          },
+          target: {
+            sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
+            journalFingerprint: targetEndpoint.journalFingerprint,
+            postingFingerprint: targetEndpoint.postingFingerprint,
+          },
+        },
+      ])
+    );
+
+    expect(result).toEqual({
+      previousCount: 0,
+      resolvedEndpointCount: 2,
+      savedCount: 1,
+      unresolvedEndpointCount: 0,
+    });
+
+    const relationship = await loadRelationshipByStableKey('relationship:ledger-linking');
+    expect(relationship).toMatchObject({
+      relationship_origin: 'ledger_linking',
+      source_journal_id: sourceEndpoint.journalId,
+      target_journal_id: targetEndpoint.journalId,
+      source_posting_id: sourceEndpoint.postingId,
+      target_posting_id: targetEndpoint.postingId,
+      source_journal_fingerprint: sourceEndpoint.journalFingerprint,
+      target_journal_fingerprint: targetEndpoint.journalFingerprint,
+      source_posting_fingerprint: sourceEndpoint.postingFingerprint,
+      target_posting_fingerprint: targetEndpoint.postingFingerprint,
+    });
+  });
+
+  it('replaces only profile-scoped ledger-linking relationships', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        makeLedgerLinkingRelationshipDraft(sourceEndpoint, targetEndpoint, 'relationship:first'),
+      ])
+    );
+
+    const result = assertOk(await repository.replaceLedgerLinkingRelationships(1, []));
+
+    expect(result).toEqual({
+      previousCount: 1,
+      resolvedEndpointCount: 0,
+      savedCount: 0,
+      unresolvedEndpointCount: 0,
+    });
+    await expect(countLedgerLinkingRows()).resolves.toBe(0);
+  });
+
+  it('rolls back ledger-linking replacement when a draft endpoint is missing', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        makeLedgerLinkingRelationshipDraft(sourceEndpoint, targetEndpoint, 'relationship:existing'),
+      ])
+    );
+
+    const result = await repository.replaceLedgerLinkingRelationships(1, [
+      {
+        relationshipStableKey: 'relationship:bad',
+        relationshipKind: 'internal_transfer',
+        source: {
+          sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
+          journalFingerprint: sourceEndpoint.journalFingerprint,
+          postingFingerprint: sourceEndpoint.postingFingerprint,
+        },
+        target: {
+          sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
+          journalFingerprint: 'ledger_journal:v1:missing',
+          postingFingerprint: targetEndpoint.postingFingerprint,
+        },
+      },
+    ]);
+
+    expect(assertErr(result).message).toContain('target journal ledger_journal:v1:missing was not found');
+    await expect(countLedgerLinkingRows()).resolves.toBe(1);
+    await expect(loadRelationshipByStableKey('relationship:existing')).resolves.toMatchObject({
+      source_journal_fingerprint: sourceEndpoint.journalFingerprint,
+      target_journal_fingerprint: targetEndpoint.journalFingerprint,
+    });
+  });
+
   it('participates in an outer DataSession transaction', async () => {
     const session = new DataSession(db);
 
@@ -815,6 +912,65 @@ describe('AccountingLedgerRepository', () => {
     };
   }
 
+  async function seedCrossSourceLedgerEndpoints(): Promise<{
+    sourceEndpoint: Awaited<ReturnType<typeof loadEndpoint>>;
+    targetEndpoint: Awaited<ReturnType<typeof loadEndpoint>>;
+  }> {
+    const targetActivityFingerprint = 'source_activity:v1:test-activity-2';
+
+    await seedAccount(db, 2, 'blockchain', 'ethereum');
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity(),
+        journals: [
+          makeJournal({
+            journalStableKey: 'journal:source',
+            postings: [
+              makePosting({
+                postingStableKey: 'posting:source',
+                quantity: '-10',
+                componentKind: 'utxo_input',
+                componentId: 'input:source',
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity({
+          ownerAccountId: 2,
+          sourceActivityFingerprint: targetActivityFingerprint,
+          sourceActivityStableKey: 'txhash-ledger-2',
+          platformKey: 'ethereum',
+          blockchainName: 'ethereum',
+          blockchainTransactionHash: 'txhash-ledger-2',
+        }),
+        journals: [
+          makeJournal({
+            sourceActivityFingerprint: targetActivityFingerprint,
+            journalStableKey: 'journal:target',
+            postings: [
+              makePosting({
+                sourceActivityFingerprint: targetActivityFingerprint,
+                postingStableKey: 'posting:target',
+                quantity: '10',
+                componentKind: 'account_delta',
+                componentId: 'delta:target',
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    return {
+      sourceEndpoint: await loadEndpoint('journal:source', 'posting:source'),
+      targetEndpoint: await loadEndpoint('journal:target', 'posting:target'),
+    };
+  }
+
   async function loadEndpoint(
     journalStableKey: string,
     postingStableKey: string
@@ -849,6 +1005,27 @@ describe('AccountingLedgerRepository', () => {
     };
   }
 
+  function makeLedgerLinkingRelationshipDraft(
+    sourceEndpoint: Awaited<ReturnType<typeof loadEndpoint>>,
+    targetEndpoint: Awaited<ReturnType<typeof loadEndpoint>>,
+    relationshipStableKey: string
+  ) {
+    return {
+      relationshipStableKey,
+      relationshipKind: 'internal_transfer' as const,
+      source: {
+        sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
+        journalFingerprint: sourceEndpoint.journalFingerprint,
+        postingFingerprint: sourceEndpoint.postingFingerprint,
+      },
+      target: {
+        sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
+        journalFingerprint: targetEndpoint.journalFingerprint,
+        postingFingerprint: targetEndpoint.postingFingerprint,
+      },
+    };
+  }
+
   async function insertLedgerLinkingRelationship(
     sourceEndpoint: Awaited<ReturnType<typeof loadEndpoint>>,
     targetEndpoint: Awaited<ReturnType<typeof loadEndpoint>>
@@ -880,6 +1057,7 @@ describe('AccountingLedgerRepository', () => {
     return db
       .selectFrom('accounting_journal_relationships')
       .select([
+        'relationship_origin',
         'source_journal_id',
         'target_journal_id',
         'source_posting_id',
@@ -891,6 +1069,16 @@ describe('AccountingLedgerRepository', () => {
       ])
       .where('relationship_stable_key', '=', relationshipStableKey)
       .executeTakeFirstOrThrow();
+  }
+
+  async function countLedgerLinkingRows(): Promise<number> {
+    const row = await db
+      .selectFrom('accounting_journal_relationships')
+      .select(({ fn }) => fn.countAll<number>().as('count'))
+      .where('relationship_origin', '=', 'ledger_linking')
+      .executeTakeFirstOrThrow();
+
+    return Number(row.count);
   }
 
   async function expectCounts(expected: {

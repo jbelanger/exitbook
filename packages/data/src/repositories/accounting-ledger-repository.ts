@@ -1,4 +1,9 @@
 /* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
+import {
+  LedgerLinkingRelationshipDraftSchema,
+  type LedgerLinkingRelationshipDraft,
+  type LedgerLinkingRelationshipMaterializationResult,
+} from '@exitbook/accounting/ledger-linking';
 import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
 import {
   computeAccountingJournalFingerprint,
@@ -27,7 +32,7 @@ import type {
 import type { KyselyDB } from '../database.js';
 import { withControlledTransaction } from '../utils/controlled-transaction.js';
 import { serializeToJson } from '../utils/json-column-codec.js';
-import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE } from '../utils/sqlite-batching.js';
+import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE, SQLITE_SAFE_INSERT_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
 
@@ -82,6 +87,14 @@ interface PersistedPostingRef {
 interface RawTransactionAssignmentScope {
   rawAccountId: number;
   rawTransactionId: number;
+}
+
+interface ResolvedLedgerLinkingEndpoint {
+  sourceActivityFingerprint: string;
+  journalId: number;
+  journalFingerprint: string;
+  postingId: number | undefined;
+  postingFingerprint: string | undefined;
 }
 
 export class AccountingLedgerRepository extends BaseRepository {
@@ -164,6 +177,22 @@ export class AccountingLedgerRepository extends BaseRepository {
     );
   }
 
+  async replaceLedgerLinkingRelationships(
+    profileId: number,
+    relationships: readonly LedgerLinkingRelationshipDraft[]
+  ): Promise<Result<LedgerLinkingRelationshipMaterializationResult, Error>> {
+    if (this.transactionScoped) {
+      return this.replaceLedgerLinkingRelationshipsInTransaction(this.db, profileId, relationships);
+    }
+
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => this.replaceLedgerLinkingRelationshipsInTransaction(trx as KyselyDB, profileId, relationships),
+      'Failed to replace ledger-linking relationships'
+    );
+  }
+
   async findPostingsByOwnerAccountIds(
     ownerAccountIds: readonly number[]
   ): Promise<Result<AccountingLedgerPostingRecord[], Error>> {
@@ -227,6 +256,59 @@ export class AccountingLedgerRepository extends BaseRepository {
           settlement: row.settlement ?? undefined,
         }))
       );
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private async replaceLedgerLinkingRelationshipsInTransaction(
+    db: KyselyDB,
+    profileId: number,
+    relationships: readonly LedgerLinkingRelationshipDraft[]
+  ): Promise<Result<LedgerLinkingRelationshipMaterializationResult, Error>> {
+    try {
+      const validationResult = await validateLedgerLinkingRelationshipReplacement(db, profileId, relationships);
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
+
+      const previousCount = await countLedgerLinkingRelationshipsByProfileId(db, profileId);
+      await db
+        .deleteFrom('accounting_journal_relationships')
+        .where('profile_id', '=', profileId)
+        .where('relationship_origin', '=', 'ledger_linking')
+        .execute();
+
+      let resolvedEndpointCount = 0;
+      const now = new Date().toISOString();
+      const rows: Insertable<AccountingJournalRelationshipsTable>[] = [];
+      for (const relationship of relationships) {
+        const sourceEndpoint = await resolveLedgerLinkingEndpoint(db, profileId, relationship.source, 'source');
+        if (sourceEndpoint.isErr()) {
+          return err(sourceEndpoint.error);
+        }
+
+        const targetEndpoint = await resolveLedgerLinkingEndpoint(db, profileId, relationship.target, 'target');
+        if (targetEndpoint.isErr()) {
+          return err(targetEndpoint.error);
+        }
+
+        resolvedEndpointCount += 2;
+        rows.push(
+          toLedgerLinkingRelationshipRow(profileId, relationship, sourceEndpoint.value, targetEndpoint.value, now)
+        );
+      }
+
+      for (const rowBatch of chunkItems(rows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
+        await db.insertInto('accounting_journal_relationships').values(rowBatch).execute();
+      }
+
+      return ok({
+        previousCount,
+        resolvedEndpointCount,
+        savedCount: rows.length,
+        unresolvedEndpointCount: 0,
+      });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
@@ -411,6 +493,47 @@ function normalizeRawTransactionIds(rawTransactionIds: readonly number[] | undef
   return ok([...new Set(ids)].sort((left, right) => left - right));
 }
 
+async function validateLedgerLinkingRelationshipReplacement(
+  db: KyselyDB,
+  profileId: number,
+  relationships: readonly LedgerLinkingRelationshipDraft[]
+): Promise<Result<void, Error>> {
+  if (!Number.isInteger(profileId) || profileId <= 0) {
+    return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+  }
+
+  const profileExists = await doesProfileExist(db, profileId);
+  if (!profileExists) {
+    return err(new Error(`Cannot replace ledger-linking relationships for missing profile ${profileId}`));
+  }
+
+  const relationshipKeys = new Set<string>();
+  for (const relationship of relationships) {
+    const validation = LedgerLinkingRelationshipDraftSchema.safeParse(relationship);
+    if (!validation.success) {
+      return err(new Error(`Invalid ledger-linking relationship draft: ${validation.error.message}`));
+    }
+
+    const relationshipKey = `${relationship.source.journalFingerprint}\u0000${relationship.relationshipStableKey}`;
+    if (relationshipKeys.has(relationshipKey)) {
+      return err(
+        new Error(
+          `Duplicate ledger-linking relationship for source journal ${relationship.source.journalFingerprint} and stable key ${relationship.relationshipStableKey}`
+        )
+      );
+    }
+
+    relationshipKeys.add(relationshipKey);
+  }
+
+  return ok(undefined);
+}
+
+async function doesProfileExist(db: KyselyDB, profileId: number): Promise<boolean> {
+  const row = await db.selectFrom('profiles').select('id').where('id', '=', profileId).executeTakeFirst();
+  return row !== undefined;
+}
+
 function validateSourceActivityLedgerDraft(params: ReplaceAccountingLedgerParams): Result<void, Error> {
   const sourceActivityValidation = SourceActivityDraftSchema.safeParse(params.sourceActivity);
   if (!sourceActivityValidation.success) {
@@ -580,6 +703,17 @@ async function deleteAllProcessorRelationships(db: KyselyDB): Promise<void> {
   await db.deleteFrom('accounting_journal_relationships').where('relationship_origin', '=', 'processor').execute();
 }
 
+async function countLedgerLinkingRelationshipsByProfileId(db: KyselyDB, profileId: number): Promise<number> {
+  const row = await db
+    .selectFrom('accounting_journal_relationships')
+    .select(({ fn }) => fn.countAll<number>().as('count'))
+    .where('profile_id', '=', profileId)
+    .where('relationship_origin', '=', 'ledger_linking')
+    .executeTakeFirst();
+
+  return Number(row?.count ?? 0);
+}
+
 async function deleteProcessorRelationshipsForSourceActivityFingerprint(
   db: KyselyDB,
   sourceActivityFingerprint: string
@@ -688,6 +822,68 @@ async function countLedgerLinkingRelationshipsForSourceActivity(
     .executeTakeFirst();
 
   return Number(row?.count ?? 0);
+}
+
+async function resolveLedgerLinkingEndpoint(
+  db: KyselyDB,
+  profileId: number,
+  endpoint: LedgerLinkingRelationshipDraft['source'],
+  endpointLabel: 'source' | 'target'
+): Promise<Result<ResolvedLedgerLinkingEndpoint, Error>> {
+  const journal = await db
+    .selectFrom('accounting_journals')
+    .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
+    .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+    .select([
+      'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+      'accounting_journals.id as journal_id',
+      'accounting_journals.journal_fingerprint as journal_fingerprint',
+    ])
+    .where('accounts.profile_id', '=', profileId)
+    .where('source_activities.source_activity_fingerprint', '=', endpoint.sourceActivityFingerprint)
+    .where('accounting_journals.journal_fingerprint', '=', endpoint.journalFingerprint)
+    .executeTakeFirst();
+
+  if (!journal) {
+    return err(
+      new Error(
+        `Cannot materialize ledger-linking relationship: ${endpointLabel} journal ${endpoint.journalFingerprint} was not found for profile ${profileId}`
+      )
+    );
+  }
+
+  if (endpoint.postingFingerprint === undefined) {
+    return ok({
+      sourceActivityFingerprint: journal.source_activity_fingerprint,
+      journalId: journal.journal_id,
+      journalFingerprint: journal.journal_fingerprint,
+      postingId: undefined,
+      postingFingerprint: undefined,
+    });
+  }
+
+  const posting = await db
+    .selectFrom('accounting_postings')
+    .select(['id', 'posting_fingerprint'])
+    .where('journal_id', '=', journal.journal_id)
+    .where('posting_fingerprint', '=', endpoint.postingFingerprint)
+    .executeTakeFirst();
+
+  if (!posting) {
+    return err(
+      new Error(
+        `Cannot materialize ledger-linking relationship: ${endpointLabel} posting ${endpoint.postingFingerprint} was not found on journal ${endpoint.journalFingerprint}`
+      )
+    );
+  }
+
+  return ok({
+    sourceActivityFingerprint: journal.source_activity_fingerprint,
+    journalId: journal.journal_id,
+    journalFingerprint: journal.journal_fingerprint,
+    postingId: posting.id,
+    postingFingerprint: posting.posting_fingerprint,
+  });
 }
 
 function findMissingRawTransactionIds(
@@ -936,6 +1132,33 @@ async function persistPostingSourceComponent(
 
   await db.insertInto('accounting_posting_source_components').values(row).execute();
   return ok(undefined);
+}
+
+function toLedgerLinkingRelationshipRow(
+  profileId: number,
+  relationship: LedgerLinkingRelationshipDraft,
+  sourceEndpoint: ResolvedLedgerLinkingEndpoint,
+  targetEndpoint: ResolvedLedgerLinkingEndpoint,
+  now: string
+): Insertable<AccountingJournalRelationshipsTable> {
+  return {
+    profile_id: profileId,
+    relationship_origin: 'ledger_linking',
+    source_journal_id: sourceEndpoint.journalId,
+    target_journal_id: targetEndpoint.journalId,
+    source_posting_id: sourceEndpoint.postingId ?? null,
+    target_posting_id: targetEndpoint.postingId ?? null,
+    source_activity_fingerprint: sourceEndpoint.sourceActivityFingerprint,
+    target_activity_fingerprint: targetEndpoint.sourceActivityFingerprint,
+    source_journal_fingerprint: sourceEndpoint.journalFingerprint,
+    target_journal_fingerprint: targetEndpoint.journalFingerprint,
+    source_posting_fingerprint: sourceEndpoint.postingFingerprint ?? null,
+    target_posting_fingerprint: targetEndpoint.postingFingerprint ?? null,
+    relationship_stable_key: relationship.relationshipStableKey,
+    relationship_kind: relationship.relationshipKind,
+    created_at: now,
+    updated_at: null,
+  };
 }
 
 async function persistProcessorRelationship(
