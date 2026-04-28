@@ -3,52 +3,17 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import type {
   AccountingDiagnosticDraft,
   AccountingJournalDraft,
-  AccountingJournalKind,
   AccountingJournalRelationshipDraft,
   AccountingPostingDraft,
 } from '@exitbook/ledger';
 
+import {
+  resolveDefaultJournalStableKey,
+  resolvePostingDrivenJournalKind,
+} from '../shared/ledger-journal-kind-utils.js';
+
 import type { EvmJournalAssemblyParts } from './journal-assembler-types.js';
 import type { EvmProtocolEvent } from './types.js';
-
-function resolveEvmJournalKind(params: {
-  protocolEvents: readonly EvmProtocolEvent[];
-  valuePostings: readonly AccountingPostingDraft[];
-}): AccountingJournalKind {
-  if (params.protocolEvents.length > 0) {
-    return 'protocol_event';
-  }
-
-  const valuePostings = params.valuePostings;
-  if (valuePostings.length === 0) {
-    return 'expense_only';
-  }
-
-  const hasOnlyStakingReward = valuePostings.every((posting) => posting.role === 'staking_reward');
-  if (hasOnlyStakingReward) {
-    return 'staking_reward';
-  }
-
-  const principalPostings = valuePostings.filter((posting) => posting.role === 'principal');
-  const positivePrincipalAssets = new Set(
-    principalPostings.filter((posting) => posting.quantity.gt(0)).map((posting) => posting.assetId)
-  );
-  const negativePrincipalAssets = new Set(
-    principalPostings.filter((posting) => posting.quantity.lt(0)).map((posting) => posting.assetId)
-  );
-
-  const hasAcquisition = positivePrincipalAssets.size > 0;
-  const hasDisposition = negativePrincipalAssets.size > 0;
-  const hasDifferentAssetsAcrossSides =
-    [...positivePrincipalAssets].some((assetId) => !negativePrincipalAssets.has(assetId)) ||
-    [...negativePrincipalAssets].some((assetId) => !positivePrincipalAssets.has(assetId));
-
-  if (hasAcquisition && hasDisposition && hasDifferentAssetsAcrossSides) {
-    return 'trade';
-  }
-
-  return 'transfer';
-}
 
 function findProtocolEventPosting(params: {
   assetId: string;
@@ -117,8 +82,8 @@ function buildProtocolEventRelationships(params: {
 }
 
 export function buildEvmJournals(parts: EvmJournalAssemblyParts): Result<AccountingJournalDraft[], Error> {
-  const journalKind = resolveEvmJournalKind({
-    protocolEvents: parts.protocolEvents,
+  const journalKind = resolvePostingDrivenJournalKind({
+    forceProtocolEvent: parts.protocolEvents.length > 0,
     valuePostings: parts.valuePostings,
   });
   const postings = parts.feePosting ? [...parts.valuePostings, parts.feePosting] : [...parts.valuePostings];
@@ -127,7 +92,7 @@ export function buildEvmJournals(parts: EvmJournalAssemblyParts): Result<Account
     return ok([]);
   }
 
-  const journalStableKey = journalKind === 'expense_only' ? 'network_fee' : journalKind;
+  const journalStableKey = resolveDefaultJournalStableKey(journalKind);
   const relationships = buildProtocolEventRelationships({
     journalStableKey,
     postings,

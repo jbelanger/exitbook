@@ -1,10 +1,7 @@
 import { type EvmTransaction, EvmTransactionSchema } from '@exitbook/blockchain-providers/evm';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
-import {
-  parseLedgerProcessorItems,
-  validateLedgerProcessorDraftJournals,
-} from '../shared/ledger-processor-v2-utils.js';
+import { processGroupedLedgerProcessorItems } from '../shared/ledger-processor-v2-utils.js';
 
 import type { AccountBasedLedgerChainConfig } from './journal-assembler-types.js';
 import {
@@ -60,25 +57,6 @@ function buildEvmEventComparisonMaterial(transaction: EvmTransaction): string {
     validatorIndex: transaction.validatorIndex,
     withdrawalIndex: transaction.withdrawalIndex,
   });
-}
-
-function dedupeEvmTransactionsByEventId(transactions: readonly EvmTransaction[]): Result<EvmTransaction[], Error> {
-  const transactionsByEventId = new Map<string, { material: string; transaction: EvmTransaction }>();
-
-  for (const transaction of transactions) {
-    const material = buildEvmEventComparisonMaterial(transaction);
-    const existing = transactionsByEventId.get(transaction.eventId);
-    if (!existing) {
-      transactionsByEventId.set(transaction.eventId, { material, transaction });
-      continue;
-    }
-
-    if (existing.material !== material) {
-      return err(new Error(`EVM v2 received conflicting normalized payloads for event ${transaction.eventId}`));
-    }
-  }
-
-  return ok([...transactionsByEventId.values()].map((entry) => entry.transaction));
 }
 
 async function enrichEvmTokenMetadata(
@@ -152,36 +130,18 @@ export class EvmProcessorV2 {
     const chainConfig = this.chainConfig;
     const tokenMetadataResolver = this.tokenMetadataResolver;
 
-    return resultDoAsync(async function* () {
-      const parsedTransactions = yield* parseLedgerProcessorItems({
-        inputLabel: 'evm v2',
-        normalizedData,
-        schema: EvmTransactionSchema,
-      });
-      const enrichedTransactions = yield* await enrichEvmTokenMetadata(
-        parsedTransactions,
-        chainConfig,
-        tokenMetadataResolver
-      );
-      const uniqueTransactions = yield* dedupeEvmTransactionsByEventId(enrichedTransactions);
-      const transactionGroups = groupEvmLedgerTransactionsByHash(uniqueTransactions);
-      const drafts: EvmLedgerDraft[] = [];
-
-      for (const [hash, transactions] of transactionGroups) {
-        const draft = yield* assembleEvmLedgerDraftWithContext(transactions, chainConfig, context);
-        if (draft.journals.length === 0) {
-          continue;
-        }
-
-        yield* validateLedgerProcessorDraftJournals({
-          draft,
-          processorLabel: 'EVM v2',
-          transaction: { id: hash },
-        });
-        drafts.push(draft);
-      }
-
-      return drafts;
+    return processGroupedLedgerProcessorItems({
+      assemble: (transactions) => assembleEvmLedgerDraftWithContext(transactions, chainConfig, context),
+      buildComparisonMaterial: buildEvmEventComparisonMaterial,
+      conflictItemLabel: 'event',
+      conflictLabel: 'EVM v2',
+      getDeduplicationKey: (transaction) => transaction.eventId,
+      groupItems: groupEvmLedgerTransactionsByHash,
+      inputLabel: 'evm v2',
+      normalizedData,
+      prepareItems: (transactions) => enrichEvmTokenMetadata(transactions, chainConfig, tokenMetadataResolver),
+      processorLabel: 'EVM v2',
+      schema: EvmTransactionSchema,
     });
   }
 }

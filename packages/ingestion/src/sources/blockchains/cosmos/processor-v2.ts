@@ -3,12 +3,9 @@ import {
   type CosmosTransaction,
   CosmosTransactionSchema,
 } from '@exitbook/blockchain-providers/cosmos';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
-import {
-  parseLedgerProcessorItems,
-  validateLedgerProcessorDraftJournals,
-} from '../shared/ledger-processor-v2-utils.js';
+import { processGroupedLedgerProcessorItems } from '../shared/ledger-processor-v2-utils.js';
 
 import {
   assembleCosmosLedgerDraft,
@@ -54,27 +51,6 @@ function buildCosmosEventComparisonMaterial(transaction: CosmosTransaction): str
   });
 }
 
-function dedupeCosmosTransactionsByEventId(
-  transactions: readonly CosmosTransaction[]
-): Result<CosmosTransaction[], Error> {
-  const transactionsByEventId = new Map<string, { material: string; transaction: CosmosTransaction }>();
-
-  for (const transaction of transactions) {
-    const material = buildCosmosEventComparisonMaterial(transaction);
-    const existing = transactionsByEventId.get(transaction.eventId);
-    if (!existing) {
-      transactionsByEventId.set(transaction.eventId, { material, transaction });
-      continue;
-    }
-
-    if (existing.material !== material) {
-      return err(new Error(`Cosmos v2 received conflicting normalized payloads for event ${transaction.eventId}`));
-    }
-  }
-
-  return ok([...transactionsByEventId.values()].map((entry) => entry.transaction));
-}
-
 function assembleCosmosLedgerDraftWithContext(
   transactions: readonly CosmosTransaction[],
   chainConfig: CosmosChainConfig,
@@ -102,31 +78,17 @@ export class CosmosProcessorV2 {
   ): Promise<Result<CosmosLedgerDraft[], Error>> {
     const chainConfig = this.chainConfig;
 
-    return resultDoAsync(async function* () {
-      const parsedTransactions = yield* parseLedgerProcessorItems({
-        inputLabel: 'cosmos v2',
-        normalizedData,
-        schema: CosmosTransactionSchema,
-      });
-      const uniqueTransactions = yield* dedupeCosmosTransactionsByEventId(parsedTransactions);
-      const transactionGroups = groupCosmosLedgerTransactionsByHash(uniqueTransactions);
-      const drafts: CosmosLedgerDraft[] = [];
-
-      for (const [hash, transactions] of transactionGroups) {
-        const draft = yield* assembleCosmosLedgerDraftWithContext(transactions, chainConfig, context);
-        if (draft.journals.length === 0) {
-          continue;
-        }
-
-        yield* validateLedgerProcessorDraftJournals({
-          draft,
-          processorLabel: 'Cosmos v2',
-          transaction: { id: hash },
-        });
-        drafts.push(draft);
-      }
-
-      return drafts;
+    return processGroupedLedgerProcessorItems({
+      assemble: (transactions) => assembleCosmosLedgerDraftWithContext(transactions, chainConfig, context),
+      buildComparisonMaterial: buildCosmosEventComparisonMaterial,
+      conflictItemLabel: 'event',
+      conflictLabel: 'Cosmos v2',
+      getDeduplicationKey: (transaction) => transaction.eventId,
+      groupItems: groupCosmosLedgerTransactionsByHash,
+      inputLabel: 'cosmos v2',
+      normalizedData,
+      processorLabel: 'Cosmos v2',
+      schema: CosmosTransactionSchema,
     });
   }
 }

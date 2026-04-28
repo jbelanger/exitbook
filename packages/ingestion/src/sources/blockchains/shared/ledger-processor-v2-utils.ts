@@ -31,24 +31,43 @@ export function dedupeLedgerProcessorItemsById<T extends { id: string }>(params:
   conflictLabel: string;
   items: readonly T[];
 }): Result<T[], Error> {
-  const itemsById = new Map<string, { item: T; material: string }>();
+  return dedupeLedgerProcessorItemsByKey({
+    buildComparisonMaterial: params.buildComparisonMaterial,
+    conflictItemLabel: 'transaction',
+    conflictLabel: params.conflictLabel,
+    getItemKey: (item) => item.id,
+    items: params.items,
+  });
+}
+
+export function dedupeLedgerProcessorItemsByKey<T>(params: {
+  buildComparisonMaterial: (item: T) => string;
+  conflictItemLabel: string;
+  conflictLabel: string;
+  getItemKey: (item: T) => string;
+  items: readonly T[];
+}): Result<T[], Error> {
+  const itemsByKey = new Map<string, { item: T; material: string }>();
 
   for (const item of params.items) {
+    const itemKey = params.getItemKey(item);
     const material = params.buildComparisonMaterial(item);
-    const existing = itemsById.get(item.id);
+    const existing = itemsByKey.get(itemKey);
     if (!existing) {
-      itemsById.set(item.id, { item, material });
+      itemsByKey.set(itemKey, { item, material });
       continue;
     }
 
     if (existing.material !== material) {
       return err(
-        new Error(`${params.conflictLabel} received conflicting normalized payloads for transaction ${item.id}`)
+        new Error(
+          `${params.conflictLabel} received conflicting normalized payloads for ${params.conflictItemLabel} ${itemKey}`
+        )
       );
     }
   }
 
-  return ok([...itemsById.values()].map((entry) => entry.item));
+  return ok([...itemsByKey.values()].map((entry) => entry.item));
 }
 
 export function validateLedgerProcessorDraftJournals<TTransaction extends { id: string }>(params: {
@@ -107,4 +126,66 @@ export function processLedgerProcessorItems<
 
     return drafts;
   });
+}
+
+export async function processGroupedLedgerProcessorItems<TItem, TDraft extends LedgerDraftWithJournals>(params: {
+  assemble: (items: readonly TItem[], groupKey: string) => Result<TDraft, Error>;
+  buildComparisonMaterial: (item: TItem) => string;
+  conflictItemLabel: string;
+  conflictLabel: string;
+  getDeduplicationKey: (item: TItem) => string;
+  groupItems: (items: readonly TItem[]) => ReadonlyMap<string, readonly TItem[]>;
+  inputLabel: string;
+  normalizedData: readonly unknown[];
+  prepareItems?: ((items: TItem[]) => Promise<Result<TItem[], Error>>) | undefined;
+  processorLabel: string;
+  schema: z.ZodType<TItem>;
+}): Promise<Result<TDraft[], Error>> {
+  const parsedItems = parseLedgerProcessorItems({
+    inputLabel: params.inputLabel,
+    normalizedData: params.normalizedData,
+    schema: params.schema,
+  });
+  if (parsedItems.isErr()) {
+    return err(parsedItems.error);
+  }
+
+  const preparedItems = params.prepareItems ? await params.prepareItems(parsedItems.value) : ok(parsedItems.value);
+  if (preparedItems.isErr()) {
+    return err(preparedItems.error);
+  }
+
+  const uniqueItems = dedupeLedgerProcessorItemsByKey({
+    buildComparisonMaterial: params.buildComparisonMaterial,
+    conflictItemLabel: params.conflictItemLabel,
+    conflictLabel: params.conflictLabel,
+    getItemKey: params.getDeduplicationKey,
+    items: preparedItems.value,
+  });
+  if (uniqueItems.isErr()) {
+    return err(uniqueItems.error);
+  }
+
+  const drafts: TDraft[] = [];
+  for (const [groupKey, items] of params.groupItems(uniqueItems.value)) {
+    const draft = params.assemble(items, groupKey);
+    if (draft.isErr()) {
+      return err(draft.error);
+    }
+    if (draft.value.journals.length === 0) {
+      continue;
+    }
+
+    const validationResult = validateLedgerProcessorDraftJournals({
+      draft: draft.value,
+      processorLabel: params.processorLabel,
+      transaction: { id: groupKey },
+    });
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+    drafts.push(draft.value);
+  }
+
+  return ok(drafts);
 }

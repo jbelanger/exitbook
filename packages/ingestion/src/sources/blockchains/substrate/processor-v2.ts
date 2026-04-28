@@ -3,12 +3,9 @@ import {
   type SubstrateTransaction,
   SubstrateTransactionSchema,
 } from '@exitbook/blockchain-providers/substrate';
-import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { err, ok, type Result } from '@exitbook/foundation';
 
-import {
-  parseLedgerProcessorItems,
-  validateLedgerProcessorDraftJournals,
-} from '../shared/ledger-processor-v2-utils.js';
+import { processGroupedLedgerProcessorItems } from '../shared/ledger-processor-v2-utils.js';
 
 import {
   assembleSubstrateLedgerDraft,
@@ -41,27 +38,6 @@ function buildSubstrateEventComparisonMaterial(transaction: SubstrateTransaction
   });
 }
 
-function dedupeSubstrateTransactionsByEventId(
-  transactions: readonly SubstrateTransaction[]
-): Result<SubstrateTransaction[], Error> {
-  const transactionsByEventId = new Map<string, { material: string; transaction: SubstrateTransaction }>();
-
-  for (const transaction of transactions) {
-    const material = buildSubstrateEventComparisonMaterial(transaction);
-    const existing = transactionsByEventId.get(transaction.eventId);
-    if (!existing) {
-      transactionsByEventId.set(transaction.eventId, { material, transaction });
-      continue;
-    }
-
-    if (existing.material !== material) {
-      return err(new Error(`Substrate v2 received conflicting normalized payloads for event ${transaction.eventId}`));
-    }
-  }
-
-  return ok([...transactionsByEventId.values()].map((entry) => entry.transaction));
-}
-
 function assembleSubstrateLedgerDraftWithContext(
   transactions: readonly SubstrateTransaction[],
   chainConfig: SubstrateChainConfig,
@@ -89,31 +65,17 @@ export class SubstrateProcessorV2 {
   ): Promise<Result<SubstrateLedgerDraft[], Error>> {
     const chainConfig = this.chainConfig;
 
-    return resultDoAsync(async function* () {
-      const parsedTransactions = yield* parseLedgerProcessorItems({
-        inputLabel: 'substrate v2',
-        normalizedData,
-        schema: SubstrateTransactionSchema,
-      });
-      const uniqueTransactions = yield* dedupeSubstrateTransactionsByEventId(parsedTransactions);
-      const transactionGroups = groupSubstrateLedgerTransactionsByHash(uniqueTransactions);
-      const drafts: SubstrateLedgerDraft[] = [];
-
-      for (const [hash, transactions] of transactionGroups) {
-        const draft = yield* assembleSubstrateLedgerDraftWithContext(transactions, chainConfig, context);
-        if (draft.journals.length === 0) {
-          continue;
-        }
-
-        yield* validateLedgerProcessorDraftJournals({
-          draft,
-          processorLabel: 'Substrate v2',
-          transaction: { id: hash },
-        });
-        drafts.push(draft);
-      }
-
-      return drafts;
+    return processGroupedLedgerProcessorItems({
+      assemble: (transactions) => assembleSubstrateLedgerDraftWithContext(transactions, chainConfig, context),
+      buildComparisonMaterial: buildSubstrateEventComparisonMaterial,
+      conflictItemLabel: 'event',
+      conflictLabel: 'Substrate v2',
+      getDeduplicationKey: (transaction) => transaction.eventId,
+      groupItems: groupSubstrateLedgerTransactionsByHash,
+      inputLabel: 'substrate v2',
+      normalizedData,
+      processorLabel: 'Substrate v2',
+      schema: SubstrateTransactionSchema,
     });
   }
 }
