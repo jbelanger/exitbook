@@ -1,19 +1,12 @@
 import { KrakenLedgerEntrySchema, type KrakenLedgerEntry } from '@exitbook/exchange-providers/kraken';
-import { z } from 'zod';
 
-import {
-  ExchangeLedgerProcessor,
-  RawExchangeProcessorInputSchema,
-  type RawExchangeProcessorInput,
-} from '../shared/index.js';
+import { ExchangeLedgerProcessor, createRawExchangeProcessorInputSchema } from '../shared/index.js';
 
 import { buildKrakenCorrelationGroups } from './build-correlation-groups.js';
 import { interpretKrakenGroup } from './interpret-group.js';
 import { normalizeKrakenProviderEvent, type KrakenProviderMetadata } from './normalize-provider-event.js';
 
-const KrakenLedgerProcessorInputSchema = RawExchangeProcessorInputSchema.extend({
-  raw: KrakenLedgerEntrySchema,
-}) as z.ZodType<RawExchangeProcessorInput<KrakenLedgerEntry>>;
+const KrakenLedgerProcessorInputSchema = createRawExchangeProcessorInputSchema(KrakenLedgerEntrySchema);
 
 /**
  * Kraken ledger-v2 processor. It reuses the legacy provider-event

@@ -9,7 +9,13 @@ export interface ExchangeMovementDraft {
   grossAmount: string;
   netAmount?: string | undefined;
   movementRole?: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate' | undefined;
+  sourceComponentQuantities?: readonly ExchangeMovementSourceComponentQuantityDraft[] | undefined;
   sourceEventIds?: readonly string[] | undefined;
+}
+
+export interface ExchangeMovementSourceComponentQuantityDraft {
+  quantity: string;
+  sourceEventId: string;
 }
 
 export interface ExchangeFeeDraft {

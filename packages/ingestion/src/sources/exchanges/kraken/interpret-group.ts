@@ -300,7 +300,7 @@ export function interpretKrakenGroup(
   const fees: ExchangeFeeDraft[] = [];
 
   for (const event of interpretedEvents) {
-    if (event.amount.isPositive()) {
+    if (event.amount.gt(0)) {
       const inflowResult = buildMovementDraft(event.event.assetSymbol, event.amount.abs().toFixed(), undefined, [
         event.event.providerEventId,
       ]);
@@ -330,7 +330,7 @@ export function interpretKrakenGroup(
       outflows.push(outflowResult.value);
     }
 
-    if (event.feeAmount.isPositive()) {
+    if (event.feeAmount.gt(0)) {
       const feeResult = buildFeeDraft(
         event.event.rawFeeCurrency ?? event.event.assetSymbol,
         event.feeAmount.toFixed(),

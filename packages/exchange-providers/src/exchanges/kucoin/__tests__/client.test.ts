@@ -83,7 +83,7 @@ describe('createKuCoinClient', () => {
     expect(streamResults[0].error.message).toContain('KuCoin API import is not supported');
   });
 
-  test('aggregates balances across account types and ignores unavailable account types', async () => {
+  test('aggregates balances across liquid account types only', async () => {
     mockFetchBalance
       .mockResolvedValueOnce({
         BTC: { total: 1.25 },
@@ -94,11 +94,6 @@ describe('createKuCoinClient', () => {
         BTC: { total: 0.75 },
         ETH: { total: 2 },
         timestamp: Date.now(),
-      })
-      .mockRejectedValueOnce(new Error('margin account disabled'))
-      .mockResolvedValueOnce({
-        ETH: { total: 0.00000001 },
-        SHIB: { total: 0.00000001 },
       });
 
     const result = createKuCoinClient({
@@ -121,8 +116,7 @@ describe('createKuCoinClient', () => {
     });
     expect(mockFetchBalance).toHaveBeenNthCalledWith(1, { type: 'main' });
     expect(mockFetchBalance).toHaveBeenNthCalledWith(2, { type: 'trade' });
-    expect(mockFetchBalance).toHaveBeenNthCalledWith(3, { type: 'margin' });
-    expect(mockFetchBalance).toHaveBeenNthCalledWith(4, { type: 'isolated' });
+    expect(mockFetchBalance).toHaveBeenCalledTimes(2);
 
     expect(balanceResult.isOk()).toBe(true);
     if (!balanceResult.isOk()) {
@@ -131,10 +125,35 @@ describe('createKuCoinClient', () => {
 
     expect(balanceResult.value.balances).toEqual({
       BTC: '2',
-      ETH: '2.00000001',
-      SHIB: '0.00000001',
+      ETH: '2',
       USDT: '0.5',
     });
     expect(balanceResult.value.timestamp).toEqual(expect.any(Number));
+  });
+
+  test('fails when a required liquid account balance cannot be fetched', async () => {
+    mockFetchBalance.mockResolvedValueOnce({ BTC: { total: 1.25 } }).mockRejectedValueOnce(new Error('trade down'));
+
+    const result = createKuCoinClient({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+      apiPassphrase: 'test-passphrase',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) {
+      return;
+    }
+
+    const balanceResult = await result.value.fetchBalance();
+
+    expect(mockFetchBalance).toHaveBeenNthCalledWith(1, { type: 'main' });
+    expect(mockFetchBalance).toHaveBeenNthCalledWith(2, { type: 'trade' });
+    expect(balanceResult.isErr()).toBe(true);
+    if (!balanceResult.isErr()) {
+      return;
+    }
+
+    expect(balanceResult.error.message).toContain('Failed to fetch KuCoin trade account balance');
   });
 });

@@ -1,7 +1,11 @@
 import { parseDecimal } from '@exitbook/foundation';
 
 import type { ExchangeCorrelationGroup } from './exchange-correlation-group.js';
-import type { ExchangeFeeDraft, ExchangeMovementDraft } from './exchange-interpretation.js';
+import type {
+  ExchangeFeeDraft,
+  ExchangeMovementDraft,
+  ExchangeMovementSourceComponentQuantityDraft,
+} from './exchange-interpretation.js';
 import type { ExchangeProcessingDiagnostic } from './exchange-processing-diagnostic.js';
 
 export function diagnostic(
@@ -38,16 +42,42 @@ export function consolidateMovements(movements: ExchangeMovementDraft[]): Exchan
     const movementNet = movement.netAmount ?? movement.grossAmount;
     const netAmount = parseDecimal(existingNet).plus(parseDecimal(movementNet)).toFixed();
     const sourceEventIds = [...new Set([...(existing.sourceEventIds ?? []), ...(movement.sourceEventIds ?? [])])];
+    const sourceComponentQuantities = consolidateMovementSourceComponentQuantities([
+      ...(existing.sourceComponentQuantities ?? []),
+      ...(movement.sourceComponentQuantities ?? []),
+    ]);
 
     byAssetAndRole.set(key, {
       ...existing,
       grossAmount,
       netAmount,
+      ...(sourceComponentQuantities.length > 0 ? { sourceComponentQuantities } : {}),
       ...(sourceEventIds.length > 0 ? { sourceEventIds } : {}),
     });
   }
 
   return Array.from(byAssetAndRole.values());
+}
+
+function consolidateMovementSourceComponentQuantities(
+  sourceComponentQuantities: readonly ExchangeMovementSourceComponentQuantityDraft[]
+): ExchangeMovementSourceComponentQuantityDraft[] {
+  const bySourceEventId = new Map<string, ExchangeMovementSourceComponentQuantityDraft>();
+
+  for (const sourceComponentQuantity of sourceComponentQuantities) {
+    const existing = bySourceEventId.get(sourceComponentQuantity.sourceEventId);
+    if (!existing) {
+      bySourceEventId.set(sourceComponentQuantity.sourceEventId, { ...sourceComponentQuantity });
+      continue;
+    }
+
+    bySourceEventId.set(sourceComponentQuantity.sourceEventId, {
+      ...existing,
+      quantity: parseDecimal(existing.quantity).plus(parseDecimal(sourceComponentQuantity.quantity)).toFixed(),
+    });
+  }
+
+  return Array.from(bySourceEventId.values());
 }
 
 export function consolidateFees(fees: ExchangeFeeDraft[]): ExchangeFeeDraft[] {

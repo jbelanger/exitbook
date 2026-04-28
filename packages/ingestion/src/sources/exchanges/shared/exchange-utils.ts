@@ -7,7 +7,7 @@ export function getDirectionHint(amount: string): 'credit' | 'debit' | 'unknown'
     return 'debit';
   }
 
-  if (value.isPositive()) {
+  if (value.gt(0)) {
     return 'credit';
   }
 

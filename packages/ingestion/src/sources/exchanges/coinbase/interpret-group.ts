@@ -238,7 +238,7 @@ export function interpretCoinbaseGroup(
   for (const interpretedEvent of interpretedEvents) {
     const absAmount = interpretedEvent.amount.abs().toFixed();
     const movementRole =
-      interpretedEvent.metadata.entryType === 'interest' && interpretedEvent.amount.isPositive()
+      interpretedEvent.metadata.entryType === 'interest' && interpretedEvent.amount.gt(0)
         ? 'staking_reward'
         : undefined;
     const movementResult = buildMovementDraft('coinbase', interpretedEvent.event.assetSymbol, absAmount, movementRole, [
@@ -262,7 +262,7 @@ export function interpretCoinbaseGroup(
       movement.netAmount = parseDecimal(movement.grossAmount).minus(interpretedEvent.feeAmount).toFixed();
     }
 
-    if (interpretedEvent.amount.isPositive()) {
+    if (interpretedEvent.amount.gt(0)) {
       inflows.push(movement);
     } else if (interpretedEvent.amount.isNegative()) {
       outflows.push(movement);

@@ -649,16 +649,31 @@ Acceptance:
 
 ### 5. Complete One Exchange Processor
 
-Status: complete. Kraken ledger-v2 is the exchange proof, and Coinbase is the
-second exchange migration using the same shared exchange ledger processor and
-assembler.
-Focused Kraken, Coinbase, raw-lineage, and workflow tests cover source
-activities, journals, postings, source components, and representative v1/v2
-liquid balance parity. Imported-corpus validation also passed against the
-user's Kraken account: 677 raw rows, 381 legacy transactions, 381 ledger drafts,
-44 v1/v2 balance rows, zero v1-v2 diffs, zero v1-live diffs, and zero v2-live
-diffs. A persisted real-corpus stress command has not been promoted because the
-corpus and live credentials are local/private.
+Status: complete for Kraken, Coinbase, and KuCoin. Kraken ledger-v2 is the
+exchange proof; Coinbase and KuCoin now use the same shared exchange ledger
+processor and assembler.
+Focused Kraken, Coinbase, KuCoin, raw-lineage, and workflow tests cover source
+activities, journals, postings, source components, provider-specific source
+evidence, and representative v1/v2 liquid balance parity. Imported-corpus
+validation passed against the user's Kraken account: 677 raw rows, 381 legacy
+transactions, 381 ledger drafts, 44 v1/v2 balance rows, zero v1-v2 diffs, zero
+v1-live diffs, and zero v2-live diffs. Imported-corpus validation also passed
+against the user's Coinbase account for v1/v2 parity: 300 raw rows, 165 legacy
+transactions, 165 ledger drafts, 23 balance rows, and zero v1-v2 diffs. Live
+Coinbase comparison had two sub-micro-unit API precision diffs (`AXL` and
+`USDC`). Imported-corpus validation passed against the user's KuCoin CSV account
+for v1/v2 parity: 721 raw rows, 162 legacy transactions, 162 ledger drafts, 22
+balance rows, and zero v1-v2 diffs. KuCoin account-history `Spot`, `Deposit`,
+and `Withdraw` rows were checked against the dedicated spot-order and transfer
+CSV sections: when account-history `Amount` is treated as the net balance delta
+and `Fee` as evidence only, those skipped rows exactly duplicate the materialized
+CSV rows. The live KuCoin comparison still has a `USDT` mismatch because the
+latest imported raw row is from 2026-02-05 while live KuCoin trade balance on
+2026-04-27 reports `0.05580679` USDT; that is an export freshness/coverage gap,
+not evidence that skipped account-history rows should be materialized. The small
+`BTC`, `LYX`, and `USDC` live diffs are API display precision dust. A persisted
+real-corpus stress command has not been promoted because the corpora and live
+credentials are local/private.
 
 Goal: prove exchange imports fit the same source activity, journal, posting,
 and component identity model before migrating consumers.
@@ -667,6 +682,8 @@ Exchange migration order:
 
 1. Kraken as the simpler deterministic CSV/API proof.
 2. Coinbase as the broader API-ledger ergonomics proof.
+3. KuCoin as the CSV proof for one-row trade fills and positive-amount
+   withdrawal rows.
 
 Files to inspect first:
 
@@ -684,6 +701,7 @@ Exchange implementation landing:
 - `packages/ingestion/src/sources/exchanges/shared/exchange-ledger-processor.ts`
 - `packages/ingestion/src/sources/exchanges/kraken/processor-v2.ts`
 - `packages/ingestion/src/sources/exchanges/coinbase/processor-v2.ts`
+- `packages/ingestion/src/sources/exchanges/kucoin/processor-v2.ts`
 - `packages/ingestion/src/features/process/raw-transaction-lineage.ts`
 - `packages/ingestion/src/features/process/process-workflow.ts`
 
@@ -710,6 +728,11 @@ Acceptance:
   BalanceEx snapshots with no diffs.
 - Coinbase representative fixtures reconcile against legacy liquid balance
   impact with no unexpected diffs.
+- KuCoin representative fixtures reconcile against legacy liquid balance impact
+  with no unexpected diffs, including one-row spot fills and positive-amount
+  withdrawal rows.
+- Coinbase and KuCoin imported raw corpora reconcile v1/v2 liquid balance impact
+  with no diffs.
 - Exchange on-chain fees stay out of separate liquid balance postings when the
   provider-reported principal movement already carries the balance impact, and
   remain visible as balance-neutral journal diagnostics.
@@ -899,6 +922,8 @@ pnpm vitest run packages/ingestion/src/sources/blockchains/near/__tests__/proces
 pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/kraken/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/coinbase/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/exchanges/kucoin/__tests__/processor-v2.test.ts
+pnpm vitest run packages/exchange-providers/src/exchanges/kucoin/__tests__/client.test.ts
 pnpm vitest run packages/ingestion/src/features/asset-screening/__tests__/asset-screening-policy.test.ts
 pnpm vitest run packages/ingestion/src/features/balance/reconciliation/__tests__/balance-reconciliation.test.ts
 pnpm vitest run apps/cli/src/features/accounts/command/__tests__/accounts-reconcile-runner.test.ts
@@ -925,10 +950,17 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
-- The remaining provider-v2 queue starts with KuCoin, then Solana, Substrate,
-  and XRP.
+- The remaining provider-v2 queue is Solana, Substrate, and XRP.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
+- Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`
+  treats zero as positive and must not drive materialization.
+- KuCoin live reference balances are currently liquid-only and intentionally
+  aggregate only main and trade account scopes. Margin and isolated balances
+  need category-aware live reference rows before they can be included.
+- KuCoin account-history `Amount` is the net balance delta for `Spot`,
+  `Deposit`, and `Withdraw` rows; account-history `Fee` is evidence for
+  accounting analysis, not an additional liquid balance delta.
 - The account reconciliation command boundary and asset-screening policy are
   already implemented.
 - EVM-family stress validation is already implemented as a repeatable CLI gate.
@@ -945,6 +977,10 @@ Smells to watch:
 - Exchange APIs may report on-chain fees without chain-native asset identity;
   those fees are retained as balance-neutral diagnostics until linking or
   on-chain evidence can attach richer identity.
+- KuCoin account-history `Spot`, `Deposit`, and `Withdraw` rows are still
+  skipped when dedicated CSV sections are present because they duplicate the
+  materialized rows. A future fallback for account-history-only imports needs
+  explicit duplicate detection and must not subtract account-history fees twice.
 - `balance-v2` is now a compatibility facade over `ledger-balance`; remove or
   rename it before the migration is considered complete.
 - Cross-source relationships need a dedicated materialization path before

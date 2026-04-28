@@ -48,7 +48,11 @@ function isAccountHistoryMetadataEntry(entry: {
   return entry.metadata.rowKind === 'account_history';
 }
 
-function buildMovementDraft(assetSymbol: Currency, amount: string): Result<ExchangeMovementDraft, Error> {
+function buildMovementDraft(
+  assetSymbol: Currency,
+  amount: string,
+  sourceEventId: string
+): Result<ExchangeMovementDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kucoin', assetSymbol);
   if (assetIdResult.isErr()) {
     return err(assetIdResult.error);
@@ -59,10 +63,16 @@ function buildMovementDraft(assetSymbol: Currency, amount: string): Result<Excha
     assetSymbol,
     grossAmount: amount,
     netAmount: amount,
+    sourceComponentQuantities: [{ sourceEventId, quantity: amount }],
+    sourceEventIds: [sourceEventId],
   });
 }
 
-function buildFeeDraft(assetSymbol: Currency, amount: string): Result<ExchangeFeeDraft, Error> {
+function buildFeeDraft(
+  assetSymbol: Currency,
+  amount: string,
+  sourceEventIds?: readonly string[]
+): Result<ExchangeFeeDraft, Error> {
   const assetIdResult = buildExchangeAssetId('kucoin', assetSymbol);
   if (assetIdResult.isErr()) {
     return err(assetIdResult.error);
@@ -73,6 +83,7 @@ function buildFeeDraft(assetSymbol: Currency, amount: string): Result<ExchangeFe
     assetSymbol,
     amount,
     scope: 'platform',
+    ...(sourceEventIds !== undefined ? { sourceEventIds } : {}),
     settlement: 'balance',
   });
 }
@@ -186,7 +197,8 @@ function interpretTradeGroup(
     const quoteAmount = parseDecimal(metadata.filledVolume).abs().toFixed();
     const outflowResult = buildMovementDraft(
       metadata.side === 'buy' ? metadata.quoteCurrency : metadata.baseCurrency,
-      metadata.side === 'buy' ? quoteAmount : baseAmount
+      metadata.side === 'buy' ? quoteAmount : baseAmount,
+      event.providerEventId
     );
     if (outflowResult.isErr()) {
       return {
@@ -199,7 +211,8 @@ function interpretTradeGroup(
 
     const inflowResult = buildMovementDraft(
       metadata.side === 'buy' ? metadata.baseCurrency : metadata.quoteCurrency,
-      metadata.side === 'buy' ? baseAmount : quoteAmount
+      metadata.side === 'buy' ? baseAmount : quoteAmount,
+      event.providerEventId
     );
     if (inflowResult.isErr()) {
       return {
@@ -214,7 +227,7 @@ function interpretTradeGroup(
     inflows.push(inflowResult.value);
 
     const feeAmount = parseDecimal(event.rawFee ?? '0');
-    if (feeAmount.isPositive()) {
+    if (feeAmount.gt(0)) {
       const feeCurrency = metadata.feeCurrency ?? event.rawFeeCurrency;
       if (!feeCurrency) {
         return {
@@ -229,7 +242,7 @@ function interpretTradeGroup(
         };
       }
 
-      const feeResult = buildFeeDraft(feeCurrency, feeAmount.toFixed());
+      const feeResult = buildFeeDraft(feeCurrency, feeAmount.toFixed(), [event.providerEventId]);
       if (feeResult.isErr()) {
         return {
           kind: 'unsupported',
@@ -261,7 +274,11 @@ function interpretTransferGroup(
   transferEvent: { event: KuCoinProviderEvent; metadata: KuCoinTransferProviderMetadata }
 ): ExchangeGroupInterpretation {
   const amount = parseDecimal(transferEvent.event.rawAmount).abs().toFixed();
-  const movementResult = buildMovementDraft(transferEvent.event.assetSymbol, amount);
+  const movementResult = buildMovementDraft(
+    transferEvent.event.assetSymbol,
+    amount,
+    transferEvent.event.providerEventId
+  );
   if (movementResult.isErr()) {
     return {
       kind: 'unsupported',
@@ -273,10 +290,11 @@ function interpretTransferGroup(
 
   const feeAmount = parseDecimal(transferEvent.event.rawFee ?? '0');
   const fees: ExchangeFeeDraft[] = [];
-  if (feeAmount.isPositive()) {
+  if (feeAmount.gt(0)) {
     const feeResult = buildFeeDraft(
       transferEvent.event.rawFeeCurrency ?? transferEvent.event.assetSymbol,
-      feeAmount.toFixed()
+      feeAmount.toFixed(),
+      [transferEvent.event.providerEventId]
     );
     if (feeResult.isErr()) {
       return {
@@ -535,7 +553,8 @@ function interpretAccountHistoryGroup(
 
   const inflowResult = buildMovementDraft(
     creditEvent.event.assetSymbol,
-    parseDecimal(creditEvent.event.rawAmount).abs().toFixed()
+    parseDecimal(creditEvent.event.rawAmount).abs().toFixed(),
+    creditEvent.event.providerEventId
   );
   if (inflowResult.isErr()) {
     return {
@@ -548,7 +567,8 @@ function interpretAccountHistoryGroup(
 
   const outflowResult = buildMovementDraft(
     debitEvent.event.assetSymbol,
-    parseDecimal(debitEvent.event.rawAmount).abs().toFixed()
+    parseDecimal(debitEvent.event.rawAmount).abs().toFixed(),
+    debitEvent.event.providerEventId
   );
   if (outflowResult.isErr()) {
     return {
@@ -562,11 +582,13 @@ function interpretAccountHistoryGroup(
   const fees: ExchangeFeeDraft[] = [];
   for (const { event } of historyEvents) {
     const feeAmount = parseDecimal(event.rawFee ?? '0');
-    if (!feeAmount.isPositive()) {
+    if (!feeAmount.gt(0)) {
       continue;
     }
 
-    const feeResult = buildFeeDraft(event.rawFeeCurrency ?? event.assetSymbol, feeAmount.toFixed());
+    const feeResult = buildFeeDraft(event.rawFeeCurrency ?? event.assetSymbol, feeAmount.toFixed(), [
+      event.providerEventId,
+    ]);
     if (feeResult.isErr()) {
       return {
         kind: 'unsupported',

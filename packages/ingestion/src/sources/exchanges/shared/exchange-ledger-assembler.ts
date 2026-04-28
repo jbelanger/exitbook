@@ -28,6 +28,7 @@ import type {
   ConfirmedExchangeTransactionDraft,
   ExchangeFeeDraft,
   ExchangeMovementDraft,
+  ExchangeMovementSourceComponentQuantityDraft,
 } from './exchange-interpretation.js';
 import type { ExchangeProviderMetadata } from './exchange-provider-event.js';
 
@@ -321,16 +322,7 @@ function buildMovementPosting(params: MovementPostingInput): Result<AccountingPo
 
     const quantity = params.direction === 'in' ? absoluteQuantity : absoluteQuantity.negated();
     const role = yield* resolveMovementPostingRole(params.movement, quantity.toFixed());
-    const sourceComponentRefs = yield* buildMovementSourceComponentRefs({
-      assetId: params.movement.assetId,
-      direction: params.direction,
-      operationCategory: params.operationCategory,
-      providerName: params.providerName,
-      quantity: absoluteQuantity,
-      sourceEventIds: params.movement.sourceEventIds,
-      sourceActivityFingerprint: params.sourceActivityFingerprint,
-      sourceEvents: params.sourceEvents,
-    });
+    const sourceComponentRefs = yield* buildMovementPostingSourceComponentRefs(params, absoluteQuantity);
 
     return {
       postingStableKey: `movement:${params.direction}:${params.movement.assetId}:${params.occurrence}`,
@@ -341,6 +333,33 @@ function buildMovementPosting(params: MovementPostingInput): Result<AccountingPo
       balanceCategory: 'liquid',
       sourceComponentRefs,
     };
+  });
+}
+
+function buildMovementPostingSourceComponentRefs(
+  params: MovementPostingInput,
+  absoluteQuantity: ReturnType<typeof parseDecimal>
+): Result<SourceComponentQuantityRef[], Error> {
+  if (params.movement.sourceComponentQuantities !== undefined) {
+    return buildExplicitMovementSourceComponentRefs({
+      assetId: params.movement.assetId,
+      operationCategory: params.operationCategory,
+      quantity: absoluteQuantity,
+      sourceActivityFingerprint: params.sourceActivityFingerprint,
+      sourceComponentQuantities: params.movement.sourceComponentQuantities,
+      sourceEvents: params.sourceEvents,
+    });
+  }
+
+  return buildMovementSourceComponentRefs({
+    assetId: params.movement.assetId,
+    direction: params.direction,
+    operationCategory: params.operationCategory,
+    providerName: params.providerName,
+    quantity: absoluteQuantity,
+    sourceActivityFingerprint: params.sourceActivityFingerprint,
+    sourceEventIds: params.movement.sourceEventIds,
+    sourceEvents: params.sourceEvents,
   });
 }
 
@@ -443,6 +462,56 @@ function buildMovementSourceComponentRefs(params: {
           assetId: params.assetId,
         },
         quantity: eventAmount.abs(),
+      });
+    }
+
+    return yield* validateSourceComponentQuantityTotal({
+      assetId: params.assetId,
+      expectedQuantity: params.quantity,
+      refs,
+      source: 'movement',
+    });
+  });
+}
+
+function buildExplicitMovementSourceComponentRefs(params: {
+  assetId: string;
+  operationCategory: ConfirmedExchangeTransactionDraft['operation']['category'];
+  quantity: ReturnType<typeof parseDecimal>;
+  sourceActivityFingerprint: string;
+  sourceComponentQuantities: readonly ExchangeMovementSourceComponentQuantityDraft[];
+  sourceEvents: readonly ExchangeCorrelationGroup['events'][number][];
+}): Result<SourceComponentQuantityRef[], Error> {
+  return resultDo(function* () {
+    const sourceEventIds = new Set(params.sourceEvents.map((event) => event.providerEventId));
+    const refs: SourceComponentQuantityRef[] = [];
+
+    for (const sourceComponentQuantity of params.sourceComponentQuantities) {
+      if (!sourceEventIds.has(sourceComponentQuantity.sourceEventId)) {
+        return yield* err(
+          new Error(
+            `Exchange movement posting for ${params.assetId} references source event ${sourceComponentQuantity.sourceEventId} outside the correlated source activity`
+          )
+        );
+      }
+
+      const quantity = parseDecimal(sourceComponentQuantity.quantity);
+      if (!quantity.gt(0)) {
+        return yield* err(
+          new Error(
+            `Exchange movement posting for ${params.assetId} has non-positive source component quantity ${sourceComponentQuantity.quantity}`
+          )
+        );
+      }
+
+      refs.push({
+        component: {
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+          componentKind: resolveMovementComponentKind(params.operationCategory),
+          componentId: sourceComponentQuantity.sourceEventId,
+          assetId: params.assetId,
+        },
+        quantity,
       });
     }
 

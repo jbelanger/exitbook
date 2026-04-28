@@ -409,3 +409,12 @@ export const CsvTradingBotRowSchema = z
       .optional(),
   })
   .strict();
+
+export const KuCoinCsvRowSchema = z.discriminatedUnion('_rowType', [
+  CsvSpotOrderRowSchema.extend({ _rowType: z.literal('spot_order') }),
+  CsvDepositWithdrawalRowSchema.extend({ _rowType: z.literal('deposit') }),
+  CsvDepositWithdrawalRowSchema.extend({ _rowType: z.literal('withdrawal') }),
+  CsvAccountHistoryRowSchema.extend({ _rowType: z.literal('account_history') }),
+  CsvOrderSplittingRowSchema.extend({ _rowType: z.literal('order_splitting') }),
+  CsvTradingBotRowSchema.extend({ _rowType: z.literal('trading_bot') }),
+]);

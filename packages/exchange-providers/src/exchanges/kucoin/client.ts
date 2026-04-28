@@ -61,33 +61,27 @@ export function createKuCoinClient(credentials: ExchangeClientCredentials): Resu
 
       async fetchBalance(): Promise<Result<ExchangeBalanceSnapshot, Error>> {
         try {
-          // KuCoin has multiple account types (main, spot/trade, margin, etc.)
-          // Fetch balances from all account types and combine them
-          const accountTypes = ['main', 'trade', 'margin', 'isolated'];
-          const allBalances: Record<string, Decimal> = {};
+          const liquidAccountTypes = ['main', 'trade'];
+          const liquidBalances: Record<string, Decimal> = {};
 
-          for (const accountType of accountTypes) {
+          for (const accountType of liquidAccountTypes) {
             try {
               const balance = await exchange.fetchBalance({ type: accountType });
               const processed = normalizeCCXTBalance(balance);
 
-              // Merge balances from this account type (normalizeCCXTBalance returns Record<string, string>)
               for (const [asset, amountStr] of Object.entries(processed)) {
                 const amount = new Decimal(amountStr);
-                allBalances[asset] = (allBalances[asset] ?? new Decimal(0)).plus(amount);
+                liquidBalances[asset] = (liquidBalances[asset] ?? new Decimal(0)).plus(amount);
               }
 
               logger.debug(`Fetched ${Object.keys(processed).length} assets from ${accountType} account`);
             } catch (error) {
-              // Some account types might not be enabled, that's okay
-              logger.debug(`Could not fetch ${accountType} account balance: ${String(error)}`);
+              return wrapError(error, `Failed to fetch KuCoin ${accountType} account balance`);
             }
           }
 
-          // Convert combined balances back to strings with consistent precision
           const balancesAsStrings: Record<string, string> = {};
-          for (const [asset, amount] of Object.entries(allBalances)) {
-            // Use toFixed to avoid scientific notation for small numbers
+          for (const [asset, amount] of Object.entries(liquidBalances)) {
             balancesAsStrings[asset] = amount.toFixed();
           }
 
