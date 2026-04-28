@@ -1,5 +1,9 @@
 import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 
+import {
+  type LedgerLinkingAssetIdentityResolution,
+  type LedgerLinkingAssetIdentityResolver,
+} from '../asset-identity/asset-identity-resolution.js';
 import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
@@ -15,7 +19,9 @@ export interface LedgerExactHashTransferMatch {
   targetPostingFingerprint: string;
   sourceBlockchainTransactionHash: string;
   targetBlockchainTransactionHash: string;
-  assetId: string;
+  assetIdentityResolution: Extract<LedgerLinkingAssetIdentityResolution, { status: 'accepted' }>;
+  sourceAssetId: string;
+  targetAssetId: string;
   amount: string;
   relationship: LedgerLinkingRelationshipDraft;
 }
@@ -49,12 +55,14 @@ export interface LedgerExactHashTransferRelationshipResult {
 }
 
 interface ExactHashPotentialPair {
+  assetIdentityResolution: Extract<LedgerLinkingAssetIdentityResolution, { status: 'accepted' }>;
   source: LedgerTransferLinkingCandidate;
   target: LedgerTransferLinkingCandidate;
 }
 
 export function buildLedgerExactHashTransferRelationships(
-  candidates: readonly LedgerTransferLinkingCandidate[]
+  candidates: readonly LedgerTransferLinkingCandidate[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver = STRICT_ASSET_IDENTITY_RESOLVER
 ): Result<LedgerExactHashTransferRelationshipResult, Error> {
   const validation = validateCandidates(candidates);
   if (validation.isErr()) {
@@ -63,8 +71,8 @@ export function buildLedgerExactHashTransferRelationships(
 
   const sources = candidates.filter((candidate) => candidate.direction === 'source');
   const targets = candidates.filter((candidate) => candidate.direction === 'target');
-  const potentialPairs = buildPotentialExactHashPairs(sources, targets);
-  const assetIdentityBlocksResult = buildExactHashAssetIdentityBlocks(sources, targets);
+  const potentialPairs = buildPotentialExactHashPairs(sources, targets, assetIdentityResolver);
+  const assetIdentityBlocksResult = buildExactHashAssetIdentityBlocks(sources, targets, assetIdentityResolver);
   if (assetIdentityBlocksResult.isErr()) {
     return err(assetIdentityBlocksResult.error);
   }
@@ -90,11 +98,13 @@ export function buildLedgerExactHashTransferRelationships(
   });
 }
 
-export function buildLedgerExactHashTransferRecognizer(): LedgerDeterministicRecognizer<LedgerExactHashTransferRelationshipResult> {
+export function buildLedgerExactHashTransferRecognizer(
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver = STRICT_ASSET_IDENTITY_RESOLVER
+): LedgerDeterministicRecognizer<LedgerExactHashTransferRelationshipResult> {
   return {
     name: LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
     recognize(candidates) {
-      const result = buildLedgerExactHashTransferRelationships(candidates);
+      const result = buildLedgerExactHashTransferRelationships(candidates, assetIdentityResolver);
       if (result.isErr()) {
         return err(result.error);
       }
@@ -192,14 +202,16 @@ function findEmptyRequiredField(candidate: LedgerTransferLinkingCandidate): stri
 
 function buildPotentialExactHashPairs(
   sources: readonly LedgerTransferLinkingCandidate[],
-  targets: readonly LedgerTransferLinkingCandidate[]
+  targets: readonly LedgerTransferLinkingCandidate[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
 ): ExactHashPotentialPair[] {
   const pairs: ExactHashPotentialPair[] = [];
 
   for (const source of sources) {
     for (const target of targets) {
-      if (isExactHashTransferPair(source, target)) {
-        pairs.push({ source, target });
+      const assetIdentityResolution = resolveExactHashPairAssetIdentity(source, target, assetIdentityResolver);
+      if (assetIdentityResolution !== undefined && hasSharedExactHashTransferEvidence(source, target)) {
+        pairs.push({ assetIdentityResolution, source, target });
       }
     }
   }
@@ -207,15 +219,18 @@ function buildPotentialExactHashPairs(
   return pairs;
 }
 
-function isExactHashTransferPair(
+function resolveExactHashPairAssetIdentity(
   source: LedgerTransferLinkingCandidate,
-  target: LedgerTransferLinkingCandidate
-): boolean {
-  if (source.assetId !== target.assetId) {
-    return false;
-  }
+  target: LedgerTransferLinkingCandidate,
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
+): Extract<LedgerLinkingAssetIdentityResolution, { status: 'accepted' }> | undefined {
+  const resolution = assetIdentityResolver.resolve({
+    relationshipKind: 'internal_transfer',
+    sourceAssetId: source.assetId,
+    targetAssetId: target.assetId,
+  });
 
-  return hasSharedExactHashTransferEvidence(source, target);
+  return resolution.status === 'accepted' ? resolution : undefined;
 }
 
 function hasSharedExactHashTransferEvidence(
@@ -239,13 +254,14 @@ function hasSharedExactHashTransferEvidence(
 
 function buildExactHashAssetIdentityBlocks(
   sources: readonly LedgerTransferLinkingCandidate[],
-  targets: readonly LedgerTransferLinkingCandidate[]
+  targets: readonly LedgerTransferLinkingCandidate[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
 ): Result<LedgerExactHashAssetIdentityBlock[], Error> {
   const blocks: LedgerExactHashAssetIdentityBlock[] = [];
 
   for (const source of sources) {
     for (const target of targets) {
-      if (isExactHashAssetIdentityBlock(source, target)) {
+      if (isExactHashAssetIdentityBlock(source, target, assetIdentityResolver)) {
         const block = buildExactHashAssetIdentityBlock(source, target);
         if (block.isErr()) {
           return err(block.error);
@@ -260,13 +276,23 @@ function buildExactHashAssetIdentityBlocks(
 
 function isExactHashAssetIdentityBlock(
   source: LedgerTransferLinkingCandidate,
-  target: LedgerTransferLinkingCandidate
+  target: LedgerTransferLinkingCandidate,
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
 ): boolean {
   if (source.assetId === target.assetId) {
     return false;
   }
 
   if (source.assetSymbol !== target.assetSymbol) {
+    return false;
+  }
+
+  const resolution = assetIdentityResolver.resolve({
+    relationshipKind: 'internal_transfer',
+    sourceAssetId: source.assetId,
+    targetAssetId: target.assetId,
+  });
+  if (resolution.status === 'accepted') {
     return false;
   }
 
@@ -406,7 +432,9 @@ function buildExactHashTransferMatch(pair: ExactHashPotentialPair): Result<Ledge
     targetPostingFingerprint: pair.target.postingFingerprint,
     sourceBlockchainTransactionHash: sourceHash,
     targetBlockchainTransactionHash: targetHash,
-    assetId: pair.source.assetId,
+    assetIdentityResolution: pair.assetIdentityResolution,
+    sourceAssetId: pair.source.assetId,
+    targetAssetId: pair.target.assetId,
     amount: pair.source.amount.toFixed(),
     relationship: {
       relationshipStableKey: buildExactHashRelationshipStableKey(pair),
@@ -485,3 +513,19 @@ function compareAssetIdentityBlocks(
 function compareNumbers(left: number, right: number): number {
   return left - right;
 }
+
+const STRICT_ASSET_IDENTITY_RESOLVER: LedgerLinkingAssetIdentityResolver = {
+  resolve(params): LedgerLinkingAssetIdentityResolution {
+    if (params.sourceAssetId === params.targetAssetId) {
+      return {
+        reason: 'same_asset_id',
+        status: 'accepted',
+      };
+    }
+
+    return {
+      reason: 'missing_assertion',
+      status: 'blocked',
+    };
+  },
+};

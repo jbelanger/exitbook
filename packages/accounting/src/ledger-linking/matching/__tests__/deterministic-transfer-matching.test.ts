@@ -2,6 +2,7 @@ import { parseCurrency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import { buildLedgerLinkingAssetIdentityResolver } from '../../asset-identity/asset-identity-resolution.js';
 import type { LedgerTransferLinkingCandidate } from '../../candidates/candidate-construction.js';
 import {
   buildLedgerExactHashTransferRelationships,
@@ -74,7 +75,12 @@ describe('buildLedgerExactHashTransferRelationships', () => {
       strategy: 'exact_hash_transfer',
       sourceCandidateId: 1,
       targetCandidateId: 2,
-      assetId: 'blockchain:ethereum:native',
+      assetIdentityResolution: {
+        reason: 'same_asset_id',
+        status: 'accepted',
+      },
+      sourceAssetId: 'blockchain:ethereum:native',
+      targetAssetId: 'blockchain:ethereum:native',
       amount: '1.25',
     });
   });
@@ -162,6 +168,61 @@ describe('buildLedgerExactHashTransferRelationships', () => {
         targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
       },
     ]);
+  });
+
+  it('matches different asset ids when an explicit asset identity assertion exists', () => {
+    const assetIdentityResolver = assertOk(
+      buildLedgerLinkingAssetIdentityResolver([
+        {
+          assetIdA: 'exchange:kraken:eth',
+          assetIdB: 'blockchain:ethereum:native',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+    const result = assertOk(
+      buildLedgerExactHashTransferRelationships(
+        [
+          makeCandidate({
+            candidateId: 1,
+            direction: 'source',
+            sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+            journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+            postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+            assetId: 'exchange:kraken:eth',
+            ownerAccountId: 1,
+          }),
+          makeCandidate({
+            candidateId: 2,
+            direction: 'target',
+            sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+            journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+            postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+            assetId: 'blockchain:ethereum:native',
+            ownerAccountId: 2,
+          }),
+        ],
+        assetIdentityResolver
+      )
+    );
+
+    expect(result.relationships).toHaveLength(1);
+    expect(result.assetIdentityBlocks).toEqual([]);
+    expect(result.matches[0]).toMatchObject({
+      assetIdentityResolution: {
+        assertion: {
+          assetIdA: 'blockchain:ethereum:native',
+          assetIdB: 'exchange:kraken:eth',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+        reason: 'accepted_assertion',
+        status: 'accepted',
+      },
+      sourceAssetId: 'exchange:kraken:eth',
+      targetAssetId: 'blockchain:ethereum:native',
+    });
   });
 
   it('leaves exact-hash groups unresolved when the counterpart is ambiguous', () => {

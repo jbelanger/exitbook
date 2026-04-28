@@ -197,7 +197,12 @@ function makeRunResult() {
         targetPostingFingerprint: 'ledger_posting:v1:target',
         sourceBlockchainTransactionHash: '0xabc',
         targetBlockchainTransactionHash: '0xABC',
-        assetId: 'blockchain:ethereum:native',
+        assetIdentityResolution: {
+          reason: 'same_asset_id',
+          status: 'accepted',
+        },
+        sourceAssetId: 'blockchain:ethereum:native',
+        targetAssetId: 'blockchain:ethereum:native',
         amount: '1',
         relationship: {
           relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',

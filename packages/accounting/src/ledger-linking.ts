@@ -1,4 +1,16 @@
 export {
+  buildLedgerLinkingAssetIdentityResolver,
+  canonicalizeLedgerLinkingAssetIdentityPair,
+  LedgerLinkingAssetIdentityAssertionSchema,
+  LedgerLinkingAssetIdentityEvidenceKindSchema,
+  type LedgerLinkingAssetIdentityAssertion,
+  type LedgerLinkingAssetIdentityEvidenceKind,
+  type LedgerLinkingAssetIdentityPair,
+  type LedgerLinkingAssetIdentityResolution,
+  type LedgerLinkingAssetIdentityResolutionParams,
+  type LedgerLinkingAssetIdentityResolver,
+} from './ledger-linking/asset-identity/asset-identity-resolution.js';
+export {
   buildLedgerTransferLinkingCandidates,
   LedgerLinkingPostingInputSchema,
   type ILedgerLinkingCandidateSourceReader,
