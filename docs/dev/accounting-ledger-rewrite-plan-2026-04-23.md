@@ -316,8 +316,8 @@ Parallel ledger processing:
 
 - `ProcessingWorkflow` can run legacy processors and ledger-v2 processors in
   parallel.
-- Cardano, Bitcoin, EVM, Theta, Cosmos, NEAR, and Substrate register ledger-v2
-  processors.
+- Cardano, Bitcoin, EVM, Theta, Cosmos, NEAR, Substrate, Solana, and XRP
+  register ledger-v2 processors.
 - Ledger-v2 failures fail the batch for v2-enabled chains.
 - Consumers still read legacy processed transactions.
 
@@ -364,6 +364,13 @@ Processor evidence:
   rows are modeled as `staked` or `unbonding` when present, stored snapshots key
   by asset plus balance category, and all four refreshed Solana wallets match
   live balances.
+- XRP covers native XRP account-delta flows from XRPL `AccountRoot` balance
+  changes, incoming transfers, outgoing transfers with balance-settled network
+  fees, failed fee-only transactions, no-wallet-impact skips, v1/v2 balance
+  parity fixtures, and a repeatable `ledger stress xrp` gate for imported
+  corpora. The current port is native-XRP-only; issued currencies and DEX/trust
+  line activity need provider identity and accounting fixtures before they are
+  treated as complete ledger facts.
 - Kraken covers exchange provider-event grouping, exchange source activities,
   trade/transfer/refund journals, fill and fee component refs, dust sweeping,
   one-sided trade residuals, transfer reversal skips, and full imported-corpus
@@ -950,6 +957,8 @@ pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/proc
 pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/processor-v2.balance-shadow.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/importer.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/xrp/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/xrp/__tests__/processor-v2.balance-shadow.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/shared/__tests__/ledger-journal-kind-utils.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/shared/__tests__/ledger-processor-v2-utils.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/kraken/__tests__/processor-v2.test.ts
@@ -987,7 +996,7 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
-- The remaining provider-v2 queue is XRP.
+- The provider-v2 queue is complete for the current native-asset chain scope.
 - Substrate ledger-v2 is complete for the current migration gate with Polkadot
   as the native staking proof and Bittensor as the TAO decimal/provider proof.
   Keep the processor generic across Substrate chains, not Polkadot-only.
@@ -996,6 +1005,11 @@ Decisions:
   staking shapes, imported-corpus v1/v2 category-aware parity, live/stored
   balance parity, category-aware live/stored snapshot rows, and a repeatable
   `ledger stress solana` gate with zero expected diffs.
+- XRP ledger-v2 is complete for the current migration gate with native XRP
+  account-delta transfers, balance-settled fees, failed fee-only rows, v1/v2
+  balance parity fixtures, and a repeatable `ledger stress xrp` gate. Issued
+  currencies and XRPL DEX/trust-line accounting remain out of scope until
+  provider normalization exposes stable ledger facts for those assets.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
 - Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`

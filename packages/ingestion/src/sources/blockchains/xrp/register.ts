@@ -4,6 +4,7 @@ import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter
 
 import { normalizeXrpAddress } from './address-utils.js';
 import { XrpImporter } from './importer.js';
+import { XrpProcessorV2 } from './processor-v2.js';
 import { XrpProcessor } from './processor.js';
 
 export const xrpAdapters: BlockchainAdapter[] = Object.keys(XRP_CHAINS).flatMap((chainName) => {
@@ -15,6 +16,7 @@ export const xrpAdapters: BlockchainAdapter[] = Object.keys(XRP_CHAINS).flatMap(
     chainModel: 'account-based',
     createImporter: (providerRuntime, preferredProvider) =>
       new XrpImporter(config, providerRuntime, { preferredProvider }),
+    createLedgerProcessor: () => new XrpProcessorV2(config),
     createProcessor: ({ scamDetector }) => new XrpProcessor(config, scamDetector),
 
     normalizeAddress: normalizeXrpAddress,
