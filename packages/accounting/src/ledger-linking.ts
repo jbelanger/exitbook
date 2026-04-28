@@ -6,7 +6,7 @@ export {
   type LedgerLinkingPostingInput,
   type LedgerTransferLinkingCandidate,
   type LedgerTransferLinkingCandidateBuildResult,
-} from './ledger-linking/candidate-construction.js';
+} from './ledger-linking/candidates/candidate-construction.js';
 export {
   buildLedgerExactHashTransferRelationships,
   ledgerTransactionHashesMatch,
@@ -14,7 +14,7 @@ export {
   type LedgerExactHashTransferAmbiguity,
   type LedgerExactHashTransferMatch,
   type LedgerExactHashTransferRelationshipResult,
-} from './ledger-linking/deterministic-transfer-matching.js';
+} from './ledger-linking/matching/deterministic-transfer-matching.js';
 export {
   LedgerLinkingRelationshipDraftSchema,
   LedgerLinkingRelationshipEndpointRefSchema,
@@ -22,4 +22,4 @@ export {
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipEndpointRef,
   type LedgerLinkingRelationshipMaterializationResult,
-} from './ledger-linking/relationship-materialization.js';
+} from './ledger-linking/relationships/relationship-materialization.js';

@@ -2,7 +2,7 @@ import { parseCurrency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import type { LedgerTransferLinkingCandidate } from '../candidate-construction.js';
+import type { LedgerTransferLinkingCandidate } from '../../candidates/candidate-construction.js';
 import {
   buildLedgerExactHashTransferRelationships,
   ledgerTransactionHashesMatch,

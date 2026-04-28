@@ -1,7 +1,7 @@
 import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 
-import type { LedgerTransferLinkingCandidate } from './candidate-construction.js';
-import type { LedgerLinkingRelationshipDraft } from './relationship-materialization.js';
+import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
+import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
 export const LEDGER_EXACT_HASH_TRANSFER_STRATEGY = 'exact_hash_transfer';
 
