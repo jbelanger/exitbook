@@ -1,6 +1,7 @@
 export {
   buildLedgerTransferLinkingCandidates,
   LedgerLinkingPostingInputSchema,
+  type ILedgerLinkingCandidateSourceReader,
   type LedgerLinkingCandidateSkip,
   type LedgerLinkingPostingInput,
   type LedgerTransferLinkingCandidate,

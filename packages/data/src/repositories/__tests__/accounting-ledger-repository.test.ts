@@ -713,6 +713,49 @@ describe('AccountingLedgerRepository', () => {
     });
   });
 
+  it('loads ledger-linking posting inputs by profile', async () => {
+    await seedCrossSourceLedgerEndpoints();
+
+    const postingInputs = assertOk(await repository.findLedgerLinkingPostingInputsByProfileId(1));
+
+    expect(
+      postingInputs.map((posting) => ({
+        balanceCategory: posting.balanceCategory,
+        journalKind: posting.journalKind,
+        ownerAccountId: posting.ownerAccountId,
+        platformKey: posting.platformKey,
+        postingFingerprintPrefix: posting.postingFingerprint.slice(0, 'ledger_posting:v1:'.length),
+        quantity: posting.quantity.toFixed(),
+        role: posting.role,
+      }))
+    ).toEqual([
+      {
+        balanceCategory: 'liquid',
+        journalKind: 'transfer',
+        ownerAccountId: 1,
+        platformKey: 'cardano',
+        postingFingerprintPrefix: 'ledger_posting:v1:',
+        quantity: '-10',
+        role: 'principal',
+      },
+      {
+        balanceCategory: 'liquid',
+        journalKind: 'transfer',
+        ownerAccountId: 2,
+        platformKey: 'ethereum',
+        postingFingerprintPrefix: 'ledger_posting:v1:',
+        quantity: '10',
+        role: 'principal',
+      },
+    ]);
+  });
+
+  it('rejects invalid profile ids when loading ledger-linking posting inputs', async () => {
+    const result = await repository.findLedgerLinkingPostingInputsByProfileId(0);
+
+    expect(assertErr(result).message).toContain('Profile id must be a positive integer');
+  });
+
   it('participates in an outer DataSession transaction', async () => {
     const session = new DataSession(db);
 

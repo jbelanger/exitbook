@@ -56,6 +56,10 @@ export interface LedgerTransferLinkingCandidateBuildResult {
   skipped: LedgerLinkingCandidateSkip[];
 }
 
+export interface ILedgerLinkingCandidateSourceReader {
+  loadLedgerLinkingPostingInputs(profileId: number): Promise<Result<LedgerLinkingPostingInput[], Error>>;
+}
+
 const TRANSFER_CANDIDATE_JOURNAL_KINDS = new Set<LedgerLinkingPostingInput['journalKind']>([
   'transfer',
   'internal_transfer',

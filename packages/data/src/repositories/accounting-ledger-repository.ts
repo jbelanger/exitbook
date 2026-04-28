@@ -1,10 +1,11 @@
 /* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
 import {
   LedgerLinkingRelationshipDraftSchema,
+  type LedgerLinkingPostingInput,
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipMaterializationResult,
 } from '@exitbook/accounting/ledger-linking';
-import { err, ok, parseDecimal, type Result } from '@exitbook/foundation';
+import { err, ok, parseCurrency, parseDecimal, type Result } from '@exitbook/foundation';
 import {
   computeAccountingJournalFingerprint,
   computeAccountingPostingFingerprint,
@@ -256,6 +257,77 @@ export class AccountingLedgerRepository extends BaseRepository {
           settlement: row.settlement ?? undefined,
         }))
       );
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async findLedgerLinkingPostingInputsByProfileId(
+    profileId: number
+  ): Promise<Result<LedgerLinkingPostingInput[], Error>> {
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+    }
+
+    try {
+      const rows = await this.db
+        .selectFrom('accounting_postings')
+        .innerJoin('accounting_journals', 'accounting_journals.id', 'accounting_postings.journal_id')
+        .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
+        .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+        .select([
+          'source_activities.owner_account_id as owner_account_id',
+          'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+          'source_activities.platform_key as platform_key',
+          'source_activities.platform_kind as platform_kind',
+          'source_activities.activity_datetime as activity_datetime',
+          'source_activities.blockchain_transaction_hash as blockchain_transaction_hash',
+          'source_activities.from_address as from_address',
+          'source_activities.to_address as to_address',
+          'accounting_journals.journal_fingerprint as journal_fingerprint',
+          'accounting_journals.journal_kind as journal_kind',
+          'accounting_postings.posting_fingerprint as posting_fingerprint',
+          'accounting_postings.asset_id as asset_id',
+          'accounting_postings.asset_symbol as asset_symbol',
+          'accounting_postings.quantity as quantity',
+          'accounting_postings.posting_role as posting_role',
+          'accounting_postings.balance_category as balance_category',
+        ])
+        .where('accounts.profile_id', '=', profileId)
+        .orderBy('source_activities.activity_datetime', 'asc')
+        .orderBy('source_activities.source_activity_fingerprint', 'asc')
+        .orderBy('accounting_journals.journal_fingerprint', 'asc')
+        .orderBy('accounting_postings.posting_fingerprint', 'asc')
+        .execute();
+
+      const postingInputs: LedgerLinkingPostingInput[] = [];
+      for (const row of rows) {
+        const assetSymbolResult = parseCurrency(row.asset_symbol);
+        if (assetSymbolResult.isErr()) {
+          return err(assetSymbolResult.error);
+        }
+
+        postingInputs.push({
+          ownerAccountId: row.owner_account_id,
+          sourceActivityFingerprint: row.source_activity_fingerprint,
+          journalFingerprint: row.journal_fingerprint,
+          journalKind: row.journal_kind,
+          postingFingerprint: row.posting_fingerprint,
+          platformKey: row.platform_key,
+          platformKind: row.platform_kind,
+          activityDatetime: new Date(row.activity_datetime),
+          blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
+          fromAddress: row.from_address ?? undefined,
+          toAddress: row.to_address ?? undefined,
+          assetId: row.asset_id,
+          assetSymbol: assetSymbolResult.value,
+          quantity: parseDecimal(row.quantity),
+          role: row.posting_role,
+          balanceCategory: row.balance_category,
+        });
+      }
+
+      return ok(postingInputs);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
