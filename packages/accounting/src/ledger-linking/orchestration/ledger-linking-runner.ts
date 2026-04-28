@@ -6,10 +6,16 @@ import {
   type LedgerLinkingCandidateSkip,
 } from '../candidates/candidate-construction.js';
 import {
-  buildLedgerExactHashTransferRelationships,
+  runLedgerDeterministicRecognizers,
+  type LedgerDeterministicRecognizerRun,
+} from '../matching/deterministic-recognizer-runner.js';
+import {
+  buildLedgerExactHashTransferRecognizer,
+  LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
   type LedgerExactHashAssetIdentityBlock,
   type LedgerExactHashTransferAmbiguity,
   type LedgerExactHashTransferMatch,
+  type LedgerExactHashTransferRelationshipResult,
 } from '../matching/deterministic-transfer-matching.js';
 import type {
   ILedgerLinkingRelationshipStore,
@@ -20,6 +26,11 @@ import type {
 export interface LedgerLinkingRunPorts {
   candidateSourceReader: ILedgerLinkingCandidateSourceReader;
   relationshipStore: ILedgerLinkingRelationshipStore;
+}
+
+interface LedgerTransferCandidateDirection {
+  candidateId: number;
+  direction: 'source' | 'target';
 }
 
 export interface LedgerLinkingRunOptions {
@@ -73,17 +84,22 @@ export async function runLedgerLinking(
   }
 
   const { candidates, skipped } = candidateBuildResult.value;
-  const exactHashResult = buildLedgerExactHashTransferRelationships(candidates);
-  if (exactHashResult.isErr()) {
-    return err(exactHashResult.error);
+  const deterministicResult = runLedgerDeterministicRecognizers(candidates, [buildLedgerExactHashTransferRecognizer()]);
+  if (deterministicResult.isErr()) {
+    return err(deterministicResult.error);
   }
 
-  const matchCounts = countMatchedTransferCandidates(exactHashResult.value.matches);
+  const exactHashRun = findExactHashRun(deterministicResult.value.runs);
+  if (exactHashRun.isErr()) {
+    return err(exactHashRun.error);
+  }
+  const exactHashResult = exactHashRun.value.payload;
+  const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.consumedCandidateIds);
   const candidateCounts = countTransferCandidatesByDirection(candidates);
   const persistenceResult = await resolvePersistenceResult(
     profileId,
     ports,
-    exactHashResult.value.relationships,
+    deterministicResult.value.relationships,
     options
   );
   if (persistenceResult.isErr()) {
@@ -91,10 +107,10 @@ export async function runLedgerLinking(
   }
 
   return ok({
-    acceptedRelationships: exactHashResult.value.relationships,
-    exactHashAmbiguities: exactHashResult.value.ambiguities,
-    exactHashAssetIdentityBlocks: exactHashResult.value.assetIdentityBlocks,
-    exactHashMatches: exactHashResult.value.matches,
+    acceptedRelationships: deterministicResult.value.relationships,
+    exactHashAmbiguities: exactHashResult.ambiguities,
+    exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
+    exactHashMatches: exactHashResult.matches,
     matchedSourceCandidateCount: matchCounts.matchedSourceCandidateCount,
     matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,
     persistence: persistenceResult.value,
@@ -108,7 +124,18 @@ export async function runLedgerLinking(
   });
 }
 
-function countTransferCandidatesByDirection(candidates: readonly { direction: 'source' | 'target' }[]): {
+function findExactHashRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>[]
+): Result<LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_EXACT_HASH_TRANSFER_STRATEGY);
+  if (run === undefined) {
+    return err(new Error(`Ledger deterministic recognizer ${LEDGER_EXACT_HASH_TRANSFER_STRATEGY} did not run`));
+  }
+
+  return ok(run);
+}
+
+function countTransferCandidatesByDirection(candidates: readonly LedgerTransferCandidateDirection[]): {
   sourceCandidateCount: number;
   targetCandidateCount: number;
 } {
@@ -129,13 +156,29 @@ function countTransferCandidatesByDirection(candidates: readonly { direction: 's
   };
 }
 
-function countMatchedTransferCandidates(matches: readonly LedgerExactHashTransferMatch[]): {
+function countMatchedTransferCandidates(
+  candidates: readonly LedgerTransferCandidateDirection[],
+  consumedCandidateIds: readonly number[]
+): {
   matchedSourceCandidateCount: number;
   matchedTargetCandidateCount: number;
 } {
+  const candidatesById = new Map(candidates.map((candidate) => [candidate.candidateId, candidate]));
+  let matchedSourceCandidateCount = 0;
+  let matchedTargetCandidateCount = 0;
+
+  for (const candidateId of consumedCandidateIds) {
+    const candidate = candidatesById.get(candidateId);
+    if (candidate?.direction === 'source') {
+      matchedSourceCandidateCount++;
+    } else if (candidate?.direction === 'target') {
+      matchedTargetCandidateCount++;
+    }
+  }
+
   return {
-    matchedSourceCandidateCount: new Set(matches.map((match) => match.sourceCandidateId)).size,
-    matchedTargetCandidateCount: new Set(matches.map((match) => match.targetCandidateId)).size,
+    matchedSourceCandidateCount,
+    matchedTargetCandidateCount,
   };
 }
 

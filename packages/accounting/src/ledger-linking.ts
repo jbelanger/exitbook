@@ -8,6 +8,7 @@ export {
   type LedgerTransferLinkingCandidateBuildResult,
 } from './ledger-linking/candidates/candidate-construction.js';
 export {
+  buildLedgerExactHashTransferRecognizer,
   buildLedgerExactHashTransferRelationships,
   ledgerTransactionHashesMatch,
   LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
@@ -16,6 +17,13 @@ export {
   type LedgerExactHashTransferMatch,
   type LedgerExactHashTransferRelationshipResult,
 } from './ledger-linking/matching/deterministic-transfer-matching.js';
+export {
+  runLedgerDeterministicRecognizers,
+  type LedgerDeterministicRecognizer,
+  type LedgerDeterministicRecognizerPipelineResult,
+  type LedgerDeterministicRecognizerResult,
+  type LedgerDeterministicRecognizerRun,
+} from './ledger-linking/matching/deterministic-recognizer-runner.js';
 export {
   runLedgerLinking,
   type LedgerLinkingPersistenceResult,

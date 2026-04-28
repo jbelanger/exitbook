@@ -3,6 +3,8 @@ import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
+import type { LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
+
 export const LEDGER_EXACT_HASH_TRANSFER_STRATEGY = 'exact_hash_transfer';
 
 export interface LedgerExactHashTransferMatch {
@@ -86,6 +88,24 @@ export function buildLedgerExactHashTransferRelationships(
     matches,
     relationships,
   });
+}
+
+export function buildLedgerExactHashTransferRecognizer(): LedgerDeterministicRecognizer<LedgerExactHashTransferRelationshipResult> {
+  return {
+    name: LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
+    recognize(candidates) {
+      const result = buildLedgerExactHashTransferRelationships(candidates);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      return ok({
+        consumedCandidateIds: collectExactHashConsumedCandidateIds(result.value.matches),
+        payload: result.value,
+        relationships: result.value.relationships,
+      });
+    },
+  };
 }
 
 export function ledgerTransactionHashesMatch(
@@ -403,6 +423,17 @@ function buildExactHashTransferMatch(pair: ExactHashPotentialPair): Result<Ledge
       },
     },
   });
+}
+
+function collectExactHashConsumedCandidateIds(matches: readonly LedgerExactHashTransferMatch[]): number[] {
+  const consumedCandidateIds = new Set<number>();
+
+  for (const match of matches) {
+    consumedCandidateIds.add(match.sourceCandidateId);
+    consumedCandidateIds.add(match.targetCandidateId);
+  }
+
+  return [...consumedCandidateIds].sort(compareNumbers);
 }
 
 function buildExactHashRelationshipStableKey(pair: ExactHashPotentialPair): string {
