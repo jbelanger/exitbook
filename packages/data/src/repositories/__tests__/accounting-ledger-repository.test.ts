@@ -756,6 +756,77 @@ describe('AccountingLedgerRepository', () => {
     expect(assertErr(result).message).toContain('Profile id must be a positive integer');
   });
 
+  it('replaces and loads profile-scoped ledger-linking asset identity assertions', async () => {
+    const firstReplacement = assertOk(
+      await repository.replaceLedgerLinkingAssetIdentityAssertions(1, [
+        {
+          assetIdA: 'exchange:kraken:eth',
+          assetIdB: 'blockchain:ethereum:native',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+
+    expect(firstReplacement).toEqual({
+      previousCount: 0,
+      savedCount: 1,
+    });
+    await expect(countRows('ledger_linking_asset_identity_assertions')).resolves.toBe(1);
+    expect(assertOk(await repository.findLedgerLinkingAssetIdentityAssertionsByProfileId(1))).toEqual([
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+
+    const secondReplacement = assertOk(
+      await repository.replaceLedgerLinkingAssetIdentityAssertions(1, [
+        {
+          assetIdA: 'exchange:coinbase:btc',
+          assetIdB: 'blockchain:bitcoin:native',
+          evidenceKind: 'seeded',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+
+    expect(secondReplacement).toEqual({
+      previousCount: 1,
+      savedCount: 1,
+    });
+    expect(assertOk(await repository.findLedgerLinkingAssetIdentityAssertionsByProfileId(1))).toEqual([
+      {
+        assetIdA: 'blockchain:bitcoin:native',
+        assetIdB: 'exchange:coinbase:btc',
+        evidenceKind: 'seeded',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+  });
+
+  it('rejects duplicate ledger-linking asset identity assertions after canonicalization', async () => {
+    const result = await repository.replaceLedgerLinkingAssetIdentityAssertions(1, [
+      {
+        assetIdA: 'exchange:kraken:eth',
+        assetIdB: 'blockchain:ethereum:native',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      },
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+
+    expect(assertErr(result).message).toContain('Duplicate ledger-linking asset identity assertion');
+    await expect(countRows('ledger_linking_asset_identity_assertions')).resolves.toBe(0);
+  });
+
   it('participates in an outer DataSession transaction', async () => {
     const session = new DataSession(db);
 
@@ -1151,6 +1222,7 @@ describe('AccountingLedgerRepository', () => {
       | 'accounting_postings'
       | 'accounting_posting_source_components'
       | 'accounting_journal_relationships'
+      | 'ledger_linking_asset_identity_assertions'
   ): Promise<number> {
     const row = await db
       .selectFrom(table)

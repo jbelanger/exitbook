@@ -33,6 +33,24 @@ export interface LedgerLinkingAssetIdentityResolver {
   resolve(params: LedgerLinkingAssetIdentityResolutionParams): LedgerLinkingAssetIdentityResolution;
 }
 
+export interface LedgerLinkingAssetIdentityAssertionReplacementResult {
+  previousCount: number;
+  savedCount: number;
+}
+
+export interface ILedgerLinkingAssetIdentityAssertionReader {
+  loadLedgerLinkingAssetIdentityAssertions(
+    profileId: number
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertion[], Error>>;
+}
+
+export interface ILedgerLinkingAssetIdentityAssertionStore {
+  replaceLedgerLinkingAssetIdentityAssertions(
+    profileId: number,
+    assertions: readonly LedgerLinkingAssetIdentityAssertion[]
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionReplacementResult, Error>>;
+}
+
 export interface LedgerLinkingAssetIdentityResolutionParams {
   relationshipKind: LedgerLinkingAssetIdentityAssertion['relationshipKind'];
   sourceAssetId: string;

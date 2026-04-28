@@ -1,4 +1,6 @@
 import type {
+  ILedgerLinkingAssetIdentityAssertionReader,
+  ILedgerLinkingAssetIdentityAssertionStore,
   ILedgerLinkingCandidateSourceReader,
   ILedgerLinkingRelationshipStore,
   LedgerLinkingRunPorts,
@@ -20,8 +22,27 @@ export function buildLedgerLinkingCandidateSourceReader(db: DataSession): ILedge
   };
 }
 
+export function buildLedgerLinkingAssetIdentityAssertionReader(
+  db: DataSession
+): ILedgerLinkingAssetIdentityAssertionReader {
+  return {
+    loadLedgerLinkingAssetIdentityAssertions: (profileId) =>
+      db.accountingLedger.findLedgerLinkingAssetIdentityAssertionsByProfileId(profileId),
+  };
+}
+
+export function buildLedgerLinkingAssetIdentityAssertionStore(
+  db: DataSession
+): ILedgerLinkingAssetIdentityAssertionStore {
+  return {
+    replaceLedgerLinkingAssetIdentityAssertions: (profileId, assertions) =>
+      db.accountingLedger.replaceLedgerLinkingAssetIdentityAssertions(profileId, assertions),
+  };
+}
+
 export function buildLedgerLinkingRunPorts(db: DataSession): LedgerLinkingRunPorts {
   return {
+    assetIdentityAssertionReader: buildLedgerLinkingAssetIdentityAssertionReader(db),
     candidateSourceReader: buildLedgerLinkingCandidateSourceReader(db),
     relationshipStore: buildLedgerLinkingRelationshipStore(db),
   };

@@ -2,6 +2,7 @@ import { err, ok, parseCurrency, parseDecimal } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
+import type { LedgerLinkingAssetIdentityAssertion } from '../../asset-identity/asset-identity-resolution.js';
 import type { LedgerLinkingPostingInput } from '../../candidates/candidate-construction.js';
 import type { LedgerLinkingRelationshipDraft } from '../../relationships/relationship-materialization.js';
 import { runLedgerLinking, type LedgerLinkingRunPorts } from '../ledger-linking-runner.js';
@@ -221,6 +222,63 @@ describe('runLedgerLinking', () => {
     expect(harness.savedRelationships).toEqual([[]]);
   });
 
+  it('uses accepted asset identity assertions to materialize exact-hash exchange-chain transfers', async () => {
+    const harness = makeHarness(
+      [
+        makePosting({
+          ownerAccountId: 1,
+          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+          journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+          postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+          quantity: '-1.25',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          assetId: 'exchange:kraken:eth',
+        }),
+        makePosting({
+          ownerAccountId: 2,
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          quantity: '1.25',
+          platformKey: 'ethereum',
+          platformKind: 'blockchain',
+          assetId: 'blockchain:ethereum:native',
+        }),
+      ],
+      {
+        assetIdentityAssertions: [
+          {
+            assetIdA: 'exchange:kraken:eth',
+            assetIdB: 'blockchain:ethereum:native',
+            evidenceKind: 'manual',
+            relationshipKind: 'internal_transfer',
+          },
+        ],
+      }
+    );
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.acceptedRelationships).toHaveLength(1);
+    expect(result.exactHashAssetIdentityBlocks).toEqual([]);
+    expect(result.exactHashMatches[0]).toMatchObject({
+      assetIdentityResolution: {
+        assertion: {
+          assetIdA: 'blockchain:ethereum:native',
+          assetIdB: 'exchange:kraken:eth',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+        reason: 'accepted_assertion',
+        status: 'accepted',
+      },
+      sourceAssetId: 'exchange:kraken:eth',
+      targetAssetId: 'blockchain:ethereum:native',
+    });
+    expect(harness.savedRelationships).toHaveLength(1);
+  });
+
   it('can preview accepted relationships without replacing persisted relationships', async () => {
     const harness = makeHarness(
       [
@@ -289,6 +347,7 @@ describe('runLedgerLinking', () => {
 });
 
 interface HarnessOptions {
+  assetIdentityAssertions?: readonly LedgerLinkingAssetIdentityAssertion[] | undefined;
   previousCount?: number | undefined;
   storeError?: Error | undefined;
 }
@@ -298,6 +357,11 @@ function makeHarness(postings: readonly LedgerLinkingPostingInput[], options: Ha
   const savedRelationships: LedgerLinkingRelationshipDraft[][] = [];
 
   const ports: LedgerLinkingRunPorts = {
+    assetIdentityAssertionReader: {
+      async loadLedgerLinkingAssetIdentityAssertions() {
+        return ok([...(options.assetIdentityAssertions ?? [])]);
+      },
+    },
     candidateSourceReader: {
       async loadLedgerLinkingPostingInputs(profileId) {
         loadedProfileIds.push(profileId);

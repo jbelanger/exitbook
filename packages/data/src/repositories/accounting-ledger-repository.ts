@@ -1,6 +1,10 @@
 /* eslint-disable unicorn/no-null -- repository contracts preserve nullable persistence semantics */
 import {
+  canonicalizeLedgerLinkingAssetIdentityPair,
+  LedgerLinkingAssetIdentityAssertionSchema,
   LedgerLinkingRelationshipDraftSchema,
+  type LedgerLinkingAssetIdentityAssertion,
+  type LedgerLinkingAssetIdentityAssertionReplacementResult,
   type LedgerLinkingPostingInput,
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipMaterializationResult,
@@ -28,6 +32,7 @@ import type {
   AccountingJournalRelationshipsTable,
   AccountingPostingsTable,
   AccountingPostingSourceComponentsTable,
+  LedgerLinkingAssetIdentityAssertionsTable,
   SourceActivitiesTable,
 } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
@@ -192,6 +197,53 @@ export class AccountingLedgerRepository extends BaseRepository {
       async (trx) => this.replaceLedgerLinkingRelationshipsInTransaction(trx as KyselyDB, profileId, relationships),
       'Failed to replace ledger-linking relationships'
     );
+  }
+
+  async replaceLedgerLinkingAssetIdentityAssertions(
+    profileId: number,
+    assertions: readonly LedgerLinkingAssetIdentityAssertion[]
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionReplacementResult, Error>> {
+    if (this.transactionScoped) {
+      return this.replaceLedgerLinkingAssetIdentityAssertionsInTransaction(this.db, profileId, assertions);
+    }
+
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) =>
+        this.replaceLedgerLinkingAssetIdentityAssertionsInTransaction(trx as KyselyDB, profileId, assertions),
+      'Failed to replace ledger-linking asset identity assertions'
+    );
+  }
+
+  async findLedgerLinkingAssetIdentityAssertionsByProfileId(
+    profileId: number
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertion[], Error>> {
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+    }
+
+    try {
+      const rows = await this.db
+        .selectFrom('ledger_linking_asset_identity_assertions')
+        .select(['asset_id_a', 'asset_id_b', 'evidence_kind', 'relationship_kind'])
+        .where('profile_id', '=', profileId)
+        .orderBy('relationship_kind', 'asc')
+        .orderBy('asset_id_a', 'asc')
+        .orderBy('asset_id_b', 'asc')
+        .execute();
+
+      return ok(
+        rows.map((row) => ({
+          assetIdA: row.asset_id_a,
+          assetIdB: row.asset_id_b,
+          evidenceKind: row.evidence_kind,
+          relationshipKind: row.relationship_kind,
+        }))
+      );
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   async findPostingsByOwnerAccountIds(
@@ -423,6 +475,47 @@ export class AccountingLedgerRepository extends BaseRepository {
     }
   }
 
+  private async replaceLedgerLinkingAssetIdentityAssertionsInTransaction(
+    db: KyselyDB,
+    profileId: number,
+    assertions: readonly LedgerLinkingAssetIdentityAssertion[]
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionReplacementResult, Error>> {
+    const validationResult = await validateLedgerLinkingAssetIdentityAssertionReplacement(db, profileId, assertions);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+
+    try {
+      const previous = await db
+        .selectFrom('ledger_linking_asset_identity_assertions')
+        .select(({ fn }) => [fn.count<number>('id').as('count')])
+        .where('profile_id', '=', profileId)
+        .executeTakeFirst();
+      const previousCount = previous?.count ?? 0;
+
+      await db.deleteFrom('ledger_linking_asset_identity_assertions').where('profile_id', '=', profileId).execute();
+
+      if (validationResult.value.length > 0) {
+        const now = new Date().toISOString();
+        await db
+          .insertInto('ledger_linking_asset_identity_assertions')
+          .values(
+            validationResult.value.map((assertion) =>
+              toLedgerLinkingAssetIdentityAssertionRow(profileId, assertion, now)
+            )
+          )
+          .execute();
+      }
+
+      return ok({
+        previousCount,
+        savedCount: validationResult.value.length,
+      });
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
   private async replaceForSourceActivityInTransaction(
     db: KyselyDB,
     params: ReplaceAccountingLedgerParams
@@ -599,6 +692,60 @@ async function validateLedgerLinkingRelationshipReplacement(
   }
 
   return ok(undefined);
+}
+
+async function validateLedgerLinkingAssetIdentityAssertionReplacement(
+  db: KyselyDB,
+  profileId: number,
+  assertions: readonly LedgerLinkingAssetIdentityAssertion[]
+): Promise<Result<LedgerLinkingAssetIdentityAssertion[], Error>> {
+  if (!Number.isInteger(profileId) || profileId <= 0) {
+    return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+  }
+
+  const profileExists = await doesProfileExist(db, profileId);
+  if (!profileExists) {
+    return err(new Error(`Cannot replace ledger-linking asset identity assertions for missing profile ${profileId}`));
+  }
+
+  const canonicalAssertions: LedgerLinkingAssetIdentityAssertion[] = [];
+  const assertionKeys = new Set<string>();
+  for (const assertion of assertions) {
+    const validation = LedgerLinkingAssetIdentityAssertionSchema.safeParse(assertion);
+    if (!validation.success) {
+      return err(new Error(`Invalid ledger-linking asset identity assertion: ${validation.error.message}`));
+    }
+
+    const canonicalPair = canonicalizeLedgerLinkingAssetIdentityPair(
+      validation.data.assetIdA,
+      validation.data.assetIdB
+    );
+    if (canonicalPair.isErr()) {
+      return err(canonicalPair.error);
+    }
+
+    const canonicalAssertion: LedgerLinkingAssetIdentityAssertion = {
+      ...validation.data,
+      ...canonicalPair.value,
+    };
+    const assertionKey = [
+      canonicalAssertion.relationshipKind,
+      canonicalAssertion.assetIdA,
+      canonicalAssertion.assetIdB,
+    ].join('\0');
+    if (assertionKeys.has(assertionKey)) {
+      return err(
+        new Error(
+          `Duplicate ledger-linking asset identity assertion for ${canonicalAssertion.relationshipKind}: ${canonicalAssertion.assetIdA} <-> ${canonicalAssertion.assetIdB}`
+        )
+      );
+    }
+
+    assertionKeys.add(assertionKey);
+    canonicalAssertions.push(canonicalAssertion);
+  }
+
+  return ok(canonicalAssertions);
 }
 
 async function doesProfileExist(db: KyselyDB, profileId: number): Promise<boolean> {
@@ -1228,6 +1375,22 @@ function toLedgerLinkingRelationshipRow(
     target_posting_fingerprint: targetEndpoint.postingFingerprint ?? null,
     relationship_stable_key: relationship.relationshipStableKey,
     relationship_kind: relationship.relationshipKind,
+    created_at: now,
+    updated_at: null,
+  };
+}
+
+function toLedgerLinkingAssetIdentityAssertionRow(
+  profileId: number,
+  assertion: LedgerLinkingAssetIdentityAssertion,
+  now: string
+): Insertable<LedgerLinkingAssetIdentityAssertionsTable> {
+  return {
+    profile_id: profileId,
+    relationship_kind: assertion.relationshipKind,
+    asset_id_a: assertion.assetIdA,
+    asset_id_b: assertion.assetIdB,
+    evidence_kind: assertion.evidenceKind,
     created_at: now,
     updated_at: null,
   };

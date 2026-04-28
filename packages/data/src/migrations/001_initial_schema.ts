@@ -544,6 +544,42 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await ensureLedgerResetPerformanceIndexes(db);
 
   await db.schema
+    .createTable('ledger_linking_asset_identity_assertions')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id'))
+    .addColumn('relationship_kind', 'text', (col) => col.notNull())
+    .addColumn('asset_id_a', 'text', (col) => col.notNull())
+    .addColumn('asset_id_b', 'text', (col) => col.notNull())
+    .addColumn('evidence_kind', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'ledger_linking_asset_identity_assertions_relationship_kind_valid',
+      sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration')`
+    )
+    .addCheckConstraint(
+      'ledger_linking_asset_identity_assertions_asset_ids_not_empty',
+      sql`trim(asset_id_a) <> '' AND trim(asset_id_b) <> ''`
+    )
+    .addCheckConstraint('ledger_linking_asset_identity_assertions_asset_ids_canonical', sql`asset_id_a < asset_id_b`)
+    .addCheckConstraint(
+      'ledger_linking_asset_identity_assertions_evidence_kind_valid',
+      sql`evidence_kind IN ('manual', 'seeded', 'exact_hash_observed')`
+    )
+    .execute();
+
+  await db.schema
+    .createIndex('idx_ledger_linking_asset_identity_assertions_profile_kind')
+    .on('ledger_linking_asset_identity_assertions')
+    .columns(['profile_id', 'relationship_kind'])
+    .execute();
+
+  await sql`
+    CREATE UNIQUE INDEX idx_ledger_linking_asset_identity_assertions_unique
+    ON ledger_linking_asset_identity_assertions(profile_id, relationship_kind, asset_id_a, asset_id_b)
+  `.execute(db);
+
+  await db.schema
     .createTable('accounting_overrides')
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id'))
@@ -1420,6 +1456,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('cost_basis_snapshots').ifExists().execute();
   await db.schema.dropTable('projection_state').execute();
   await db.schema.dropTable('accounting_overrides').ifExists().execute();
+  await db.schema.dropTable('ledger_linking_asset_identity_assertions').ifExists().execute();
   await db.schema.dropTable('accounting_journal_relationships').ifExists().execute();
   await db.schema.dropTable('accounting_posting_source_components').ifExists().execute();
   await db.schema.dropTable('accounting_postings').ifExists().execute();

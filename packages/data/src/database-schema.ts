@@ -7,6 +7,7 @@ import type {
   AccountingIssueSeverity,
   StoredAccountingIssueRowStatus,
 } from '@exitbook/accounting/issues';
+import type { LedgerLinkingAssetIdentityEvidenceKind } from '@exitbook/accounting/ledger-linking';
 import type {
   AssetReviewEvidence,
   AssetReferenceStatus,
@@ -252,6 +253,20 @@ export interface AccountingJournalRelationshipsTable {
   target_posting_fingerprint: string | null;
   relationship_stable_key: string;
   relationship_kind: AccountingJournalRelationshipKind;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+/**
+ * Accepted asset identity assertions used by ledger-linking only.
+ */
+export interface LedgerLinkingAssetIdentityAssertionsTable {
+  id: Generated<number>;
+  profile_id: number; // FK to profiles.id
+  relationship_kind: AccountingJournalRelationshipKind;
+  asset_id_a: string;
+  asset_id_b: string;
+  evidence_kind: LedgerLinkingAssetIdentityEvidenceKind;
   created_at: DateTime;
   updated_at: DateTime | null;
 }
@@ -598,6 +613,7 @@ export interface DatabaseSchema {
   accounting_postings: AccountingPostingsTable;
   accounting_posting_source_components: AccountingPostingSourceComponentsTable;
   accounting_journal_relationships: AccountingJournalRelationshipsTable;
+  ledger_linking_asset_identity_assertions: LedgerLinkingAssetIdentityAssertionsTable;
   accounting_overrides: AccountingOverridesTable;
   transaction_raw_bindings: TransactionRawBindingsTable;
   transaction_movements: TransactionMovementsTable;

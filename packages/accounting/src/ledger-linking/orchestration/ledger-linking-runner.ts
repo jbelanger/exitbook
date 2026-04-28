@@ -1,6 +1,10 @@
 import { err, ok, type Result } from '@exitbook/foundation';
 
 import {
+  buildLedgerLinkingAssetIdentityResolver,
+  type ILedgerLinkingAssetIdentityAssertionReader,
+} from '../asset-identity/asset-identity-resolution.js';
+import {
   buildLedgerTransferLinkingCandidates,
   type ILedgerLinkingCandidateSourceReader,
   type LedgerLinkingCandidateSkip,
@@ -24,6 +28,7 @@ import type {
 } from '../relationships/relationship-materialization.js';
 
 export interface LedgerLinkingRunPorts {
+  assetIdentityAssertionReader: ILedgerLinkingAssetIdentityAssertionReader;
   candidateSourceReader: ILedgerLinkingCandidateSourceReader;
   relationshipStore: ILedgerLinkingRelationshipStore;
 }
@@ -90,8 +95,21 @@ export async function runLedgerLinking(
     return err(candidateBuildResult.error);
   }
 
+  const assetIdentityAssertionsResult =
+    await ports.assetIdentityAssertionReader.loadLedgerLinkingAssetIdentityAssertions(profileId);
+  if (assetIdentityAssertionsResult.isErr()) {
+    return err(assetIdentityAssertionsResult.error);
+  }
+
+  const assetIdentityResolverResult = buildLedgerLinkingAssetIdentityResolver(assetIdentityAssertionsResult.value);
+  if (assetIdentityResolverResult.isErr()) {
+    return err(assetIdentityResolverResult.error);
+  }
+
   const { candidates, skipped } = candidateBuildResult.value;
-  const deterministicResult = runLedgerDeterministicRecognizers(candidates, [buildLedgerExactHashTransferRecognizer()]);
+  const deterministicResult = runLedgerDeterministicRecognizers(candidates, [
+    buildLedgerExactHashTransferRecognizer(assetIdentityResolverResult.value),
+  ]);
   if (deterministicResult.isErr()) {
     return err(deterministicResult.error);
   }

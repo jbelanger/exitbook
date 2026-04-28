@@ -6,6 +6,8 @@ export { buildCostBasisArtifactFreshnessPorts } from './accounting/cost-basis-ar
 export { buildCostBasisPorts } from './accounting/cost-basis-ports.js';
 export { buildCostBasisResetPorts } from './accounting/cost-basis-reset.js';
 export {
+  buildLedgerLinkingAssetIdentityAssertionReader,
+  buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingCandidateSourceReader,
   buildLedgerLinkingRelationshipStore,
   buildLedgerLinkingRunPorts,
