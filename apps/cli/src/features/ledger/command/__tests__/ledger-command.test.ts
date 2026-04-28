@@ -22,7 +22,9 @@ describe('registerLedgerCommand', () => {
     expect(ledgerCommand?.description()).toBe('Inspect, validate, and run accounting ledger migration workflows');
     expect(linkingV2Command?.description()).toBe('Run ledger-native relationship linking migration commands');
     expect(linkingV2RunCommand?.description()).toBe('Run ledger-linking v2 for the active profile');
-    expect(linkingV2RunCommand?.options.map((option) => option.long)).toEqual(expect.arrayContaining(['--json']));
+    expect(linkingV2RunCommand?.options.map((option) => option.long)).toEqual(
+      expect.arrayContaining(['--dry-run', '--json'])
+    );
     expect(stressCommand?.description()).toBe('Run repeatable ledger migration stress checks');
     expect(evmFamilyCommand?.description()).toBe(
       'Rerun EVM-family ledger-v2 processors and compare against legacy balance impact'

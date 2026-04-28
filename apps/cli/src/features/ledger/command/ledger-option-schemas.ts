@@ -28,4 +28,6 @@ export const XrpLedgerStressCommandOptionsSchema = OptionalBareAccountSelectorSc
   expectedDiffs: z.string().trim().min(1).optional(),
 });
 
-export const LedgerLinkingV2RunCommandOptionsSchema = JsonFlagSchema;
+export const LedgerLinkingV2RunCommandOptionsSchema = JsonFlagSchema.extend({
+  dryRun: z.boolean().optional(),
+});

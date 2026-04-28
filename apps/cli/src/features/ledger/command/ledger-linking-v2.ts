@@ -38,28 +38,31 @@ export function registerLedgerLinkingV2Command(ledgerCommand: Command, appRuntim
       `
 Examples:
   $ exitbook ledger linking-v2 run
+  $ exitbook ledger linking-v2 run --dry-run
   $ exitbook ledger linking-v2 run --json
 
 Notes:
   - This is the ledger-native v2 path, not legacy transaction link proposal review.
-  - Use "ledger linking-v2 run" to materialize accepted accounting journal relationships.
+  - Use "ledger linking-v2 run --dry-run" to preview accepted relationships before writing them.
 `
     );
 
   linkingV2
     .command('run')
     .description('Run ledger-linking v2 for the active profile')
+    .option('--dry-run', 'Preview accepted relationships without writing them')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook ledger linking-v2 run
+  $ exitbook ledger linking-v2 run --dry-run
   $ exitbook ledger linking-v2 run --json
 
 Notes:
   - Non-TUI command.
-  - Persists accepted ledger-linking relationships only.
+  - Persists accepted ledger-linking relationships only unless --dry-run is set.
   - Does not create legacy transaction links, proposals, or gap issues.
 `
     )
@@ -88,7 +91,9 @@ async function executePreparedLedgerLinkingV2RunCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database)),
+      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+        dryRun: prepared.dryRun === true,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const output: LedgerLinkingV2RunOutput = {
@@ -111,6 +116,7 @@ function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void 
   const { profile, run } = output;
 
   console.log('Ledger linking v2 completed.');
+  console.log(`Mode: ${run.persistence.mode === 'dry_run' ? 'dry run' : 'persisted'}`);
   console.log(`Profile: ${profile.profileKey} (#${profile.id})`);
   console.log(`Posting inputs: ${run.postingInputCount}`);
   console.log(
@@ -120,7 +126,14 @@ function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void 
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
+
+  if (run.persistence.mode === 'dry_run') {
+    console.log(`Planned materialization: ${run.persistence.plannedRelationshipCount} relationship(s)`);
+    return;
+  }
+
+  const materialization = run.persistence.materialization;
   console.log(
-    `Materialized: ${run.materialization.savedCount} saved, ${run.materialization.previousCount} replaced, ${run.materialization.resolvedEndpointCount} endpoint refs resolved`
+    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedEndpointCount} endpoint refs resolved`
   );
 }

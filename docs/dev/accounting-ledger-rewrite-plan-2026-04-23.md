@@ -827,8 +827,8 @@ origin, stable endpoint fingerprints, and nullable current endpoint ids. The
 ledger-native relationship materialization boundary, candidate input read port,
 first exact-hash deterministic matcher, and runner orchestration boundary are
 also in place. A simple non-TUI `ledger linking-v2 run` command now invokes the
-runner for the active profile. Persisted gaps are deferred until the linking
-model is finalized.
+runner for the active profile, with `--dry-run` preview support. Persisted gaps
+are deferred until the linking model is finalized.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -892,7 +892,9 @@ First implementation slices:
    posting inputs, builds transfer candidates, runs deterministic recognizers, and
    materializes accepted relationships only.
 9. Complete. Add a simple non-TUI `ledger linking-v2 run` command that invokes
-   the runner without adding proposals or gap persistence.
+   the runner without adding proposals or gap persistence. Include `--dry-run`
+   so candidate recognition can be reviewed before replacing persisted
+   ledger-linking relationships.
 10. Next. Decide whether this command should remain migration-only or become
     part of a broader links workflow after the relationship model proves stable.
 11. Then persist ledger-native unresolved gaps and surface them through

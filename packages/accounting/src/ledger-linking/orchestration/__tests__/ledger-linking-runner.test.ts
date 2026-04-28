@@ -54,11 +54,14 @@ describe('runLedgerLinking', () => {
     ]);
     expect(result.exactHashAmbiguities).toEqual([]);
     expect(result.exactHashMatches).toHaveLength(1);
-    expect(result.materialization).toEqual({
-      previousCount: 0,
-      resolvedEndpointCount: 2,
-      savedCount: 1,
-      unresolvedEndpointCount: 0,
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
+        resolvedEndpointCount: 2,
+        savedCount: 1,
+        unresolvedEndpointCount: 0,
+      },
     });
     expect(harness.savedRelationships).toEqual([
       [
@@ -120,13 +123,43 @@ describe('runLedgerLinking', () => {
       },
     ]);
     expect(result.acceptedRelationships).toEqual([]);
-    expect(result.materialization).toEqual({
-      previousCount: 2,
-      resolvedEndpointCount: 0,
-      savedCount: 0,
-      unresolvedEndpointCount: 0,
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 2,
+        resolvedEndpointCount: 0,
+        savedCount: 0,
+        unresolvedEndpointCount: 0,
+      },
     });
     expect(harness.savedRelationships).toEqual([[]]);
+  });
+
+  it('can preview accepted relationships without replacing persisted relationships', async () => {
+    const harness = makeHarness(
+      [
+        makePosting({ ownerAccountId: 1, quantity: '-1' }),
+        makePosting({
+          ownerAccountId: 2,
+          sourceActivityFingerprint: 'source_activity:v1:target',
+          journalFingerprint: 'ledger_journal:v1:target',
+          postingFingerprint: 'ledger_posting:v1:target',
+          quantity: '1',
+        }),
+      ],
+      {
+        previousCount: 5,
+      }
+    );
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports, { dryRun: true }));
+
+    expect(result.acceptedRelationships).toHaveLength(1);
+    expect(result.persistence).toEqual({
+      mode: 'dry_run',
+      plannedRelationshipCount: 1,
+    });
+    expect(harness.savedRelationships).toEqual([]);
   });
 
   it('returns persistence failures without swallowing them', async () => {

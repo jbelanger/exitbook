@@ -92,7 +92,7 @@ describe('ledger linking-v2 command', () => {
 
     expect(mockResolveCommandProfile).toHaveBeenCalledWith(mockCtx, { tag: 'db' });
     expect(mockBuildLedgerLinkingRunPorts).toHaveBeenCalledWith({ tag: 'db' });
-    expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' });
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: false });
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('ledger-linking-v2-run');
     const output = mockOutputSuccess.mock.calls[0]?.[1] as unknown as {
@@ -116,8 +116,28 @@ describe('ledger linking-v2 command', () => {
 
     expect(mockOutputSuccess).not.toHaveBeenCalled();
     expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking v2 completed.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
+  });
+
+  it('passes dry-run mode through and prints planned materialization', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        persistence: {
+          mode: 'dry_run',
+          plannedRelationshipCount: 1,
+        },
+      })
+    );
+
+    await program.parseAsync(['ledger', 'linking-v2', 'run', '--dry-run'], { from: 'user' });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Planned materialization: 1 relationship(s)');
   });
 
   it('routes run failures through the shared CLI boundary', async () => {
@@ -192,11 +212,14 @@ function makeRunResult() {
         },
       },
     ],
-    materialization: {
-      previousCount: 0,
-      savedCount: 1,
-      resolvedEndpointCount: 2,
-      unresolvedEndpointCount: 0,
+    persistence: {
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
+        savedCount: 1,
+        resolvedEndpointCount: 2,
+        unresolvedEndpointCount: 0,
+      },
     },
   };
 }

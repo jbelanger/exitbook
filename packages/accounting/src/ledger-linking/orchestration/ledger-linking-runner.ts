@@ -21,6 +21,20 @@ export interface LedgerLinkingRunPorts {
   relationshipStore: ILedgerLinkingRelationshipStore;
 }
 
+export interface LedgerLinkingRunOptions {
+  dryRun?: boolean | undefined;
+}
+
+export type LedgerLinkingPersistenceResult =
+  | {
+      mode: 'dry_run';
+      plannedRelationshipCount: number;
+    }
+  | {
+      materialization: LedgerLinkingRelationshipMaterializationResult;
+      mode: 'persisted';
+    };
+
 export interface LedgerLinkingRunResult {
   postingInputCount: number;
   transferCandidateCount: number;
@@ -30,12 +44,13 @@ export interface LedgerLinkingRunResult {
   exactHashMatches: readonly LedgerExactHashTransferMatch[];
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
-  materialization: LedgerLinkingRelationshipMaterializationResult;
+  persistence: LedgerLinkingPersistenceResult;
 }
 
 export async function runLedgerLinking(
   profileId: number,
-  ports: LedgerLinkingRunPorts
+  ports: LedgerLinkingRunPorts,
+  options: LedgerLinkingRunOptions = {}
 ): Promise<Result<LedgerLinkingRunResult, Error>> {
   if (!Number.isInteger(profileId) || profileId <= 0) {
     return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
@@ -57,12 +72,14 @@ export async function runLedgerLinking(
     return err(exactHashResult.error);
   }
 
-  const materializationResult = await ports.relationshipStore.replaceLedgerLinkingRelationships(
+  const persistenceResult = await resolvePersistenceResult(
     profileId,
-    exactHashResult.value.relationships
+    ports,
+    exactHashResult.value.relationships,
+    options
   );
-  if (materializationResult.isErr()) {
-    return err(materializationResult.error);
+  if (persistenceResult.isErr()) {
+    return err(persistenceResult.error);
   }
 
   return ok({
@@ -74,6 +91,33 @@ export async function runLedgerLinking(
     exactHashMatches: exactHashResult.value.matches,
     exactHashAmbiguities: exactHashResult.value.ambiguities,
     acceptedRelationships: exactHashResult.value.relationships,
+    persistence: persistenceResult.value,
+  });
+}
+
+async function resolvePersistenceResult(
+  profileId: number,
+  ports: LedgerLinkingRunPorts,
+  relationships: readonly LedgerLinkingRelationshipDraft[],
+  options: LedgerLinkingRunOptions
+): Promise<Result<LedgerLinkingPersistenceResult, Error>> {
+  if (options.dryRun === true) {
+    return ok({
+      mode: 'dry_run',
+      plannedRelationshipCount: relationships.length,
+    });
+  }
+
+  const materializationResult = await ports.relationshipStore.replaceLedgerLinkingRelationships(
+    profileId,
+    relationships
+  );
+  if (materializationResult.isErr()) {
+    return err(materializationResult.error);
+  }
+
+  return ok({
+    mode: 'persisted',
     materialization: materializationResult.value,
   });
 }
