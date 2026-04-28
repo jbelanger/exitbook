@@ -5,6 +5,7 @@ import type { BlockchainAdapter } from '../../../shared/types/blockchain-adapter
 
 import { normalizeSubstrateAddress } from './address-utils.js';
 import { SubstrateImporter } from './importer.js';
+import { SubstrateProcessorV2 } from './processor-v2.js';
 import { SubstrateProcessor } from './processor.js';
 
 export const substrateAdapters: BlockchainAdapter[] = Object.keys(SUBSTRATE_CHAINS).flatMap((chainName) => {
@@ -23,6 +24,8 @@ export const substrateAdapters: BlockchainAdapter[] = Object.keys(SUBSTRATE_CHAI
       }),
 
     createProcessor: ({ scamDetector }) => new SubstrateProcessor(config, scamDetector),
+
+    createLedgerProcessor: () => new SubstrateProcessorV2(config),
   };
 
   return [adapter];

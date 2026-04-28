@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-27
+last_verified: 2026-04-28
 status: active
 ---
 
@@ -316,7 +316,8 @@ Parallel ledger processing:
 
 - `ProcessingWorkflow` can run legacy processors and ledger-v2 processors in
   parallel.
-- Cardano, Bitcoin, EVM, Theta, and Cosmos register ledger-v2 processors.
+- Cardano, Bitcoin, EVM, Theta, Cosmos, NEAR, and Substrate register ledger-v2
+  processors.
 - Ledger-v2 failures fail the batch for v2-enabled chains.
 - Consumers still read legacy processed transactions.
 
@@ -338,6 +339,18 @@ Processor evidence:
   v1 parity on enabled corpora, but is deferred until opening-state analysis
   makes its reconciliation story complete. Do not use Cosmos as a reference
   baseline before then.
+- Substrate covers native transfer flows, fee-only failed transactions, staking
+  rewards, Polkadot staking lifecycle transitions across liquid, staked, and
+  unbonding categories, and Bittensor TAO native rao normalization. Imported
+  corpus validation passed for the user's Bittensor account: 5 raw rows, 5
+  legacy transactions, 5 ledger source activities, 5 journals, 5 postings, zero
+  v1-v2 balance diffs, and zero v2-live diffs against `5.59792811` TAO.
+  Imported corpus validation also passed for the user's Polkadot account: 2 raw
+  rows, 2 legacy transactions, 2 ledger source activities, 2 journals, 3
+  postings, zero v1-v2 balance diffs, and zero v2-live diffs against `0` DOT.
+  The current v2 port is native-asset-only and fails fast on non-native assets
+  until providers expose stable token identity for Asset Hub and parachain
+  assets.
 - Kraken covers exchange provider-event grouping, exchange source activities,
   trade/transfer/refund journals, fill and fee component refs, dust sweeping,
   one-sided trade residuals, transfer reversal skips, and full imported-corpus
@@ -950,7 +963,10 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
-- The remaining provider-v2 queue is Solana, Substrate, and XRP.
+- The remaining provider-v2 queue is Solana and XRP.
+- Substrate ledger-v2 is complete for the current migration gate with Polkadot
+  as the native staking proof and Bittensor as the TAO decimal/provider proof.
+  Keep the processor generic across Substrate chains, not Polkadot-only.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
 - Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`
@@ -985,6 +1001,10 @@ Smells to watch:
   rename it before the migration is considered complete.
 - Cross-source relationships need a dedicated materialization path before
   consumer cutover.
+- Substrate ledger-v2 currently materializes native assets only. Asset Hub,
+  parachain tokens, and richer batch/proxy/multisig decomposition need provider
+  token/event identity before they should be treated as complete accounting
+  facts.
 - `tokenType: "native"` is too vague for arbitrary Cosmos SDK bank denoms;
   prefer a future `bank_denom` or `sdk_denom` classification when token
   metadata is revisited.
