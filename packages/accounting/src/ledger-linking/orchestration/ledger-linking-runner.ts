@@ -37,6 +37,12 @@ export interface LedgerLinkingRunOptions {
   dryRun?: boolean | undefined;
 }
 
+export interface LedgerLinkingDeterministicRecognizerStats {
+  consumedCandidateCount: number;
+  name: string;
+  relationshipCount: number;
+}
+
 export type LedgerLinkingPersistenceResult =
   | {
       mode: 'dry_run';
@@ -49,6 +55,7 @@ export type LedgerLinkingPersistenceResult =
 
 export interface LedgerLinkingRunResult {
   acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
+  deterministicRecognizerStats: readonly LedgerLinkingDeterministicRecognizerStats[];
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
   exactHashMatches: readonly LedgerExactHashTransferMatch[];
@@ -108,6 +115,7 @@ export async function runLedgerLinking(
 
   return ok({
     acceptedRelationships: deterministicResult.value.relationships,
+    deterministicRecognizerStats: deterministicResult.value.runs.map(toDeterministicRecognizerStats),
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
     exactHashMatches: exactHashResult.matches,
@@ -133,6 +141,16 @@ function findExactHashRun(
   }
 
   return ok(run);
+}
+
+function toDeterministicRecognizerStats(
+  run: LedgerDeterministicRecognizerRun<unknown>
+): LedgerLinkingDeterministicRecognizerStats {
+  return {
+    consumedCandidateCount: run.consumedCandidateIds.length,
+    name: run.name,
+    relationshipCount: run.relationshipCount,
+  };
 }
 
 function countTransferCandidatesByDirection(candidates: readonly LedgerTransferCandidateDirection[]): {

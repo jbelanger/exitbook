@@ -128,6 +128,12 @@ function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void 
   console.log(
     `Unmatched candidates: ${run.unmatchedSourceCandidateCount} source, ${run.unmatchedTargetCandidateCount} target`
   );
+  console.log(`Deterministic recognizers: ${run.deterministicRecognizerStats.length}`);
+  for (const stats of run.deterministicRecognizerStats) {
+    console.log(
+      `  ${stats.name}: ${stats.relationshipCount} relationship(s), ${stats.consumedCandidateCount} candidate(s)`
+    );
+  }
   console.log(`Accepted relationships: ${run.acceptedRelationships.length}`);
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);

@@ -41,6 +41,13 @@ describe('runLedgerLinking', () => {
     const result = assertOk(await runLedgerLinking(1, harness.ports));
 
     expect(result).toMatchObject({
+      deterministicRecognizerStats: [
+        {
+          consumedCandidateCount: 2,
+          name: 'exact_hash_transfer',
+          relationshipCount: 1,
+        },
+      ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 1,
       postingInputCount: 3,
@@ -120,6 +127,13 @@ describe('runLedgerLinking', () => {
 
     expect(result.exactHashMatches).toEqual([]);
     expect(result).toMatchObject({
+      deterministicRecognizerStats: [
+        {
+          consumedCandidateCount: 0,
+          name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+      ],
       matchedSourceCandidateCount: 0,
       matchedTargetCandidateCount: 0,
       unmatchedSourceCandidateCount: 1,

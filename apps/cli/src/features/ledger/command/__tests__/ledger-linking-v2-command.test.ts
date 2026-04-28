@@ -119,6 +119,8 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  exact_hash_transfer: 1 relationship(s), 2 candidate(s)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
@@ -175,6 +177,13 @@ function makeRunResult() {
           journalFingerprint: 'ledger_journal:v1:target',
           postingFingerprint: 'ledger_posting:v1:target',
         },
+      },
+    ],
+    deterministicRecognizerStats: [
+      {
+        consumedCandidateCount: 2,
+        name: 'exact_hash_transfer',
+        relationshipCount: 1,
       },
     ],
     exactHashAmbiguities: [],

@@ -26,6 +26,7 @@ export {
 } from './ledger-linking/matching/deterministic-recognizer-runner.js';
 export {
   runLedgerLinking,
+  type LedgerLinkingDeterministicRecognizerStats,
   type LedgerLinkingPersistenceResult,
   type LedgerLinkingRunOptions,
   type LedgerLinkingRunPorts,
