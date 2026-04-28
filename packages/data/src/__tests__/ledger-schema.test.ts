@@ -34,6 +34,8 @@ describe('ledger schema draft', () => {
     const relationshipIndexes = await listTableIndexNames('accounting_journal_relationships');
     expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_source_posting_id');
     expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_target_posting_id');
+    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_source_posting_fingerprint');
+    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_target_posting_fingerprint');
   });
 
   it('persists the draft ledger table chain', async () => {
@@ -204,10 +206,18 @@ describe('ledger schema draft', () => {
     await db
       .insertInto('accounting_journal_relationships')
       .values({
+        profile_id: 1,
+        relationship_origin: 'processor',
         source_journal_id: 1,
         target_journal_id: 2,
         source_posting_id: 1,
         target_posting_id: 2,
+        source_activity_fingerprint: 'source_activity:v1:1',
+        target_activity_fingerprint: 'source_activity:v1:1',
+        source_journal_fingerprint: 'ledger_journal:v1:source',
+        target_journal_fingerprint: 'ledger_journal:v1:target',
+        source_posting_fingerprint: 'ledger_posting:v1:source',
+        target_posting_fingerprint: 'ledger_posting:v1:target',
         relationship_stable_key: 'relationship:1',
         relationship_kind: 'internal_transfer',
         created_at: '2026-04-23T00:00:00.000Z',

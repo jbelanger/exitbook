@@ -15,4 +15,16 @@ export async function ensureLedgerResetPerformanceIndexes<Schema>(db: Kysely<Sch
     CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_target_posting_id
     ON accounting_journal_relationships(target_posting_id)
   `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_source_posting_fingerprint
+    ON accounting_journal_relationships(source_posting_fingerprint)
+    WHERE source_posting_fingerprint IS NOT NULL
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_target_posting_fingerprint
+    ON accounting_journal_relationships(target_posting_fingerprint)
+    WHERE target_posting_fingerprint IS NOT NULL
+  `.execute(db);
 }

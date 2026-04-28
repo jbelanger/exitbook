@@ -42,6 +42,7 @@ import type { AnnotationKind, AnnotationRole, AnnotationTier } from '@exitbook/t
 export type DecimalString = ColumnType<string, string, string>; // Keep TEXT for financial precision
 export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 strings: '2024-03-15T10:30:00.000Z'
 export type JSONString = ColumnType<unknown, string, string>;
+export type AccountingJournalRelationshipOrigin = 'processor' | 'ledger_linking';
 
 /**
  * Profiles table - tracks local ownership scopes for accounts
@@ -237,10 +238,18 @@ export interface AccountingPostingSourceComponentsTable {
  */
 export interface AccountingJournalRelationshipsTable {
   id: Generated<number>;
-  source_journal_id: number; // FK to accounting_journals.id
-  target_journal_id: number; // FK to accounting_journals.id
-  source_posting_id: number | null; // FK to accounting_postings.id
-  target_posting_id: number | null; // FK to accounting_postings.id
+  profile_id: number; // FK to profiles.id
+  relationship_origin: AccountingJournalRelationshipOrigin;
+  source_journal_id: number | null; // Current FK to accounting_journals.id, nullable when stale
+  target_journal_id: number | null; // Current FK to accounting_journals.id, nullable when stale
+  source_posting_id: number | null; // Current FK to accounting_postings.id, nullable when stale or journal-level
+  target_posting_id: number | null; // Current FK to accounting_postings.id, nullable when stale or journal-level
+  source_activity_fingerprint: string;
+  target_activity_fingerprint: string;
+  source_journal_fingerprint: string;
+  target_journal_fingerprint: string;
+  source_posting_fingerprint: string | null;
+  target_posting_fingerprint: string | null;
   relationship_stable_key: string;
   relationship_kind: AccountingJournalRelationshipKind;
   created_at: DateTime;

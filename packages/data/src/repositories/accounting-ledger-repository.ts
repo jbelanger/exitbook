@@ -19,6 +19,7 @@ import { Decimal } from 'decimal.js';
 
 import type {
   AccountingJournalDiagnosticsTable,
+  AccountingJournalRelationshipsTable,
   AccountingPostingsTable,
   AccountingPostingSourceComponentsTable,
   SourceActivitiesTable,
@@ -138,33 +139,29 @@ export class AccountingLedgerRepository extends BaseRepository {
   }
 
   async deleteSourceActivitiesByOwnerAccountIds(ownerAccountIds: readonly number[]): Promise<Result<number, Error>> {
-    try {
-      if (ownerAccountIds.length === 0) {
-        return ok(0);
-      }
-
-      let deletedCount = 0;
-      for (const ownerAccountIdBatch of chunkItems([...ownerAccountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
-        const result = await this.db
-          .deleteFrom('source_activities')
-          .where('owner_account_id', 'in', ownerAccountIdBatch)
-          .executeTakeFirst();
-        deletedCount += Number(result.numDeletedRows);
-      }
-
-      return ok(deletedCount);
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+    if (this.transactionScoped) {
+      return this.deleteSourceActivitiesByOwnerAccountIdsInTransaction(this.db, ownerAccountIds);
     }
+
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => this.deleteSourceActivitiesByOwnerAccountIdsInTransaction(trx as KyselyDB, ownerAccountIds),
+      'Failed to delete source activities by owner account ids'
+    );
   }
 
   async deleteAllSourceActivities(): Promise<Result<number, Error>> {
-    try {
-      const result = await this.db.deleteFrom('source_activities').executeTakeFirst();
-      return ok(Number(result.numDeletedRows));
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+    if (this.transactionScoped) {
+      return this.deleteAllSourceActivitiesInTransaction(this.db);
     }
+
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => this.deleteAllSourceActivitiesInTransaction(trx as KyselyDB),
+      'Failed to delete all source activities'
+    );
   }
 
   async findPostingsByOwnerAccountIds(
@@ -235,6 +232,43 @@ export class AccountingLedgerRepository extends BaseRepository {
     }
   }
 
+  private async deleteSourceActivitiesByOwnerAccountIdsInTransaction(
+    db: KyselyDB,
+    ownerAccountIds: readonly number[]
+  ): Promise<Result<number, Error>> {
+    try {
+      if (ownerAccountIds.length === 0) {
+        return ok(0);
+      }
+
+      const sourceActivityFingerprints = await loadSourceActivityFingerprintsByOwnerAccountIds(db, ownerAccountIds);
+      await deleteProcessorRelationshipsForSourceActivityFingerprints(db, sourceActivityFingerprints);
+
+      let deletedCount = 0;
+      for (const ownerAccountIdBatch of chunkItems([...ownerAccountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+        const result = await db
+          .deleteFrom('source_activities')
+          .where('owner_account_id', 'in', ownerAccountIdBatch)
+          .executeTakeFirst();
+        deletedCount += Number(result.numDeletedRows);
+      }
+
+      return ok(deletedCount);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private async deleteAllSourceActivitiesInTransaction(db: KyselyDB): Promise<Result<number, Error>> {
+    try {
+      await deleteAllProcessorRelationships(db);
+      const result = await db.deleteFrom('source_activities').executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
   private async replaceForSourceActivityInTransaction(
     db: KyselyDB,
     params: ReplaceAccountingLedgerParams
@@ -259,12 +293,18 @@ export class AccountingLedgerRepository extends BaseRepository {
       return err(rawAssignmentValidation.error);
     }
 
+    const profileIdResult = await loadOwnerAccountProfileId(db, params.sourceActivity.ownerAccountId);
+    if (profileIdResult.isErr()) {
+      return err(profileIdResult.error);
+    }
+
     const sourceActivityIdResult = await upsertSourceActivity(db, params.sourceActivity);
     if (sourceActivityIdResult.isErr()) {
       return err(sourceActivityIdResult.error);
     }
 
     const sourceActivityId = sourceActivityIdResult.value;
+    await deleteProcessorRelationshipsForSourceActivityFingerprint(db, params.sourceActivity.sourceActivityFingerprint);
     await db.deleteFrom('accounting_journals').where('source_activity_id', '=', sourceActivityId).execute();
     await db
       .deleteFrom('raw_transaction_source_activity_assignments')
@@ -319,12 +359,25 @@ export class AccountingLedgerRepository extends BaseRepository {
 
     for (const journal of params.journals) {
       for (const relationship of journal.relationships ?? []) {
-        const relationshipResult = await persistRelationship(db, relationship, journalRefs, postingRefs);
+        const relationshipResult = await persistProcessorRelationship(
+          db,
+          profileIdResult.value,
+          relationship,
+          journalRefs,
+          postingRefs
+        );
         if (relationshipResult.isErr()) {
           return err(relationshipResult.error);
         }
       }
     }
+
+    await refreshLedgerLinkingRelationshipEndpointsForSourceActivity(
+      db,
+      params.sourceActivity.sourceActivityFingerprint,
+      journalRefs,
+      postingRefs
+    );
 
     return ok({
       sourceActivityId,
@@ -484,6 +537,157 @@ async function loadOwnerAccountScopeIds(db: KyselyDB, ownerAccountId: number): P
   `.execute(db);
 
   return new Set(rows.rows.map((row) => row.id));
+}
+
+async function loadOwnerAccountProfileId(db: KyselyDB, ownerAccountId: number): Promise<Result<number, Error>> {
+  try {
+    const row = await db
+      .selectFrom('accounts')
+      .select('profile_id')
+      .where('id', '=', ownerAccountId)
+      .executeTakeFirst();
+
+    if (!row) {
+      return err(new Error(`Source activity references missing owner account ${ownerAccountId}`));
+    }
+
+    return ok(row.profile_id);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadSourceActivityFingerprintsByOwnerAccountIds(
+  db: KyselyDB,
+  ownerAccountIds: readonly number[]
+): Promise<string[]> {
+  const sourceActivityFingerprints: string[] = [];
+
+  for (const ownerAccountIdBatch of chunkItems([...ownerAccountIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+    const rows = await db
+      .selectFrom('source_activities')
+      .select('source_activity_fingerprint')
+      .where('owner_account_id', 'in', ownerAccountIdBatch)
+      .execute();
+
+    sourceActivityFingerprints.push(...rows.map((row) => row.source_activity_fingerprint));
+  }
+
+  return sourceActivityFingerprints;
+}
+
+async function deleteAllProcessorRelationships(db: KyselyDB): Promise<void> {
+  await db.deleteFrom('accounting_journal_relationships').where('relationship_origin', '=', 'processor').execute();
+}
+
+async function deleteProcessorRelationshipsForSourceActivityFingerprint(
+  db: KyselyDB,
+  sourceActivityFingerprint: string
+): Promise<void> {
+  await db
+    .deleteFrom('accounting_journal_relationships')
+    .where('relationship_origin', '=', 'processor')
+    .where((eb) =>
+      eb.or([
+        eb('source_activity_fingerprint', '=', sourceActivityFingerprint),
+        eb('target_activity_fingerprint', '=', sourceActivityFingerprint),
+      ])
+    )
+    .execute();
+}
+
+async function deleteProcessorRelationshipsForSourceActivityFingerprints(
+  db: KyselyDB,
+  sourceActivityFingerprints: readonly string[]
+): Promise<void> {
+  if (sourceActivityFingerprints.length === 0) {
+    return;
+  }
+
+  for (const sourceActivityFingerprintBatch of chunkItems(
+    [...new Set(sourceActivityFingerprints)].sort(),
+    SQLITE_SAFE_IN_BATCH_SIZE
+  )) {
+    await db
+      .deleteFrom('accounting_journal_relationships')
+      .where('relationship_origin', '=', 'processor')
+      .where((eb) =>
+        eb.or([
+          eb('source_activity_fingerprint', 'in', sourceActivityFingerprintBatch),
+          eb('target_activity_fingerprint', 'in', sourceActivityFingerprintBatch),
+        ])
+      )
+      .execute();
+  }
+}
+
+async function refreshLedgerLinkingRelationshipEndpointsForSourceActivity(
+  db: KyselyDB,
+  sourceActivityFingerprint: string,
+  journalRefs: ReadonlyMap<string, PersistedJournalRef>,
+  postingRefs: ReadonlyMap<string, PersistedPostingRef>
+): Promise<void> {
+  const relationshipCount = await countLedgerLinkingRelationshipsForSourceActivity(db, sourceActivityFingerprint);
+  if (relationshipCount === 0) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  for (const journalRef of journalRefs.values()) {
+    await db
+      .updateTable('accounting_journal_relationships')
+      .set({ source_journal_id: journalRef.id, updated_at: now })
+      .where('relationship_origin', '=', 'ledger_linking')
+      .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
+      .where('source_journal_fingerprint', '=', journalRef.fingerprint)
+      .execute();
+
+    await db
+      .updateTable('accounting_journal_relationships')
+      .set({ target_journal_id: journalRef.id, updated_at: now })
+      .where('relationship_origin', '=', 'ledger_linking')
+      .where('target_activity_fingerprint', '=', sourceActivityFingerprint)
+      .where('target_journal_fingerprint', '=', journalRef.fingerprint)
+      .execute();
+  }
+
+  for (const postingRef of postingRefs.values()) {
+    await db
+      .updateTable('accounting_journal_relationships')
+      .set({ source_posting_id: postingRef.id, updated_at: now })
+      .where('relationship_origin', '=', 'ledger_linking')
+      .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
+      .where('source_posting_fingerprint', '=', postingRef.fingerprint)
+      .execute();
+
+    await db
+      .updateTable('accounting_journal_relationships')
+      .set({ target_posting_id: postingRef.id, updated_at: now })
+      .where('relationship_origin', '=', 'ledger_linking')
+      .where('target_activity_fingerprint', '=', sourceActivityFingerprint)
+      .where('target_posting_fingerprint', '=', postingRef.fingerprint)
+      .execute();
+  }
+}
+
+async function countLedgerLinkingRelationshipsForSourceActivity(
+  db: KyselyDB,
+  sourceActivityFingerprint: string
+): Promise<number> {
+  const row = await db
+    .selectFrom('accounting_journal_relationships')
+    .select(({ fn }) => fn.countAll<number>().as('count'))
+    .where('relationship_origin', '=', 'ledger_linking')
+    .where((eb) =>
+      eb.or([
+        eb('source_activity_fingerprint', '=', sourceActivityFingerprint),
+        eb('target_activity_fingerprint', '=', sourceActivityFingerprint),
+      ])
+    )
+    .executeTakeFirst();
+
+  return Number(row?.count ?? 0);
 }
 
 function findMissingRawTransactionIds(
@@ -734,8 +938,9 @@ async function persistPostingSourceComponent(
   return ok(undefined);
 }
 
-async function persistRelationship(
+async function persistProcessorRelationship(
   db: KyselyDB,
+  profileId: number,
   relationship: NonNullable<AccountingJournalDraft['relationships']>[number],
   journalRefs: Map<string, PersistedJournalRef>,
   postingRefs: Map<string, PersistedPostingRef>
@@ -762,19 +967,26 @@ async function persistRelationship(
   }
 
   const now = new Date().toISOString();
-  await db
-    .insertInto('accounting_journal_relationships')
-    .values({
-      source_journal_id: sourceJournal.id,
-      target_journal_id: targetJournal.id,
-      source_posting_id: sourcePosting.value?.id ?? null,
-      target_posting_id: targetPosting.value?.id ?? null,
-      relationship_stable_key: relationship.relationshipStableKey,
-      relationship_kind: relationship.relationshipKind,
-      created_at: now,
-      updated_at: null,
-    })
-    .execute();
+  const row: Insertable<AccountingJournalRelationshipsTable> = {
+    profile_id: profileId,
+    relationship_origin: 'processor',
+    source_journal_id: sourceJournal.id,
+    target_journal_id: targetJournal.id,
+    source_posting_id: sourcePosting.value?.id ?? null,
+    target_posting_id: targetPosting.value?.id ?? null,
+    source_activity_fingerprint: relationship.source.sourceActivityFingerprint,
+    target_activity_fingerprint: relationship.target.sourceActivityFingerprint,
+    source_journal_fingerprint: sourceJournal.fingerprint,
+    target_journal_fingerprint: targetJournal.fingerprint,
+    source_posting_fingerprint: sourcePosting.value?.fingerprint ?? null,
+    target_posting_fingerprint: targetPosting.value?.fingerprint ?? null,
+    relationship_stable_key: relationship.relationshipStableKey,
+    relationship_kind: relationship.relationshipKind,
+    created_at: now,
+    updated_at: null,
+  };
+
+  await db.insertInto('accounting_journal_relationships').values(row).execute();
 
   return ok(undefined);
 }

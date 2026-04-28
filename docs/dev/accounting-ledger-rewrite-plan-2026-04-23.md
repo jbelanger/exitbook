@@ -819,32 +819,78 @@ Acceptance:
 - Consumer migration does not start until unresolved diffs are gone or
   explicitly accepted.
 
-### 7. Materialize Cross-Source Relationships
+### 7. Ledger Linking V2 / Cross-Source Relationships
 
-Goal: persist relationship truth that spans source activities before consumers
-depend on ledger relationships for transfer, bridge, or migration behavior.
+Status: in progress. The durable relationship persistence slice is complete:
+`accounting_journal_relationships` now stores profile scope, relationship
+origin, stable endpoint fingerprints, and nullable current endpoint ids. The
+next slice is the ledger-native linking module/materialization boundary.
+
+Goal: build ledger-native linking that persists relationship truth spanning
+source activities before consumers depend on ledger relationships for transfer,
+bridge, or migration behavior.
+
+Boundary rules:
+
+- Do not mechanically port old `linking` utilities or movement-based matching.
+- Do not make legacy `transaction_movements` the input shape for new linking.
+- New linking reads source activities, accounting journals, accounting postings,
+  and stable posting fingerprints.
+- New linking writes accounting-owned journal/posting relationships.
+- Keep legacy linking available as migration evidence only; do not make it a
+  dependency of the new relationship materialization path.
+- If linking-v2 exposes a missing, unstable, or ambiguous processor-v2 ledger
+  fact, stop linking work and fix the processor-v2 source artifact first.
+- Do not paper over processor gaps with linking heuristics, diagnostics, symbol
+  guesses, or one-off fallback matching.
 
 Files:
 
 - `packages/data/src/repositories/accounting-ledger-repository.ts`
 - `packages/ingestion/src/features/process/process-workflow.ts`
-- `packages/accounting/src/linking/**`
+- new ledger-native files under `packages/accounting/src/linking/ledger/**`
+  or `packages/accounting/src/ledger-linking/**`
+- legacy `packages/accounting/src/linking/**` only as behavior/reference
+  evidence during migration
 - `packages/accounting/src/ledger-shadow/shadow-reconciliation.ts`
 
 Implementation shape:
 
 1. Keep same-source relationships inside `replaceForSourceActivity()`.
-2. Add a separate materialization path for relationships discovered after
-   multiple source activities exist.
+2. Add a separate ledger-native materialization path for relationships
+   discovered after multiple source activities exist.
 3. Target journals/postings by stable fingerprints.
 4. Make stale relationship endpoints visible after reprocess.
 5. Do not use diagnostics as relationship truth.
+6. Keep matching candidates and persisted relationship materialization in
+   separate new modules so consumers can depend on the persisted ledger
+   relationship model without inheriting legacy proposal internals.
+
+First implementation slices:
+
+1. Complete. Upgrade `accounting_journal_relationships` into the canonical
+   durable ledger linking table: store profile scope, relationship origin,
+   stable endpoint fingerprints, and nullable current DB endpoint ids.
+2. Complete. Keep processor-authored relationships replaceable during
+   `replaceForSourceActivity()` while allowing future linking-v2 relationships
+   to survive reprocess as stale unresolved endpoints.
+3. Complete. Add repository tests for processor relationship replacement, durable
+   endpoint identity, and stale cross-source endpoint visibility.
+4. Next. Add the ledger-native linking module boundary only after the persistence
+   model is green.
+5. Later. Build matching candidates and matching strategies after the new table can
+   represent accepted relationships without relying on legacy movements.
 
 Acceptance:
 
+- Linking-v2 has its own files and module boundary.
+- Linking-v2 does not import legacy movement-matching utilities as its core
+  implementation.
 - Internal transfer, bridge, same-hash carryover, and asset migration
   relationships can connect journals across source activities.
 - Reprocess does not silently point a relationship at a different posting.
+- Any required processor-v2 fix is handled upstream before the affected
+  relationship class is accepted.
 
 ### 8. Migrate Consumers
 
@@ -996,6 +1042,13 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
+- Linking-v2 is a separate branch/slice with its own ledger-native files. It
+  must leverage source activities, journals, postings, and stable fingerprints
+  directly instead of porting legacy movement-linking utilities.
+- Processor-v2 ledger facts are upstream dependencies for linking-v2. If a
+  relationship cannot be expressed without heuristics because a processor fact
+  is missing or ambiguous, stop linking work and fix the processor-v2 artifact
+  first.
 - The provider-v2 queue is complete for the current native-asset chain scope.
 - Substrate ledger-v2 is complete for the current migration gate with Polkadot
   as the native staking proof and Bittensor as the TAO decimal/provider proof.
@@ -1046,6 +1099,9 @@ Smells to watch:
   rename it before the migration is considered complete.
 - Cross-source relationships need a dedicated materialization path before
   consumer cutover.
+- The old linking package contains useful behavior evidence, but reusing its
+  movement-oriented utilities directly would keep the legacy model alive inside
+  the ledger rewrite.
 - Substrate ledger-v2 currently materializes native assets only. Asset Hub,
   parachain tokens, and richer batch/proxy/multisig decomposition need provider
   token/event identity before they should be treated as complete accounting
