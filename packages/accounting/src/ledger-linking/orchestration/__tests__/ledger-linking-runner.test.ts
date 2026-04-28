@@ -41,10 +41,14 @@ describe('runLedgerLinking', () => {
     const result = assertOk(await runLedgerLinking(1, harness.ports));
 
     expect(result).toMatchObject({
+      matchedSourceCandidateCount: 1,
+      matchedTargetCandidateCount: 1,
       postingInputCount: 3,
-      transferCandidateCount: 2,
       sourceCandidateCount: 1,
       targetCandidateCount: 1,
+      transferCandidateCount: 2,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
     });
     expect(result.skippedCandidates).toEqual([
       {
@@ -114,6 +118,12 @@ describe('runLedgerLinking', () => {
     const result = assertOk(await runLedgerLinking(1, harness.ports));
 
     expect(result.exactHashMatches).toEqual([]);
+    expect(result).toMatchObject({
+      matchedSourceCandidateCount: 0,
+      matchedTargetCandidateCount: 0,
+      unmatchedSourceCandidateCount: 1,
+      unmatchedTargetCandidateCount: 2,
+    });
     expect(result.exactHashAmbiguities).toEqual([
       {
         candidateId: 1,
@@ -155,6 +165,12 @@ describe('runLedgerLinking', () => {
     const result = assertOk(await runLedgerLinking(1, harness.ports, { dryRun: true }));
 
     expect(result.acceptedRelationships).toHaveLength(1);
+    expect(result).toMatchObject({
+      matchedSourceCandidateCount: 1,
+      matchedTargetCandidateCount: 1,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
+    });
     expect(result.persistence).toEqual({
       mode: 'dry_run',
       plannedRelationshipCount: 1,

@@ -117,6 +117,8 @@ describe('ledger linking-v2 command', () => {
     expect(mockOutputSuccess).not.toHaveBeenCalled();
     expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking v2 completed.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
   });
@@ -158,16 +160,23 @@ describe('ledger linking-v2 command', () => {
 
 function makeRunResult() {
   return {
-    postingInputCount: 3,
-    transferCandidateCount: 2,
-    sourceCandidateCount: 1,
-    targetCandidateCount: 1,
-    skippedCandidates: [
+    acceptedRelationships: [
       {
-        postingFingerprint: 'ledger_posting:v1:fee',
-        reason: 'non_principal_role',
+        relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
+        relationshipKind: 'internal_transfer',
+        source: {
+          sourceActivityFingerprint: 'source_activity:v1:source',
+          journalFingerprint: 'ledger_journal:v1:source',
+          postingFingerprint: 'ledger_posting:v1:source',
+        },
+        target: {
+          sourceActivityFingerprint: 'source_activity:v1:target',
+          journalFingerprint: 'ledger_journal:v1:target',
+          postingFingerprint: 'ledger_posting:v1:target',
+        },
       },
     ],
+    exactHashAmbiguities: [],
     exactHashMatches: [
       {
         strategy: 'exact_hash_transfer',
@@ -195,23 +204,8 @@ function makeRunResult() {
         },
       },
     ],
-    exactHashAmbiguities: [],
-    acceptedRelationships: [
-      {
-        relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
-        relationshipKind: 'internal_transfer',
-        source: {
-          sourceActivityFingerprint: 'source_activity:v1:source',
-          journalFingerprint: 'ledger_journal:v1:source',
-          postingFingerprint: 'ledger_posting:v1:source',
-        },
-        target: {
-          sourceActivityFingerprint: 'source_activity:v1:target',
-          journalFingerprint: 'ledger_journal:v1:target',
-          postingFingerprint: 'ledger_posting:v1:target',
-        },
-      },
-    ],
+    matchedSourceCandidateCount: 1,
+    matchedTargetCandidateCount: 1,
     persistence: {
       mode: 'persisted',
       materialization: {
@@ -221,5 +215,17 @@ function makeRunResult() {
         unresolvedEndpointCount: 0,
       },
     },
+    postingInputCount: 3,
+    skippedCandidates: [
+      {
+        postingFingerprint: 'ledger_posting:v1:fee',
+        reason: 'non_principal_role',
+      },
+    ],
+    sourceCandidateCount: 1,
+    targetCandidateCount: 1,
+    transferCandidateCount: 2,
+    unmatchedSourceCandidateCount: 0,
+    unmatchedTargetCandidateCount: 0,
   };
 }

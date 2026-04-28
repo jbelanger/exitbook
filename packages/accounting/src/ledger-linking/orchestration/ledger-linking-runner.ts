@@ -36,15 +36,19 @@ export type LedgerLinkingPersistenceResult =
     };
 
 export interface LedgerLinkingRunResult {
+  acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
+  exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
+  exactHashMatches: readonly LedgerExactHashTransferMatch[];
+  matchedSourceCandidateCount: number;
+  matchedTargetCandidateCount: number;
+  persistence: LedgerLinkingPersistenceResult;
   postingInputCount: number;
-  transferCandidateCount: number;
+  skippedCandidates: readonly LedgerLinkingCandidateSkip[];
   sourceCandidateCount: number;
   targetCandidateCount: number;
-  skippedCandidates: readonly LedgerLinkingCandidateSkip[];
-  exactHashMatches: readonly LedgerExactHashTransferMatch[];
-  exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
-  acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
-  persistence: LedgerLinkingPersistenceResult;
+  transferCandidateCount: number;
+  unmatchedSourceCandidateCount: number;
+  unmatchedTargetCandidateCount: number;
 }
 
 export async function runLedgerLinking(
@@ -72,6 +76,8 @@ export async function runLedgerLinking(
     return err(exactHashResult.error);
   }
 
+  const matchCounts = countMatchedTransferCandidates(exactHashResult.value.matches);
+  const candidateCounts = countTransferCandidatesByDirection(candidates);
   const persistenceResult = await resolvePersistenceResult(
     profileId,
     ports,
@@ -83,16 +89,51 @@ export async function runLedgerLinking(
   }
 
   return ok({
-    postingInputCount: postingInputsResult.value.length,
-    transferCandidateCount: candidates.length,
-    sourceCandidateCount: candidates.filter((candidate) => candidate.direction === 'source').length,
-    targetCandidateCount: candidates.filter((candidate) => candidate.direction === 'target').length,
-    skippedCandidates: skipped,
-    exactHashMatches: exactHashResult.value.matches,
-    exactHashAmbiguities: exactHashResult.value.ambiguities,
     acceptedRelationships: exactHashResult.value.relationships,
+    exactHashAmbiguities: exactHashResult.value.ambiguities,
+    exactHashMatches: exactHashResult.value.matches,
+    matchedSourceCandidateCount: matchCounts.matchedSourceCandidateCount,
+    matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,
     persistence: persistenceResult.value,
+    postingInputCount: postingInputsResult.value.length,
+    skippedCandidates: skipped,
+    sourceCandidateCount: candidateCounts.sourceCandidateCount,
+    targetCandidateCount: candidateCounts.targetCandidateCount,
+    transferCandidateCount: candidates.length,
+    unmatchedSourceCandidateCount: candidateCounts.sourceCandidateCount - matchCounts.matchedSourceCandidateCount,
+    unmatchedTargetCandidateCount: candidateCounts.targetCandidateCount - matchCounts.matchedTargetCandidateCount,
   });
+}
+
+function countTransferCandidatesByDirection(candidates: readonly { direction: 'source' | 'target' }[]): {
+  sourceCandidateCount: number;
+  targetCandidateCount: number;
+} {
+  let sourceCandidateCount = 0;
+  let targetCandidateCount = 0;
+
+  for (const candidate of candidates) {
+    if (candidate.direction === 'source') {
+      sourceCandidateCount++;
+    } else {
+      targetCandidateCount++;
+    }
+  }
+
+  return {
+    sourceCandidateCount,
+    targetCandidateCount,
+  };
+}
+
+function countMatchedTransferCandidates(matches: readonly LedgerExactHashTransferMatch[]): {
+  matchedSourceCandidateCount: number;
+  matchedTargetCandidateCount: number;
+} {
+  return {
+    matchedSourceCandidateCount: new Set(matches.map((match) => match.sourceCandidateId)).size,
+    matchedTargetCandidateCount: new Set(matches.map((match) => match.targetCandidateId)).size,
+  };
 }
 
 async function resolvePersistenceResult(

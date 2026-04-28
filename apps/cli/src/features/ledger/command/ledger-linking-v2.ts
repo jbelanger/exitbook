@@ -122,6 +122,12 @@ function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void 
   console.log(
     `Transfer candidates: ${run.transferCandidateCount} (${run.sourceCandidateCount} source, ${run.targetCandidateCount} target)`
   );
+  console.log(
+    `Matched candidates: ${run.matchedSourceCandidateCount} source, ${run.matchedTargetCandidateCount} target`
+  );
+  console.log(
+    `Unmatched candidates: ${run.unmatchedSourceCandidateCount} source, ${run.unmatchedTargetCandidateCount} target`
+  );
   console.log(`Accepted relationships: ${run.acceptedRelationships.length}`);
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
