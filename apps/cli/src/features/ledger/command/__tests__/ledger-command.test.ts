@@ -12,12 +12,17 @@ describe('registerLedgerCommand', () => {
 
     const ledgerCommand = program.commands.find((command) => command.name() === 'ledger');
     const stressCommand = ledgerCommand?.commands.find((command) => command.name() === 'stress');
+    const linkingV2Command = ledgerCommand?.commands.find((command) => command.name() === 'linking-v2');
+    const linkingV2RunCommand = linkingV2Command?.commands.find((command) => command.name() === 'run');
     const evmFamilyCommand = stressCommand?.commands.find((command) => command.name() === 'evm-family');
     const nearCommand = stressCommand?.commands.find((command) => command.name() === 'near');
     const solanaCommand = stressCommand?.commands.find((command) => command.name() === 'solana');
     const xrpCommand = stressCommand?.commands.find((command) => command.name() === 'xrp');
 
-    expect(ledgerCommand?.description()).toBe('Inspect and validate accounting ledger migration state');
+    expect(ledgerCommand?.description()).toBe('Inspect, validate, and run accounting ledger migration workflows');
+    expect(linkingV2Command?.description()).toBe('Run ledger-native relationship linking migration commands');
+    expect(linkingV2RunCommand?.description()).toBe('Run ledger-linking v2 for the active profile');
+    expect(linkingV2RunCommand?.options.map((option) => option.long)).toEqual(expect.arrayContaining(['--json']));
     expect(stressCommand?.description()).toBe('Run repeatable ledger migration stress checks');
     expect(evmFamilyCommand?.description()).toBe(
       'Rerun EVM-family ledger-v2 processors and compare against legacy balance impact'

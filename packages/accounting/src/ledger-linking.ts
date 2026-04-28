@@ -16,6 +16,11 @@ export {
   type LedgerExactHashTransferRelationshipResult,
 } from './ledger-linking/matching/deterministic-transfer-matching.js';
 export {
+  runLedgerLinking,
+  type LedgerLinkingRunPorts,
+  type LedgerLinkingRunResult,
+} from './ledger-linking/orchestration/ledger-linking-runner.js';
+export {
   LedgerLinkingRelationshipDraftSchema,
   LedgerLinkingRelationshipEndpointRefSchema,
   type ILedgerLinkingRelationshipStore,

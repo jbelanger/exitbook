@@ -8,6 +8,7 @@ export { buildCostBasisResetPorts } from './accounting/cost-basis-reset.js';
 export {
   buildLedgerLinkingCandidateSourceReader,
   buildLedgerLinkingRelationshipStore,
+  buildLedgerLinkingRunPorts,
 } from './accounting/ledger-linking-ports.js';
 export { buildLinkingPorts } from './accounting/linking-ports.js';
 export { buildLinksFreshnessPorts } from './projections/links-freshness.js';

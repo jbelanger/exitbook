@@ -825,8 +825,10 @@ Status: in progress. The durable relationship persistence slice is complete:
 `accounting_journal_relationships` now stores profile scope, relationship
 origin, stable endpoint fingerprints, and nullable current endpoint ids. The
 ledger-native relationship materialization boundary, candidate input read port,
-and first exact-hash deterministic matcher are also in place. The next slice is
-a ledger-native persisted gap projection before broader heuristic matching.
+first exact-hash deterministic matcher, and runner orchestration boundary are
+also in place. A simple non-TUI `ledger linking-v2 run` command now invokes the
+runner for the active profile. Persisted gaps are deferred until the linking
+model is finalized.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -886,12 +888,19 @@ First implementation slices:
    without exposing legacy transaction movements.
 7. Complete. Build the first deterministic matching strategy on top of
    ledger-native candidates.
-8. Next. Persist ledger-native unresolved gaps and surface them through
-   accounting issues. This comes after deterministic matching so a gap means
-   "eligible candidate left unresolved after the linker ran", not "no matcher
-   exists yet".
-9. Then broaden matching strategies only where processor-v2 ledger facts are
-   already stable enough to support them.
+8. Complete. Add the ledger-native runner/orchestration boundary that loads
+   posting inputs, builds transfer candidates, runs deterministic recognizers, and
+   materializes accepted relationships only.
+9. Complete. Add a simple non-TUI `ledger linking-v2 run` command that invokes
+   the runner without adding proposals or gap persistence.
+10. Next. Decide whether this command should remain migration-only or become
+    part of a broader links workflow after the relationship model proves stable.
+11. Then persist ledger-native unresolved gaps and surface them through
+    accounting issues after the model is stable. At that point a gap should mean
+    "eligible candidate left unresolved after the linker ran", not "no matcher
+    exists yet".
+12. Then broaden matching strategies only where processor-v2 ledger facts are
+    already stable enough to support them.
 
 Acceptance:
 

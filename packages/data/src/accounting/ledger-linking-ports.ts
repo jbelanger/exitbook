@@ -1,6 +1,7 @@
 import type {
   ILedgerLinkingCandidateSourceReader,
   ILedgerLinkingRelationshipStore,
+  LedgerLinkingRunPorts,
 } from '@exitbook/accounting/ledger-linking';
 
 import type { DataSession } from '../data-session.js';
@@ -16,5 +17,12 @@ export function buildLedgerLinkingCandidateSourceReader(db: DataSession): ILedge
   return {
     loadLedgerLinkingPostingInputs: (profileId) =>
       db.accountingLedger.findLedgerLinkingPostingInputsByProfileId(profileId),
+  };
+}
+
+export function buildLedgerLinkingRunPorts(db: DataSession): LedgerLinkingRunPorts {
+  return {
+    candidateSourceReader: buildLedgerLinkingCandidateSourceReader(db),
+    relationshipStore: buildLedgerLinkingRelationshipStore(db),
   };
 }
