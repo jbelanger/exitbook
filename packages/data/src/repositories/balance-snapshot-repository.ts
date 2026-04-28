@@ -38,6 +38,7 @@ interface BalanceSnapshotRecord {
 interface BalanceSnapshotAssetRecord {
   asset_id: string;
   asset_symbol: string;
+  balance_category: BalanceSnapshotAsset['balanceCategory'];
   calculated_balance: string;
   comparison_status: BalanceSnapshotAssetComparisonStatus | null;
   difference: string | null;
@@ -178,6 +179,7 @@ export class BalanceSnapshotRepository extends BaseRepository {
               .where('scope_account_id', 'in', scopeAccountIdBatch)
               .orderBy('scope_account_id', 'asc')
               .orderBy('asset_id', 'asc')
+              .orderBy('balance_category', 'asc')
               .execute())
           );
         }
@@ -188,12 +190,16 @@ export class BalanceSnapshotRepository extends BaseRepository {
             .selectAll()
             .orderBy('scope_account_id', 'asc')
             .orderBy('asset_id', 'asc')
+            .orderBy('balance_category', 'asc')
             .execute())
         );
       }
 
       rows.sort(
-        (left, right) => left.scope_account_id - right.scope_account_id || left.asset_id.localeCompare(right.asset_id)
+        (left, right) =>
+          left.scope_account_id - right.scope_account_id ||
+          left.asset_id.localeCompare(right.asset_id) ||
+          left.balance_category.localeCompare(right.balance_category)
       );
 
       return ok(rows.map((row) => this.toSnapshotAsset(row)));
@@ -311,6 +317,7 @@ export class BalanceSnapshotRepository extends BaseRepository {
       scopeAccountId: row.scope_account_id,
       assetId: row.asset_id,
       assetSymbol: row.asset_symbol,
+      balanceCategory: row.balance_category,
       calculatedBalance: row.calculated_balance,
       liveBalance: row.live_balance ?? undefined,
       difference: row.difference ?? undefined,
@@ -351,6 +358,7 @@ export class BalanceSnapshotRepository extends BaseRepository {
       scope_account_id: asset.scopeAccountId,
       asset_id: asset.assetId,
       asset_symbol: asset.assetSymbol,
+      balance_category: asset.balanceCategory,
       calculated_balance: asset.calculatedBalance,
       live_balance: asset.liveBalance ?? null,
       difference: asset.difference ?? null,

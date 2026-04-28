@@ -1,5 +1,10 @@
 // Re-export types from schemas (single source of truth)
-export type { SolanaTokenAccount, SolanaTokenBalance } from './schemas.js';
+export type {
+  SolanaStakeActivation,
+  SolanaStakeProgramAccount,
+  SolanaTokenAccount,
+  SolanaTokenBalance,
+} from './schemas.js';
 
 // Import for local use
 import type { SolanaTokenAccount } from './schemas.js';

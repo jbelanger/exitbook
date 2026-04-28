@@ -168,6 +168,9 @@ function createCacheOnlyTokenMetadataRuntime(runtime: IBlockchainProviderRuntime
     getAddressInfo(blockchain, address, options) {
       return runtime.getAddressInfo(blockchain, address, options);
     },
+    getAddressStakingBalances(blockchain, address, options) {
+      return runtime.getAddressStakingBalances(blockchain, address, options);
+    },
     getAddressTokenBalances(blockchain, address, options) {
       return runtime.getAddressTokenBalances(blockchain, address, options);
     },

@@ -14,6 +14,7 @@ describe('registerLedgerCommand', () => {
     const stressCommand = ledgerCommand?.commands.find((command) => command.name() === 'stress');
     const evmFamilyCommand = stressCommand?.commands.find((command) => command.name() === 'evm-family');
     const nearCommand = stressCommand?.commands.find((command) => command.name() === 'near');
+    const solanaCommand = stressCommand?.commands.find((command) => command.name() === 'solana');
 
     expect(ledgerCommand?.description()).toBe('Inspect and validate accounting ledger migration state');
     expect(stressCommand?.description()).toBe('Run repeatable ledger migration stress checks');
@@ -25,6 +26,12 @@ describe('registerLedgerCommand', () => {
     );
     expect(nearCommand?.description()).toBe('Rerun NEAR ledger-v2 processor and compare against legacy balance impact');
     expect(nearCommand?.options.map((option) => option.long)).toEqual(
+      expect.arrayContaining(['--expected-diffs', '--json'])
+    );
+    expect(solanaCommand?.description()).toBe(
+      'Rerun Solana ledger-v2 processor and compare against legacy balance impact'
+    );
+    expect(solanaCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining(['--expected-diffs', '--json'])
     );
   });

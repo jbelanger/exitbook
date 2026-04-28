@@ -125,6 +125,7 @@ describe('SolscanApiClient', () => {
         rawAmount: '5000000000',
         decimalAmount: '5',
         decimals: 9,
+        balanceCategory: 'liquid',
       });
       expect(mockGet).toHaveBeenCalledWith(`/account/${TEST_ADDRESS}`, expect.anything());
     });

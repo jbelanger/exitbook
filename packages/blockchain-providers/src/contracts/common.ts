@@ -13,6 +13,8 @@ export interface JsonRpcResponse<T = unknown> {
 
 import type { NormalizedTransactionBase } from './normalized-transaction.js';
 
+export type RawBalanceCategory = 'liquid' | 'reward_receivable' | 'staked' | 'unbonding';
+
 /**
  * Wrapper for a single transaction that includes both raw provider data and normalized data.
  * Used for debugging purposes to retain original provider responses.
@@ -97,4 +99,16 @@ export interface RawBalanceData {
    * May be undefined if provider doesn't return decimals.
    */
   decimals?: number | undefined;
+
+  /**
+   * Balance bucket represented by this provider row.
+   * Omitted rows are interpreted as liquid for backward compatibility.
+   */
+  balanceCategory?: RawBalanceCategory | undefined;
+
+  /**
+   * Provider account address that produced this balance row when it differs from
+   * the queried owner address, e.g. a Solana stake account controlled by a wallet.
+   */
+  accountAddress?: string | undefined;
 }

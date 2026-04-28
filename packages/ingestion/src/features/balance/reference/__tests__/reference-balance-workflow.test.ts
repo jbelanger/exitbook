@@ -18,7 +18,7 @@ import { parseDecimal, sha256Hex } from '@exitbook/foundation';
 import { err, ok, type Result } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { BalancePorts } from '../../../../ports/balance-ports.js';
+import type { BalanceLedgerBalanceRow, BalancePorts } from '../../../../ports/balance-ports.js';
 import { BalanceWorkflow } from '../reference-balance-workflow.js';
 
 function materializeMovementFingerprint(
@@ -174,6 +174,7 @@ function createProviderManager(
     ),
     getProviders: vi.fn().mockReturnValue(providers),
     getAddressBalances: vi.fn().mockResolvedValue(ok(nativeResult)),
+    getAddressStakingBalances: vi.fn().mockResolvedValue(ok({ data: [], providerName: 'mock-provider' })),
     getAddressTokenBalances: vi.fn(),
   } as unknown as IBlockchainProviderRuntime;
 }
@@ -182,6 +183,7 @@ function createPortsMock(params: {
   accounts: Account[];
   assetReviewSummaries?: Map<string, AssetReviewSummary> | undefined;
   excludedTransactions: Transaction[];
+  ledgerRowsByOwnerAccountId?: Map<number, BalanceLedgerBalanceRow[]> | undefined;
   normalTransactions: Transaction[];
   sessions: ImportSession[];
 }): {
@@ -238,6 +240,9 @@ function createPortsMock(params: {
         )
       )
     ),
+    findLedgerBalanceRowsByOwnerAccountId: vi
+      .fn()
+      .mockImplementation((ownerAccountId: number) => ok(params.ledgerRowsByOwnerAccountId?.get(ownerAccountId) ?? [])),
     findTransactionsByAccountIds: vi
       .fn()
       .mockImplementation(
@@ -341,6 +346,7 @@ describe('BalanceWorkflow', () => {
         scopeAccountId: 1,
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC',
+        balanceCategory: 'liquid',
         calculatedBalance: '1',
         excludedFromAccounting: false,
       },
@@ -361,12 +367,119 @@ describe('BalanceWorkflow', () => {
         scopeAccountId: 1,
         assetId: 'blockchain:bitcoin:native',
         assetSymbol: 'BTC',
+        balanceCategory: 'liquid',
         calculatedBalance: '1',
         liveBalance: '1',
         difference: '0',
         comparisonStatus: 'match',
         excludedFromAccounting: false,
       },
+    ]);
+  });
+
+  it('uses ledger balance categories for calculated rows when ledger postings are available', async () => {
+    const account = createAccount({
+      platformKey: 'solana',
+      identifier: 'Afn6A9Vom27wd8AUYqDf2DyUqYWvA34AFGHqcqCgXvMm',
+    });
+    const solAssetId = 'blockchain:solana:native';
+
+    const normalTransactions = [
+      createTransaction({
+        accountId: account.id,
+        platformKey: 'solana',
+        movements: {
+          inflows: [
+            {
+              assetId: solAssetId,
+              assetSymbol: 'SOL' as Currency,
+              grossAmount: parseDecimal('1'),
+              netAmount: parseDecimal('1'),
+            },
+          ],
+          outflows: [],
+        },
+      }),
+    ];
+
+    const { replaceSnapshot, ports } = createPortsMock({
+      accounts: [account],
+      sessions: [createCompletedImportSession(account.id)],
+      normalTransactions,
+      excludedTransactions: [],
+      ledgerRowsByOwnerAccountId: new Map([
+        [
+          account.id,
+          [
+            {
+              assetId: solAssetId,
+              assetSymbol: 'SOL',
+              balanceCategory: 'liquid',
+              quantity: '1',
+            },
+            {
+              assetId: solAssetId,
+              assetSymbol: 'SOL',
+              balanceCategory: 'staked',
+              quantity: '2.5',
+            },
+          ],
+        ],
+      ]),
+    });
+
+    const stakingResult: FailoverExecutionResult<RawBalanceData[]> = {
+      data: [
+        {
+          accountAddress: 'StakeAcct1111111111111111111111111111111111',
+          rawAmount: '2500000000',
+          decimalAmount: '2.5',
+          symbol: 'SOL',
+          decimals: 9,
+          balanceCategory: 'staked',
+        },
+      ],
+      providerName: 'mock-provider',
+    };
+    const providerRuntime = {
+      ...createProviderManager(
+        [
+          {
+            capabilities: {
+              supportedOperations: ['getAddressBalances', 'getAddressStakingBalances'],
+            },
+          },
+        ],
+        {
+          rawAmount: '1000000000',
+          decimalAmount: '1',
+          symbol: 'SOL',
+          decimals: 9,
+          balanceCategory: 'liquid',
+        }
+      ),
+      getAddressStakingBalances: vi.fn().mockResolvedValue(ok(stakingResult)),
+    } as unknown as IBlockchainProviderRuntime;
+
+    const workflow = new BalanceWorkflow(ports, providerRuntime);
+    const result = await workflow.refreshVerification({ accountId: account.id });
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.status).toBe('success');
+    expect(result.value.comparisons.map((comparison) => [comparison.balanceCategory, comparison.status])).toEqual([
+      ['staked', 'match'],
+      ['liquid', 'match'],
+    ]);
+
+    const verifiedCall = replaceSnapshot.mock.calls[1]?.[0];
+    expect(
+      verifiedCall?.assets.map((asset) => [asset.balanceCategory, asset.calculatedBalance, asset.liveBalance])
+    ).toEqual([
+      ['staked', '2.5', '2.5'],
+      ['liquid', '1', '1'],
     ]);
   });
 
@@ -549,6 +662,7 @@ describe('BalanceWorkflow', () => {
         scopeAccountId: 1,
         assetId: 'blockchain:lukso:native',
         assetSymbol: 'LYX',
+        balanceCategory: 'liquid',
         calculatedBalance: '12.5',
         comparisonStatus: 'unavailable',
         excludedFromAccounting: false,

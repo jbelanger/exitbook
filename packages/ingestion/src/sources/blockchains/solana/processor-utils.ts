@@ -91,6 +91,7 @@ const MIN_DUST_FANOUT_ACCOUNT_CHANGES = 10;
 
 interface SolanaMovementAccumulator {
   amount: Decimal;
+  balanceCategory?: SolanaMovement['balanceCategory'] | undefined;
   decimals?: number | undefined;
   movementRole?: MovementRole | undefined;
   tokenAddress?: string | undefined;
@@ -223,17 +224,19 @@ export function buildSolanaUnsolicitedDustFanoutDiagnostic(
  * Consolidate duplicate assets by summing amounts for the same asset
  */
 export function consolidateSolanaMovements(movements: SolanaMovement[]): SolanaMovement[] {
-  const assetMap = new Map<string, Map<MovementRole, SolanaMovementAccumulator>>();
+  const assetMap = new Map<string, Map<string, SolanaMovementAccumulator>>();
 
   for (const movement of movements) {
     const movementRole = movement.movementRole ?? 'principal';
-    const roleMap = assetMap.get(movement.asset) ?? new Map<MovementRole, SolanaMovementAccumulator>();
-    const existing = roleMap.get(movementRole);
+    const movementKey = `${movementRole}\u0000${movement.balanceCategory ?? 'liquid'}`;
+    const roleMap = assetMap.get(movement.asset) ?? new Map<string, SolanaMovementAccumulator>();
+    const existing = roleMap.get(movementKey);
     if (existing) {
       existing.amount = existing.amount.plus(parseDecimal(movement.amount));
     } else {
-      roleMap.set(movementRole, {
+      roleMap.set(movementKey, {
         amount: parseDecimal(movement.amount),
+        balanceCategory: movement.balanceCategory,
         decimals: movement.decimals,
         movementRole: movement.movementRole,
         tokenAddress: movement.tokenAddress,
@@ -249,6 +252,7 @@ export function consolidateSolanaMovements(movements: SolanaMovement[]): SolanaM
     Array.from(roleMap.values()).map((data) => ({
       amount: data.amount.toFixed(),
       asset: asset as Currency,
+      balanceCategory: data.balanceCategory,
       decimals: data.decimals,
       movementRole: data.movementRole,
       tokenAddress: data.tokenAddress,
@@ -632,6 +636,9 @@ function collectUserSolMovements(
     const movement: SolanaMovement = {
       amount: normalizedSolAmountResult.value,
       asset: 'SOL' as Currency,
+      ...(tx.importSourceKind === 'stake_account' && change.account === tx.importSourceAddress
+        ? { balanceCategory: 'staked' }
+        : {}),
     };
 
     if (solDeltaLamports > 0n) {
@@ -1103,6 +1110,9 @@ export function analyzeSolanaBalanceChanges(
 export function analyzeSolanaFundFlow(tx: SolanaTransaction, context: AddressContext): Result<SolanaFundFlow, Error> {
   // Use all user addresses for multi-address fund-flow analysis
   const allWalletAddresses = new Set<string>(context.userAddresses);
+  if (tx.importSourceKind === 'stake_account' && tx.importSourceAddress) {
+    allWalletAddresses.add(tx.importSourceAddress);
+  }
 
   // Analyze instruction complexity
   const instructionCount = tx.instructions?.length || 0;

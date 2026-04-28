@@ -22,8 +22,14 @@ import {
   type StreamingPageContext,
 } from '../../../../runtime/streaming/adapter.js';
 import type { TokenMetadata } from '../../../../token-metadata/contracts.js';
-import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
-import type { SolanaSignature, SolanaAccountBalance, SolanaTransaction } from '../../schemas.js';
+import { transformSolBalance, transformStakeAccountBalance, transformTokenAccounts } from '../../balance-utils.js';
+import type {
+  SolanaAccountBalance,
+  SolanaSignature,
+  SolanaStakeActivation,
+  SolanaStakeProgramAccount,
+  SolanaTransaction,
+} from '../../schemas.js';
 import type { SolanaTokenAccountsResponse } from '../../types.js';
 import { isValidSolanaAddress } from '../../utils.js';
 
@@ -34,6 +40,8 @@ import {
   HeliusSignaturesJsonRpcResponseSchema,
   HeliusTransactionJsonRpcResponseSchema,
   HeliusBalanceJsonRpcResponseSchema,
+  HeliusStakeActivationJsonRpcResponseSchema,
+  HeliusStakeProgramAccountsJsonRpcResponseSchema,
   HeliusTokenAccountsJsonRpcResponseSchema,
 } from './helius.schemas.js';
 
@@ -45,10 +53,11 @@ export const heliusMetadata: ProviderMetadata = {
     supportedOperations: [
       'getAddressTransactions',
       'getAddressBalances',
+      'getAddressStakingBalances',
       'getAddressTokenBalances',
       'getTokenMetadata',
     ],
-    supportedTransactionTypes: ['normal', 'token'],
+    supportedTransactionTypes: ['normal', 'stake', 'token'],
     supportedCursorTypes: ['pageToken', 'blockNumber', 'timestamp'],
     preferredCursorType: 'pageToken',
   },
@@ -67,6 +76,17 @@ export const heliusMetadata: ProviderMetadata = {
   name: 'helius',
   requiresApiKey: true,
 };
+
+const STAKE_PROGRAM_ID = 'Stake11111111111111111111111111111111111111';
+const STAKE_ACCOUNT_DATA_SIZE = 200;
+const STAKER_AUTHORITY_OFFSET = 12;
+const WITHDRAWER_AUTHORITY_OFFSET = 44;
+
+function resolveStakeBalanceCategory(
+  activation: SolanaStakeActivation
+): Extract<RawBalanceData['balanceCategory'], 'staked' | 'unbonding'> {
+  return activation.state === 'active' || activation.state === 'activating' ? 'staked' : 'unbonding';
+}
 
 export const heliusFactory: ProviderFactory = {
   create: (config: ProviderConfig) => new HeliusApiClient(config),
@@ -117,6 +137,10 @@ export class HeliusApiClient extends BaseApiClient {
           address: operation.address,
           contractAddresses: operation.contractAddresses,
         })) as Result<OneShotOperationResult<TOperation>, Error>;
+      case 'getAddressStakingBalances':
+        return (await this.getAddressStakingBalances({
+          address: operation.address,
+        })) as Result<OneShotOperationResult<TOperation>, Error>;
       case 'getTokenMetadata':
         return (await this.getTokenMetadata(operation.contractAddresses)) as Result<
           OneShotOperationResult<TOperation>,
@@ -140,6 +164,7 @@ export class HeliusApiClient extends BaseApiClient {
     const streamType = operation.streamType || 'normal';
     switch (streamType) {
       case 'normal':
+      case 'stake':
         yield* this.streamAddressTransactions(operation.address, resumeCursor) as AsyncIterableIterator<
           Result<StreamingBatchResult<T>, Error>
         >;
@@ -346,6 +371,119 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug({ tokenAccountCount: balances.length }, 'Successfully retrieved raw token balances');
 
     return ok(balances);
+  }
+
+  private async getAddressStakingBalances(params: { address: string }): Promise<Result<RawBalanceData[], Error>> {
+    const { address } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      return err(new Error(`Invalid Solana address: ${address}`));
+    }
+
+    const stakeAccountsResult = await this.getStakeAccountsAuthorizedByAddress(address);
+    if (stakeAccountsResult.isErr()) {
+      return err(stakeAccountsResult.error);
+    }
+
+    const balances: RawBalanceData[] = [];
+    for (const stakeAccount of stakeAccountsResult.value) {
+      const activationResult = await this.getStakeActivation(stakeAccount.pubkey);
+      if (activationResult.isErr()) {
+        return err(activationResult.error);
+      }
+
+      balances.push(
+        transformStakeAccountBalance({
+          accountAddress: stakeAccount.pubkey,
+          balanceCategory: resolveStakeBalanceCategory(activationResult.value),
+          lamports: stakeAccount.account.lamports,
+        })
+      );
+    }
+
+    this.logger.debug({ stakeAccountCount: balances.length }, 'Successfully retrieved Solana stake-account balances');
+
+    return ok(balances);
+  }
+
+  private async getStakeAccountsAuthorizedByAddress(
+    address: string
+  ): Promise<Result<SolanaStakeProgramAccount[], Error>> {
+    const accountsByPubkey = new Map<string, SolanaStakeProgramAccount>();
+
+    for (const offset of [STAKER_AUTHORITY_OFFSET, WITHDRAWER_AUTHORITY_OFFSET]) {
+      const accountsResult = await this.getStakeAccountsByAuthorityOffset(address, offset);
+      if (accountsResult.isErr()) {
+        return err(accountsResult.error);
+      }
+
+      for (const account of accountsResult.value) {
+        accountsByPubkey.set(account.pubkey, account);
+      }
+    }
+
+    return ok([...accountsByPubkey.values()]);
+  }
+
+  private async getStakeAccountsByAuthorityOffset(
+    address: string,
+    offset: number
+  ): Promise<Result<SolanaStakeProgramAccount[], Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaStakeProgramAccount[]>>(
+      this.rpcEndpoint(),
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getProgramAccounts',
+        params: [
+          STAKE_PROGRAM_ID,
+          {
+            encoding: 'jsonParsed',
+            filters: [
+              { dataSize: STAKE_ACCOUNT_DATA_SIZE },
+              {
+                memcmp: {
+                  bytes: address,
+                  offset,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      { schema: HeliusStakeProgramAccountsJsonRpcResponseSchema }
+    );
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to get Solana stake accounts - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    return ok(result.value.result ?? []);
+  }
+
+  private async getStakeActivation(stakeAccountAddress: string): Promise<Result<SolanaStakeActivation, Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaStakeActivation>>(
+      this.rpcEndpoint(),
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getStakeActivation',
+        params: [stakeAccountAddress],
+      },
+      { schema: HeliusStakeActivationJsonRpcResponseSchema }
+    );
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to get Solana stake activation - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    if (!result.value.result) {
+      return err(new Error(`Failed to fetch stake activation for ${stakeAccountAddress}`));
+    }
+
+    return ok(result.value.result);
   }
 
   private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {

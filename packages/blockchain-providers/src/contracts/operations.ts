@@ -12,6 +12,7 @@ export type ProviderOperationParams =
       type: 'getAddressTransactions';
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalances' }
+  | { address: string; type: 'getAddressStakingBalances' }
   | { address: string; type: 'hasAddressTransactions' }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressTokenBalances' }
   | { contractAddresses: string[]; type: 'getTokenMetadata' }
@@ -38,6 +39,7 @@ export interface AddressInfoData {
 
 export interface OneShotOperationResultByType {
   getAddressBalances: RawBalanceData;
+  getAddressStakingBalances: RawBalanceData[];
   hasAddressTransactions: boolean;
   getAddressTokenBalances: RawBalanceData[];
   getTokenMetadata: TokenMetadata[];
@@ -49,6 +51,7 @@ export type OneShotOperationResult<T extends OneShotOperation> = OneShotOperatio
 export type ProviderOperationType =
   | 'getAddressTransactions'
   | 'getAddressBalances'
+  | 'getAddressStakingBalances'
   | 'hasAddressTransactions'
   | 'getAddressTokenBalances'
   | 'getTokenMetadata'

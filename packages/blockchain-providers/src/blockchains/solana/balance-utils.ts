@@ -1,6 +1,6 @@
 import { parseDecimal } from '@exitbook/foundation';
 
-import type { RawBalanceData } from '../../contracts/index.js';
+import type { RawBalanceCategory, RawBalanceData } from '../../contracts/index.js';
 
 /**
  * Convert lamports to SOL decimal string
@@ -21,6 +21,24 @@ export function transformSolBalance(lamports: number | string): RawBalanceData {
     decimals: 9,
     decimalAmount: balanceSOL,
     symbol: 'SOL',
+    balanceCategory: 'liquid',
+  };
+}
+
+export function transformStakeAccountBalance(params: {
+  accountAddress: string;
+  balanceCategory: Extract<RawBalanceCategory, 'staked' | 'unbonding'>;
+  lamports: number | string;
+}): RawBalanceData {
+  const lamportsStr = params.lamports.toString();
+
+  return {
+    accountAddress: params.accountAddress,
+    rawAmount: lamportsStr,
+    decimals: 9,
+    decimalAmount: convertLamportsToSol(lamportsStr),
+    symbol: 'SOL',
+    balanceCategory: params.balanceCategory,
   };
 }
 

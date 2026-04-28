@@ -27,14 +27,16 @@ import {
   fetchChildAccountsBalance,
   fetchExchangeBalance,
   type FetchBlockchainBalanceOptions,
+  type UnifiedBalanceRow,
   type UnifiedBalanceSnapshot,
 } from './reference-balance-fetching.js';
 import {
   type BalanceComparison,
+  type DecimalBalanceRow,
   type BalancePartialFailure,
   type BalanceVerificationResult,
-  compareBalances,
-  convertBalancesToDecimals,
+  compareBalanceRows,
+  convertBalanceRowsToDecimals,
   createVerificationResult,
 } from './reference-balance-verification.js';
 
@@ -55,6 +57,12 @@ interface BalanceRebuildResult {
   assetCount: number;
   requestedAccount: Account;
   scopeAccount: Account;
+}
+
+interface CalculatedBalanceProjection {
+  assetMetadata: Record<string, string>;
+  balances: Record<string, Decimal>;
+  rows: DecimalBalanceRow[];
 }
 
 /**
@@ -87,7 +95,7 @@ export class BalanceWorkflow {
       scopeContext.scopeAccount.id,
       'Failed to rebuild calculated balance snapshot',
       async () => {
-        const calculatedResult = await this.calculateBalancesFromTransactions(scopeContext);
+        const calculatedResult = await this.calculateBalancesForScope(scopeContext);
         if (calculatedResult.isErr()) return err(calculatedResult.error);
 
         const persistResult = await this.persistCalculatedSnapshot(scopeContext, calculatedResult.value);
@@ -96,7 +104,7 @@ export class BalanceWorkflow {
         return ok({
           requestedAccount: scopeContext.requestedAccount,
           scopeAccount: scopeContext.scopeAccount,
-          assetCount: Object.keys(calculatedResult.value.balances).length,
+          assetCount: calculatedResult.value.rows.length,
         });
       }
     );
@@ -121,7 +129,7 @@ export class BalanceWorkflow {
     );
 
     return this.runScopeProjection(scopeContext.scopeAccount.id, 'Failed to refresh balance verification', async () => {
-      const calculatedResult = await this.calculateBalancesFromTransactions(scopeContext);
+      const calculatedResult = await this.calculateBalancesForScope(scopeContext);
       if (calculatedResult.isErr()) return err(calculatedResult.error);
 
       const persistCalculatedResult = await this.persistCalculatedSnapshot(scopeContext, calculatedResult.value);
@@ -138,7 +146,7 @@ export class BalanceWorkflow {
         );
         if (persistUnavailableResult.isErr()) return err(persistUnavailableResult.error);
 
-        const assetCount = Object.keys(calculatedResult.value.balances).length;
+        const assetCount = calculatedResult.value.rows.length;
         const requestedAddressCount = this.getRequestedAddressCount(scopeContext);
         const warning = liveBalanceSupportResult.value.reason;
 
@@ -170,16 +178,17 @@ export class BalanceWorkflow {
         });
       }
 
-      let { balances: calculatedBalances, assetMetadata: calculatedAssetMetadata } = calculatedResult.value;
+      let calculatedRows = calculatedResult.value.rows;
 
-      const assetScreeningInfoResult = await this.getAssetScreeningInfo(scopeContext, Object.keys(calculatedBalances));
+      const calculatedAssetIds = [...new Set(calculatedRows.map((row) => row.assetId))];
+      const assetScreeningInfoResult = await this.getAssetScreeningInfo(scopeContext, calculatedAssetIds);
       if (assetScreeningInfoResult.isErr()) return err(assetScreeningInfoResult.error);
 
       const { balanceAdjustments, suppressedAssetReasons } = assetScreeningInfoResult.value;
       const assetScreeningPolicyResult = buildReferenceBalanceAssetScreeningPolicy({
         balanceAdjustmentAssetIds: Object.keys(balanceAdjustments),
         blockchain: scopeContext.scopeAccount.platformKey,
-        calculatedAssetIds: Object.keys(calculatedBalances),
+        calculatedAssetIds,
         suppressedAssetReasons,
       });
       if (assetScreeningPolicyResult.isErr()) return err(assetScreeningPolicyResult.error);
@@ -192,15 +201,14 @@ export class BalanceWorkflow {
       if (liveBalanceResult.isErr()) return err(liveBalanceResult.error);
 
       const liveSnapshot = liveBalanceResult.value;
-      const parseResult = convertBalancesToDecimals(liveSnapshot.balances);
+      const parseResult = convertBalanceRowsToDecimals(liveSnapshot.balanceRows);
       const partialFailures: BalancePartialFailure[] = [
         ...(liveSnapshot.partialFailures ?? []),
         ...parseResult.partialFailures,
       ];
       const coverage = this.buildVerificationCoverage(liveSnapshot, parseResult.coverage);
 
-      let liveBalances = parseResult.balances;
-      let liveAssetMetadata = liveSnapshot.assetMetadata;
+      let liveRows = parseResult.rows;
 
       if (Object.keys(balanceAdjustments).length > 0) {
         const excludedAssets = Object.keys(balanceAdjustments);
@@ -211,7 +219,7 @@ export class BalanceWorkflow {
           },
           'Applying excluded transaction balance adjustments to live balance'
         );
-        liveBalances = applyExcludedBalanceAdjustments(liveBalances, balanceAdjustments);
+        liveRows = applyExcludedBalanceAdjustments(liveRows, balanceAdjustments);
       }
 
       const screenedAssetIds = new Set(suppressedAssetReasons.keys());
@@ -220,14 +228,11 @@ export class BalanceWorkflow {
           { scopeAccountId: scopeContext.scopeAccount.id, screenedAssetCount: screenedAssetIds.size },
           'Filtering screened assets from balance comparison'
         );
-        liveBalances = removeAssetsById(liveBalances, screenedAssetIds);
-        calculatedBalances = removeAssetsById(calculatedBalances, screenedAssetIds);
-        liveAssetMetadata = removeAssetsById(liveAssetMetadata, screenedAssetIds);
-        calculatedAssetMetadata = removeAssetsById(calculatedAssetMetadata, screenedAssetIds);
+        liveRows = removeBalanceRowsByAssetId(liveRows, screenedAssetIds);
+        calculatedRows = removeBalanceRowsByAssetId(calculatedRows, screenedAssetIds);
       }
 
-      const mergedAssetMetadata = { ...calculatedAssetMetadata, ...liveAssetMetadata };
-      const comparisons = compareBalances(calculatedBalances, liveBalances, mergedAssetMetadata);
+      const comparisons = compareBalanceRows(calculatedRows, liveRows);
 
       const warnings: string[] = [];
       this.appendPartialCoverageWarnings(warnings, coverage);
@@ -237,7 +242,7 @@ export class BalanceWorkflow {
       if (lastImportTimestampResult.isErr()) return err(lastImportTimestampResult.error);
 
       const lastImportTimestamp = lastImportTimestampResult.value;
-      const hasTransactions = Object.keys(calculatedBalances).length > 0;
+      const hasTransactions = calculatedRows.length > 0;
       const verificationResult = createVerificationResult(
         scopeContext.scopeAccount,
         comparisons,
@@ -250,7 +255,7 @@ export class BalanceWorkflow {
 
       const persistVerifiedResult = await this.persistVerifiedSnapshot(
         scopeContext,
-        calculatedBalances,
+        calculatedRows,
         comparisons,
         verificationResult.status,
         coverage,
@@ -417,9 +422,28 @@ export class BalanceWorkflow {
     }
   }
 
+  private async calculateBalancesForScope(
+    scopeContext: AccountScopeContext
+  ): Promise<Result<CalculatedBalanceProjection, Error>> {
+    const legacyResult = await this.calculateBalancesFromTransactions(scopeContext);
+    if (legacyResult.isErr()) {
+      return err(legacyResult.error);
+    }
+
+    const ledgerRowsResult = await this.loadLedgerCalculatedRows(scopeContext);
+    if (ledgerRowsResult.isErr()) {
+      return err(ledgerRowsResult.error);
+    }
+    if (ledgerRowsResult.value !== undefined) {
+      return ok(ledgerRowsResult.value);
+    }
+
+    return ok(legacyResult.value);
+  }
+
   private async calculateBalancesFromTransactions(
     scopeContext: AccountScopeContext
-  ): Promise<Result<{ assetMetadata: Record<string, string>; balances: Record<string, Decimal> }, Error>> {
+  ): Promise<Result<CalculatedBalanceProjection, Error>> {
     try {
       const accountIds = scopeContext.memberAccounts.map((account) => account.id);
 
@@ -445,7 +469,7 @@ export class BalanceWorkflow {
         logger.warn(
           `No transactions found for ${scopeContext.scopeAccount.platformKey} - calculated balance will be empty`
         );
-        return ok({ balances: {}, assetMetadata: {} });
+        return ok({ balances: {}, assetMetadata: {}, rows: [] });
       }
 
       const childAccountCount = accountIds.length - 1;
@@ -457,10 +481,56 @@ export class BalanceWorkflow {
         `Calculating balances from ${allTransactions.length} transactions across all completed sessions for ${accountInfo}`
       );
 
-      return ok(calculateBalances(allTransactions));
+      const calculated = calculateBalances(allTransactions);
+      return ok({
+        ...calculated,
+        rows: buildCalculatedBalanceRows(calculated.balances, calculated.assetMetadata),
+      });
     } catch (error) {
       return wrapError(error, 'Failed to calculate balances from transactions');
     }
+  }
+
+  private async loadLedgerCalculatedRows(
+    scopeContext: AccountScopeContext
+  ): Promise<Result<CalculatedBalanceProjection | undefined, Error>> {
+    if (!this.ports.findLedgerBalanceRowsByOwnerAccountId) {
+      return ok(undefined);
+    }
+
+    const rowsResult = await this.ports.findLedgerBalanceRowsByOwnerAccountId(scopeContext.scopeAccount.id);
+    if (rowsResult.isErr()) {
+      return err(
+        new Error(
+          `Failed to load ledger balance rows for account #${scopeContext.scopeAccount.id}: ${rowsResult.error.message}`
+        )
+      );
+    }
+
+    if (rowsResult.value.length === 0) {
+      return ok(undefined);
+    }
+
+    const rows: DecimalBalanceRow[] = [];
+    const balances: Record<string, Decimal> = {};
+    const assetMetadata: Record<string, string> = {};
+    for (const row of rowsResult.value) {
+      const amount = parseDecimal(row.quantity);
+      rows.push({
+        amount,
+        assetId: row.assetId,
+        assetSymbol: row.assetSymbol,
+        balanceCategory: row.balanceCategory,
+        refs: [],
+      });
+
+      if (row.balanceCategory === 'liquid') {
+        balances[row.assetId] = (balances[row.assetId] ?? parseDecimal('0')).plus(amount);
+      }
+      assetMetadata[row.assetId] = row.assetSymbol;
+    }
+
+    return ok({ assetMetadata, balances, rows });
   }
 
   private async fetchExchangeLiveBalance(
@@ -625,7 +695,7 @@ export class BalanceWorkflow {
 
   private async persistCalculatedSnapshot(
     scopeContext: AccountScopeContext,
-    calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> }
+    calculated: CalculatedBalanceProjection
   ): Promise<Result<void, Error>> {
     try {
       const now = new Date();
@@ -638,11 +708,12 @@ export class BalanceWorkflow {
         mismatchCount: 0,
       };
 
-      const assets: BalanceSnapshotAsset[] = Object.entries(calculated.balances).map(([assetId, balance]) => ({
+      const assets: BalanceSnapshotAsset[] = calculated.rows.map((row) => ({
         scopeAccountId: scopeContext.scopeAccount.id,
-        assetId,
-        assetSymbol: calculated.assetMetadata[assetId] ?? assetId,
-        calculatedBalance: balance.toFixed(),
+        assetId: row.assetId,
+        assetSymbol: row.assetSymbol,
+        balanceCategory: row.balanceCategory,
+        calculatedBalance: row.amount.toFixed(),
         excludedFromAccounting: false,
       }));
 
@@ -661,12 +732,12 @@ export class BalanceWorkflow {
 
   private async persistUnavailableSnapshot(
     scopeContext: AccountScopeContext,
-    calculated: { assetMetadata: Record<string, string>; balances: Record<string, Decimal> },
+    calculated: CalculatedBalanceProjection,
     reason: string
   ): Promise<Result<void, Error>> {
     try {
       const now = new Date();
-      const assetCount = Object.keys(calculated.balances).length;
+      const assetCount = calculated.rows.length;
       const requestedAddressCount = this.getRequestedAddressCount(scopeContext);
       const suggestion = `Add a balance-capable provider for ${scopeContext.scopeAccount.platformKey} to enable live verification.`;
 
@@ -691,11 +762,12 @@ export class BalanceWorkflow {
         lastError: reason,
       };
 
-      const assets: BalanceSnapshotAsset[] = Object.entries(calculated.balances).map(([assetId, balance]) => ({
+      const assets: BalanceSnapshotAsset[] = calculated.rows.map((row) => ({
         scopeAccountId: scopeContext.scopeAccount.id,
-        assetId,
-        assetSymbol: calculated.assetMetadata[assetId] ?? assetId,
-        calculatedBalance: balance.toFixed(),
+        assetId: row.assetId,
+        assetSymbol: row.assetSymbol,
+        balanceCategory: row.balanceCategory,
+        calculatedBalance: row.amount.toFixed(),
         comparisonStatus: 'unavailable',
         excludedFromAccounting: false,
       }));
@@ -720,7 +792,7 @@ export class BalanceWorkflow {
 
   private async persistVerifiedSnapshot(
     scopeContext: AccountScopeContext,
-    calculatedBalances: Record<string, Decimal>,
+    calculatedRows: readonly DecimalBalanceRow[],
     comparisons: BalanceComparison[],
     status: 'success' | 'warning' | 'failed',
     coverage: BalanceVerificationResult['coverage'],
@@ -749,16 +821,22 @@ export class BalanceWorkflow {
         suggestion,
       };
 
-      const assets: BalanceSnapshotAsset[] = comparisons.map((comparison) => ({
-        scopeAccountId: scopeContext.scopeAccount.id,
-        assetId: comparison.assetId,
-        assetSymbol: comparison.assetSymbol,
-        calculatedBalance: calculatedBalances[comparison.assetId]?.toFixed() ?? comparison.calculatedBalance,
-        liveBalance: comparison.liveBalance,
-        difference: comparison.difference,
-        comparisonStatus: comparison.status,
-        excludedFromAccounting: false,
-      }));
+      const calculatedRowsByKey = indexDecimalBalanceRows(calculatedRows);
+      const assets: BalanceSnapshotAsset[] = comparisons.map((comparison) => {
+        const calculatedRow = calculatedRowsByKey.get(buildBalanceRowKey(comparison));
+
+        return {
+          scopeAccountId: scopeContext.scopeAccount.id,
+          assetId: comparison.assetId,
+          assetSymbol: comparison.assetSymbol,
+          balanceCategory: comparison.balanceCategory,
+          calculatedBalance: calculatedRow?.amount.toFixed() ?? comparison.calculatedBalance,
+          liveBalance: comparison.liveBalance,
+          difference: comparison.difference,
+          comparisonStatus: comparison.status,
+          excludedFromAccounting: false,
+        };
+      });
 
       const replaceResult = await this.ports.replaceSnapshot({
         snapshot,
@@ -792,35 +870,62 @@ function buildNoCompletedImportSessionsError(platformKey: string): Error {
 
 // --- Pure helpers ------------------------------------------------------------
 
-function applyExcludedBalanceAdjustments(
-  liveBalances: Record<string, Decimal>,
-  balanceAdjustments: Record<string, Decimal>
-): Record<string, Decimal> {
-  const adjusted = { ...liveBalances };
+function buildCalculatedBalanceRows(
+  balances: Record<string, Decimal>,
+  assetMetadata: Record<string, string>
+): DecimalBalanceRow[] {
+  return Object.entries(balances).map(([assetId, amount]) => ({
+    amount,
+    assetId,
+    assetSymbol: assetMetadata[assetId] ?? assetId,
+    balanceCategory: 'liquid',
+    refs: [],
+  }));
+}
 
-  for (const [asset, adjustment] of Object.entries(balanceAdjustments)) {
-    const currentBalance = adjusted[asset] ?? parseDecimal('0');
+function buildBalanceRowKey(row: Pick<UnifiedBalanceRow, 'assetId' | 'balanceCategory'>): string {
+  return `${row.assetId}\u0000${row.balanceCategory}`;
+}
+
+function indexDecimalBalanceRows(rows: readonly DecimalBalanceRow[]): Map<string, DecimalBalanceRow> {
+  const rowsByKey = new Map<string, DecimalBalanceRow>();
+  for (const row of rows) {
+    rowsByKey.set(buildBalanceRowKey(row), row);
+  }
+  return rowsByKey;
+}
+
+function applyExcludedBalanceAdjustments(
+  liveRows: readonly DecimalBalanceRow[],
+  balanceAdjustments: Record<string, Decimal>
+): DecimalBalanceRow[] {
+  const adjustedByKey = indexDecimalBalanceRows(liveRows);
+
+  for (const [assetId, adjustment] of Object.entries(balanceAdjustments)) {
+    const rowKey = buildBalanceRowKey({ assetId, balanceCategory: 'liquid' });
+    const currentRow = adjustedByKey.get(rowKey);
+    const currentBalance = currentRow?.amount ?? parseDecimal('0');
     const nextBalance = currentBalance.minus(adjustment);
 
     if (nextBalance.isZero()) {
-      delete adjusted[asset];
+      adjustedByKey.delete(rowKey);
       continue;
     }
 
-    adjusted[asset] = nextBalance;
+    adjustedByKey.set(rowKey, {
+      amount: nextBalance,
+      assetId,
+      assetSymbol: currentRow?.assetSymbol ?? assetId,
+      balanceCategory: 'liquid',
+      refs: currentRow?.refs ?? [],
+    });
   }
 
-  return adjusted;
+  return [...adjustedByKey.values()];
 }
 
-function removeAssetsById<T>(balances: Record<string, T>, assetIds: Set<string>): Record<string, T> {
-  const filtered: Record<string, T> = {};
-  for (const [assetId, balance] of Object.entries(balances)) {
-    if (!assetIds.has(assetId)) {
-      filtered[assetId] = balance;
-    }
-  }
-  return filtered;
+function removeBalanceRowsByAssetId(rows: readonly DecimalBalanceRow[], assetIds: Set<string>): DecimalBalanceRow[] {
+  return rows.filter((row) => !assetIds.has(row.assetId));
 }
 
 /**

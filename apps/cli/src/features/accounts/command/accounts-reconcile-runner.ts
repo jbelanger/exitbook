@@ -340,9 +340,9 @@ function toStoredReferenceRow(scopeAccountId: number, asset: BalanceSnapshotAsse
     accountId: scopeAccountId,
     assetId: asset.assetId,
     assetSymbol: asset.assetSymbol,
-    balanceCategory: 'liquid',
+    balanceCategory: asset.balanceCategory,
     quantity: asset.liveBalance ?? '0',
-    refs: [`balance-snapshot:${scopeAccountId}:${asset.assetId}:live`],
+    refs: [`balance-snapshot:${scopeAccountId}:${asset.assetId}:${asset.balanceCategory}:live`],
   };
 }
 

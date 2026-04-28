@@ -351,6 +351,20 @@ Processor evidence:
   The current v2 port is native-asset-only and fails fast on non-native assets
   until providers expose stable token identity for Asset Hub and parachain
   assets.
+- Solana covers representative SOL and SPL-token account-delta flows, outgoing
+  SOL fee separation, fee-only activities, Jupiter-style swaps, associated token
+  account rent as `protocol_overhead`, staking reward inflows, and simple
+  staking custody movements across liquid and staked categories. It reuses the
+  existing Solana fund-flow analyzer. Imported corpus validation passed for the
+  user's four Solana accounts: 87 raw rows, 74 legacy transactions, 74 ledger
+  source activities, 74 journals, 98 postings, zero v1-v2 liquid balance diffs,
+  and zero live/stored liquid diffs. Solana live balance verification is now
+  category-aware: current stake-account provider rows are modeled as `staked`
+  or `unbonding` when present, and stored snapshots key by asset plus balance
+  category. The refreshed corpus has full live/ledger matches for
+  `solana-wallet-2`, `solana-wallet-3`, and `solana-wallet-4`. `solana-wallet-1`
+  has one visible staked SOL mismatch (`-0.324131161` ledger, `0` live) while
+  all six liquid rows match live balances.
 - Kraken covers exchange provider-event grouping, exchange source activities,
   trade/transfer/refund journals, fill and fee component refs, dust sweeping,
   one-sided trade residuals, transfer reversal skips, and full imported-corpus
@@ -372,7 +386,7 @@ Balance reconciliation groundwork:
 - `packages/ingestion/src/features/asset-screening/**` owns reference-balance
   screening policy for live balance acquisition.
 - `apps/cli/src/features/ledger/command/*ledger-stress*` owns repeatable
-  ledger-v2 stress gates for EVM-family and NEAR accounts.
+  ledger-v2 stress gates for EVM-family, NEAR, and Solana accounts.
 
 ## Remaining Work
 
@@ -927,20 +941,31 @@ cutover work:
 pnpm vitest run packages/ledger/src/source-activities/__tests__/source-activity-fingerprint.test.ts
 pnpm vitest run packages/accounting/src/ledger-balance/__tests__/ledger-balance-runner.test.ts
 pnpm vitest run packages/data/src/repositories/__tests__/accounting-ledger-repository.test.ts
+pnpm vitest run packages/data/src/repositories/__tests__/balance-snapshot-repository.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/cardano/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/bitcoin/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/evm/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/theta/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/near/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/blockchains/cosmos/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/processor-v2.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/processor-v2.balance-shadow.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/solana/__tests__/importer.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/shared/__tests__/ledger-journal-kind-utils.test.ts
+pnpm vitest run packages/ingestion/src/sources/blockchains/shared/__tests__/ledger-processor-v2-utils.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/kraken/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/coinbase/__tests__/processor-v2.test.ts
 pnpm vitest run packages/ingestion/src/sources/exchanges/kucoin/__tests__/processor-v2.test.ts
 pnpm vitest run packages/exchange-providers/src/exchanges/kucoin/__tests__/client.test.ts
 pnpm vitest run packages/ingestion/src/features/asset-screening/__tests__/asset-screening-policy.test.ts
 pnpm vitest run packages/ingestion/src/features/balance/reconciliation/__tests__/balance-reconciliation.test.ts
+pnpm vitest run packages/ingestion/src/features/balance/reference/__tests__/reference-balance-fetching.test.ts
+pnpm vitest run packages/ingestion/src/features/balance/reference/__tests__/reference-balance-verification.test.ts
+pnpm vitest run packages/ingestion/src/features/balance/reference/__tests__/reference-balance-workflow.test.ts
 pnpm vitest run apps/cli/src/features/accounts/command/__tests__/accounts-reconcile-runner.test.ts
 pnpm vitest run apps/cli/src/features/ledger/command/__tests__/evm-family-ledger-stress-runner.test.ts
+pnpm vitest run apps/cli/src/features/ledger/command/__tests__/near-ledger-stress-runner.test.ts
+pnpm vitest run apps/cli/src/features/ledger/command/__tests__/ledger-command.test.ts
 pnpm build
 pnpm lint --fix
 ```
@@ -963,10 +988,16 @@ Decisions:
 - Continue source/provider v2 migrations before linking v2; run them as shadow
   evidence and keep consumer cutover gated on cross-source relationship
   materialization.
-- The remaining provider-v2 queue is Solana and XRP.
+- The remaining provider-v2 queue is XRP.
 - Substrate ledger-v2 is complete for the current migration gate with Polkadot
   as the native staking proof and Bittensor as the TAO decimal/provider proof.
   Keep the processor generic across Substrate chains, not Polkadot-only.
+- Solana ledger-v2 is complete for the current migration gate with
+  representative SOL, SPL-token, swap, fee, associated-token-account rent,
+  staking shapes, imported-corpus v1/v2 liquid parity, live/stored liquid
+  balance parity, category-aware live/stored snapshot rows, and a repeatable
+  `ledger stress solana` gate. Treat wallet-1's staked SOL delta as an
+  explicit expected diff until opening-state staking history is resolved.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
 - Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`
@@ -988,8 +1019,10 @@ Decisions:
 
 Smells to watch:
 
-- Current live providers still emit liquid reference rows only; category-aware
-  rows are accepted by reconciliation once a provider can supply them.
+- Some live providers and exchange scopes still emit liquid reference rows only.
+  Solana now emits category-aware staking reference rows when current stake
+  accounts are discoverable, but historical staking openings still require
+  explicit audit evidence.
 - Exchange APIs may report on-chain fees without chain-native asset identity;
   those fees are retained as balance-neutral diagnostics until linking or
   on-chain evidence can attach richer identity.
@@ -1016,3 +1049,8 @@ Smells to watch:
   evidence before implementation.
 - Full Kraken v1/v2/live balance validation is currently manual because it
   depends on private local imports and API credentials.
+- `solana-wallet-1` currently carries a negative staked SOL ledger balance in
+  the imported corpus. Current live staking balance is zero, so the mismatch is
+  now visible in refresh/reconcile/stress output instead of being treated as an
+  unsupported category. Resolve it with opening-state or historical staking
+  evidence before consumer cutover.

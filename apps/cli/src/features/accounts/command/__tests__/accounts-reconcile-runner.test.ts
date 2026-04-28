@@ -96,6 +96,7 @@ function createSnapshotAsset(overrides: Partial<BalanceSnapshotAsset> & Pick<Bal
     scopeAccountId: overrides.scopeAccountId ?? 1,
     assetId: overrides.assetId,
     assetSymbol: overrides.assetSymbol ?? overrides.assetId,
+    balanceCategory: overrides.balanceCategory ?? 'liquid',
     calculatedBalance: overrides.calculatedBalance ?? '0',
     liveBalance: overrides.liveBalance,
     difference: overrides.difference,
@@ -221,6 +222,56 @@ describe('AccountsReconcileRunner', () => {
     expect(result.scopes[0]?.rows[0]?.referenceUnavailableReason).toContain(
       'Stored balance snapshot contains no usable live reference balances'
     );
+  });
+
+  it('compares stored non-liquid snapshot rows when live references are category-aware', async () => {
+    const account = createAccount({ id: 1, name: 'solana-main', platformKey: 'solana' });
+    const assetId = 'blockchain:solana:native';
+    const runner = new AccountsReconcileRunner({
+      db: createDataSessionMock({
+        accounts: [account],
+        postingsByAccountId: new Map([
+          [
+            1,
+            [
+              createLedgerPosting({
+                ownerAccountId: 1,
+                assetId,
+                assetSymbol: 'SOL',
+                balanceCategory: 'staked',
+                quantity: '2.5',
+              }),
+            ],
+          ],
+        ]),
+        snapshotsByScopeAccountId: new Map([[1, createSnapshot(1)]]),
+        assets: [
+          createSnapshotAsset({
+            scopeAccountId: 1,
+            assetId,
+            assetSymbol: 'SOL',
+            balanceCategory: 'staked',
+            calculatedBalance: '2.5',
+            liveBalance: '2.5',
+            difference: '0',
+            comparisonStatus: 'match',
+          }),
+        ],
+      }),
+    });
+
+    const result = assertOk(await runner.reconcileAccounts([account], STORED_RECONCILE_OPTIONS));
+
+    expect(result.status).toBe('matched');
+    expect(result.summary.categoryUnsupported).toBe(0);
+    expect(result.scopes[0]?.rows[0]).toMatchObject({
+      assetSymbol: 'SOL',
+      balanceCategory: 'staked',
+      expectedQuantity: '2.5',
+      referenceQuantity: '2.5',
+      referenceRefs: [`balance-snapshot:1:${assetId}:staked:live`],
+      status: 'matched',
+    });
   });
 
   it('uses category-aware live reference rows when a future provider supplies them', async () => {

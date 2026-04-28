@@ -76,6 +76,7 @@ function createSnapshotAsset(
     scopeAccountId,
     assetId,
     assetSymbol,
+    balanceCategory: 'liquid',
     calculatedBalance: '1.25',
     excludedFromAccounting: false,
     liveBalance: '1.25',

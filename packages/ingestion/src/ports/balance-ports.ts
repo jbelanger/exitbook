@@ -7,10 +7,18 @@ import type {
   Transaction,
 } from '@exitbook/core';
 import type { Result } from '@exitbook/foundation';
+import type { AccountingBalanceCategory } from '@exitbook/ledger';
 
 export interface BalanceTransactionQuery {
   accountIds: number[];
   includeExcluded?: boolean | undefined;
+}
+
+export interface BalanceLedgerBalanceRow {
+  assetId: string;
+  assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
+  quantity: string;
 }
 
 export interface BalancePorts {
@@ -25,5 +33,6 @@ export interface BalancePorts {
     profileId: number,
     assetIds: string[]
   ): Promise<Result<Map<string, AssetReviewSummary>, Error>>;
+  findLedgerBalanceRowsByOwnerAccountId?(ownerAccountId: number): Promise<Result<BalanceLedgerBalanceRow[], Error>>;
   findTransactionsByAccountIds(params: BalanceTransactionQuery): Promise<Result<Transaction[], Error>>;
 }

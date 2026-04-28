@@ -43,6 +43,7 @@ function createAsset(
     calculatedBalance: '1.25',
     liveBalance: '1.00',
     difference: '-0.25',
+    balanceCategory: 'liquid',
     comparisonStatus: 'warning',
     excludedFromAccounting: false,
     ...overrides,
@@ -102,6 +103,7 @@ describe('BalanceSnapshotRepository', () => {
         calculatedBalance: '1.25',
         liveBalance: '1.25',
         difference: '0',
+        balanceCategory: 'liquid',
         comparisonStatus: 'match',
         excludedFromAccounting: false,
       },
@@ -112,6 +114,7 @@ describe('BalanceSnapshotRepository', () => {
         calculatedBalance: '1.25',
         liveBalance: '1.00',
         difference: '-0.25',
+        balanceCategory: 'liquid',
         comparisonStatus: 'warning',
         excludedFromAccounting: true,
       },
@@ -140,6 +143,38 @@ describe('BalanceSnapshotRepository', () => {
 
     const assets = assertOk(await repo.findAssetsByScope([1]));
     expect(assets.map((asset) => asset.assetId)).toEqual(['exchange:kraken:btc']);
+  });
+
+  it('keeps separate rows for the same asset in different balance categories', async () => {
+    assertOk(
+      await repo.replaceSnapshot({
+        snapshot: createSnapshot(1),
+        assets: [
+          createAsset(1, 'blockchain:solana:native', {
+            assetSymbol: 'SOL',
+            balanceCategory: 'liquid',
+            calculatedBalance: '2.50',
+            liveBalance: '2.50',
+            difference: '0',
+            comparisonStatus: 'match',
+          }),
+          createAsset(1, 'blockchain:solana:native', {
+            assetSymbol: 'SOL',
+            balanceCategory: 'staked',
+            calculatedBalance: '3.00',
+            liveBalance: '3.00',
+            difference: '0',
+            comparisonStatus: 'match',
+          }),
+        ],
+      })
+    );
+
+    const assets = assertOk(await repo.findAssetsByScope([1]));
+    expect(assets.map((asset) => [asset.assetId, asset.balanceCategory, asset.calculatedBalance])).toEqual([
+      ['blockchain:solana:native', 'liquid', '2.50'],
+      ['blockchain:solana:native', 'staked', '3.00'],
+    ]);
   });
 
   it('groups assets by asset id across scopes', async () => {

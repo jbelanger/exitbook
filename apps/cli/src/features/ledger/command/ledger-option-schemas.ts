@@ -15,3 +15,9 @@ export const NearLedgerStressCommandOptionsSchema = OptionalBareAccountSelectorS
 ).extend({
   expectedDiffs: z.string().trim().min(1).optional(),
 });
+
+export const SolanaLedgerStressCommandOptionsSchema = OptionalBareAccountSelectorSchema.extend(
+  JsonFlagSchema.shape
+).extend({
+  expectedDiffs: z.string().trim().min(1).optional(),
+});

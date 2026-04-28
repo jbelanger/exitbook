@@ -64,6 +64,12 @@ export interface IBlockchainProviderRuntime {
     options?: BlockchainBalanceQueryOptions
   ): Promise<Result<FailoverExecutionResult<RawBalanceData[]>, Error>>;
 
+  getAddressStakingBalances(
+    blockchain: string,
+    address: string,
+    options?: BlockchainProviderSelectionOptions
+  ): Promise<Result<FailoverExecutionResult<RawBalanceData[]>, Error>>;
+
   getTokenMetadata(
     blockchain: string,
     contractAddresses: string[],

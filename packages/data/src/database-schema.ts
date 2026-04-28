@@ -20,10 +20,10 @@ import type {
   ProcessingStatus,
   ProjectionStatus,
 } from '@exitbook/core';
+import type { AccountingBalanceCategory } from '@exitbook/ledger';
 import type {
   AccountingJournalKind,
   AccountingJournalRelationshipKind,
-  AccountingBalanceCategory,
   AccountingOverrideKind,
   AccountingPostingRole,
   AccountingSettlement,
@@ -487,6 +487,7 @@ export interface BalanceSnapshotAssetsTable {
   scope_account_id: number;
   asset_id: string;
   asset_symbol: string;
+  balance_category: AccountingBalanceCategory;
   calculated_balance: DecimalString;
   live_balance: DecimalString | null;
   difference: DecimalString | null;

@@ -6,6 +6,8 @@ import {
   SolanaTokenBalanceSchema,
   SolanaTokenAccountSchema,
   SolanaAccountBalanceSchema,
+  SolanaStakeActivationSchema,
+  SolanaStakeProgramAccountSchema,
 } from '../../schemas.js';
 
 /**
@@ -86,6 +88,22 @@ export const SolanaRPCTokenAccountsJsonRpcResponseSchema = z.object({
   jsonrpc: z.string().nullish(),
   id: z.union([z.string(), z.number()]).nullish(),
   result: SolanaTokenAccountsResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
+});
+
+const SolanaStakeProgramAccountsResponseSchema = z.array(SolanaStakeProgramAccountSchema);
+
+export const SolanaRPCStakeProgramAccountsJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaStakeProgramAccountsResponseSchema.nullish(),
+  error: z.object({ code: z.number(), message: z.string() }).nullish(),
+});
+
+export const SolanaRPCStakeActivationJsonRpcResponseSchema = z.object({
+  jsonrpc: z.string().nullish(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  result: SolanaStakeActivationSchema.nullish(),
   error: z.object({ code: z.number(), message: z.string() }).nullish(),
 });
 

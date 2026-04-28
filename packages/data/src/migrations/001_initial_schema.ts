@@ -1040,12 +1040,17 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
     .addColumn('asset_id', 'text', (col) => col.notNull())
     .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('balance_category', 'text', (col) => col.notNull().defaultTo('liquid'))
     .addColumn('calculated_balance', 'text', (col) => col.notNull())
     .addColumn('live_balance', 'text')
     .addColumn('difference', 'text')
     .addColumn('comparison_status', 'text')
     .addColumn('excluded_from_accounting', 'integer', (col) => col.notNull().defaultTo(0))
-    .addPrimaryKeyConstraint('balance_snapshot_assets_pk', ['scope_account_id', 'asset_id'])
+    .addPrimaryKeyConstraint('balance_snapshot_assets_pk', ['scope_account_id', 'asset_id', 'balance_category'])
+    .addCheckConstraint(
+      'balance_snapshot_assets_category_valid',
+      sql`balance_category IN ('liquid', 'staked', 'unbonding', 'reward_receivable')`
+    )
     .addCheckConstraint(
       'balance_snapshot_assets_comparison_status_valid',
       sql`comparison_status IS NULL OR comparison_status IN ('match', 'warning', 'mismatch', 'unavailable')`

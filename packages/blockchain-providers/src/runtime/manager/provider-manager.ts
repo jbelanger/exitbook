@@ -224,6 +224,22 @@ export class BlockchainProviderManager {
     });
   }
 
+  async getAddressStakingBalances(
+    blockchain: string,
+    address: string,
+    options?: BlockchainProviderSelectionOptions
+  ): Promise<Result<FailoverExecutionResult<RawBalanceData[]>, Error>> {
+    const providerSetupResult = this.ensureProvidersRegistered(blockchain, options?.preferredProvider);
+    if (providerSetupResult.isErr()) {
+      return err(providerSetupResult.error);
+    }
+
+    return this.engine.executeOneShotImpl(blockchain, {
+      type: 'getAddressStakingBalances',
+      address,
+    });
+  }
+
   async getTokenMetadata(
     blockchain: string,
     contractAddresses: string[],

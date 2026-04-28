@@ -7,6 +7,7 @@ import type { Currency } from '@exitbook/foundation';
 export interface SolanaMovement {
   amount: string;
   asset: Currency;
+  balanceCategory?: 'liquid' | 'staked' | 'unbonding' | undefined;
   decimals?: number | undefined;
   movementRole?: MovementRole | undefined;
   tokenAddress?: string | undefined; // Mint address for SPL tokens

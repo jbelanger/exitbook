@@ -81,6 +81,26 @@ describe('reconcileBalanceRows', () => {
     });
   });
 
+  it('ignores zero reference-only rows outside the expected ledger scope', () => {
+    const result = assertOk(
+      reconcileBalanceRows({
+        expectedRows: [],
+        referenceRows: [row({ quantity: '0' })],
+        referenceSource: 'live',
+      })
+    );
+
+    expect(result.rows).toEqual([]);
+    expect(result.summary).toEqual({
+      categoryUnsupported: 0,
+      matched: 0,
+      missingReference: 0,
+      quantityMismatches: 0,
+      totalRows: 0,
+      unexpectedReference: 0,
+    });
+  });
+
   it('reports quantity mismatches with expected minus reference diff quantity', () => {
     const result = assertOk(
       reconcileBalanceRows({

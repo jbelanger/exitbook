@@ -9,7 +9,7 @@ import type { IImporter, StreamingImportParams } from '../../shared/types/import
 export { createMockProviderManager } from './mock-factories.js';
 
 export type ProviderManagerMock = Mocked<
-  Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders'>
+  Pick<IBlockchainProviderRuntime, 'getAddressStakingBalances' | 'streamAddressTransactions' | 'getProviders'>
 >;
 
 /**

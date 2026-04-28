@@ -4,6 +4,8 @@ import type { AccountingBalanceCategory } from '@exitbook/ledger';
 import { getLogger } from '@exitbook/logger';
 import type { Decimal } from 'decimal.js';
 
+import type { UnifiedBalanceRow } from './reference-balance-fetching.js';
+
 const logger = getLogger('reference-balance-verification');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -78,6 +80,24 @@ interface ConvertBalancesToDecimalsResult {
   partialFailures: BalancePartialFailure[];
 }
 
+export interface DecimalBalanceRow {
+  amount: Decimal;
+  assetId: string;
+  assetSymbol: string;
+  balanceCategory: AccountingBalanceCategory;
+  refs: readonly string[];
+}
+
+interface ConvertBalanceRowsToDecimalsResult {
+  coverage: {
+    failedAssetCount: number;
+    parsedAssetCount: number;
+    totalAssetCount: number;
+  };
+  partialFailures: BalancePartialFailure[];
+  rows: DecimalBalanceRow[];
+}
+
 // ─── Balance parsing ────────────────────────────────────────────────────────
 
 /**
@@ -133,6 +153,84 @@ export function convertBalancesToDecimals(balances: Record<string, string>): Con
     balances: decimalBalances,
     coverage: {
       totalAssetCount: Object.keys(balances).length,
+      parsedAssetCount,
+      failedAssetCount: partialFailures.length,
+    },
+    partialFailures,
+  };
+}
+
+export function convertBalanceRowsToDecimals(rows: readonly UnifiedBalanceRow[]): ConvertBalanceRowsToDecimalsResult {
+  const rowsByKey = new Map<string, DecimalBalanceRow>();
+  const partialFailures: BalancePartialFailure[] = [];
+  let parsedAssetCount = 0;
+
+  for (const row of rows) {
+    if (row.amount.trim().length === 0) {
+      const message = `Failed to parse balance amount for ${row.assetId}/${row.balanceCategory}: empty string is not a valid balance`;
+
+      logger.warn(
+        { assetId: row.assetId, balanceCategory: row.balanceCategory, amount: row.amount },
+        'Failed to parse balance amount; recording partial-failure metadata'
+      );
+
+      partialFailures.push({
+        code: 'balance-parse-failed',
+        message,
+        scope: 'asset',
+        assetId: row.assetId,
+        rawAmount: row.amount,
+      });
+
+      continue;
+    }
+
+    const parsed = { value: parseDecimal('0') };
+    if (!tryParseDecimal(row.amount, parsed)) {
+      const parseError = new Error(`Invalid decimal: ${row.amount}`);
+      const message = `Failed to parse balance amount for ${row.assetId}/${row.balanceCategory}: ${parseError.message}`;
+
+      logger.warn(
+        { error: parseError, assetId: row.assetId, balanceCategory: row.balanceCategory, amount: row.amount },
+        'Failed to parse balance amount; recording partial-failure metadata'
+      );
+
+      partialFailures.push({
+        code: 'balance-parse-failed',
+        message,
+        scope: 'asset',
+        assetId: row.assetId,
+        rawAmount: row.amount,
+      });
+      continue;
+    }
+
+    parsedAssetCount++;
+    const rowKey = buildBalanceRowKey(row);
+    const existing = rowsByKey.get(rowKey);
+    if (!existing) {
+      rowsByKey.set(rowKey, {
+        amount: parsed.value,
+        assetId: row.assetId,
+        assetSymbol: row.assetSymbol,
+        balanceCategory: row.balanceCategory,
+        refs: row.refs ?? [],
+      });
+      continue;
+    }
+
+    rowsByKey.set(rowKey, {
+      ...existing,
+      amount: existing.amount.plus(parsed.value),
+      assetSymbol: existing.assetSymbol === existing.assetId ? row.assetSymbol : existing.assetSymbol,
+      refs: [...existing.refs, ...(row.refs ?? [])],
+    });
+  }
+
+  return {
+    rows: [...rowsByKey.values()],
+    coverage: {
+      totalAssetCount: rows.length,
       parsedAssetCount,
       failedAssetCount: partialFailures.length,
     },
@@ -200,6 +298,77 @@ export function compareBalances(
     const absA = parseDecimal(a.calculatedBalance).abs();
     const absB = parseDecimal(b.calculatedBalance).abs();
     return absB.comparedTo(absA);
+  });
+}
+
+function buildBalanceRowKey(row: Pick<UnifiedBalanceRow, 'assetId' | 'balanceCategory'>): string {
+  return `${row.assetId}\u0000${row.balanceCategory}`;
+}
+
+function indexDecimalBalanceRows(rows: readonly DecimalBalanceRow[]): Map<string, DecimalBalanceRow> {
+  const rowsByKey = new Map<string, DecimalBalanceRow>();
+  for (const row of rows) {
+    rowsByKey.set(buildBalanceRowKey(row), row);
+  }
+  return rowsByKey;
+}
+
+export function compareBalanceRows(
+  calculated: readonly DecimalBalanceRow[],
+  live: readonly DecimalBalanceRow[],
+  tolerance = 0.00000001
+): BalanceComparison[] {
+  const calculatedByKey = indexDecimalBalanceRows(calculated);
+  const liveByKey = indexDecimalBalanceRows(live);
+  const allKeys = new Set([...calculatedByKey.keys(), ...liveByKey.keys()]);
+  const comparisons: BalanceComparison[] = [];
+
+  for (const rowKey of allKeys) {
+    const calculatedRow = calculatedByKey.get(rowKey);
+    const liveRow = liveByKey.get(rowKey);
+    const template = calculatedRow ?? liveRow;
+    if (!template) {
+      continue;
+    }
+
+    const calcBalance = calculatedRow?.amount ?? parseDecimal('0');
+    const liveBalance = liveRow?.amount ?? parseDecimal('0');
+    const difference = calcBalance.minus(liveBalance);
+    const absDifference = difference.abs();
+
+    let status: 'match' | 'warning' | 'mismatch';
+    let percentageDiff = 0;
+
+    if (absDifference.lessThanOrEqualTo(tolerance)) {
+      status = 'match';
+    } else {
+      if (!liveBalance.isZero()) {
+        percentageDiff = absDifference.dividedBy(liveBalance.abs()).times(100).toNumber();
+      } else if (!calcBalance.isZero()) {
+        percentageDiff = 100;
+      }
+
+      status = percentageDiff < 1 ? 'warning' : 'mismatch';
+    }
+
+    comparisons.push({
+      assetId: template.assetId,
+      assetSymbol: calculatedRow?.assetSymbol ?? liveRow?.assetSymbol ?? template.assetId,
+      balanceCategory: template.balanceCategory,
+      calculatedBalance: calcBalance.toFixed(),
+      liveBalance: liveBalance.toFixed(),
+      difference: difference.toFixed(),
+      percentageDiff,
+      status,
+    });
+  }
+
+  return comparisons.sort((a, b) => {
+    const absA = parseDecimal(a.calculatedBalance).abs();
+    const absB = parseDecimal(b.calculatedBalance).abs();
+    return (
+      absB.comparedTo(absA) || a.assetId.localeCompare(b.assetId) || a.balanceCategory.localeCompare(b.balanceCategory)
+    );
   });
 }
 

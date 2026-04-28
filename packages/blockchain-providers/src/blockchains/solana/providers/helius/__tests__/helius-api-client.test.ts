@@ -41,6 +41,7 @@ const RECEIVER_ADDRESS = 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH';
 const PROGRAM_ADDRESS = '11111111111111111111111111111111';
 const TOKEN_ACCOUNT = 'TokenAcct111111111111111111111111111111111111';
 const MINT_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const STAKE_ACCOUNT = 'StakeAcct1111111111111111111111111111111111';
 const SIGNATURE = '5UfWrM37GgDTNB7SWzGK5PkuPkFdPg3JWBvdBrMZG1s9xCJZbAQz7NxQn4Pgb91dVBvnUCQ9Jw';
 
 function buildBalanceResponse(lamports = 5000000000) {
@@ -135,6 +136,39 @@ function buildAssetResponse(overrides?: object) {
   };
 }
 
+function buildStakeProgramAccountsResponse(accounts = [buildStakeProgramAccount()]) {
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    result: accounts,
+  };
+}
+
+function buildStakeProgramAccount(overrides?: { lamports?: number | undefined; pubkey?: string | undefined }) {
+  return {
+    pubkey: overrides?.pubkey ?? STAKE_ACCOUNT,
+    account: {
+      data: { parsed: { type: 'delegated' } },
+      executable: false,
+      lamports: overrides?.lamports ?? 2500000000,
+      owner: 'Stake11111111111111111111111111111111111111',
+      rentEpoch: 361,
+    },
+  };
+}
+
+function buildStakeActivationResponse(state: 'active' | 'activating' | 'deactivating' | 'inactive' = 'active') {
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    result: {
+      active: 2500000000,
+      inactive: 0,
+      state,
+    },
+  };
+}
+
 // ── Test suite ──────────────────────────────────────────────────────
 
 describe('HeliusApiClient', () => {
@@ -170,10 +204,11 @@ describe('HeliusApiClient', () => {
       expect(capabilities.supportedOperations).toEqual([
         'getAddressTransactions',
         'getAddressBalances',
+        'getAddressStakingBalances',
         'getAddressTokenBalances',
         'getTokenMetadata',
       ]);
-      expect(capabilities.supportedTransactionTypes).toEqual(['normal', 'token']);
+      expect(capabilities.supportedTransactionTypes).toEqual(['normal', 'stake', 'token']);
       expect(capabilities.preferredCursorType).toBe('pageToken');
     });
 
@@ -197,6 +232,7 @@ describe('HeliusApiClient', () => {
         rawAmount: '5000000000',
         decimalAmount: '5',
         decimals: 9,
+        balanceCategory: 'liquid',
       });
       expect(mockPost).toHaveBeenCalledWith('/?api-key=test-helius-api-key', expect.any(Object), expect.any(Object));
     });
@@ -274,6 +310,53 @@ describe('HeliusApiClient', () => {
       const error = expectErr(await client.execute({ type: 'getAddressTokenBalances', address: TEST_ADDRESS }));
 
       expect(error.message).toBe('Rate limited');
+    });
+  });
+
+  describe('execute - getAddressStakingBalances', () => {
+    it('should return stake account balances with category and account refs', async () => {
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeActivationResponse('active')));
+
+      const result = expectOk(await client.execute({ type: 'getAddressStakingBalances', address: TEST_ADDRESS }));
+
+      expect(result).toEqual([
+        {
+          accountAddress: STAKE_ACCOUNT,
+          rawAmount: '2500000000',
+          decimalAmount: '2.5',
+          decimals: 9,
+          symbol: 'SOL',
+          balanceCategory: 'staked',
+        },
+      ]);
+      const stakeAccountsCall = mockPost.mock.calls[0] as
+        | [string, { method: string; params: [string, { filters: unknown[] }] }, unknown]
+        | undefined;
+      expect(stakeAccountsCall?.[0]).toBe('/?api-key=test-helius-api-key');
+      expect(stakeAccountsCall?.[1].method).toBe('getProgramAccounts');
+      expect(stakeAccountsCall?.[1].params[0]).toBe('Stake11111111111111111111111111111111111111');
+      expect(stakeAccountsCall?.[1].params[1].filters).toEqual([
+        { dataSize: 200 },
+        { memcmp: { bytes: TEST_ADDRESS, offset: 12 } },
+      ]);
+      expect(mockPost).toHaveBeenNthCalledWith(
+        3,
+        '/?api-key=test-helius-api-key',
+        expect.objectContaining({ method: 'getStakeActivation', params: [STAKE_ACCOUNT] }),
+        expect.anything()
+      );
+    });
+
+    it('should mark inactive stake accounts as unbonding reference balances', async () => {
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse([])));
+      mockPost.mockResolvedValueOnce(ok(buildStakeActivationResponse('inactive')));
+
+      const result = expectOk(await client.execute({ type: 'getAddressStakingBalances', address: TEST_ADDRESS }));
+
+      expect(result[0]?.balanceCategory).toBe('unbonding');
     });
   });
 

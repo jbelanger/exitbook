@@ -44,6 +44,24 @@ export class SolanaImporter implements IImporter {
 
     this.logger.info(`Starting Solana streaming import for address: ${params.address.substring(0, 20)}...`);
 
+    const stakeAccountsResult = await this.getStakeAccountAddresses(params.address);
+    if (stakeAccountsResult.isErr()) {
+      yield err(stakeAccountsResult.error);
+      return;
+    }
+
+    for (const stakeAccountAddress of stakeAccountsResult.value) {
+      const stakeCursor = params.cursor?.[`stake:${stakeAccountAddress}`];
+      for await (const batchResult of this.streamTransactionsForAddress(
+        stakeAccountAddress,
+        stakeCursor,
+        `stake:${stakeAccountAddress}`,
+        'stake'
+      )) {
+        yield batchResult;
+      }
+    }
+
     // Stream normal address transactions (where address signed)
     const normalCursor = params.cursor?.['normal'];
     for await (const batchResult of this.streamTransactionsForAddress(params.address, normalCursor, 'normal')) {
@@ -59,6 +77,35 @@ export class SolanaImporter implements IImporter {
     this.logger.info(`Solana streaming import completed`);
   }
 
+  private async getStakeAccountAddresses(address: string): Promise<Result<string[], Error>> {
+    const providers = this.providerRuntime.getProviders('solana', { preferredProvider: this.preferredProvider });
+    const supportsStakingBalances = providers.some((provider) =>
+      provider.capabilities.supportedOperations.includes('getAddressStakingBalances')
+    );
+    if (!supportsStakingBalances) {
+      return ok([]);
+    }
+
+    const stakingBalancesResult = await this.providerRuntime.getAddressStakingBalances('solana', address, {
+      preferredProvider: this.preferredProvider,
+    });
+    if (stakingBalancesResult.isErr()) {
+      return err(stakingBalancesResult.error);
+    }
+
+    const stakeAccountAddresses = [
+      ...new Set(
+        stakingBalancesResult.value.data
+          .map((balance) => balance.accountAddress)
+          .filter((accountAddress): accountAddress is string => accountAddress !== undefined)
+      ),
+    ];
+
+    this.logger.info({ stakeAccountCount: stakeAccountAddresses.length }, 'Discovered Solana stake accounts');
+
+    return ok(stakeAccountAddresses);
+  }
+
   /**
    * Stream transactions for a single address with resume support
    * Uses provider runtime's streaming failover to handle pagination and provider switching
@@ -67,16 +114,18 @@ export class SolanaImporter implements IImporter {
   private async *streamTransactionsForAddress(
     address: string,
     resumeCursor: CursorState | undefined,
-    streamType: 'normal' | 'token'
+    streamType: string,
+    providerStreamType: 'normal' | 'stake' | 'token' = streamType === 'token' ? 'token' : 'normal'
   ): AsyncIterableIterator<Result<ImportBatchResult, Error>> {
-    const operationLabel = streamType === 'normal' ? 'address' : 'token account';
+    const operationLabel =
+      providerStreamType === 'normal' ? 'address' : providerStreamType === 'stake' ? 'stake account' : 'token account';
 
     this.logger.info(`Starting ${operationLabel} transaction stream for address: ${address.substring(0, 20)}...`);
 
     const iterator = this.providerRuntime.streamAddressTransactions<TransactionWithRawData<SolanaTransaction>>(
       'solana',
       address,
-      { preferredProvider: this.preferredProvider, streamType },
+      { preferredProvider: this.preferredProvider, streamType: providerStreamType },
       resumeCursor
     );
 
@@ -99,7 +148,22 @@ export class SolanaImporter implements IImporter {
         );
       }
 
-      const rawTransactions = mapToRawTransactions(transactionsWithRaw, providerBatch.providerName, address);
+      const rawTransactions = mapToRawTransactions(
+        transactionsWithRaw.map((transactionWithRaw) => ({
+          ...transactionWithRaw,
+          normalized:
+            providerStreamType === 'stake'
+              ? {
+                  ...transactionWithRaw.normalized,
+                  importSourceAddress: address,
+                  importSourceKind: 'stake_account' as const,
+                }
+              : transactionWithRaw.normalized,
+        })),
+        providerBatch.providerName,
+        address,
+        streamType
+      );
 
       yield ok({
         rawTransactions,

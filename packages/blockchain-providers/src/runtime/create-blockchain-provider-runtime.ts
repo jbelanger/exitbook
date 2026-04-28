@@ -67,6 +67,7 @@ export async function createBlockchainProviderRuntime(
     return ok({
       getAddressBalances: (...args) => readyProviderManager.getAddressBalances(...args),
       getAddressInfo: (...args) => readyProviderManager.getAddressInfo(...args),
+      getAddressStakingBalances: (...args) => readyProviderManager.getAddressStakingBalances(...args),
       getAddressTokenBalances: (...args) => readyProviderManager.getAddressTokenBalances(...args),
       getProviders: (...args) => readyProviderManager.getProviders(...args),
       getTokenMetadata: (...args) => readyProviderManager.getTokenMetadata(...args),

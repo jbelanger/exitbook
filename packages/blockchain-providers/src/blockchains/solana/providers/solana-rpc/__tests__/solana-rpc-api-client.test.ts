@@ -36,6 +36,7 @@ vi.mock('@exitbook/logger', () => ({
 
 const TEST_ADDRESS = 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK';
 const MINT_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const STAKE_ACCOUNT = 'StakeAcct1111111111111111111111111111111111';
 const TOKEN_ACCOUNT = 'TokenAcct111111111111111111111111111111111111';
 
 function buildBalanceResponse(lamports = 5000000000) {
@@ -79,6 +80,39 @@ function buildTokenAccountsResponse() {
   };
 }
 
+function buildStakeProgramAccountsResponse(accounts = [buildStakeProgramAccount()]) {
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    result: accounts,
+  };
+}
+
+function buildStakeProgramAccount(overrides?: { lamports?: number | undefined; pubkey?: string | undefined }) {
+  return {
+    pubkey: overrides?.pubkey ?? STAKE_ACCOUNT,
+    account: {
+      data: { parsed: { type: 'delegated' } },
+      executable: false,
+      lamports: overrides?.lamports ?? 2500000000,
+      owner: 'Stake11111111111111111111111111111111111111',
+      rentEpoch: 361,
+    },
+  };
+}
+
+function buildStakeActivationResponse(state: 'active' | 'activating' | 'deactivating' | 'inactive' = 'active') {
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    result: {
+      active: 2500000000,
+      inactive: 0,
+      state,
+    },
+  };
+}
+
 // ── Test suite ──────────────────────────────────────────────────────
 
 describe('SolanaRPCApiClient', () => {
@@ -109,7 +143,11 @@ describe('SolanaRPCApiClient', () => {
 
     it('should support only balance operations (no streaming)', () => {
       const { capabilities } = client;
-      expect(capabilities.supportedOperations).toEqual(['getAddressBalances', 'getAddressTokenBalances']);
+      expect(capabilities.supportedOperations).toEqual([
+        'getAddressBalances',
+        'getAddressStakingBalances',
+        'getAddressTokenBalances',
+      ]);
       expect(capabilities.supportedOperations).not.toContain('getAddressTransactions');
     });
 
@@ -132,6 +170,7 @@ describe('SolanaRPCApiClient', () => {
         rawAmount: '5000000000',
         decimalAmount: '5',
         decimals: 9,
+        balanceCategory: 'liquid',
       });
       expect(mockPost).toHaveBeenCalledWith(
         '/',
@@ -213,6 +252,53 @@ describe('SolanaRPCApiClient', () => {
       const error = expectErr(await client.execute({ type: 'getAddressTokenBalances', address: TEST_ADDRESS }));
 
       expect(error.message).toBe('Rate limited');
+    });
+  });
+
+  describe('execute - getAddressStakingBalances', () => {
+    it('should return stake account balances with category and account refs', async () => {
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeActivationResponse('active')));
+
+      const result = expectOk(await client.execute({ type: 'getAddressStakingBalances', address: TEST_ADDRESS }));
+
+      expect(result).toEqual([
+        {
+          accountAddress: STAKE_ACCOUNT,
+          rawAmount: '2500000000',
+          decimalAmount: '2.5',
+          decimals: 9,
+          symbol: 'SOL',
+          balanceCategory: 'staked',
+        },
+      ]);
+      const stakeAccountsCall = mockPost.mock.calls[0] as
+        | [string, { method: string; params: [string, { filters: unknown[] }] }, unknown]
+        | undefined;
+      expect(stakeAccountsCall?.[0]).toBe('/');
+      expect(stakeAccountsCall?.[1].method).toBe('getProgramAccounts');
+      expect(stakeAccountsCall?.[1].params[0]).toBe('Stake11111111111111111111111111111111111111');
+      expect(stakeAccountsCall?.[1].params[1].filters).toEqual([
+        { dataSize: 200 },
+        { memcmp: { bytes: TEST_ADDRESS, offset: 12 } },
+      ]);
+      expect(mockPost).toHaveBeenNthCalledWith(
+        3,
+        '/',
+        expect.objectContaining({ method: 'getStakeActivation', params: [STAKE_ACCOUNT] }),
+        expect.anything()
+      );
+    });
+
+    it('should mark inactive stake accounts as unbonding reference balances', async () => {
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse()));
+      mockPost.mockResolvedValueOnce(ok(buildStakeProgramAccountsResponse([])));
+      mockPost.mockResolvedValueOnce(ok(buildStakeActivationResponse('inactive')));
+
+      const result = expectOk(await client.execute({ type: 'getAddressStakingBalances', address: TEST_ADDRESS }));
+
+      expect(result[0]?.balanceCategory).toBe('unbonding');
     });
   });
 

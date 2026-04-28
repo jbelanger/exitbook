@@ -95,6 +95,10 @@ export function reconcileBalanceRows(params: ReconcileBalanceRowsParams): Result
   for (const key of allKeys) {
     const expected = expectedRows.get(key);
     const reference = referenceRows.get(key);
+    if (expected === undefined && reference !== undefined && reference.quantity.abs().lessThanOrEqualTo(tolerance)) {
+      continue;
+    }
+
     const rowResult = buildReconciliationRow({
       expected,
       reference,

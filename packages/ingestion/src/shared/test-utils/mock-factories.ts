@@ -19,13 +19,24 @@ import { vi, type Mocked } from 'vitest';
  */
 export function createMockProviderManager(
   blockchain: string
-): Mocked<Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'>> {
+): Mocked<
+  Pick<
+    IBlockchainProviderRuntime,
+    'getAddressStakingBalances' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
+  >
+> {
   const mockProviderManager = {
+    getAddressStakingBalances: vi
+      .fn<IBlockchainProviderRuntime['getAddressStakingBalances']>()
+      .mockResolvedValue(ok({ data: [], providerName: 'mock-provider' })),
     streamAddressTransactions: vi.fn<IBlockchainProviderRuntime['streamAddressTransactions']>(),
     getProviders: vi.fn<IBlockchainProviderRuntime['getProviders']>(),
     getTokenMetadata: vi.fn<IBlockchainProviderRuntime['getTokenMetadata']>().mockResolvedValue(ok(new Map())),
   } as unknown as Mocked<
-    Pick<IBlockchainProviderRuntime, 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'>
+    Pick<
+      IBlockchainProviderRuntime,
+      'getAddressStakingBalances' | 'streamAddressTransactions' | 'getProviders' | 'getTokenMetadata'
+    >
   >;
 
   // Default implementation: returns empty async iterator

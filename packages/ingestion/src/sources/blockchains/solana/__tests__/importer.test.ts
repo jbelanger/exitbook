@@ -28,15 +28,18 @@ const mockTokenTx = {
   amount: '1000000', // 1 USDC (6 decimals)
 };
 
+const STAKE_ACCOUNT = 'stake111111111111111111111111111111111111111';
+
 describe('SolanaImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   /**
    * Helper to setup mock for transaction data
    */
-  const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = []) => {
+  const setupMockData = (normalData: unknown[] = [], tokenData: unknown[] = [], stakeData: unknown[] = []) => {
     mockProviderManager.streamAddressTransactions.mockImplementation(async function* (_blockchain, _address, options) {
-      const data = options?.streamType === 'normal' ? normalData : tokenData;
+      const data =
+        options?.streamType === 'stake' ? stakeData : options?.streamType === 'normal' ? normalData : tokenData;
       yield ok({
         data,
         providerName: 'helius',
@@ -136,6 +139,68 @@ describe('SolanaImporter', () => {
       expect(address2).toBe(address);
       expect(options2?.preferredProvider).toBeUndefined();
       expect(options2?.streamType).toBe('token');
+    });
+
+    test('streams discovered stake accounts before wallet and token streams', async () => {
+      mockProviderManager.getProviders.mockReturnValue([
+        {
+          capabilities: {
+            supportedOperations: ['getAddressStakingBalances'],
+          },
+        },
+      ] as never);
+      mockProviderManager.getAddressStakingBalances.mockResolvedValue(
+        ok({
+          data: [
+            {
+              accountAddress: STAKE_ACCOUNT,
+              rawAmount: '2500000000',
+              decimalAmount: '2.5',
+              symbol: 'SOL',
+              decimals: 9,
+              balanceCategory: 'staked',
+            },
+          ],
+          providerName: 'helius',
+        })
+      );
+
+      const importer = createImporter();
+      const address = 'user1111111111111111111111111111111111111111';
+      const mockNormalizedStake = { id: 'sig-stake', eventId: '2'.repeat(64), providerName: 'helius' };
+      const mockNormalizedSol = { id: 'sig-normal', eventId: '0'.repeat(64), providerName: 'helius' };
+      const mockNormalizedToken = { id: 'sig-token', eventId: '1'.repeat(64), providerName: 'helius' };
+
+      setupMockData(
+        [{ normalized: mockNormalizedSol, raw: mockSolTx }],
+        [{ normalized: mockNormalizedToken, raw: mockTokenTx }],
+        [{ normalized: mockNormalizedStake, raw: { signature: 'sig-stake' } }]
+      );
+
+      const result = await consumeImportStream(importer, {
+        platformKey: 'solana',
+        platformKind: 'blockchain' as const,
+        address,
+      });
+
+      const value = assertOk(result);
+      expect(value.rawTransactions.map((transaction) => transaction.sourceAddress)).toEqual([
+        STAKE_ACCOUNT,
+        address,
+        address,
+      ]);
+      expect(value.rawTransactions[0]?.normalizedData).toMatchObject({
+        ...mockNormalizedStake,
+        importSourceAddress: STAKE_ACCOUNT,
+        importSourceKind: 'stake_account',
+      });
+      expect(
+        mockProviderManager.streamAddressTransactions.mock.calls.map((call) => [call[1], call[2]?.streamType])
+      ).toEqual([
+        [STAKE_ACCOUNT, 'stake'],
+        [address, 'normal'],
+        [address, 'token'],
+      ]);
     });
 
     test('should handle empty transaction list', async () => {

@@ -39,6 +39,7 @@ export const BalanceSnapshotAssetSchema = z.object({
   scopeAccountId: z.number().int().positive(),
   assetId: z.string().min(1),
   assetSymbol: z.string().min(1),
+  balanceCategory: z.enum(['liquid', 'staked', 'unbonding', 'reward_receivable']).default('liquid'),
   calculatedBalance: z.string().min(1),
   liveBalance: z.string().min(1).optional(),
   difference: z.string().min(1).optional(),

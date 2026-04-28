@@ -11,12 +11,15 @@ import type {
   OneShotOperationResult,
 } from '../../../../contracts/index.js';
 import { BaseApiClient } from '../../../../runtime/base-api-client.js';
-import { transformSolBalance, transformTokenAccounts } from '../../balance-utils.js';
+import { transformSolBalance, transformStakeAccountBalance, transformTokenAccounts } from '../../balance-utils.js';
+import type { SolanaStakeActivation, SolanaStakeProgramAccount } from '../../schemas.js';
 import { isValidSolanaAddress } from '../../utils.js';
 
 import type { SolanaTokenAccountsResponse } from './solana-rpc.schemas.js';
 import {
   SolanaRPCBalanceJsonRpcResponseSchema,
+  SolanaRPCStakeActivationJsonRpcResponseSchema,
+  SolanaRPCStakeProgramAccountsJsonRpcResponseSchema,
   SolanaRPCTokenAccountsJsonRpcResponseSchema,
 } from './solana-rpc.schemas.js';
 
@@ -24,7 +27,7 @@ export const solanaRpcMetadata: ProviderMetadata = {
   baseUrl: 'https://api.mainnet-beta.solana.com',
   blockchain: 'solana',
   capabilities: {
-    supportedOperations: ['getAddressBalances', 'getAddressTokenBalances'],
+    supportedOperations: ['getAddressBalances', 'getAddressStakingBalances', 'getAddressTokenBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -40,6 +43,17 @@ export const solanaRpcMetadata: ProviderMetadata = {
   name: 'solana-rpc',
   requiresApiKey: false,
 };
+
+const STAKE_PROGRAM_ID = 'Stake11111111111111111111111111111111111111';
+const STAKE_ACCOUNT_DATA_SIZE = 200;
+const STAKER_AUTHORITY_OFFSET = 12;
+const WITHDRAWER_AUTHORITY_OFFSET = 44;
+
+function resolveStakeBalanceCategory(
+  activation: SolanaStakeActivation
+): Extract<RawBalanceData['balanceCategory'], 'staked' | 'unbonding'> {
+  return activation.state === 'active' || activation.state === 'activating' ? 'staked' : 'unbonding';
+}
 
 export const solanaRpcFactory: ProviderFactory = {
   create: (config: ProviderConfig) => new SolanaRPCApiClient(config),
@@ -65,6 +79,10 @@ export class SolanaRPCApiClient extends BaseApiClient {
         return (await this.getAddressTokenBalances({
           address: operation.address,
           contractAddresses: operation.contractAddresses,
+        })) as Result<OneShotOperationResult<TOperation>, Error>;
+      case 'getAddressStakingBalances':
+        return (await this.getAddressStakingBalances({
+          address: operation.address,
         })) as Result<OneShotOperationResult<TOperation>, Error>;
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -173,5 +191,118 @@ export class SolanaRPCApiClient extends BaseApiClient {
     this.logger.debug({ tokenAccountCount: balances.length }, 'Successfully retrieved raw token balances');
 
     return ok(balances);
+  }
+
+  private async getAddressStakingBalances(params: { address: string }): Promise<Result<RawBalanceData[], Error>> {
+    const { address } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      return err(new Error(`Invalid Solana address: ${address}`));
+    }
+
+    const stakeAccountsResult = await this.getStakeAccountsAuthorizedByAddress(address);
+    if (stakeAccountsResult.isErr()) {
+      return err(stakeAccountsResult.error);
+    }
+
+    const balances: RawBalanceData[] = [];
+    for (const stakeAccount of stakeAccountsResult.value) {
+      const activationResult = await this.getStakeActivation(stakeAccount.pubkey);
+      if (activationResult.isErr()) {
+        return err(activationResult.error);
+      }
+
+      balances.push(
+        transformStakeAccountBalance({
+          accountAddress: stakeAccount.pubkey,
+          balanceCategory: resolveStakeBalanceCategory(activationResult.value),
+          lamports: stakeAccount.account.lamports,
+        })
+      );
+    }
+
+    this.logger.debug({ stakeAccountCount: balances.length }, 'Successfully retrieved Solana stake-account balances');
+
+    return ok(balances);
+  }
+
+  private async getStakeAccountsAuthorizedByAddress(
+    address: string
+  ): Promise<Result<SolanaStakeProgramAccount[], Error>> {
+    const accountsByPubkey = new Map<string, SolanaStakeProgramAccount>();
+
+    for (const offset of [STAKER_AUTHORITY_OFFSET, WITHDRAWER_AUTHORITY_OFFSET]) {
+      const accountsResult = await this.getStakeAccountsByAuthorityOffset(address, offset);
+      if (accountsResult.isErr()) {
+        return err(accountsResult.error);
+      }
+
+      for (const account of accountsResult.value) {
+        accountsByPubkey.set(account.pubkey, account);
+      }
+    }
+
+    return ok([...accountsByPubkey.values()]);
+  }
+
+  private async getStakeAccountsByAuthorityOffset(
+    address: string,
+    offset: number
+  ): Promise<Result<SolanaStakeProgramAccount[], Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaStakeProgramAccount[]>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getProgramAccounts',
+        params: [
+          STAKE_PROGRAM_ID,
+          {
+            encoding: 'jsonParsed',
+            filters: [
+              { dataSize: STAKE_ACCOUNT_DATA_SIZE },
+              {
+                memcmp: {
+                  bytes: address,
+                  offset,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      { schema: SolanaRPCStakeProgramAccountsJsonRpcResponseSchema }
+    );
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to get Solana stake accounts - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    return ok(result.value.result ?? []);
+  }
+
+  private async getStakeActivation(stakeAccountAddress: string): Promise<Result<SolanaStakeActivation, Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaStakeActivation>>(
+      '/',
+      {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getStakeActivation',
+        params: [stakeAccountAddress],
+      },
+      { schema: SolanaRPCStakeActivationJsonRpcResponseSchema }
+    );
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to get Solana stake activation - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
+    }
+
+    if (!result.value.result) {
+      return err(new Error(`Failed to fetch stake activation for ${stakeAccountAddress}`));
+    }
+
+    return ok(result.value.result);
   }
 }

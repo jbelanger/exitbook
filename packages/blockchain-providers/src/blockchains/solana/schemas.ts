@@ -110,6 +110,27 @@ export const SolanaTokenAccountSchema = z.object({
   pubkey: SolanaAddressSchema, // Account public key
 });
 
+const LamportsAmountSchema = z.union([z.number().nonnegative(), DecimalStringSchema]);
+
+export const SolanaStakeProgramAccountSchema = z.object({
+  account: z.object({
+    data: z.unknown(),
+    executable: z.boolean().optional(),
+    lamports: LamportsAmountSchema,
+    owner: SolanaAddressSchema.optional(),
+    rentEpoch: z.number().nonnegative().optional(),
+  }),
+  pubkey: SolanaAddressSchema,
+});
+
+export const SolanaStakeActivationStateSchema = z.enum(['active', 'inactive', 'activating', 'deactivating']);
+
+export const SolanaStakeActivationSchema = z.object({
+  active: LamportsAmountSchema.optional(),
+  inactive: LamportsAmountSchema.optional(),
+  state: SolanaStakeActivationStateSchema,
+});
+
 /**
  * Schema for Solana account change
  */
@@ -144,6 +165,28 @@ const SolanaInstructionSchema = z.object({
   programName: z.string().optional(),
 });
 
+const SolanaStakingInstructionTypeSchema = z.enum([
+  'authorize',
+  'create',
+  'deactivate',
+  'delegate',
+  'initialize',
+  'merge',
+  'split',
+  'unknown',
+  'withdraw',
+]);
+
+const SolanaStakingInstructionSchema = z.object({
+  destinationAccount: SolanaAddressSchema.optional(),
+  instructionIndex: z.number().int().nonnegative().optional(),
+  lamports: DecimalStringSchema.optional(),
+  sourceAccount: SolanaAddressSchema.optional(),
+  stakeAccount: SolanaAddressSchema.optional(),
+  type: SolanaStakingInstructionTypeSchema,
+  voteAccount: SolanaAddressSchema.optional(),
+});
+
 /**
  * Schema for normalized Solana transaction
  *
@@ -166,10 +209,13 @@ export const SolanaTransactionSchema = NormalizedTransactionBaseSchema.extend({
   feePayer: SolanaAddressSchema.optional(), // Transaction fee payer (first signer) - case-sensitive
   innerInstructions: z.array(SolanaInstructionSchema).optional(),
   instructions: z.array(SolanaInstructionSchema).optional(),
+  importSourceAddress: SolanaAddressSchema.optional(),
+  importSourceKind: z.enum(['stake_account']).optional(),
   logMessages: z.array(z.string()).optional(),
   providerName: z.string().min(1, 'Provider Name must not be empty'),
   signature: z.string().optional(),
   slot: z.number().nonnegative().optional(),
+  stakingInstructions: z.array(SolanaStakingInstructionSchema).optional(),
   status: z.enum(['success', 'failed', 'pending']),
   timestamp: z.number().positive('Timestamp must be positive'),
   tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
@@ -185,5 +231,8 @@ export type SolanaTokenBalance = z.infer<typeof SolanaTokenBalanceSchema>;
 export type SolanaSignature = z.infer<typeof SolanaSignatureSchema>;
 export type SolanaAccountBalance = z.infer<typeof SolanaAccountBalanceSchema>;
 export type SolanaTokenAccount = z.infer<typeof SolanaTokenAccountSchema>;
+export type SolanaStakeProgramAccount = z.infer<typeof SolanaStakeProgramAccountSchema>;
+export type SolanaStakeActivation = z.infer<typeof SolanaStakeActivationSchema>;
+export type SolanaStakingInstruction = z.infer<typeof SolanaStakingInstructionSchema>;
 export type SolanaTokenChange = z.infer<typeof SolanaTokenChangeSchema>;
 export type SolanaTransaction = z.infer<typeof SolanaTransactionSchema>;
