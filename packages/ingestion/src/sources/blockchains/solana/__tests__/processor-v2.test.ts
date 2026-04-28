@@ -360,4 +360,75 @@ describe('SolanaProcessorV2', () => {
       ['fee', 'liquid', '-0.000005'],
     ]);
   });
+
+  test('splits stake-account close rewards from staked principal', async () => {
+    const drafts = await processTransactions([
+      createTransaction({
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '99270171',
+            postBalance: '4925684212',
+          },
+          {
+            account: STAKE_ACCOUNT,
+            preBalance: '4826419041',
+            postBalance: '0',
+          },
+        ],
+        feePayer: USER_ADDRESS,
+        id: 'sig-close-stake-account',
+        instructions: [
+          {
+            accounts: [STAKE_ACCOUNT, USER_ADDRESS, USER_ADDRESS],
+            programId: 'Stake11111111111111111111111111111111111111',
+          },
+        ],
+        timestamp: 1_734_297_044_000,
+      }),
+      createTransaction({
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '5000000000',
+            postBalance: '497712120',
+          },
+          {
+            account: STAKE_ACCOUNT,
+            preBalance: '0',
+            postBalance: '4502282880',
+          },
+        ],
+        feePayer: USER_ADDRESS,
+        id: 'sig-create-stake-account',
+        instructions: [
+          {
+            accounts: [USER_ADDRESS, STAKE_ACCOUNT],
+            programId: '11111111111111111111111111111111',
+          },
+          {
+            accounts: [STAKE_ACCOUNT, USER_ADDRESS],
+            programId: 'Stake11111111111111111111111111111111111111',
+          },
+        ],
+        timestamp: 1_704_753_508_000,
+      }),
+    ]);
+
+    const closeDraft = drafts.find(
+      (draft) => draft.sourceActivity.blockchainTransactionHash === 'sig-close-stake-account'
+    );
+    expect(closeDraft?.journals[0]).toMatchObject({ journalKind: 'protocol_event' });
+    expect(
+      closeDraft?.journals[0]?.postings.map((posting) => [
+        posting.role,
+        posting.balanceCategory,
+        posting.quantity.toFixed(),
+      ])
+    ).toEqual([
+      ['principal', 'staked', '-4.50228288'],
+      ['protocol_refund', 'liquid', '4.50228288'],
+      ['staking_reward', 'liquid', '0.324131161'],
+    ]);
+  });
 });

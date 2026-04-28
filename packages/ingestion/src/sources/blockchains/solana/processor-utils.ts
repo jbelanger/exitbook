@@ -8,6 +8,7 @@ import type { Decimal } from 'decimal.js';
 import type { AddressContext } from '../../../shared/types/processors.js';
 import { collapseReturnedInputAssetSwapRefund } from '../shared/account-based-swap-refund-utils.js';
 
+import { SOLANA_NATIVE_STAKE_PROGRAM_ID } from './program-ids.js';
 import type { SolanaFlowAnalysis, SolanaFundFlow, SolanaMovement } from './types.js';
 
 const logger = getLogger('solana-processor-utils');
@@ -18,7 +19,7 @@ const logger = getLogger('solana-processor-utils');
 const STAKING_PROGRAMS: string[] = [
   // Note: System Program (11111111111111111111111111111111) is NOT included
   // because it's used for many non-staking operations (transfers, account creation, etc.)
-  'Stake11111111111111111111111111111111111111', // Stake Program (native Solana staking)
+  SOLANA_NATIVE_STAKE_PROGRAM_ID,
   'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD', // Marinade Finance
   'CREAMfFfjMFogWFdFhLpAiRX8qC3BkyPUz7gW9DDfnMv', // Marinade MNDE staking
   'CgBg8TebSu4JbGQHRw6W7XvMc2UbNm8PXqEf9YUq4d7w', // Lido (Solido)

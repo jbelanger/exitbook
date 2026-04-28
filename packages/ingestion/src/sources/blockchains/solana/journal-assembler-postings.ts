@@ -318,36 +318,116 @@ function buildSimpleUnstakePostings(params: {
         movement,
         transactionId: params.context.transaction.id,
       });
-      const occurrence = params.occurrenceStart + postings.length;
+      const amountParts = yield* splitUnstakeAmount({
+        amount,
+        chainConfig: params.chainConfig,
+        context: params.context,
+        movement,
+      });
+      let occurrence = params.occurrenceStart + postings.length;
       const componentId = `${params.context.transaction.eventId}:staking_principal:${index + 1}`;
 
-      postings.push(
-        buildValuePosting({
-          assetRef,
-          balanceCategory: 'staked',
-          componentId,
-          componentKind: 'message',
-          occurrence,
-          postingKeyPrefix: 'principal:staked_to_liquid:out',
-          quantity: amount.negated(),
-          role: 'principal',
-          sourceActivityFingerprint: params.context.sourceActivityFingerprint,
-        }),
-        buildValuePosting({
-          assetRef,
-          balanceCategory: 'liquid',
-          componentId,
-          componentKind: 'message',
-          occurrence: occurrence + 1,
-          postingKeyPrefix: 'protocol_refund:staked_to_liquid:in',
-          quantity: amount,
-          role: 'protocol_refund',
-          sourceActivityFingerprint: params.context.sourceActivityFingerprint,
-        })
-      );
+      if (!amountParts.stakedPrincipalAmount.isZero()) {
+        postings.push(
+          buildValuePosting({
+            assetRef,
+            balanceCategory: 'staked',
+            componentId,
+            componentKind: 'message',
+            occurrence: occurrence++,
+            postingKeyPrefix: 'principal:staked_to_liquid:out',
+            quantity: amountParts.stakedPrincipalAmount.negated(),
+            role: 'principal',
+            sourceActivityFingerprint: params.context.sourceActivityFingerprint,
+          })
+        );
+      }
+
+      if (!amountParts.liquidPrincipalAmount.isZero()) {
+        postings.push(
+          buildValuePosting({
+            assetRef,
+            balanceCategory: 'liquid',
+            componentId,
+            componentKind: 'message',
+            occurrence: occurrence++,
+            postingKeyPrefix: 'protocol_refund:staked_to_liquid:in',
+            quantity: amountParts.liquidPrincipalAmount,
+            role: 'protocol_refund',
+            sourceActivityFingerprint: params.context.sourceActivityFingerprint,
+          })
+        );
+      }
+
+      if (!amountParts.rewardAmount.isZero()) {
+        postings.push(
+          buildValuePosting({
+            assetRef,
+            balanceCategory: 'liquid',
+            componentId: `${params.context.transaction.eventId}:staking_reward:${index + 1}`,
+            componentKind: 'staking_reward',
+            occurrence,
+            postingKeyPrefix: 'staking_reward:staked_to_liquid:in',
+            quantity: amountParts.rewardAmount,
+            role: 'staking_reward',
+            sourceActivityFingerprint: params.context.sourceActivityFingerprint,
+          })
+        );
+      }
     }
 
     return postings;
+  });
+}
+
+function splitUnstakeAmount(params: {
+  amount: Decimal;
+  chainConfig: SolanaChainConfig;
+  context: SolanaPostingBuildContext;
+  movement: SolanaMovement;
+}): Result<{ liquidPrincipalAmount: Decimal; rewardAmount: Decimal; stakedPrincipalAmount: Decimal }, Error> {
+  return resultDo(function* () {
+    if (!isNativeSolanaMovement(params.movement, params.chainConfig) || !params.context.stakingWithdrawalAllocation) {
+      return {
+        liquidPrincipalAmount: params.amount,
+        rewardAmount: new Decimal(0),
+        stakedPrincipalAmount: params.amount,
+      };
+    }
+
+    const stakedPrincipalAmount = yield* parseLedgerDecimalAmount({
+      label: 'unstake staked principal allocation',
+      processorLabel: 'Solana v2',
+      transactionId: params.context.transaction.id,
+      value: params.context.stakingWithdrawalAllocation.stakedPrincipalAmount,
+    });
+    const liquidPrincipalAmount = yield* parseLedgerDecimalAmount({
+      label: 'unstake liquid principal allocation',
+      processorLabel: 'Solana v2',
+      transactionId: params.context.transaction.id,
+      value: params.context.stakingWithdrawalAllocation.liquidPrincipalAmount,
+    });
+    const rewardAmount = yield* parseLedgerDecimalAmount({
+      label: 'unstake reward allocation',
+      processorLabel: 'Solana v2',
+      transactionId: params.context.transaction.id,
+      value: params.context.stakingWithdrawalAllocation.rewardAmount,
+    });
+    const liquidAmount = liquidPrincipalAmount.plus(rewardAmount);
+    if (!liquidAmount.eq(params.amount)) {
+      return yield* err(
+        new Error(
+          `Solana v2 unstake allocation for transaction ${params.context.transaction.id} does not match liquid inflow: ` +
+            `principal ${liquidPrincipalAmount.toFixed()} + reward ${rewardAmount.toFixed()} != ${params.amount.toFixed()}`
+        )
+      );
+    }
+
+    return {
+      liquidPrincipalAmount,
+      rewardAmount,
+      stakedPrincipalAmount,
+    };
   });
 }
 

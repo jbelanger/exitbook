@@ -348,4 +348,76 @@ describe('SolanaProcessorV2 balance shadow reconciliation', () => {
       },
     ]);
   });
+
+  test('keeps closed stake-account principal from going negative when the withdrawal includes rewards', async () => {
+    const balances = await buildLedgerBalanceSummary([
+      createTransaction({
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '99270171',
+            postBalance: '4925684212',
+          },
+          {
+            account: 'stakeAccountWithRewards',
+            preBalance: '4826419041',
+            postBalance: '0',
+          },
+        ],
+        feePayer: USER_ADDRESS,
+        id: 'sig-close-stake-account',
+        instructions: [
+          {
+            accounts: ['stakeAccountWithRewards', USER_ADDRESS, USER_ADDRESS],
+            programId: 'Stake11111111111111111111111111111111111111',
+          },
+        ],
+        timestamp: 1_734_297_044_000,
+      }),
+      createTransaction({
+        accountChanges: [
+          {
+            account: USER_ADDRESS,
+            preBalance: '5000000000',
+            postBalance: '497712120',
+          },
+          {
+            account: 'stakeAccountWithRewards',
+            preBalance: '0',
+            postBalance: '4502282880',
+          },
+        ],
+        feePayer: USER_ADDRESS,
+        id: 'sig-create-stake-account',
+        instructions: [
+          {
+            accounts: [USER_ADDRESS, 'stakeAccountWithRewards'],
+            programId: '11111111111111111111111111111111',
+          },
+          {
+            accounts: ['stakeAccountWithRewards', USER_ADDRESS],
+            programId: 'Stake11111111111111111111111111111111111111',
+          },
+        ],
+        timestamp: 1_704_753_508_000,
+      }),
+    ]);
+
+    expect(balances).toEqual([
+      {
+        accountId: ACCOUNT_ID,
+        assetId: 'blockchain:solana:native',
+        assetSymbol: 'SOL',
+        balanceCategory: 'liquid',
+        quantity: '0.324126161',
+      },
+      {
+        accountId: ACCOUNT_ID,
+        assetId: 'blockchain:solana:native',
+        assetSymbol: 'SOL',
+        balanceCategory: 'staked',
+        quantity: '0',
+      },
+    ]);
+  });
 });

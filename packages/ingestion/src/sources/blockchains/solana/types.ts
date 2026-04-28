@@ -13,6 +13,13 @@ export interface SolanaMovement {
   tokenAddress?: string | undefined; // Mint address for SPL tokens
 }
 
+export interface SolanaStakingWithdrawalAllocation {
+  liquidPrincipalAmount: string;
+  rewardAmount: string;
+  stakeAccountAddresses: readonly string[];
+  stakedPrincipalAmount: string;
+}
+
 /**
  * Result of balance change analysis for Solana transactions
  */

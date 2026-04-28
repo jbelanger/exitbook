@@ -18,13 +18,17 @@ import {
   buildSolanaUnsolicitedDustFanoutDiagnostic,
   classifySolanaOperationFromFundFlow,
 } from './processor-utils.js';
-import type { SolanaFundFlow } from './types.js';
+import type { SolanaFundFlow, SolanaStakingWithdrawalAllocation } from './types.js';
 
 export type {
   SolanaLedgerDraft,
   SolanaProcessorV2AccountContext,
   SolanaProcessorV2Context,
 } from './journal-assembler-types.js';
+
+export interface SolanaLedgerAssemblyOptions {
+  stakingWithdrawalAllocation?: SolanaStakingWithdrawalAllocation | undefined;
+}
 
 function validateSolanaChainConfig(chainConfig: SolanaChainConfig): Result<void, Error> {
   if (chainConfig.chainName.trim() === '') {
@@ -141,7 +145,8 @@ export function groupSolanaLedgerTransactionsByHash(
 export function assembleSolanaLedgerDraft(
   transactions: SolanaTransactionGroup,
   chainConfig: SolanaChainConfig,
-  context: SolanaProcessorV2Context
+  context: SolanaProcessorV2Context,
+  options: SolanaLedgerAssemblyOptions = {}
 ): Result<SolanaLedgerDraft, Error> {
   return resultDo(function* () {
     if (transactions.length === 0) {
@@ -174,6 +179,7 @@ export function assembleSolanaLedgerDraft(
     const postingContext: SolanaPostingBuildContext = {
       fundFlow,
       sourceActivityFingerprint,
+      stakingWithdrawalAllocation: options.stakingWithdrawalAllocation,
       transaction,
     };
     const valuePostings = yield* buildSolanaValuePostings({

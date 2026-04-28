@@ -8,7 +8,7 @@ import type {
   SourceActivityDraft,
 } from '@exitbook/ledger';
 
-import type { SolanaFundFlow, SolanaMovement } from './types.js';
+import type { SolanaFundFlow, SolanaMovement, SolanaStakingWithdrawalAllocation } from './types.js';
 
 export interface SolanaProcessorV2AccountContext {
   fingerprint: string;
@@ -53,6 +53,7 @@ export interface SolanaJournalAssemblyParts {
 export interface SolanaPostingBuildContext {
   fundFlow: SolanaFundFlow;
   sourceActivityFingerprint: string;
+  stakingWithdrawalAllocation?: SolanaStakingWithdrawalAllocation | undefined;
   transaction: SolanaTransaction;
 }
 

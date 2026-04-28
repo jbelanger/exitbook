@@ -354,17 +354,16 @@ Processor evidence:
 - Solana covers representative SOL and SPL-token account-delta flows, outgoing
   SOL fee separation, fee-only activities, Jupiter-style swaps, associated token
   account rent as `protocol_overhead`, staking reward inflows, and simple
-  staking custody movements across liquid and staked categories. It reuses the
-  existing Solana fund-flow analyzer. Imported corpus validation passed for the
-  user's four Solana accounts: 87 raw rows, 74 legacy transactions, 74 ledger
-  source activities, 74 journals, 98 postings, zero v1-v2 liquid balance diffs,
-  and zero live/stored liquid diffs. Solana live balance verification is now
-  category-aware: current stake-account provider rows are modeled as `staked`
-  or `unbonding` when present, and stored snapshots key by asset plus balance
-  category. The refreshed corpus has full live/ledger matches for
-  `solana-wallet-2`, `solana-wallet-3`, and `solana-wallet-4`. `solana-wallet-1`
-  has one visible staked SOL mismatch (`-0.324131161` ledger, `0` live) while
-  all six liquid rows match live balances.
+  staking custody movements across liquid and staked categories. It tracks
+  native stake-account principal across imported transactions so stake-account
+  closes split returned principal from accrued liquid staking rewards. Imported
+  corpus validation passed for the user's four Solana accounts: 87 raw rows, 74
+  legacy transactions, 74 ledger source activities, 74 journals, 99 postings,
+  zero v1-v2 category-aware balance diffs, and zero live/stored diffs. Solana
+  live balance verification is category-aware: current stake-account provider
+  rows are modeled as `staked` or `unbonding` when present, stored snapshots key
+  by asset plus balance category, and all four refreshed Solana wallets match
+  live balances.
 - Kraken covers exchange provider-event grouping, exchange source activities,
   trade/transfer/refund journals, fill and fee component refs, dust sweeping,
   one-sided trade residuals, transfer reversal skips, and full imported-corpus
@@ -994,10 +993,9 @@ Decisions:
   Keep the processor generic across Substrate chains, not Polkadot-only.
 - Solana ledger-v2 is complete for the current migration gate with
   representative SOL, SPL-token, swap, fee, associated-token-account rent,
-  staking shapes, imported-corpus v1/v2 liquid parity, live/stored liquid
+  staking shapes, imported-corpus v1/v2 category-aware parity, live/stored
   balance parity, category-aware live/stored snapshot rows, and a repeatable
-  `ledger stress solana` gate. Treat wallet-1's staked SOL delta as an
-  explicit expected diff until opening-state staking history is resolved.
+  `ledger stress solana` gate with zero expected diffs.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
 - Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`
@@ -1049,8 +1047,7 @@ Smells to watch:
   evidence before implementation.
 - Full Kraken v1/v2/live balance validation is currently manual because it
   depends on private local imports and API credentials.
-- `solana-wallet-1` currently carries a negative staked SOL ledger balance in
-  the imported corpus. Current live staking balance is zero, so the mismatch is
-  now visible in refresh/reconcile/stress output instead of being treated as an
-  unsupported category. Resolve it with opening-state or historical staking
-  evidence before consumer cutover.
+- Solana native stake-account reward splitting currently handles imported
+  create/close lifecycles. More complex split, merge, partial withdrawal, or
+  pre-history stake-account cases still need dedicated fixtures before consumer
+  cutover.

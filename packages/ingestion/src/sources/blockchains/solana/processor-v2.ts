@@ -11,8 +11,11 @@ import {
   assembleSolanaLedgerDraft,
   groupSolanaLedgerTransactionsByHash,
   type SolanaLedgerDraft,
+  type SolanaLedgerAssemblyOptions,
   type SolanaProcessorV2Context,
 } from './journal-assembler.js';
+import { buildSolanaStakingWithdrawalAllocations } from './staking-withdrawal-allocation.js';
+import type { SolanaStakingWithdrawalAllocation } from './types.js';
 
 export interface SolanaProcessorV2TokenMetadata {
   decimals?: number | undefined;
@@ -87,10 +90,11 @@ async function enrichSolanaTokenMetadata(
 function assembleSolanaLedgerDraftWithContext(
   transactions: readonly SolanaTransaction[],
   chainConfig: SolanaChainConfig,
-  context: SolanaProcessorV2Context
+  context: SolanaProcessorV2Context,
+  options: SolanaLedgerAssemblyOptions = {}
 ): Result<SolanaLedgerDraft, Error> {
   const hash = transactions[0]?.id ?? '<empty>';
-  const draftResult = assembleSolanaLedgerDraft(transactions, chainConfig, context);
+  const draftResult = assembleSolanaLedgerDraft(transactions, chainConfig, context, options);
   if (draftResult.isErr()) {
     return err(new Error(`Solana v2 assembly failed for ${hash}: ${draftResult.error.message}`));
   }
@@ -113,9 +117,13 @@ export class SolanaProcessorV2 {
   ): Promise<Result<SolanaLedgerDraft[], Error>> {
     const chainConfig = this.chainConfig;
     const tokenMetadataResolver = this.tokenMetadataResolver;
+    let stakingWithdrawalAllocations: ReadonlyMap<string, SolanaStakingWithdrawalAllocation> = new Map();
 
     return processGroupedLedgerProcessorItems({
-      assemble: (transactions) => assembleSolanaLedgerDraftWithContext(transactions, chainConfig, context),
+      assemble: (transactions) =>
+        assembleSolanaLedgerDraftWithContext(transactions, chainConfig, context, {
+          stakingWithdrawalAllocation: stakingWithdrawalAllocations.get(transactions[0]?.id ?? ''),
+        }),
       buildComparisonMaterial: buildSolanaEventComparisonMaterial,
       conflictItemLabel: 'event',
       conflictLabel: 'Solana v2',
@@ -123,7 +131,24 @@ export class SolanaProcessorV2 {
       groupItems: groupSolanaLedgerTransactionsByHash,
       inputLabel: 'solana v2',
       normalizedData,
-      prepareItems: (transactions) => enrichSolanaTokenMetadata(transactions, chainConfig, tokenMetadataResolver),
+      prepareItems: async (transactions) => {
+        const enrichedResult = await enrichSolanaTokenMetadata(transactions, chainConfig, tokenMetadataResolver);
+        if (enrichedResult.isErr()) {
+          return err(enrichedResult.error);
+        }
+
+        const allocationResult = buildSolanaStakingWithdrawalAllocations({
+          transactions: enrichedResult.value,
+          userAddresses: [...context.userAddresses, context.primaryAddress],
+        });
+        if (allocationResult.isErr()) {
+          return err(allocationResult.error);
+        }
+
+        stakingWithdrawalAllocations = allocationResult.value;
+
+        return ok(enrichedResult.value);
+      },
       processorLabel: 'Solana v2',
       schema: SolanaTransactionSchema,
     });
