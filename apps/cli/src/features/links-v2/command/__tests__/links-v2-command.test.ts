@@ -279,6 +279,64 @@ describe('links-v2 command', () => {
     );
   });
 
+  it('accepts an asset identity suggestion from the links-v2 review queue', async () => {
+    const program = createProgram();
+    const diagnostics = makeDiagnostics();
+    const assetIdentitySuggestion = makeAssetIdentitySuggestion();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [assetIdentitySuggestion],
+        diagnostics,
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'accept', 'ai_test_1'], {
+      from: 'user',
+    });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        dryRun: true,
+        includeDiagnostics: true,
+      }
+    );
+    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
+      assetIdA: 'blockchain:ethereum:native',
+      assetIdB: 'exchange:kraken:eth',
+      evidenceKind: 'exact_hash_observed',
+      relationshipKind: 'internal_transfer',
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review item accepted.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Review id: ai_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: asset identity assertion created');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+  });
+
+  it('does not accept link proposals from the links-v2 review queue yet', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        diagnostics: makeDiagnostics(),
+      })
+    );
+    mockExitCliFailure.mockImplementationOnce(
+      (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
+        throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
+      }
+    );
+
+    await expect(program.parseAsync(['links-v2', 'review', 'accept', 'lp_test_1'], { from: 'user' })).rejects.toThrow(
+      'CLI:links-v2-review-accept:text:Review item lp_test_1 is a link proposal. links-v2 review accept currently supports asset identity suggestions only.:2'
+    );
+
+    expect(mockSaveLedgerLinkingAssetIdentityAssertion).not.toHaveBeenCalled();
+  });
+
   it('lists persisted links-v2 relationships', async () => {
     const program = createProgram();
 

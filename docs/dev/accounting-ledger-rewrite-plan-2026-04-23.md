@@ -858,10 +858,13 @@ ledger relationships, `links-v2 list/view` browses persisted ledger
 relationships, and `links-v2 asset-identity` manages the same accepted
 assertions without touching legacy transaction links. Asset identity blockers
 are now grouped into read-only suggestions so exact-hash evidence can be
-reviewed without making symbol-only identity guesses. `links-v2 review` now
-provides the first read-only linking work queue, combining asset identity
-suggestions with amount/time link proposals under stable review ids without
-persisting proposals or gaps.
+reviewed without making symbol-only identity guesses. `links-v2 review`
+provides the linking work queue, combining asset identity suggestions with
+amount/time link proposals under stable review ids without persisting proposals
+or gaps. `links-v2 review accept <review-id>` now persists accepted asset
+identity suggestions through the same durable assertion model as
+`links-v2 asset-identity accept`; link proposal acceptance remains blocked until
+reviewed relationship materialization is designed.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -1032,7 +1035,12 @@ First implementation slices:
     amount/time link proposals with stable review ids, evidence strength, and
     clear source/target evidence, but it does not yet persist proposals or add
     an accept path.
-29. Then broaden matching strategies only where processor-v2 ledger facts are
+29. Complete. Add `links-v2 review accept <review-id>` for
+    `asset_identity_suggestion` items only. Accept resolves the current review
+    queue by stable id, persists the pairwise asset identity assertion, and
+    rejects `link_proposal` ids until reviewed relationship materialization has
+    a durable model.
+30. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

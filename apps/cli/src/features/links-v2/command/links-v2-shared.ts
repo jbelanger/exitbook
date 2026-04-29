@@ -15,16 +15,18 @@ import {
   buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts,
 } from '@exitbook/data/accounting';
-import { err, resultDoAsync } from '@exitbook/foundation';
+import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { z } from 'zod';
 import { z as zod } from 'zod';
 
 import {
+  cliErr,
   jsonSuccess,
   runCliRuntimeCommand,
   textSuccess,
   toCliResult,
   type CliCommandResult,
+  type CliFailure,
 } from '../../../cli/command.js';
 import { ExitCodes } from '../../../cli/exit-codes.js';
 import { JsonFlagSchema } from '../../../cli/option-schema-primitives.js';
@@ -48,6 +50,8 @@ export const LinksV2ReviewCommandOptionsSchema = JsonFlagSchema.extend({
   limit: zod.coerce.number().int().positive().default(20),
 });
 
+export const LinksV2ReviewAcceptCommandOptionsSchema = JsonFlagSchema;
+
 export const LinksV2AssetIdentityListCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksV2AssetIdentitySuggestionsCommandOptionsSchema = JsonFlagSchema.extend({
@@ -67,6 +71,7 @@ export type LinksV2StatusCommandOptions = z.infer<typeof LinksV2StatusCommandOpt
 export type LinksV2RunCommandOptions = z.infer<typeof LinksV2RunCommandOptionsSchema>;
 export type LinksV2DiagnoseCommandOptions = z.infer<typeof LinksV2DiagnoseCommandOptionsSchema>;
 export type LinksV2ReviewCommandOptions = z.infer<typeof LinksV2ReviewCommandOptionsSchema>;
+export type LinksV2ReviewAcceptCommandOptions = z.infer<typeof LinksV2ReviewAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityListCommandOptions = z.infer<typeof LinksV2AssetIdentityListCommandOptionsSchema>;
 export type LinksV2AssetIdentitySuggestionsCommandOptions = z.infer<
@@ -123,6 +128,16 @@ interface LinksV2ReviewOutput {
     items: readonly LedgerLinkingReviewItem[];
     shownItemCount: number;
   };
+}
+
+interface LinksV2ReviewAcceptOutput {
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  result: LedgerLinkingAssetIdentityAssertionSaveResult;
+  reviewId: string;
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'asset_identity_suggestion' }>;
 }
 
 interface LinksV2AssetIdentityAcceptOutput {
@@ -235,6 +250,24 @@ export async function executeLinksV2ReviewCommand(
     appRuntime,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewCommandOptionsSchema),
     action: async ({ runtime, prepared }) => executePreparedLinksV2ReviewCommand(runtime, prepared, config),
+  });
+}
+
+export async function executeLinksV2ReviewAcceptCommand(
+  reviewId: string,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2ReviewExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewAcceptCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2ReviewAcceptCommand(runtime, reviewId, prepared, config),
   });
 }
 
@@ -423,17 +456,7 @@ async function executePreparedLinksV2ReviewCommand(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    if (run.diagnostics === undefined) {
-      return yield* toCliResult(
-        err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner')),
-        ExitCodes.GENERAL_ERROR
-      );
-    }
-
-    const reviewQueue = buildLedgerLinkingReviewQueue({
-      assetIdentitySuggestions: run.assetIdentitySuggestions,
-      diagnostics: run.diagnostics,
-    });
+    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
     const shownItems = reviewQueue.items.slice(0, prepared.limit);
     const output: LinksV2ReviewOutput = {
       profile: {
@@ -454,6 +477,64 @@ async function executePreparedLinksV2ReviewCommand(
     }
 
     return textSuccess(() => renderLinksV2ReviewOutput(output, config));
+  });
+}
+
+async function executePreparedLinksV2ReviewAcceptCommand(
+  ctx: CommandRuntime,
+  reviewId: string,
+  prepared: LinksV2ReviewAcceptCommandOptions,
+  config: LinksV2ReviewExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const run = yield* toCliResult(
+      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+        dryRun: true,
+        includeDiagnostics: true,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
+    const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
+
+    if (reviewItem.kind === 'link_proposal') {
+      return yield* cliErr(
+        new Error(
+          `Review item ${reviewItem.reviewId} is a link proposal. links-v2 review accept currently supports asset identity suggestions only.`
+        ),
+        ExitCodes.INVALID_ARGS
+      );
+    }
+
+    const result = yield* toCliResult(
+      await buildLedgerLinkingAssetIdentityAssertionStore(database).saveLedgerLinkingAssetIdentityAssertion(
+        profile.id,
+        {
+          assetIdA: reviewItem.suggestion.assetIdA,
+          assetIdB: reviewItem.suggestion.assetIdB,
+          evidenceKind: reviewItem.suggestion.evidenceKind,
+          relationshipKind: reviewItem.suggestion.relationshipKind,
+        }
+      ),
+      ExitCodes.GENERAL_ERROR
+    );
+    const output: LinksV2ReviewAcceptOutput = {
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      result,
+      reviewId: reviewItem.reviewId,
+      reviewItem,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2ReviewAcceptOutput(output, config));
   });
 }
 
@@ -493,6 +574,39 @@ async function executePreparedLinksV2AssetIdentityAcceptCommand(
   });
 }
 
+function buildLinksV2ReviewQueueFromRun(run: LedgerLinkingRunResult): Result<LedgerLinkingReviewQueue, Error> {
+  if (run.diagnostics === undefined) {
+    return err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner'));
+  }
+
+  return ok(
+    buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: run.assetIdentitySuggestions,
+      diagnostics: run.diagnostics,
+    })
+  );
+}
+
+function resolveLinksV2ReviewItem(
+  rawReviewId: string,
+  reviewItems: readonly LedgerLinkingReviewItem[]
+): Result<LedgerLinkingReviewItem, CliFailure> {
+  const reviewId = rawReviewId.trim();
+  if (reviewId.length === 0) {
+    return cliErr(new Error('Review id must not be empty'), ExitCodes.INVALID_ARGS);
+  }
+
+  const reviewItem = reviewItems.find((item) => item.reviewId === reviewId);
+  if (reviewItem === undefined) {
+    return cliErr(
+      new Error(`No links-v2 review item matched "${reviewId}". Run "links-v2 review" to see current review ids.`),
+      ExitCodes.INVALID_ARGS
+    );
+  }
+
+  return ok(reviewItem);
+}
+
 function renderLinksV2ReviewOutput(output: LinksV2ReviewOutput, config: LinksV2ReviewExecutionConfig): void {
   const { profile, reviewQueue } = output;
 
@@ -511,6 +625,23 @@ function renderLinksV2ReviewOutput(output: LinksV2ReviewOutput, config: LinksV2R
   for (const item of reviewQueue.items) {
     renderLinksV2ReviewItem(item);
   }
+}
+
+function renderLinksV2ReviewAcceptOutput(
+  output: LinksV2ReviewAcceptOutput,
+  config: LinksV2ReviewExecutionConfig
+): void {
+  const { action, assertion } = output.result;
+  const { suggestion } = output.reviewItem;
+
+  console.log(config.title);
+  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(`Review id: ${output.reviewId}`);
+  console.log(`Action: asset identity assertion ${action}`);
+  console.log(`Relationship kind: ${assertion.relationshipKind}`);
+  console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
+  console.log(`Evidence: ${assertion.evidenceKind}`);
+  console.log(`Observed blockers: ${suggestion.blockCount}`);
 }
 
 function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {

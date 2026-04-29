@@ -8,6 +8,7 @@ import {
   executeLinksV2AssetIdentityListCommand,
   executeLinksV2AssetIdentitySuggestionsCommand,
   executeLinksV2DiagnoseCommand,
+  executeLinksV2ReviewAcceptCommand,
   executeLinksV2ReviewCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
@@ -35,6 +36,11 @@ const LINKS_V2_DIAGNOSE_CONFIG = {
 const LINKS_V2_REVIEW_CONFIG = {
   commandId: 'links-v2-review',
   title: 'Links v2 review queue.',
+} as const;
+
+const LINKS_V2_REVIEW_ACCEPT_CONFIG = {
+  commandId: 'links-v2-review-accept',
+  title: 'Links v2 review item accepted.',
 } as const;
 
 const LINKS_V2_ASSET_IDENTITY_CONFIG = {
@@ -117,7 +123,7 @@ Notes:
       await executeLinksV2DiagnoseCommand(rawOptions, appRuntime, LINKS_V2_DIAGNOSE_CONFIG);
     });
 
-  linksV2
+  const review = linksV2
     .command('review')
     .description('Show pending v2 linking review items without writing relationships')
     .option('--limit <count>', 'Limit review items shown', '20')
@@ -128,16 +134,39 @@ Notes:
 Examples:
   $ exitbook links-v2 review
   $ exitbook links-v2 review --limit 10
+  $ exitbook links-v2 review accept ai_055f73938f17
   $ exitbook links-v2 review --json
 
 Notes:
   - Always runs in dry-run mode.
   - Shows the linking action queue: asset identity suggestions and review-only link proposals.
-  - Accepting review items will be added under this command family in a later slice.
+  - Accept currently persists asset identity suggestions only.
+  - Link proposal acceptance is intentionally blocked until reviewed relationship materialization is designed.
 `
     )
     .action(async (rawOptions: unknown) => {
       await executeLinksV2ReviewCommand(rawOptions, appRuntime, LINKS_V2_REVIEW_CONFIG);
+    });
+
+  review
+    .command('accept')
+    .description('Accept one pending v2 linking review item')
+    .argument('<review-id>', 'Stable review id shown by "links-v2 review"')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 review accept ai_055f73938f17
+  $ exitbook links-v2 review accept ai_055f73938f17 --json
+
+Notes:
+  - Currently accepts asset identity suggestions only.
+  - Link proposals remain review-only until durable reviewed relationship materialization is designed.
+`
+    )
+    .action(async (reviewId: string, rawOptions: unknown) => {
+      await executeLinksV2ReviewAcceptCommand(reviewId, rawOptions, appRuntime, LINKS_V2_REVIEW_ACCEPT_CONFIG);
     });
 
   linksV2
