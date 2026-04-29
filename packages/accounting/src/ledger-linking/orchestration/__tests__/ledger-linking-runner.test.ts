@@ -53,6 +53,11 @@ describe('runLedgerLinking', () => {
           name: 'same_hash_grouped_transfer',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'counterparty_roundtrip',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 1,
@@ -75,6 +80,8 @@ describe('runLedgerLinking', () => {
     expect(result.exactHashMatches).toHaveLength(1);
     expect(result.sameHashGroupedMatches).toEqual([]);
     expect(result.sameHashGroupedUnresolvedGroups).toEqual([]);
+    expect(result.counterpartyRoundtripMatches).toEqual([]);
+    expect(result.counterpartyRoundtripAmbiguities).toEqual([]);
     expect(result.persistence).toEqual({
       mode: 'persisted',
       materialization: {
@@ -165,6 +172,11 @@ describe('runLedgerLinking', () => {
           name: 'same_hash_grouped_transfer',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'counterparty_roundtrip',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 0,
       matchedTargetCandidateCount: 0,
@@ -179,6 +191,8 @@ describe('runLedgerLinking', () => {
         reason: 'multiple_exact_hash_counterparts',
       },
     ]);
+    expect(result.counterpartyRoundtripMatches).toEqual([]);
+    expect(result.counterpartyRoundtripAmbiguities).toEqual([]);
     expect(result.sameHashGroupedMatches).toEqual([]);
     expect(result.sameHashGroupedUnresolvedGroups).toEqual([
       {
@@ -393,6 +407,11 @@ describe('runLedgerLinking', () => {
           name: 'same_hash_grouped_transfer',
           relationshipCount: 1,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'counterparty_roundtrip',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 2,
@@ -424,6 +443,91 @@ describe('runLedgerLinking', () => {
       materialization: {
         previousCount: 0,
         resolvedAllocationCount: 3,
+        savedCount: 1,
+        unresolvedAllocationCount: 0,
+      },
+    });
+    expect(harness.savedRelationships).toEqual([result.acceptedRelationships]);
+  });
+
+  it('materializes strict counterparty roundtrips after hash-based recognizers', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 15,
+        sourceActivityFingerprint: 'source_activity:v1:wallet-to-service',
+        journalFingerprint: 'ledger_journal:v1:wallet-to-service',
+        postingFingerprint: 'ledger_posting:v1:wallet-to-service',
+        quantity: '-165',
+        platformKey: 'solana',
+        platformKind: 'blockchain',
+        blockchainTransactionHash: 'source-hash',
+        fromAddress: 'user-address',
+        toAddress: 'service-address',
+      }),
+      makePosting({
+        ownerAccountId: 15,
+        sourceActivityFingerprint: 'source_activity:v1:service-to-wallet',
+        journalFingerprint: 'ledger_journal:v1:service-to-wallet',
+        postingFingerprint: 'ledger_posting:v1:service-to-wallet',
+        quantity: '165',
+        platformKey: 'solana',
+        platformKind: 'blockchain',
+        activityDatetime: new Date('2026-04-23T12:00:00.000Z'),
+        blockchainTransactionHash: 'target-hash',
+        fromAddress: 'service-address',
+        toAddress: 'user-address',
+      }),
+    ]);
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.exactHashMatches).toEqual([]);
+    expect(result.sameHashGroupedMatches).toEqual([]);
+    expect(result.counterpartyRoundtripMatches).toHaveLength(1);
+    expect(result).toMatchObject({
+      deterministicRecognizerStats: [
+        {
+          consumedCandidateCount: 0,
+          name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'same_hash_grouped_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 2,
+          name: 'counterparty_roundtrip',
+          relationshipCount: 1,
+        },
+      ],
+      matchedSourceCandidateCount: 1,
+      matchedTargetCandidateCount: 1,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
+    });
+    expect(result.acceptedRelationships[0]).toMatchObject({
+      recognitionStrategy: 'counterparty_roundtrip',
+      relationshipKind: 'external_transfer',
+      allocations: [
+        {
+          allocationSide: 'source',
+          sourceActivityFingerprint: 'source_activity:v1:wallet-to-service',
+          quantity: parseDecimal('165'),
+        },
+        {
+          allocationSide: 'target',
+          sourceActivityFingerprint: 'source_activity:v1:service-to-wallet',
+          quantity: parseDecimal('165'),
+        },
+      ],
+    });
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
+        resolvedAllocationCount: 2,
         savedCount: 1,
         unresolvedAllocationCount: 0,
       },

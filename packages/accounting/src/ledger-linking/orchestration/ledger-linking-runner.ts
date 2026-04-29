@@ -14,6 +14,13 @@ import {
   type LedgerLinkingCandidateSkip,
 } from '../candidates/candidate-construction.js';
 import {
+  buildLedgerCounterpartyRoundtripRecognizer,
+  LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,
+  type LedgerCounterpartyRoundtripAmbiguity,
+  type LedgerCounterpartyRoundtripMatch,
+  type LedgerCounterpartyRoundtripRelationshipResult,
+} from '../matching/counterparty-roundtrip-matching.js';
+import {
   runLedgerDeterministicRecognizers,
   type LedgerDeterministicRecognizer,
   type LedgerDeterministicRecognizerRun,
@@ -52,7 +59,8 @@ interface LedgerTransferCandidateDirection {
 
 type LedgerLinkingDeterministicPayload =
   | LedgerExactHashTransferRelationshipResult
-  | LedgerSameHashGroupedTransferRelationshipResult;
+  | LedgerSameHashGroupedTransferRelationshipResult
+  | LedgerCounterpartyRoundtripRelationshipResult;
 
 export interface LedgerLinkingRunOptions {
   dryRun?: boolean | undefined;
@@ -77,6 +85,8 @@ export type LedgerLinkingPersistenceResult =
 export interface LedgerLinkingRunResult {
   acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
   assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
+  counterpartyRoundtripAmbiguities: readonly LedgerCounterpartyRoundtripAmbiguity[];
+  counterpartyRoundtripMatches: readonly LedgerCounterpartyRoundtripMatch[];
   deterministicRecognizerStats: readonly LedgerLinkingDeterministicRecognizerStats[];
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
@@ -133,6 +143,9 @@ export async function runLedgerLinking(
     buildLedgerSameHashGroupedTransferRecognizer(
       assetIdentityResolverResult.value
     ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+    buildLedgerCounterpartyRoundtripRecognizer(
+      assetIdentityResolverResult.value
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
   ];
   const deterministicResult = runLedgerDeterministicRecognizers(candidates, deterministicRecognizers);
   if (deterministicResult.isErr()) {
@@ -149,6 +162,11 @@ export async function runLedgerLinking(
     return err(sameHashRun.error);
   }
   const sameHashResult = sameHashRun.value.payload;
+  const counterpartyRoundtripRun = findCounterpartyRoundtripRun(deterministicResult.value.runs);
+  if (counterpartyRoundtripRun.isErr()) {
+    return err(counterpartyRoundtripRun.error);
+  }
+  const counterpartyRoundtripResult = counterpartyRoundtripRun.value.payload;
   const assetIdentitySuggestionsResult = buildLedgerLinkingAssetIdentitySuggestions(
     exactHashResult.assetIdentityBlocks
   );
@@ -171,6 +189,8 @@ export async function runLedgerLinking(
   return ok({
     acceptedRelationships: deterministicResult.value.relationships,
     assetIdentitySuggestions: assetIdentitySuggestionsResult.value,
+    counterpartyRoundtripAmbiguities: counterpartyRoundtripResult.ambiguities,
+    counterpartyRoundtripMatches: counterpartyRoundtripResult.matches,
     deterministicRecognizerStats: deterministicResult.value.runs.map(toDeterministicRecognizerStats),
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
@@ -210,6 +230,17 @@ function findSameHashGroupedRun(
   }
 
   return ok(run as LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>);
+}
+
+function findCounterpartyRoundtripRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
+): Result<LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY);
+  if (run === undefined) {
+    return err(new Error(`Ledger deterministic recognizer ${LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY} did not run`));
+  }
+
+  return ok(run as LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>);
 }
 
 function toDeterministicRecognizerStats(

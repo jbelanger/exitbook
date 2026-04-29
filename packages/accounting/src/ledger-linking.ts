@@ -31,6 +31,14 @@ export {
   type LedgerTransferLinkingCandidateBuildResult,
 } from './ledger-linking/candidates/candidate-construction.js';
 export {
+  buildLedgerCounterpartyRoundtripRecognizer,
+  buildLedgerCounterpartyRoundtripRelationships,
+  LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,
+  type LedgerCounterpartyRoundtripAmbiguity,
+  type LedgerCounterpartyRoundtripMatch,
+  type LedgerCounterpartyRoundtripRelationshipResult,
+} from './ledger-linking/matching/counterparty-roundtrip-matching.js';
+export {
   buildLedgerExactHashTransferRecognizer,
   buildLedgerExactHashTransferRelationships,
   ledgerTransactionHashesMatch,

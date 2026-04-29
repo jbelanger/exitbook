@@ -829,10 +829,10 @@ first exact-hash deterministic matcher, and runner orchestration boundary are
 also in place. A simple non-TUI `ledger linking-v2 run` command now invokes the
 runner for the active profile, with `--dry-run` preview support. Persisted gaps
 are deferred until the linking model is finalized; current dry-run output
-surfaces in-memory matched/unmatched candidate counts and exact-hash asset
-identity blockers only. Exact-hash recognition now runs through a deterministic
-recognizer pipeline that claims consumed candidates before materialization and
-surfaces per-recognizer stats. Same-hash v2 starts with strict whole-candidate
+surfaces in-memory matched/unmatched candidate counts, exact-hash asset identity
+blockers, and deterministic recognizer stats. Exact-hash recognition now runs
+through a deterministic recognizer pipeline that claims consumed candidates
+before materialization. Same-hash v2 starts with strict whole-candidate
 groups only: every consumed source/target posting must be fully allocated in the
 accepted relationship. Partial same-hash cases are deferred until the candidate
 model can represent residual quantities, so linking does not hide unmatched
@@ -840,6 +840,10 @@ fee-like or external residue. Durable relationship headers now separate
 accounting effect from recognition evidence: `relationship_kind` records the
 accounting meaning, while `recognition_strategy`, `recognition_evidence_json`,
 and nullable `confidence_score` record why the relationship was accepted.
+Counterparty roundtrip is now deterministic-only and strict: it accepts
+one-to-one same-chain blockchain out-and-back flows on the same owned account,
+with exact amount, accepted asset identity, complete address evidence, a shared
+counterparty address, a shared self address, and a bounded forward time window.
 Accepted pairwise asset identity assertions are now modeled separately from
 relationships so exchange-scoped and chain-scoped asset ids can be linked only
 when an explicit assertion exists.
@@ -990,7 +994,11 @@ First implementation slices:
     without persisting a bare `external_transfer`: each accepted relationship has
     separate accounting kind, recognition strategy, evidence JSON, and nullable
     confidence score.
-22. Then broaden matching strategies only where processor-v2 ledger facts are
+22. Complete. Add the strict ledger-native counterparty roundtrip recognizer.
+    It materializes only unambiguous one-to-one blockchain roundtrips on the same
+    owned account and records `counterparty_roundtrip` evidence separately from
+    the `external_transfer` accounting kind.
+23. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

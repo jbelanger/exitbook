@@ -7,6 +7,7 @@ import {
 import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
+import { validateLedgerTransferLinkingCandidates } from './candidate-validation.js';
 import type { LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
 import { ledgerTransactionHashesMatch } from './ledger-transaction-hash-utils.js';
 
@@ -67,7 +68,7 @@ export function buildLedgerExactHashTransferRelationships(
   candidates: readonly LedgerTransferLinkingCandidate[],
   assetIdentityResolver: LedgerLinkingAssetIdentityResolver = STRICT_ASSET_IDENTITY_RESOLVER
 ): Result<LedgerExactHashTransferRelationshipResult, Error> {
-  const validation = validateCandidates(candidates);
+  const validation = validateLedgerTransferLinkingCandidates(candidates);
   if (validation.isErr()) {
     return err(validation.error);
   }
@@ -119,63 +120,6 @@ export function buildLedgerExactHashTransferRecognizer(
       });
     },
   };
-}
-
-function validateCandidates(candidates: readonly LedgerTransferLinkingCandidate[]): Result<void, Error> {
-  const candidateIds = new Set<number>();
-
-  for (const candidate of candidates) {
-    if (!Number.isInteger(candidate.candidateId) || candidate.candidateId <= 0) {
-      return err(new Error(`Ledger linking candidate id must be a positive integer, got ${candidate.candidateId}`));
-    }
-
-    if (candidateIds.has(candidate.candidateId)) {
-      return err(new Error(`Duplicate ledger linking candidate id ${candidate.candidateId}`));
-    }
-    candidateIds.add(candidate.candidateId);
-
-    const candidateDirection: unknown = candidate.direction;
-    if (candidateDirection !== 'source' && candidateDirection !== 'target') {
-      return err(
-        new Error(
-          `Ledger linking candidate ${candidate.candidateId} has invalid direction ${String(candidateDirection)}`
-        )
-      );
-    }
-
-    if (!candidate.amount.gt(0)) {
-      return err(
-        new Error(
-          `Ledger linking candidate ${candidate.candidateId} amount must be positive, got ${candidate.amount.toFixed()}`
-        )
-      );
-    }
-
-    const emptyField = findEmptyRequiredField(candidate);
-    if (emptyField !== undefined) {
-      return err(new Error(`Ledger linking candidate ${candidate.candidateId} has empty ${emptyField}`));
-    }
-  }
-
-  return ok(undefined);
-}
-
-function findEmptyRequiredField(candidate: LedgerTransferLinkingCandidate): string | undefined {
-  const fields = {
-    sourceActivityFingerprint: candidate.sourceActivityFingerprint,
-    journalFingerprint: candidate.journalFingerprint,
-    postingFingerprint: candidate.postingFingerprint,
-    platformKey: candidate.platformKey,
-    assetId: candidate.assetId,
-  };
-
-  for (const [fieldName, value] of Object.entries(fields)) {
-    if (value.trim().length === 0) {
-      return fieldName;
-    }
-  }
-
-  return undefined;
 }
 
 function buildPotentialExactHashPairs(

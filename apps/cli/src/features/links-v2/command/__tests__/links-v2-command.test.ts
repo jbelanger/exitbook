@@ -284,7 +284,14 @@ function makeRunResult() {
         name: 'same_hash_grouped_transfer',
         relationshipCount: 0,
       },
+      {
+        consumedCandidateCount: 0,
+        name: 'counterparty_roundtrip',
+        relationshipCount: 0,
+      },
     ],
+    counterpartyRoundtripAmbiguities: [],
+    counterpartyRoundtripMatches: [],
     exactHashAmbiguities: [],
     exactHashAssetIdentityBlocks: [],
     exactHashMatches: [
