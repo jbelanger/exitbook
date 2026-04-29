@@ -10,6 +10,7 @@ import {
   executeLinksV2DiagnoseCommand,
   executeLinksV2ReviewAcceptCommand,
   executeLinksV2ReviewCommand,
+  executeLinksV2ReviewViewCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
 
@@ -41,6 +42,11 @@ const LINKS_V2_REVIEW_CONFIG = {
 const LINKS_V2_REVIEW_ACCEPT_CONFIG = {
   commandId: 'links-v2-review-accept',
   title: 'Links v2 review item accepted.',
+} as const;
+
+const LINKS_V2_REVIEW_VIEW_CONFIG = {
+  commandId: 'links-v2-review-view',
+  title: 'Links v2 review item.',
 } as const;
 
 const LINKS_V2_ASSET_IDENTITY_CONFIG = {
@@ -134,6 +140,7 @@ Notes:
 Examples:
   $ exitbook links-v2 review
   $ exitbook links-v2 review --limit 10
+  $ exitbook links-v2 review view ai_055f73938f17
   $ exitbook links-v2 review accept ai_055f73938f17
   $ exitbook links-v2 review --json
 
@@ -146,6 +153,32 @@ Notes:
     )
     .action(async (rawOptions: unknown) => {
       await executeLinksV2ReviewCommand(rawOptions, appRuntime, LINKS_V2_REVIEW_CONFIG);
+    });
+
+  review
+    .command('view')
+    .description('Inspect one pending v2 linking review item')
+    .argument('<review-id>', 'Stable review id shown by "links-v2 review"')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 review view ai_055f73938f17
+  $ exitbook links-v2 review view ai_055f73938f17 --json
+
+Notes:
+  - Always runs in dry-run mode.
+  - Shows detailed evidence and decision help before accepting an item.
+`
+    )
+    .action(async (reviewId: string, rawOptions: unknown, command: Command) => {
+      await executeLinksV2ReviewViewCommand(
+        reviewId,
+        mergeReviewChildOptions(rawOptions, command),
+        appRuntime,
+        LINKS_V2_REVIEW_VIEW_CONFIG
+      );
     });
 
   review
@@ -165,8 +198,13 @@ Notes:
   - Link proposals remain review-only until durable reviewed relationship materialization is designed.
 `
     )
-    .action(async (reviewId: string, rawOptions: unknown) => {
-      await executeLinksV2ReviewAcceptCommand(reviewId, rawOptions, appRuntime, LINKS_V2_REVIEW_ACCEPT_CONFIG);
+    .action(async (reviewId: string, rawOptions: unknown, command: Command) => {
+      await executeLinksV2ReviewAcceptCommand(
+        reviewId,
+        mergeReviewChildOptions(rawOptions, command),
+        appRuntime,
+        LINKS_V2_REVIEW_ACCEPT_CONFIG
+      );
     });
 
   linksV2
@@ -192,6 +230,13 @@ Notes:
     });
 
   registerLinksV2AssetIdentityCommand(linksV2, appRuntime);
+}
+
+function mergeReviewChildOptions(rawOptions: unknown, command: Command): Record<string, unknown> {
+  return {
+    ...command.parent?.opts(),
+    ...(typeof rawOptions === 'object' && rawOptions !== null ? (rawOptions as Record<string, unknown>) : {}),
+  };
 }
 
 function registerLinksV2AssetIdentityCommand(linksV2: Command, appRuntime: CliAppRuntime): void {

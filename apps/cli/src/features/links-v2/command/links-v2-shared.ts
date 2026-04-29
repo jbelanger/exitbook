@@ -50,6 +50,7 @@ export const LinksV2ReviewCommandOptionsSchema = JsonFlagSchema.extend({
   limit: zod.coerce.number().int().positive().default(20),
 });
 
+export const LinksV2ReviewViewCommandOptionsSchema = JsonFlagSchema;
 export const LinksV2ReviewAcceptCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksV2AssetIdentityListCommandOptionsSchema = JsonFlagSchema;
@@ -71,6 +72,7 @@ export type LinksV2StatusCommandOptions = z.infer<typeof LinksV2StatusCommandOpt
 export type LinksV2RunCommandOptions = z.infer<typeof LinksV2RunCommandOptionsSchema>;
 export type LinksV2DiagnoseCommandOptions = z.infer<typeof LinksV2DiagnoseCommandOptionsSchema>;
 export type LinksV2ReviewCommandOptions = z.infer<typeof LinksV2ReviewCommandOptionsSchema>;
+export type LinksV2ReviewViewCommandOptions = z.infer<typeof LinksV2ReviewViewCommandOptionsSchema>;
 export type LinksV2ReviewAcceptCommandOptions = z.infer<typeof LinksV2ReviewAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityListCommandOptions = z.infer<typeof LinksV2AssetIdentityListCommandOptionsSchema>;
@@ -128,6 +130,14 @@ interface LinksV2ReviewOutput {
     items: readonly LedgerLinkingReviewItem[];
     shownItemCount: number;
   };
+}
+
+interface LinksV2ReviewViewOutput {
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  reviewItem: LedgerLinkingReviewItem;
 }
 
 interface LinksV2ReviewAcceptOutput {
@@ -250,6 +260,24 @@ export async function executeLinksV2ReviewCommand(
     appRuntime,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewCommandOptionsSchema),
     action: async ({ runtime, prepared }) => executePreparedLinksV2ReviewCommand(runtime, prepared, config),
+  });
+}
+
+export async function executeLinksV2ReviewViewCommand(
+  reviewId: string,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2ReviewExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewViewCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2ReviewViewCommand(runtime, reviewId, prepared, config),
   });
 }
 
@@ -480,6 +508,40 @@ async function executePreparedLinksV2ReviewCommand(
   });
 }
 
+async function executePreparedLinksV2ReviewViewCommand(
+  ctx: CommandRuntime,
+  reviewId: string,
+  prepared: LinksV2ReviewViewCommandOptions,
+  config: LinksV2ReviewExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const run = yield* toCliResult(
+      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+        dryRun: true,
+        includeDiagnostics: true,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
+    const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
+    const output: LinksV2ReviewViewOutput = {
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      reviewItem,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2ReviewViewOutput(output, config));
+  });
+}
+
 async function executePreparedLinksV2ReviewAcceptCommand(
   ctx: CommandRuntime,
   reviewId: string,
@@ -625,6 +687,25 @@ function renderLinksV2ReviewOutput(output: LinksV2ReviewOutput, config: LinksV2R
   for (const item of reviewQueue.items) {
     renderLinksV2ReviewItem(item);
   }
+
+  console.log('Inspect before accepting: exitbook links-v2 review view <review-id>');
+}
+
+function renderLinksV2ReviewViewOutput(output: LinksV2ReviewViewOutput, config: LinksV2ReviewExecutionConfig): void {
+  const { reviewItem } = output;
+
+  console.log(config.title);
+  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(`Review id: ${reviewItem.reviewId}`);
+  console.log(`Kind: ${reviewItem.kind}`);
+  console.log(`Evidence strength: ${reviewItem.evidenceStrength}`);
+
+  if (reviewItem.kind === 'asset_identity_suggestion') {
+    renderLinksV2AssetIdentityReviewDetail(reviewItem);
+    return;
+  }
+
+  renderLinksV2LinkProposalReviewDetail(reviewItem);
 }
 
 function renderLinksV2ReviewAcceptOutput(
@@ -642,6 +723,54 @@ function renderLinksV2ReviewAcceptOutput(
   console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
   console.log(`Evidence: ${assertion.evidenceKind}`);
   console.log(`Observed blockers: ${suggestion.blockCount}`);
+}
+
+function renderLinksV2AssetIdentityReviewDetail(
+  item: Extract<LedgerLinkingReviewItem, { kind: 'asset_identity_suggestion' }>
+): void {
+  const { suggestion } = item;
+
+  console.log(`Relationship kind: ${suggestion.relationshipKind}`);
+  console.log(`Asset symbol: ${suggestion.assetSymbol}`);
+  console.log(`Assets: ${suggestion.assetIdA} <-> ${suggestion.assetIdB}`);
+  console.log(`Evidence: ${formatAssetIdentityEvidenceKind(suggestion.evidenceKind)}`);
+  console.log(`Observed blockers: ${suggestion.blockCount}`);
+  console.log(`Would accept: asset identity assertion ${suggestion.assetIdA} <-> ${suggestion.assetIdB}`);
+  console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
+  console.log('Decision help:');
+  console.log(formatAssetIdentityDecisionHelp(suggestion.evidenceKind));
+  console.log('Examples:');
+  for (const example of suggestion.examples) {
+    console.log(`  ${formatAssetIdentitySuggestionExample(suggestion, example)}`);
+    console.log(`    source posting: ${shortenValue(example.sourcePostingFingerprint)}`);
+    console.log(`    target posting: ${shortenValue(example.targetPostingFingerprint)}`);
+  }
+}
+
+function renderLinksV2LinkProposalReviewDetail(
+  item: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
+): void {
+  const { proposal } = item;
+
+  console.log(`Proposal kind: ${item.proposalKind}`);
+  console.log(`Relationship kind: ${item.relationshipKind}`);
+  console.log(`Asset: ${proposal.amount} ${proposal.assetSymbol}`);
+  console.log(`Uniqueness: ${proposal.uniqueness}`);
+  console.log(
+    `Source: ${proposal.source.platformKey} #${proposal.source.candidateId} ${formatDate(proposal.source.activityDatetime)}`
+  );
+  console.log(
+    `Target: ${proposal.target.platformKey} #${proposal.target.candidateId} ${formatDate(proposal.target.activityDatetime)}`
+  );
+  console.log(`Source asset id: ${proposal.source.assetId}`);
+  console.log(`Target asset id: ${proposal.target.assetId}`);
+  console.log(`Time evidence: ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}`);
+  console.log(`Asset identity: ${formatAssetIdentityReason(proposal.assetIdentityReason)}`);
+  console.log('Decision help:');
+  console.log(
+    '  This is review-only evidence. It cannot be accepted until reviewed relationship materialization exists.'
+  );
+  console.log('  Use it to decide whether the processor facts or asset identity assertions need attention first.');
 }
 
 function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {
@@ -939,6 +1068,25 @@ function formatAssetIdentityEvidenceKind(evidenceKind: LedgerLinkingAssetIdentit
       return 'exact-hash';
     case 'amount_time_observed':
       return 'amount/time';
+  }
+}
+
+function formatAssetIdentityDecisionHelp(evidenceKind: LedgerLinkingAssetIdentitySuggestion['evidenceKind']): string {
+  switch (evidenceKind) {
+    case 'exact_hash_observed':
+      return [
+        '  Accept only if the two shown asset ids name the same asset.',
+        '  Exact-hash evidence means the same transaction hash was observed on both sides.',
+        '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
+        '  If the asset mapping is unclear, leave it pending; no relationship will be created from this identity.',
+      ].join('\n');
+    case 'amount_time_observed':
+      return [
+        '  Amount/time evidence is weaker: matching amounts and timing do not prove asset identity.',
+        '  Accept only after checking the two shown asset ids name the same asset.',
+        '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
+        '  If unsure, leave it pending; this is safer than converting a symbol match into accounting truth.',
+      ].join('\n');
   }
 }
 

@@ -277,6 +277,100 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '    evidence: time 30m, source_before_target, accepted asset identity assertion'
     );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Inspect before accepting: exitbook links-v2 review view <review-id>');
+  });
+
+  it('shows decision help for an asset identity review item', async () => {
+    const program = createProgram();
+    const diagnostics = makeDiagnostics();
+    const assetIdentitySuggestion = makeAssetIdentitySuggestion();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [assetIdentitySuggestion],
+        diagnostics,
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'view', 'ai_test_1'], {
+      from: 'user',
+    });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        dryRun: true,
+        includeDiagnostics: true,
+      }
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review item.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Review id: ai_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Kind: asset_identity_suggestion');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Evidence strength: strong');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Would accept: asset identity assertion blockchain:ethereum:native <-> exchange:kraken:eth'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Accept command: exitbook links-v2 review accept ai_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      [
+        '  Accept only if the two shown asset ids name the same asset.',
+        '  Exact-hash evidence means the same transaction hash was observed on both sides.',
+        '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
+        '  If the asset mapping is unclear, leave it pending; no relationship will be created from this identity.',
+      ].join('\n')
+    );
+  });
+
+  it('shows review-only guidance for a link proposal review item', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        diagnostics: makeDiagnostics(),
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'view', 'lp_test_1'], {
+      from: 'user',
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review item.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Review id: lp_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Kind: link_proposal');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Proposal kind: amount_time');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationship kind: internal_transfer');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  This is review-only evidence. It cannot be accepted until reviewed relationship materialization exists.'
+    );
+    expect(mockSaveLedgerLinkingAssetIdentityAssertion).not.toHaveBeenCalled();
+  });
+
+  it('emits JSON for review view when --json is parsed by the parent review command', async () => {
+    const program = createProgram();
+    const assetIdentitySuggestion = makeAssetIdentitySuggestion();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [assetIdentitySuggestion],
+        diagnostics: makeDiagnostics(),
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'view', 'ai_test_1', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockOutputSuccess).toHaveBeenCalledOnce();
+    expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('links-v2-review-view');
+    expect(mockOutputSuccess.mock.calls[0]?.[1]).toMatchObject({
+      reviewItem: {
+        kind: 'asset_identity_suggestion',
+        reviewId: 'ai_test_1',
+      },
+    });
   });
 
   it('accepts an asset identity suggestion from the links-v2 review queue', async () => {
@@ -314,6 +408,32 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Review id: ai_test_1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Action: asset identity assertion created');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+  });
+
+  it('emits JSON for review accept when --json is parsed by the parent review command', async () => {
+    const program = createProgram();
+    const diagnostics = makeDiagnostics();
+    const assetIdentitySuggestion = makeAssetIdentitySuggestion();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [assetIdentitySuggestion],
+        diagnostics,
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'accept', 'ai_test_1', '--json'], {
+      from: 'user',
+    });
+
+    expect(mockOutputSuccess).toHaveBeenCalledOnce();
+    expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('links-v2-review-accept');
+    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
+      assetIdA: 'blockchain:ethereum:native',
+      assetIdB: 'exchange:kraken:eth',
+      evidenceKind: 'exact_hash_observed',
+      relationshipKind: 'internal_transfer',
+    });
   });
 
   it('does not accept link proposals from the links-v2 review queue yet', async () => {
