@@ -176,7 +176,9 @@ describe('links-v2 command', () => {
     expect(mockBuildLedgerLinkingRelationshipReader).toHaveBeenCalledWith({ tag: 'db' });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationships for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  #42 internal_transfer resolved relationship:ledger-linking');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  #42 internal_transfer resolved 2 allocation(s) relationship:ledger-linking'
+    );
   });
 
   it('views one persisted links-v2 relationship by stable key prefix', async () => {
@@ -187,8 +189,10 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationship #42');
     expect(consoleLogSpy).toHaveBeenCalledWith('Stable key: relationship:ledger-linking');
     expect(consoleLogSpy).toHaveBeenCalledWith('Status: resolved');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  Activity: source_activity:v1:source');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  Activity: source_activity:v1:target');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Allocations:');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  #1 source 1 ETH (blockchain:ethereum:native)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('    Activity: source_activity:v1:source');
+    expect(consoleLogSpy).toHaveBeenCalledWith('    Activity: source_activity:v1:target');
   });
 
   it('lists accepted asset identity assertions under links-v2', async () => {
@@ -258,18 +262,9 @@ function makeRunResult() {
   return {
     acceptedRelationships: [
       {
+        allocations: makeRelationshipAllocations(),
         relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
         relationshipKind: 'internal_transfer',
-        source: {
-          sourceActivityFingerprint: 'source_activity:v1:source',
-          journalFingerprint: 'ledger_journal:v1:source',
-          postingFingerprint: 'ledger_posting:v1:source',
-        },
-        target: {
-          sourceActivityFingerprint: 'source_activity:v1:target',
-          journalFingerprint: 'ledger_journal:v1:target',
-          postingFingerprint: 'ledger_posting:v1:target',
-        },
       },
     ],
     assetIdentitySuggestions: [],
@@ -299,18 +294,9 @@ function makeRunResult() {
         targetAssetId: 'blockchain:ethereum:native',
         amount: '1',
         relationship: {
+          allocations: makeRelationshipAllocations(),
           relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
           relationshipKind: 'internal_transfer',
-          source: {
-            sourceActivityFingerprint: 'source_activity:v1:source',
-            journalFingerprint: 'ledger_journal:v1:source',
-            postingFingerprint: 'ledger_posting:v1:source',
-          },
-          target: {
-            sourceActivityFingerprint: 'source_activity:v1:target',
-            journalFingerprint: 'ledger_journal:v1:target',
-            postingFingerprint: 'ledger_posting:v1:target',
-          },
         },
       },
     ],
@@ -321,8 +307,8 @@ function makeRunResult() {
       materialization: {
         previousCount: 0,
         savedCount: 1,
-        resolvedEndpointCount: 2,
-        unresolvedEndpointCount: 0,
+        resolvedAllocationCount: 2,
+        unresolvedAllocationCount: 0,
       },
     },
     postingInputCount: 3,
@@ -359,6 +345,25 @@ function makeAssetIdentitySuggestion() {
   };
 }
 
+function makeRelationshipAllocations() {
+  return [
+    {
+      allocationSide: 'source',
+      sourceActivityFingerprint: 'source_activity:v1:source',
+      journalFingerprint: 'ledger_journal:v1:source',
+      postingFingerprint: 'ledger_posting:v1:source',
+      quantity: '1',
+    },
+    {
+      allocationSide: 'target',
+      sourceActivityFingerprint: 'source_activity:v1:target',
+      journalFingerprint: 'ledger_journal:v1:target',
+      postingFingerprint: 'ledger_posting:v1:target',
+      quantity: '1',
+    },
+  ];
+}
+
 function makeAssetIdentityBlock() {
   return {
     amount: '1',
@@ -378,22 +383,34 @@ function makeAssetIdentityBlock() {
 function makePersistedRelationship() {
   return {
     id: 42,
+    allocations: [
+      {
+        allocationSide: 'source',
+        assetId: 'blockchain:ethereum:native',
+        assetSymbol: 'ETH',
+        id: 1,
+        quantity: '1',
+        sourceActivityFingerprint: 'source_activity:v1:source',
+        journalFingerprint: 'ledger_journal:v1:source',
+        postingFingerprint: 'ledger_posting:v1:source',
+        currentJournalId: 100,
+        currentPostingId: 101,
+      },
+      {
+        allocationSide: 'target',
+        assetId: 'blockchain:ethereum:native',
+        assetSymbol: 'ETH',
+        id: 2,
+        quantity: '1',
+        sourceActivityFingerprint: 'source_activity:v1:target',
+        journalFingerprint: 'ledger_journal:v1:target',
+        postingFingerprint: 'ledger_posting:v1:target',
+        currentJournalId: 200,
+        currentPostingId: 201,
+      },
+    ],
     relationshipStableKey: 'relationship:ledger-linking',
     relationshipKind: 'internal_transfer',
-    source: {
-      sourceActivityFingerprint: 'source_activity:v1:source',
-      journalFingerprint: 'ledger_journal:v1:source',
-      postingFingerprint: 'ledger_posting:v1:source',
-      currentJournalId: 100,
-      currentPostingId: 101,
-    },
-    target: {
-      sourceActivityFingerprint: 'source_activity:v1:target',
-      journalFingerprint: 'ledger_journal:v1:target',
-      postingFingerprint: 'ledger_posting:v1:target',
-      currentJournalId: 200,
-      currentPostingId: 201,
-    },
     createdAt: '2026-04-29T00:00:00.000Z',
     updatedAt: undefined,
   };

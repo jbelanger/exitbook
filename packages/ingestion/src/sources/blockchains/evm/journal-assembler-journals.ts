@@ -65,16 +65,22 @@ function buildProtocolEventRelationships(params: {
     relationships.push({
       relationshipStableKey: `${event.kind}:${index + 1}`,
       relationshipKind: event.relationshipKind,
-      source: {
-        sourceActivityFingerprint: params.sourceActivityFingerprint,
-        journalStableKey: params.journalStableKey,
-        postingStableKey: sourcePosting.postingStableKey,
-      },
-      target: {
-        sourceActivityFingerprint: params.sourceActivityFingerprint,
-        journalStableKey: params.journalStableKey,
-        postingStableKey: targetPosting.postingStableKey,
-      },
+      allocations: [
+        {
+          allocationSide: 'source',
+          quantity: sourcePosting.quantity.abs(),
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+          journalStableKey: params.journalStableKey,
+          postingStableKey: sourcePosting.postingStableKey,
+        },
+        {
+          allocationSide: 'target',
+          quantity: targetPosting.quantity.abs(),
+          sourceActivityFingerprint: params.sourceActivityFingerprint,
+          journalStableKey: params.journalStableKey,
+          postingStableKey: targetPosting.postingStableKey,
+        },
+      ],
     });
   }
 

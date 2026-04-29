@@ -232,7 +232,7 @@ function renderLinksV2RelationshipListOutput(output: LinksV2RelationshipListOutp
 
   for (const relationship of output.relationships) {
     console.log(
-      `  #${relationship.id} ${relationship.relationshipKind} ${relationshipResolutionStatus(relationship)} ${relationship.relationshipStableKey}`
+      `  #${relationship.id} ${relationship.relationshipKind} ${relationshipResolutionStatus(relationship)} ${relationship.allocations.length} allocation(s) ${relationship.relationshipStableKey}`
     );
   }
 }
@@ -245,31 +245,31 @@ function renderLinksV2RelationshipViewOutput(output: LinksV2RelationshipViewOutp
   console.log(`Stable key: ${relationship.relationshipStableKey}`);
   console.log(`Kind: ${relationship.relationshipKind}`);
   console.log(`Status: ${relationshipResolutionStatus(relationship)}`);
-  renderRelationshipEndpoint('Source', relationship.source);
-  renderRelationshipEndpoint('Target', relationship.target);
+  console.log('Allocations:');
+  for (const allocation of relationship.allocations) {
+    renderRelationshipAllocation(allocation);
+  }
   console.log(`Created: ${relationship.createdAt}`);
   console.log(`Updated: ${relationship.updatedAt ?? 'never'}`);
 }
 
-function renderRelationshipEndpoint(
-  label: 'Source' | 'Target',
-  endpoint: LedgerLinkingPersistedRelationship['source']
-): void {
-  console.log(`${label}:`);
-  console.log(`  Activity: ${endpoint.sourceActivityFingerprint}`);
-  console.log(`  Journal: ${endpoint.journalFingerprint}`);
-  console.log(`  Posting: ${endpoint.postingFingerprint ?? 'journal-level'}`);
-  console.log(`  Current journal id: ${endpoint.currentJournalId ?? 'unresolved'}`);
-  console.log(`  Current posting id: ${endpoint.currentPostingId ?? 'unresolved'}`);
+function renderRelationshipAllocation(allocation: LedgerLinkingPersistedRelationship['allocations'][number]): void {
+  console.log(
+    `  #${allocation.id} ${allocation.allocationSide} ${allocation.quantity} ${allocation.assetSymbol} (${allocation.assetId})`
+  );
+  console.log(`    Activity: ${allocation.sourceActivityFingerprint}`);
+  console.log(`    Journal: ${allocation.journalFingerprint}`);
+  console.log(`    Posting: ${allocation.postingFingerprint ?? 'journal-level'}`);
+  console.log(`    Current journal id: ${allocation.currentJournalId ?? 'unresolved'}`);
+  console.log(`    Current posting id: ${allocation.currentPostingId ?? 'unresolved'}`);
 }
 
 function relationshipResolutionStatus(relationship: LedgerLinkingPersistedRelationship): 'resolved' | 'stale' {
-  return endpointIsResolved(relationship.source) && endpointIsResolved(relationship.target) ? 'resolved' : 'stale';
+  return relationship.allocations.length > 0 && relationship.allocations.every(allocationIsResolved)
+    ? 'resolved'
+    : 'stale';
 }
 
-function endpointIsResolved(endpoint: LedgerLinkingPersistedRelationship['source']): boolean {
-  return (
-    endpoint.currentJournalId !== undefined &&
-    (endpoint.postingFingerprint === undefined || endpoint.currentPostingId !== undefined)
-  );
+function allocationIsResolved(allocation: LedgerLinkingPersistedRelationship['allocations'][number]): boolean {
+  return allocation.currentJournalId !== undefined && allocation.currentPostingId !== undefined;
 }

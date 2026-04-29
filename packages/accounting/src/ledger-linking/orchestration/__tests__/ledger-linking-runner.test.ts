@@ -72,26 +72,32 @@ describe('runLedgerLinking', () => {
       mode: 'persisted',
       materialization: {
         previousCount: 0,
-        resolvedEndpointCount: 2,
+        resolvedAllocationCount: 2,
         savedCount: 1,
-        unresolvedEndpointCount: 0,
+        unresolvedAllocationCount: 0,
       },
     });
     expect(harness.savedRelationships).toEqual([
       [
         {
+          allocations: [
+            {
+              allocationSide: 'source',
+              sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+              journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+              postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
+              quantity: parseDecimal('1.25'),
+            },
+            {
+              allocationSide: 'target',
+              sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+              journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+              postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
+              quantity: parseDecimal('1.25'),
+            },
+          ],
           relationshipStableKey: result.acceptedRelationships[0]?.relationshipStableKey,
           relationshipKind: 'internal_transfer',
-          source: {
-            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
-            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
-            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
-          },
-          target: {
-            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
-            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
-            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
-          },
         },
       ],
     ]);
@@ -154,9 +160,9 @@ describe('runLedgerLinking', () => {
       mode: 'persisted',
       materialization: {
         previousCount: 2,
-        resolvedEndpointCount: 0,
+        resolvedAllocationCount: 0,
         savedCount: 0,
-        unresolvedEndpointCount: 0,
+        unresolvedAllocationCount: 0,
       },
     });
     expect(harness.savedRelationships).toEqual([[]]);
@@ -233,9 +239,9 @@ describe('runLedgerLinking', () => {
       mode: 'persisted',
       materialization: {
         previousCount: 0,
-        resolvedEndpointCount: 0,
+        resolvedAllocationCount: 0,
         savedCount: 0,
-        unresolvedEndpointCount: 0,
+        unresolvedAllocationCount: 0,
       },
     });
     expect(harness.savedRelationships).toEqual([[]]);
@@ -396,9 +402,12 @@ function makeHarness(postings: readonly LedgerLinkingPostingInput[], options: Ha
 
         return ok({
           previousCount: options.previousCount ?? 0,
-          resolvedEndpointCount: relationships.length * 2,
+          resolvedAllocationCount: relationships.reduce(
+            (sum, relationship) => sum + relationship.allocations.length,
+            0
+          ),
           savedCount: relationships.length,
-          unresolvedEndpointCount: 0,
+          unresolvedAllocationCount: 0,
         });
       },
     },

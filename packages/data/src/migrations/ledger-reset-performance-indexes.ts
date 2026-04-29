@@ -7,24 +7,23 @@ export async function ensureLedgerResetPerformanceIndexes<Schema>(db: Kysely<Sch
   `.execute(db);
 
   await sql`
-    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_source_posting_id
-    ON accounting_journal_relationships(source_posting_id)
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationship_allocations_posting_id_reset
+    ON accounting_journal_relationship_allocations(posting_id)
+    WHERE posting_id IS NOT NULL
   `.execute(db);
 
   await sql`
-    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_target_posting_id
-    ON accounting_journal_relationships(target_posting_id)
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationship_allocations_posting_fingerprint_reset
+    ON accounting_journal_relationship_allocations(posting_fingerprint)
   `.execute(db);
 
   await sql`
-    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_source_posting_fingerprint
-    ON accounting_journal_relationships(source_posting_fingerprint)
-    WHERE source_posting_fingerprint IS NOT NULL
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationship_allocations_activity_reset
+    ON accounting_journal_relationship_allocations(source_activity_fingerprint)
   `.execute(db);
 
   await sql`
-    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationships_target_posting_fingerprint
-    ON accounting_journal_relationships(target_posting_fingerprint)
-    WHERE target_posting_fingerprint IS NOT NULL
+    CREATE INDEX IF NOT EXISTS idx_accounting_journal_relationship_allocations_relationship_reset
+    ON accounting_journal_relationship_allocations(relationship_id)
   `.execute(db);
 }

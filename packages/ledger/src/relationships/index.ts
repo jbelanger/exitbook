@@ -3,8 +3,10 @@ export {
   type AccountingJournalRelationshipKind,
 } from './relationship-kind.js';
 export {
+  AccountingRelationshipAllocationDraftSchema,
+  AccountingRelationshipAllocationSideSchema,
   AccountingJournalRelationshipDraftSchema,
-  AccountingRelationshipEndpointRefSchema,
+  type AccountingRelationshipAllocationDraft,
+  type AccountingRelationshipAllocationSide,
   type AccountingJournalRelationshipDraft,
-  type AccountingRelationshipEndpointRef,
 } from './relationship-draft.js';

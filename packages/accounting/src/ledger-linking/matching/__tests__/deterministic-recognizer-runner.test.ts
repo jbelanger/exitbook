@@ -96,18 +96,24 @@ function makeRecognizer(
 
 function makeRelationship(suffix: string): LedgerLinkingRelationshipDraft {
   return {
+    allocations: [
+      {
+        allocationSide: 'source',
+        sourceActivityFingerprint: `source_activity:v1:${suffix}:source`,
+        journalFingerprint: `ledger_journal:v1:${suffix}:source`,
+        postingFingerprint: `ledger_posting:v1:${suffix}:source`,
+        quantity: parseDecimal('1'),
+      },
+      {
+        allocationSide: 'target',
+        sourceActivityFingerprint: `source_activity:v1:${suffix}:target`,
+        journalFingerprint: `ledger_journal:v1:${suffix}:target`,
+        postingFingerprint: `ledger_posting:v1:${suffix}:target`,
+        quantity: parseDecimal('1'),
+      },
+    ],
     relationshipStableKey: `relationship:${suffix}`,
     relationshipKind: 'internal_transfer',
-    source: {
-      sourceActivityFingerprint: `source_activity:v1:${suffix}:source`,
-      journalFingerprint: `ledger_journal:v1:${suffix}:source`,
-      postingFingerprint: `ledger_posting:v1:${suffix}:source`,
-    },
-    target: {
-      sourceActivityFingerprint: `source_activity:v1:${suffix}:target`,
-      journalFingerprint: `ledger_journal:v1:${suffix}:target`,
-      postingFingerprint: `ledger_posting:v1:${suffix}:target`,
-    },
   };
 }
 

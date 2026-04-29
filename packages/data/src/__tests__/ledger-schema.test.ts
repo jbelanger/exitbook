@@ -31,11 +31,11 @@ describe('ledger schema draft', () => {
     const sourceComponentIndexes = await listTableIndexNames('accounting_posting_source_components');
     expect(sourceComponentIndexes).toContain('idx_accounting_posting_source_components_source_activity');
 
-    const relationshipIndexes = await listTableIndexNames('accounting_journal_relationships');
-    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_source_posting_id');
-    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_target_posting_id');
-    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_source_posting_fingerprint');
-    expect(relationshipIndexes).toContain('idx_accounting_journal_relationships_target_posting_fingerprint');
+    const allocationIndexes = await listTableIndexNames('accounting_journal_relationship_allocations');
+    expect(allocationIndexes).toContain('idx_accounting_journal_relationship_allocations_posting_id');
+    expect(allocationIndexes).toContain('idx_accounting_journal_relationship_allocations_posting_fingerprint');
+    expect(allocationIndexes).toContain('idx_accounting_journal_relationship_allocations_activity');
+    expect(allocationIndexes).toContain('idx_accounting_journal_relationship_allocations_relationship_id');
   });
 
   it('persists the draft ledger table chain', async () => {
@@ -203,26 +203,51 @@ describe('ledger schema draft', () => {
       ])
       .execute();
 
-    await db
+    const relationship = await db
       .insertInto('accounting_journal_relationships')
       .values({
         profile_id: 1,
         relationship_origin: 'processor',
-        source_journal_id: 1,
-        target_journal_id: 2,
-        source_posting_id: 1,
-        target_posting_id: 2,
-        source_activity_fingerprint: 'source_activity:v1:1',
-        target_activity_fingerprint: 'source_activity:v1:1',
-        source_journal_fingerprint: 'ledger_journal:v1:source',
-        target_journal_fingerprint: 'ledger_journal:v1:target',
-        source_posting_fingerprint: 'ledger_posting:v1:source',
-        target_posting_fingerprint: 'ledger_posting:v1:target',
         relationship_stable_key: 'relationship:1',
         relationship_kind: 'internal_transfer',
         created_at: '2026-04-23T00:00:00.000Z',
         updated_at: null,
       })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    await db
+      .insertInto('accounting_journal_relationship_allocations')
+      .values([
+        {
+          relationship_id: relationship.id,
+          allocation_side: 'source',
+          allocation_quantity: '10',
+          source_activity_fingerprint: 'source_activity:v1:1',
+          journal_id: 1,
+          posting_id: 1,
+          journal_fingerprint: 'ledger_journal:v1:source',
+          posting_fingerprint: 'ledger_posting:v1:source',
+          asset_id: 'blockchain:cardano:native',
+          asset_symbol: 'ADA',
+          created_at: '2026-04-23T00:00:00.000Z',
+          updated_at: null,
+        },
+        {
+          relationship_id: relationship.id,
+          allocation_side: 'target',
+          allocation_quantity: '10',
+          source_activity_fingerprint: 'source_activity:v1:1',
+          journal_id: 2,
+          posting_id: 2,
+          journal_fingerprint: 'ledger_journal:v1:target',
+          posting_fingerprint: 'ledger_posting:v1:target',
+          asset_id: 'blockchain:cardano:native',
+          asset_symbol: 'ADA',
+          created_at: '2026-04-23T00:00:00.000Z',
+          updated_at: null,
+        },
+      ])
       .execute();
 
     await db
@@ -268,12 +293,16 @@ describe('ledger schema draft', () => {
         .select(({ fn }) => fn.countAll<number>().as('count'))
         .executeTakeFirstOrThrow(),
       db
+        .selectFrom('accounting_journal_relationship_allocations')
+        .select(({ fn }) => fn.countAll<number>().as('count'))
+        .executeTakeFirstOrThrow(),
+      db
         .selectFrom('accounting_overrides')
         .select(({ fn }) => fn.countAll<number>().as('count'))
         .executeTakeFirstOrThrow(),
     ]);
 
-    expect(counts.map((row) => row.count)).toEqual([1, 2, 1, 2, 2, 1, 1]);
+    expect(counts.map((row) => row.count)).toEqual([1, 2, 1, 2, 2, 1, 2, 1]);
   });
 
   it('rejects fee postings without settlement', async () => {

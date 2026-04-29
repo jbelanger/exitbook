@@ -43,6 +43,25 @@ export function validateAccountingJournalDraft(journal: AccountingJournalDraft):
       );
     }
 
+    const allocationKeys = new Set<string>();
+    for (const allocation of relationship.allocations) {
+      const allocationKey = [
+        allocation.allocationSide,
+        allocation.sourceActivityFingerprint,
+        allocation.journalStableKey,
+        allocation.postingStableKey,
+      ].join('\u0000');
+      if (allocationKeys.has(allocationKey)) {
+        return err(
+          new Error(
+            `Relationship ${relationship.relationshipStableKey} contains duplicate ${allocation.allocationSide} allocation ${allocation.journalStableKey}/${allocation.postingStableKey}`
+          )
+        );
+      }
+
+      allocationKeys.add(allocationKey);
+    }
+
     relationshipStableKeys.add(relationship.relationshipStableKey);
   }
 

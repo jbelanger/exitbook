@@ -419,7 +419,7 @@ describe('AccountingLedgerRepository', () => {
     expect(postings.map((posting) => posting.postingStableKey)).toEqual(['posting:replacement-fee']);
   });
 
-  it('persists journal relationships with posting endpoints', async () => {
+  it('persists journal relationships with posting allocations', async () => {
     const sourceActivity = makeSourceActivity();
     const [sourceJournal, targetJournal] = makeRelatedJournals();
 
@@ -432,62 +432,71 @@ describe('AccountingLedgerRepository', () => {
 
     const relationship = await db
       .selectFrom('accounting_journal_relationships')
-      .innerJoin(
-        'accounting_journals as source_journal',
-        'source_journal.id',
-        'accounting_journal_relationships.source_journal_id'
-      )
-      .innerJoin(
-        'accounting_journals as target_journal',
-        'target_journal.id',
-        'accounting_journal_relationships.target_journal_id'
-      )
-      .innerJoin(
-        'accounting_postings as source_posting',
-        'source_posting.id',
-        'accounting_journal_relationships.source_posting_id'
-      )
-      .innerJoin(
-        'accounting_postings as target_posting',
-        'target_posting.id',
-        'accounting_journal_relationships.target_posting_id'
-      )
       .select([
+        'accounting_journal_relationships.id as id',
         'accounting_journal_relationships.profile_id as profile_id',
         'accounting_journal_relationships.relationship_origin as relationship_origin',
         'accounting_journal_relationships.relationship_kind as relationship_kind',
-        'accounting_journal_relationships.source_activity_fingerprint as source_activity_fingerprint',
-        'accounting_journal_relationships.target_activity_fingerprint as target_activity_fingerprint',
-        'accounting_journal_relationships.source_journal_fingerprint as source_journal_fingerprint',
-        'accounting_journal_relationships.target_journal_fingerprint as target_journal_fingerprint',
-        'accounting_journal_relationships.source_posting_fingerprint as source_posting_fingerprint',
-        'accounting_journal_relationships.target_posting_fingerprint as target_posting_fingerprint',
-        'source_journal.journal_stable_key as source_journal_stable_key',
-        'target_journal.journal_stable_key as target_journal_stable_key',
-        'source_posting.posting_stable_key as source_posting_stable_key',
-        'target_posting.posting_stable_key as target_posting_stable_key',
       ])
       .executeTakeFirstOrThrow();
 
-    expect(relationship.source_journal_fingerprint).toContain('ledger_journal:v1:');
-    expect(relationship.target_journal_fingerprint).toContain('ledger_journal:v1:');
-    expect(relationship.source_posting_fingerprint).toContain('ledger_posting:v1:');
-    expect(relationship.target_posting_fingerprint).toContain('ledger_posting:v1:');
     expect(relationship).toEqual({
+      id: relationship.id,
       profile_id: 1,
       relationship_origin: 'processor',
       relationship_kind: 'internal_transfer',
-      source_activity_fingerprint: ACTIVITY_FINGERPRINT,
-      target_activity_fingerprint: ACTIVITY_FINGERPRINT,
-      source_journal_fingerprint: relationship.source_journal_fingerprint,
-      target_journal_fingerprint: relationship.target_journal_fingerprint,
-      source_posting_fingerprint: relationship.source_posting_fingerprint,
-      target_posting_fingerprint: relationship.target_posting_fingerprint,
-      source_journal_stable_key: 'journal:source',
-      target_journal_stable_key: 'journal:target',
-      source_posting_stable_key: 'posting:source',
-      target_posting_stable_key: 'posting:target',
     });
+
+    const allocations = await db
+      .selectFrom('accounting_journal_relationship_allocations')
+      .innerJoin(
+        'accounting_journals',
+        'accounting_journals.id',
+        'accounting_journal_relationship_allocations.journal_id'
+      )
+      .innerJoin(
+        'accounting_postings',
+        'accounting_postings.id',
+        'accounting_journal_relationship_allocations.posting_id'
+      )
+      .select([
+        'accounting_journal_relationship_allocations.allocation_side as allocation_side',
+        'accounting_journal_relationship_allocations.allocation_quantity as allocation_quantity',
+        'accounting_journal_relationship_allocations.source_activity_fingerprint as source_activity_fingerprint',
+        'accounting_journal_relationship_allocations.journal_fingerprint as journal_fingerprint',
+        'accounting_journal_relationship_allocations.posting_fingerprint as posting_fingerprint',
+        'accounting_journal_relationship_allocations.asset_id as asset_id',
+        'accounting_journal_relationship_allocations.asset_symbol as asset_symbol',
+        'accounting_journals.journal_stable_key as journal_stable_key',
+        'accounting_postings.posting_stable_key as posting_stable_key',
+      ])
+      .where('relationship_id', '=', relationship.id)
+      .orderBy('allocation_side', 'asc')
+      .execute();
+
+    expect(allocations).toHaveLength(2);
+    expect(allocations[0]?.journal_fingerprint).toContain('ledger_journal:v1:');
+    expect(allocations[0]?.posting_fingerprint).toContain('ledger_posting:v1:');
+    expect(allocations).toMatchObject([
+      {
+        allocation_side: 'source',
+        allocation_quantity: '10',
+        source_activity_fingerprint: ACTIVITY_FINGERPRINT,
+        asset_id: 'blockchain:cardano:native',
+        asset_symbol: 'ADA',
+        journal_stable_key: 'journal:source',
+        posting_stable_key: 'posting:source',
+      },
+      {
+        allocation_side: 'target',
+        allocation_quantity: '10',
+        source_activity_fingerprint: ACTIVITY_FINGERPRINT,
+        asset_id: 'blockchain:cardano:native',
+        asset_symbol: 'ADA',
+        journal_stable_key: 'journal:target',
+        posting_stable_key: 'posting:target',
+      },
+    ]);
   });
 
   it('replaces processor-authored relationships when replacing a source activity ledger', async () => {
@@ -547,17 +556,18 @@ describe('AccountingLedgerRepository', () => {
       })
     );
 
-    const refreshed = await loadRelationshipByStableKey('relationship:ledger-linking');
-    expect(refreshed.source_journal_id).not.toBeNull();
-    expect(refreshed.target_journal_id).not.toBeNull();
-    expect(refreshed.source_posting_id).not.toBeNull();
-    expect(refreshed.target_posting_id).not.toBeNull();
-    expect(refreshed.source_journal_id).not.toBe(sourceEndpoint.journalId);
-    expect(refreshed.target_journal_id).not.toBe(targetEndpoint.journalId);
-    expect(refreshed.source_journal_fingerprint).toBe(sourceEndpoint.journalFingerprint);
-    expect(refreshed.target_journal_fingerprint).toBe(targetEndpoint.journalFingerprint);
-    expect(refreshed.source_posting_fingerprint).toBe(sourceEndpoint.postingFingerprint);
-    expect(refreshed.target_posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
+    const refreshedAllocations = await loadRelationshipAllocationsByStableKey('relationship:ledger-linking');
+    expect(refreshedAllocations).toHaveLength(2);
+    expect(refreshedAllocations[0]?.journal_id).not.toBeNull();
+    expect(refreshedAllocations[1]?.journal_id).not.toBeNull();
+    expect(refreshedAllocations[0]?.posting_id).not.toBeNull();
+    expect(refreshedAllocations[1]?.posting_id).not.toBeNull();
+    expect(refreshedAllocations[0]?.journal_id).not.toBe(sourceEndpoint.journalId);
+    expect(refreshedAllocations[1]?.journal_id).not.toBe(targetEndpoint.journalId);
+    expect(refreshedAllocations[0]?.journal_fingerprint).toBe(sourceEndpoint.journalFingerprint);
+    expect(refreshedAllocations[1]?.journal_fingerprint).toBe(targetEndpoint.journalFingerprint);
+    expect(refreshedAllocations[0]?.posting_fingerprint).toBe(sourceEndpoint.postingFingerprint);
+    expect(refreshedAllocations[1]?.posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
   });
 
   it('leaves ledger-linking endpoints unresolved when replacement fingerprints change', async () => {
@@ -605,15 +615,16 @@ describe('AccountingLedgerRepository', () => {
       })
     );
 
-    const stale = await loadRelationshipByStableKey('relationship:ledger-linking');
-    expect(stale.source_journal_id).toBeNull();
-    expect(stale.target_journal_id).toBeNull();
-    expect(stale.source_posting_id).toBeNull();
-    expect(stale.target_posting_id).toBeNull();
-    expect(stale.source_journal_fingerprint).toBe(sourceEndpoint.journalFingerprint);
-    expect(stale.target_journal_fingerprint).toBe(targetEndpoint.journalFingerprint);
-    expect(stale.source_posting_fingerprint).toBe(sourceEndpoint.postingFingerprint);
-    expect(stale.target_posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
+    const staleAllocations = await loadRelationshipAllocationsByStableKey('relationship:ledger-linking');
+    expect(staleAllocations).toHaveLength(2);
+    expect(staleAllocations[0]?.journal_id).toBeNull();
+    expect(staleAllocations[1]?.journal_id).toBeNull();
+    expect(staleAllocations[0]?.posting_id).toBeNull();
+    expect(staleAllocations[1]?.posting_id).toBeNull();
+    expect(staleAllocations[0]?.journal_fingerprint).toBe(sourceEndpoint.journalFingerprint);
+    expect(staleAllocations[1]?.journal_fingerprint).toBe(targetEndpoint.journalFingerprint);
+    expect(staleAllocations[0]?.posting_fingerprint).toBe(sourceEndpoint.postingFingerprint);
+    expect(staleAllocations[1]?.posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
   });
 
   it('materializes ledger-linking relationships by stable endpoint fingerprints', async () => {
@@ -622,41 +633,45 @@ describe('AccountingLedgerRepository', () => {
     const result = assertOk(
       await repository.replaceLedgerLinkingRelationships(1, [
         {
+          allocations: [
+            makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
+            makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
+          ],
           relationshipStableKey: 'relationship:ledger-linking',
           relationshipKind: 'internal_transfer',
-          source: {
-            sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
-            journalFingerprint: sourceEndpoint.journalFingerprint,
-            postingFingerprint: sourceEndpoint.postingFingerprint,
-          },
-          target: {
-            sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
-            journalFingerprint: targetEndpoint.journalFingerprint,
-            postingFingerprint: targetEndpoint.postingFingerprint,
-          },
         },
       ])
     );
 
     expect(result).toEqual({
       previousCount: 0,
-      resolvedEndpointCount: 2,
+      resolvedAllocationCount: 2,
       savedCount: 1,
-      unresolvedEndpointCount: 0,
+      unresolvedAllocationCount: 0,
     });
 
     const relationship = await loadRelationshipByStableKey('relationship:ledger-linking');
     expect(relationship).toMatchObject({
       relationship_origin: 'ledger_linking',
-      source_journal_id: sourceEndpoint.journalId,
-      target_journal_id: targetEndpoint.journalId,
-      source_posting_id: sourceEndpoint.postingId,
-      target_posting_id: targetEndpoint.postingId,
-      source_journal_fingerprint: sourceEndpoint.journalFingerprint,
-      target_journal_fingerprint: targetEndpoint.journalFingerprint,
-      source_posting_fingerprint: sourceEndpoint.postingFingerprint,
-      target_posting_fingerprint: targetEndpoint.postingFingerprint,
     });
+    await expect(loadRelationshipAllocationsByStableKey('relationship:ledger-linking')).resolves.toMatchObject([
+      {
+        allocation_side: 'source',
+        allocation_quantity: '10',
+        journal_id: sourceEndpoint.journalId,
+        posting_id: sourceEndpoint.postingId,
+        journal_fingerprint: sourceEndpoint.journalFingerprint,
+        posting_fingerprint: sourceEndpoint.postingFingerprint,
+      },
+      {
+        allocation_side: 'target',
+        allocation_quantity: '10',
+        journal_id: targetEndpoint.journalId,
+        posting_id: targetEndpoint.postingId,
+        journal_fingerprint: targetEndpoint.journalFingerprint,
+        posting_fingerprint: targetEndpoint.postingFingerprint,
+      },
+    ]);
   });
 
   it('loads persisted ledger-linking relationships by profile', async () => {
@@ -675,22 +690,32 @@ describe('AccountingLedgerRepository', () => {
     expect(typeof relationship.id).toBe('number');
     expect(typeof relationship.createdAt).toBe('string');
     expect(relationship).toMatchObject({
+      allocations: [
+        {
+          allocationSide: 'source',
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA',
+          quantity: '10',
+          sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
+          journalFingerprint: sourceEndpoint.journalFingerprint,
+          postingFingerprint: sourceEndpoint.postingFingerprint,
+          currentJournalId: sourceEndpoint.journalId,
+          currentPostingId: sourceEndpoint.postingId,
+        },
+        {
+          allocationSide: 'target',
+          assetId: 'blockchain:cardano:native',
+          assetSymbol: 'ADA',
+          quantity: '10',
+          sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
+          journalFingerprint: targetEndpoint.journalFingerprint,
+          postingFingerprint: targetEndpoint.postingFingerprint,
+          currentJournalId: targetEndpoint.journalId,
+          currentPostingId: targetEndpoint.postingId,
+        },
+      ],
       relationshipStableKey: 'relationship:ledger-linking',
       relationshipKind: 'internal_transfer',
-      source: {
-        sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
-        journalFingerprint: sourceEndpoint.journalFingerprint,
-        postingFingerprint: sourceEndpoint.postingFingerprint,
-        currentJournalId: sourceEndpoint.journalId,
-        currentPostingId: sourceEndpoint.postingId,
-      },
-      target: {
-        sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
-        journalFingerprint: targetEndpoint.journalFingerprint,
-        postingFingerprint: targetEndpoint.postingFingerprint,
-        currentJournalId: targetEndpoint.journalId,
-        currentPostingId: targetEndpoint.postingId,
-      },
       updatedAt: undefined,
     });
   });
@@ -708,9 +733,9 @@ describe('AccountingLedgerRepository', () => {
 
     expect(result).toEqual({
       previousCount: 1,
-      resolvedEndpointCount: 0,
+      resolvedAllocationCount: 0,
       savedCount: 0,
-      unresolvedEndpointCount: 0,
+      unresolvedAllocationCount: 0,
     });
     await expect(countLedgerLinkingRows()).resolves.toBe(0);
   });
@@ -726,27 +751,24 @@ describe('AccountingLedgerRepository', () => {
 
     const result = await repository.replaceLedgerLinkingRelationships(1, [
       {
+        allocations: [
+          makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
+          {
+            ...makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
+            journalFingerprint: 'ledger_journal:v1:missing',
+          },
+        ],
         relationshipStableKey: 'relationship:bad',
         relationshipKind: 'internal_transfer',
-        source: {
-          sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
-          journalFingerprint: sourceEndpoint.journalFingerprint,
-          postingFingerprint: sourceEndpoint.postingFingerprint,
-        },
-        target: {
-          sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
-          journalFingerprint: 'ledger_journal:v1:missing',
-          postingFingerprint: targetEndpoint.postingFingerprint,
-        },
       },
     ]);
 
-    expect(assertErr(result).message).toContain('target journal ledger_journal:v1:missing was not found');
+    expect(assertErr(result).message).toContain('target allocation journal ledger_journal:v1:missing was not found');
     await expect(countLedgerLinkingRows()).resolves.toBe(1);
-    await expect(loadRelationshipByStableKey('relationship:existing')).resolves.toMatchObject({
-      source_journal_fingerprint: sourceEndpoint.journalFingerprint,
-      target_journal_fingerprint: targetEndpoint.journalFingerprint,
-    });
+    await expect(loadRelationshipAllocationsByStableKey('relationship:existing')).resolves.toMatchObject([
+      { journal_fingerprint: sourceEndpoint.journalFingerprint },
+      { journal_fingerprint: targetEndpoint.journalFingerprint },
+    ]);
   });
 
   it('loads ledger-linking posting inputs by profile', async () => {
@@ -1052,16 +1074,22 @@ describe('AccountingLedgerRepository', () => {
         {
           relationshipStableKey: 'relationship:internal-transfer',
           relationshipKind: 'internal_transfer',
-          source: {
-            sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
-            journalStableKey: 'journal:source',
-            postingStableKey: 'posting:source',
-          },
-          target: {
-            sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
-            journalStableKey: 'journal:target',
-            postingStableKey: 'posting:target',
-          },
+          allocations: [
+            {
+              allocationSide: 'source',
+              quantity: parseDecimal('10'),
+              sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
+              journalStableKey: 'journal:source',
+              postingStableKey: 'posting:source',
+            },
+            {
+              allocationSide: 'target',
+              quantity: parseDecimal('10'),
+              sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
+              journalStableKey: 'journal:target',
+              postingStableKey: 'posting:target',
+            },
+          ],
         },
       ],
     });
@@ -1215,18 +1243,26 @@ describe('AccountingLedgerRepository', () => {
     relationshipStableKey: string
   ) {
     return {
+      allocations: [
+        makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
+        makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
+      ],
       relationshipStableKey,
       relationshipKind: 'internal_transfer' as const,
-      source: {
-        sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
-        journalFingerprint: sourceEndpoint.journalFingerprint,
-        postingFingerprint: sourceEndpoint.postingFingerprint,
-      },
-      target: {
-        sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
-        journalFingerprint: targetEndpoint.journalFingerprint,
-        postingFingerprint: targetEndpoint.postingFingerprint,
-      },
+    };
+  }
+
+  function makeLedgerLinkingAllocationDraft(
+    endpoint: Awaited<ReturnType<typeof loadEndpoint>>,
+    allocationSide: 'source' | 'target',
+    quantity: string
+  ) {
+    return {
+      allocationSide,
+      sourceActivityFingerprint: endpoint.sourceActivityFingerprint,
+      journalFingerprint: endpoint.journalFingerprint,
+      postingFingerprint: endpoint.postingFingerprint,
+      quantity: parseDecimal(quantity),
     };
   }
 
@@ -1234,45 +1270,81 @@ describe('AccountingLedgerRepository', () => {
     sourceEndpoint: Awaited<ReturnType<typeof loadEndpoint>>,
     targetEndpoint: Awaited<ReturnType<typeof loadEndpoint>>
   ): Promise<void> {
-    await db
+    const relationship = await db
       .insertInto('accounting_journal_relationships')
       .values({
         profile_id: 1,
         relationship_origin: 'ledger_linking',
-        source_journal_id: sourceEndpoint.journalId,
-        target_journal_id: targetEndpoint.journalId,
-        source_posting_id: sourceEndpoint.postingId,
-        target_posting_id: targetEndpoint.postingId,
-        source_activity_fingerprint: sourceEndpoint.sourceActivityFingerprint,
-        target_activity_fingerprint: targetEndpoint.sourceActivityFingerprint,
-        source_journal_fingerprint: sourceEndpoint.journalFingerprint,
-        target_journal_fingerprint: targetEndpoint.journalFingerprint,
-        source_posting_fingerprint: sourceEndpoint.postingFingerprint,
-        target_posting_fingerprint: targetEndpoint.postingFingerprint,
         relationship_stable_key: 'relationship:ledger-linking',
         relationship_kind: 'internal_transfer',
         created_at: ACTIVITY_DATETIME,
         updated_at: null,
       })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    await db
+      .insertInto('accounting_journal_relationship_allocations')
+      .values([
+        {
+          relationship_id: relationship.id,
+          allocation_side: 'source',
+          allocation_quantity: '10',
+          source_activity_fingerprint: sourceEndpoint.sourceActivityFingerprint,
+          journal_id: sourceEndpoint.journalId,
+          posting_id: sourceEndpoint.postingId,
+          journal_fingerprint: sourceEndpoint.journalFingerprint,
+          posting_fingerprint: sourceEndpoint.postingFingerprint,
+          asset_id: CARDANO_ASSET_ID,
+          asset_symbol: ADA,
+          created_at: ACTIVITY_DATETIME,
+          updated_at: null,
+        },
+        {
+          relationship_id: relationship.id,
+          allocation_side: 'target',
+          allocation_quantity: '10',
+          source_activity_fingerprint: targetEndpoint.sourceActivityFingerprint,
+          journal_id: targetEndpoint.journalId,
+          posting_id: targetEndpoint.postingId,
+          journal_fingerprint: targetEndpoint.journalFingerprint,
+          posting_fingerprint: targetEndpoint.postingFingerprint,
+          asset_id: CARDANO_ASSET_ID,
+          asset_symbol: ADA,
+          created_at: ACTIVITY_DATETIME,
+          updated_at: null,
+        },
+      ])
       .execute();
   }
 
   async function loadRelationshipByStableKey(relationshipStableKey: string) {
     return db
       .selectFrom('accounting_journal_relationships')
-      .select([
-        'relationship_origin',
-        'source_journal_id',
-        'target_journal_id',
-        'source_posting_id',
-        'target_posting_id',
-        'source_journal_fingerprint',
-        'target_journal_fingerprint',
-        'source_posting_fingerprint',
-        'target_posting_fingerprint',
-      ])
+      .select(['id', 'relationship_origin', 'relationship_kind', 'relationship_stable_key'])
       .where('relationship_stable_key', '=', relationshipStableKey)
       .executeTakeFirstOrThrow();
+  }
+
+  async function loadRelationshipAllocationsByStableKey(relationshipStableKey: string) {
+    return db
+      .selectFrom('accounting_journal_relationship_allocations')
+      .innerJoin(
+        'accounting_journal_relationships',
+        'accounting_journal_relationships.id',
+        'accounting_journal_relationship_allocations.relationship_id'
+      )
+      .select([
+        'accounting_journal_relationship_allocations.allocation_side as allocation_side',
+        'accounting_journal_relationship_allocations.allocation_quantity as allocation_quantity',
+        'accounting_journal_relationship_allocations.journal_id as journal_id',
+        'accounting_journal_relationship_allocations.posting_id as posting_id',
+        'accounting_journal_relationship_allocations.journal_fingerprint as journal_fingerprint',
+        'accounting_journal_relationship_allocations.posting_fingerprint as posting_fingerprint',
+      ])
+      .where('accounting_journal_relationships.relationship_stable_key', '=', relationshipStableKey)
+      .orderBy('accounting_journal_relationship_allocations.allocation_side', 'asc')
+      .execute();
   }
 
   async function countLedgerLinkingRows(): Promise<number> {

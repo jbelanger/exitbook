@@ -241,18 +241,29 @@ export interface AccountingJournalRelationshipsTable {
   id: Generated<number>;
   profile_id: number; // FK to profiles.id
   relationship_origin: AccountingJournalRelationshipOrigin;
-  source_journal_id: number | null; // Current FK to accounting_journals.id, nullable when stale
-  target_journal_id: number | null; // Current FK to accounting_journals.id, nullable when stale
-  source_posting_id: number | null; // Current FK to accounting_postings.id, nullable when stale or journal-level
-  target_posting_id: number | null; // Current FK to accounting_postings.id, nullable when stale or journal-level
-  source_activity_fingerprint: string;
-  target_activity_fingerprint: string;
-  source_journal_fingerprint: string;
-  target_journal_fingerprint: string;
-  source_posting_fingerprint: string | null;
-  target_posting_fingerprint: string | null;
   relationship_stable_key: string;
   relationship_kind: AccountingJournalRelationshipKind;
+  created_at: DateTime;
+  updated_at: DateTime | null;
+}
+
+export type AccountingJournalRelationshipAllocationSide = 'source' | 'target';
+
+/**
+ * Posting-level allocations that make up an accepted journal relationship.
+ */
+export interface AccountingJournalRelationshipAllocationsTable {
+  id: Generated<number>;
+  relationship_id: number; // FK to accounting_journal_relationships.id
+  allocation_side: AccountingJournalRelationshipAllocationSide;
+  allocation_quantity: string;
+  source_activity_fingerprint: string;
+  journal_id: number | null; // Current FK to accounting_journals.id, nullable when stale
+  posting_id: number | null; // Current FK to accounting_postings.id, nullable when stale
+  journal_fingerprint: string;
+  posting_fingerprint: string;
+  asset_id: string;
+  asset_symbol: string;
   created_at: DateTime;
   updated_at: DateTime | null;
 }
@@ -613,6 +624,7 @@ export interface DatabaseSchema {
   accounting_postings: AccountingPostingsTable;
   accounting_posting_source_components: AccountingPostingSourceComponentsTable;
   accounting_journal_relationships: AccountingJournalRelationshipsTable;
+  accounting_journal_relationship_allocations: AccountingJournalRelationshipAllocationsTable;
   ledger_linking_asset_identity_assertions: LedgerLinkingAssetIdentityAssertionsTable;
   accounting_overrides: AccountingOverridesTable;
   transaction_raw_bindings: TransactionRawBindingsTable;

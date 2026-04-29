@@ -466,16 +466,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('profile_id', 'integer', (col) => col.notNull().references('profiles.id'))
     .addColumn('relationship_origin', 'text', (col) => col.notNull())
-    .addColumn('source_journal_id', 'integer', (col) => col.references('accounting_journals.id').onDelete('set null'))
-    .addColumn('target_journal_id', 'integer', (col) => col.references('accounting_journals.id').onDelete('set null'))
-    .addColumn('source_posting_id', 'integer', (col) => col.references('accounting_postings.id').onDelete('set null'))
-    .addColumn('target_posting_id', 'integer', (col) => col.references('accounting_postings.id').onDelete('set null'))
-    .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
-    .addColumn('target_activity_fingerprint', 'text', (col) => col.notNull())
-    .addColumn('source_journal_fingerprint', 'text', (col) => col.notNull())
-    .addColumn('target_journal_fingerprint', 'text', (col) => col.notNull())
-    .addColumn('source_posting_fingerprint', 'text')
-    .addColumn('target_posting_fingerprint', 'text')
     .addColumn('relationship_stable_key', 'text', (col) => col.notNull())
     .addColumn('relationship_kind', 'text', (col) => col.notNull())
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
@@ -483,18 +473,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint(
       'accounting_journal_relationships_origin_valid',
       sql`relationship_origin IN ('processor', 'ledger_linking')`
-    )
-    .addCheckConstraint(
-      'accounting_journal_relationships_source_activity_fingerprint_not_empty',
-      sql`trim(source_activity_fingerprint) <> '' AND trim(target_activity_fingerprint) <> ''`
-    )
-    .addCheckConstraint(
-      'accounting_journal_relationships_journal_fingerprint_not_empty',
-      sql`trim(source_journal_fingerprint) <> '' AND trim(target_journal_fingerprint) <> ''`
-    )
-    .addCheckConstraint(
-      'accounting_journal_relationships_posting_fingerprint_not_empty',
-      sql`(source_posting_fingerprint IS NULL OR trim(source_posting_fingerprint) <> '') AND (target_posting_fingerprint IS NULL OR trim(target_posting_fingerprint) <> '')`
     )
     .addCheckConstraint(
       'accounting_journal_relationships_stable_key_not_empty',
@@ -513,33 +491,98 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('idx_accounting_journal_relationships_source_journal_id')
+    .createIndex('idx_accounting_journal_relationships_profile_stable_key')
     .on('accounting_journal_relationships')
-    .column('source_journal_id')
+    .columns(['profile_id', 'relationship_origin', 'relationship_stable_key'])
+    .unique()
     .execute();
 
   await db.schema
-    .createIndex('idx_accounting_journal_relationships_target_journal_id')
-    .on('accounting_journal_relationships')
-    .column('target_journal_id')
+    .createTable('accounting_journal_relationship_allocations')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('relationship_id', 'integer', (col) =>
+      col.notNull().references('accounting_journal_relationships.id').onDelete('cascade')
+    )
+    .addColumn('allocation_side', 'text', (col) => col.notNull())
+    .addColumn('allocation_quantity', 'text', (col) => col.notNull())
+    .addColumn('source_activity_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('journal_id', 'integer', (col) => col.references('accounting_journals.id').onDelete('set null'))
+    .addColumn('posting_id', 'integer', (col) => col.references('accounting_postings.id').onDelete('set null'))
+    .addColumn('journal_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('posting_fingerprint', 'text', (col) => col.notNull())
+    .addColumn('asset_id', 'text', (col) => col.notNull())
+    .addColumn('asset_symbol', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text')
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_side_valid',
+      sql`allocation_side IN ('source', 'target')`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_quantity_not_empty',
+      sql`trim(allocation_quantity) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_source_activity_fingerprint_not_empty',
+      sql`trim(source_activity_fingerprint) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_journal_fingerprint_not_empty',
+      sql`trim(journal_fingerprint) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_posting_fingerprint_not_empty',
+      sql`trim(posting_fingerprint) <> ''`
+    )
+    .addCheckConstraint('accounting_journal_relationship_allocations_asset_id_not_empty', sql`trim(asset_id) <> ''`)
+    .addCheckConstraint(
+      'accounting_journal_relationship_allocations_asset_symbol_not_empty',
+      sql`trim(asset_symbol) <> ''`
+    )
     .execute();
 
   await db.schema
-    .createIndex('idx_accounting_journal_relationships_source_journal_fingerprint')
-    .on('accounting_journal_relationships')
-    .column('source_journal_fingerprint')
+    .createIndex('idx_accounting_journal_relationship_allocations_relationship_id')
+    .on('accounting_journal_relationship_allocations')
+    .column('relationship_id')
     .execute();
 
   await db.schema
-    .createIndex('idx_accounting_journal_relationships_target_journal_fingerprint')
-    .on('accounting_journal_relationships')
-    .column('target_journal_fingerprint')
+    .createIndex('idx_accounting_journal_relationship_allocations_journal_id')
+    .on('accounting_journal_relationship_allocations')
+    .column('journal_id')
     .execute();
 
-  await sql`
-    CREATE UNIQUE INDEX idx_accounting_journal_relationships_source_stable_key
-    ON accounting_journal_relationships(profile_id, relationship_origin, source_journal_fingerprint, relationship_stable_key)
-  `.execute(db);
+  await db.schema
+    .createIndex('idx_accounting_journal_relationship_allocations_posting_id')
+    .on('accounting_journal_relationship_allocations')
+    .column('posting_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationship_allocations_activity')
+    .on('accounting_journal_relationship_allocations')
+    .column('source_activity_fingerprint')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationship_allocations_journal_fingerprint')
+    .on('accounting_journal_relationship_allocations')
+    .column('journal_fingerprint')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationship_allocations_posting_fingerprint')
+    .on('accounting_journal_relationship_allocations')
+    .column('posting_fingerprint')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationship_allocations_unique_posting')
+    .on('accounting_journal_relationship_allocations')
+    .columns(['relationship_id', 'allocation_side', 'posting_fingerprint'])
+    .unique()
+    .execute();
 
   await ensureLedgerResetPerformanceIndexes(db);
 
@@ -1457,6 +1500,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('projection_state').execute();
   await db.schema.dropTable('accounting_overrides').ifExists().execute();
   await db.schema.dropTable('ledger_linking_asset_identity_assertions').ifExists().execute();
+  await db.schema.dropTable('accounting_journal_relationship_allocations').ifExists().execute();
   await db.schema.dropTable('accounting_journal_relationships').ifExists().execute();
   await db.schema.dropTable('accounting_posting_source_components').ifExists().execute();
   await db.schema.dropTable('accounting_postings').ifExists().execute();

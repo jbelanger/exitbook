@@ -359,7 +359,7 @@ function renderLinksV2RunOutput(
 
   const materialization = run.persistence.materialization;
   console.log(
-    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedEndpointCount} endpoint refs resolved`
+    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedAllocationCount} allocation refs resolved`
   );
 }
 

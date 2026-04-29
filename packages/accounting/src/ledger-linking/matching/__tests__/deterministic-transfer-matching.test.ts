@@ -57,18 +57,24 @@ describe('buildLedgerExactHashTransferRelationships', () => {
     expect(relationshipStableKey).toMatch(/^ledger-linking:exact_hash_transfer:v1:[0-9a-f]{32}$/);
     expect(result.relationships).toEqual([
       {
+        allocations: [
+          {
+            allocationSide: 'source',
+            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
+            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
+            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
+            quantity: parseDecimal('1.25'),
+          },
+          {
+            allocationSide: 'target',
+            sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
+            journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
+            postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
+            quantity: parseDecimal('1.25'),
+          },
+        ],
         relationshipStableKey,
         relationshipKind: 'internal_transfer',
-        source: {
-          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-outflow',
-          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-outflow',
-          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-outflow',
-        },
-        target: {
-          sourceActivityFingerprint: 'source_activity:v1:ethereum-wallet-inflow',
-          journalFingerprint: 'ledger_journal:v1:ethereum-wallet-inflow',
-          postingFingerprint: 'ledger_posting:v1:ethereum-wallet-inflow',
-        },
       },
     ]);
     expect(result.matches[0]).toMatchObject({

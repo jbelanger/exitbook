@@ -72,6 +72,66 @@ describe('validateAccountingJournalDraft', () => {
     expect(error.message).toContain('expense_only');
   });
 
+  it('rejects duplicate relationship allocations', () => {
+    const journal: AccountingJournalDraft = {
+      sourceActivityFingerprint: 'activity:1',
+      journalStableKey: 'journal:relationship',
+      journalKind: 'transfer',
+      postings: [
+        {
+          postingStableKey: 'posting:source',
+          assetId: 'blockchain:ethereum:native',
+          assetSymbol: ETH,
+          quantity: parseDecimal('-1'),
+          role: 'principal',
+          balanceCategory: 'liquid',
+          sourceComponentRefs: [createSourceComponentQuantityRef('1')],
+        },
+        {
+          postingStableKey: 'posting:target',
+          assetId: 'blockchain:ethereum:native',
+          assetSymbol: ETH,
+          quantity: parseDecimal('1'),
+          role: 'principal',
+          balanceCategory: 'liquid',
+          sourceComponentRefs: [createSourceComponentQuantityRef('1')],
+        },
+      ],
+      relationships: [
+        {
+          relationshipStableKey: 'relationship:duplicate-allocation',
+          relationshipKind: 'internal_transfer',
+          allocations: [
+            {
+              allocationSide: 'source',
+              quantity: parseDecimal('1'),
+              sourceActivityFingerprint: 'activity:1',
+              journalStableKey: 'journal:relationship',
+              postingStableKey: 'posting:source',
+            },
+            {
+              allocationSide: 'source',
+              quantity: parseDecimal('1'),
+              sourceActivityFingerprint: 'activity:1',
+              journalStableKey: 'journal:relationship',
+              postingStableKey: 'posting:source',
+            },
+            {
+              allocationSide: 'target',
+              quantity: parseDecimal('1'),
+              sourceActivityFingerprint: 'activity:1',
+              journalStableKey: 'journal:relationship',
+              postingStableKey: 'posting:target',
+            },
+          ],
+        },
+      ],
+    };
+
+    const error = assertErr(validateAccountingJournalDraft(journal));
+    expect(error.message).toContain('duplicate source allocation journal:relationship/posting:source');
+  });
+
   it('accepts a valid journal', () => {
     const journal: AccountingJournalDraft = {
       sourceActivityFingerprint: 'activity:1',

@@ -31,6 +31,7 @@ import { Decimal } from 'decimal.js';
 
 import type {
   AccountingJournalDiagnosticsTable,
+  AccountingJournalRelationshipAllocationsTable,
   AccountingJournalRelationshipsTable,
   AccountingPostingsTable,
   AccountingPostingSourceComponentsTable,
@@ -88,8 +89,11 @@ interface PersistedJournalRef {
 }
 
 interface PersistedPostingRef {
+  assetId: string;
+  assetSymbol: string;
   id: number;
   fingerprint: string;
+  quantity: Decimal;
 }
 
 interface RawTransactionAssignmentScope {
@@ -97,12 +101,14 @@ interface RawTransactionAssignmentScope {
   rawTransactionId: number;
 }
 
-interface ResolvedLedgerLinkingEndpoint {
+interface ResolvedLedgerLinkingAllocationEndpoint {
+  assetId: string;
+  assetSymbol: string;
   sourceActivityFingerprint: string;
   journalId: number;
   journalFingerprint: string;
-  postingId: number | undefined;
-  postingFingerprint: string | undefined;
+  postingId: number;
+  postingFingerprint: string;
 }
 
 export class AccountingLedgerRepository extends BaseRepository {
@@ -209,32 +215,36 @@ export class AccountingLedgerRepository extends BaseRepository {
     }
 
     try {
-      const rows = await this.db
+      const relationshipRows = await this.db
         .selectFrom('accounting_journal_relationships')
-        .select([
-          'id',
-          'relationship_stable_key',
-          'relationship_kind',
-          'source_activity_fingerprint',
-          'target_activity_fingerprint',
-          'source_journal_id',
-          'target_journal_id',
-          'source_journal_fingerprint',
-          'target_journal_fingerprint',
-          'source_posting_id',
-          'target_posting_id',
-          'source_posting_fingerprint',
-          'target_posting_fingerprint',
-          'created_at',
-          'updated_at',
-        ])
+        .select(['id', 'relationship_stable_key', 'relationship_kind', 'created_at', 'updated_at'])
         .where('profile_id', '=', profileId)
         .where('relationship_origin', '=', 'ledger_linking')
         .orderBy('created_at', 'asc')
         .orderBy('id', 'asc')
         .execute();
 
-      return ok(rows.map(toLedgerLinkingPersistedRelationship));
+      const allocationsResult = await loadRelationshipAllocationsByRelationshipIds(
+        this.db,
+        relationshipRows.map((row) => row.id)
+      );
+      if (allocationsResult.isErr()) {
+        return err(allocationsResult.error);
+      }
+
+      const relationships: LedgerLinkingPersistedRelationship[] = [];
+      for (const row of relationshipRows) {
+        const allocations = allocationsResult.value.get(row.id) ?? [];
+        if (allocations.length === 0) {
+          return err(
+            new Error(`Ledger-linking relationship ${row.relationship_stable_key} has no persisted allocations`)
+          );
+        }
+
+        relationships.push(toLedgerLinkingPersistedRelationship(row, allocations));
+      }
+
+      return ok(relationships);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
@@ -460,35 +470,44 @@ export class AccountingLedgerRepository extends BaseRepository {
         .where('relationship_origin', '=', 'ledger_linking')
         .execute();
 
-      let resolvedEndpointCount = 0;
+      let resolvedAllocationCount = 0;
       const now = new Date().toISOString();
-      const rows: Insertable<AccountingJournalRelationshipsTable>[] = [];
       for (const relationship of relationships) {
-        const sourceEndpoint = await resolveLedgerLinkingEndpoint(db, profileId, relationship.source, 'source');
-        if (sourceEndpoint.isErr()) {
-          return err(sourceEndpoint.error);
+        const resolvedAllocations: {
+          allocation: LedgerLinkingRelationshipDraft['allocations'][number];
+          endpoint: ResolvedLedgerLinkingAllocationEndpoint;
+        }[] = [];
+
+        for (const allocation of relationship.allocations) {
+          const endpoint = await resolveLedgerLinkingAllocationEndpoint(db, profileId, allocation);
+          if (endpoint.isErr()) {
+            return err(endpoint.error);
+          }
+
+          resolvedAllocations.push({ allocation, endpoint: endpoint.value });
         }
 
-        const targetEndpoint = await resolveLedgerLinkingEndpoint(db, profileId, relationship.target, 'target');
-        if (targetEndpoint.isErr()) {
-          return err(targetEndpoint.error);
-        }
+        const insertedRelationship = await db
+          .insertInto('accounting_journal_relationships')
+          .values(toLedgerLinkingRelationshipRow(profileId, relationship, now))
+          .returning('id')
+          .executeTakeFirstOrThrow();
 
-        resolvedEndpointCount += 2;
-        rows.push(
-          toLedgerLinkingRelationshipRow(profileId, relationship, sourceEndpoint.value, targetEndpoint.value, now)
+        const allocationRows = resolvedAllocations.map(({ allocation, endpoint }) =>
+          toLedgerLinkingRelationshipAllocationRow(insertedRelationship.id, allocation, endpoint, now)
         );
-      }
 
-      for (const rowBatch of chunkItems(rows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
-        await db.insertInto('accounting_journal_relationships').values(rowBatch).execute();
+        for (const rowBatch of chunkItems(allocationRows, SQLITE_SAFE_INSERT_BATCH_SIZE)) {
+          await db.insertInto('accounting_journal_relationship_allocations').values(rowBatch).execute();
+        }
+        resolvedAllocationCount += allocationRows.length;
       }
 
       return ok({
         previousCount,
-        resolvedEndpointCount,
-        savedCount: rows.length,
-        unresolvedEndpointCount: 0,
+        resolvedAllocationCount,
+        savedCount: relationships.length,
+        unresolvedAllocationCount: 0,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
@@ -732,6 +751,7 @@ export class AccountingLedgerRepository extends BaseRepository {
           db,
           profileIdResult.value,
           relationship,
+          journal,
           journalRefs,
           postingRefs
         );
@@ -801,13 +821,23 @@ async function validateLedgerLinkingRelationshipReplacement(
       return err(new Error(`Invalid ledger-linking relationship draft: ${validation.error.message}`));
     }
 
-    const relationshipKey = `${relationship.source.journalFingerprint}\u0000${relationship.relationshipStableKey}`;
+    const relationshipKey = relationship.relationshipStableKey;
     if (relationshipKeys.has(relationshipKey)) {
-      return err(
-        new Error(
-          `Duplicate ledger-linking relationship for source journal ${relationship.source.journalFingerprint} and stable key ${relationship.relationshipStableKey}`
-        )
-      );
+      return err(new Error(`Duplicate ledger-linking relationship stable key ${relationship.relationshipStableKey}`));
+    }
+
+    const allocationKeys = new Set<string>();
+    for (const allocation of relationship.allocations) {
+      const allocationKey = `${allocation.allocationSide}\u0000${allocation.postingFingerprint}`;
+      if (allocationKeys.has(allocationKey)) {
+        return err(
+          new Error(
+            `Duplicate ${allocation.allocationSide} allocation for posting ${allocation.postingFingerprint} in relationship ${relationship.relationshipStableKey}`
+          )
+        );
+      }
+
+      allocationKeys.add(allocationKey);
     }
 
     relationshipKeys.add(relationshipKey);
@@ -1055,20 +1085,122 @@ async function countLedgerLinkingRelationshipsByProfileId(db: KyselyDB, profileI
   return Number(row?.count ?? 0);
 }
 
+async function loadRelationshipAllocationsByRelationshipIds(
+  db: KyselyDB,
+  relationshipIds: readonly number[]
+): Promise<Result<Map<number, LedgerLinkingPersistedRelationship['allocations'][number][]>, Error>> {
+  const allocationsByRelationshipId = new Map<number, LedgerLinkingPersistedRelationship['allocations'][number][]>();
+  if (relationshipIds.length === 0) {
+    return ok(allocationsByRelationshipId);
+  }
+
+  try {
+    for (const relationshipIdBatch of chunkItems([...relationshipIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+      const rows = await db
+        .selectFrom('accounting_journal_relationship_allocations')
+        .select([
+          'relationship_id',
+          'id',
+          'allocation_side',
+          'allocation_quantity',
+          'source_activity_fingerprint',
+          'journal_id',
+          'posting_id',
+          'journal_fingerprint',
+          'posting_fingerprint',
+          'asset_id',
+          'asset_symbol',
+        ])
+        .where('relationship_id', 'in', relationshipIdBatch)
+        .orderBy('relationship_id', 'asc')
+        .orderBy('allocation_side', 'asc')
+        .orderBy('id', 'asc')
+        .execute();
+
+      for (const row of rows) {
+        const allocations = allocationsByRelationshipId.get(row.relationship_id) ?? [];
+        allocations.push({
+          allocationSide: row.allocation_side,
+          assetId: row.asset_id,
+          assetSymbol: row.asset_symbol,
+          id: row.id,
+          quantity: row.allocation_quantity,
+          sourceActivityFingerprint: row.source_activity_fingerprint,
+          journalFingerprint: row.journal_fingerprint,
+          postingFingerprint: row.posting_fingerprint,
+          currentJournalId: row.journal_id ?? undefined,
+          currentPostingId: row.posting_id ?? undefined,
+        });
+        allocationsByRelationshipId.set(row.relationship_id, allocations);
+      }
+    }
+
+    return ok(allocationsByRelationshipId);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadRelationshipIdsByAllocationSourceActivityFingerprints(
+  db: KyselyDB,
+  relationshipOrigin: AccountingJournalRelationshipsTable['relationship_origin'],
+  sourceActivityFingerprints: readonly string[]
+): Promise<number[]> {
+  const relationshipIds = new Set<number>();
+  const uniqueFingerprints = [...new Set(sourceActivityFingerprints)].sort();
+  if (uniqueFingerprints.length === 0) {
+    return [];
+  }
+
+  for (const sourceActivityFingerprintBatch of chunkItems(uniqueFingerprints, SQLITE_SAFE_IN_BATCH_SIZE)) {
+    const rows = await db
+      .selectFrom('accounting_journal_relationships')
+      .innerJoin(
+        'accounting_journal_relationship_allocations',
+        'accounting_journal_relationship_allocations.relationship_id',
+        'accounting_journal_relationships.id'
+      )
+      .select('accounting_journal_relationships.id as relationship_id')
+      .where('accounting_journal_relationships.relationship_origin', '=', relationshipOrigin)
+      .where(
+        'accounting_journal_relationship_allocations.source_activity_fingerprint',
+        'in',
+        sourceActivityFingerprintBatch
+      )
+      .execute();
+
+    for (const row of rows) {
+      relationshipIds.add(row.relationship_id);
+    }
+  }
+
+  return [...relationshipIds].sort((left, right) => left - right);
+}
+
+async function deleteRelationshipsByIds(db: KyselyDB, relationshipIds: readonly number[]): Promise<void> {
+  for (const relationshipIdBatch of chunkItems([...relationshipIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+    await db.deleteFrom('accounting_journal_relationships').where('id', 'in', relationshipIdBatch).execute();
+  }
+}
+
+async function touchRelationshipsByIds(db: KyselyDB, relationshipIds: readonly number[], now: string): Promise<void> {
+  for (const relationshipIdBatch of chunkItems([...relationshipIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+    await db
+      .updateTable('accounting_journal_relationships')
+      .set({ updated_at: now })
+      .where('id', 'in', relationshipIdBatch)
+      .execute();
+  }
+}
+
 async function deleteProcessorRelationshipsForSourceActivityFingerprint(
   db: KyselyDB,
   sourceActivityFingerprint: string
 ): Promise<void> {
-  await db
-    .deleteFrom('accounting_journal_relationships')
-    .where('relationship_origin', '=', 'processor')
-    .where((eb) =>
-      eb.or([
-        eb('source_activity_fingerprint', '=', sourceActivityFingerprint),
-        eb('target_activity_fingerprint', '=', sourceActivityFingerprint),
-      ])
-    )
-    .execute();
+  const relationshipIds = await loadRelationshipIdsByAllocationSourceActivityFingerprints(db, 'processor', [
+    sourceActivityFingerprint,
+  ]);
+  await deleteRelationshipsByIds(db, relationshipIds);
 }
 
 async function deleteProcessorRelationshipsForSourceActivityFingerprints(
@@ -1079,21 +1211,12 @@ async function deleteProcessorRelationshipsForSourceActivityFingerprints(
     return;
   }
 
-  for (const sourceActivityFingerprintBatch of chunkItems(
-    [...new Set(sourceActivityFingerprints)].sort(),
-    SQLITE_SAFE_IN_BATCH_SIZE
-  )) {
-    await db
-      .deleteFrom('accounting_journal_relationships')
-      .where('relationship_origin', '=', 'processor')
-      .where((eb) =>
-        eb.or([
-          eb('source_activity_fingerprint', 'in', sourceActivityFingerprintBatch),
-          eb('target_activity_fingerprint', 'in', sourceActivityFingerprintBatch),
-        ])
-      )
-      .execute();
-  }
+  const relationshipIds = await loadRelationshipIdsByAllocationSourceActivityFingerprints(
+    db,
+    'processor',
+    sourceActivityFingerprints
+  );
+  await deleteRelationshipsByIds(db, relationshipIds);
 }
 
 async function refreshLedgerLinkingRelationshipEndpointsForSourceActivity(
@@ -1102,75 +1225,47 @@ async function refreshLedgerLinkingRelationshipEndpointsForSourceActivity(
   journalRefs: ReadonlyMap<string, PersistedJournalRef>,
   postingRefs: ReadonlyMap<string, PersistedPostingRef>
 ): Promise<void> {
-  const relationshipCount = await countLedgerLinkingRelationshipsForSourceActivity(db, sourceActivityFingerprint);
-  if (relationshipCount === 0) {
+  const relationshipIds = await loadRelationshipIdsByAllocationSourceActivityFingerprints(db, 'ledger_linking', [
+    sourceActivityFingerprint,
+  ]);
+  if (relationshipIds.length === 0) {
     return;
   }
 
   const now = new Date().toISOString();
 
   for (const journalRef of journalRefs.values()) {
-    await db
-      .updateTable('accounting_journal_relationships')
-      .set({ source_journal_id: journalRef.id, updated_at: now })
-      .where('relationship_origin', '=', 'ledger_linking')
-      .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
-      .where('source_journal_fingerprint', '=', journalRef.fingerprint)
-      .execute();
-
-    await db
-      .updateTable('accounting_journal_relationships')
-      .set({ target_journal_id: journalRef.id, updated_at: now })
-      .where('relationship_origin', '=', 'ledger_linking')
-      .where('target_activity_fingerprint', '=', sourceActivityFingerprint)
-      .where('target_journal_fingerprint', '=', journalRef.fingerprint)
-      .execute();
+    for (const relationshipIdBatch of chunkItems(relationshipIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+      await db
+        .updateTable('accounting_journal_relationship_allocations')
+        .set({ journal_id: journalRef.id, updated_at: now })
+        .where('relationship_id', 'in', relationshipIdBatch)
+        .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
+        .where('journal_fingerprint', '=', journalRef.fingerprint)
+        .execute();
+    }
   }
 
   for (const postingRef of postingRefs.values()) {
-    await db
-      .updateTable('accounting_journal_relationships')
-      .set({ source_posting_id: postingRef.id, updated_at: now })
-      .where('relationship_origin', '=', 'ledger_linking')
-      .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
-      .where('source_posting_fingerprint', '=', postingRef.fingerprint)
-      .execute();
-
-    await db
-      .updateTable('accounting_journal_relationships')
-      .set({ target_posting_id: postingRef.id, updated_at: now })
-      .where('relationship_origin', '=', 'ledger_linking')
-      .where('target_activity_fingerprint', '=', sourceActivityFingerprint)
-      .where('target_posting_fingerprint', '=', postingRef.fingerprint)
-      .execute();
+    for (const relationshipIdBatch of chunkItems(relationshipIds, SQLITE_SAFE_IN_BATCH_SIZE)) {
+      await db
+        .updateTable('accounting_journal_relationship_allocations')
+        .set({ posting_id: postingRef.id, updated_at: now })
+        .where('relationship_id', 'in', relationshipIdBatch)
+        .where('source_activity_fingerprint', '=', sourceActivityFingerprint)
+        .where('posting_fingerprint', '=', postingRef.fingerprint)
+        .execute();
+    }
   }
+
+  await touchRelationshipsByIds(db, relationshipIds, now);
 }
 
-async function countLedgerLinkingRelationshipsForSourceActivity(
-  db: KyselyDB,
-  sourceActivityFingerprint: string
-): Promise<number> {
-  const row = await db
-    .selectFrom('accounting_journal_relationships')
-    .select(({ fn }) => fn.countAll<number>().as('count'))
-    .where('relationship_origin', '=', 'ledger_linking')
-    .where((eb) =>
-      eb.or([
-        eb('source_activity_fingerprint', '=', sourceActivityFingerprint),
-        eb('target_activity_fingerprint', '=', sourceActivityFingerprint),
-      ])
-    )
-    .executeTakeFirst();
-
-  return Number(row?.count ?? 0);
-}
-
-async function resolveLedgerLinkingEndpoint(
+async function resolveLedgerLinkingAllocationEndpoint(
   db: KyselyDB,
   profileId: number,
-  endpoint: LedgerLinkingRelationshipDraft['source'],
-  endpointLabel: 'source' | 'target'
-): Promise<Result<ResolvedLedgerLinkingEndpoint, Error>> {
+  allocation: LedgerLinkingRelationshipDraft['allocations'][number]
+): Promise<Result<ResolvedLedgerLinkingAllocationEndpoint, Error>> {
   const journal = await db
     .selectFrom('accounting_journals')
     .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
@@ -1181,44 +1276,36 @@ async function resolveLedgerLinkingEndpoint(
       'accounting_journals.journal_fingerprint as journal_fingerprint',
     ])
     .where('accounts.profile_id', '=', profileId)
-    .where('source_activities.source_activity_fingerprint', '=', endpoint.sourceActivityFingerprint)
-    .where('accounting_journals.journal_fingerprint', '=', endpoint.journalFingerprint)
+    .where('source_activities.source_activity_fingerprint', '=', allocation.sourceActivityFingerprint)
+    .where('accounting_journals.journal_fingerprint', '=', allocation.journalFingerprint)
     .executeTakeFirst();
 
   if (!journal) {
     return err(
       new Error(
-        `Cannot materialize ledger-linking relationship: ${endpointLabel} journal ${endpoint.journalFingerprint} was not found for profile ${profileId}`
+        `Cannot materialize ledger-linking relationship: ${allocation.allocationSide} allocation journal ${allocation.journalFingerprint} was not found for profile ${profileId}`
       )
     );
   }
 
-  if (endpoint.postingFingerprint === undefined) {
-    return ok({
-      sourceActivityFingerprint: journal.source_activity_fingerprint,
-      journalId: journal.journal_id,
-      journalFingerprint: journal.journal_fingerprint,
-      postingId: undefined,
-      postingFingerprint: undefined,
-    });
-  }
-
   const posting = await db
     .selectFrom('accounting_postings')
-    .select(['id', 'posting_fingerprint'])
+    .select(['id', 'posting_fingerprint', 'asset_id', 'asset_symbol'])
     .where('journal_id', '=', journal.journal_id)
-    .where('posting_fingerprint', '=', endpoint.postingFingerprint)
+    .where('posting_fingerprint', '=', allocation.postingFingerprint)
     .executeTakeFirst();
 
   if (!posting) {
     return err(
       new Error(
-        `Cannot materialize ledger-linking relationship: ${endpointLabel} posting ${endpoint.postingFingerprint} was not found on journal ${endpoint.journalFingerprint}`
+        `Cannot materialize ledger-linking relationship: ${allocation.allocationSide} allocation posting ${allocation.postingFingerprint} was not found on journal ${allocation.journalFingerprint}`
       )
     );
   }
 
   return ok({
+    assetId: posting.asset_id,
+    assetSymbol: posting.asset_symbol,
     sourceActivityFingerprint: journal.source_activity_fingerprint,
     journalId: journal.journal_id,
     journalFingerprint: journal.journal_fingerprint,
@@ -1416,8 +1503,11 @@ async function persistPosting(
     .executeTakeFirstOrThrow();
 
   return ok({
+    assetId: posting.assetId,
+    assetSymbol: posting.assetSymbol,
     id: inserted.id,
     fingerprint: postingFingerprintResult.value,
+    quantity: posting.quantity,
   });
 }
 
@@ -1478,23 +1568,11 @@ async function persistPostingSourceComponent(
 function toLedgerLinkingRelationshipRow(
   profileId: number,
   relationship: LedgerLinkingRelationshipDraft,
-  sourceEndpoint: ResolvedLedgerLinkingEndpoint,
-  targetEndpoint: ResolvedLedgerLinkingEndpoint,
   now: string
 ): Insertable<AccountingJournalRelationshipsTable> {
   return {
     profile_id: profileId,
     relationship_origin: 'ledger_linking',
-    source_journal_id: sourceEndpoint.journalId,
-    target_journal_id: targetEndpoint.journalId,
-    source_posting_id: sourceEndpoint.postingId ?? null,
-    target_posting_id: targetEndpoint.postingId ?? null,
-    source_activity_fingerprint: sourceEndpoint.sourceActivityFingerprint,
-    target_activity_fingerprint: targetEndpoint.sourceActivityFingerprint,
-    source_journal_fingerprint: sourceEndpoint.journalFingerprint,
-    target_journal_fingerprint: targetEndpoint.journalFingerprint,
-    source_posting_fingerprint: sourceEndpoint.postingFingerprint ?? null,
-    target_posting_fingerprint: targetEndpoint.postingFingerprint ?? null,
     relationship_stable_key: relationship.relationshipStableKey,
     relationship_kind: relationship.relationshipKind,
     created_at: now,
@@ -1502,41 +1580,43 @@ function toLedgerLinkingRelationshipRow(
   };
 }
 
-function toLedgerLinkingPersistedRelationship(row: {
-  created_at: string;
-  id: number;
-  relationship_kind: LedgerLinkingPersistedRelationship['relationshipKind'];
-  relationship_stable_key: string;
-  source_activity_fingerprint: string;
-  source_journal_fingerprint: string;
-  source_journal_id: number | null;
-  source_posting_fingerprint: string | null;
-  source_posting_id: number | null;
-  target_activity_fingerprint: string;
-  target_journal_fingerprint: string;
-  target_journal_id: number | null;
-  target_posting_fingerprint: string | null;
-  target_posting_id: number | null;
-  updated_at: string | null;
-}): LedgerLinkingPersistedRelationship {
+function toLedgerLinkingRelationshipAllocationRow(
+  relationshipId: number,
+  allocation: LedgerLinkingRelationshipDraft['allocations'][number],
+  endpoint: ResolvedLedgerLinkingAllocationEndpoint,
+  now: string
+): Insertable<AccountingJournalRelationshipAllocationsTable> {
   return {
+    relationship_id: relationshipId,
+    allocation_side: allocation.allocationSide,
+    allocation_quantity: allocation.quantity.toFixed(),
+    source_activity_fingerprint: endpoint.sourceActivityFingerprint,
+    journal_id: endpoint.journalId,
+    posting_id: endpoint.postingId,
+    journal_fingerprint: endpoint.journalFingerprint,
+    posting_fingerprint: endpoint.postingFingerprint,
+    asset_id: endpoint.assetId,
+    asset_symbol: endpoint.assetSymbol,
+    created_at: now,
+    updated_at: null,
+  };
+}
+
+function toLedgerLinkingPersistedRelationship(
+  row: {
+    created_at: string;
+    id: number;
+    relationship_kind: LedgerLinkingPersistedRelationship['relationshipKind'];
+    relationship_stable_key: string;
+    updated_at: string | null;
+  },
+  allocations: readonly LedgerLinkingPersistedRelationship['allocations'][number][]
+): LedgerLinkingPersistedRelationship {
+  return {
+    allocations,
     id: row.id,
     relationshipStableKey: row.relationship_stable_key,
     relationshipKind: row.relationship_kind,
-    source: {
-      sourceActivityFingerprint: row.source_activity_fingerprint,
-      journalFingerprint: row.source_journal_fingerprint,
-      postingFingerprint: row.source_posting_fingerprint ?? undefined,
-      currentJournalId: row.source_journal_id ?? undefined,
-      currentPostingId: row.source_posting_id ?? undefined,
-    },
-    target: {
-      sourceActivityFingerprint: row.target_activity_fingerprint,
-      journalFingerprint: row.target_journal_fingerprint,
-      postingFingerprint: row.target_posting_fingerprint ?? undefined,
-      currentJournalId: row.target_journal_id ?? undefined,
-      currentPostingId: row.target_posting_id ?? undefined,
-    },
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1562,70 +1642,130 @@ async function persistProcessorRelationship(
   db: KyselyDB,
   profileId: number,
   relationship: NonNullable<AccountingJournalDraft['relationships']>[number],
+  declaringJournal: AccountingJournalDraft,
   journalRefs: Map<string, PersistedJournalRef>,
   postingRefs: Map<string, PersistedPostingRef>
 ): Promise<Result<void, Error>> {
-  const sourceJournal = journalRefs.get(
-    buildJournalRefKey(relationship.source.sourceActivityFingerprint, relationship.source.journalStableKey)
+  const declaringJournalRef = journalRefs.get(
+    buildJournalRefKey(declaringJournal.sourceActivityFingerprint, declaringJournal.journalStableKey)
   );
-  const targetJournal = journalRefs.get(
-    buildJournalRefKey(relationship.target.sourceActivityFingerprint, relationship.target.journalStableKey)
-  );
-
-  if (!sourceJournal || !targetJournal) {
-    return err(new Error(`Relationship ${relationship.relationshipStableKey} references an unknown journal`));
+  if (!declaringJournalRef) {
+    return err(
+      new Error(
+        `Relationship ${relationship.relationshipStableKey} is declared on unknown journal ${declaringJournal.journalStableKey}`
+      )
+    );
   }
 
-  const sourcePosting = resolveRelationshipPosting(relationship.source, postingRefs);
-  if (sourcePosting.isErr()) {
-    return err(sourcePosting.error);
-  }
+  const resolvedAllocations: {
+    allocation: NonNullable<AccountingJournalDraft['relationships']>[number]['allocations'][number];
+    journalRef: PersistedJournalRef;
+    postingRef: PersistedPostingRef;
+  }[] = [];
 
-  const targetPosting = resolveRelationshipPosting(relationship.target, postingRefs);
-  if (targetPosting.isErr()) {
-    return err(targetPosting.error);
+  for (const allocation of relationship.allocations) {
+    const journalRef = journalRefs.get(
+      buildJournalRefKey(allocation.sourceActivityFingerprint, allocation.journalStableKey)
+    );
+    if (!journalRef) {
+      return err(
+        new Error(
+          `Relationship ${relationship.relationshipStableKey} allocation references unknown journal ${allocation.sourceActivityFingerprint}/${allocation.journalStableKey}`
+        )
+      );
+    }
+
+    const postingRef = resolveRelationshipAllocationPosting(allocation, postingRefs);
+    if (postingRef.isErr()) {
+      return err(postingRef.error);
+    }
+
+    if (allocation.quantity.gt(postingRef.value.quantity.abs())) {
+      return err(
+        new Error(
+          `Relationship ${relationship.relationshipStableKey} allocation ${allocation.journalStableKey}/${allocation.postingStableKey} quantity ${allocation.quantity.toFixed()} exceeds posting quantity ${postingRef.value.quantity.abs().toFixed()}`
+        )
+      );
+    }
+
+    resolvedAllocations.push({ allocation, journalRef, postingRef: postingRef.value });
   }
 
   const now = new Date().toISOString();
-  const row: Insertable<AccountingJournalRelationshipsTable> = {
+  const relationshipRow: Insertable<AccountingJournalRelationshipsTable> = {
     profile_id: profileId,
     relationship_origin: 'processor',
-    source_journal_id: sourceJournal.id,
-    target_journal_id: targetJournal.id,
-    source_posting_id: sourcePosting.value?.id ?? null,
-    target_posting_id: targetPosting.value?.id ?? null,
-    source_activity_fingerprint: relationship.source.sourceActivityFingerprint,
-    target_activity_fingerprint: relationship.target.sourceActivityFingerprint,
-    source_journal_fingerprint: sourceJournal.fingerprint,
-    target_journal_fingerprint: targetJournal.fingerprint,
-    source_posting_fingerprint: sourcePosting.value?.fingerprint ?? null,
-    target_posting_fingerprint: targetPosting.value?.fingerprint ?? null,
-    relationship_stable_key: relationship.relationshipStableKey,
+    relationship_stable_key: buildProcessorRelationshipStableKey(
+      declaringJournalRef.fingerprint,
+      relationship.relationshipStableKey
+    ),
     relationship_kind: relationship.relationshipKind,
     created_at: now,
     updated_at: null,
   };
 
-  await db.insertInto('accounting_journal_relationships').values(row).execute();
+  const insertedRelationship = await db
+    .insertInto('accounting_journal_relationships')
+    .values(relationshipRow)
+    .returning('id')
+    .executeTakeFirstOrThrow();
+
+  const allocationRows = resolvedAllocations.map(({ allocation, journalRef, postingRef }) =>
+    toProcessorRelationshipAllocationRow({
+      allocation,
+      journalRef,
+      postingRef,
+      relationshipId: insertedRelationship.id,
+      now,
+    })
+  );
+
+  await db.insertInto('accounting_journal_relationship_allocations').values(allocationRows).execute();
 
   return ok(undefined);
 }
 
-function resolveRelationshipPosting(
-  endpoint: NonNullable<AccountingJournalDraft['relationships']>[number]['source'],
-  postingRefs: Map<string, PersistedPostingRef>
-): Result<PersistedPostingRef | undefined, Error> {
-  if (endpoint.postingStableKey === undefined) {
-    return ok(undefined);
-  }
+function toProcessorRelationshipAllocationRow(params: {
+  allocation: NonNullable<AccountingJournalDraft['relationships']>[number]['allocations'][number];
+  journalRef: PersistedJournalRef;
+  now: string;
+  postingRef: PersistedPostingRef;
+  relationshipId: number;
+}): Insertable<AccountingJournalRelationshipAllocationsTable> {
+  return {
+    relationship_id: params.relationshipId,
+    allocation_side: params.allocation.allocationSide,
+    allocation_quantity: params.allocation.quantity.toFixed(),
+    source_activity_fingerprint: params.allocation.sourceActivityFingerprint,
+    journal_id: params.journalRef.id,
+    posting_id: params.postingRef.id,
+    journal_fingerprint: params.journalRef.fingerprint,
+    posting_fingerprint: params.postingRef.fingerprint,
+    asset_id: params.postingRef.assetId,
+    asset_symbol: params.postingRef.assetSymbol,
+    created_at: params.now,
+    updated_at: null,
+  };
+}
 
+function buildProcessorRelationshipStableKey(
+  declaringJournalFingerprint: string,
+  relationshipStableKey: string
+): string {
+  return ['processor', declaringJournalFingerprint, relationshipStableKey].join(':');
+}
+
+function resolveRelationshipAllocationPosting(
+  allocation: NonNullable<AccountingJournalDraft['relationships']>[number]['allocations'][number],
+  postingRefs: Map<string, PersistedPostingRef>
+): Result<PersistedPostingRef, Error> {
   const posting = postingRefs.get(
-    buildPostingRefKey(endpoint.sourceActivityFingerprint, endpoint.journalStableKey, endpoint.postingStableKey)
+    buildPostingRefKey(allocation.sourceActivityFingerprint, allocation.journalStableKey, allocation.postingStableKey)
   );
   if (!posting) {
     return err(
       new Error(
-        `Relationship endpoint references unknown posting ${endpoint.sourceActivityFingerprint}/${endpoint.journalStableKey}/${endpoint.postingStableKey}`
+        `Relationship allocation references unknown posting ${allocation.sourceActivityFingerprint}/${allocation.journalStableKey}/${allocation.postingStableKey}`
       )
     );
   }

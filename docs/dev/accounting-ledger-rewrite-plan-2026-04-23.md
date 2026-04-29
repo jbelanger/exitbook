@@ -883,10 +883,19 @@ Implementation shape:
 1. Keep same-source relationships inside `replaceForSourceActivity()`.
 2. Add a separate ledger-native materialization path for relationships
    discovered after multiple source activities exist.
-3. Target journals/postings by stable fingerprints.
-4. Make stale relationship endpoints visible after reprocess.
-5. Do not use diagnostics as relationship truth.
-6. Keep matching candidates and persisted relationship materialization in
+3. Treat `accounting_journal_relationships` as relationship headers, not
+   pairwise endpoints.
+4. Store posting-level source/target allocation rows under each relationship.
+   Allocation rows carry stable source activity, journal, and posting
+   fingerprints, current nullable endpoint ids, positive allocation quantity,
+   and the asset identity observed at materialization time.
+5. Keep processor-authored relationship drafts allocation-based too, using
+   source activity fingerprints plus journal/posting stable keys before
+   persistence resolves them to durable fingerprints.
+6. Target journals/postings by stable fingerprints.
+7. Make stale relationship allocations visible after reprocess.
+8. Do not use diagnostics as relationship truth.
+9. Keep matching candidates and persisted relationship materialization in
    separate new modules so consumers can depend on the persisted ledger
    relationship model without inheriting legacy proposal internals.
 
@@ -956,14 +965,18 @@ First implementation slices:
     under `links-v2 asset-identity suggestions` and the lower-level
     `ledger linking-v2 asset-identity suggestions` alias. Suggestions are grouped
     exact-hash evidence and do not persist assertions automatically.
-18. Next. Rebuild the same-hash grouped recognizer on ledger-native candidates.
+18. Next. Refactor relationship persistence to the greenfield header-plus-
+    allocation model before implementing same-hash. Exact-hash relationships
+    should become one source allocation plus one target allocation with full
+    posting amounts.
+19. Then rebuild the same-hash grouped recognizer on ledger-native candidates.
     Keep it deterministic-only: accept strict whole-group cases, and leave
     ambiguous or partial groups unresolved for the later gap/proposal flow.
-19. Then persist ledger-native unresolved gaps and surface them through
+20. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-20. Then broaden matching strategies only where processor-v2 ledger facts are
+21. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

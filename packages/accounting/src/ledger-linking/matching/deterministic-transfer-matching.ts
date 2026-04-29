@@ -437,18 +437,24 @@ function buildExactHashTransferMatch(pair: ExactHashPotentialPair): Result<Ledge
     targetAssetId: pair.target.assetId,
     amount: pair.source.amount.toFixed(),
     relationship: {
+      allocations: [
+        {
+          allocationSide: 'source',
+          sourceActivityFingerprint: pair.source.sourceActivityFingerprint,
+          journalFingerprint: pair.source.journalFingerprint,
+          postingFingerprint: pair.source.postingFingerprint,
+          quantity: pair.source.amount,
+        },
+        {
+          allocationSide: 'target',
+          sourceActivityFingerprint: pair.target.sourceActivityFingerprint,
+          journalFingerprint: pair.target.journalFingerprint,
+          postingFingerprint: pair.target.postingFingerprint,
+          quantity: pair.target.amount,
+        },
+      ],
       relationshipStableKey: buildExactHashRelationshipStableKey(pair),
       relationshipKind: 'internal_transfer',
-      source: {
-        sourceActivityFingerprint: pair.source.sourceActivityFingerprint,
-        journalFingerprint: pair.source.journalFingerprint,
-        postingFingerprint: pair.source.postingFingerprint,
-      },
-      target: {
-        sourceActivityFingerprint: pair.target.sourceActivityFingerprint,
-        journalFingerprint: pair.target.journalFingerprint,
-        postingFingerprint: pair.target.postingFingerprint,
-      },
     },
   });
 }

@@ -56,13 +56,15 @@ export {
   type LedgerLinkingRunResult,
 } from './ledger-linking/orchestration/ledger-linking-runner.js';
 export {
+  LedgerLinkingRelationshipAllocationDraftSchema,
+  LedgerLinkingRelationshipAllocationSideSchema,
   LedgerLinkingRelationshipDraftSchema,
-  LedgerLinkingRelationshipEndpointRefSchema,
   type ILedgerLinkingRelationshipReader,
   type ILedgerLinkingRelationshipStore,
+  type LedgerLinkingPersistedRelationshipAllocation,
   type LedgerLinkingPersistedRelationship,
-  type LedgerLinkingPersistedRelationshipEndpoint,
+  type LedgerLinkingRelationshipAllocationDraft,
+  type LedgerLinkingRelationshipAllocationSide,
   type LedgerLinkingRelationshipDraft,
-  type LedgerLinkingRelationshipEndpointRef,
   type LedgerLinkingRelationshipMaterializationResult,
 } from './ledger-linking/relationships/relationship-materialization.js';

@@ -264,18 +264,9 @@ function makeRunResult() {
   return {
     acceptedRelationships: [
       {
+        allocations: makeRelationshipAllocations(),
         relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
         relationshipKind: 'internal_transfer',
-        source: {
-          sourceActivityFingerprint: 'source_activity:v1:source',
-          journalFingerprint: 'ledger_journal:v1:source',
-          postingFingerprint: 'ledger_posting:v1:source',
-        },
-        target: {
-          sourceActivityFingerprint: 'source_activity:v1:target',
-          journalFingerprint: 'ledger_journal:v1:target',
-          postingFingerprint: 'ledger_posting:v1:target',
-        },
       },
     ],
     assetIdentitySuggestions: [],
@@ -305,18 +296,9 @@ function makeRunResult() {
         targetAssetId: 'blockchain:ethereum:native',
         amount: '1',
         relationship: {
+          allocations: makeRelationshipAllocations(),
           relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
           relationshipKind: 'internal_transfer',
-          source: {
-            sourceActivityFingerprint: 'source_activity:v1:source',
-            journalFingerprint: 'ledger_journal:v1:source',
-            postingFingerprint: 'ledger_posting:v1:source',
-          },
-          target: {
-            sourceActivityFingerprint: 'source_activity:v1:target',
-            journalFingerprint: 'ledger_journal:v1:target',
-            postingFingerprint: 'ledger_posting:v1:target',
-          },
         },
       },
     ],
@@ -327,8 +309,8 @@ function makeRunResult() {
       materialization: {
         previousCount: 0,
         savedCount: 1,
-        resolvedEndpointCount: 2,
-        unresolvedEndpointCount: 0,
+        resolvedAllocationCount: 2,
+        unresolvedAllocationCount: 0,
       },
     },
     postingInputCount: 3,
@@ -344,6 +326,25 @@ function makeRunResult() {
     unmatchedSourceCandidateCount: 0,
     unmatchedTargetCandidateCount: 0,
   };
+}
+
+function makeRelationshipAllocations() {
+  return [
+    {
+      allocationSide: 'source',
+      sourceActivityFingerprint: 'source_activity:v1:source',
+      journalFingerprint: 'ledger_journal:v1:source',
+      postingFingerprint: 'ledger_posting:v1:source',
+      quantity: '1',
+    },
+    {
+      allocationSide: 'target',
+      sourceActivityFingerprint: 'source_activity:v1:target',
+      journalFingerprint: 'ledger_journal:v1:target',
+      postingFingerprint: 'ledger_posting:v1:target',
+      quantity: '1',
+    },
+  ];
 }
 
 function makeAssetIdentitySuggestion() {
