@@ -195,6 +195,8 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidate remainders: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time window: 24h');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposals: 1 (1 unique)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Classification groups: 1 of 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  amount_time_unique: 2 candidate(s), 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched groups: 1 of 2');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time groups: 1 of 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposal examples: 1 of 1');
@@ -476,6 +478,28 @@ function makeDiagnostics() {
     ],
     amountTimeUniqueProposalCount: 1,
     amountTimeWindowMinutes: 1440,
+    candidateClassificationGroups: [
+      {
+        candidateCount: 2,
+        classification: 'amount_time_unique',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 1,
+      },
+    ],
+    candidateClassifications: [
+      {
+        candidateId: 7,
+        classifications: ['amount_time_unique'],
+        direction: 'source',
+        platformKey: 'kraken',
+      },
+      {
+        candidateId: 8,
+        classifications: ['amount_time_unique'],
+        direction: 'target',
+        platformKey: 'ethereum',
+      },
+    ],
     unmatchedCandidateGroups: [
       {
         assetId: 'exchange:kraken:eth',

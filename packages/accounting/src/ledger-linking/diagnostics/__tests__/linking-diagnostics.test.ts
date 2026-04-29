@@ -105,6 +105,20 @@ describe('buildLedgerLinkingDiagnostics', () => {
         uniqueness: 'unique_pair',
       },
     ]);
+    expect(result.candidateClassificationGroups).toEqual([
+      {
+        candidateCount: 2,
+        classification: 'amount_time_unique',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 1,
+        classification: 'unclassified',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 0,
+      },
+    ]);
     expect(JSON.stringify(result)).not.toContain('remainingAmountDecimal');
   });
 
@@ -154,6 +168,136 @@ describe('buildLedgerLinkingDiagnostics', () => {
         uniqueProposalCount: 0,
       },
     ]);
+    expect(result.candidateClassificationGroups).toEqual([
+      {
+        candidateCount: 3,
+        classification: 'amount_time_ambiguous',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 2,
+      },
+    ]);
+  });
+
+  it('classifies blocked identities, missing evidence, same-account roundtrips, and spam targets', () => {
+    const resolver = assertOk(buildLedgerLinkingAssetIdentityResolver());
+    const result = assertOk(
+      buildLedgerLinkingDiagnostics(
+        [
+          makeCandidate({
+            amount: '1',
+            assetId: 'exchange:kraken:eth',
+            blockchainTransactionHash: undefined,
+            candidateId: 1,
+            direction: 'source',
+            fromAddress: undefined,
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            toAddress: undefined,
+          }),
+          makeCandidate({
+            amount: '1',
+            assetId: 'blockchain:ethereum:native',
+            candidateId: 2,
+            direction: 'target',
+            platformKey: 'ethereum',
+          }),
+          makeCandidate({
+            amount: '5',
+            assetSymbol: 'AIRDROP',
+            candidateId: 3,
+            direction: 'target',
+            platformKey: 'arbitrum',
+          }),
+          makeCandidate({
+            amount: '0.5',
+            candidateId: 4,
+            direction: 'source',
+            fromAddress: '0xself',
+            ownerAccountId: 11,
+            platformKey: 'ethereum',
+            toAddress: '0xcounterparty',
+          }),
+          makeCandidate({
+            amount: '0.5',
+            activityDatetime: new Date('2026-04-25T00:00:00.000Z'),
+            candidateId: 5,
+            direction: 'target',
+            fromAddress: '0xcounterparty',
+            ownerAccountId: 11,
+            platformKey: 'ethereum',
+            toAddress: '0xself',
+          }),
+        ],
+        [],
+        resolver,
+        { amountTimeWindowMinutes: 60 }
+      )
+    );
+
+    expect([...result.candidateClassifications].sort(compareClassificationsByCandidateId)).toEqual([
+      {
+        candidateId: 1,
+        classifications: ['asset_identity_blocked', 'exchange_transfer_missing_hash', 'missing_linking_evidence'],
+        direction: 'source',
+        platformKey: 'kraken',
+      },
+      {
+        candidateId: 2,
+        classifications: ['asset_identity_blocked'],
+        direction: 'target',
+        platformKey: 'ethereum',
+      },
+      {
+        candidateId: 3,
+        classifications: ['likely_spam_airdrop'],
+        direction: 'target',
+        platformKey: 'arbitrum',
+      },
+      {
+        candidateId: 4,
+        classifications: ['same_account_roundtrip_candidate'],
+        direction: 'source',
+        platformKey: 'ethereum',
+      },
+      {
+        candidateId: 5,
+        classifications: ['same_account_roundtrip_candidate'],
+        direction: 'target',
+        platformKey: 'ethereum',
+      },
+    ]);
+    expect(result.candidateClassificationGroups).toEqual([
+      {
+        candidateCount: 2,
+        classification: 'asset_identity_blocked',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 2,
+        classification: 'same_account_roundtrip_candidate',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 1,
+        classification: 'exchange_transfer_missing_hash',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 0,
+      },
+      {
+        candidateCount: 1,
+        classification: 'likely_spam_airdrop',
+        sourceCandidateCount: 0,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 1,
+        classification: 'missing_linking_evidence',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 0,
+      },
+    ]);
   });
 
   it('rejects overclaimed candidates', () => {
@@ -180,9 +324,10 @@ function makeAssertion(assetIdA: string, assetIdB: string): LedgerLinkingAssetId
 function makeCandidate(
   overrides: Partial<Omit<LedgerTransferLinkingCandidate, 'amount' | 'assetSymbol'>> & {
     amount?: string | undefined;
+    assetSymbol?: string | undefined;
   }
 ): LedgerTransferLinkingCandidate {
-  const { amount, ...candidateOverrides } = overrides;
+  const { amount, assetSymbol, ...candidateOverrides } = overrides;
 
   return {
     candidateId: 1,
@@ -198,7 +343,7 @@ function makeCandidate(
     fromAddress: '0xfrom',
     toAddress: '0xto',
     assetId: 'blockchain:ethereum:native',
-    assetSymbol: ETH,
+    assetSymbol: assetSymbol === undefined ? ETH : assertOk(parseCurrency(assetSymbol)),
     amount: parseDecimal(amount ?? '1'),
     ...candidateOverrides,
   };
@@ -256,4 +401,8 @@ function toProposalSummary(proposal: {
     timeDistanceSeconds: proposal.timeDistanceSeconds,
     uniqueness: proposal.uniqueness,
   };
+}
+
+function compareClassificationsByCandidateId(left: { candidateId: number }, right: { candidateId: number }): number {
+  return left.candidateId - right.candidateId;
 }

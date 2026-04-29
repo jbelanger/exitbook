@@ -1013,7 +1013,12 @@ First implementation slices:
 25. Complete. Add read-only `links-v2 diagnose` output for quantity-aware
     unmatched candidate remainders and exact amount/time proposal evidence. These
     proposals are diagnostic only and are not persisted as relationship truth.
-26. Then broaden matching strategies only where processor-v2 ledger facts are
+26. Complete. Add read-only unmatched-candidate classifications to
+    `links-v2 diagnose` so the next strategy or processor-v2 fix can be chosen
+    from observable remainder shapes instead of raw unmatched counts.
+    Classifications are non-exclusive diagnostic tags and are not persisted as
+    gaps or accepted relationships.
+27. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

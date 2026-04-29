@@ -413,6 +413,7 @@ function renderLinksV2DiagnoseOutput(
   const proposalGroups = diagnostics.amountTimeProposalGroups.slice(0, prepared.limit);
   const proposals = diagnostics.amountTimeProposals.slice(0, prepared.limit);
   const unmatchedGroups = diagnostics.unmatchedCandidateGroups.slice(0, prepared.limit);
+  const classificationGroups = diagnostics.candidateClassificationGroups.slice(0, prepared.limit);
 
   console.log(config.title);
   console.log('Mode: dry run');
@@ -426,6 +427,14 @@ function renderLinksV2DiagnoseOutput(
   console.log(
     `Amount/time proposals: ${diagnostics.amountTimeProposalCount} (${diagnostics.amountTimeUniqueProposalCount} unique)`
   );
+  console.log(
+    `Classification groups: ${classificationGroups.length} of ${diagnostics.candidateClassificationGroups.length}`
+  );
+  for (const group of classificationGroups) {
+    console.log(
+      `  ${group.classification}: ${group.candidateCount} candidate(s), ${group.sourceCandidateCount} source, ${group.targetCandidateCount} target`
+    );
+  }
 
   console.log(`Unmatched groups: ${unmatchedGroups.length} of ${diagnostics.unmatchedCandidateGroups.length}`);
   for (const group of unmatchedGroups) {

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from '@exitbook/foundation';
+import { err, normalizeIdentifierForMatching, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { LedgerLinkingAssetIdentityResolver } from '../asset-identity/asset-identity-resolution.js';
@@ -6,6 +6,8 @@ import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-con
 import type { LedgerDeterministicCandidateClaim } from '../matching/deterministic-recognizer-runner.js';
 
 const DEFAULT_AMOUNT_TIME_WINDOW_MINUTES = 7 * 24 * 60;
+const SAME_ACCOUNT_ROUNDTRIP_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+const SPAM_AIRDROP_SYMBOL_PATTERN = /\b(airdrop|claim|reward|visit|https?:\/\/|www\.|\.org|\.xyz|\.net)\b/i;
 
 export interface LedgerLinkingDiagnosticsOptions {
   amountTimeWindowMinutes?: number | undefined;
@@ -76,12 +78,38 @@ export interface LedgerLinkingAmountTimeProposalGroup {
   uniqueProposalCount: number;
 }
 
+export type LedgerLinkingDiagnosticClassification =
+  | 'amount_time_unique'
+  | 'amount_time_ambiguous'
+  | 'asset_identity_blocked'
+  | 'same_account_roundtrip_candidate'
+  | 'likely_spam_airdrop'
+  | 'exchange_transfer_missing_hash'
+  | 'missing_linking_evidence'
+  | 'unclassified';
+
+export interface LedgerLinkingCandidateClassification {
+  candidateId: number;
+  classifications: readonly LedgerLinkingDiagnosticClassification[];
+  direction: LedgerTransferLinkingCandidate['direction'];
+  platformKey: string;
+}
+
+export interface LedgerLinkingDiagnosticClassificationGroup {
+  classification: LedgerLinkingDiagnosticClassification;
+  candidateCount: number;
+  sourceCandidateCount: number;
+  targetCandidateCount: number;
+}
+
 export interface LedgerLinkingDiagnostics {
   amountTimeProposalCount: number;
   amountTimeProposalGroups: readonly LedgerLinkingAmountTimeProposalGroup[];
   amountTimeProposals: readonly LedgerLinkingAmountTimeProposal[];
   amountTimeUniqueProposalCount: number;
   amountTimeWindowMinutes: number;
+  candidateClassificationGroups: readonly LedgerLinkingDiagnosticClassificationGroup[];
+  candidateClassifications: readonly LedgerLinkingCandidateClassification[];
   unmatchedCandidateGroups: readonly LedgerLinkingUnmatchedCandidateGroup[];
   unmatchedCandidates: readonly LedgerLinkingCandidateRemainder[];
 }
@@ -116,6 +144,12 @@ export function buildLedgerLinkingDiagnostics(
   const unmatchedCandidates = buildCandidateRemainders(candidates, claimedQuantitiesResult.value);
   const proposals = buildAmountTimeProposals(unmatchedCandidates, assetIdentityResolver, amountTimeWindowMinutes * 60);
   const proposalGroups = buildAmountTimeProposalGroups(proposals);
+  const candidateClassifications = buildCandidateClassifications(
+    unmatchedCandidates,
+    proposals,
+    assetIdentityResolver,
+    amountTimeWindowMinutes * 60
+  );
 
   return ok({
     amountTimeProposalCount: proposals.length,
@@ -123,6 +157,8 @@ export function buildLedgerLinkingDiagnostics(
     amountTimeProposals: proposals,
     amountTimeUniqueProposalCount: proposals.filter((proposal) => proposal.uniqueness === 'unique_pair').length,
     amountTimeWindowMinutes,
+    candidateClassificationGroups: buildCandidateClassificationGroups(candidateClassifications),
+    candidateClassifications,
     unmatchedCandidateGroups: buildUnmatchedCandidateGroups(unmatchedCandidates),
     unmatchedCandidates: unmatchedCandidates.map(toPublicCandidateRemainder),
   });
@@ -302,6 +338,225 @@ function buildAmountTimeProposals(
   return classifyAmountTimeProposalUniqueness(drafts).sort(compareAmountTimeProposals);
 }
 
+function buildCandidateClassifications(
+  unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
+  proposals: readonly LedgerLinkingAmountTimeProposal[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
+  amountTimeWindowSeconds: number
+): LedgerLinkingCandidateClassification[] {
+  const classificationsByCandidateId = new Map<number, Set<LedgerLinkingDiagnosticClassification>>();
+
+  for (const candidate of unmatchedCandidates) {
+    classificationsByCandidateId.set(candidate.candidateId, new Set());
+  }
+
+  applyAmountTimeClassifications(classificationsByCandidateId, proposals);
+  applyPairShapeClassifications(
+    classificationsByCandidateId,
+    unmatchedCandidates,
+    assetIdentityResolver,
+    amountTimeWindowSeconds
+  );
+  applySingleCandidateClassifications(classificationsByCandidateId, unmatchedCandidates);
+
+  return unmatchedCandidates.map((candidate) => {
+    const classifications = [...(classificationsByCandidateId.get(candidate.candidateId) ?? [])].sort();
+
+    return {
+      candidateId: candidate.candidateId,
+      classifications: classifications.length === 0 ? ['unclassified'] : classifications,
+      direction: candidate.direction,
+      platformKey: candidate.platformKey,
+    };
+  });
+}
+
+function applyAmountTimeClassifications(
+  classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
+  proposals: readonly LedgerLinkingAmountTimeProposal[]
+): void {
+  for (const proposal of proposals) {
+    const classification = proposal.uniqueness === 'unique_pair' ? 'amount_time_unique' : 'amount_time_ambiguous';
+    addClassification(classificationsByCandidateId, proposal.source.candidateId, classification);
+    addClassification(classificationsByCandidateId, proposal.target.candidateId, classification);
+  }
+}
+
+function applyPairShapeClassifications(
+  classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
+  unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
+  amountTimeWindowSeconds: number
+): void {
+  const sources = unmatchedCandidates.filter((candidate) => candidate.direction === 'source');
+  const targets = unmatchedCandidates.filter((candidate) => candidate.direction === 'target');
+
+  for (const source of sources) {
+    for (const target of targets) {
+      if (!source.remainingAmountDecimal.eq(target.remainingAmountDecimal)) {
+        continue;
+      }
+
+      const timeDistanceSeconds =
+        Math.abs(target.activityDatetime.getTime() - source.activityDatetime.getTime()) / 1000;
+
+      if (
+        timeDistanceSeconds <= amountTimeWindowSeconds &&
+        isAssetIdentityBlockedPair(source, target, assetIdentityResolver)
+      ) {
+        addClassification(classificationsByCandidateId, source.candidateId, 'asset_identity_blocked');
+        addClassification(classificationsByCandidateId, target.candidateId, 'asset_identity_blocked');
+      }
+
+      if (isSameAccountRoundtripCandidate(source, target, assetIdentityResolver, timeDistanceSeconds)) {
+        addClassification(classificationsByCandidateId, source.candidateId, 'same_account_roundtrip_candidate');
+        addClassification(classificationsByCandidateId, target.candidateId, 'same_account_roundtrip_candidate');
+      }
+    }
+  }
+}
+
+function applySingleCandidateClassifications(
+  classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
+  unmatchedCandidates: readonly CandidateRemainderWithDecimal[]
+): void {
+  for (const candidate of unmatchedCandidates) {
+    if (isLikelySpamAirdropCandidate(candidate)) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'likely_spam_airdrop');
+    }
+
+    if (candidate.platformKind === 'exchange' && candidate.blockchainTransactionHash === undefined) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'exchange_transfer_missing_hash');
+    }
+
+    if (
+      candidate.blockchainTransactionHash === undefined &&
+      candidate.fromAddress === undefined &&
+      candidate.toAddress === undefined
+    ) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'missing_linking_evidence');
+    }
+  }
+}
+
+function isAssetIdentityBlockedPair(
+  source: CandidateRemainderWithDecimal,
+  target: CandidateRemainderWithDecimal,
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
+): boolean {
+  if (source.assetSymbol !== target.assetSymbol || source.assetId === target.assetId) {
+    return false;
+  }
+
+  const resolution = assetIdentityResolver.resolve({
+    relationshipKind: 'internal_transfer',
+    sourceAssetId: source.assetId,
+    targetAssetId: target.assetId,
+  });
+
+  return resolution.status === 'blocked';
+}
+
+function isSameAccountRoundtripCandidate(
+  source: CandidateRemainderWithDecimal,
+  target: CandidateRemainderWithDecimal,
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
+  timeDistanceSeconds: number
+): boolean {
+  if (
+    source.platformKind !== 'blockchain' ||
+    target.platformKind !== 'blockchain' ||
+    source.platformKey !== target.platformKey ||
+    source.ownerAccountId !== target.ownerAccountId ||
+    timeDistanceSeconds > SAME_ACCOUNT_ROUNDTRIP_WINDOW_SECONDS
+  ) {
+    return false;
+  }
+
+  const resolution = assetIdentityResolver.resolve({
+    relationshipKind: 'external_transfer',
+    sourceAssetId: source.assetId,
+    targetAssetId: target.assetId,
+  });
+  if (resolution.status !== 'accepted') {
+    return false;
+  }
+
+  const sourceFrom = normalizeAddressForDiagnostics(source.fromAddress);
+  const sourceTo = normalizeAddressForDiagnostics(source.toAddress);
+  const targetFrom = normalizeAddressForDiagnostics(target.fromAddress);
+  const targetTo = normalizeAddressForDiagnostics(target.toAddress);
+
+  return (
+    sourceFrom !== undefined &&
+    sourceTo !== undefined &&
+    targetFrom !== undefined &&
+    targetTo !== undefined &&
+    sourceFrom !== sourceTo &&
+    sourceFrom === targetTo &&
+    sourceTo === targetFrom
+  );
+}
+
+function isLikelySpamAirdropCandidate(candidate: CandidateRemainderWithDecimal): boolean {
+  return (
+    candidate.direction === 'target' &&
+    candidate.platformKind === 'blockchain' &&
+    SPAM_AIRDROP_SYMBOL_PATTERN.test(candidate.assetSymbol)
+  );
+}
+
+function normalizeAddressForDiagnostics(address: string | undefined): string | undefined {
+  const trimmedAddress = address?.trim();
+  if (trimmedAddress === undefined || trimmedAddress.length === 0) {
+    return undefined;
+  }
+
+  return normalizeIdentifierForMatching(trimmedAddress);
+}
+
+function addClassification(
+  classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
+  candidateId: number,
+  classification: LedgerLinkingDiagnosticClassification
+): void {
+  const classifications = classificationsByCandidateId.get(candidateId);
+  if (classifications === undefined) {
+    return;
+  }
+
+  classifications.add(classification);
+}
+
+function buildCandidateClassificationGroups(
+  candidateClassifications: readonly LedgerLinkingCandidateClassification[]
+): LedgerLinkingDiagnosticClassificationGroup[] {
+  const groupsByClassification = new Map<
+    LedgerLinkingDiagnosticClassification,
+    LedgerLinkingDiagnosticClassificationGroup
+  >();
+
+  for (const candidate of candidateClassifications) {
+    for (const classification of candidate.classifications) {
+      const existing = groupsByClassification.get(classification) ?? {
+        candidateCount: 0,
+        classification,
+        sourceCandidateCount: 0,
+        targetCandidateCount: 0,
+      };
+
+      groupsByClassification.set(classification, {
+        ...existing,
+        candidateCount: existing.candidateCount + 1,
+        sourceCandidateCount: existing.sourceCandidateCount + (candidate.direction === 'source' ? 1 : 0),
+        targetCandidateCount: existing.targetCandidateCount + (candidate.direction === 'target' ? 1 : 0),
+      });
+    }
+  }
+
+  return [...groupsByClassification.values()].sort(compareCandidateClassificationGroups);
+}
+
 function classifyAmountTimeProposalUniqueness(
   proposals: readonly AmountTimeProposalDraft[]
 ): LedgerLinkingAmountTimeProposal[] {
@@ -472,6 +727,13 @@ function compareAmountTimeProposalGroups(
     left.targetPlatformKey.localeCompare(right.targetPlatformKey) ||
     left.amount.localeCompare(right.amount)
   );
+}
+
+function compareCandidateClassificationGroups(
+  left: LedgerLinkingDiagnosticClassificationGroup,
+  right: LedgerLinkingDiagnosticClassificationGroup
+): number {
+  return right.candidateCount - left.candidateCount || left.classification.localeCompare(right.classification);
 }
 
 function compareUniqueness(
