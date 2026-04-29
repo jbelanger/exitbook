@@ -268,6 +268,9 @@ function makeRunResult() {
     acceptedRelationships: [
       {
         allocations: makeRelationshipAllocations(),
+        confidenceScore: '1',
+        evidence: { amount: '1' },
+        recognitionStrategy: 'exact_hash_transfer',
         relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
         relationshipKind: 'internal_transfer',
       },
@@ -305,6 +308,9 @@ function makeRunResult() {
         amount: '1',
         relationship: {
           allocations: makeRelationshipAllocations(),
+          confidenceScore: '1',
+          evidence: { amount: '1' },
+          recognitionStrategy: 'exact_hash_transfer',
           relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
           relationshipKind: 'internal_transfer',
         },

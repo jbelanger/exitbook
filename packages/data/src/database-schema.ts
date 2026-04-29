@@ -243,6 +243,9 @@ export interface AccountingJournalRelationshipsTable {
   relationship_origin: AccountingJournalRelationshipOrigin;
   relationship_stable_key: string;
   relationship_kind: AccountingJournalRelationshipKind;
+  recognition_strategy: string;
+  recognition_evidence_json: JSONString;
+  confidence_score: DecimalString | null;
   created_at: DateTime;
   updated_at: DateTime | null;
 }

@@ -232,7 +232,7 @@ function renderLinksV2RelationshipListOutput(output: LinksV2RelationshipListOutp
 
   for (const relationship of output.relationships) {
     console.log(
-      `  #${relationship.id} ${relationship.relationshipKind} ${relationshipResolutionStatus(relationship)} ${relationship.allocations.length} allocation(s) ${relationship.relationshipStableKey}`
+      `  #${relationship.id} ${relationship.relationshipKind} via ${relationship.recognitionStrategy} ${relationshipResolutionStatus(relationship)} ${relationship.allocations.length} allocation(s) ${relationship.relationshipStableKey}`
     );
   }
 }
@@ -244,6 +244,8 @@ function renderLinksV2RelationshipViewOutput(output: LinksV2RelationshipViewOutp
   console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
   console.log(`Stable key: ${relationship.relationshipStableKey}`);
   console.log(`Kind: ${relationship.relationshipKind}`);
+  console.log(`Recognition strategy: ${relationship.recognitionStrategy}`);
+  console.log(`Confidence: ${relationship.confidenceScore ?? 'not recorded'}`);
   console.log(`Status: ${relationshipResolutionStatus(relationship)}`);
   console.log('Allocations:');
   for (const allocation of relationship.allocations) {

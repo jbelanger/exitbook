@@ -836,9 +836,13 @@ surfaces per-recognizer stats. Same-hash v2 starts with strict whole-candidate
 groups only: every consumed source/target posting must be fully allocated in the
 accepted relationship. Partial same-hash cases are deferred until the candidate
 model can represent residual quantities, so linking does not hide unmatched
-fee-like or external residue. Accepted pairwise asset identity assertions are
-now modeled separately from relationships so exchange-scoped and chain-scoped
-asset ids can be linked only when an explicit assertion exists.
+fee-like or external residue. Durable relationship headers now separate
+accounting effect from recognition evidence: `relationship_kind` records the
+accounting meaning, while `recognition_strategy`, `recognition_evidence_json`,
+and nullable `confidence_score` record why the relationship was accepted.
+Accepted pairwise asset identity assertions are now modeled separately from
+relationships so exchange-scoped and chain-scoped asset ids can be linked only
+when an explicit assertion exists.
 `ledger linking-v2 asset-identity accept/list` provides a minimal non-TUI way
 to seed and inspect those accepted assertions. A parallel top-level `links-v2`
 command now exists for v1/v2 comparison work: bare `links-v2` and
@@ -981,10 +985,11 @@ First implementation slices:
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-21. Before broadening matching strategies, decide how accepted relationship
-    evidence is represented durably. Counterparty roundtrip can be deterministic
-    under strict one-to-one address and timing invariants, but it should not be
-    persisted as a bare `external_transfer` with no strategy/evidence metadata.
+21. Complete. Add durable accepted-relationship recognition provenance before
+    broadening matching strategies. Counterparty roundtrip can now be added
+    without persisting a bare `external_transfer`: each accepted relationship has
+    separate accounting kind, recognition strategy, evidence JSON, and nullable
+    confidence score.
 22. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 

@@ -40,7 +40,7 @@ import type {
 } from '../database-schema.js';
 import type { KyselyDB } from '../database.js';
 import { withControlledTransaction } from '../utils/controlled-transaction.js';
-import { serializeToJson } from '../utils/json-column-codec.js';
+import { parseJson, serializeToJson } from '../utils/json-column-codec.js';
 import { chunkItems, SQLITE_SAFE_IN_BATCH_SIZE, SQLITE_SAFE_INSERT_BATCH_SIZE } from '../utils/sqlite-batching.js';
 
 import { BaseRepository } from './base-repository.js';
@@ -217,7 +217,16 @@ export class AccountingLedgerRepository extends BaseRepository {
     try {
       const relationshipRows = await this.db
         .selectFrom('accounting_journal_relationships')
-        .select(['id', 'relationship_stable_key', 'relationship_kind', 'created_at', 'updated_at'])
+        .select([
+          'id',
+          'relationship_stable_key',
+          'relationship_kind',
+          'recognition_strategy',
+          'recognition_evidence_json',
+          'confidence_score',
+          'created_at',
+          'updated_at',
+        ])
         .where('profile_id', '=', profileId)
         .where('relationship_origin', '=', 'ledger_linking')
         .orderBy('created_at', 'asc')
@@ -241,7 +250,12 @@ export class AccountingLedgerRepository extends BaseRepository {
           );
         }
 
-        relationships.push(toLedgerLinkingPersistedRelationship(row, allocations));
+        const relationship = toLedgerLinkingPersistedRelationship(row, allocations);
+        if (relationship.isErr()) {
+          return err(relationship.error);
+        }
+
+        relationships.push(relationship.value);
       }
 
       return ok(relationships);
@@ -487,9 +501,14 @@ export class AccountingLedgerRepository extends BaseRepository {
           resolvedAllocations.push({ allocation, endpoint: endpoint.value });
         }
 
+        const relationshipRow = toLedgerLinkingRelationshipRow(profileId, relationship, now);
+        if (relationshipRow.isErr()) {
+          return err(relationshipRow.error);
+        }
+
         const insertedRelationship = await db
           .insertInto('accounting_journal_relationships')
-          .values(toLedgerLinkingRelationshipRow(profileId, relationship, now))
+          .values(relationshipRow.value)
           .returning('id')
           .executeTakeFirstOrThrow();
 
@@ -1569,15 +1588,27 @@ function toLedgerLinkingRelationshipRow(
   profileId: number,
   relationship: LedgerLinkingRelationshipDraft,
   now: string
-): Insertable<AccountingJournalRelationshipsTable> {
-  return {
+): Result<Insertable<AccountingJournalRelationshipsTable>, Error> {
+  const evidenceJson = serializeToJson(relationship.evidence);
+  if (evidenceJson.isErr()) {
+    return err(
+      new Error(
+        `Failed to serialize ledger-linking relationship ${relationship.relationshipStableKey} evidence: ${evidenceJson.error.message}`
+      )
+    );
+  }
+
+  return ok({
     profile_id: profileId,
     relationship_origin: 'ledger_linking',
     relationship_stable_key: relationship.relationshipStableKey,
     relationship_kind: relationship.relationshipKind,
+    recognition_strategy: relationship.recognitionStrategy,
+    recognition_evidence_json: evidenceJson.value ?? '{}',
+    confidence_score: relationship.confidenceScore?.toFixed() ?? null,
     created_at: now,
     updated_at: null,
-  };
+  });
 }
 
 function toLedgerLinkingRelationshipAllocationRow(
@@ -1604,22 +1635,57 @@ function toLedgerLinkingRelationshipAllocationRow(
 
 function toLedgerLinkingPersistedRelationship(
   row: {
+    confidence_score: string | null;
     created_at: string;
     id: number;
+    recognition_evidence_json: unknown;
+    recognition_strategy: string;
     relationship_kind: LedgerLinkingPersistedRelationship['relationshipKind'];
     relationship_stable_key: string;
     updated_at: string | null;
   },
   allocations: readonly LedgerLinkingPersistedRelationship['allocations'][number][]
-): LedgerLinkingPersistedRelationship {
-  return {
+): Result<LedgerLinkingPersistedRelationship, Error> {
+  const evidence = parseRelationshipEvidenceJson(row.relationship_stable_key, row.recognition_evidence_json);
+  if (evidence.isErr()) {
+    return err(evidence.error);
+  }
+
+  return ok({
     allocations,
+    confidenceScore: row.confidence_score ?? undefined,
+    evidence: evidence.value,
     id: row.id,
+    recognitionStrategy: row.recognition_strategy,
     relationshipStableKey: row.relationship_stable_key,
     relationshipKind: row.relationship_kind,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? undefined,
-  };
+  });
+}
+
+function parseRelationshipEvidenceJson(
+  relationshipStableKey: string,
+  rawEvidence: unknown
+): Result<LedgerLinkingPersistedRelationship['evidence'], Error> {
+  const evidence = parseJson(rawEvidence);
+  if (evidence.isErr()) {
+    return err(
+      new Error(
+        `Failed to parse ledger-linking relationship ${relationshipStableKey} evidence: ${evidence.error.message}`
+      )
+    );
+  }
+
+  if (!isJsonObject(evidence.value)) {
+    return err(new Error(`Ledger-linking relationship ${relationshipStableKey} evidence must be a JSON object`));
+  }
+
+  return ok(evidence.value);
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function toLedgerLinkingAssetIdentityAssertionRow(
@@ -1700,6 +1766,9 @@ async function persistProcessorRelationship(
       relationship.relationshipStableKey
     ),
     relationship_kind: relationship.relationshipKind,
+    recognition_strategy: 'processor_supplied',
+    recognition_evidence_json: '{}',
+    confidence_score: null,
     created_at: now,
     updated_at: null,
   };

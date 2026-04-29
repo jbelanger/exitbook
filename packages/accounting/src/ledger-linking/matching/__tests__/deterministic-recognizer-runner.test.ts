@@ -112,6 +112,9 @@ function makeRelationship(suffix: string): LedgerLinkingRelationshipDraft {
         quantity: parseDecimal('1'),
       },
     ],
+    confidenceScore: parseDecimal('1'),
+    evidence: { suffix },
+    recognitionStrategy: 'test_recognizer',
     relationshipStableKey: `relationship:${suffix}`,
     relationshipKind: 'internal_transfer',
   };

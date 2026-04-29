@@ -67,6 +67,7 @@ export {
   LedgerLinkingRelationshipAllocationDraftSchema,
   LedgerLinkingRelationshipAllocationSideSchema,
   LedgerLinkingRelationshipDraftSchema,
+  LedgerLinkingRelationshipEvidenceSchema,
   type ILedgerLinkingRelationshipReader,
   type ILedgerLinkingRelationshipStore,
   type LedgerLinkingPersistedRelationshipAllocation,
@@ -74,5 +75,6 @@ export {
   type LedgerLinkingRelationshipAllocationDraft,
   type LedgerLinkingRelationshipAllocationSide,
   type LedgerLinkingRelationshipDraft,
+  type LedgerLinkingRelationshipEvidence,
   type LedgerLinkingRelationshipMaterializationResult,
 } from './ledger-linking/relationships/relationship-materialization.js';

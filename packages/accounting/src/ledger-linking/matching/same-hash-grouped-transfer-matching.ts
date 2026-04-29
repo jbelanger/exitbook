@@ -1,4 +1,4 @@
-import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal, sha256Hex, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { LedgerLinkingAssetIdentityResolver } from '../asset-identity/asset-identity-resolution.js';
@@ -224,6 +224,18 @@ function buildSameHashRelationship(
       postingFingerprint: candidate.postingFingerprint,
       quantity: candidate.amount,
     })),
+    confidenceScore: parseDecimal('1'),
+    evidence: {
+      assetSymbol: group.assetSymbol,
+      normalizedBlockchainTransactionHash: group.normalizedBlockchainTransactionHash,
+      sourceAmount: sumCandidateAmounts(orderedSources).toFixed(),
+      sourceAssetIds: collectAssetIds(orderedSources),
+      sourcePostingFingerprints: collectPostingFingerprints(orderedSources),
+      targetAmount: sumCandidateAmounts(orderedTargets).toFixed(),
+      targetAssetIds: collectAssetIds(orderedTargets),
+      targetPostingFingerprints: collectPostingFingerprints(orderedTargets),
+    },
+    recognitionStrategy: LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
     relationshipStableKey: buildSameHashRelationshipStableKey(group, orderedSources, orderedTargets),
     relationshipKind: 'same_hash_carryover',
   };

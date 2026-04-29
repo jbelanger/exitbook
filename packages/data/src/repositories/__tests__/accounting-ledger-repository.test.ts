@@ -437,6 +437,9 @@ describe('AccountingLedgerRepository', () => {
         'accounting_journal_relationships.profile_id as profile_id',
         'accounting_journal_relationships.relationship_origin as relationship_origin',
         'accounting_journal_relationships.relationship_kind as relationship_kind',
+        'accounting_journal_relationships.recognition_strategy as recognition_strategy',
+        'accounting_journal_relationships.recognition_evidence_json as recognition_evidence_json',
+        'accounting_journal_relationships.confidence_score as confidence_score',
       ])
       .executeTakeFirstOrThrow();
 
@@ -445,6 +448,9 @@ describe('AccountingLedgerRepository', () => {
       profile_id: 1,
       relationship_origin: 'processor',
       relationship_kind: 'internal_transfer',
+      recognition_strategy: 'processor_supplied',
+      recognition_evidence_json: '{}',
+      confidence_score: null,
     });
 
     const allocations = await db
@@ -637,6 +643,9 @@ describe('AccountingLedgerRepository', () => {
             makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
             makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
           ],
+          confidenceScore: parseDecimal('1'),
+          evidence: { reason: 'test' },
+          recognitionStrategy: 'test_strategy',
           relationshipStableKey: 'relationship:ledger-linking',
           relationshipKind: 'internal_transfer',
         },
@@ -652,6 +661,9 @@ describe('AccountingLedgerRepository', () => {
 
     const relationship = await loadRelationshipByStableKey('relationship:ledger-linking');
     expect(relationship).toMatchObject({
+      confidence_score: '1',
+      recognition_evidence_json: '{"reason":"test"}',
+      recognition_strategy: 'test_strategy',
       relationship_origin: 'ledger_linking',
     });
     await expect(loadRelationshipAllocationsByStableKey('relationship:ledger-linking')).resolves.toMatchObject([
@@ -716,6 +728,11 @@ describe('AccountingLedgerRepository', () => {
       ],
       relationshipStableKey: 'relationship:ledger-linking',
       relationshipKind: 'internal_transfer',
+      confidenceScore: '1',
+      evidence: {
+        reason: 'test',
+      },
+      recognitionStrategy: 'test_strategy',
       updatedAt: undefined,
     });
   });
@@ -758,6 +775,9 @@ describe('AccountingLedgerRepository', () => {
             journalFingerprint: 'ledger_journal:v1:missing',
           },
         ],
+        confidenceScore: parseDecimal('1'),
+        evidence: { reason: 'bad-test' },
+        recognitionStrategy: 'test_strategy',
         relationshipStableKey: 'relationship:bad',
         relationshipKind: 'internal_transfer',
       },
@@ -1247,6 +1267,9 @@ describe('AccountingLedgerRepository', () => {
         makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
         makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
       ],
+      confidenceScore: parseDecimal('1'),
+      evidence: { reason: 'test' },
+      recognitionStrategy: 'test_strategy',
       relationshipStableKey,
       relationshipKind: 'internal_transfer' as const,
     };
@@ -1277,6 +1300,9 @@ describe('AccountingLedgerRepository', () => {
         relationship_origin: 'ledger_linking',
         relationship_stable_key: 'relationship:ledger-linking',
         relationship_kind: 'internal_transfer',
+        recognition_strategy: 'test_strategy',
+        recognition_evidence_json: '{"reason":"test"}',
+        confidence_score: '1',
         created_at: ACTIVITY_DATETIME,
         updated_at: null,
       })
@@ -1321,7 +1347,15 @@ describe('AccountingLedgerRepository', () => {
   async function loadRelationshipByStableKey(relationshipStableKey: string) {
     return db
       .selectFrom('accounting_journal_relationships')
-      .select(['id', 'relationship_origin', 'relationship_kind', 'relationship_stable_key'])
+      .select([
+        'id',
+        'relationship_origin',
+        'relationship_kind',
+        'relationship_stable_key',
+        'recognition_strategy',
+        'recognition_evidence_json',
+        'confidence_score',
+      ])
       .where('relationship_stable_key', '=', relationshipStableKey)
       .executeTakeFirstOrThrow();
   }

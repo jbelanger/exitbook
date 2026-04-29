@@ -1,4 +1,4 @@
-import { err, ok, sha256Hex, type Result } from '@exitbook/foundation';
+import { err, ok, parseDecimal, sha256Hex, type Result } from '@exitbook/foundation';
 
 import {
   type LedgerLinkingAssetIdentityResolution,
@@ -431,6 +431,18 @@ function buildExactHashTransferMatch(pair: ExactHashPotentialPair): Result<Ledge
           quantity: pair.target.amount,
         },
       ],
+      confidenceScore: parseDecimal('1'),
+      evidence: {
+        amount: pair.source.amount.toFixed(),
+        assetIdentityReason: pair.assetIdentityResolution.reason,
+        sourceAssetId: pair.source.assetId,
+        sourceBlockchainTransactionHash: sourceHash,
+        sourcePostingFingerprint: pair.source.postingFingerprint,
+        targetAssetId: pair.target.assetId,
+        targetBlockchainTransactionHash: targetHash,
+        targetPostingFingerprint: pair.target.postingFingerprint,
+      },
+      recognitionStrategy: LEDGER_EXACT_HASH_TRANSFER_STRATEGY,
       relationshipStableKey: buildExactHashRelationshipStableKey(pair),
       relationshipKind: 'internal_transfer',
     },

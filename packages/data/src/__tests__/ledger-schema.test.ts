@@ -210,6 +210,9 @@ describe('ledger schema draft', () => {
         relationship_origin: 'processor',
         relationship_stable_key: 'relationship:1',
         relationship_kind: 'internal_transfer',
+        recognition_strategy: 'processor_supplied',
+        recognition_evidence_json: '{}',
+        confidence_score: null,
         created_at: '2026-04-23T00:00:00.000Z',
         updated_at: null,
       })

@@ -468,6 +468,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('relationship_origin', 'text', (col) => col.notNull())
     .addColumn('relationship_stable_key', 'text', (col) => col.notNull())
     .addColumn('relationship_kind', 'text', (col) => col.notNull())
+    .addColumn('recognition_strategy', 'text', (col) => col.notNull())
+    .addColumn('recognition_evidence_json', 'text', (col) => col.notNull())
+    .addColumn('confidence_score', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .addCheckConstraint(
@@ -482,6 +485,23 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       'accounting_journal_relationships_kind_valid',
       sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration')`
     )
+    .addCheckConstraint(
+      'accounting_journal_relationships_recognition_strategy_not_empty',
+      sql`trim(recognition_strategy) <> ''`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationships_recognition_evidence_json_valid',
+      sql`json_valid(recognition_evidence_json) AND json_type(recognition_evidence_json) = 'object'`
+    )
+    .addCheckConstraint(
+      'accounting_journal_relationships_confidence_score_valid',
+      sql`confidence_score IS NULL OR (
+        json_valid(confidence_score)
+        AND json_type(confidence_score) IN ('integer', 'real')
+        AND CAST(confidence_score AS REAL) >= 0
+        AND CAST(confidence_score AS REAL) <= 1
+      )`
+    )
     .execute();
 
   await db.schema
@@ -495,6 +515,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .on('accounting_journal_relationships')
     .columns(['profile_id', 'relationship_origin', 'relationship_stable_key'])
     .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('idx_accounting_journal_relationships_profile_strategy')
+    .on('accounting_journal_relationships')
+    .columns(['profile_id', 'recognition_strategy'])
     .execute();
 
   await db.schema

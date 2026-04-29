@@ -177,7 +177,7 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationships for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '  #42 internal_transfer resolved 2 allocation(s) relationship:ledger-linking'
+      '  #42 internal_transfer via exact_hash_transfer resolved 2 allocation(s) relationship:ledger-linking'
     );
   });
 
@@ -189,6 +189,8 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationship #42');
     expect(consoleLogSpy).toHaveBeenCalledWith('Stable key: relationship:ledger-linking');
     expect(consoleLogSpy).toHaveBeenCalledWith('Status: resolved');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Recognition strategy: exact_hash_transfer');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Confidence: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Allocations:');
     expect(consoleLogSpy).toHaveBeenCalledWith('  #1 source 1 ETH (blockchain:ethereum:native)');
     expect(consoleLogSpy).toHaveBeenCalledWith('    Activity: source_activity:v1:source');
@@ -263,6 +265,9 @@ function makeRunResult() {
     acceptedRelationships: [
       {
         allocations: makeRelationshipAllocations(),
+        confidenceScore: '1',
+        evidence: { amount: '1' },
+        recognitionStrategy: 'exact_hash_transfer',
         relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
         relationshipKind: 'internal_transfer',
       },
@@ -300,6 +305,9 @@ function makeRunResult() {
         amount: '1',
         relationship: {
           allocations: makeRelationshipAllocations(),
+          confidenceScore: '1',
+          evidence: { amount: '1' },
+          recognitionStrategy: 'exact_hash_transfer',
           relationshipStableKey: 'ledger-linking:exact_hash_transfer:v1:test',
           relationshipKind: 'internal_transfer',
         },
@@ -418,6 +426,9 @@ function makePersistedRelationship() {
     ],
     relationshipStableKey: 'relationship:ledger-linking',
     relationshipKind: 'internal_transfer',
+    recognitionStrategy: 'exact_hash_transfer',
+    evidence: { amount: '1' },
+    confidenceScore: '1',
     createdAt: '2026-04-29T00:00:00.000Z',
     updatedAt: undefined,
   };

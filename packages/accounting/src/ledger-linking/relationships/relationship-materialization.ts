@@ -12,9 +12,19 @@ export const LedgerLinkingRelationshipAllocationDraftSchema = z.object({
   postingFingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
 });
 
+export const LedgerLinkingRelationshipEvidenceSchema = z.record(z.string(), z.unknown());
+
 export const LedgerLinkingRelationshipDraftSchema = z
   .object({
     allocations: z.array(LedgerLinkingRelationshipAllocationDraftSchema).min(2, 'Relationship requires allocations'),
+    confidenceScore: DecimalSchema.refine(
+      (confidenceScore) => confidenceScore.gte(0) && confidenceScore.lte(1),
+      'Relationship confidence score must be between 0 and 1'
+    ).optional(),
+    evidence: LedgerLinkingRelationshipEvidenceSchema,
+    recognitionStrategy: z
+      .string()
+      .refine((value) => value.trim().length > 0, 'Recognition strategy must not be empty'),
     relationshipStableKey: z.string().min(1, 'Relationship stable key must not be empty'),
     relationshipKind: AccountingJournalRelationshipKindSchema,
   })
@@ -30,6 +40,7 @@ export const LedgerLinkingRelationshipDraftSchema = z
 export type LedgerLinkingRelationshipAllocationSide = z.infer<typeof LedgerLinkingRelationshipAllocationSideSchema>;
 export type LedgerLinkingRelationshipAllocationDraft = z.infer<typeof LedgerLinkingRelationshipAllocationDraftSchema>;
 export type LedgerLinkingRelationshipDraft = z.infer<typeof LedgerLinkingRelationshipDraftSchema>;
+export type LedgerLinkingRelationshipEvidence = z.infer<typeof LedgerLinkingRelationshipEvidenceSchema>;
 
 export interface LedgerLinkingPersistedRelationshipAllocation {
   allocationSide: LedgerLinkingRelationshipAllocationSide;
@@ -46,7 +57,10 @@ export interface LedgerLinkingPersistedRelationshipAllocation {
 
 export interface LedgerLinkingPersistedRelationship {
   allocations: readonly LedgerLinkingPersistedRelationshipAllocation[];
+  confidenceScore: string | undefined;
   id: number;
+  evidence: LedgerLinkingRelationshipEvidence;
+  recognitionStrategy: string;
   relationshipStableKey: string;
   relationshipKind: z.infer<typeof AccountingJournalRelationshipKindSchema>;
   createdAt: string;
