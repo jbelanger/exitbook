@@ -736,6 +736,8 @@ function renderLinksV2AssetIdentityReviewDetail(
   console.log(`Evidence: ${formatAssetIdentityEvidenceKind(suggestion.evidenceKind)}`);
   console.log(`Observed blockers: ${suggestion.blockCount}`);
   console.log(`Would accept: asset identity assertion ${suggestion.assetIdA} <-> ${suggestion.assetIdB}`);
+  console.log('Impact:');
+  console.log(formatAssetIdentityAcceptImpact(suggestion.evidenceKind));
   console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
   console.log('Decision help:');
   console.log(formatAssetIdentityDecisionHelp(suggestion.evidenceKind));
@@ -1086,6 +1088,21 @@ function formatAssetIdentityDecisionHelp(evidenceKind: LedgerLinkingAssetIdentit
         '  Accept only after checking the two shown asset ids name the same asset.',
         '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
         '  If unsure, leave it pending; this is safer than converting a symbol match into accounting truth.',
+      ].join('\n');
+  }
+}
+
+function formatAssetIdentityAcceptImpact(evidenceKind: LedgerLinkingAssetIdentitySuggestion['evidenceKind']): string {
+  switch (evidenceKind) {
+    case 'exact_hash_observed':
+      return [
+        '  Records only the asset identity assertion.',
+        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash relationships.',
+      ].join('\n');
+    case 'amount_time_observed':
+      return [
+        '  Records only the asset identity assertion.',
+        '  Amount/time link proposals stay review-only and will not become relationships yet.',
       ].join('\n');
   }
 }

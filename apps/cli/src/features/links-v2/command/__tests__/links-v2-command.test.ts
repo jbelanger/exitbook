@@ -311,6 +311,13 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       'Would accept: asset identity assertion blockchain:ethereum:native <-> exchange:kraken:eth'
     );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Impact:');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      [
+        '  Records only the asset identity assertion.',
+        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash relationships.',
+      ].join('\n')
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('Accept command: exitbook links-v2 review accept ai_test_1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
     expect(consoleLogSpy).toHaveBeenCalledWith(

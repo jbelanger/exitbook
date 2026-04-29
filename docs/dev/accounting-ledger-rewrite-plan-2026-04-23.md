@@ -867,7 +867,9 @@ identity suggestions through the same durable assertion model as
 reviewed relationship materialization is designed. `links-v2 review view
 <review-id>` gives the operator a focused evidence detail before accepting,
 including why exact-hash evidence is stronger than amount/time-only evidence and
-why leaving uncertain identity pending is safe.
+why leaving uncertain identity pending is safe. The detail view also separates
+the impact of accepting an asset identity assertion from relationship
+materialization, so amount/time evidence does not imply automatic linking.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -1045,8 +1047,9 @@ First implementation slices:
     a durable model.
 30. Complete. Add `links-v2 review view <review-id>` so users can inspect one
     review item before deciding. The detail view explains the evidence strength,
-    shows the assertion that would be accepted for asset identity items, and
-    makes link proposals explicitly review-only.
+    shows the assertion that would be accepted for asset identity items,
+    explains whether accepting can unblock deterministic linking, and makes link
+    proposals explicitly review-only.
 31. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
