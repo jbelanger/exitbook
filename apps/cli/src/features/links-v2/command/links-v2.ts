@@ -7,6 +7,7 @@ import {
   executeLinksV2AssetIdentityAcceptCommand,
   executeLinksV2AssetIdentityListCommand,
   executeLinksV2AssetIdentitySuggestionsCommand,
+  executeLinksV2DiagnoseCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
 
@@ -23,6 +24,11 @@ const LINKS_V2_RUN_CONFIG = {
   commandId: 'links-v2-run',
   title: 'Links v2 run completed.',
   migrationNote: LINKS_V2_MIGRATION_NOTE,
+} as const;
+
+const LINKS_V2_DIAGNOSE_CONFIG = {
+  commandId: 'links-v2-diagnose',
+  title: 'Links v2 diagnostics.',
 } as const;
 
 const LINKS_V2_ASSET_IDENTITY_CONFIG = {
@@ -43,6 +49,7 @@ Examples:
   $ exitbook links-v2 status
   $ exitbook links-v2 list
   $ exitbook links-v2 view 42
+  $ exitbook links-v2 diagnose
   $ exitbook links-v2 run --dry-run
   $ exitbook links-v2 run
   $ exitbook links-v2 asset-identity list
@@ -78,6 +85,30 @@ Notes:
     });
 
   registerLinksV2RelationshipCommands(linksV2, appRuntime);
+
+  linksV2
+    .command('diagnose')
+    .description('Inspect unmatched v2 candidates and read-only amount/time proposal evidence')
+    .option('--limit <count>', 'Limit unmatched groups and proposal examples shown', '10')
+    .option('--proposal-window-hours <hours>', 'Maximum amount/time proposal window in hours', '168')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 diagnose
+  $ exitbook links-v2 diagnose --limit 20
+  $ exitbook links-v2 diagnose --proposal-window-hours 24 --json
+
+Notes:
+  - Always runs in dry-run mode.
+  - Amount/time proposals are diagnostic evidence only; they are not persisted as ledger relationships.
+  - Candidate remainders are quantity-aware, so partially allocated postings still appear with remaining quantity.
+`
+    )
+    .action(async (rawOptions: unknown) => {
+      await executeLinksV2DiagnoseCommand(rawOptions, appRuntime, LINKS_V2_DIAGNOSE_CONFIG);
+    });
 
   linksV2
     .command('run')

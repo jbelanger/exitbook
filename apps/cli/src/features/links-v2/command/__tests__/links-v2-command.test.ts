@@ -168,6 +168,41 @@ describe('links-v2 command', () => {
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
   });
 
+  it('renders read-only diagnostics for unmatched candidates and amount/time proposals', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        diagnostics: makeDiagnostics(),
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'diagnose', '--proposal-window-hours', '24', '--limit', '1'], {
+      from: 'user',
+    });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        amountTimeProposalWindowMinutes: 1440,
+        dryRun: true,
+        includeDiagnostics: true,
+      }
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 diagnostics.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidate remainders: 1 source, 1 target');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time window: 24h');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposals: 1 (1 unique)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched groups: 1 of 2');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time groups: 1 of 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposal examples: 1 of 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  unique_pair ETH 1 kraken #7 -> ethereum #8 (30m, source_before_target)'
+    );
+  });
+
   it('lists persisted links-v2 relationships', async () => {
     const program = createProgram();
 
@@ -367,6 +402,105 @@ function makeAssetIdentitySuggestion() {
       },
     ],
     relationshipKind: 'internal_transfer',
+  };
+}
+
+function makeDiagnostics() {
+  const source = {
+    activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
+    assetId: 'exchange:kraken:eth',
+    assetSymbol: 'ETH',
+    blockchainTransactionHash: 'source-hash',
+    candidateId: 7,
+    claimedAmount: '0',
+    direction: 'source',
+    fromAddress: '0xfrom',
+    journalFingerprint: 'ledger_journal:v1:source',
+    originalAmount: '1',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:diagnostic-source',
+    remainingAmount: '1',
+    sourceActivityFingerprint: 'source_activity:v1:diagnostic-source',
+    toAddress: '0xto',
+  };
+  const target = {
+    activityDatetime: new Date('2026-04-23T00:30:00.000Z'),
+    assetId: 'blockchain:ethereum:native',
+    assetSymbol: 'ETH',
+    blockchainTransactionHash: 'target-hash',
+    candidateId: 8,
+    claimedAmount: '0',
+    direction: 'target',
+    fromAddress: '0xfrom',
+    journalFingerprint: 'ledger_journal:v1:target',
+    originalAmount: '1',
+    ownerAccountId: 2,
+    platformKey: 'ethereum',
+    platformKind: 'blockchain',
+    postingFingerprint: 'ledger_posting:v1:diagnostic-target',
+    remainingAmount: '1',
+    sourceActivityFingerprint: 'source_activity:v1:diagnostic-target',
+    toAddress: '0xto',
+  };
+
+  return {
+    amountTimeProposalCount: 1,
+    amountTimeProposalGroups: [
+      {
+        amount: '1',
+        ambiguousProposalCount: 0,
+        assetSymbol: 'ETH',
+        maxTimeDistanceSeconds: 1800,
+        minTimeDistanceSeconds: 1800,
+        proposalCount: 1,
+        sourcePlatformKey: 'kraken',
+        sourcePlatformKind: 'exchange',
+        targetPlatformKey: 'ethereum',
+        targetPlatformKind: 'blockchain',
+        uniqueProposalCount: 1,
+      },
+    ],
+    amountTimeProposals: [
+      {
+        amount: '1',
+        assetIdentityReason: 'accepted_assertion',
+        assetSymbol: 'ETH',
+        source,
+        target,
+        timeDirection: 'source_before_target',
+        timeDistanceSeconds: 1800,
+        uniqueness: 'unique_pair',
+      },
+    ],
+    amountTimeUniqueProposalCount: 1,
+    amountTimeWindowMinutes: 1440,
+    unmatchedCandidateGroups: [
+      {
+        assetId: 'exchange:kraken:eth',
+        assetSymbol: 'ETH',
+        candidateCount: 1,
+        direction: 'source',
+        earliestActivityDatetime: source.activityDatetime,
+        latestActivityDatetime: source.activityDatetime,
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        remainingAmountTotal: '1',
+      },
+      {
+        assetId: 'blockchain:ethereum:native',
+        assetSymbol: 'ETH',
+        candidateCount: 1,
+        direction: 'target',
+        earliestActivityDatetime: target.activityDatetime,
+        latestActivityDatetime: target.activityDatetime,
+        platformKey: 'ethereum',
+        platformKind: 'blockchain',
+        remainingAmountTotal: '1',
+      },
+    ],
+    unmatchedCandidates: [source, target],
   };
 }
 

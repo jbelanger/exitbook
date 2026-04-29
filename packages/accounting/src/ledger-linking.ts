@@ -31,6 +31,17 @@ export {
   type LedgerTransferLinkingCandidateBuildResult,
 } from './ledger-linking/candidates/candidate-construction.js';
 export {
+  buildLedgerLinkingDiagnostics,
+  type LedgerLinkingAmountTimeProposal,
+  type LedgerLinkingAmountTimeProposalDirection,
+  type LedgerLinkingAmountTimeProposalGroup,
+  type LedgerLinkingAmountTimeProposalUniqueness,
+  type LedgerLinkingCandidateRemainder,
+  type LedgerLinkingDiagnostics,
+  type LedgerLinkingDiagnosticsOptions,
+  type LedgerLinkingUnmatchedCandidateGroup,
+} from './ledger-linking/diagnostics/linking-diagnostics.js';
+export {
   buildLedgerCounterpartyRoundtripRecognizer,
   buildLedgerCounterpartyRoundtripRelationships,
   LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,

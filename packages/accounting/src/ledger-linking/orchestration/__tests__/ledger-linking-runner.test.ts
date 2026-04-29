@@ -568,6 +568,58 @@ describe('runLedgerLinking', () => {
     expect(harness.savedRelationships).toEqual([]);
   });
 
+  it('can include read-only unmatched diagnostics in dry-run mode', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 1,
+        sourceActivityFingerprint: 'source_activity:v1:source',
+        journalFingerprint: 'ledger_journal:v1:source',
+        postingFingerprint: 'ledger_posting:v1:source',
+        quantity: '-1',
+        blockchainTransactionHash: 'source-hash',
+      }),
+      makePosting({
+        ownerAccountId: 2,
+        sourceActivityFingerprint: 'source_activity:v1:target',
+        journalFingerprint: 'ledger_journal:v1:target',
+        postingFingerprint: 'ledger_posting:v1:target',
+        quantity: '1',
+        activityDatetime: new Date('2026-04-23T00:30:00.000Z'),
+        blockchainTransactionHash: 'target-hash',
+      }),
+    ]);
+
+    const result = assertOk(
+      await runLedgerLinking(1, harness.ports, {
+        amountTimeProposalWindowMinutes: 60,
+        dryRun: true,
+        includeDiagnostics: true,
+      })
+    );
+
+    expect(result.acceptedRelationships).toEqual([]);
+    expect(result.diagnostics?.unmatchedCandidates.map((candidate) => candidate.candidateId)).toEqual([1, 2]);
+    expect(result.diagnostics?.amountTimeProposals).toHaveLength(1);
+    expect(result.diagnostics?.amountTimeProposals[0]).toMatchObject({
+      amount: '1',
+      source: {
+        candidateId: 1,
+        platformKey: 'ethereum',
+      },
+      target: {
+        candidateId: 2,
+        platformKey: 'ethereum',
+      },
+      timeDistanceSeconds: 1800,
+      uniqueness: 'unique_pair',
+    });
+    expect(result.persistence).toEqual({
+      mode: 'dry_run',
+      plannedRelationshipCount: 0,
+    });
+    expect(harness.savedRelationships).toEqual([]);
+  });
+
   it('returns persistence failures without swallowing them', async () => {
     const harness = makeHarness(
       [

@@ -3,6 +3,7 @@ import {
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionSaveResult,
   type LedgerLinkingAssetIdentitySuggestion,
+  type LedgerLinkingDiagnostics,
   type LedgerLinkingRunResult,
 } from '@exitbook/accounting/ledger-linking';
 import {
@@ -10,7 +11,7 @@ import {
   buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts,
 } from '@exitbook/data/accounting';
-import { resultDoAsync } from '@exitbook/foundation';
+import { err, resultDoAsync } from '@exitbook/foundation';
 import type { z } from 'zod';
 import { z as zod } from 'zod';
 
@@ -34,6 +35,11 @@ export const LinksV2RunCommandOptionsSchema = JsonFlagSchema.extend({
   dryRun: zod.boolean().optional(),
 });
 
+export const LinksV2DiagnoseCommandOptionsSchema = JsonFlagSchema.extend({
+  limit: zod.coerce.number().int().positive().default(10),
+  proposalWindowHours: zod.coerce.number().positive().default(168),
+});
+
 export const LinksV2AssetIdentityListCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksV2AssetIdentitySuggestionsCommandOptionsSchema = JsonFlagSchema.extend({
@@ -51,6 +57,7 @@ export const LinksV2AssetIdentityAcceptCommandOptionsSchema = JsonFlagSchema.ext
 
 export type LinksV2StatusCommandOptions = z.infer<typeof LinksV2StatusCommandOptionsSchema>;
 export type LinksV2RunCommandOptions = z.infer<typeof LinksV2RunCommandOptionsSchema>;
+export type LinksV2DiagnoseCommandOptions = z.infer<typeof LinksV2DiagnoseCommandOptionsSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityListCommandOptions = z.infer<typeof LinksV2AssetIdentityListCommandOptionsSchema>;
 export type LinksV2AssetIdentitySuggestionsCommandOptions = z.infer<
@@ -70,6 +77,20 @@ interface LinksV2AssetIdentityListOutput {
   profile: {
     id: number;
     profileKey: string;
+  };
+}
+
+interface LinksV2DiagnoseOutput {
+  diagnostics: LedgerLinkingDiagnostics;
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  runSummary: {
+    acceptedRelationshipCount: number;
+    sourceCandidateCount: number;
+    targetCandidateCount: number;
+    transferCandidateCount: number;
   };
 }
 
@@ -139,6 +160,22 @@ export async function executeLinksV2AssetIdentityListCommand(
     appRuntime,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2AssetIdentityListCommandOptionsSchema),
     action: async ({ runtime, prepared }) => executePreparedLinksV2AssetIdentityListCommand(runtime, prepared, config),
+  });
+}
+
+export async function executeLinksV2DiagnoseCommand(
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2RunExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2DiagnoseCommandOptionsSchema),
+    action: async ({ runtime, prepared }) => executePreparedLinksV2DiagnoseCommand(runtime, prepared, config),
   });
 }
 
@@ -214,6 +251,51 @@ async function executePreparedLinksV2RunCommand(
     }
 
     return textSuccess(() => renderLinksV2RunOutput(output, config));
+  });
+}
+
+async function executePreparedLinksV2DiagnoseCommand(
+  ctx: CommandRuntime,
+  prepared: LinksV2DiagnoseCommandOptions,
+  config: LinksV2RunExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const run = yield* toCliResult(
+      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+        amountTimeProposalWindowMinutes: prepared.proposalWindowHours * 60,
+        dryRun: true,
+        includeDiagnostics: true,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    if (run.diagnostics === undefined) {
+      return yield* toCliResult(
+        err(new Error('Links v2 diagnostics were not returned by the ledger-linking runner')),
+        ExitCodes.GENERAL_ERROR
+      );
+    }
+
+    const output: LinksV2DiagnoseOutput = {
+      diagnostics: run.diagnostics,
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      runSummary: {
+        acceptedRelationshipCount: run.acceptedRelationships.length,
+        sourceCandidateCount: run.sourceCandidateCount,
+        targetCandidateCount: run.targetCandidateCount,
+        transferCandidateCount: run.transferCandidateCount,
+      },
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2DiagnoseOutput(output, prepared, config));
   });
 }
 
@@ -314,6 +396,63 @@ async function executePreparedLinksV2AssetIdentityAcceptCommand(
 
     return textSuccess(() => renderLinksV2AssetIdentityAcceptOutput(output, config));
   });
+}
+
+function renderLinksV2DiagnoseOutput(
+  output: LinksV2DiagnoseOutput,
+  prepared: LinksV2DiagnoseCommandOptions,
+  config: LinksV2RunExecutionConfig
+): void {
+  const { diagnostics, profile, runSummary } = output;
+  const unmatchedSourceCount = diagnostics.unmatchedCandidates.filter(
+    (candidate) => candidate.direction === 'source'
+  ).length;
+  const unmatchedTargetCount = diagnostics.unmatchedCandidates.filter(
+    (candidate) => candidate.direction === 'target'
+  ).length;
+  const proposalGroups = diagnostics.amountTimeProposalGroups.slice(0, prepared.limit);
+  const proposals = diagnostics.amountTimeProposals.slice(0, prepared.limit);
+  const unmatchedGroups = diagnostics.unmatchedCandidateGroups.slice(0, prepared.limit);
+
+  console.log(config.title);
+  console.log('Mode: dry run');
+  console.log(`Profile: ${profile.profileKey} (#${profile.id})`);
+  console.log(
+    `Transfer candidates: ${runSummary.transferCandidateCount} (${runSummary.sourceCandidateCount} source, ${runSummary.targetCandidateCount} target)`
+  );
+  console.log(`Accepted relationships: ${runSummary.acceptedRelationshipCount}`);
+  console.log(`Unmatched candidate remainders: ${unmatchedSourceCount} source, ${unmatchedTargetCount} target`);
+  console.log(`Amount/time window: ${formatWindowHours(diagnostics.amountTimeWindowMinutes)}`);
+  console.log(
+    `Amount/time proposals: ${diagnostics.amountTimeProposalCount} (${diagnostics.amountTimeUniqueProposalCount} unique)`
+  );
+
+  console.log(`Unmatched groups: ${unmatchedGroups.length} of ${diagnostics.unmatchedCandidateGroups.length}`);
+  for (const group of unmatchedGroups) {
+    console.log(
+      `  ${group.direction} ${group.assetSymbol} ${group.platformKey}: ${group.candidateCount} candidate(s), ${group.remainingAmountTotal} ${group.assetSymbol} remaining`
+    );
+  }
+
+  console.log(`Amount/time groups: ${proposalGroups.length} of ${diagnostics.amountTimeProposalGroups.length}`);
+  for (const group of proposalGroups) {
+    console.log(
+      `  ${group.assetSymbol} ${group.amount} ${group.sourcePlatformKey} -> ${group.targetPlatformKey}: ${group.proposalCount} proposal(s), ${group.uniqueProposalCount} unique, time ${formatDurationRange(group.minTimeDistanceSeconds, group.maxTimeDistanceSeconds)}`
+    );
+  }
+
+  console.log(`Amount/time proposal examples: ${proposals.length} of ${diagnostics.amountTimeProposals.length}`);
+  for (const proposal of proposals) {
+    console.log(
+      `  ${proposal.uniqueness} ${proposal.assetSymbol} ${proposal.amount} ${proposal.source.platformKey} #${proposal.source.candidateId} -> ${proposal.target.platformKey} #${proposal.target.candidateId} (${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection})`
+    );
+    console.log(
+      `    source ${formatDate(proposal.source.activityDatetime)} ${shortenValue(proposal.source.postingFingerprint)}`
+    );
+    console.log(
+      `    target ${formatDate(proposal.target.activityDatetime)} ${shortenValue(proposal.target.postingFingerprint)}`
+    );
+  }
 }
 
 function renderLinksV2RunOutput(
@@ -423,6 +562,40 @@ function limitAssetIdentitySuggestions(
   limit: number | undefined
 ): readonly LedgerLinkingAssetIdentitySuggestion[] {
   return limit === undefined ? suggestions : suggestions.slice(0, limit);
+}
+
+function formatWindowHours(windowMinutes: number): string {
+  const hours = windowMinutes / 60;
+  return Number.isInteger(hours) ? `${hours}h` : `${windowMinutes}m`;
+}
+
+function formatDurationRange(minSeconds: number, maxSeconds: number): string {
+  const min = formatDurationSeconds(minSeconds);
+  const max = formatDurationSeconds(maxSeconds);
+  return min === max ? min : `${min}-${max}`;
+}
+
+function formatDurationSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = seconds / 60;
+  if (minutes < 60) {
+    return Number.isInteger(minutes) ? `${minutes}m` : `${minutes.toFixed(1)}m`;
+  }
+
+  const hours = minutes / 60;
+  if (hours < 48) {
+    return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+  }
+
+  const days = hours / 24;
+  return Number.isInteger(days) ? `${days}d` : `${days.toFixed(1)}d`;
+}
+
+function formatDate(date: Date): string {
+  return date.toISOString();
 }
 
 function formatAssetIdentitySuggestionHash(example: LedgerLinkingAssetIdentitySuggestion['examples'][number]): string {

@@ -1010,7 +1010,10 @@ First implementation slices:
     matched quantity and leaves the residual quantity available for later passes.
     If residual placement would require choosing between multiple larger-side
     candidates, the group remains unresolved.
-25. Then broaden matching strategies only where processor-v2 ledger facts are
+25. Complete. Add read-only `links-v2 diagnose` output for quantity-aware
+    unmatched candidate remainders and exact amount/time proposal evidence. These
+    proposals are diagnostic only and are not persisted as relationship truth.
+26. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

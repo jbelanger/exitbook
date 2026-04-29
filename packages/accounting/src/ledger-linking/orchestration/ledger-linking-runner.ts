@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import {
   buildLedgerLinkingAssetIdentityResolver,
   type ILedgerLinkingAssetIdentityAssertionReader,
+  type LedgerLinkingAssetIdentityResolver,
 } from '../asset-identity/asset-identity-resolution.js';
 import {
   buildLedgerLinkingAssetIdentitySuggestions,
@@ -12,7 +13,9 @@ import {
   buildLedgerTransferLinkingCandidates,
   type ILedgerLinkingCandidateSourceReader,
   type LedgerLinkingCandidateSkip,
+  type LedgerTransferLinkingCandidate,
 } from '../candidates/candidate-construction.js';
+import { buildLedgerLinkingDiagnostics, type LedgerLinkingDiagnostics } from '../diagnostics/linking-diagnostics.js';
 import {
   buildLedgerCounterpartyRoundtripRecognizer,
   LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,
@@ -64,7 +67,9 @@ type LedgerLinkingDeterministicPayload =
   | LedgerCounterpartyRoundtripRelationshipResult;
 
 export interface LedgerLinkingRunOptions {
+  amountTimeProposalWindowMinutes?: number | undefined;
   dryRun?: boolean | undefined;
+  includeDiagnostics?: boolean | undefined;
 }
 
 export interface LedgerLinkingDeterministicRecognizerStats {
@@ -90,6 +95,7 @@ export interface LedgerLinkingRunResult {
   counterpartyRoundtripAmbiguities: readonly LedgerCounterpartyRoundtripAmbiguity[];
   counterpartyRoundtripMatches: readonly LedgerCounterpartyRoundtripMatch[];
   deterministicRecognizerStats: readonly LedgerLinkingDeterministicRecognizerStats[];
+  diagnostics?: LedgerLinkingDiagnostics | undefined;
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
   exactHashMatches: readonly LedgerExactHashTransferMatch[];
@@ -176,6 +182,16 @@ export async function runLedgerLinking(
     return err(assetIdentitySuggestionsResult.error);
   }
 
+  const diagnosticsResult = buildOptionalLedgerLinkingDiagnostics(
+    candidates,
+    deterministicResult.value.candidateClaims,
+    assetIdentityResolverResult.value,
+    options
+  );
+  if (diagnosticsResult.isErr()) {
+    return err(diagnosticsResult.error);
+  }
+
   const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.candidateClaims);
   const candidateCounts = countTransferCandidatesByDirection(candidates);
   const persistenceResult = await resolvePersistenceResult(
@@ -194,6 +210,7 @@ export async function runLedgerLinking(
     counterpartyRoundtripAmbiguities: counterpartyRoundtripResult.ambiguities,
     counterpartyRoundtripMatches: counterpartyRoundtripResult.matches,
     deterministicRecognizerStats: deterministicResult.value.runs.map(toDeterministicRecognizerStats),
+    ...(diagnosticsResult.value !== undefined ? { diagnostics: diagnosticsResult.value } : {}),
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
     exactHashMatches: exactHashResult.matches,
@@ -209,6 +226,21 @@ export async function runLedgerLinking(
     transferCandidateCount: candidates.length,
     unmatchedSourceCandidateCount: candidateCounts.sourceCandidateCount - matchCounts.matchedSourceCandidateCount,
     unmatchedTargetCandidateCount: candidateCounts.targetCandidateCount - matchCounts.matchedTargetCandidateCount,
+  });
+}
+
+function buildOptionalLedgerLinkingDiagnostics(
+  candidates: readonly LedgerTransferLinkingCandidate[],
+  candidateClaims: readonly LedgerDeterministicCandidateClaim[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
+  options: LedgerLinkingRunOptions
+): Result<LedgerLinkingDiagnostics | undefined, Error> {
+  if (options.includeDiagnostics !== true) {
+    return ok(undefined);
+  }
+
+  return buildLedgerLinkingDiagnostics(candidates, candidateClaims, assetIdentityResolver, {
+    amountTimeWindowMinutes: options.amountTimeProposalWindowMinutes,
   });
 }
 
