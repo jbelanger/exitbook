@@ -969,10 +969,9 @@ First implementation slices:
     under `links-v2 asset-identity suggestions` and the lower-level
     `ledger linking-v2 asset-identity suggestions` alias. Suggestions are grouped
     exact-hash evidence and do not persist assertions automatically.
-18. Next. Refactor relationship persistence to the greenfield header-plus-
-    allocation model before implementing same-hash. Exact-hash relationships
-    should become one source allocation plus one target allocation with full
-    posting amounts.
+18. Complete. Refactor relationship persistence to the greenfield header-plus-
+    allocation model before implementing same-hash. Exact-hash relationships are
+    one source allocation plus one target allocation with full posting amounts.
 19. Done. Rebuild the same-hash grouped recognizer on ledger-native candidates.
     It is deterministic-only: it accepts strict whole-candidate groups where
     source and target totals balance exactly, and leaves ambiguous or partial
@@ -982,7 +981,11 @@ First implementation slices:
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-21. Then broaden matching strategies only where processor-v2 ledger facts are
+21. Before broadening matching strategies, decide how accepted relationship
+    evidence is represented durably. Counterparty roundtrip can be deterministic
+    under strict one-to-one address and timing invariants, but it should not be
+    persisted as a bare `external_transfer` with no strategy/evidence metadata.
+22. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:
