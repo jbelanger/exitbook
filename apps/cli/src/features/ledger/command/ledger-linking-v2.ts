@@ -1,68 +1,21 @@
-import {
-  runLedgerLinking,
-  type LedgerLinkingAssetIdentityAssertion,
-  type LedgerLinkingAssetIdentityAssertionSaveResult,
-  type LedgerLinkingRunResult,
-} from '@exitbook/accounting/ledger-linking';
-import {
-  buildLedgerLinkingAssetIdentityAssertionReader,
-  buildLedgerLinkingAssetIdentityAssertionStore,
-  buildLedgerLinkingRunPorts,
-} from '@exitbook/data/accounting';
-import { resultDoAsync } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import type { z } from 'zod';
 
-import {
-  jsonSuccess,
-  runCliRuntimeCommand,
-  textSuccess,
-  toCliResult,
-  type CliCommandResult,
-} from '../../../cli/command.js';
-import { ExitCodes } from '../../../cli/exit-codes.js';
-import { detectCliOutputFormat, parseCliCommandOptionsResult } from '../../../cli/options.js';
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
-import type { CommandRuntime } from '../../../runtime/command-runtime.js';
-import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
-
 import {
-  LedgerLinkingV2AssetIdentityAcceptCommandOptionsSchema,
-  LedgerLinkingV2AssetIdentityListCommandOptionsSchema,
-  LedgerLinkingV2RunCommandOptionsSchema,
-} from './ledger-option-schemas.js';
+  executeLinksV2AssetIdentityAcceptCommand,
+  executeLinksV2AssetIdentityListCommand,
+  executeLinksV2RunCommand,
+} from '../../links-v2/command/links-v2-shared.js';
 
-type LedgerLinkingV2RunCommandOptions = z.infer<typeof LedgerLinkingV2RunCommandOptionsSchema>;
-type LedgerLinkingV2AssetIdentityAcceptCommandOptions = z.infer<
-  typeof LedgerLinkingV2AssetIdentityAcceptCommandOptionsSchema
->;
-type LedgerLinkingV2AssetIdentityListCommandOptions = z.infer<
-  typeof LedgerLinkingV2AssetIdentityListCommandOptionsSchema
->;
+const LEDGER_LINKING_V2_RUN_CONFIG = {
+  commandId: 'ledger-linking-v2-run',
+  title: 'Ledger linking v2 completed.',
+} as const;
 
-interface LedgerLinkingV2RunOutput {
-  profile: {
-    id: number;
-    profileKey: string;
-  };
-  run: LedgerLinkingRunResult;
-}
-
-interface LedgerLinkingV2AssetIdentityListOutput {
-  assertions: readonly LedgerLinkingAssetIdentityAssertion[];
-  profile: {
-    id: number;
-    profileKey: string;
-  };
-}
-
-interface LedgerLinkingV2AssetIdentityAcceptOutput {
-  profile: {
-    id: number;
-    profileKey: string;
-  };
-  result: LedgerLinkingAssetIdentityAssertionSaveResult;
-}
+const LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG = {
+  commandId: 'ledger-linking-v2-asset-identity',
+  label: 'Ledger linking',
+} as const;
 
 export function registerLedgerLinkingV2Command(ledgerCommand: Command, appRuntime: CliAppRuntime): void {
   const linkingV2 = ledgerCommand
@@ -79,6 +32,7 @@ Examples:
 Notes:
   - This is the ledger-native v2 path, not legacy transaction link proposal review.
   - Use "ledger linking-v2 run --dry-run" to preview accepted relationships before writing them.
+  - Prefer "links-v2" for the parallel migration UX during v1/v2 comparison work.
 `
     );
 
@@ -102,9 +56,13 @@ Notes:
 `
     )
     .action(async (rawOptions: unknown) => {
-      await executeLedgerLinkingV2RunCommand(rawOptions, appRuntime);
+      await executeLinksV2RunCommand(rawOptions, appRuntime, LEDGER_LINKING_V2_RUN_CONFIG);
     });
 
+  registerLedgerLinkingV2AssetIdentityCommand(linkingV2, appRuntime);
+}
+
+function registerLedgerLinkingV2AssetIdentityCommand(linkingV2: Command, appRuntime: CliAppRuntime): void {
   const assetIdentity = linkingV2
     .command('asset-identity')
     .description('Manage accepted ledger-linking asset identity assertions')
@@ -134,7 +92,10 @@ Examples:
 `
     )
     .action(async (rawOptions: unknown) => {
-      await executeLedgerLinkingV2AssetIdentityListCommand(rawOptions, appRuntime);
+      await executeLinksV2AssetIdentityListCommand(rawOptions, appRuntime, {
+        ...LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG,
+        commandId: 'ledger-linking-v2-asset-identity-list',
+      });
     });
 
   assetIdentity
@@ -158,203 +119,9 @@ Notes:
 `
     )
     .action(async (rawOptions: unknown) => {
-      await executeLedgerLinkingV2AssetIdentityAcceptCommand(rawOptions, appRuntime);
+      await executeLinksV2AssetIdentityAcceptCommand(rawOptions, appRuntime, {
+        ...LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG,
+        commandId: 'ledger-linking-v2-asset-identity-accept',
+      });
     });
-}
-
-async function executeLedgerLinkingV2RunCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
-  const format = detectCliOutputFormat(rawOptions);
-
-  await runCliRuntimeCommand({
-    command: 'ledger-linking-v2-run',
-    format,
-    appRuntime,
-    prepare: async () => parseCliCommandOptionsResult(rawOptions, LedgerLinkingV2RunCommandOptionsSchema),
-    action: async ({ runtime, prepared }) => executePreparedLedgerLinkingV2RunCommand(runtime, prepared),
-  });
-}
-
-async function executePreparedLedgerLinkingV2RunCommand(
-  ctx: CommandRuntime,
-  prepared: LedgerLinkingV2RunCommandOptions
-): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const database = await ctx.openDatabaseSession();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
-        dryRun: prepared.dryRun === true,
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
-    const output: LedgerLinkingV2RunOutput = {
-      profile: {
-        id: profile.id,
-        profileKey: profile.profileKey,
-      },
-      run,
-    };
-
-    if (prepared.json === true) {
-      return jsonSuccess(output);
-    }
-
-    return textSuccess(() => renderLedgerLinkingV2RunOutput(output));
-  });
-}
-
-async function executeLedgerLinkingV2AssetIdentityListCommand(
-  rawOptions: unknown,
-  appRuntime: CliAppRuntime
-): Promise<void> {
-  const format = detectCliOutputFormat(rawOptions);
-
-  await runCliRuntimeCommand({
-    command: 'ledger-linking-v2-asset-identity-list',
-    format,
-    appRuntime,
-    prepare: async () => parseCliCommandOptionsResult(rawOptions, LedgerLinkingV2AssetIdentityListCommandOptionsSchema),
-    action: async ({ runtime, prepared }) => executePreparedLedgerLinkingV2AssetIdentityListCommand(runtime, prepared),
-  });
-}
-
-async function executePreparedLedgerLinkingV2AssetIdentityListCommand(
-  ctx: CommandRuntime,
-  prepared: LedgerLinkingV2AssetIdentityListCommandOptions
-): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const database = await ctx.openDatabaseSession();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const assertions = yield* toCliResult(
-      await buildLedgerLinkingAssetIdentityAssertionReader(database).loadLedgerLinkingAssetIdentityAssertions(
-        profile.id
-      ),
-      ExitCodes.GENERAL_ERROR
-    );
-    const output: LedgerLinkingV2AssetIdentityListOutput = {
-      assertions,
-      profile: {
-        id: profile.id,
-        profileKey: profile.profileKey,
-      },
-    };
-
-    if (prepared.json === true) {
-      return jsonSuccess(output);
-    }
-
-    return textSuccess(() => renderLedgerLinkingV2AssetIdentityListOutput(output));
-  });
-}
-
-async function executeLedgerLinkingV2AssetIdentityAcceptCommand(
-  rawOptions: unknown,
-  appRuntime: CliAppRuntime
-): Promise<void> {
-  const format = detectCliOutputFormat(rawOptions);
-
-  await runCliRuntimeCommand({
-    command: 'ledger-linking-v2-asset-identity-accept',
-    format,
-    appRuntime,
-    prepare: async () =>
-      parseCliCommandOptionsResult(rawOptions, LedgerLinkingV2AssetIdentityAcceptCommandOptionsSchema),
-    action: async ({ runtime, prepared }) =>
-      executePreparedLedgerLinkingV2AssetIdentityAcceptCommand(runtime, prepared),
-  });
-}
-
-async function executePreparedLedgerLinkingV2AssetIdentityAcceptCommand(
-  ctx: CommandRuntime,
-  prepared: LedgerLinkingV2AssetIdentityAcceptCommandOptions
-): Promise<CliCommandResult> {
-  return resultDoAsync(async function* () {
-    const database = await ctx.openDatabaseSession();
-    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
-    const result = yield* toCliResult(
-      await buildLedgerLinkingAssetIdentityAssertionStore(database).saveLedgerLinkingAssetIdentityAssertion(
-        profile.id,
-        {
-          assetIdA: prepared.assetIdA,
-          assetIdB: prepared.assetIdB,
-          evidenceKind: prepared.evidenceKind,
-          relationshipKind: prepared.relationshipKind,
-        }
-      ),
-      ExitCodes.GENERAL_ERROR
-    );
-    const output: LedgerLinkingV2AssetIdentityAcceptOutput = {
-      profile: {
-        id: profile.id,
-        profileKey: profile.profileKey,
-      },
-      result,
-    };
-
-    if (prepared.json === true) {
-      return jsonSuccess(output);
-    }
-
-    return textSuccess(() => renderLedgerLinkingV2AssetIdentityAcceptOutput(output));
-  });
-}
-
-function renderLedgerLinkingV2RunOutput(output: LedgerLinkingV2RunOutput): void {
-  const { profile, run } = output;
-
-  console.log('Ledger linking v2 completed.');
-  console.log(`Mode: ${run.persistence.mode === 'dry_run' ? 'dry run' : 'persisted'}`);
-  console.log(`Profile: ${profile.profileKey} (#${profile.id})`);
-  console.log(`Posting inputs: ${run.postingInputCount}`);
-  console.log(
-    `Transfer candidates: ${run.transferCandidateCount} (${run.sourceCandidateCount} source, ${run.targetCandidateCount} target)`
-  );
-  console.log(
-    `Matched candidates: ${run.matchedSourceCandidateCount} source, ${run.matchedTargetCandidateCount} target`
-  );
-  console.log(
-    `Unmatched candidates: ${run.unmatchedSourceCandidateCount} source, ${run.unmatchedTargetCandidateCount} target`
-  );
-  console.log(`Deterministic recognizers: ${run.deterministicRecognizerStats.length}`);
-  for (const stats of run.deterministicRecognizerStats) {
-    console.log(
-      `  ${stats.name}: ${stats.relationshipCount} relationship(s), ${stats.consumedCandidateCount} candidate(s)`
-    );
-  }
-  console.log(`Accepted relationships: ${run.acceptedRelationships.length}`);
-  console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
-  console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
-  console.log(`Exact-hash asset identity blocks: ${run.exactHashAssetIdentityBlocks.length}`);
-  console.log(`Skipped postings: ${run.skippedCandidates.length}`);
-
-  if (run.persistence.mode === 'dry_run') {
-    console.log(`Planned materialization: ${run.persistence.plannedRelationshipCount} relationship(s)`);
-    return;
-  }
-
-  const materialization = run.persistence.materialization;
-  console.log(
-    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedEndpointCount} endpoint refs resolved`
-  );
-}
-
-function renderLedgerLinkingV2AssetIdentityListOutput(output: LedgerLinkingV2AssetIdentityListOutput): void {
-  console.log(`Ledger linking asset identity assertions for ${output.profile.profileKey} (#${output.profile.id})`);
-  console.log(`Assertions: ${output.assertions.length}`);
-
-  for (const assertion of output.assertions) {
-    console.log(
-      `  ${assertion.relationshipKind}: ${assertion.assetIdA} <-> ${assertion.assetIdB} (${assertion.evidenceKind})`
-    );
-  }
-}
-
-function renderLedgerLinkingV2AssetIdentityAcceptOutput(output: LedgerLinkingV2AssetIdentityAcceptOutput): void {
-  const { assertion, action } = output.result;
-
-  console.log(`Ledger linking asset identity assertion ${action}.`);
-  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
-  console.log(`Relationship kind: ${assertion.relationshipKind}`);
-  console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
-  console.log(`Evidence: ${assertion.evidenceKind}`);
 }

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-28
+last_verified: 2026-04-29
 status: active
 ---
 
@@ -836,7 +836,11 @@ surfaces per-recognizer stats. Accepted pairwise asset identity assertions are
 now modeled separately from relationships so exchange-scoped and chain-scoped
 asset ids can be linked only when an explicit assertion exists.
 `ledger linking-v2 asset-identity accept/list` provides a minimal non-TUI way
-to seed and inspect those accepted assertions.
+to seed and inspect those accepted assertions. A parallel top-level `links-v2`
+command now exists for v1/v2 comparison work: bare `links-v2` and
+`links-v2 status` are read-only previews, `links-v2 run` materializes accepted
+ledger relationships, and `links-v2 asset-identity` manages the same accepted
+assertions without touching legacy transaction links.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -866,6 +870,8 @@ Files:
 - legacy `packages/accounting/src/linking/**` only as behavior/reference
   evidence during migration
 - `packages/accounting/src/ledger-shadow/shadow-reconciliation.ts`
+- `apps/cli/src/features/links-v2/**`
+- `apps/cli/src/features/ledger/command/ledger-linking-v2.ts`
 
 Implementation shape:
 
@@ -922,18 +928,26 @@ First implementation slices:
 14. Complete. Add minimal non-TUI asset identity assertion commands under
     `ledger linking-v2 asset-identity`: `accept` saves one canonical pair and
     `list` shows the active profile's accepted assertions.
-15. Next. Decide whether this command should remain migration-only or become
-    part of a broader links workflow after the relationship model proves stable.
-16. Then persist ledger-native unresolved gaps and surface them through
+15. Complete. Keep v2 migration-only for now, but expose it through a parallel
+    top-level `links-v2` command so v1 links and v2 ledger relationships can be
+    compared for a while before legacy code removal. Keep `ledger linking-v2`
+    as the lower-level ledger migration alias over the same implementation.
+16. Next. Add read-only v2 browsing parity for persisted ledger relationships
+    under `links-v2 list/view` before introducing review or gap persistence.
+    These commands should read ledger relationships, not legacy
+    `transaction_links`.
+17. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-17. Then broaden matching strategies only where processor-v2 ledger facts are
+18. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:
 
 - Linking-v2 has its own files and module boundary.
+- The parallel `links-v2` CLI remains separate from legacy `links` while the
+  two workflows are compared.
 - Linking-v2 does not import legacy movement-matching utilities as its core
   implementation.
 - Internal transfer, bridge, same-hash carryover, and asset migration

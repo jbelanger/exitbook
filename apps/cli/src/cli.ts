@@ -15,6 +15,7 @@ import { registerCostBasisCommand } from './features/cost-basis/command/cost-bas
 import { registerImportCommand } from './features/import/command/import.js';
 import { registerIssuesCommand } from './features/issues/command/issues.js';
 import { registerLedgerCommand } from './features/ledger/command/ledger.js';
+import { registerLinksV2Command } from './features/links-v2/command/links-v2.js';
 import { registerLinksCommand } from './features/links/command/links.js';
 import { registerPortfolioCommand } from './features/portfolio/command/portfolio.js';
 import { registerPricesCommand } from './features/prices/command/prices.js';
@@ -88,10 +89,10 @@ Start Here:
 
 Command Journeys:
   Workspace setup      profiles, accounts, blockchains, providers
-  Sync and rebuild     import, reprocess, links run, prices enrich, accounts refresh
+  Sync and rebuild     import, reprocess, links run, links-v2 run, prices enrich, accounts refresh
   Review and resolve   issues, transactions explore, links explore, assets explore, accounts explore
   Analyze and export   portfolio, cost-basis, transactions export, cost-basis export
-  Migration gates      ledger stress evm-family
+  Migration gates      ledger stress evm-family, links-v2 status
   Cleanup and recovery clear
 
 Notes:
@@ -106,6 +107,7 @@ Notes:
   registerIssuesCommand(program);
   registerLedgerCommand(program, appRuntime);
   registerLinksCommand(program, appRuntime);
+  registerLinksV2Command(program, appRuntime);
   registerAccountsCommand(program, appRuntime);
   registerAssetsCommand(program);
   registerTransactionsCommand(program, appRuntime);
