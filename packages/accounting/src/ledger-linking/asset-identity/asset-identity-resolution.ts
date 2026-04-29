@@ -2,7 +2,12 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import { AccountingJournalRelationshipKindSchema } from '@exitbook/ledger';
 import { z } from 'zod';
 
-export const LedgerLinkingAssetIdentityEvidenceKindSchema = z.enum(['manual', 'seeded', 'exact_hash_observed']);
+export const LedgerLinkingAssetIdentityEvidenceKindSchema = z.enum([
+  'manual',
+  'seeded',
+  'exact_hash_observed',
+  'amount_time_observed',
+]);
 
 export const LedgerLinkingAssetIdentityAssertionSchema = z.object({
   assetIdA: z.string().min(1, 'Asset id A must not be empty'),

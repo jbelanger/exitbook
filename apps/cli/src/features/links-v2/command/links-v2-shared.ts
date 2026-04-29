@@ -49,7 +49,7 @@ export const LinksV2AssetIdentitySuggestionsCommandOptionsSchema = JsonFlagSchem
 export const LinksV2AssetIdentityAcceptCommandOptionsSchema = JsonFlagSchema.extend({
   assetIdA: zod.string().trim().min(1, 'Asset id A must not be empty'),
   assetIdB: zod.string().trim().min(1, 'Asset id B must not be empty'),
-  evidenceKind: zod.enum(['manual', 'seeded', 'exact_hash_observed']).default('manual'),
+  evidenceKind: zod.enum(['manual', 'seeded', 'exact_hash_observed', 'amount_time_observed']).default('manual'),
   relationshipKind: zod
     .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
     .default('internal_transfer'),
@@ -95,6 +95,7 @@ interface LinksV2DiagnoseOutput {
 }
 
 interface LinksV2AssetIdentitySuggestionsOutput {
+  amountTimeAssetIdentityBlockerCount: number;
   exactHashAssetIdentityBlockCount: number;
   profile: {
     id: number;
@@ -345,6 +346,10 @@ async function executePreparedLinksV2AssetIdentitySuggestionsCommand(
     );
     const suggestions = limitAssetIdentitySuggestions(run.assetIdentitySuggestions, prepared.limit);
     const output: LinksV2AssetIdentitySuggestionsOutput = {
+      amountTimeAssetIdentityBlockerCount: countAssetIdentitySuggestionBlocks(
+        run.assetIdentitySuggestions,
+        'amount_time_observed'
+      ),
       exactHashAssetIdentityBlockCount: run.exactHashAssetIdentityBlocks.length,
       profile: {
         id: profile.id,
@@ -427,6 +432,7 @@ function renderLinksV2DiagnoseOutput(
   console.log(
     `Amount/time proposals: ${diagnostics.amountTimeProposalCount} (${diagnostics.amountTimeUniqueProposalCount} unique)`
   );
+  console.log(`Asset identity blockers: ${diagnostics.assetIdentityBlockerProposalCount}`);
   console.log(
     `Classification groups: ${classificationGroups.length} of ${diagnostics.candidateClassificationGroups.length}`
   );
@@ -534,21 +540,20 @@ function renderLinksV2AssetIdentitySuggestionsOutput(
   config: LinksV2AssetIdentityExecutionConfig
 ): void {
   console.log(`${config.label} asset identity suggestions for ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(`Suggestions: ${output.suggestions.length} of ${output.totalSuggestionCount}`);
   console.log(
-    `Suggestions: ${output.suggestions.length} of ${output.totalSuggestionCount} from ${output.exactHashAssetIdentityBlockCount} exact-hash blocker(s)`
+    `Evidence: ${output.exactHashAssetIdentityBlockCount} exact-hash blocker(s), ${output.amountTimeAssetIdentityBlockerCount} amount/time blocker(s)`
   );
 
   for (const suggestion of output.suggestions) {
     console.log(
-      `  ${suggestion.relationshipKind} ${suggestion.assetSymbol}: ${suggestion.assetIdA} <-> ${suggestion.assetIdB} (${suggestion.blockCount} blocker(s))`
+      `  ${suggestion.relationshipKind} ${suggestion.assetSymbol}: ${suggestion.assetIdA} <-> ${suggestion.assetIdB} (${suggestion.blockCount} ${formatAssetIdentityEvidenceKind(suggestion.evidenceKind)} blocker(s))`
     );
     for (const example of suggestion.examples) {
-      console.log(
-        `    example: ${example.amount} ${suggestion.assetSymbol}, hash ${formatAssetIdentitySuggestionHash(example)}`
-      );
+      console.log(`    ${formatAssetIdentitySuggestionExample(suggestion, example)}`);
     }
     console.log(
-      `    accept: exitbook ${config.commandPath} asset-identity accept --asset-id-a ${suggestion.assetIdA} --asset-id-b ${suggestion.assetIdB} --relationship-kind ${suggestion.relationshipKind} --evidence-kind exact_hash_observed`
+      `    accept: exitbook ${config.commandPath} asset-identity accept --asset-id-a ${suggestion.assetIdA} --asset-id-b ${suggestion.assetIdB} --relationship-kind ${suggestion.relationshipKind} --evidence-kind ${suggestion.evidenceKind}`
     );
   }
 }
@@ -571,6 +576,15 @@ function limitAssetIdentitySuggestions(
   limit: number | undefined
 ): readonly LedgerLinkingAssetIdentitySuggestion[] {
   return limit === undefined ? suggestions : suggestions.slice(0, limit);
+}
+
+function countAssetIdentitySuggestionBlocks(
+  suggestions: readonly LedgerLinkingAssetIdentitySuggestion[],
+  evidenceKind: LedgerLinkingAssetIdentitySuggestion['evidenceKind']
+): number {
+  return suggestions
+    .filter((suggestion) => suggestion.evidenceKind === evidenceKind)
+    .reduce((sum, suggestion) => sum + suggestion.blockCount, 0);
 }
 
 function formatWindowHours(windowMinutes: number): string {
@@ -607,7 +621,44 @@ function formatDate(date: Date): string {
   return date.toISOString();
 }
 
-function formatAssetIdentitySuggestionHash(example: LedgerLinkingAssetIdentitySuggestion['examples'][number]): string {
+function formatAssetIdentitySuggestionExample(
+  suggestion: LedgerLinkingAssetIdentitySuggestion,
+  example: LedgerLinkingAssetIdentitySuggestion['examples'][number]
+): string {
+  const details: string[] = [`example: ${example.amount} ${suggestion.assetSymbol}`];
+
+  if (example.timeDistanceSeconds !== undefined) {
+    details.push(`time ${formatDurationSeconds(example.timeDistanceSeconds)}`);
+  }
+
+  if (example.sourceCandidateId !== undefined && example.targetCandidateId !== undefined) {
+    details.push(`candidates #${example.sourceCandidateId} -> #${example.targetCandidateId}`);
+  }
+
+  const hash = formatAssetIdentitySuggestionHash(example);
+  if (hash !== undefined) {
+    details.push(`hash ${hash}`);
+  }
+
+  return details.join(', ');
+}
+
+function formatAssetIdentityEvidenceKind(evidenceKind: LedgerLinkingAssetIdentitySuggestion['evidenceKind']): string {
+  switch (evidenceKind) {
+    case 'exact_hash_observed':
+      return 'exact-hash';
+    case 'amount_time_observed':
+      return 'amount/time';
+  }
+}
+
+function formatAssetIdentitySuggestionHash(
+  example: LedgerLinkingAssetIdentitySuggestion['examples'][number]
+): string | undefined {
+  if (example.sourceBlockchainTransactionHash === undefined || example.targetBlockchainTransactionHash === undefined) {
+    return undefined;
+  }
+
   if (example.sourceBlockchainTransactionHash === example.targetBlockchainTransactionHash) {
     return shortenValue(example.sourceBlockchainTransactionHash);
   }

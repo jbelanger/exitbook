@@ -195,6 +195,7 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidate remainders: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time window: 24h');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposals: 1 (1 unique)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Asset identity blockers: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Classification groups: 1 of 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('  amount_time_unique: 2 candidate(s), 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched groups: 1 of 2');
@@ -287,10 +288,12 @@ describe('links-v2 command', () => {
 
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity suggestions for default (#7)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1 from 1 exact-hash blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Evidence: 1 exact-hash blocker(s), 0 amount/time blocker(s)');
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 blocker(s))'
+      '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 exact-hash blocker(s))'
     );
+    expect(consoleLogSpy).toHaveBeenCalledWith('    example: 1 ETH, hash 0xabc');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '    accept: exitbook links-v2 asset-identity accept --asset-id-a blockchain:ethereum:native --asset-id-b exchange:kraken:eth --relationship-kind internal_transfer --evidence-kind exact_hash_observed'
     );
@@ -394,6 +397,7 @@ function makeAssetIdentitySuggestion() {
     assetIdB: 'exchange:kraken:eth',
     assetSymbol: 'ETH',
     blockCount: 1,
+    evidenceKind: 'exact_hash_observed',
     examples: [
       {
         amount: '1',
@@ -448,6 +452,8 @@ function makeDiagnostics() {
   };
 
   return {
+    assetIdentityBlockerProposalCount: 0,
+    assetIdentityBlockerProposals: [],
     amountTimeProposalCount: 1,
     amountTimeProposalGroups: [
       {

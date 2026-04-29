@@ -633,7 +633,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addCheckConstraint('ledger_linking_asset_identity_assertions_asset_ids_canonical', sql`asset_id_a < asset_id_b`)
     .addCheckConstraint(
       'ledger_linking_asset_identity_assertions_evidence_kind_valid',
-      sql`evidence_kind IN ('manual', 'seeded', 'exact_hash_observed')`
+      sql`evidence_kind IN ('manual', 'seeded', 'exact_hash_observed', 'amount_time_observed')`
     )
     .execute();
 

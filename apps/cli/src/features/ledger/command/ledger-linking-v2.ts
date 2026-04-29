@@ -104,7 +104,7 @@ Examples:
 
   assetIdentity
     .command('suggestions')
-    .description('Preview read-only asset identity suggestions from exact-hash blockers')
+    .description('Preview read-only asset identity suggestions from v2 linker evidence')
     .option('--limit <count>', 'Limit the number of suggestions shown')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
@@ -133,7 +133,11 @@ Notes:
     .requiredOption('--asset-id-a <assetId>', 'First asset id in the pair')
     .requiredOption('--asset-id-b <assetId>', 'Second asset id in the pair')
     .option('--relationship-kind <kind>', 'Relationship kind scope', 'internal_transfer')
-    .option('--evidence-kind <kind>', 'Assertion evidence kind', 'manual')
+    .option(
+      '--evidence-kind <kind>',
+      'Assertion evidence kind: manual, seeded, exact_hash_observed, amount_time_observed',
+      'manual'
+    )
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',

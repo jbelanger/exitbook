@@ -266,6 +266,17 @@ describe('buildLedgerLinkingDiagnostics', () => {
         platformKey: 'ethereum',
       },
     ]);
+    expect(result.assetIdentityBlockerProposals).toEqual([
+      {
+        amount: '1',
+        assetSymbol: ETH,
+        reason: 'same_symbol_different_asset_ids',
+        source: result.unmatchedCandidates.find((candidate) => candidate.candidateId === 1),
+        target: result.unmatchedCandidates.find((candidate) => candidate.candidateId === 2),
+        timeDirection: 'same_time',
+        timeDistanceSeconds: 0,
+      },
+    ]);
     expect(result.candidateClassificationGroups).toEqual([
       {
         candidateCount: 2,

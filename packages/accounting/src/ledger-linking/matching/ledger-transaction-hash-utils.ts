@@ -4,7 +4,7 @@ export function normalizeLedgerTransactionHashForGrouping(value: string | undefi
     return undefined;
   }
 
-  return isHexTransactionHash(stripped) ? stripped.toLowerCase() : stripped;
+  return isHexTransactionHash(stripped) ? normalizeHexTransactionHash(stripped) : stripped;
 }
 
 export function ledgerTransactionHashesMatch(
@@ -26,7 +26,7 @@ export function ledgerTransactionHashesMatch(
     sourceHasLogIndex && targetHasLogIndex ? normalizedTarget : stripLogIndexSuffix(normalizedTarget);
 
   if (isHexTransactionHash(comparableSource) || isHexTransactionHash(comparableTarget)) {
-    return comparableSource.toLowerCase() === comparableTarget.toLowerCase();
+    return normalizeHexTransactionHash(comparableSource) === normalizeHexTransactionHash(comparableTarget);
   }
 
   return comparableSource === comparableTarget;
@@ -46,5 +46,9 @@ function stripLogIndexSuffix(value: string): string {
 }
 
 function isHexTransactionHash(value: string): boolean {
-  return /^0x[0-9a-fA-F]+$/.test(value);
+  return /^(?:0x)?[0-9a-fA-F]+$/.test(value);
+}
+
+function normalizeHexTransactionHash(value: string): string {
+  return `0x${value.replace(/^0x/i, '').toLowerCase()}`;
 }

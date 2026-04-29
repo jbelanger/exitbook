@@ -914,7 +914,7 @@ describe('AccountingLedgerRepository', () => {
       await repository.saveLedgerLinkingAssetIdentityAssertion(1, {
         assetIdA: 'exchange:coinbase:btc',
         assetIdB: 'blockchain:bitcoin:native',
-        evidenceKind: 'manual',
+        evidenceKind: 'amount_time_observed',
         relationshipKind: 'internal_transfer',
       })
     );
@@ -927,7 +927,7 @@ describe('AccountingLedgerRepository', () => {
       {
         assetIdA: 'blockchain:bitcoin:native',
         assetIdB: 'exchange:coinbase:btc',
-        evidenceKind: 'manual',
+        evidenceKind: 'amount_time_observed',
         relationshipKind: 'internal_transfer',
       },
       {

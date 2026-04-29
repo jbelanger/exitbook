@@ -285,12 +285,15 @@ describe('runLedgerLinking', () => {
         assetIdB: 'exchange:kraken:eth',
         assetSymbol: ETH,
         blockCount: 1,
+        evidenceKind: 'exact_hash_observed',
         examples: [
           {
             amount: '1.25',
             sourceBlockchainTransactionHash: '0xabc123',
+            sourceCandidateId: 1,
             sourcePostingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
             targetBlockchainTransactionHash: '0xabc123',
+            targetCandidateId: 2,
             targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
           },
         ],
@@ -364,6 +367,66 @@ describe('runLedgerLinking', () => {
       targetAssetId: 'blockchain:ethereum:native',
     });
     expect(harness.savedRelationships).toHaveLength(1);
+  });
+
+  it('suggests amount/time asset identity assertions when exact-hash evidence is unavailable', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 1,
+        sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+        journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+        postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        quantity: '-1.25',
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        assetId: 'exchange:kraken:eth',
+        blockchainTransactionHash: undefined,
+        fromAddress: undefined,
+        toAddress: undefined,
+      }),
+      makePosting({
+        ownerAccountId: 2,
+        sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+        journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+        postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+        quantity: '1.25',
+        platformKey: 'ethereum',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:ethereum:native',
+        activityDatetime: new Date('2026-04-23T00:30:00.000Z'),
+        blockchainTransactionHash: '0xtarget',
+      }),
+    ]);
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports, { dryRun: true }));
+
+    expect(result.exactHashAssetIdentityBlocks).toEqual([]);
+    expect(result.assetIdentitySuggestions).toEqual([
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        assetSymbol: ETH,
+        blockCount: 1,
+        evidenceKind: 'amount_time_observed',
+        examples: [
+          {
+            amount: '1.25',
+            sourceCandidateId: 1,
+            sourcePostingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+            targetBlockchainTransactionHash: '0xtarget',
+            targetCandidateId: 2,
+            targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+            timeDistanceSeconds: 1800,
+          },
+        ],
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+    expect(result.persistence).toEqual({
+      mode: 'dry_run',
+      plannedRelationshipCount: 0,
+    });
+    expect(harness.savedRelationships).toEqual([]);
   });
 
   it('materializes strict same-hash grouped transfers after exact-hash matching', async () => {

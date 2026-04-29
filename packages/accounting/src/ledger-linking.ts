@@ -15,8 +15,10 @@ export {
   type LedgerLinkingAssetIdentityResolver,
 } from './ledger-linking/asset-identity/asset-identity-resolution.js';
 export {
+  buildLedgerLinkingAssetIdentitySuggestionsFromDiagnostics,
   buildLedgerLinkingAssetIdentitySuggestions,
   type LedgerLinkingAssetIdentitySuggestion,
+  type LedgerLinkingAssetIdentitySuggestionEvidenceKind,
   type LedgerLinkingAssetIdentitySuggestionExample,
   type LedgerLinkingAssetIdentitySuggestionInput,
   type LedgerLinkingAssetIdentitySuggestionOptions,
@@ -32,6 +34,7 @@ export {
 } from './ledger-linking/candidates/candidate-construction.js';
 export {
   buildLedgerLinkingDiagnostics,
+  type LedgerLinkingAssetIdentityBlockerProposal,
   type LedgerLinkingAmountTimeProposal,
   type LedgerLinkingAmountTimeProposalDirection,
   type LedgerLinkingAmountTimeProposalGroup,

@@ -64,6 +64,16 @@ export interface LedgerLinkingAmountTimeProposal {
   uniqueness: LedgerLinkingAmountTimeProposalUniqueness;
 }
 
+export interface LedgerLinkingAssetIdentityBlockerProposal {
+  amount: string;
+  assetSymbol: LedgerTransferLinkingCandidate['assetSymbol'];
+  reason: 'same_symbol_different_asset_ids';
+  source: LedgerLinkingCandidateRemainder;
+  target: LedgerLinkingCandidateRemainder;
+  timeDirection: LedgerLinkingAmountTimeProposalDirection;
+  timeDistanceSeconds: number;
+}
+
 export interface LedgerLinkingAmountTimeProposalGroup {
   amount: string;
   ambiguousProposalCount: number;
@@ -103,6 +113,8 @@ export interface LedgerLinkingDiagnosticClassificationGroup {
 }
 
 export interface LedgerLinkingDiagnostics {
+  assetIdentityBlockerProposalCount: number;
+  assetIdentityBlockerProposals: readonly LedgerLinkingAssetIdentityBlockerProposal[];
   amountTimeProposalCount: number;
   amountTimeProposalGroups: readonly LedgerLinkingAmountTimeProposalGroup[];
   amountTimeProposals: readonly LedgerLinkingAmountTimeProposal[];
@@ -119,6 +131,14 @@ interface CandidateRemainderWithDecimal extends LedgerLinkingCandidateRemainder 
 }
 
 interface AmountTimeProposalDraft extends Omit<LedgerLinkingAmountTimeProposal, 'source' | 'target' | 'uniqueness'> {
+  source: CandidateRemainderWithDecimal;
+  target: CandidateRemainderWithDecimal;
+}
+
+interface AssetIdentityBlockerProposalDraft extends Omit<
+  LedgerLinkingAssetIdentityBlockerProposal,
+  'source' | 'target'
+> {
   source: CandidateRemainderWithDecimal;
   target: CandidateRemainderWithDecimal;
 }
@@ -143,15 +163,22 @@ export function buildLedgerLinkingDiagnostics(
 
   const unmatchedCandidates = buildCandidateRemainders(candidates, claimedQuantitiesResult.value);
   const proposals = buildAmountTimeProposals(unmatchedCandidates, assetIdentityResolver, amountTimeWindowMinutes * 60);
+  const assetIdentityBlockerProposals = buildAssetIdentityBlockerProposals(
+    unmatchedCandidates,
+    assetIdentityResolver,
+    amountTimeWindowMinutes * 60
+  );
   const proposalGroups = buildAmountTimeProposalGroups(proposals);
   const candidateClassifications = buildCandidateClassifications(
     unmatchedCandidates,
     proposals,
-    assetIdentityResolver,
-    amountTimeWindowMinutes * 60
+    assetIdentityBlockerProposals,
+    assetIdentityResolver
   );
 
   return ok({
+    assetIdentityBlockerProposalCount: assetIdentityBlockerProposals.length,
+    assetIdentityBlockerProposals,
     amountTimeProposalCount: proposals.length,
     amountTimeProposalGroups: proposalGroups,
     amountTimeProposals: proposals,
@@ -338,11 +365,57 @@ function buildAmountTimeProposals(
   return classifyAmountTimeProposalUniqueness(drafts).sort(compareAmountTimeProposals);
 }
 
+function buildAssetIdentityBlockerProposals(
+  unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
+  amountTimeWindowSeconds: number
+): LedgerLinkingAssetIdentityBlockerProposal[] {
+  const sources = unmatchedCandidates.filter((candidate) => candidate.direction === 'source');
+  const targets = unmatchedCandidates.filter((candidate) => candidate.direction === 'target');
+  const drafts: AssetIdentityBlockerProposalDraft[] = [];
+
+  for (const source of sources) {
+    for (const target of targets) {
+      if (!source.remainingAmountDecimal.eq(target.remainingAmountDecimal)) {
+        continue;
+      }
+
+      const timeDistanceSeconds =
+        Math.abs(target.activityDatetime.getTime() - source.activityDatetime.getTime()) / 1000;
+      if (timeDistanceSeconds > amountTimeWindowSeconds) {
+        continue;
+      }
+
+      if (!isAssetIdentityBlockedPair(source, target, assetIdentityResolver)) {
+        continue;
+      }
+
+      drafts.push({
+        amount: source.remainingAmount,
+        assetSymbol: source.assetSymbol,
+        reason: 'same_symbol_different_asset_ids',
+        source,
+        target,
+        timeDirection: resolveTimeDirection(source.activityDatetime, target.activityDatetime),
+        timeDistanceSeconds,
+      });
+    }
+  }
+
+  return drafts
+    .map((draft) => ({
+      ...draft,
+      source: toPublicCandidateRemainder(draft.source),
+      target: toPublicCandidateRemainder(draft.target),
+    }))
+    .sort(compareAssetIdentityBlockerProposals);
+}
+
 function buildCandidateClassifications(
   unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
   proposals: readonly LedgerLinkingAmountTimeProposal[],
-  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
-  amountTimeWindowSeconds: number
+  assetIdentityBlockerProposals: readonly LedgerLinkingAssetIdentityBlockerProposal[],
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
 ): LedgerLinkingCandidateClassification[] {
   const classificationsByCandidateId = new Map<number, Set<LedgerLinkingDiagnosticClassification>>();
 
@@ -351,12 +424,8 @@ function buildCandidateClassifications(
   }
 
   applyAmountTimeClassifications(classificationsByCandidateId, proposals);
-  applyPairShapeClassifications(
-    classificationsByCandidateId,
-    unmatchedCandidates,
-    assetIdentityResolver,
-    amountTimeWindowSeconds
-  );
+  applyAssetIdentityBlockerClassifications(classificationsByCandidateId, assetIdentityBlockerProposals);
+  applyPairShapeClassifications(classificationsByCandidateId, unmatchedCandidates, assetIdentityResolver);
   applySingleCandidateClassifications(classificationsByCandidateId, unmatchedCandidates);
 
   return unmatchedCandidates.map((candidate) => {
@@ -382,11 +451,20 @@ function applyAmountTimeClassifications(
   }
 }
 
+function applyAssetIdentityBlockerClassifications(
+  classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
+  proposals: readonly LedgerLinkingAssetIdentityBlockerProposal[]
+): void {
+  for (const proposal of proposals) {
+    addClassification(classificationsByCandidateId, proposal.source.candidateId, 'asset_identity_blocked');
+    addClassification(classificationsByCandidateId, proposal.target.candidateId, 'asset_identity_blocked');
+  }
+}
+
 function applyPairShapeClassifications(
   classificationsByCandidateId: Map<number, Set<LedgerLinkingDiagnosticClassification>>,
   unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
-  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
-  amountTimeWindowSeconds: number
+  assetIdentityResolver: LedgerLinkingAssetIdentityResolver
 ): void {
   const sources = unmatchedCandidates.filter((candidate) => candidate.direction === 'source');
   const targets = unmatchedCandidates.filter((candidate) => candidate.direction === 'target');
@@ -399,14 +477,6 @@ function applyPairShapeClassifications(
 
       const timeDistanceSeconds =
         Math.abs(target.activityDatetime.getTime() - source.activityDatetime.getTime()) / 1000;
-
-      if (
-        timeDistanceSeconds <= amountTimeWindowSeconds &&
-        isAssetIdentityBlockedPair(source, target, assetIdentityResolver)
-      ) {
-        addClassification(classificationsByCandidateId, source.candidateId, 'asset_identity_blocked');
-        addClassification(classificationsByCandidateId, target.candidateId, 'asset_identity_blocked');
-      }
 
       if (isSameAccountRoundtripCandidate(source, target, assetIdentityResolver, timeDistanceSeconds)) {
         addClassification(classificationsByCandidateId, source.candidateId, 'same_account_roundtrip_candidate');
@@ -706,6 +776,21 @@ function compareAmountTimeProposals(
     compareUniqueness(left.uniqueness, right.uniqueness) ||
     left.timeDistanceSeconds - right.timeDistanceSeconds ||
     left.assetSymbol.localeCompare(right.assetSymbol) ||
+    left.amount.localeCompare(right.amount) ||
+    left.source.platformKey.localeCompare(right.source.platformKey) ||
+    left.target.platformKey.localeCompare(right.target.platformKey) ||
+    left.source.candidateId - right.source.candidateId ||
+    left.target.candidateId - right.target.candidateId
+  );
+}
+
+function compareAssetIdentityBlockerProposals(
+  left: LedgerLinkingAssetIdentityBlockerProposal,
+  right: LedgerLinkingAssetIdentityBlockerProposal
+): number {
+  return (
+    left.assetSymbol.localeCompare(right.assetSymbol) ||
+    left.timeDistanceSeconds - right.timeDistanceSeconds ||
     left.amount.localeCompare(right.amount) ||
     left.source.platformKey.localeCompare(right.source.platformKey) ||
     left.target.platformKey.localeCompare(right.target.platformKey) ||

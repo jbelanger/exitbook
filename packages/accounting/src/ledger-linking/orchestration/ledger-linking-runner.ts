@@ -3,17 +3,16 @@ import { err, ok, type Result } from '@exitbook/foundation';
 import {
   buildLedgerLinkingAssetIdentityResolver,
   type ILedgerLinkingAssetIdentityAssertionReader,
-  type LedgerLinkingAssetIdentityResolver,
 } from '../asset-identity/asset-identity-resolution.js';
 import {
   buildLedgerLinkingAssetIdentitySuggestions,
+  buildLedgerLinkingAssetIdentitySuggestionsFromDiagnostics,
   type LedgerLinkingAssetIdentitySuggestion,
 } from '../asset-identity/asset-identity-suggestions.js';
 import {
   buildLedgerTransferLinkingCandidates,
   type ILedgerLinkingCandidateSourceReader,
   type LedgerLinkingCandidateSkip,
-  type LedgerTransferLinkingCandidate,
 } from '../candidates/candidate-construction.js';
 import { buildLedgerLinkingDiagnostics, type LedgerLinkingDiagnostics } from '../diagnostics/linking-diagnostics.js';
 import {
@@ -175,21 +174,24 @@ export async function runLedgerLinking(
     return err(counterpartyRoundtripRun.error);
   }
   const counterpartyRoundtripResult = counterpartyRoundtripRun.value.payload;
-  const assetIdentitySuggestionsResult = buildLedgerLinkingAssetIdentitySuggestions(
-    exactHashResult.assetIdentityBlocks
-  );
-  if (assetIdentitySuggestionsResult.isErr()) {
-    return err(assetIdentitySuggestionsResult.error);
-  }
-
-  const diagnosticsResult = buildOptionalLedgerLinkingDiagnostics(
+  const diagnosticsResult = buildLedgerLinkingDiagnostics(
     candidates,
     deterministicResult.value.candidateClaims,
     assetIdentityResolverResult.value,
-    options
+    {
+      amountTimeWindowMinutes: options.amountTimeProposalWindowMinutes,
+    }
   );
   if (diagnosticsResult.isErr()) {
     return err(diagnosticsResult.error);
+  }
+
+  const assetIdentitySuggestionsResult = buildRunAssetIdentitySuggestions(
+    exactHashResult.assetIdentityBlocks,
+    diagnosticsResult.value
+  );
+  if (assetIdentitySuggestionsResult.isErr()) {
+    return err(assetIdentitySuggestionsResult.error);
   }
 
   const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.candidateClaims);
@@ -210,7 +212,7 @@ export async function runLedgerLinking(
     counterpartyRoundtripAmbiguities: counterpartyRoundtripResult.ambiguities,
     counterpartyRoundtripMatches: counterpartyRoundtripResult.matches,
     deterministicRecognizerStats: deterministicResult.value.runs.map(toDeterministicRecognizerStats),
-    ...(diagnosticsResult.value !== undefined ? { diagnostics: diagnosticsResult.value } : {}),
+    ...(options.includeDiagnostics === true ? { diagnostics: diagnosticsResult.value } : {}),
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
     exactHashMatches: exactHashResult.matches,
@@ -229,19 +231,68 @@ export async function runLedgerLinking(
   });
 }
 
-function buildOptionalLedgerLinkingDiagnostics(
-  candidates: readonly LedgerTransferLinkingCandidate[],
-  candidateClaims: readonly LedgerDeterministicCandidateClaim[],
-  assetIdentityResolver: LedgerLinkingAssetIdentityResolver,
-  options: LedgerLinkingRunOptions
-): Result<LedgerLinkingDiagnostics | undefined, Error> {
-  if (options.includeDiagnostics !== true) {
-    return ok(undefined);
+function buildRunAssetIdentitySuggestions(
+  exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[],
+  diagnostics: LedgerLinkingDiagnostics
+): Result<LedgerLinkingAssetIdentitySuggestion[], Error> {
+  const exactHashSuggestions = buildLedgerLinkingAssetIdentitySuggestions(exactHashAssetIdentityBlocks, {
+    evidenceKind: 'exact_hash_observed',
+  });
+  if (exactHashSuggestions.isErr()) {
+    return err(exactHashSuggestions.error);
   }
 
-  return buildLedgerLinkingDiagnostics(candidates, candidateClaims, assetIdentityResolver, {
-    amountTimeWindowMinutes: options.amountTimeProposalWindowMinutes,
+  const exactHashCandidatePairKeys = new Set(
+    exactHashAssetIdentityBlocks.map((block) =>
+      buildSourceTargetCandidatePairKey(block.sourceCandidateId, block.targetCandidateId)
+    )
+  );
+  const diagnosticAssetIdentityBlockerProposals = diagnostics.assetIdentityBlockerProposals.filter(
+    (proposal) =>
+      !exactHashCandidatePairKeys.has(
+        buildSourceTargetCandidatePairKey(proposal.source.candidateId, proposal.target.candidateId)
+      )
+  );
+
+  const diagnosticSuggestions = buildLedgerLinkingAssetIdentitySuggestionsFromDiagnostics({
+    ...diagnostics,
+    assetIdentityBlockerProposalCount: diagnosticAssetIdentityBlockerProposals.length,
+    assetIdentityBlockerProposals: diagnosticAssetIdentityBlockerProposals,
   });
+  if (diagnosticSuggestions.isErr()) {
+    return err(diagnosticSuggestions.error);
+  }
+
+  return ok([...exactHashSuggestions.value, ...diagnosticSuggestions.value].sort(compareAssetIdentitySuggestions));
+}
+
+function buildSourceTargetCandidatePairKey(sourceCandidateId: number, targetCandidateId: number): string {
+  return `${sourceCandidateId}\0${targetCandidateId}`;
+}
+
+function compareAssetIdentitySuggestions(
+  left: LedgerLinkingAssetIdentitySuggestion,
+  right: LedgerLinkingAssetIdentitySuggestion
+): number {
+  return (
+    left.assetSymbol.localeCompare(right.assetSymbol) ||
+    assetIdentitySuggestionEvidenceKindRank(left.evidenceKind) -
+      assetIdentitySuggestionEvidenceKindRank(right.evidenceKind) ||
+    left.relationshipKind.localeCompare(right.relationshipKind) ||
+    left.assetIdA.localeCompare(right.assetIdA) ||
+    left.assetIdB.localeCompare(right.assetIdB)
+  );
+}
+
+function assetIdentitySuggestionEvidenceKindRank(
+  evidenceKind: LedgerLinkingAssetIdentitySuggestion['evidenceKind']
+): number {
+  switch (evidenceKind) {
+    case 'exact_hash_observed':
+      return 0;
+    case 'amount_time_observed':
+      return 1;
+  }
 }
 
 function findExactHashRun(

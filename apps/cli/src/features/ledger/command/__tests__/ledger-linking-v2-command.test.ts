@@ -265,7 +265,12 @@ describe('ledger linking-v2 command', () => {
 
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
     expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity suggestions for default (#7)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1 from 1 exact-hash blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Evidence: 1 exact-hash blocker(s), 0 amount/time blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 exact-hash blocker(s))'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('    example: 1 ETH, hash 0xabc');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '    accept: exitbook ledger linking-v2 asset-identity accept --asset-id-a blockchain:ethereum:native --asset-id-b exchange:kraken:eth --relationship-kind internal_transfer --evidence-kind exact_hash_observed'
     );
@@ -388,6 +393,7 @@ function makeAssetIdentitySuggestion() {
     assetIdB: 'exchange:kraken:eth',
     assetSymbol: 'ETH',
     blockCount: 1,
+    evidenceKind: 'exact_hash_observed',
     examples: [
       {
         amount: '1',

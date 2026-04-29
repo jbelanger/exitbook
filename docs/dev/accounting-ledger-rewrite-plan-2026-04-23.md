@@ -1018,7 +1018,13 @@ First implementation slices:
     from observable remainder shapes instead of raw unmatched counts.
     Classifications are non-exclusive diagnostic tags and are not persisted as
     gaps or accepted relationships.
-27. Then broaden matching strategies only where processor-v2 ledger facts are
+27. Complete. Extend asset identity suggestions beyond exact-hash blockers to
+    include diagnostic amount/time blockers. Suggestions now carry the evidence
+    kind that should be saved on acceptance, including `amount_time_observed`.
+    Hash normalization also treats optional `0x` prefixes as equivalent so
+    stronger exact-hash blockers are not hidden behind weaker amount/time
+    evidence.
+28. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

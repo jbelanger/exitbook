@@ -17,6 +17,10 @@ describe('ledgerTransactionHashesMatch', () => {
     expect(ledgerTransactionHashesMatch('0xABC123-819', '0xabc123')).toBe(true);
   });
 
+  it('matches hex hashes when only one side has a 0x prefix', () => {
+    expect(ledgerTransactionHashesMatch('ABC123', '0xabc123')).toBe(true);
+  });
+
   it('requires exact log indexes when both hashes carry them', () => {
     expect(ledgerTransactionHashesMatch('0xabc123-819', '0xabc123-820')).toBe(false);
   });
