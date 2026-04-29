@@ -48,6 +48,11 @@ describe('runLedgerLinking', () => {
           name: 'exact_hash_transfer',
           relationshipCount: 1,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'same_hash_grouped_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 1,
@@ -68,6 +73,8 @@ describe('runLedgerLinking', () => {
     expect(result.exactHashAmbiguities).toEqual([]);
     expect(result.exactHashAssetIdentityBlocks).toEqual([]);
     expect(result.exactHashMatches).toHaveLength(1);
+    expect(result.sameHashGroupedMatches).toEqual([]);
+    expect(result.sameHashGroupedUnresolvedGroups).toEqual([]);
     expect(result.persistence).toEqual({
       mode: 'persisted',
       materialization: {
@@ -141,6 +148,11 @@ describe('runLedgerLinking', () => {
           name: 'exact_hash_transfer',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'same_hash_grouped_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 0,
       matchedTargetCandidateCount: 0,
@@ -153,6 +165,18 @@ describe('runLedgerLinking', () => {
         direction: 'source',
         matchingCandidateIds: [2, 3],
         reason: 'multiple_exact_hash_counterparts',
+      },
+    ]);
+    expect(result.sameHashGroupedMatches).toEqual([]);
+    expect(result.sameHashGroupedUnresolvedGroups).toEqual([
+      {
+        assetSymbol: ETH,
+        normalizedBlockchainTransactionHash: '0xabc123',
+        reason: 'unbalanced_amounts',
+        sourceAmount: '1',
+        sourceCandidateIds: [1],
+        targetAmount: '2',
+        targetCandidateIds: [2, 3],
       },
     ]);
     expect(result.acceptedRelationships).toEqual([]);
@@ -215,6 +239,18 @@ describe('runLedgerLinking', () => {
         targetBlockchainTransactionHash: '0xabc123',
         targetCandidateId: 2,
         targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+      },
+    ]);
+    expect(result.sameHashGroupedMatches).toEqual([]);
+    expect(result.sameHashGroupedUnresolvedGroups).toEqual([
+      {
+        assetSymbol: ETH,
+        normalizedBlockchainTransactionHash: '0xabc123',
+        reason: 'single_pair',
+        sourceAmount: '1.25',
+        sourceCandidateIds: [1],
+        targetAmount: '1.25',
+        targetCandidateIds: [2],
       },
     ]);
     expect(result.assetIdentitySuggestions).toEqual([
@@ -302,6 +338,85 @@ describe('runLedgerLinking', () => {
       targetAssetId: 'blockchain:ethereum:native',
     });
     expect(harness.savedRelationships).toHaveLength(1);
+  });
+
+  it('materializes strict same-hash grouped transfers after exact-hash matching', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 1,
+        sourceActivityFingerprint: 'source_activity:v1:exchange-withdrawal',
+        journalFingerprint: 'ledger_journal:v1:exchange-withdrawal',
+        postingFingerprint: 'ledger_posting:v1:exchange-withdrawal',
+        quantity: '-3',
+      }),
+      makePosting({
+        ownerAccountId: 2,
+        sourceActivityFingerprint: 'source_activity:v1:first-chain-deposit',
+        journalFingerprint: 'ledger_journal:v1:first-chain-deposit',
+        postingFingerprint: 'ledger_posting:v1:first-chain-deposit',
+        quantity: '1',
+      }),
+      makePosting({
+        ownerAccountId: 3,
+        sourceActivityFingerprint: 'source_activity:v1:second-chain-deposit',
+        journalFingerprint: 'ledger_journal:v1:second-chain-deposit',
+        postingFingerprint: 'ledger_posting:v1:second-chain-deposit',
+        quantity: '2',
+      }),
+    ]);
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.exactHashMatches).toEqual([]);
+    expect(result.sameHashGroupedMatches).toHaveLength(1);
+    expect(result).toMatchObject({
+      deterministicRecognizerStats: [
+        {
+          consumedCandidateCount: 0,
+          name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 3,
+          name: 'same_hash_grouped_transfer',
+          relationshipCount: 1,
+        },
+      ],
+      matchedSourceCandidateCount: 1,
+      matchedTargetCandidateCount: 2,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
+    });
+    expect(result.acceptedRelationships[0]).toMatchObject({
+      relationshipKind: 'same_hash_carryover',
+      allocations: [
+        {
+          allocationSide: 'source',
+          sourceActivityFingerprint: 'source_activity:v1:exchange-withdrawal',
+          quantity: parseDecimal('3'),
+        },
+        {
+          allocationSide: 'target',
+          sourceActivityFingerprint: 'source_activity:v1:first-chain-deposit',
+          quantity: parseDecimal('1'),
+        },
+        {
+          allocationSide: 'target',
+          sourceActivityFingerprint: 'source_activity:v1:second-chain-deposit',
+          quantity: parseDecimal('2'),
+        },
+      ],
+    });
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
+        resolvedAllocationCount: 3,
+        savedCount: 1,
+        unresolvedAllocationCount: 0,
+      },
+    });
+    expect(harness.savedRelationships).toEqual([result.acceptedRelationships]);
   });
 
   it('can preview accepted relationships without replacing persisted relationships', async () => {

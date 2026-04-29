@@ -8,6 +8,9 @@ import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-con
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
 import type { LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
+import { ledgerTransactionHashesMatch } from './ledger-transaction-hash-utils.js';
+
+export { ledgerTransactionHashesMatch } from './ledger-transaction-hash-utils.js';
 
 export const LEDGER_EXACT_HASH_TRANSFER_STRATEGY = 'exact_hash_transfer';
 
@@ -116,31 +119,6 @@ export function buildLedgerExactHashTransferRecognizer(
       });
     },
   };
-}
-
-export function ledgerTransactionHashesMatch(
-  sourceHash: string | undefined,
-  targetHash: string | undefined
-): boolean | undefined {
-  const normalizedSource = normalizeOptionalHash(sourceHash);
-  const normalizedTarget = normalizeOptionalHash(targetHash);
-
-  if (normalizedSource === undefined || normalizedTarget === undefined) {
-    return undefined;
-  }
-
-  const sourceHasLogIndex = hasLogIndexSuffix(normalizedSource);
-  const targetHasLogIndex = hasLogIndexSuffix(normalizedTarget);
-  const comparableSource =
-    sourceHasLogIndex && targetHasLogIndex ? normalizedSource : stripLogIndexSuffix(normalizedSource);
-  const comparableTarget =
-    sourceHasLogIndex && targetHasLogIndex ? normalizedTarget : stripLogIndexSuffix(normalizedTarget);
-
-  if (isHexTransactionHash(comparableSource) || isHexTransactionHash(comparableTarget)) {
-    return comparableSource.toLowerCase() === comparableTarget.toLowerCase();
-  }
-
-  return comparableSource === comparableTarget;
 }
 
 function validateCandidates(candidates: readonly LedgerTransferLinkingCandidate[]): Result<void, Error> {
@@ -480,23 +458,6 @@ function buildExactHashRelationshipStableKey(pair: ExactHashPotentialPair): stri
   ].join('\0');
 
   return `ledger-linking:${LEDGER_EXACT_HASH_TRANSFER_STRATEGY}:v1:${sha256Hex(payload).slice(0, 32)}`;
-}
-
-function normalizeOptionalHash(value: string | undefined): string | undefined {
-  const normalized = value?.trim();
-  return normalized && normalized.length > 0 ? normalized : undefined;
-}
-
-function hasLogIndexSuffix(value: string): boolean {
-  return /-\d+$/.test(value);
-}
-
-function stripLogIndexSuffix(value: string): string {
-  return value.replace(/-\d+$/, '');
-}
-
-function isHexTransactionHash(value: string): boolean {
-  return /^0x[0-9a-fA-F]+$/.test(value);
 }
 
 function compareExactHashMatches(left: LedgerExactHashTransferMatch, right: LedgerExactHashTransferMatch): number {

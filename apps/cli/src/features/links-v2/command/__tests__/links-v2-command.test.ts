@@ -274,6 +274,11 @@ function makeRunResult() {
         name: 'exact_hash_transfer',
         relationshipCount: 1,
       },
+      {
+        consumedCandidateCount: 0,
+        name: 'same_hash_grouped_transfer',
+        relationshipCount: 0,
+      },
     ],
     exactHashAmbiguities: [],
     exactHashAssetIdentityBlocks: [],
@@ -312,6 +317,8 @@ function makeRunResult() {
       },
     },
     postingInputCount: 3,
+    sameHashGroupedMatches: [],
+    sameHashGroupedUnresolvedGroups: [],
     skippedCandidates: [
       {
         postingFingerprint: 'ledger_posting:v1:fee',

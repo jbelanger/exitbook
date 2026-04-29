@@ -832,7 +832,11 @@ are deferred until the linking model is finalized; current dry-run output
 surfaces in-memory matched/unmatched candidate counts and exact-hash asset
 identity blockers only. Exact-hash recognition now runs through a deterministic
 recognizer pipeline that claims consumed candidates before materialization and
-surfaces per-recognizer stats. Accepted pairwise asset identity assertions are
+surfaces per-recognizer stats. Same-hash v2 starts with strict whole-candidate
+groups only: every consumed source/target posting must be fully allocated in the
+accepted relationship. Partial same-hash cases are deferred until the candidate
+model can represent residual quantities, so linking does not hide unmatched
+fee-like or external residue. Accepted pairwise asset identity assertions are
 now modeled separately from relationships so exchange-scoped and chain-scoped
 asset ids can be linked only when an explicit assertion exists.
 `ledger linking-v2 asset-identity accept/list` provides a minimal non-TUI way
@@ -969,9 +973,11 @@ First implementation slices:
     allocation model before implementing same-hash. Exact-hash relationships
     should become one source allocation plus one target allocation with full
     posting amounts.
-19. Then rebuild the same-hash grouped recognizer on ledger-native candidates.
-    Keep it deterministic-only: accept strict whole-group cases, and leave
-    ambiguous or partial groups unresolved for the later gap/proposal flow.
+19. Done. Rebuild the same-hash grouped recognizer on ledger-native candidates.
+    It is deterministic-only: it accepts strict whole-candidate groups where
+    source and target totals balance exactly, and leaves ambiguous or partial
+    groups unresolved until residual candidate quantities are represented
+    explicitly.
 20. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher

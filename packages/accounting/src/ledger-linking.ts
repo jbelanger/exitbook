@@ -41,6 +41,14 @@ export {
   type LedgerExactHashTransferRelationshipResult,
 } from './ledger-linking/matching/deterministic-transfer-matching.js';
 export {
+  buildLedgerSameHashGroupedTransferRecognizer,
+  buildLedgerSameHashGroupedTransferRelationships,
+  LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
+  type LedgerSameHashGroupedTransferMatch,
+  type LedgerSameHashGroupedTransferRelationshipResult,
+  type LedgerSameHashGroupedTransferUnresolvedGroup,
+} from './ledger-linking/matching/same-hash-grouped-transfer-matching.js';
+export {
   runLedgerDeterministicRecognizers,
   type LedgerDeterministicRecognizer,
   type LedgerDeterministicRecognizerPipelineResult,

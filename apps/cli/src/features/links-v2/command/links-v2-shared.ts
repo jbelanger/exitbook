@@ -345,6 +345,8 @@ function renderLinksV2RunOutput(
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
   console.log(`Exact-hash asset identity blocks: ${run.exactHashAssetIdentityBlocks.length}`);
+  console.log(`Same-hash grouped matches: ${run.sameHashGroupedMatches.length}`);
+  console.log(`Same-hash unresolved groups: ${run.sameHashGroupedUnresolvedGroups.length}`);
   console.log(`Asset identity suggestions: ${run.assetIdentitySuggestions.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
 

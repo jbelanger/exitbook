@@ -15,6 +15,7 @@ import {
 } from '../candidates/candidate-construction.js';
 import {
   runLedgerDeterministicRecognizers,
+  type LedgerDeterministicRecognizer,
   type LedgerDeterministicRecognizerRun,
 } from '../matching/deterministic-recognizer-runner.js';
 import {
@@ -25,6 +26,13 @@ import {
   type LedgerExactHashTransferMatch,
   type LedgerExactHashTransferRelationshipResult,
 } from '../matching/deterministic-transfer-matching.js';
+import {
+  buildLedgerSameHashGroupedTransferRecognizer,
+  LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
+  type LedgerSameHashGroupedTransferMatch,
+  type LedgerSameHashGroupedTransferRelationshipResult,
+  type LedgerSameHashGroupedTransferUnresolvedGroup,
+} from '../matching/same-hash-grouped-transfer-matching.js';
 import type {
   ILedgerLinkingRelationshipStore,
   LedgerLinkingRelationshipDraft,
@@ -41,6 +49,10 @@ interface LedgerTransferCandidateDirection {
   candidateId: number;
   direction: 'source' | 'target';
 }
+
+type LedgerLinkingDeterministicPayload =
+  | LedgerExactHashTransferRelationshipResult
+  | LedgerSameHashGroupedTransferRelationshipResult;
 
 export interface LedgerLinkingRunOptions {
   dryRun?: boolean | undefined;
@@ -73,6 +85,8 @@ export interface LedgerLinkingRunResult {
   matchedTargetCandidateCount: number;
   persistence: LedgerLinkingPersistenceResult;
   postingInputCount: number;
+  sameHashGroupedMatches: readonly LedgerSameHashGroupedTransferMatch[];
+  sameHashGroupedUnresolvedGroups: readonly LedgerSameHashGroupedTransferUnresolvedGroup[];
   skippedCandidates: readonly LedgerLinkingCandidateSkip[];
   sourceCandidateCount: number;
   targetCandidateCount: number;
@@ -112,9 +126,15 @@ export async function runLedgerLinking(
   }
 
   const { candidates, skipped } = candidateBuildResult.value;
-  const deterministicResult = runLedgerDeterministicRecognizers(candidates, [
-    buildLedgerExactHashTransferRecognizer(assetIdentityResolverResult.value),
-  ]);
+  const deterministicRecognizers: LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>[] = [
+    buildLedgerExactHashTransferRecognizer(
+      assetIdentityResolverResult.value
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+    buildLedgerSameHashGroupedTransferRecognizer(
+      assetIdentityResolverResult.value
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+  ];
+  const deterministicResult = runLedgerDeterministicRecognizers(candidates, deterministicRecognizers);
   if (deterministicResult.isErr()) {
     return err(deterministicResult.error);
   }
@@ -124,6 +144,11 @@ export async function runLedgerLinking(
     return err(exactHashRun.error);
   }
   const exactHashResult = exactHashRun.value.payload;
+  const sameHashRun = findSameHashGroupedRun(deterministicResult.value.runs);
+  if (sameHashRun.isErr()) {
+    return err(sameHashRun.error);
+  }
+  const sameHashResult = sameHashRun.value.payload;
   const assetIdentitySuggestionsResult = buildLedgerLinkingAssetIdentitySuggestions(
     exactHashResult.assetIdentityBlocks
   );
@@ -154,6 +179,8 @@ export async function runLedgerLinking(
     matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,
     persistence: persistenceResult.value,
     postingInputCount: postingInputsResult.value.length,
+    sameHashGroupedMatches: sameHashResult.matches,
+    sameHashGroupedUnresolvedGroups: sameHashResult.unresolvedGroups,
     skippedCandidates: skipped,
     sourceCandidateCount: candidateCounts.sourceCandidateCount,
     targetCandidateCount: candidateCounts.targetCandidateCount,
@@ -164,14 +191,25 @@ export async function runLedgerLinking(
 }
 
 function findExactHashRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>[]
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
 ): Result<LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>, Error> {
   const run = runs.find((candidateRun) => candidateRun.name === LEDGER_EXACT_HASH_TRANSFER_STRATEGY);
   if (run === undefined) {
     return err(new Error(`Ledger deterministic recognizer ${LEDGER_EXACT_HASH_TRANSFER_STRATEGY} did not run`));
   }
 
-  return ok(run);
+  return ok(run as LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>);
+}
+
+function findSameHashGroupedRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
+): Result<LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY);
+  if (run === undefined) {
+    return err(new Error(`Ledger deterministic recognizer ${LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY} did not run`));
+  }
+
+  return ok(run as LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>);
 }
 
 function toDeterministicRecognizerStats(

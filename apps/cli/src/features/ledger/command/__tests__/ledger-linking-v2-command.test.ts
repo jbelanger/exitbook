@@ -156,11 +156,14 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 2');
     expect(consoleLogSpy).toHaveBeenCalledWith('  exact_hash_transfer: 1 relationship(s), 2 candidate(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  same_hash_grouped_transfer: 0 relationship(s), 0 candidate(s)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Same-hash grouped matches: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Same-hash unresolved groups: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Asset identity suggestions: 0');
   });
 
@@ -276,6 +279,11 @@ function makeRunResult() {
         name: 'exact_hash_transfer',
         relationshipCount: 1,
       },
+      {
+        consumedCandidateCount: 0,
+        name: 'same_hash_grouped_transfer',
+        relationshipCount: 0,
+      },
     ],
     exactHashAmbiguities: [],
     exactHashAssetIdentityBlocks: [],
@@ -314,6 +322,8 @@ function makeRunResult() {
       },
     },
     postingInputCount: 3,
+    sameHashGroupedMatches: [],
+    sameHashGroupedUnresolvedGroups: [],
     skippedCandidates: [
       {
         postingFingerprint: 'ledger_posting:v1:fee',
