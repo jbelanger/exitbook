@@ -834,9 +834,12 @@ blockers, and deterministic recognizer stats. Exact-hash recognition now runs
 through a deterministic recognizer pipeline that claims consumed candidates
 before materialization. Same-hash v2 starts with strict whole-candidate
 groups only: every consumed source/target posting must be fully allocated in the
-accepted relationship. Partial same-hash cases are deferred until the candidate
-model can represent residual quantities, so linking does not hide unmatched
-fee-like or external residue. Durable relationship headers now separate
+accepted relationship. The deterministic recognizer pipeline now tracks
+quantity-aware candidate claims, so same-hash can also accept narrow residual
+cases when the larger side is exactly one candidate and the smaller side is
+fully allocated. Ambiguous residual placement remains unresolved instead of
+guessing which posting carries the leftover quantity. Durable relationship
+headers now separate
 accounting effect from recognition evidence: `relationship_kind` records the
 accounting meaning, while `recognition_strategy`, `recognition_evidence_json`,
 and nullable `confidence_score` record why the relationship was accepted.
@@ -1002,7 +1005,12 @@ First implementation slices:
     id claims to quantity-aware candidate claims. The runner now validates
     claimed quantities centrally and passes residual candidate amounts to later
     recognizers; existing recognizers still claim full candidates.
-24. Then broaden matching strategies only where processor-v2 ledger facts are
+24. Complete. Allow strict quantity-aware same-hash residual relationships when
+    the larger unbalanced side is one candidate. The relationship allocates the
+    matched quantity and leaves the residual quantity available for later passes.
+    If residual placement would require choosing between multiple larger-side
+    candidates, the group remains unresolved.
+25. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

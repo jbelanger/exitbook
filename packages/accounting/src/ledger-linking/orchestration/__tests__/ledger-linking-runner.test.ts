@@ -198,7 +198,7 @@ describe('runLedgerLinking', () => {
       {
         assetSymbol: ETH,
         normalizedBlockchainTransactionHash: '0xabc123',
-        reason: 'unbalanced_amounts',
+        reason: 'partial_amount_ambiguous',
         sourceAmount: '1',
         sourceCandidateIds: [1],
         targetAmount: '2',
@@ -272,7 +272,7 @@ describe('runLedgerLinking', () => {
       {
         assetSymbol: ETH,
         normalizedBlockchainTransactionHash: '0xabc123',
-        reason: 'single_pair',
+        reason: 'asset_identity_blocked',
         sourceAmount: '1.25',
         sourceCandidateIds: [1],
         targetAmount: '1.25',

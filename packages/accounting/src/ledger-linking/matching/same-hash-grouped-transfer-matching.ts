@@ -6,7 +6,10 @@ import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-con
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
 import { validateLedgerTransferLinkingCandidates } from './candidate-validation.js';
-import { buildFullCandidateClaims, type LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
+import type {
+  LedgerDeterministicCandidateClaim,
+  LedgerDeterministicRecognizer,
+} from './deterministic-recognizer-runner.js';
 import { normalizeLedgerTransactionHashForGrouping } from './ledger-transaction-hash-utils.js';
 
 export const LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY = 'same_hash_grouped_transfer';
@@ -16,13 +19,23 @@ export interface LedgerSameHashGroupedTransferMatch {
   assetSymbol: LedgerTransferLinkingCandidate['assetSymbol'];
   normalizedBlockchainTransactionHash: string;
   relationship: LedgerLinkingRelationshipDraft;
+  residualAmount: string | undefined;
+  residualSide: LedgerTransferLinkingCandidate['direction'] | undefined;
   sourceAssetIds: readonly string[];
   sourceCandidateIds: readonly number[];
+  sourceClaims: readonly LedgerSameHashGroupedTransferCandidateClaim[];
   sourcePostingFingerprints: readonly string[];
   strategy: typeof LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY;
   targetAssetIds: readonly string[];
   targetCandidateIds: readonly number[];
+  targetClaims: readonly LedgerSameHashGroupedTransferCandidateClaim[];
   targetPostingFingerprints: readonly string[];
+}
+
+export interface LedgerSameHashGroupedTransferCandidateClaim {
+  candidateId: number;
+  postingFingerprint: string;
+  quantity: Decimal;
 }
 
 export interface LedgerSameHashGroupedTransferUnresolvedGroup {
@@ -34,6 +47,7 @@ export interface LedgerSameHashGroupedTransferUnresolvedGroup {
     | 'mixed_activity_direction'
     | 'multiple_candidates_per_activity'
     | 'asset_identity_blocked'
+    | 'partial_amount_ambiguous'
     | 'unbalanced_amounts';
   sourceCandidateIds: readonly number[];
   targetCandidateIds: readonly number[];
@@ -56,6 +70,19 @@ interface SameHashCandidateGroup {
 interface SameHashCandidateGroupParts {
   sources: LedgerTransferLinkingCandidate[];
   targets: LedgerTransferLinkingCandidate[];
+}
+
+interface SameHashAllocationParts {
+  matchedAmount: Decimal;
+  residualAmount: Decimal | undefined;
+  residualSide: LedgerTransferLinkingCandidate['direction'] | undefined;
+  sources: SameHashCandidateAllocation[];
+  targets: SameHashCandidateAllocation[];
+}
+
+interface SameHashCandidateAllocation {
+  candidate: LedgerTransferLinkingCandidate;
+  quantity: Decimal;
 }
 
 export function buildLedgerSameHashGroupedTransferRelationships(
@@ -104,16 +131,8 @@ export function buildLedgerSameHashGroupedTransferRecognizer(
         return err(result.error);
       }
 
-      const candidateClaims = buildFullCandidateClaims(
-        candidates,
-        collectSameHashConsumedCandidateIds(result.value.matches)
-      );
-      if (candidateClaims.isErr()) {
-        return err(candidateClaims.error);
-      }
-
       return ok({
-        candidateClaims: candidateClaims.value,
+        candidateClaims: collectSameHashCandidateClaims(result.value.matches),
         payload: result.value,
         relationships: result.value.relationships,
       });
@@ -171,10 +190,6 @@ function buildSameHashGroupedTransferMatch(
   const targetAmount = sumCandidateAmounts(parts.targets);
   const unresolvedBase = buildUnresolvedGroup(group, parts, sourceAmount, targetAmount);
 
-  if (parts.sources.length === 1 && parts.targets.length === 1) {
-    return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'single_pair' } });
-  }
-
   if (countDistinctOwnerAccounts(group.candidates) < 2) {
     return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'single_account' } });
   }
@@ -194,25 +209,34 @@ function buildSameHashGroupedTransferMatch(
     return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'asset_identity_blocked' } });
   }
 
-  if (!sourceAmount.eq(targetAmount)) {
-    return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'unbalanced_amounts' } });
+  if (sourceAmount.eq(targetAmount) && parts.sources.length === 1 && parts.targets.length === 1) {
+    return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'single_pair' } });
   }
 
-  const relationship = buildSameHashRelationship(group, parts);
+  const allocationParts = buildSameHashAllocationParts(parts, sourceAmount, targetAmount);
+  if (allocationParts === undefined) {
+    return ok({ match: undefined, unresolvedGroup: { ...unresolvedBase, reason: 'partial_amount_ambiguous' } });
+  }
+
+  const relationship = buildSameHashRelationship(group, allocationParts);
 
   return ok({
     match: {
-      amount: sourceAmount.toFixed(),
+      amount: allocationParts.matchedAmount.toFixed(),
       assetSymbol: group.assetSymbol,
       normalizedBlockchainTransactionHash: group.normalizedBlockchainTransactionHash,
       relationship,
-      sourceAssetIds: collectAssetIds(parts.sources),
-      sourceCandidateIds: parts.sources.map((candidate) => candidate.candidateId).sort(compareNumbers),
-      sourcePostingFingerprints: collectPostingFingerprints(parts.sources),
+      residualAmount: allocationParts.residualAmount?.toFixed(),
+      residualSide: allocationParts.residualSide,
+      sourceAssetIds: collectAllocatedAssetIds(allocationParts.sources),
+      sourceCandidateIds: collectAllocatedCandidateIds(allocationParts.sources),
+      sourceClaims: toSameHashCandidateClaims(allocationParts.sources),
+      sourcePostingFingerprints: collectAllocatedPostingFingerprints(allocationParts.sources),
       strategy: LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
-      targetAssetIds: collectAssetIds(parts.targets),
-      targetCandidateIds: parts.targets.map((candidate) => candidate.candidateId).sort(compareNumbers),
-      targetPostingFingerprints: collectPostingFingerprints(parts.targets),
+      targetAssetIds: collectAllocatedAssetIds(allocationParts.targets),
+      targetCandidateIds: collectAllocatedCandidateIds(allocationParts.targets),
+      targetClaims: toSameHashCandidateClaims(allocationParts.targets),
+      targetPostingFingerprints: collectAllocatedPostingFingerprints(allocationParts.targets),
     },
     unresolvedGroup: undefined,
   });
@@ -220,29 +244,32 @@ function buildSameHashGroupedTransferMatch(
 
 function buildSameHashRelationship(
   group: SameHashCandidateGroup,
-  parts: SameHashCandidateGroupParts
+  parts: SameHashAllocationParts
 ): LedgerLinkingRelationshipDraft {
-  const orderedSources = [...parts.sources].sort(compareCandidatesByPostingFingerprint);
-  const orderedTargets = [...parts.targets].sort(compareCandidatesByPostingFingerprint);
+  const orderedSources = [...parts.sources].sort(compareAllocationsByPostingFingerprint);
+  const orderedTargets = [...parts.targets].sort(compareAllocationsByPostingFingerprint);
 
   return {
     allocations: [...orderedSources, ...orderedTargets].map((candidate) => ({
-      allocationSide: candidate.direction,
-      sourceActivityFingerprint: candidate.sourceActivityFingerprint,
-      journalFingerprint: candidate.journalFingerprint,
-      postingFingerprint: candidate.postingFingerprint,
-      quantity: candidate.amount,
+      allocationSide: candidate.candidate.direction,
+      sourceActivityFingerprint: candidate.candidate.sourceActivityFingerprint,
+      journalFingerprint: candidate.candidate.journalFingerprint,
+      postingFingerprint: candidate.candidate.postingFingerprint,
+      quantity: candidate.quantity,
     })),
     confidenceScore: parseDecimal('1'),
     evidence: {
       assetSymbol: group.assetSymbol,
+      matchedAmount: parts.matchedAmount.toFixed(),
       normalizedBlockchainTransactionHash: group.normalizedBlockchainTransactionHash,
-      sourceAmount: sumCandidateAmounts(orderedSources).toFixed(),
-      sourceAssetIds: collectAssetIds(orderedSources),
-      sourcePostingFingerprints: collectPostingFingerprints(orderedSources),
-      targetAmount: sumCandidateAmounts(orderedTargets).toFixed(),
-      targetAssetIds: collectAssetIds(orderedTargets),
-      targetPostingFingerprints: collectPostingFingerprints(orderedTargets),
+      residualAmount: parts.residualAmount?.toFixed(),
+      residualSide: parts.residualSide,
+      sourceAmount: sumAllocatedAmounts(orderedSources).toFixed(),
+      sourceAssetIds: collectAllocatedAssetIds(orderedSources),
+      sourcePostingFingerprints: collectAllocatedPostingFingerprints(orderedSources),
+      targetAmount: sumAllocatedAmounts(orderedTargets).toFixed(),
+      targetAssetIds: collectAllocatedAssetIds(orderedTargets),
+      targetPostingFingerprints: collectAllocatedPostingFingerprints(orderedTargets),
     },
     recognitionStrategy: LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
     relationshipStableKey: buildSameHashRelationshipStableKey(group, orderedSources, orderedTargets),
@@ -252,19 +279,72 @@ function buildSameHashRelationship(
 
 function buildSameHashRelationshipStableKey(
   group: SameHashCandidateGroup,
-  sources: readonly LedgerTransferLinkingCandidate[],
-  targets: readonly LedgerTransferLinkingCandidate[]
+  sources: readonly SameHashCandidateAllocation[],
+  targets: readonly SameHashCandidateAllocation[]
 ): string {
   const payload = [
     'ledger-linking',
     LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
     'v1',
     group.normalizedBlockchainTransactionHash,
-    ...sources.map((candidate) => `source:${candidate.postingFingerprint}`),
-    ...targets.map((candidate) => `target:${candidate.postingFingerprint}`),
+    ...sources.map(
+      (allocation) => `source:${allocation.candidate.postingFingerprint}:${allocation.quantity.toFixed()}`
+    ),
+    ...targets.map(
+      (allocation) => `target:${allocation.candidate.postingFingerprint}:${allocation.quantity.toFixed()}`
+    ),
   ].join('\0');
 
   return `ledger-linking:${LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY}:v1:${sha256Hex(payload).slice(0, 32)}`;
+}
+
+function buildSameHashAllocationParts(
+  parts: SameHashCandidateGroupParts,
+  sourceAmount: Decimal,
+  targetAmount: Decimal
+): SameHashAllocationParts | undefined {
+  if (sourceAmount.eq(targetAmount)) {
+    return {
+      matchedAmount: sourceAmount,
+      residualAmount: undefined,
+      residualSide: undefined,
+      sources: parts.sources.map(toFullAllocation),
+      targets: parts.targets.map(toFullAllocation),
+    };
+  }
+
+  if (sourceAmount.gt(targetAmount)) {
+    if (parts.sources.length !== 1) {
+      return undefined;
+    }
+
+    return {
+      matchedAmount: targetAmount,
+      residualAmount: sourceAmount.minus(targetAmount),
+      residualSide: 'source',
+      sources: [{ candidate: parts.sources[0]!, quantity: targetAmount }],
+      targets: parts.targets.map(toFullAllocation),
+    };
+  }
+
+  if (parts.targets.length !== 1) {
+    return undefined;
+  }
+
+  return {
+    matchedAmount: sourceAmount,
+    residualAmount: targetAmount.minus(sourceAmount),
+    residualSide: 'target',
+    sources: parts.sources.map(toFullAllocation),
+    targets: [{ candidate: parts.targets[0]!, quantity: sourceAmount }],
+  };
+}
+
+function toFullAllocation(candidate: LedgerTransferLinkingCandidate): SameHashCandidateAllocation {
+  return {
+    candidate,
+    quantity: candidate.amount,
+  };
 }
 
 function splitGroupCandidates(candidates: readonly LedgerTransferLinkingCandidate[]): SameHashCandidateGroupParts {
@@ -349,27 +429,42 @@ function countDistinctOwnerAccounts(candidates: readonly LedgerTransferLinkingCa
   return new Set(candidates.map((candidate) => candidate.ownerAccountId)).size;
 }
 
-function collectAssetIds(candidates: readonly LedgerTransferLinkingCandidate[]): string[] {
-  return [...new Set(candidates.map((candidate) => candidate.assetId))].sort();
+function collectAllocatedAssetIds(allocations: readonly SameHashCandidateAllocation[]): string[] {
+  return [...new Set(allocations.map((allocation) => allocation.candidate.assetId))].sort();
 }
 
-function collectPostingFingerprints(candidates: readonly LedgerTransferLinkingCandidate[]): string[] {
-  return candidates.map((candidate) => candidate.postingFingerprint).sort();
+function collectAllocatedCandidateIds(allocations: readonly SameHashCandidateAllocation[]): number[] {
+  return allocations.map((allocation) => allocation.candidate.candidateId).sort(compareNumbers);
 }
 
-function collectSameHashConsumedCandidateIds(matches: readonly LedgerSameHashGroupedTransferMatch[]): number[] {
-  const consumedCandidateIds = new Set<number>();
+function collectAllocatedPostingFingerprints(allocations: readonly SameHashCandidateAllocation[]): string[] {
+  return allocations.map((allocation) => allocation.candidate.postingFingerprint).sort();
+}
+
+function toSameHashCandidateClaims(
+  allocations: readonly SameHashCandidateAllocation[]
+): LedgerSameHashGroupedTransferCandidateClaim[] {
+  return allocations.map((allocation) => ({
+    candidateId: allocation.candidate.candidateId,
+    postingFingerprint: allocation.candidate.postingFingerprint,
+    quantity: allocation.quantity,
+  }));
+}
+
+function sumAllocatedAmounts(allocations: readonly SameHashCandidateAllocation[]): Decimal {
+  return allocations.reduce((sum, allocation) => sum.plus(allocation.quantity), new Decimal(0));
+}
+
+function collectSameHashCandidateClaims(
+  matches: readonly LedgerSameHashGroupedTransferMatch[]
+): LedgerDeterministicCandidateClaim[] {
+  const candidateClaims: LedgerDeterministicCandidateClaim[] = [];
 
   for (const match of matches) {
-    for (const candidateId of match.sourceCandidateIds) {
-      consumedCandidateIds.add(candidateId);
-    }
-    for (const candidateId of match.targetCandidateIds) {
-      consumedCandidateIds.add(candidateId);
-    }
+    candidateClaims.push(...match.sourceClaims, ...match.targetClaims);
   }
 
-  return [...consumedCandidateIds].sort(compareNumbers);
+  return candidateClaims.sort((left, right) => left.candidateId - right.candidateId);
 }
 
 function compareSameHashMatches(
@@ -394,11 +489,11 @@ function compareUnresolvedGroups(
   );
 }
 
-function compareCandidatesByPostingFingerprint(
-  left: LedgerTransferLinkingCandidate,
-  right: LedgerTransferLinkingCandidate
+function compareAllocationsByPostingFingerprint(
+  left: SameHashCandidateAllocation,
+  right: SameHashCandidateAllocation
 ): number {
-  return left.postingFingerprint.localeCompare(right.postingFingerprint);
+  return left.candidate.postingFingerprint.localeCompare(right.candidate.postingFingerprint);
 }
 
 function compareNumbers(left: number, right: number): number {

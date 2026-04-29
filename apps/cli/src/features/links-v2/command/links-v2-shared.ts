@@ -338,7 +338,7 @@ function renderLinksV2RunOutput(
   console.log(`Deterministic recognizers: ${run.deterministicRecognizerStats.length}`);
   for (const stats of run.deterministicRecognizerStats) {
     console.log(
-      `  ${stats.name}: ${stats.relationshipCount} relationship(s), ${stats.consumedCandidateCount} candidate(s)`
+      `  ${stats.name}: ${stats.relationshipCount} relationship(s), ${stats.claimedCandidateCount} claimed candidate(s), ${stats.consumedCandidateCount} fully consumed candidate(s)`
     );
   }
   console.log(`Accepted relationships: ${run.acceptedRelationships.length}`);

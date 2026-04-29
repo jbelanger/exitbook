@@ -68,6 +68,7 @@ export interface LedgerLinkingRunOptions {
 }
 
 export interface LedgerLinkingDeterministicRecognizerStats {
+  claimedCandidateCount: number;
   consumedCandidateCount: number;
   name: string;
   relationshipCount: number;
@@ -248,6 +249,7 @@ function toDeterministicRecognizerStats(
   run: LedgerDeterministicRecognizerRun<unknown>
 ): LedgerLinkingDeterministicRecognizerStats {
   return {
+    claimedCandidateCount: new Set(run.candidateClaims.map((claim) => claim.candidateId)).size,
     consumedCandidateCount: run.consumedCandidateIds.length,
     name: run.name,
     relationshipCount: run.relationshipCount,

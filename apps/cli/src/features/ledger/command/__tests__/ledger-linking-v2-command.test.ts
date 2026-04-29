@@ -157,9 +157,15 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 3');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  exact_hash_transfer: 1 relationship(s), 2 candidate(s)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  same_hash_grouped_transfer: 0 relationship(s), 0 candidate(s)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('  counterparty_roundtrip: 0 relationship(s), 0 candidate(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  exact_hash_transfer: 1 relationship(s), 2 claimed candidate(s), 2 fully consumed candidate(s)'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  same_hash_grouped_transfer: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  counterparty_roundtrip: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
@@ -281,16 +287,19 @@ function makeRunResult() {
     assetIdentitySuggestions: [],
     deterministicRecognizerStats: [
       {
+        claimedCandidateCount: 2,
         consumedCandidateCount: 2,
         name: 'exact_hash_transfer',
         relationshipCount: 1,
       },
       {
+        claimedCandidateCount: 0,
         consumedCandidateCount: 0,
         name: 'same_hash_grouped_transfer',
         relationshipCount: 0,
       },
       {
+        claimedCandidateCount: 0,
         consumedCandidateCount: 0,
         name: 'counterparty_roundtrip',
         relationshipCount: 0,

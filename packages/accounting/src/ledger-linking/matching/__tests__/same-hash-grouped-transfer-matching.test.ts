@@ -76,7 +76,10 @@ describe('buildLedgerSameHashGroupedTransferRelationships', () => {
         confidenceScore: parseDecimal('1'),
         evidence: {
           assetSymbol: ETH,
+          matchedAmount: '3',
           normalizedBlockchainTransactionHash: '0xabc123',
+          residualAmount: undefined,
+          residualSide: undefined,
           sourceAmount: '3',
           sourceAssetIds: ['blockchain:ethereum:native'],
           sourcePostingFingerprints: ['ledger_posting:v1:source'],
@@ -161,7 +164,7 @@ describe('buildLedgerSameHashGroupedTransferRelationships', () => {
     });
   });
 
-  it('leaves partial same-hash groups unresolved until residual quantities are modeled', () => {
+  it('allocates partial same-hash groups when the larger side is a single candidate', () => {
     const result = assertOk(
       buildLedgerSameHashGroupedTransferRelationships(
         [
@@ -195,17 +198,108 @@ describe('buildLedgerSameHashGroupedTransferRelationships', () => {
       )
     );
 
-    expect(result.relationships).toEqual([]);
+    expect(result.unresolvedGroups).toEqual([]);
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      amount: '2.5',
+      residualAmount: '0.5',
+      residualSide: 'source',
+      sourceCandidateIds: [1],
+      targetCandidateIds: [2, 3],
+    });
+    expect(result.relationships).toEqual([
+      {
+        allocations: [
+          {
+            allocationSide: 'source',
+            sourceActivityFingerprint: 'source_activity:v1:source',
+            journalFingerprint: 'ledger_journal:v1:source',
+            postingFingerprint: 'ledger_posting:v1:source',
+            quantity: parseDecimal('2.5'),
+          },
+          {
+            allocationSide: 'target',
+            sourceActivityFingerprint: 'source_activity:v1:first-target',
+            journalFingerprint: 'ledger_journal:v1:first-target',
+            postingFingerprint: 'ledger_posting:v1:first-target',
+            quantity: parseDecimal('1'),
+          },
+          {
+            allocationSide: 'target',
+            sourceActivityFingerprint: 'source_activity:v1:second-target',
+            journalFingerprint: 'ledger_journal:v1:second-target',
+            postingFingerprint: 'ledger_posting:v1:second-target',
+            quantity: parseDecimal('1.5'),
+          },
+        ],
+        confidenceScore: parseDecimal('1'),
+        evidence: {
+          assetSymbol: ETH,
+          matchedAmount: '2.5',
+          normalizedBlockchainTransactionHash: '0xabc123',
+          residualAmount: '0.5',
+          residualSide: 'source',
+          sourceAmount: '2.5',
+          sourceAssetIds: ['blockchain:ethereum:native'],
+          sourcePostingFingerprints: ['ledger_posting:v1:source'],
+          targetAmount: '2.5',
+          targetAssetIds: ['blockchain:ethereum:native'],
+          targetPostingFingerprints: ['ledger_posting:v1:first-target', 'ledger_posting:v1:second-target'],
+        },
+        recognitionStrategy: 'same_hash_grouped_transfer',
+        relationshipStableKey: result.relationships[0]?.relationshipStableKey,
+        relationshipKind: 'same_hash_carryover',
+      },
+    ]);
+  });
+
+  it('leaves partial same-hash groups unresolved when residual placement would be ambiguous', () => {
+    const result = assertOk(
+      buildLedgerSameHashGroupedTransferRelationships(
+        [
+          makeCandidate({
+            candidateId: 1,
+            direction: 'source',
+            sourceActivityFingerprint: 'source_activity:v1:first-source',
+            journalFingerprint: 'ledger_journal:v1:first-source',
+            postingFingerprint: 'ledger_posting:v1:first-source',
+            amount: '2',
+            ownerAccountId: 1,
+          }),
+          makeCandidate({
+            candidateId: 2,
+            direction: 'source',
+            sourceActivityFingerprint: 'source_activity:v1:second-source',
+            journalFingerprint: 'ledger_journal:v1:second-source',
+            postingFingerprint: 'ledger_posting:v1:second-source',
+            amount: '2',
+            ownerAccountId: 2,
+          }),
+          makeCandidate({
+            candidateId: 3,
+            direction: 'target',
+            sourceActivityFingerprint: 'source_activity:v1:target',
+            journalFingerprint: 'ledger_journal:v1:target',
+            postingFingerprint: 'ledger_posting:v1:target',
+            amount: '3',
+            ownerAccountId: 3,
+          }),
+        ],
+        makeAssetIdentityResolver()
+      )
+    );
+
     expect(result.matches).toEqual([]);
+    expect(result.relationships).toEqual([]);
     expect(result.unresolvedGroups).toEqual([
       {
         assetSymbol: ETH,
         normalizedBlockchainTransactionHash: '0xabc123',
-        reason: 'unbalanced_amounts',
-        sourceAmount: '3',
-        sourceCandidateIds: [1],
-        targetAmount: '2.5',
-        targetCandidateIds: [2, 3],
+        reason: 'partial_amount_ambiguous',
+        sourceAmount: '4',
+        sourceCandidateIds: [1, 2],
+        targetAmount: '3',
+        targetCandidateIds: [3],
       },
     ]);
   });

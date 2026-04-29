@@ -275,16 +275,19 @@ function makeRunResult() {
     assetIdentitySuggestions: [],
     deterministicRecognizerStats: [
       {
+        claimedCandidateCount: 2,
         consumedCandidateCount: 2,
         name: 'exact_hash_transfer',
         relationshipCount: 1,
       },
       {
+        claimedCandidateCount: 0,
         consumedCandidateCount: 0,
         name: 'same_hash_grouped_transfer',
         relationshipCount: 0,
       },
       {
+        claimedCandidateCount: 0,
         consumedCandidateCount: 0,
         name: 'counterparty_roundtrip',
         relationshipCount: 0,
