@@ -64,6 +64,7 @@ describe('runLedgerLinking', () => {
         reason: 'non_principal_role',
       },
     ]);
+    expect(result.assetIdentitySuggestions).toEqual([]);
     expect(result.exactHashAmbiguities).toEqual([]);
     expect(result.exactHashAssetIdentityBlocks).toEqual([]);
     expect(result.exactHashMatches).toHaveLength(1);
@@ -208,6 +209,24 @@ describe('runLedgerLinking', () => {
         targetBlockchainTransactionHash: '0xabc123',
         targetCandidateId: 2,
         targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+      },
+    ]);
+    expect(result.assetIdentitySuggestions).toEqual([
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        assetSymbol: ETH,
+        blockCount: 1,
+        examples: [
+          {
+            amount: '1.25',
+            sourceBlockchainTransactionHash: '0xabc123',
+            sourcePostingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+            targetBlockchainTransactionHash: '0xabc123',
+            targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          },
+        ],
+        relationshipKind: 'internal_transfer',
       },
     ]);
     expect(result.persistence).toEqual({

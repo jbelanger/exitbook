@@ -2,6 +2,7 @@ import {
   runLedgerLinking,
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionSaveResult,
+  type LedgerLinkingAssetIdentitySuggestion,
   type LedgerLinkingRunResult,
 } from '@exitbook/accounting/ledger-linking';
 import {
@@ -35,6 +36,10 @@ export const LinksV2RunCommandOptionsSchema = JsonFlagSchema.extend({
 
 export const LinksV2AssetIdentityListCommandOptionsSchema = JsonFlagSchema;
 
+export const LinksV2AssetIdentitySuggestionsCommandOptionsSchema = JsonFlagSchema.extend({
+  limit: zod.coerce.number().int().positive().optional(),
+});
+
 export const LinksV2AssetIdentityAcceptCommandOptionsSchema = JsonFlagSchema.extend({
   assetIdA: zod.string().trim().min(1, 'Asset id A must not be empty'),
   assetIdB: zod.string().trim().min(1, 'Asset id B must not be empty'),
@@ -48,6 +53,9 @@ export type LinksV2StatusCommandOptions = z.infer<typeof LinksV2StatusCommandOpt
 export type LinksV2RunCommandOptions = z.infer<typeof LinksV2RunCommandOptionsSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
 export type LinksV2AssetIdentityListCommandOptions = z.infer<typeof LinksV2AssetIdentityListCommandOptionsSchema>;
+export type LinksV2AssetIdentitySuggestionsCommandOptions = z.infer<
+  typeof LinksV2AssetIdentitySuggestionsCommandOptionsSchema
+>;
 
 interface LinksV2RunOutput {
   profile: {
@@ -63,6 +71,16 @@ interface LinksV2AssetIdentityListOutput {
     id: number;
     profileKey: string;
   };
+}
+
+interface LinksV2AssetIdentitySuggestionsOutput {
+  exactHashAssetIdentityBlockCount: number;
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  suggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
+  totalSuggestionCount: number;
 }
 
 interface LinksV2AssetIdentityAcceptOutput {
@@ -81,6 +99,7 @@ export interface LinksV2RunExecutionConfig {
 }
 
 export interface LinksV2AssetIdentityExecutionConfig {
+  commandPath: string;
   commandId: string;
   label: string;
 }
@@ -120,6 +139,23 @@ export async function executeLinksV2AssetIdentityListCommand(
     appRuntime,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2AssetIdentityListCommandOptionsSchema),
     action: async ({ runtime, prepared }) => executePreparedLinksV2AssetIdentityListCommand(runtime, prepared, config),
+  });
+}
+
+export async function executeLinksV2AssetIdentitySuggestionsCommand(
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2AssetIdentityExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2AssetIdentitySuggestionsCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2AssetIdentitySuggestionsCommand(runtime, prepared, config),
   });
 }
 
@@ -211,6 +247,39 @@ async function executePreparedLinksV2AssetIdentityListCommand(
   });
 }
 
+async function executePreparedLinksV2AssetIdentitySuggestionsCommand(
+  ctx: CommandRuntime,
+  prepared: LinksV2AssetIdentitySuggestionsCommandOptions,
+  config: LinksV2AssetIdentityExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const run = yield* toCliResult(
+      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+        dryRun: true,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const suggestions = limitAssetIdentitySuggestions(run.assetIdentitySuggestions, prepared.limit);
+    const output: LinksV2AssetIdentitySuggestionsOutput = {
+      exactHashAssetIdentityBlockCount: run.exactHashAssetIdentityBlocks.length,
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      suggestions,
+      totalSuggestionCount: run.assetIdentitySuggestions.length,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2AssetIdentitySuggestionsOutput(output, config));
+  });
+}
+
 async function executePreparedLinksV2AssetIdentityAcceptCommand(
   ctx: CommandRuntime,
   prepared: LinksV2AssetIdentityAcceptCommandOptions,
@@ -276,6 +345,7 @@ function renderLinksV2RunOutput(
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
   console.log(`Exact-hash asset identity blocks: ${run.exactHashAssetIdentityBlocks.length}`);
+  console.log(`Asset identity suggestions: ${run.assetIdentitySuggestions.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
 
   if (config.migrationNote !== undefined) {
@@ -307,6 +377,30 @@ function renderLinksV2AssetIdentityListOutput(
   }
 }
 
+function renderLinksV2AssetIdentitySuggestionsOutput(
+  output: LinksV2AssetIdentitySuggestionsOutput,
+  config: LinksV2AssetIdentityExecutionConfig
+): void {
+  console.log(`${config.label} asset identity suggestions for ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(
+    `Suggestions: ${output.suggestions.length} of ${output.totalSuggestionCount} from ${output.exactHashAssetIdentityBlockCount} exact-hash blocker(s)`
+  );
+
+  for (const suggestion of output.suggestions) {
+    console.log(
+      `  ${suggestion.relationshipKind} ${suggestion.assetSymbol}: ${suggestion.assetIdA} <-> ${suggestion.assetIdB} (${suggestion.blockCount} blocker(s))`
+    );
+    for (const example of suggestion.examples) {
+      console.log(
+        `    example: ${example.amount} ${suggestion.assetSymbol}, hash ${formatAssetIdentitySuggestionHash(example)}`
+      );
+    }
+    console.log(
+      `    accept: exitbook ${config.commandPath} asset-identity accept --asset-id-a ${suggestion.assetIdA} --asset-id-b ${suggestion.assetIdB} --relationship-kind ${suggestion.relationshipKind} --evidence-kind exact_hash_observed`
+    );
+  }
+}
+
 function renderLinksV2AssetIdentityAcceptOutput(
   output: LinksV2AssetIdentityAcceptOutput,
   config: LinksV2AssetIdentityExecutionConfig
@@ -318,4 +412,28 @@ function renderLinksV2AssetIdentityAcceptOutput(
   console.log(`Relationship kind: ${assertion.relationshipKind}`);
   console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
   console.log(`Evidence: ${assertion.evidenceKind}`);
+}
+
+function limitAssetIdentitySuggestions(
+  suggestions: readonly LedgerLinkingAssetIdentitySuggestion[],
+  limit: number | undefined
+): readonly LedgerLinkingAssetIdentitySuggestion[] {
+  return limit === undefined ? suggestions : suggestions.slice(0, limit);
+}
+
+function formatAssetIdentitySuggestionHash(example: LedgerLinkingAssetIdentitySuggestion['examples'][number]): string {
+  if (example.sourceBlockchainTransactionHash === example.targetBlockchainTransactionHash) {
+    return shortenValue(example.sourceBlockchainTransactionHash);
+  }
+
+  return `${shortenValue(example.sourceBlockchainTransactionHash)} -> ${shortenValue(example.targetBlockchainTransactionHash)}`;
+}
+
+function shortenValue(value: string): string {
+  const maxLength = 28;
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, 12)}...${value.slice(-10)}`;
 }

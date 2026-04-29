@@ -841,7 +841,9 @@ command now exists for v1/v2 comparison work: bare `links-v2` and
 `links-v2 status` are read-only previews, `links-v2 run` materializes accepted
 ledger relationships, `links-v2 list/view` browses persisted ledger
 relationships, and `links-v2 asset-identity` manages the same accepted
-assertions without touching legacy transaction links.
+assertions without touching legacy transaction links. Asset identity blockers
+are now grouped into read-only suggestions so exact-hash evidence can be
+reviewed without making symbol-only identity guesses.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -861,6 +863,8 @@ Boundary rules:
 - Do not paper over processor gaps with linking heuristics, symbol guesses, or
   one-off fallback matching. In-memory blocker counts may surface the stop
   condition, but must not become accepted relationship truth.
+- Asset identity suggestions are review inputs only. Accepted pairwise
+  assertions remain the durable truth that unlocks relationship materialization.
 
 Files:
 
@@ -885,6 +889,17 @@ Implementation shape:
 6. Keep matching candidates and persisted relationship materialization in
    separate new modules so consumers can depend on the persisted ledger
    relationship model without inheriting legacy proposal internals.
+
+Strategy rebuild order:
+
+1. Exact-hash deterministic transfers.
+2. Asset identity suggestion/review UX for exact-hash blockers.
+3. Same-hash grouped recognizer, rebuilt ledger-native from v1 evidence.
+4. Persisted ledger-native gaps once the accepted relationship model is stable.
+5. Counterparty roundtrip.
+6. Amount/timing as proposal or review-only evidence until proven safe.
+7. Bridge and partial-match strategies last, because they carry the most
+   heuristic pressure.
 
 First implementation slices:
 
@@ -937,11 +952,18 @@ First implementation slices:
     under `links-v2 list/view` before introducing review or gap persistence.
     These commands should read ledger relationships, not legacy
     `transaction_links`.
-17. Next. Persist ledger-native unresolved gaps and surface them through
+17. Complete. Add read-only asset identity suggestions from exact-hash blockers
+    under `links-v2 asset-identity suggestions` and the lower-level
+    `ledger linking-v2 asset-identity suggestions` alias. Suggestions are grouped
+    exact-hash evidence and do not persist assertions automatically.
+18. Next. Rebuild the same-hash grouped recognizer on ledger-native candidates.
+    Keep it deterministic-only: accept strict whole-group cases, and leave
+    ambiguous or partial groups unresolved for the later gap/proposal flow.
+19. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-18. Then broaden matching strategies only where processor-v2 ledger facts are
+20. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:
@@ -961,7 +983,8 @@ Acceptance:
 
 ### 8. Migrate Consumers
 
-Consumer migration starts only after the previous gates pass.
+Consumer migration starts only after the previous gates pass. Do not start
+cost-basis or portfolio migration during linking strategy parity work.
 
 Primary consumers:
 

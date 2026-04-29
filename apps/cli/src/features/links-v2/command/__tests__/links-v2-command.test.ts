@@ -229,6 +229,29 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity assertion created.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
   });
+
+  it('previews asset identity suggestions under links-v2 without writing', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [makeAssetIdentitySuggestion()],
+        exactHashAssetIdentityBlocks: [makeAssetIdentityBlock()],
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'asset-identity', 'suggestions'], { from: 'user' });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity suggestions for default (#7)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1 from 1 exact-hash blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 blocker(s))'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '    accept: exitbook links-v2 asset-identity accept --asset-id-a blockchain:ethereum:native --asset-id-b exchange:kraken:eth --relationship-kind internal_transfer --evidence-kind exact_hash_observed'
+    );
+  });
 });
 
 function makeRunResult() {
@@ -249,6 +272,7 @@ function makeRunResult() {
         },
       },
     ],
+    assetIdentitySuggestions: [],
     deterministicRecognizerStats: [
       {
         consumedCandidateCount: 2,
@@ -313,6 +337,41 @@ function makeRunResult() {
     transferCandidateCount: 2,
     unmatchedSourceCandidateCount: 0,
     unmatchedTargetCandidateCount: 0,
+  };
+}
+
+function makeAssetIdentitySuggestion() {
+  return {
+    assetIdA: 'blockchain:ethereum:native',
+    assetIdB: 'exchange:kraken:eth',
+    assetSymbol: 'ETH',
+    blockCount: 1,
+    examples: [
+      {
+        amount: '1',
+        sourceBlockchainTransactionHash: '0xabc',
+        sourcePostingFingerprint: 'ledger_posting:v1:source',
+        targetBlockchainTransactionHash: '0xabc',
+        targetPostingFingerprint: 'ledger_posting:v1:target',
+      },
+    ],
+    relationshipKind: 'internal_transfer',
+  };
+}
+
+function makeAssetIdentityBlock() {
+  return {
+    amount: '1',
+    assetSymbol: 'ETH',
+    reason: 'same_symbol_different_asset_ids',
+    sourceAssetId: 'exchange:kraken:eth',
+    sourceBlockchainTransactionHash: '0xabc',
+    sourceCandidateId: 1,
+    sourcePostingFingerprint: 'ledger_posting:v1:source',
+    targetAssetId: 'blockchain:ethereum:native',
+    targetBlockchainTransactionHash: '0xabc',
+    targetCandidateId: 2,
+    targetPostingFingerprint: 'ledger_posting:v1:target',
   };
 }
 

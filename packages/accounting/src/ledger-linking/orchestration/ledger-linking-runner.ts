@@ -5,6 +5,10 @@ import {
   type ILedgerLinkingAssetIdentityAssertionReader,
 } from '../asset-identity/asset-identity-resolution.js';
 import {
+  buildLedgerLinkingAssetIdentitySuggestions,
+  type LedgerLinkingAssetIdentitySuggestion,
+} from '../asset-identity/asset-identity-suggestions.js';
+import {
   buildLedgerTransferLinkingCandidates,
   type ILedgerLinkingCandidateSourceReader,
   type LedgerLinkingCandidateSkip,
@@ -60,6 +64,7 @@ export type LedgerLinkingPersistenceResult =
 
 export interface LedgerLinkingRunResult {
   acceptedRelationships: readonly LedgerLinkingRelationshipDraft[];
+  assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
   deterministicRecognizerStats: readonly LedgerLinkingDeterministicRecognizerStats[];
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
@@ -119,6 +124,13 @@ export async function runLedgerLinking(
     return err(exactHashRun.error);
   }
   const exactHashResult = exactHashRun.value.payload;
+  const assetIdentitySuggestionsResult = buildLedgerLinkingAssetIdentitySuggestions(
+    exactHashResult.assetIdentityBlocks
+  );
+  if (assetIdentitySuggestionsResult.isErr()) {
+    return err(assetIdentitySuggestionsResult.error);
+  }
+
   const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.consumedCandidateIds);
   const candidateCounts = countTransferCandidatesByDirection(candidates);
   const persistenceResult = await resolvePersistenceResult(
@@ -133,6 +145,7 @@ export async function runLedgerLinking(
 
   return ok({
     acceptedRelationships: deterministicResult.value.relationships,
+    assetIdentitySuggestions: assetIdentitySuggestionsResult.value,
     deterministicRecognizerStats: deterministicResult.value.runs.map(toDeterministicRecognizerStats),
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,

@@ -4,6 +4,7 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import {
   executeLinksV2AssetIdentityAcceptCommand,
   executeLinksV2AssetIdentityListCommand,
+  executeLinksV2AssetIdentitySuggestionsCommand,
   executeLinksV2RunCommand,
 } from '../../links-v2/command/links-v2-shared.js';
 
@@ -14,6 +15,7 @@ const LEDGER_LINKING_V2_RUN_CONFIG = {
 
 const LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG = {
   commandId: 'ledger-linking-v2-asset-identity',
+  commandPath: 'ledger linking-v2',
   label: 'Ledger linking',
 } as const;
 
@@ -71,11 +73,13 @@ function registerLedgerLinkingV2AssetIdentityCommand(linkingV2: Command, appRunt
       `
 Examples:
   $ exitbook ledger linking-v2 asset-identity list
+  $ exitbook ledger linking-v2 asset-identity suggestions
   $ exitbook ledger linking-v2 asset-identity accept --asset-id-a exchange:kraken:eth --asset-id-b blockchain:ethereum:native
 
 Notes:
   - Assertions are pairwise and scoped to the active profile.
   - Assertions allow ledger-linking to treat different asset ids as equivalent for a relationship kind.
+  - Suggestions are read-only exact-hash evidence, not accepted identity truth.
 `
     );
 
@@ -95,6 +99,31 @@ Examples:
       await executeLinksV2AssetIdentityListCommand(rawOptions, appRuntime, {
         ...LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG,
         commandId: 'ledger-linking-v2-asset-identity-list',
+      });
+    });
+
+  assetIdentity
+    .command('suggestions')
+    .description('Preview read-only asset identity suggestions from exact-hash blockers')
+    .option('--limit <count>', 'Limit the number of suggestions shown')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook ledger linking-v2 asset-identity suggestions
+  $ exitbook ledger linking-v2 asset-identity suggestions --limit 5
+  $ exitbook ledger linking-v2 asset-identity suggestions --json
+
+Notes:
+  - Always runs ledger-linking v2 in dry-run mode.
+  - Suggestions are review inputs only; use "accept" to persist an assertion.
+`
+    )
+    .action(async (rawOptions: unknown) => {
+      await executeLinksV2AssetIdentitySuggestionsCommand(rawOptions, appRuntime, {
+        ...LEDGER_LINKING_V2_ASSET_IDENTITY_CONFIG,
+        commandId: 'ledger-linking-v2-asset-identity-suggestions',
       });
     });
 

@@ -6,6 +6,7 @@ import { registerLinksV2RelationshipCommands } from './links-v2-relationships.js
 import {
   executeLinksV2AssetIdentityAcceptCommand,
   executeLinksV2AssetIdentityListCommand,
+  executeLinksV2AssetIdentitySuggestionsCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
 
@@ -26,6 +27,7 @@ const LINKS_V2_RUN_CONFIG = {
 
 const LINKS_V2_ASSET_IDENTITY_CONFIG = {
   commandId: 'links-v2-asset-identity',
+  commandPath: 'links-v2',
   label: 'Links v2',
 } as const;
 
@@ -44,6 +46,7 @@ Examples:
   $ exitbook links-v2 run --dry-run
   $ exitbook links-v2 run
   $ exitbook links-v2 asset-identity list
+  $ exitbook links-v2 asset-identity suggestions
   $ exitbook links-v2 asset-identity accept --asset-id-a exchange:kraken:eth --asset-id-b blockchain:ethereum:native
 
 Notes:
@@ -110,11 +113,13 @@ function registerLinksV2AssetIdentityCommand(linksV2: Command, appRuntime: CliAp
       `
 Examples:
   $ exitbook links-v2 asset-identity list
+  $ exitbook links-v2 asset-identity suggestions
   $ exitbook links-v2 asset-identity accept --asset-id-a exchange:kraken:eth --asset-id-b blockchain:ethereum:native
 
 Notes:
   - Assertions are pairwise and scoped to the active profile.
   - Assertions allow v2 linking to treat different asset ids as equivalent for a relationship kind.
+  - Suggestions are read-only exact-hash evidence, not accepted identity truth.
 `
     );
 
@@ -134,6 +139,31 @@ Examples:
       await executeLinksV2AssetIdentityListCommand(rawOptions, appRuntime, {
         ...LINKS_V2_ASSET_IDENTITY_CONFIG,
         commandId: 'links-v2-asset-identity-list',
+      });
+    });
+
+  assetIdentity
+    .command('suggestions')
+    .description('Preview read-only asset identity suggestions from exact-hash blockers')
+    .option('--limit <count>', 'Limit the number of suggestions shown')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 asset-identity suggestions
+  $ exitbook links-v2 asset-identity suggestions --limit 5
+  $ exitbook links-v2 asset-identity suggestions --json
+
+Notes:
+  - Always runs v2 linking in dry-run mode.
+  - Suggestions are review inputs only; use "accept" to persist an assertion.
+`
+    )
+    .action(async (rawOptions: unknown) => {
+      await executeLinksV2AssetIdentitySuggestionsCommand(rawOptions, appRuntime, {
+        ...LINKS_V2_ASSET_IDENTITY_CONFIG,
+        commandId: 'links-v2-asset-identity-suggestions',
       });
     });
 

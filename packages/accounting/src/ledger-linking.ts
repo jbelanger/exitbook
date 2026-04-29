@@ -15,6 +15,13 @@ export {
   type LedgerLinkingAssetIdentityResolver,
 } from './ledger-linking/asset-identity/asset-identity-resolution.js';
 export {
+  buildLedgerLinkingAssetIdentitySuggestions,
+  type LedgerLinkingAssetIdentitySuggestion,
+  type LedgerLinkingAssetIdentitySuggestionExample,
+  type LedgerLinkingAssetIdentitySuggestionInput,
+  type LedgerLinkingAssetIdentitySuggestionOptions,
+} from './ledger-linking/asset-identity/asset-identity-suggestions.js';
+export {
   buildLedgerTransferLinkingCandidates,
   LedgerLinkingPostingInputSchema,
   type ILedgerLinkingCandidateSourceReader,
