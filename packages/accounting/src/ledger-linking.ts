@@ -57,7 +57,9 @@ export {
   type LedgerSameHashGroupedTransferUnresolvedGroup,
 } from './ledger-linking/matching/same-hash-grouped-transfer-matching.js';
 export {
+  buildFullCandidateClaims,
   runLedgerDeterministicRecognizers,
+  type LedgerDeterministicCandidateClaim,
   type LedgerDeterministicRecognizer,
   type LedgerDeterministicRecognizerPipelineResult,
   type LedgerDeterministicRecognizerResult,

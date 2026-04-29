@@ -326,7 +326,12 @@ describe('buildLedgerCounterpartyRoundtripRelationships', () => {
       ])
     );
 
-    expect(result.consumedCandidateIds).toEqual([1, 2]);
+    expect(
+      result.candidateClaims.map((claim) => ({ candidateId: claim.candidateId, quantity: claim.quantity.toFixed() }))
+    ).toEqual([
+      { candidateId: 1, quantity: '165' },
+      { candidateId: 2, quantity: '165' },
+    ]);
     expect(result.relationships).toHaveLength(1);
     expect(result.payload.matches).toHaveLength(1);
   });

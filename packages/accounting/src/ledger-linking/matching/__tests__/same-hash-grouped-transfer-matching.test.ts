@@ -321,7 +321,13 @@ describe('buildLedgerSameHashGroupedTransferRelationships', () => {
       ])
     );
 
-    expect(result.consumedCandidateIds).toEqual([1, 2, 3]);
+    expect(
+      result.candidateClaims.map((claim) => ({ candidateId: claim.candidateId, quantity: claim.quantity.toFixed() }))
+    ).toEqual([
+      { candidateId: 1, quantity: '3' },
+      { candidateId: 2, quantity: '1' },
+      { candidateId: 3, quantity: '2' },
+    ]);
     expect(result.relationships).toHaveLength(1);
   });
 

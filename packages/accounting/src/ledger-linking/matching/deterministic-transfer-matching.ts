@@ -8,7 +8,7 @@ import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-con
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
 import { validateLedgerTransferLinkingCandidates } from './candidate-validation.js';
-import type { LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
+import { buildFullCandidateClaims, type LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
 import { ledgerTransactionHashesMatch } from './ledger-transaction-hash-utils.js';
 
 export { ledgerTransactionHashesMatch } from './ledger-transaction-hash-utils.js';
@@ -113,8 +113,16 @@ export function buildLedgerExactHashTransferRecognizer(
         return err(result.error);
       }
 
+      const candidateClaims = buildFullCandidateClaims(
+        candidates,
+        collectExactHashConsumedCandidateIds(result.value.matches)
+      );
+      if (candidateClaims.isErr()) {
+        return err(candidateClaims.error);
+      }
+
       return ok({
-        consumedCandidateIds: collectExactHashConsumedCandidateIds(result.value.matches),
+        candidateClaims: candidateClaims.value,
         payload: result.value,
         relationships: result.value.relationships,
       });

@@ -8,7 +8,7 @@ import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-con
 import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
 
 import { validateLedgerTransferLinkingCandidates } from './candidate-validation.js';
-import type { LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
+import { buildFullCandidateClaims, type LedgerDeterministicRecognizer } from './deterministic-recognizer-runner.js';
 
 export const LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY = 'counterparty_roundtrip';
 
@@ -93,8 +93,16 @@ export function buildLedgerCounterpartyRoundtripRecognizer(
         return err(result.error);
       }
 
+      const candidateClaims = buildFullCandidateClaims(
+        candidates,
+        collectCounterpartyRoundtripConsumedCandidateIds(result.value.matches)
+      );
+      if (candidateClaims.isErr()) {
+        return err(candidateClaims.error);
+      }
+
       return ok({
-        consumedCandidateIds: collectCounterpartyRoundtripConsumedCandidateIds(result.value.matches),
+        candidateClaims: candidateClaims.value,
         payload: result.value,
         relationships: result.value.relationships,
       });

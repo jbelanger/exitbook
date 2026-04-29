@@ -22,6 +22,7 @@ import {
 } from '../matching/counterparty-roundtrip-matching.js';
 import {
   runLedgerDeterministicRecognizers,
+  type LedgerDeterministicCandidateClaim,
   type LedgerDeterministicRecognizer,
   type LedgerDeterministicRecognizerRun,
 } from '../matching/deterministic-recognizer-runner.js';
@@ -174,7 +175,7 @@ export async function runLedgerLinking(
     return err(assetIdentitySuggestionsResult.error);
   }
 
-  const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.consumedCandidateIds);
+  const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.candidateClaims);
   const candidateCounts = countTransferCandidatesByDirection(candidates);
   const persistenceResult = await resolvePersistenceResult(
     profileId,
@@ -276,16 +277,17 @@ function countTransferCandidatesByDirection(candidates: readonly LedgerTransferC
 
 function countMatchedTransferCandidates(
   candidates: readonly LedgerTransferCandidateDirection[],
-  consumedCandidateIds: readonly number[]
+  candidateClaims: readonly Pick<LedgerDeterministicCandidateClaim, 'candidateId'>[]
 ): {
   matchedSourceCandidateCount: number;
   matchedTargetCandidateCount: number;
 } {
   const candidatesById = new Map(candidates.map((candidate) => [candidate.candidateId, candidate]));
+  const matchedCandidateIds = new Set(candidateClaims.map((claim) => claim.candidateId));
   let matchedSourceCandidateCount = 0;
   let matchedTargetCandidateCount = 0;
 
-  for (const candidateId of consumedCandidateIds) {
+  for (const candidateId of matchedCandidateIds) {
     const candidate = candidatesById.get(candidateId);
     if (candidate?.direction === 'source') {
       matchedSourceCandidateCount++;

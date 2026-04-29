@@ -998,7 +998,11 @@ First implementation slices:
     It materializes only unambiguous one-to-one blockchain roundtrips on the same
     owned account and records `counterparty_roundtrip` evidence separately from
     the `external_transfer` accounting kind.
-23. Then broaden matching strategies only where processor-v2 ledger facts are
+23. Complete. Upgrade the deterministic recognizer pipeline from whole-candidate
+    id claims to quantity-aware candidate claims. The runner now validates
+    claimed quantities centrally and passes residual candidate amounts to later
+    recognizers; existing recognizers still claim full candidates.
+24. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:
