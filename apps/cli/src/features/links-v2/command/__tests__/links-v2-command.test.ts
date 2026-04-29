@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
+  mockBuildLedgerLinkingReviewQueue,
   mockBuildLedgerLinkingAssetIdentityAssertionReader,
   mockBuildLedgerLinkingAssetIdentityAssertionStore,
   mockBuildLedgerLinkingRelationshipReader,
@@ -19,6 +20,7 @@ const {
   mockRunLedgerLinking,
   mockSaveLedgerLinkingAssetIdentityAssertion,
 } = vi.hoisted(() => ({
+  mockBuildLedgerLinkingReviewQueue: vi.fn(),
   mockBuildLedgerLinkingAssetIdentityAssertionReader: vi.fn(),
   mockBuildLedgerLinkingAssetIdentityAssertionStore: vi.fn(),
   mockBuildLedgerLinkingRelationshipReader: vi.fn(),
@@ -37,6 +39,9 @@ const {
 }));
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
+  buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
+  ledgerTransactionHashesMatch: (sourceHash: string | undefined, targetHash: string | undefined) =>
+    sourceHash?.replace(/^0x/i, '').toLowerCase() === targetHash?.replace(/^0x/i, '').toLowerCase(),
   runLedgerLinking: mockRunLedgerLinking,
 }));
 
@@ -92,6 +97,35 @@ describe('links-v2 command', () => {
       })
     );
     mockBuildLedgerLinkingRunPorts.mockReturnValue({ tag: 'ledger-linking-ports' });
+    mockBuildLedgerLinkingReviewQueue.mockImplementation(
+      (input: {
+        assetIdentitySuggestions: readonly unknown[];
+        diagnostics?: { amountTimeProposals?: readonly unknown[] };
+      }) => {
+        const assetIdentityItems = input.assetIdentitySuggestions.map((suggestion, index) => ({
+          evidenceStrength: 'strong',
+          kind: 'asset_identity_suggestion',
+          reviewId: `ai_test_${index + 1}`,
+          suggestion,
+        }));
+        const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? []).map((proposal, index) => ({
+          evidenceStrength: 'medium',
+          kind: 'link_proposal',
+          proposal,
+          proposalKind: 'amount_time',
+          relationshipKind: 'internal_transfer',
+          reviewId: `lp_test_${index + 1}`,
+        }));
+        const items = [...assetIdentityItems, ...linkProposalItems];
+
+        return {
+          assetIdentitySuggestionCount: assetIdentityItems.length,
+          itemCount: items.length,
+          items,
+          linkProposalCount: linkProposalItems.length,
+        };
+      }
+    );
     mockLoadLedgerLinkingAssetIdentityAssertions.mockResolvedValue(
       ok([
         {
@@ -203,6 +237,45 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposal examples: 1 of 1');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  unique_pair ETH 1 kraken #7 -> ethereum #8 (30m, source_before_target)'
+    );
+  });
+
+  it('renders the read-only links-v2 review queue', async () => {
+    const program = createProgram();
+    const diagnostics = makeDiagnostics();
+    const assetIdentitySuggestion = makeAssetIdentitySuggestion();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        assetIdentitySuggestions: [assetIdentitySuggestion],
+        diagnostics,
+      })
+    );
+
+    await program.parseAsync(['links-v2', 'review', '--limit', '2'], {
+      from: 'user',
+    });
+
+    expect(mockRunLedgerLinking).toHaveBeenCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        dryRun: true,
+        includeDiagnostics: true,
+      }
+    );
+    expect(mockBuildLedgerLinkingReviewQueue).toHaveBeenCalledWith({
+      assetIdentitySuggestions: [assetIdentitySuggestion],
+      diagnostics,
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review queue.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Review items: 2 of 2 (1 asset identity suggestion, 1 link proposal)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  ai_test_1 asset_identity_suggestion internal_transfer ETH (strong)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('    assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  lp_test_1 link_proposal amount_time unique_pair ETH 1 (medium)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '    evidence: time 30m, source_before_target, accepted asset identity assertion'
     );
   });
 
@@ -403,7 +476,7 @@ function makeAssetIdentitySuggestion() {
         amount: '1',
         sourceBlockchainTransactionHash: '0xabc',
         sourcePostingFingerprint: 'ledger_posting:v1:source',
-        targetBlockchainTransactionHash: '0xabc',
+        targetBlockchainTransactionHash: 'ABC',
         targetPostingFingerprint: 'ledger_posting:v1:target',
       },
     ],

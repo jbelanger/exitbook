@@ -8,6 +8,7 @@ import {
   executeLinksV2AssetIdentityListCommand,
   executeLinksV2AssetIdentitySuggestionsCommand,
   executeLinksV2DiagnoseCommand,
+  executeLinksV2ReviewCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
 
@@ -31,6 +32,11 @@ const LINKS_V2_DIAGNOSE_CONFIG = {
   title: 'Links v2 diagnostics.',
 } as const;
 
+const LINKS_V2_REVIEW_CONFIG = {
+  commandId: 'links-v2-review',
+  title: 'Links v2 review queue.',
+} as const;
+
 const LINKS_V2_ASSET_IDENTITY_CONFIG = {
   commandId: 'links-v2-asset-identity',
   commandPath: 'links-v2',
@@ -50,6 +56,7 @@ Examples:
   $ exitbook links-v2 list
   $ exitbook links-v2 view 42
   $ exitbook links-v2 diagnose
+  $ exitbook links-v2 review
   $ exitbook links-v2 run --dry-run
   $ exitbook links-v2 run
   $ exitbook links-v2 asset-identity list
@@ -108,6 +115,29 @@ Notes:
     )
     .action(async (rawOptions: unknown) => {
       await executeLinksV2DiagnoseCommand(rawOptions, appRuntime, LINKS_V2_DIAGNOSE_CONFIG);
+    });
+
+  linksV2
+    .command('review')
+    .description('Show pending v2 linking review items without writing relationships')
+    .option('--limit <count>', 'Limit review items shown', '20')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 review
+  $ exitbook links-v2 review --limit 10
+  $ exitbook links-v2 review --json
+
+Notes:
+  - Always runs in dry-run mode.
+  - Shows the linking action queue: asset identity suggestions and review-only link proposals.
+  - Accepting review items will be added under this command family in a later slice.
+`
+    )
+    .action(async (rawOptions: unknown) => {
+      await executeLinksV2ReviewCommand(rawOptions, appRuntime, LINKS_V2_REVIEW_CONFIG);
     });
 
   linksV2

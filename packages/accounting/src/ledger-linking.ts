@@ -91,6 +91,17 @@ export {
   type LedgerLinkingRunResult,
 } from './ledger-linking/orchestration/ledger-linking-runner.js';
 export {
+  buildLedgerLinkingReviewQueue,
+  type LedgerLinkingReviewAssetIdentitySuggestionItem,
+  type LedgerLinkingReviewEvidenceStrength,
+  type LedgerLinkingReviewItem,
+  type LedgerLinkingReviewItemKind,
+  type LedgerLinkingReviewLinkProposalItem,
+  type LedgerLinkingReviewLinkProposalKind,
+  type LedgerLinkingReviewQueue,
+  type LedgerLinkingReviewQueueBuildInput,
+} from './ledger-linking/review/linking-review.js';
+export {
   LedgerLinkingRelationshipAllocationDraftSchema,
   LedgerLinkingRelationshipAllocationSideSchema,
   LedgerLinkingRelationshipDraftSchema,

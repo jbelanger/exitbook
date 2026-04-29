@@ -858,7 +858,10 @@ ledger relationships, `links-v2 list/view` browses persisted ledger
 relationships, and `links-v2 asset-identity` manages the same accepted
 assertions without touching legacy transaction links. Asset identity blockers
 are now grouped into read-only suggestions so exact-hash evidence can be
-reviewed without making symbol-only identity guesses.
+reviewed without making symbol-only identity guesses. `links-v2 review` now
+provides the first read-only linking work queue, combining asset identity
+suggestions with amount/time link proposals under stable review ids without
+persisting proposals or gaps.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -1024,7 +1027,12 @@ First implementation slices:
     Hash normalization also treats optional `0x` prefixes as equivalent so
     stronger exact-hash blockers are not hidden behind weaker amount/time
     evidence.
-28. Then broaden matching strategies only where processor-v2 ledger facts are
+28. Complete. Add a read-only `links-v2 review` work queue over the existing
+    linking-v2 evidence. The queue contains asset identity suggestions and
+    amount/time link proposals with stable review ids, evidence strength, and
+    clear source/target evidence, but it does not yet persist proposals or add
+    an accept path.
+29. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:
@@ -1034,6 +1042,8 @@ Acceptance:
   two workflows are compared.
 - Linking-v2 does not import legacy movement-matching utilities as its core
   implementation.
+- `links-v2 review` is the user-facing linking action queue; diagnostics remain
+  read-only developer visibility and should not grow separate mutation commands.
 - Internal transfer, bridge, same-hash carryover, and asset migration
   relationships can connect journals across source activities.
 - Reprocess does not silently point a relationship at a different posting.
