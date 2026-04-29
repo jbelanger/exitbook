@@ -835,6 +835,8 @@ recognizer pipeline that claims consumed candidates before materialization and
 surfaces per-recognizer stats. Accepted pairwise asset identity assertions are
 now modeled separately from relationships so exchange-scoped and chain-scoped
 asset ids can be linked only when an explicit assertion exists.
+`ledger linking-v2 asset-identity accept/list` provides a minimal non-TUI way
+to seed and inspect those accepted assertions.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -917,13 +919,16 @@ First implementation slices:
     for ledger-linking. Assertions are relationship-kind scoped, canonicalized
     symmetrically, and used by exact-hash recognition without globally merging
     asset ids.
-14. Next. Decide whether this command should remain migration-only or become
+14. Complete. Add minimal non-TUI asset identity assertion commands under
+    `ledger linking-v2 asset-identity`: `accept` saves one canonical pair and
+    `list` shows the active profile's accepted assertions.
+15. Next. Decide whether this command should remain migration-only or become
     part of a broader links workflow after the relationship model proves stable.
-15. Then persist ledger-native unresolved gaps and surface them through
+16. Then persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".
-16. Then broaden matching strategies only where processor-v2 ledger facts are
+17. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

@@ -38,6 +38,11 @@ export interface LedgerLinkingAssetIdentityAssertionReplacementResult {
   savedCount: number;
 }
 
+export interface LedgerLinkingAssetIdentityAssertionSaveResult {
+  action: 'created' | 'updated' | 'unchanged';
+  assertion: LedgerLinkingAssetIdentityAssertion;
+}
+
 export interface ILedgerLinkingAssetIdentityAssertionReader {
   loadLedgerLinkingAssetIdentityAssertions(
     profileId: number
@@ -45,6 +50,11 @@ export interface ILedgerLinkingAssetIdentityAssertionReader {
 }
 
 export interface ILedgerLinkingAssetIdentityAssertionStore {
+  saveLedgerLinkingAssetIdentityAssertion(
+    profileId: number,
+    assertion: LedgerLinkingAssetIdentityAssertion
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionSaveResult, Error>>;
+
   replaceLedgerLinkingAssetIdentityAssertions(
     profileId: number,
     assertions: readonly LedgerLinkingAssetIdentityAssertion[]

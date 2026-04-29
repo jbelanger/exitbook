@@ -35,6 +35,8 @@ export function buildLedgerLinkingAssetIdentityAssertionStore(
   db: DataSession
 ): ILedgerLinkingAssetIdentityAssertionStore {
   return {
+    saveLedgerLinkingAssetIdentityAssertion: (profileId, assertion) =>
+      db.accountingLedger.saveLedgerLinkingAssetIdentityAssertion(profileId, assertion),
     replaceLedgerLinkingAssetIdentityAssertions: (profileId, assertions) =>
       db.accountingLedger.replaceLedgerLinkingAssetIdentityAssertions(profileId, assertions),
   };

@@ -5,6 +5,7 @@ import {
   LedgerLinkingRelationshipDraftSchema,
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionReplacementResult,
+  type LedgerLinkingAssetIdentityAssertionSaveResult,
   type LedgerLinkingPostingInput,
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipMaterializationResult,
@@ -213,6 +214,22 @@ export class AccountingLedgerRepository extends BaseRepository {
       async (trx) =>
         this.replaceLedgerLinkingAssetIdentityAssertionsInTransaction(trx as KyselyDB, profileId, assertions),
       'Failed to replace ledger-linking asset identity assertions'
+    );
+  }
+
+  async saveLedgerLinkingAssetIdentityAssertion(
+    profileId: number,
+    assertion: LedgerLinkingAssetIdentityAssertion
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionSaveResult, Error>> {
+    if (this.transactionScoped) {
+      return this.saveLedgerLinkingAssetIdentityAssertionInTransaction(this.db, profileId, assertion);
+    }
+
+    return withControlledTransaction(
+      this.db,
+      this.logger,
+      async (trx) => this.saveLedgerLinkingAssetIdentityAssertionInTransaction(trx as KyselyDB, profileId, assertion),
+      'Failed to save ledger-linking asset identity assertion'
     );
   }
 
@@ -470,6 +487,71 @@ export class AccountingLedgerRepository extends BaseRepository {
       await deleteAllProcessorRelationships(db);
       const result = await db.deleteFrom('source_activities').executeTakeFirst();
       return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private async saveLedgerLinkingAssetIdentityAssertionInTransaction(
+    db: KyselyDB,
+    profileId: number,
+    assertion: LedgerLinkingAssetIdentityAssertion
+  ): Promise<Result<LedgerLinkingAssetIdentityAssertionSaveResult, Error>> {
+    const validationResult = await validateLedgerLinkingAssetIdentityAssertionReplacement(db, profileId, [assertion]);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+
+    const canonicalAssertion = validationResult.value[0];
+    if (canonicalAssertion === undefined) {
+      return err(new Error('Cannot save missing ledger-linking asset identity assertion'));
+    }
+
+    try {
+      const existing = await db
+        .selectFrom('ledger_linking_asset_identity_assertions')
+        .select(['evidence_kind'])
+        .where('profile_id', '=', profileId)
+        .where('relationship_kind', '=', canonicalAssertion.relationshipKind)
+        .where('asset_id_a', '=', canonicalAssertion.assetIdA)
+        .where('asset_id_b', '=', canonicalAssertion.assetIdB)
+        .executeTakeFirst();
+
+      if (existing === undefined) {
+        await db
+          .insertInto('ledger_linking_asset_identity_assertions')
+          .values(toLedgerLinkingAssetIdentityAssertionRow(profileId, canonicalAssertion, new Date().toISOString()))
+          .execute();
+
+        return ok({
+          action: 'created',
+          assertion: canonicalAssertion,
+        });
+      }
+
+      if (existing.evidence_kind === canonicalAssertion.evidenceKind) {
+        return ok({
+          action: 'unchanged',
+          assertion: canonicalAssertion,
+        });
+      }
+
+      await db
+        .updateTable('ledger_linking_asset_identity_assertions')
+        .set({
+          evidence_kind: canonicalAssertion.evidenceKind,
+          updated_at: new Date().toISOString(),
+        })
+        .where('profile_id', '=', profileId)
+        .where('relationship_kind', '=', canonicalAssertion.relationshipKind)
+        .where('asset_id_a', '=', canonicalAssertion.assetIdA)
+        .where('asset_id_b', '=', canonicalAssertion.assetIdB)
+        .execute();
+
+      return ok({
+        action: 'updated',
+        assertion: canonicalAssertion,
+      });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }

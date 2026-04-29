@@ -807,6 +807,60 @@ describe('AccountingLedgerRepository', () => {
     ]);
   });
 
+  it('saves one ledger-linking asset identity assertion without replacing the profile set', async () => {
+    const created = assertOk(
+      await repository.saveLedgerLinkingAssetIdentityAssertion(1, {
+        assetIdA: 'exchange:kraken:eth',
+        assetIdB: 'blockchain:ethereum:native',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      })
+    );
+    const unchanged = assertOk(
+      await repository.saveLedgerLinkingAssetIdentityAssertion(1, {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      })
+    );
+    const updated = assertOk(
+      await repository.saveLedgerLinkingAssetIdentityAssertion(1, {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        evidenceKind: 'seeded',
+        relationshipKind: 'internal_transfer',
+      })
+    );
+    const secondCreated = assertOk(
+      await repository.saveLedgerLinkingAssetIdentityAssertion(1, {
+        assetIdA: 'exchange:coinbase:btc',
+        assetIdB: 'blockchain:bitcoin:native',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      })
+    );
+
+    expect(created.action).toBe('created');
+    expect(unchanged.action).toBe('unchanged');
+    expect(updated.action).toBe('updated');
+    expect(secondCreated.action).toBe('created');
+    expect(assertOk(await repository.findLedgerLinkingAssetIdentityAssertionsByProfileId(1))).toEqual([
+      {
+        assetIdA: 'blockchain:bitcoin:native',
+        assetIdB: 'exchange:coinbase:btc',
+        evidenceKind: 'manual',
+        relationshipKind: 'internal_transfer',
+      },
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:kraken:eth',
+        evidenceKind: 'seeded',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+  });
+
   it('rejects duplicate ledger-linking asset identity assertions after canonicalization', async () => {
     const result = await repository.replaceLedgerLinkingAssetIdentityAssertions(1, [
       {

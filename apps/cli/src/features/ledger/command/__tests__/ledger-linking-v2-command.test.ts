@@ -5,23 +5,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 
 const {
+  mockBuildLedgerLinkingAssetIdentityAssertionReader,
+  mockBuildLedgerLinkingAssetIdentityAssertionStore,
   mockBuildLedgerLinkingRunPorts,
   mockCtx,
   mockExitCliFailure,
+  mockLoadLedgerLinkingAssetIdentityAssertions,
   mockOutputSuccess,
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunLedgerLinking,
+  mockSaveLedgerLinkingAssetIdentityAssertion,
 } = vi.hoisted(() => ({
+  mockBuildLedgerLinkingAssetIdentityAssertionReader: vi.fn(),
+  mockBuildLedgerLinkingAssetIdentityAssertionStore: vi.fn(),
   mockBuildLedgerLinkingRunPorts: vi.fn(),
   mockCtx: {
     openDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
+  mockLoadLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLedgerLinking: vi.fn(),
+  mockSaveLedgerLinkingAssetIdentityAssertion: vi.fn(),
 }));
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
@@ -29,6 +37,8 @@ vi.mock('@exitbook/accounting/ledger-linking', () => ({
 }));
 
 vi.mock('@exitbook/data/accounting', () => ({
+  buildLedgerLinkingAssetIdentityAssertionReader: mockBuildLedgerLinkingAssetIdentityAssertionReader,
+  buildLedgerLinkingAssetIdentityAssertionStore: mockBuildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts: mockBuildLedgerLinkingRunPorts,
 }));
 
@@ -77,6 +87,33 @@ describe('ledger linking-v2 command', () => {
       })
     );
     mockBuildLedgerLinkingRunPorts.mockReturnValue({ tag: 'ledger-linking-ports' });
+    mockLoadLedgerLinkingAssetIdentityAssertions.mockResolvedValue(
+      ok([
+        {
+          assetIdA: 'blockchain:ethereum:native',
+          assetIdB: 'exchange:kraken:eth',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+    mockSaveLedgerLinkingAssetIdentityAssertion.mockResolvedValue(
+      ok({
+        action: 'created',
+        assertion: {
+          assetIdA: 'blockchain:ethereum:native',
+          assetIdB: 'exchange:kraken:eth',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      })
+    );
+    mockBuildLedgerLinkingAssetIdentityAssertionReader.mockReturnValue({
+      loadLedgerLinkingAssetIdentityAssertions: mockLoadLedgerLinkingAssetIdentityAssertions,
+    });
+    mockBuildLedgerLinkingAssetIdentityAssertionStore.mockReturnValue({
+      saveLedgerLinkingAssetIdentityAssertion: mockSaveLedgerLinkingAssetIdentityAssertion,
+    });
     mockRunLedgerLinking.mockResolvedValue(ok(makeRunResult()));
     mockExitCliFailure.mockImplementation(
       (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
@@ -158,6 +195,47 @@ describe('ledger linking-v2 command', () => {
       expect.objectContaining({ error: failure, exitCode: 1 }),
       'json'
     );
+  });
+
+  it('lists accepted asset identity assertions', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(['ledger', 'linking-v2', 'asset-identity', 'list'], { from: 'user' });
+
+    expect(mockBuildLedgerLinkingAssetIdentityAssertionReader).toHaveBeenCalledWith({ tag: 'db' });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity assertions for default (#7)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Assertions: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  internal_transfer: blockchain:ethereum:native <-> exchange:kraken:eth (manual)'
+    );
+  });
+
+  it('accepts one asset identity assertion', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(
+      [
+        'ledger',
+        'linking-v2',
+        'asset-identity',
+        'accept',
+        '--asset-id-a',
+        'exchange:kraken:eth',
+        '--asset-id-b',
+        'blockchain:ethereum:native',
+      ],
+      { from: 'user' }
+    );
+
+    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
+      assetIdA: 'exchange:kraken:eth',
+      assetIdB: 'blockchain:ethereum:native',
+      evidenceKind: 'manual',
+      relationshipKind: 'internal_transfer',
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity assertion created.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
   });
 });
 
