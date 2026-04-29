@@ -7,10 +7,12 @@ import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 const {
   mockBuildLedgerLinkingAssetIdentityAssertionReader,
   mockBuildLedgerLinkingAssetIdentityAssertionStore,
+  mockBuildLedgerLinkingRelationshipReader,
   mockBuildLedgerLinkingRunPorts,
   mockCtx,
   mockExitCliFailure,
   mockLoadLedgerLinkingAssetIdentityAssertions,
+  mockLoadLedgerLinkingRelationships,
   mockOutputSuccess,
   mockResolveCommandProfile,
   mockRunCommand,
@@ -19,12 +21,14 @@ const {
 } = vi.hoisted(() => ({
   mockBuildLedgerLinkingAssetIdentityAssertionReader: vi.fn(),
   mockBuildLedgerLinkingAssetIdentityAssertionStore: vi.fn(),
+  mockBuildLedgerLinkingRelationshipReader: vi.fn(),
   mockBuildLedgerLinkingRunPorts: vi.fn(),
   mockCtx: {
     openDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockLoadLedgerLinkingAssetIdentityAssertions: vi.fn(),
+  mockLoadLedgerLinkingRelationships: vi.fn(),
   mockOutputSuccess: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
@@ -39,6 +43,7 @@ vi.mock('@exitbook/accounting/ledger-linking', () => ({
 vi.mock('@exitbook/data/accounting', () => ({
   buildLedgerLinkingAssetIdentityAssertionReader: mockBuildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore: mockBuildLedgerLinkingAssetIdentityAssertionStore,
+  buildLedgerLinkingRelationshipReader: mockBuildLedgerLinkingRelationshipReader,
   buildLedgerLinkingRunPorts: mockBuildLedgerLinkingRunPorts,
 }));
 
@@ -97,6 +102,7 @@ describe('links-v2 command', () => {
         },
       ])
     );
+    mockLoadLedgerLinkingRelationships.mockResolvedValue(ok([makePersistedRelationship()]));
     mockSaveLedgerLinkingAssetIdentityAssertion.mockResolvedValue(
       ok({
         action: 'created',
@@ -113,6 +119,9 @@ describe('links-v2 command', () => {
     });
     mockBuildLedgerLinkingAssetIdentityAssertionStore.mockReturnValue({
       saveLedgerLinkingAssetIdentityAssertion: mockSaveLedgerLinkingAssetIdentityAssertion,
+    });
+    mockBuildLedgerLinkingRelationshipReader.mockReturnValue({
+      loadLedgerLinkingRelationships: mockLoadLedgerLinkingRelationships,
     });
     mockRunLedgerLinking.mockResolvedValue(
       ok({
@@ -157,6 +166,29 @@ describe('links-v2 command', () => {
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('links-v2-status');
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
+  });
+
+  it('lists persisted links-v2 relationships', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(['links-v2', 'list'], { from: 'user' });
+
+    expect(mockBuildLedgerLinkingRelationshipReader).toHaveBeenCalledWith({ tag: 'db' });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationships for default (#7)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  #42 internal_transfer resolved relationship:ledger-linking');
+  });
+
+  it('views one persisted links-v2 relationship by stable key prefix', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(['links-v2', 'view', 'relationship:ledger'], { from: 'user' });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationship #42');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Stable key: relationship:ledger-linking');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Status: resolved');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  Activity: source_activity:v1:source');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  Activity: source_activity:v1:target');
   });
 
   it('lists accepted asset identity assertions under links-v2', async () => {
@@ -281,5 +313,29 @@ function makeRunResult() {
     transferCandidateCount: 2,
     unmatchedSourceCandidateCount: 0,
     unmatchedTargetCandidateCount: 0,
+  };
+}
+
+function makePersistedRelationship() {
+  return {
+    id: 42,
+    relationshipStableKey: 'relationship:ledger-linking',
+    relationshipKind: 'internal_transfer',
+    source: {
+      sourceActivityFingerprint: 'source_activity:v1:source',
+      journalFingerprint: 'ledger_journal:v1:source',
+      postingFingerprint: 'ledger_posting:v1:source',
+      currentJournalId: 100,
+      currentPostingId: 101,
+    },
+    target: {
+      sourceActivityFingerprint: 'source_activity:v1:target',
+      journalFingerprint: 'ledger_journal:v1:target',
+      postingFingerprint: 'ledger_posting:v1:target',
+      currentJournalId: 200,
+      currentPostingId: 201,
+    },
+    createdAt: '2026-04-29T00:00:00.000Z',
+    updatedAt: undefined,
   };
 }

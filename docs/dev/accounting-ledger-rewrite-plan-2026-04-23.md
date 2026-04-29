@@ -839,7 +839,8 @@ asset ids can be linked only when an explicit assertion exists.
 to seed and inspect those accepted assertions. A parallel top-level `links-v2`
 command now exists for v1/v2 comparison work: bare `links-v2` and
 `links-v2 status` are read-only previews, `links-v2 run` materializes accepted
-ledger relationships, and `links-v2 asset-identity` manages the same accepted
+ledger relationships, `links-v2 list/view` browses persisted ledger
+relationships, and `links-v2 asset-identity` manages the same accepted
 assertions without touching legacy transaction links.
 
 Goal: build ledger-native linking that persists relationship truth spanning
@@ -932,11 +933,11 @@ First implementation slices:
     top-level `links-v2` command so v1 links and v2 ledger relationships can be
     compared for a while before legacy code removal. Keep `ledger linking-v2`
     as the lower-level ledger migration alias over the same implementation.
-16. Next. Add read-only v2 browsing parity for persisted ledger relationships
+16. Complete. Add read-only v2 browsing parity for persisted ledger relationships
     under `links-v2 list/view` before introducing review or gap persistence.
     These commands should read ledger relationships, not legacy
     `transaction_links`.
-17. Then persist ledger-native unresolved gaps and surface them through
+17. Next. Persist ledger-native unresolved gaps and surface them through
     accounting issues after the model is stable. At that point a gap should mean
     "eligible candidate left unresolved after the linker ran", not "no matcher
     exists yet".

@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 
 import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
+import { registerLinksV2RelationshipCommands } from './links-v2-relationships.js';
 import {
   executeLinksV2AssetIdentityAcceptCommand,
   executeLinksV2AssetIdentityListCommand,
@@ -38,6 +39,8 @@ export function registerLinksV2Command(program: Command, appRuntime: CliAppRunti
 Examples:
   $ exitbook links-v2
   $ exitbook links-v2 status
+  $ exitbook links-v2 list
+  $ exitbook links-v2 view 42
   $ exitbook links-v2 run --dry-run
   $ exitbook links-v2 run
   $ exitbook links-v2 asset-identity list
@@ -70,6 +73,8 @@ Notes:
     .action(async (rawOptions: unknown) => {
       await executeLinksV2RunCommand(rawOptions, appRuntime, LINKS_V2_STATUS_CONFIG);
     });
+
+  registerLinksV2RelationshipCommands(linksV2, appRuntime);
 
   linksV2
     .command('run')

@@ -659,6 +659,42 @@ describe('AccountingLedgerRepository', () => {
     });
   });
 
+  it('loads persisted ledger-linking relationships by profile', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        makeLedgerLinkingRelationshipDraft(sourceEndpoint, targetEndpoint, 'relationship:ledger-linking'),
+      ])
+    );
+
+    const relationships = assertOk(await repository.findLedgerLinkingRelationshipsByProfileId(1));
+
+    expect(relationships).toHaveLength(1);
+    const relationship = relationships[0]!;
+    expect(typeof relationship.id).toBe('number');
+    expect(typeof relationship.createdAt).toBe('string');
+    expect(relationship).toMatchObject({
+      relationshipStableKey: 'relationship:ledger-linking',
+      relationshipKind: 'internal_transfer',
+      source: {
+        sourceActivityFingerprint: sourceEndpoint.sourceActivityFingerprint,
+        journalFingerprint: sourceEndpoint.journalFingerprint,
+        postingFingerprint: sourceEndpoint.postingFingerprint,
+        currentJournalId: sourceEndpoint.journalId,
+        currentPostingId: sourceEndpoint.postingId,
+      },
+      target: {
+        sourceActivityFingerprint: targetEndpoint.sourceActivityFingerprint,
+        journalFingerprint: targetEndpoint.journalFingerprint,
+        postingFingerprint: targetEndpoint.postingFingerprint,
+        currentJournalId: targetEndpoint.journalId,
+        currentPostingId: targetEndpoint.postingId,
+      },
+      updatedAt: undefined,
+    });
+  });
+
   it('replaces only profile-scoped ledger-linking relationships', async () => {
     const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
 

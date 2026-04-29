@@ -9,6 +9,7 @@ export {
   buildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingCandidateSourceReader,
+  buildLedgerLinkingRelationshipReader,
   buildLedgerLinkingRelationshipStore,
   buildLedgerLinkingRunPorts,
 } from './accounting/ledger-linking-ports.js';

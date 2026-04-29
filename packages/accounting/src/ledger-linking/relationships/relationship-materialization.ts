@@ -18,6 +18,24 @@ export const LedgerLinkingRelationshipDraftSchema = z.object({
 export type LedgerLinkingRelationshipEndpointRef = z.infer<typeof LedgerLinkingRelationshipEndpointRefSchema>;
 export type LedgerLinkingRelationshipDraft = z.infer<typeof LedgerLinkingRelationshipDraftSchema>;
 
+export interface LedgerLinkingPersistedRelationshipEndpoint {
+  sourceActivityFingerprint: string;
+  journalFingerprint: string;
+  postingFingerprint: string | undefined;
+  currentJournalId: number | undefined;
+  currentPostingId: number | undefined;
+}
+
+export interface LedgerLinkingPersistedRelationship {
+  id: number;
+  relationshipStableKey: string;
+  relationshipKind: z.infer<typeof AccountingJournalRelationshipKindSchema>;
+  source: LedgerLinkingPersistedRelationshipEndpoint;
+  target: LedgerLinkingPersistedRelationshipEndpoint;
+  createdAt: string;
+  updatedAt: string | undefined;
+}
+
 export interface LedgerLinkingRelationshipMaterializationResult {
   previousCount: number;
   savedCount: number;
@@ -30,4 +48,8 @@ export interface ILedgerLinkingRelationshipStore {
     profileId: number,
     relationships: readonly LedgerLinkingRelationshipDraft[]
   ): Promise<Result<LedgerLinkingRelationshipMaterializationResult, Error>>;
+}
+
+export interface ILedgerLinkingRelationshipReader {
+  loadLedgerLinkingRelationships(profileId: number): Promise<Result<LedgerLinkingPersistedRelationship[], Error>>;
 }

@@ -6,6 +6,7 @@ import {
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionReplacementResult,
   type LedgerLinkingAssetIdentityAssertionSaveResult,
+  type LedgerLinkingPersistedRelationship,
   type LedgerLinkingPostingInput,
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipMaterializationResult,
@@ -198,6 +199,45 @@ export class AccountingLedgerRepository extends BaseRepository {
       async (trx) => this.replaceLedgerLinkingRelationshipsInTransaction(trx as KyselyDB, profileId, relationships),
       'Failed to replace ledger-linking relationships'
     );
+  }
+
+  async findLedgerLinkingRelationshipsByProfileId(
+    profileId: number
+  ): Promise<Result<LedgerLinkingPersistedRelationship[], Error>> {
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+    }
+
+    try {
+      const rows = await this.db
+        .selectFrom('accounting_journal_relationships')
+        .select([
+          'id',
+          'relationship_stable_key',
+          'relationship_kind',
+          'source_activity_fingerprint',
+          'target_activity_fingerprint',
+          'source_journal_id',
+          'target_journal_id',
+          'source_journal_fingerprint',
+          'target_journal_fingerprint',
+          'source_posting_id',
+          'target_posting_id',
+          'source_posting_fingerprint',
+          'target_posting_fingerprint',
+          'created_at',
+          'updated_at',
+        ])
+        .where('profile_id', '=', profileId)
+        .where('relationship_origin', '=', 'ledger_linking')
+        .orderBy('created_at', 'asc')
+        .orderBy('id', 'asc')
+        .execute();
+
+      return ok(rows.map(toLedgerLinkingPersistedRelationship));
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   async replaceLedgerLinkingAssetIdentityAssertions(
@@ -1459,6 +1499,46 @@ function toLedgerLinkingRelationshipRow(
     relationship_kind: relationship.relationshipKind,
     created_at: now,
     updated_at: null,
+  };
+}
+
+function toLedgerLinkingPersistedRelationship(row: {
+  created_at: string;
+  id: number;
+  relationship_kind: LedgerLinkingPersistedRelationship['relationshipKind'];
+  relationship_stable_key: string;
+  source_activity_fingerprint: string;
+  source_journal_fingerprint: string;
+  source_journal_id: number | null;
+  source_posting_fingerprint: string | null;
+  source_posting_id: number | null;
+  target_activity_fingerprint: string;
+  target_journal_fingerprint: string;
+  target_journal_id: number | null;
+  target_posting_fingerprint: string | null;
+  target_posting_id: number | null;
+  updated_at: string | null;
+}): LedgerLinkingPersistedRelationship {
+  return {
+    id: row.id,
+    relationshipStableKey: row.relationship_stable_key,
+    relationshipKind: row.relationship_kind,
+    source: {
+      sourceActivityFingerprint: row.source_activity_fingerprint,
+      journalFingerprint: row.source_journal_fingerprint,
+      postingFingerprint: row.source_posting_fingerprint ?? undefined,
+      currentJournalId: row.source_journal_id ?? undefined,
+      currentPostingId: row.source_posting_id ?? undefined,
+    },
+    target: {
+      sourceActivityFingerprint: row.target_activity_fingerprint,
+      journalFingerprint: row.target_journal_fingerprint,
+      postingFingerprint: row.target_posting_fingerprint ?? undefined,
+      currentJournalId: row.target_journal_id ?? undefined,
+      currentPostingId: row.target_posting_id ?? undefined,
+    },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 

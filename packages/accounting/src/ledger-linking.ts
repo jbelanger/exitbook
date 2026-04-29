@@ -51,7 +51,10 @@ export {
 export {
   LedgerLinkingRelationshipDraftSchema,
   LedgerLinkingRelationshipEndpointRefSchema,
+  type ILedgerLinkingRelationshipReader,
   type ILedgerLinkingRelationshipStore,
+  type LedgerLinkingPersistedRelationship,
+  type LedgerLinkingPersistedRelationshipEndpoint,
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipEndpointRef,
   type LedgerLinkingRelationshipMaterializationResult,

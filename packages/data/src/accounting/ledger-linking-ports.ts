@@ -2,6 +2,7 @@ import type {
   ILedgerLinkingAssetIdentityAssertionReader,
   ILedgerLinkingAssetIdentityAssertionStore,
   ILedgerLinkingCandidateSourceReader,
+  ILedgerLinkingRelationshipReader,
   ILedgerLinkingRelationshipStore,
   LedgerLinkingRunPorts,
 } from '@exitbook/accounting/ledger-linking';
@@ -12,6 +13,13 @@ export function buildLedgerLinkingRelationshipStore(db: DataSession): ILedgerLin
   return {
     replaceLedgerLinkingRelationships: (profileId, relationships) =>
       db.accountingLedger.replaceLedgerLinkingRelationships(profileId, relationships),
+  };
+}
+
+export function buildLedgerLinkingRelationshipReader(db: DataSession): ILedgerLinkingRelationshipReader {
+  return {
+    loadLedgerLinkingRelationships: (profileId) =>
+      db.accountingLedger.findLedgerLinkingRelationshipsByProfileId(profileId),
   };
 }
 
