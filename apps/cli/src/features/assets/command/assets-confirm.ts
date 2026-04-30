@@ -3,13 +3,14 @@ import type { Command } from 'commander';
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsConfirmCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetReviewOverrideResult } from './assets-types.js';
 import { runAssetsConfirmReview } from './run-assets.js';
 
-export function registerAssetsConfirmCommand(assetsCommand: Command): void {
+export function registerAssetsConfirmCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   assetsCommand
     .command('confirm')
     .description('Confirm the current review evidence for a suspicious asset')
@@ -32,13 +33,14 @@ Notes:
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeAssetsConfirmCommand(rawOptions);
+      await executeAssetsConfirmCommand(rawOptions, appRuntime);
     });
 }
 
-async function executeAssetsConfirmCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsConfirmCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   await executeAssetOverrideCommand(
     'assets-confirm',
+    appRuntime,
     rawOptions,
     AssetsConfirmCommandOptionsSchema,
     (scope, options) =>

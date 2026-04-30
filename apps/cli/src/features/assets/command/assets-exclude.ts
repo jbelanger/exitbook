@@ -3,13 +3,14 @@ import type { Command } from 'commander';
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsExcludeCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetOverrideResult } from './assets-types.js';
 import { runAssetsExclude } from './run-assets.js';
 
-export function registerAssetsExcludeCommand(assetsCommand: Command): void {
+export function registerAssetsExcludeCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   assetsCommand
     .command('exclude')
     .description('Exclude an asset from accounting-scoped cost basis and portfolio processing')
@@ -31,13 +32,14 @@ Notes:
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeAssetsExcludeCommand(rawOptions);
+      await executeAssetsExcludeCommand(rawOptions, appRuntime);
     });
 }
 
-async function executeAssetsExcludeCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsExcludeCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   await executeAssetOverrideCommand(
     'assets-exclude',
+    appRuntime,
     rawOptions,
     AssetsExcludeCommandOptionsSchema,
     (scope, options) =>

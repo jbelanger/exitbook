@@ -24,7 +24,7 @@ export async function withAssetsCommandScope<T>(
   runtime: CommandRuntime,
   operation: (scope: AssetsCommandScope) => Promise<Result<T, Error>>
 ): Promise<Result<T, Error>> {
-  return resultTryAsync<T>(async function* () {
+  const scopeResult = await resultTryAsync<AssetsCommandScope>(async function* () {
     const database = await runtime.openDatabaseSession();
     const profileResult = await resolveCommandProfile(runtime, database);
     if (profileResult.isErr()) {
@@ -38,7 +38,7 @@ export async function withAssetsCommandScope<T>(
       balanceSnapshotRebuilder: createBalanceSnapshotRebuilder(capabilityFactories.balanceWorkflowFactory),
     });
 
-    const value = yield* await operation({
+    return {
       overrideService: new AssetOverrideService(database, overrideStore, snapshotReader),
       profile: profileResult.value,
       refreshProfileIssues: () =>
@@ -48,9 +48,14 @@ export async function withAssetsCommandScope<T>(
           profileKey: profileResult.value.profileKey,
         }),
       snapshotReader,
-    });
-    return value;
+    };
   }, 'Failed to prepare assets command scope');
+
+  if (scopeResult.isErr()) {
+    return err(scopeResult.error);
+  }
+
+  return operation(scopeResult.value);
 }
 
 function createBalanceSnapshotRebuilder(balanceWorkflowFactory: CliBalanceWorkflowFactory): BalanceSnapshotRebuilder {

@@ -4,13 +4,14 @@ import type { Command } from 'commander';
 import { jsonSuccess, runCliRuntimeCommand, textSuccess, toCliResult } from '../../../cli/command.js';
 import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { withAssetsCommandScope } from './assets-command-scope.js';
 import { AssetsExclusionsCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetExclusionsResult } from './assets-types.js';
 import { runAssetsExclusions } from './run-assets.js';
 
-export function registerAssetsExclusionsCommand(assetsCommand: Command): void {
+export function registerAssetsExclusionsCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   assetsCommand
     .command('exclusions')
     .description('List asset IDs currently excluded from accounting')
@@ -26,13 +27,14 @@ Notes:
 `
     )
     .option('--json', 'Output results in JSON format')
-    .action((rawOptions: unknown) => executeAssetsExclusionsCommand(rawOptions));
+    .action((rawOptions: unknown) => executeAssetsExclusionsCommand(rawOptions, appRuntime));
 }
 
-async function executeAssetsExclusionsCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsExclusionsCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: 'assets-exclusions',
     format,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, AssetsExclusionsCommandOptionsSchema),

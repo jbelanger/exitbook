@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
 import { staticDetailSurfaceSpec } from '../../../cli/presentation.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import {
   buildAssetsBrowseOptionsHelpText,
@@ -10,7 +11,7 @@ import {
 
 const ASSETS_VIEW_COMMAND_ID = 'assets-view';
 
-export function registerAssetsViewCommand(assetsCommand: Command): void {
+export function registerAssetsViewCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   registerAssetsBrowseOptions(
     assetsCommand
       .command('view <selector>')
@@ -33,6 +34,7 @@ Notes:
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {
     await runAssetsBrowseCommand({
+      appRuntime,
       commandId: ASSETS_VIEW_COMMAND_ID,
       rawOptions,
       selector,

@@ -3,13 +3,14 @@ import type { Command } from 'commander';
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsClearReviewCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetReviewOverrideResult } from './assets-types.js';
 import { runAssetsClearReview } from './run-assets.js';
 
-export function registerAssetsClearReviewCommand(assetsCommand: Command): void {
+export function registerAssetsClearReviewCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   assetsCommand
     .command('clear-review')
     .description('Clear a prior review confirmation for an asset')
@@ -31,13 +32,14 @@ Notes:
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeAssetsClearReviewCommand(rawOptions);
+      await executeAssetsClearReviewCommand(rawOptions, appRuntime);
     });
 }
 
-async function executeAssetsClearReviewCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsClearReviewCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   await executeAssetOverrideCommand(
     'assets-clear-review',
+    appRuntime,
     rawOptions,
     AssetsClearReviewCommandOptionsSchema,
     (scope, options) =>

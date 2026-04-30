@@ -8,6 +8,7 @@ import {
   restoreTerminalInteractivity,
   setTerminalInteractivity,
 } from '../../../../runtime/__tests__/terminal-test-utils.js';
+import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
 import type { AssetsViewState } from '../../view/assets-view-state.js';
 import type { AssetOverrideResult, AssetReviewOverrideResult } from '../assets-types.js';
 
@@ -88,7 +89,7 @@ interface AssetsViewAppProps {
 
 function createAssetsProgram(): Command {
   const program = new Command();
-  registerAssetsCommand(program);
+  registerAssetsCommand(program, { tag: 'app-runtime' } as unknown as CliAppRuntime);
   return program;
 }
 
@@ -112,9 +113,16 @@ describe('assets command modules', () => {
     mockCtx.database.mockResolvedValue({ tag: 'db' });
     mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
     mockCtx.closeDatabaseSession.mockResolvedValue(undefined);
-    mockRunCommand.mockImplementation(async (fn: (ctx: typeof mockCtx) => Promise<void>) => {
-      await fn(mockCtx);
-    });
+    mockRunCommand.mockImplementation(
+      async (appRuntimeOrFn: unknown, maybeFn?: (ctx: typeof mockCtx) => Promise<void>) => {
+        const fn =
+          typeof appRuntimeOrFn === 'function' ? (appRuntimeOrFn as (ctx: typeof mockCtx) => Promise<void>) : maybeFn;
+        if (fn === undefined) {
+          throw new Error('runCommand mock received no command function');
+        }
+        await fn(mockCtx);
+      }
+    );
     mockWithAssetsCommandScope.mockImplementation(
       async (_ctx: unknown, operation: (scope: typeof assetsScope) => Promise<unknown>) => operation(assetsScope)
     );

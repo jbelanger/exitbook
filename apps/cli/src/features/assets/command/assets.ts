@@ -4,6 +4,7 @@ import type { Command } from 'commander';
 import { cliErr, ExitCodes, runCliRuntimeCommand } from '../../../cli/command.js';
 import { detectCliTokenOutputFormat, parseCliBrowseRootInvocationResult } from '../../../cli/options.js';
 import { staticListSurfaceSpec } from '../../../cli/presentation.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import {
   buildAssetsBrowseOptionsHelpText,
@@ -22,7 +23,7 @@ import { registerAssetsViewCommand } from './assets-view.js';
 
 const ASSETS_COMMAND_ID = 'assets';
 
-export function registerAssetsCommand(program: Command): void {
+export function registerAssetsCommand(program: Command, appRuntime: CliAppRuntime): void {
   const assets = program
     .command('assets')
     .usage('[options]')
@@ -58,6 +59,7 @@ Notes:
 
   assets.action(async (tokens: string[] | undefined) => {
     await runCliRuntimeCommand({
+      appRuntime,
       command: ASSETS_COMMAND_ID,
       format: detectCliTokenOutputFormat(tokens),
       prepare: async () =>
@@ -86,12 +88,12 @@ Notes:
     });
   });
 
-  registerAssetsListCommand(assets);
-  registerAssetsViewCommand(assets);
-  registerAssetsExploreCommand(assets);
-  registerAssetsConfirmCommand(assets);
-  registerAssetsClearReviewCommand(assets);
-  registerAssetsExcludeCommand(assets);
-  registerAssetsIncludeCommand(assets);
-  registerAssetsExclusionsCommand(assets);
+  registerAssetsListCommand(assets, appRuntime);
+  registerAssetsViewCommand(assets, appRuntime);
+  registerAssetsExploreCommand(assets, appRuntime);
+  registerAssetsConfirmCommand(assets, appRuntime);
+  registerAssetsClearReviewCommand(assets, appRuntime);
+  registerAssetsExcludeCommand(assets, appRuntime);
+  registerAssetsIncludeCommand(assets, appRuntime);
+  registerAssetsExclusionsCommand(assets, appRuntime);
 }

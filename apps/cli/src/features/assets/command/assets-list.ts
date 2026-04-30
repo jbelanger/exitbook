@@ -1,10 +1,11 @@
 import type { Command } from 'commander';
 
 import { staticListSurfaceSpec } from '../../../cli/presentation.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { registerAssetsBrowseOptions, runAssetsBrowseCommand } from './assets-browse-command.js';
 
-export function registerAssetsListCommand(assetsCommand: Command): void {
+export function registerAssetsListCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   registerAssetsBrowseOptions(
     assetsCommand
       .command('list')
@@ -21,6 +22,7 @@ Examples:
       )
   ).action(async (rawOptions: unknown) => {
     await runAssetsBrowseCommand({
+      appRuntime,
       commandId: 'assets-list',
       rawOptions,
       surfaceSpec: staticListSurfaceSpec('assets-list'),

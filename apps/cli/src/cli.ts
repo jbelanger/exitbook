@@ -109,7 +109,7 @@ Notes:
   registerLinksCommand(program, appRuntime);
   registerLinksV2Command(program, appRuntime);
   registerAccountsCommand(program, appRuntime);
-  registerAssetsCommand(program);
+  registerAssetsCommand(program, appRuntime);
   registerTransactionsCommand(program, appRuntime);
   registerPricesCommand(program, appRuntime);
   registerClearCommand(program);

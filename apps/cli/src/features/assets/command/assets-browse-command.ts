@@ -26,6 +26,7 @@ import {
 } from '../../../cli/options.js';
 import { type BrowseSurfaceSpec } from '../../../cli/presentation.js';
 import { buildDefinedFilters } from '../../../cli/view-utils.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import { renderApp, type CommandRuntime } from '../../../runtime/command-runtime.js';
 import { outputAssetStaticDetail, outputAssetsStaticList } from '../view/assets-static-renderer.js';
 import { AssetsViewApp } from '../view/assets-view-components.jsx';
@@ -43,11 +44,15 @@ import {
   runAssetsInclude,
 } from './run-assets.js';
 
-interface ExecuteAssetsBrowseCommandInput {
+interface PrepareAssetsBrowseCommandInput {
   commandId: string;
   rawOptions: unknown;
   selector?: string | undefined;
   surfaceSpec: BrowseSurfaceSpec;
+}
+
+interface ExecuteAssetsBrowseCommandInput extends PrepareAssetsBrowseCommandInput {
+  appRuntime: CliAppRuntime;
 }
 
 export type PreparedAssetsBrowseCommand = PreparedBrowseCommand<AssetsBrowseParams>;
@@ -97,7 +102,7 @@ export function prepareAssetsBrowseCommand({
   rawOptions,
   selector,
   surfaceSpec,
-}: ExecuteAssetsBrowseCommandInput): Result<PreparedAssetsBrowseCommand, CliFailure> {
+}: PrepareAssetsBrowseCommandInput): Result<PreparedAssetsBrowseCommand, CliFailure> {
   const parsedOptionsResult = parseCliBrowseOptionsResult(rawOptions, AssetsBrowseCommandOptionsSchema, surfaceSpec);
   if (parsedOptionsResult.isErr()) {
     return err(parsedOptionsResult.error);
@@ -158,6 +163,7 @@ export async function executePreparedAssetsBrowseCommand(
 
 export async function runAssetsBrowseCommand(input: ExecuteAssetsBrowseCommandInput): Promise<void> {
   await runPreparedBrowseRuntimeCommand({
+    appRuntime: input.appRuntime,
     command: input.commandId,
     rawOptions: input.rawOptions,
     prepare: () => prepareAssetsBrowseCommand(input),

@@ -3,13 +3,14 @@ import type { Command } from 'commander';
 import { jsonSuccess, textSuccess } from '../../../cli/command.js';
 import type { CliOutputFormat } from '../../../cli/options.js';
 import { formatSuccessLine } from '../../../cli/success.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import { executeAssetOverrideCommand } from './asset-override-command.js';
 import { AssetsIncludeCommandOptionsSchema } from './assets-option-schemas.js';
 import type { AssetOverrideResult } from './assets-types.js';
 import { runAssetsInclude } from './run-assets.js';
 
-export function registerAssetsIncludeCommand(assetsCommand: Command): void {
+export function registerAssetsIncludeCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   assetsCommand
     .command('include')
     .description('Re-include a previously excluded asset in accounting-scoped processing')
@@ -31,13 +32,14 @@ Notes:
     .option('--reason <text>', 'Optional audit reason stored with the override event')
     .option('--json', 'Output results in JSON format')
     .action(async (rawOptions: unknown) => {
-      await executeAssetsIncludeCommand(rawOptions);
+      await executeAssetsIncludeCommand(rawOptions, appRuntime);
     });
 }
 
-async function executeAssetsIncludeCommand(rawOptions: unknown): Promise<void> {
+async function executeAssetsIncludeCommand(rawOptions: unknown, appRuntime: CliAppRuntime): Promise<void> {
   await executeAssetOverrideCommand(
     'assets-include',
+    appRuntime,
     rawOptions,
     AssetsIncludeCommandOptionsSchema,
     (scope, options) =>

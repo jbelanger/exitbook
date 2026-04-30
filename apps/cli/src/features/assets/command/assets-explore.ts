@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 
 import { explorerDetailSurfaceSpec, explorerListSurfaceSpec } from '../../../cli/presentation.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import {
   buildAssetsBrowseOptionsHelpText,
@@ -10,7 +11,7 @@ import {
 
 const ASSETS_EXPLORE_COMMAND_ID = 'assets-explore';
 
-export function registerAssetsExploreCommand(assetsCommand: Command): void {
+export function registerAssetsExploreCommand(assetsCommand: Command, appRuntime: CliAppRuntime): void {
   registerAssetsBrowseOptions(
     assetsCommand
       .command('explore [selector]')
@@ -35,6 +36,7 @@ Notes:
       )
   ).action(async (selector: string | undefined, rawOptions: unknown) => {
     await runAssetsBrowseCommand({
+      appRuntime,
       commandId: ASSETS_EXPLORE_COMMAND_ID,
       rawOptions,
       selector,

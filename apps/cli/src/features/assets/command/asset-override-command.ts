@@ -4,6 +4,7 @@ import type { ZodType } from 'zod';
 import { runCliRuntimeCommand, toCliResult, type CliCompletion } from '../../../cli/command.js';
 import { ExitCodes } from '../../../cli/exit-codes.js';
 import { detectCliOutputFormat, parseCliCommandOptionsResult, type CliOutputFormat } from '../../../cli/options.js';
+import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 
 import type { AssetsCommandScope } from './assets-command-scope.js';
 import { withAssetsCommandScope } from './assets-command-scope.js';
@@ -17,6 +18,7 @@ interface AssetOverrideCommandOptions {
 
 export async function executeAssetOverrideCommand<TOptions extends AssetOverrideCommandOptions, TResult>(
   commandName: string,
+  appRuntime: CliAppRuntime,
   rawOptions: unknown,
   schema: ZodType<TOptions>,
   runOperation: (scope: AssetsCommandScope, options: TOptions) => Promise<Result<TResult, Error>>,
@@ -25,6 +27,7 @@ export async function executeAssetOverrideCommand<TOptions extends AssetOverride
   const format = detectCliOutputFormat(rawOptions);
 
   await runCliRuntimeCommand({
+    appRuntime,
     command: commandName,
     format,
     prepare: async () => parseCliCommandOptionsResult(rawOptions, schema),
