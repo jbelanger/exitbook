@@ -4,6 +4,7 @@ import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { describe, expect, it, vi } from 'vitest';
 
 import { materializeTestTransaction } from '../../__tests__/test-utils.js';
+import type { LedgerLinkingGapIssue } from '../../ledger-linking/gaps/ledger-linking-gap-issues.js';
 import { buildLinkGapIssueKey } from '../../linking/gaps/gap-model.js';
 import type { ProfileAccountingIssueSourceData } from '../../ports/profile-issue-source-reader.js';
 import { materializeProfileAccountingIssueScopeSnapshot } from '../profile-issue-materializer.js';
@@ -38,6 +39,28 @@ function createAssetReviewSummary(overrides: Partial<AssetReviewSummary> = {}): 
         message: 'Known scam evidence',
       },
     ],
+    ...overrides,
+  };
+}
+
+function createLedgerLinkingGapIssue(overrides: Partial<LedgerLinkingGapIssue> = {}): LedgerLinkingGapIssue {
+  return {
+    activityDatetime: new Date('2026-04-23T12:00:00.000Z'),
+    assetId: 'blockchain:ethereum:native',
+    assetSymbol: 'ETH' as LedgerLinkingGapIssue['assetSymbol'],
+    candidateId: 17,
+    classifications: ['exchange_transfer_missing_hash'],
+    claimedAmount: '0',
+    direction: 'source',
+    gapReason: 'exchange_transfer_missing_hash',
+    journalFingerprint: 'ledger_journal:v1:17',
+    originalAmount: '1.25',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:17',
+    remainingAmount: '1.25',
+    sourceActivityFingerprint: 'source_activity:v1:17',
     ...overrides,
   };
 }
@@ -177,5 +200,35 @@ describe('materializeProfileAccountingIssueScopeSnapshot', () => {
 
     expect(result.value.scope.status).toBe('ready');
     expect(result.value.issues).toHaveLength(0);
+  });
+
+  it('includes reader-provided ledger-linking-v2 gaps in the profile snapshot', async () => {
+    const sourceReader = {
+      loadProfileAccountingIssueSourceData: vi.fn().mockResolvedValue(
+        ok(
+          createSourceData({
+            assetReviewSummaries: [],
+            ledgerLinkingGapIssues: [createLedgerLinkingGapIssue()],
+            transactions: [],
+          })
+        )
+      ),
+    };
+
+    const result = await materializeProfileAccountingIssueScopeSnapshot({
+      profileId: 7,
+      scopeKey: 'profile:7',
+      sourceReader,
+      title: 'Main profile',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.scope.status).toBe('has-open-issues');
+    expect(result.value.scope.openIssueCount).toBe(1);
+    expect(result.value.issues[0]?.issue.summary).toBe('ETH outflow remains unresolved in links-v2');
   });
 });

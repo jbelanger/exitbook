@@ -183,6 +183,48 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('TX-REF 9c1f37d0ab');
   });
 
+  it('renders ledger-linking-v2 gap evidence and diagnostics route hints', () => {
+    const output = stripVTControlCharacters(
+      buildIssuesStaticDetail({
+        activeProfileKey: 'default',
+        activeProfileSource: 'default',
+        profileDisplayName: 'default',
+        issue: createDetailItem({
+          summary: 'ETH outflow remains unresolved in links-v2',
+          details: '1.25 ETH remains unmatched on kraken.',
+          whyThisMatters:
+            'Unresolved ledger-linking candidates leave transfer accounting incomplete until they are linked, dismissed, or explained.',
+          evidenceRefs: [
+            {
+              kind: 'gap',
+              ref: 'abc123def4',
+            },
+            {
+              kind: 'ledger_posting',
+              journalFingerprint: 'ledger_journal:v1:17',
+              postingFingerprint: 'ledger_posting:v1:17',
+              sourceActivityFingerprint: 'source_activity:v1:17',
+            },
+          ],
+          nextActions: [
+            {
+              kind: 'review_links_v2_diagnostics',
+              label: 'Review links-v2 diagnostics',
+              mode: 'review_only',
+              routeTarget: {
+                family: 'links-v2',
+              },
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(output).toContain('Review links-v2 diagnostics');
+    expect(output).toContain('Review only · links-v2 diagnose');
+    expect(output).toContain('LEDGER-POSTING ledger_posting:v1:17');
+  });
+
   it('renders owning workflow command examples for asset review blockers', () => {
     const output = stripVTControlCharacters(
       buildIssuesStaticDetail({

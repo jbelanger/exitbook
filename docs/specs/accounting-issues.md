@@ -98,10 +98,11 @@ Rules:
 
 The profile scope uses the following canonical key recipes:
 
-| Family                 | Canonical `issueKey`                                      | Notes                                                                                     |
-| ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `transfer_gap`         | `transfer_gap:${buildLinkGapIssueKey(identity)}`          | Reuses the existing gap identity inputs: `txFingerprint`, `assetId`, `direction`.         |
-| `asset_review_blocker` | `asset_review_blocker:${assetId}\|${evidenceFingerprint}` | Includes `evidenceFingerprint` so changed review evidence produces a new canonical issue. |
+| Family                 | Canonical `issueKey`                                      | Notes                                                                                                   |
+| ---------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `transfer_gap`         | `transfer_gap:${buildLinkGapIssueKey(identity)}`          | Legacy movement-gap identity inputs: `txFingerprint`, `assetId`, `direction`.                           |
+| `transfer_gap`         | `transfer_gap:ledger_linking_v2:${postingFingerprint}`    | Ledger-linking-v2 gap identity. Used instead of legacy movement gaps when v2 diagnostics are available. |
+| `asset_review_blocker` | `asset_review_blocker:${assetId}\|${evidenceFingerprint}` | Includes `evidenceFingerprint` so changed review evidence produces a new canonical issue.               |
 
 Examples:
 
@@ -168,6 +169,12 @@ type StoredAccountingIssueRowStatus = 'open' | 'closed';
 type AccountingIssueEvidenceRef =
   | { kind: 'transaction'; ref: string }
   | { kind: 'gap'; ref: string }
+  | {
+      kind: 'ledger_posting';
+      journalFingerprint: string;
+      postingFingerprint: string;
+      sourceActivityFingerprint: string;
+    }
   | { kind: 'asset'; selector: string };
 ```
 
@@ -175,8 +182,8 @@ type AccountingIssueEvidenceRef =
 
 ```ts
 interface AccountingIssueRouteTarget {
-  family: 'links' | 'assets' | 'transactions' | 'prices';
-  selectorKind?: 'tx-ref' | 'gap-ref' | 'asset-selector' | undefined;
+  family: 'links' | 'links-v2' | 'assets' | 'transactions' | 'prices';
+  selectorKind?: 'tx-ref' | 'gap-ref' | 'asset-selector' | 'ledger-posting' | undefined;
   selectorValue?: string | undefined;
 }
 

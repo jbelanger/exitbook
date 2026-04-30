@@ -311,6 +311,7 @@ Rules:
 - evidence refs should remain native:
   - `TX-REF`
   - `GAP-REF`
+  - `LEDGER-POSTING`
   - asset selectors
   - later link refs or failure refs
 - if the fix lives elsewhere, detail must make that clear without pretending the action runs inside `issues`

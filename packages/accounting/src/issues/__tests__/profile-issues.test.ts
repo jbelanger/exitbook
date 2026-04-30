@@ -1,6 +1,7 @@
 import type { AssetReviewSummary } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
+import type { LedgerLinkingGapIssue } from '../../ledger-linking/gaps/ledger-linking-gap-issues.js';
 import type { LinkGapIssue } from '../../linking/gaps/gap-model.js';
 import { buildProfileAccountingIssueScopeSnapshot } from '../profile-issues.js';
 
@@ -45,6 +46,28 @@ function createAssetReviewSummary(overrides: Partial<AssetReviewSummary> = {}): 
   };
 }
 
+function createLedgerLinkingGapIssue(overrides: Partial<LedgerLinkingGapIssue> = {}): LedgerLinkingGapIssue {
+  return {
+    activityDatetime: new Date('2026-04-23T12:00:00.000Z'),
+    assetId: 'blockchain:ethereum:native',
+    assetSymbol: 'ETH' as LedgerLinkingGapIssue['assetSymbol'],
+    candidateId: 17,
+    classifications: ['exchange_transfer_missing_hash', 'missing_linking_evidence'],
+    claimedAmount: '0',
+    direction: 'source',
+    gapReason: 'exchange_transfer_missing_hash',
+    journalFingerprint: 'ledger_journal:v1:17',
+    originalAmount: '1.25',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:17',
+    remainingAmount: '1.25',
+    sourceActivityFingerprint: 'source_activity:v1:17',
+    ...overrides,
+  };
+}
+
 describe('buildProfileAccountingIssueScopeSnapshot', () => {
   it('builds blocked transfer-gap and asset-review issues for the profile scope', () => {
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
@@ -82,6 +105,78 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
         family: 'assets',
         selectorKind: 'asset-selector',
         selectorValue: 'blockchain:ethereum:0xscam',
+      },
+    });
+  });
+
+  it('builds ledger-linking-v2 transfer gap issues with ledger evidence and links-v2 routing', () => {
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [createLedgerLinkingGapIssue()],
+      assetReviewSummaries: [],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      status: 'has-open-issues',
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+    });
+    expect(snapshot.issues[0]?.issue).toMatchObject({
+      family: 'transfer_gap',
+      code: 'LINK_GAP',
+      severity: 'blocked',
+      summary: 'ETH outflow remains unresolved in links-v2',
+      whyThisMatters:
+        'Unresolved ledger-linking candidates leave transfer accounting incomplete until they are linked, dismissed, or explained.',
+      nextActions: [
+        {
+          kind: 'review_links_v2_diagnostics',
+          label: 'Review links-v2 diagnostics',
+          mode: 'review_only',
+          routeTarget: {
+            family: 'links-v2',
+          },
+        },
+      ],
+    });
+    const [gapEvidence, postingEvidence] = snapshot.issues[0]?.issue.evidenceRefs ?? [];
+    expect(gapEvidence?.kind).toBe('gap');
+    if (gapEvidence?.kind === 'gap') {
+      expect(gapEvidence.ref).toMatch(/^[a-f0-9]{10}$/);
+    }
+    expect(postingEvidence).toEqual({
+      kind: 'ledger_posting',
+      journalFingerprint: 'ledger_journal:v1:17',
+      postingFingerprint: 'ledger_posting:v1:17',
+      sourceActivityFingerprint: 'source_activity:v1:17',
+    });
+  });
+
+  it('prefers ledger-linking-v2 gaps over legacy movement gaps when both are supplied', () => {
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [createLinkGapIssue()],
+      ledgerLinkingGapIssues: [createLedgerLinkingGapIssue()],
+      assetReviewSummaries: [],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+    });
+    expect(snapshot.issues.map((issue) => issue.issue.summary)).toEqual(['ETH outflow remains unresolved in links-v2']);
+    expect(snapshot.issues[0]?.issue.nextActions[0]).toMatchObject({
+      routeTarget: {
+        family: 'links-v2',
       },
     });
   });

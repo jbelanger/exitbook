@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-29
+last_verified: 2026-04-30
 status: active
 ---
 
@@ -923,21 +923,24 @@ Completed checkpoints:
 - `links-v2 review` now hides target-before-source amount/time proposals and
   target-before-source amount/time asset identity suggestions; diagnostics still
   retain those clues
+- ledger-linking-v2 unresolved candidates project to the existing accounting
+  Issues queue as ledger-native transfer gaps, keyed by posting fingerprint and
+  routed back to `links-v2 diagnose`
+- profile Issues prefer v2 ledger gaps over legacy movement gaps whenever v2
+  diagnostics are available, so the user queue does not double-count the same
+  unresolved linking work
 
 Active next slices:
 
-1. Persist ledger-native unresolved gaps and surface them through accounting
-   issues after the model is stable. A gap should mean "eligible candidate left
-   unresolved after the linker ran", not "no matcher exists yet".
-2. Analyze bridge, token-version, and asset migration shapes from current
+1. Analyze bridge, token-version, and asset migration shapes from current
    unresolved candidates before adding recognizers. Current live corpus review
    queue is empty after manually accepting the RENDER migration/bridge and the
    clear Kraken-to-Arbitrum USDC link; diagnostics still show one
    target-before-source INJ bridge clue that should become gap context, not an
    acceptable link.
-3. Add partial/residual strategies only when the posting allocation model can
+2. Add partial/residual strategies only when the posting allocation model can
    represent the residual honestly and the evidence is reviewable.
-4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
+3. Compare v1 and v2 link coverage on the imported corpus before removing legacy
    linking behavior.
 
 Acceptance:

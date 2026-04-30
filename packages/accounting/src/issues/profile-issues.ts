@@ -5,6 +5,12 @@ import {
 } from '@exitbook/core';
 import { sha256Hex } from '@exitbook/foundation';
 
+import {
+  buildLedgerLinkingGapIssueKey,
+  buildLedgerLinkingGapRef,
+  type LedgerLinkingGapIssue,
+  type LedgerLinkingGapReason,
+} from '../ledger-linking/gaps/ledger-linking-gap-issues.js';
 import { type GapCueKind, type LinkGapIssue, buildLinkGapIssueKey } from '../linking/gaps/gap-model.js';
 
 import {
@@ -21,6 +27,7 @@ import {
 export interface BuildProfileAccountingIssueScopeSnapshotInput {
   assetReviewSummaries: Iterable<AssetReviewSummary>;
   excludedAssetIds?: ReadonlySet<string> | undefined;
+  ledgerLinkingGapIssues?: readonly LedgerLinkingGapIssue[] | undefined;
   linkGapIssues: readonly LinkGapIssue[];
   profileId: number;
   scopeKey: string;
@@ -36,8 +43,9 @@ export function buildProfileAccountingIssueScopeSnapshot(
     .map((summary) => applyAssetExclusionsToReviewSummary(summary, input.excludedAssetIds ?? new Set<string>()))
     .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
+  const transferGapIssues = buildProfileTransferGapAccountingIssues(input);
   const issues = [
-    ...input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue)),
+    ...transferGapIssues,
     ...normalizedAssetReviewSummaries.map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
   ];
 
@@ -56,6 +64,45 @@ export function buildProfileAccountingIssueScopeSnapshot(
   return {
     scope,
     issues,
+  };
+}
+
+function buildProfileTransferGapAccountingIssues(
+  input: BuildProfileAccountingIssueScopeSnapshotInput
+): AccountingIssueScopeSnapshot['issues'] {
+  if (input.ledgerLinkingGapIssues !== undefined) {
+    return input.ledgerLinkingGapIssues.map((issue) => buildLedgerLinkingGapAccountingIssue(input.scopeKey, issue));
+  }
+
+  return input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue));
+}
+
+function buildLedgerLinkingGapAccountingIssue(
+  scopeKey: string,
+  gapIssue: LedgerLinkingGapIssue
+): AccountingIssueScopeSnapshot['issues'][number] {
+  const issueKey = buildTransferGapIssueKey(buildLedgerLinkingGapIssueKey(gapIssue));
+  const gapRef = buildLedgerLinkingGapRef(gapIssue);
+  const issue: AccountingIssueDetailItem = {
+    issueRef: buildAccountingIssueRef(scopeKey, issueKey),
+    scope: {
+      kind: 'profile',
+      key: scopeKey,
+    },
+    family: 'transfer_gap',
+    code: 'LINK_GAP',
+    severity: getLedgerLinkingGapSeverity(gapIssue.gapReason),
+    summary: buildLedgerLinkingGapSummary(gapIssue),
+    details: buildLedgerLinkingGapDetails(gapIssue),
+    whyThisMatters:
+      'Unresolved ledger-linking candidates leave transfer accounting incomplete until they are linked, dismissed, or explained.',
+    evidenceRefs: buildLedgerLinkingGapEvidenceRefs(gapRef, gapIssue),
+    nextActions: buildLedgerLinkingGapNextActions(),
+  };
+
+  return {
+    issueKey,
+    issue,
   };
 }
 
@@ -206,6 +253,112 @@ function buildTransferGapNextActions(gapRef: string, transactionRef: string): Ac
       },
     },
   ];
+}
+
+function buildLedgerLinkingGapSummary(issue: LedgerLinkingGapIssue): string {
+  return `${issue.assetSymbol} ${formatLedgerLinkingDirection(issue.direction)} remains unresolved in links-v2`;
+}
+
+function buildLedgerLinkingGapDetails(issue: LedgerLinkingGapIssue): string {
+  const detailSegments = [
+    `${issue.remainingAmount} ${issue.assetSymbol} remains unmatched on ${issue.platformKey}.`,
+    `Reason: ${formatLedgerLinkingGapReason(issue.gapReason)}.`,
+    `Activity: ${issue.activityDatetime.toISOString()}.`,
+    `Posting: ${issue.postingFingerprint}.`,
+  ];
+
+  if (issue.blockchainTransactionHash) {
+    detailSegments.push(`Transaction hash: ${issue.blockchainTransactionHash}.`);
+  }
+
+  if (issue.claimedAmount !== '0') {
+    detailSegments.push(
+      `Already claimed by accepted relationships: ${issue.claimedAmount} of ${issue.originalAmount}.`
+    );
+  }
+
+  if (issue.timingCounterpart !== undefined) {
+    detailSegments.push(
+      `Nearest timing clue is candidate #${issue.timingCounterpart.candidateId}, but the target activity occurs before the source by ${formatDurationSeconds(
+        issue.timingCounterpart.timeDistanceSeconds
+      )}.`
+    );
+  }
+
+  return detailSegments.join(' ');
+}
+
+function buildLedgerLinkingGapEvidenceRefs(gapRef: string, issue: LedgerLinkingGapIssue): AccountingIssueEvidenceRef[] {
+  return [
+    {
+      kind: 'gap',
+      ref: gapRef,
+    },
+    {
+      kind: 'ledger_posting',
+      journalFingerprint: issue.journalFingerprint,
+      postingFingerprint: issue.postingFingerprint,
+      sourceActivityFingerprint: issue.sourceActivityFingerprint,
+    },
+  ];
+}
+
+function buildLedgerLinkingGapNextActions(): AccountingIssueNextAction[] {
+  return [
+    {
+      kind: 'review_links_v2_diagnostics',
+      label: 'Review links-v2 diagnostics',
+      mode: 'review_only',
+      routeTarget: {
+        family: 'links-v2',
+      },
+    },
+  ];
+}
+
+function getLedgerLinkingGapSeverity(reason: LedgerLinkingGapReason): AccountingIssueDetailItem['severity'] {
+  switch (reason) {
+    case 'exchange_transfer_missing_hash':
+    case 'missing_linking_evidence':
+      return 'blocked';
+    case 'bridge_or_migration_timing_mismatch':
+    case 'likely_spam_airdrop':
+    case 'unclassified_unmatched_transfer_candidate':
+      return 'warning';
+  }
+}
+
+function formatLedgerLinkingDirection(direction: LedgerLinkingGapIssue['direction']): string {
+  return direction === 'source' ? 'outflow' : 'inflow';
+}
+
+function formatLedgerLinkingGapReason(reason: LedgerLinkingGapReason): string {
+  switch (reason) {
+    case 'bridge_or_migration_timing_mismatch':
+      return 'timing suggests bridge or migration context, but not an acceptable normal transfer link';
+    case 'exchange_transfer_missing_hash':
+      return 'exchange-side transfer evidence is missing an on-chain transaction hash';
+    case 'likely_spam_airdrop':
+      return 'candidate looks like an unsolicited spam or airdrop inflow';
+    case 'missing_linking_evidence':
+      return 'candidate has no hash or endpoint evidence for automatic linking';
+    case 'unclassified_unmatched_transfer_candidate':
+      return 'candidate remains unmatched and needs classification';
+  }
+}
+
+function formatDurationSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds.toFixed(3).replace(/\.?0+$/, '')}s`;
+  }
+
+  const minutes = seconds / 60;
+  if (minutes < 60) {
+    return `${minutes.toFixed(1).replace(/\.?0+$/, '')}m`;
+  }
+
+  const hours = minutes / 60;
+  return `${hours.toFixed(1).replace(/\.?0+$/, '')}h`;
 }
 
 function buildAssetReviewDetails(summary: AssetReviewSummary): string {

@@ -24,6 +24,7 @@ export async function materializeProfileAccountingIssueScopeSnapshot(
     return buildProfileAccountingIssueScopeSnapshot({
       assetReviewSummaries: source.assetReviewSummaries,
       excludedAssetIds: source.excludedAssetIds,
+      ledgerLinkingGapIssues: source.ledgerLinkingGapIssues,
       linkGapIssues: visibleAnalysis.analysis.issues,
       profileId: input.profileId,
       scopeKey: input.scopeKey,

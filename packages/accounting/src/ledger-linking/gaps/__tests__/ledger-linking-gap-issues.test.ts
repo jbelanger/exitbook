@@ -1,0 +1,180 @@
+import { parseCurrency } from '@exitbook/foundation';
+import { assertOk } from '@exitbook/foundation/test-utils';
+import { describe, expect, it } from 'vitest';
+
+import type {
+  LedgerLinkingAmountTimeProposal,
+  LedgerLinkingCandidateClassification,
+  LedgerLinkingCandidateRemainder,
+  LedgerLinkingDiagnostics,
+} from '../../diagnostics/linking-diagnostics.js';
+import {
+  buildLedgerLinkingGapIssues,
+  buildLedgerLinkingGapIssueKey,
+  buildLedgerLinkingGapRef,
+} from '../ledger-linking-gap-issues.js';
+
+const ETH = assertOk(parseCurrency('ETH'));
+
+describe('buildLedgerLinkingGapIssues', () => {
+  it('turns unmatched diagnostic candidates into stable ledger-linking gap issues', () => {
+    const source = makeCandidate({
+      candidateId: 7,
+      direction: 'source',
+      platformKind: 'exchange',
+      postingFingerprint: 'ledger_posting:v1:source',
+    });
+    const target = makeCandidate({
+      candidateId: 8,
+      direction: 'target',
+      postingFingerprint: 'ledger_posting:v1:target',
+    });
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [source, target],
+        classifications: [
+          {
+            candidateId: 7,
+            classifications: ['exchange_transfer_missing_hash', 'missing_linking_evidence'],
+            direction: 'source',
+            platformKey: 'kraken',
+          },
+          {
+            candidateId: 8,
+            classifications: ['unclassified'],
+            direction: 'target',
+            platformKey: 'ethereum',
+          },
+        ],
+      })
+    );
+
+    expect(issues.map((issue) => [issue.postingFingerprint, issue.gapReason])).toEqual([
+      ['ledger_posting:v1:source', 'exchange_transfer_missing_hash'],
+      ['ledger_posting:v1:target', 'unclassified_unmatched_transfer_candidate'],
+    ]);
+    expect(buildLedgerLinkingGapIssueKey(issues[0]!)).toBe('ledger_linking_v2:ledger_posting:v1:source');
+    expect(buildLedgerLinkingGapRef(issues[0]!)).toMatch(/^[a-f0-9]{10}$/);
+  });
+
+  it('keeps target-before-source amount/time proposals as timing-mismatch gap context', () => {
+    const source = makeCandidate({
+      candidateId: 7,
+      direction: 'source',
+      postingFingerprint: 'ledger_posting:v1:source',
+    });
+    const target = makeCandidate({
+      candidateId: 8,
+      direction: 'target',
+      postingFingerprint: 'ledger_posting:v1:target',
+    });
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [source, target],
+        classifications: [
+          {
+            candidateId: 7,
+            classifications: ['amount_time_unique'],
+            direction: 'source',
+            platformKey: 'ethereum',
+          },
+          {
+            candidateId: 8,
+            classifications: ['amount_time_unique'],
+            direction: 'target',
+            platformKey: 'ethereum',
+          },
+        ],
+        proposals: [
+          {
+            amount: '1',
+            assetIdentityReason: 'same_asset_id',
+            assetSymbol: ETH,
+            source,
+            target,
+            timeDirection: 'target_before_source',
+            timeDistanceSeconds: 120,
+            uniqueness: 'unique_pair',
+          },
+        ],
+      })
+    );
+
+    expect(issues).toHaveLength(2);
+    expect(issues.every((issue) => issue.gapReason === 'bridge_or_migration_timing_mismatch')).toBe(true);
+    expect(issues[0]?.timingCounterpart).toMatchObject({
+      candidateId: 8,
+      postingFingerprint: 'ledger_posting:v1:target',
+      timeDirection: 'target_before_source',
+      timeDistanceSeconds: 120,
+    });
+  });
+
+  it('marks likely spam airdrops separately from blocking evidence gaps', () => {
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [
+          makeCandidate({ candidateId: 9, direction: 'target', postingFingerprint: 'ledger_posting:v1:spam' }),
+        ],
+        classifications: [
+          {
+            candidateId: 9,
+            classifications: ['likely_spam_airdrop'],
+            direction: 'target',
+            platformKey: 'ethereum',
+          },
+        ],
+      })
+    );
+
+    expect(issues[0]?.gapReason).toBe('likely_spam_airdrop');
+  });
+});
+
+function makeDiagnostics(input: {
+  candidates: readonly LedgerLinkingCandidateRemainder[];
+  classifications: readonly LedgerLinkingCandidateClassification[];
+  proposals?: readonly LedgerLinkingAmountTimeProposal[] | undefined;
+}): LedgerLinkingDiagnostics {
+  return {
+    assetIdentityBlockerProposalCount: 0,
+    assetIdentityBlockerProposals: [],
+    amountTimeProposalCount: input.proposals?.length ?? 0,
+    amountTimeProposalGroups: [],
+    amountTimeProposals: input.proposals ?? [],
+    amountTimeUniqueProposalCount:
+      input.proposals?.filter((proposal) => proposal.uniqueness === 'unique_pair').length ?? 0,
+    amountTimeWindowMinutes: 1440,
+    candidateClassificationGroups: [],
+    candidateClassifications: input.classifications,
+    unmatchedCandidateGroups: [],
+    unmatchedCandidates: input.candidates,
+  };
+}
+
+function makeCandidate(overrides: {
+  candidateId: number;
+  direction: 'source' | 'target';
+  platformKind?: 'blockchain' | 'exchange' | undefined;
+  postingFingerprint: string;
+}): LedgerLinkingCandidateRemainder {
+  return {
+    activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
+    assetId: 'blockchain:ethereum:native',
+    assetSymbol: ETH,
+    blockchainTransactionHash: overrides.platformKind === 'exchange' ? undefined : '0xhash',
+    candidateId: overrides.candidateId,
+    claimedAmount: '0',
+    direction: overrides.direction,
+    fromAddress: undefined,
+    journalFingerprint: `ledger_journal:v1:${overrides.candidateId}`,
+    originalAmount: '1',
+    ownerAccountId: 1,
+    platformKey: overrides.platformKind === 'exchange' ? 'kraken' : 'ethereum',
+    platformKind: overrides.platformKind ?? 'blockchain',
+    postingFingerprint: overrides.postingFingerprint,
+    remainingAmount: '1',
+    sourceActivityFingerprint: `source_activity:v1:${overrides.candidateId}`,
+    toAddress: undefined,
+  };
+}

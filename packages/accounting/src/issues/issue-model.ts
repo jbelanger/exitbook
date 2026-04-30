@@ -51,6 +51,12 @@ export const AccountingIssueEvidenceRefSchema = z.discriminatedUnion('kind', [
     ref: z.string().trim().min(1),
   }),
   z.object({
+    kind: z.literal('ledger_posting'),
+    journalFingerprint: z.string().trim().min(1),
+    postingFingerprint: z.string().trim().min(1),
+    sourceActivityFingerprint: z.string().trim().min(1),
+  }),
+  z.object({
     kind: z.literal('asset'),
     selector: z.string().trim().min(1),
   }),
@@ -58,8 +64,8 @@ export const AccountingIssueEvidenceRefSchema = z.discriminatedUnion('kind', [
 export type AccountingIssueEvidenceRef = z.infer<typeof AccountingIssueEvidenceRefSchema>;
 
 export const AccountingIssueRouteTargetSchema = z.object({
-  family: z.enum(['links', 'assets', 'transactions', 'prices']),
-  selectorKind: z.enum(['tx-ref', 'gap-ref', 'asset-selector']).optional(),
+  family: z.enum(['links', 'links-v2', 'assets', 'transactions', 'prices']),
+  selectorKind: z.enum(['tx-ref', 'gap-ref', 'asset-selector', 'ledger-posting']).optional(),
   selectorValue: z.string().trim().min(1).optional(),
 });
 export type AccountingIssueRouteTarget = z.infer<typeof AccountingIssueRouteTargetSchema>;

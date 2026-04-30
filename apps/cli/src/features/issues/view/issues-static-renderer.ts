@@ -216,6 +216,8 @@ function buildEvidenceLines(evidenceRefs: readonly AccountingIssueEvidenceRef[])
         return `  Asset selector ${evidence.selector}`;
       case 'gap':
         return `  GAP-REF ${evidence.ref}`;
+      case 'ledger_posting':
+        return `  LEDGER-POSTING ${evidence.postingFingerprint}`;
       case 'transaction':
         return `  TX-REF ${evidence.ref}`;
     }
@@ -274,6 +276,8 @@ function buildActionCommandHint(action: AccountingIssueNextAction): string | und
       return action.routeTarget.selectorValue ? `assets view ${action.routeTarget.selectorValue}` : 'assets';
     case 'links':
       return action.routeTarget.selectorValue ? `links gaps view ${action.routeTarget.selectorValue}` : 'links gaps';
+    case 'links-v2':
+      return 'links-v2 diagnose';
     case 'prices':
       return action.routeTarget.selectorValue
         ? `prices view ${action.routeTarget.selectorValue}`

@@ -3,6 +3,7 @@ import {
   buildCostBasisExecutionFailureScopeSnapshot,
   buildProfileAccountingIssueScopeSnapshot,
 } from '@exitbook/accounting/issues';
+import type { LedgerLinkingGapIssue } from '@exitbook/accounting/ledger-linking';
 import type { LinkGapIssue } from '@exitbook/accounting/linking';
 import type { AssetReviewSummary } from '@exitbook/core';
 import { assertOk } from '@exitbook/foundation/test-utils';
@@ -58,8 +59,31 @@ function createAssetReviewSummary(overrides: Partial<AssetReviewSummary> = {}): 
   };
 }
 
+function createLedgerLinkingGapIssue(overrides: Partial<LedgerLinkingGapIssue> = {}): LedgerLinkingGapIssue {
+  return {
+    activityDatetime: new Date('2026-04-23T12:00:00.000Z'),
+    assetId: 'blockchain:ethereum:native',
+    assetSymbol: 'ETH' as LedgerLinkingGapIssue['assetSymbol'],
+    candidateId: 17,
+    classifications: ['exchange_transfer_missing_hash'],
+    claimedAmount: '0',
+    direction: 'source',
+    gapReason: 'exchange_transfer_missing_hash',
+    journalFingerprint: 'ledger_journal:v1:17',
+    originalAmount: '1.25',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:17',
+    remainingAmount: '1.25',
+    sourceActivityFingerprint: 'source_activity:v1:17',
+    ...overrides,
+  };
+}
+
 function createSnapshot(input?: {
   assetReviewSummaries?: readonly AssetReviewSummary[] | undefined;
+  ledgerLinkingGapIssues?: readonly LedgerLinkingGapIssue[] | undefined;
   linkGapIssues?: readonly LinkGapIssue[] | undefined;
   updatedAt?: Date | undefined;
 }) {
@@ -68,6 +92,7 @@ function createSnapshot(input?: {
     scopeKey: 'profile:1',
     title: 'default',
     assetReviewSummaries: input?.assetReviewSummaries ?? [createAssetReviewSummary()],
+    ledgerLinkingGapIssues: input?.ledgerLinkingGapIssues,
     linkGapIssues: input?.linkGapIssues ?? [createLinkGapIssue()],
     updatedAt: input?.updatedAt ?? UPDATED_AT,
   });
@@ -259,6 +284,34 @@ describe('AccountingIssueRepository', () => {
       openIssueCount: 1,
       blockingIssueCount: 1,
       status: 'has-open-issues',
+    });
+  });
+
+  it('persists and reloads ledger-linking-v2 transfer gap evidence', async () => {
+    const snapshot = createSnapshot({
+      assetReviewSummaries: [],
+      ledgerLinkingGapIssues: [createLedgerLinkingGapIssue()],
+      linkGapIssues: [],
+    });
+
+    assertOk(await repo.reconcileScope(snapshot));
+
+    const summaries = assertOk(await repo.listCurrentIssueSummaries('profile:1'));
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.issue.summary).toBe('ETH outflow remains unresolved in links-v2');
+
+    const detail = assertOk(await repo.findCurrentIssueDetail('profile:1', summaries[0]!.issueKey));
+    expect(detail?.issue.evidenceRefs).toContainEqual({
+      kind: 'ledger_posting',
+      journalFingerprint: 'ledger_journal:v1:17',
+      postingFingerprint: 'ledger_posting:v1:17',
+      sourceActivityFingerprint: 'source_activity:v1:17',
+    });
+    expect(detail?.issue.nextActions[0]).toMatchObject({
+      label: 'Review links-v2 diagnostics',
+      routeTarget: {
+        family: 'links-v2',
+      },
     });
   });
 

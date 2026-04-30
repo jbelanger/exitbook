@@ -48,6 +48,17 @@ export {
   type LedgerLinkingUnmatchedCandidateGroup,
 } from './ledger-linking/diagnostics/linking-diagnostics.js';
 export {
+  buildLedgerLinkingGapIssues,
+  buildLedgerLinkingGapIssueKey,
+  buildLedgerLinkingGapRef,
+  LedgerLinkingGapCounterpartSchema,
+  LedgerLinkingGapIssueSchema,
+  LedgerLinkingGapReasonSchema,
+  type LedgerLinkingGapCounterpart,
+  type LedgerLinkingGapIssue,
+  type LedgerLinkingGapReason,
+} from './ledger-linking/gaps/ledger-linking-gap-issues.js';
+export {
   buildLedgerCounterpartyRoundtripRecognizer,
   buildLedgerCounterpartyRoundtripRelationships,
   LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,
