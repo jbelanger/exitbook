@@ -207,9 +207,12 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 4');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 5');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  exact_hash_transfer: 1 relationship(s), 2 claimed candidate(s), 2 fully consumed candidate(s)'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  fee_adjusted_exact_hash_transfer: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
     );
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  same_hash_grouped_transfer: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
@@ -223,6 +226,9 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Fee-adjusted exact-hash matches: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Fee-adjusted exact-hash ambiguities: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Fee-adjusted exact-hash asset identity blocks: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Same-hash grouped matches: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Same-hash unresolved groups: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Counterparty roundtrip matches: 0');
@@ -338,7 +344,9 @@ describe('ledger linking-v2 command', () => {
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
     expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity suggestions for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Evidence: 1 exact-hash blocker(s), 0 amount/time blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Evidence: 1 exact-hash blocker(s), 0 fee-adjusted exact-hash blocker(s), 0 amount/time blocker(s)'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 exact-hash blocker(s))'
     );
@@ -368,6 +376,12 @@ function makeRunResult() {
         consumedCandidateCount: 2,
         name: 'exact_hash_transfer',
         relationshipCount: 1,
+      },
+      {
+        claimedCandidateCount: 0,
+        consumedCandidateCount: 0,
+        name: 'fee_adjusted_exact_hash_transfer',
+        relationshipCount: 0,
       },
       {
         claimedCandidateCount: 0,
@@ -418,6 +432,9 @@ function makeRunResult() {
         },
       },
     ],
+    feeAdjustedExactHashAmbiguities: [],
+    feeAdjustedExactHashAssetIdentityBlocks: [],
+    feeAdjustedExactHashMatches: [],
     matchedSourceCandidateCount: 1,
     matchedTargetCandidateCount: 1,
     persistence: {

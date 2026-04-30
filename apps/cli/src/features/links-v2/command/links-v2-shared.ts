@@ -118,6 +118,7 @@ interface LinksV2DiagnoseOutput {
 interface LinksV2AssetIdentitySuggestionsOutput {
   amountTimeAssetIdentityBlockerCount: number;
   exactHashAssetIdentityBlockCount: number;
+  feeAdjustedExactHashAssetIdentityBlockCount: number;
   profile: {
     id: number;
     profileKey: string;
@@ -494,6 +495,7 @@ async function executePreparedLinksV2AssetIdentitySuggestionsCommand(
         'amount_time_observed'
       ),
       exactHashAssetIdentityBlockCount: run.exactHashAssetIdentityBlocks.length,
+      feeAdjustedExactHashAssetIdentityBlockCount: run.feeAdjustedExactHashAssetIdentityBlocks.length,
       profile: {
         id: profile.id,
         profileKey: profile.profileKey,
@@ -1099,6 +1101,9 @@ function renderLinksV2RunOutput(
   console.log(`Exact-hash matches: ${run.exactHashMatches.length}`);
   console.log(`Exact-hash ambiguities: ${run.exactHashAmbiguities.length}`);
   console.log(`Exact-hash asset identity blocks: ${run.exactHashAssetIdentityBlocks.length}`);
+  console.log(`Fee-adjusted exact-hash matches: ${run.feeAdjustedExactHashMatches.length}`);
+  console.log(`Fee-adjusted exact-hash ambiguities: ${run.feeAdjustedExactHashAmbiguities.length}`);
+  console.log(`Fee-adjusted exact-hash asset identity blocks: ${run.feeAdjustedExactHashAssetIdentityBlocks.length}`);
   console.log(`Same-hash grouped matches: ${run.sameHashGroupedMatches.length}`);
   console.log(`Same-hash unresolved groups: ${run.sameHashGroupedUnresolvedGroups.length}`);
   console.log(`Counterparty roundtrip matches: ${run.counterpartyRoundtripMatches.length}`);
@@ -1145,7 +1150,7 @@ function renderLinksV2AssetIdentitySuggestionsOutput(
   console.log(`${config.label} asset identity suggestions for ${output.profile.profileKey} (#${output.profile.id})`);
   console.log(`Suggestions: ${output.suggestions.length} of ${output.totalSuggestionCount}`);
   console.log(
-    `Evidence: ${output.exactHashAssetIdentityBlockCount} exact-hash blocker(s), ${output.amountTimeAssetIdentityBlockerCount} amount/time blocker(s)`
+    `Evidence: ${output.exactHashAssetIdentityBlockCount} exact-hash blocker(s), ${output.feeAdjustedExactHashAssetIdentityBlockCount} fee-adjusted exact-hash blocker(s), ${output.amountTimeAssetIdentityBlockerCount} amount/time blocker(s)`
   );
 
   for (const suggestion of output.suggestions) {
@@ -1238,6 +1243,14 @@ function formatAssetIdentitySuggestionExample(
 ): string {
   const details: string[] = [`example: ${example.amount} ${suggestion.assetSymbol}`];
 
+  if (example.sourceAmount !== undefined && example.targetAmount !== undefined) {
+    details.push(`source ${example.sourceAmount}, target ${example.targetAmount}`);
+  }
+
+  if (example.residualAmount !== undefined && example.residualSide !== undefined) {
+    details.push(`residual ${example.residualAmount} on ${example.residualSide}`);
+  }
+
   if (example.timeDistanceSeconds !== undefined) {
     details.push(`time ${formatDurationSeconds(example.timeDistanceSeconds)}`);
   }
@@ -1269,6 +1282,7 @@ function formatAssetIdentityDecisionHelp(evidenceKind: LedgerLinkingAssetIdentit
       return [
         '  Accept only if the two shown asset ids name the same asset.',
         '  Exact-hash evidence means the same transaction hash was observed on both sides.',
+        '  If source/target amounts differ, only the arrived amount is linkable; the residual stays unresolved.',
         '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
         '  If the asset mapping is unclear, leave it pending; no relationship will be created from this identity.',
       ].join('\n');
@@ -1287,7 +1301,7 @@ function formatAssetIdentityAcceptImpact(evidenceKind: LedgerLinkingAssetIdentit
     case 'exact_hash_observed':
       return [
         '  Records only the asset identity assertion.',
-        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash relationships.',
+        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash or fee-adjusted exact-hash relationships.',
       ].join('\n');
     case 'amount_time_observed':
       return [

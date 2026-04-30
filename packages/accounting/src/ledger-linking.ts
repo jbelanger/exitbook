@@ -84,6 +84,15 @@ export {
   type LedgerExactHashTransferRelationshipResult,
 } from './ledger-linking/matching/deterministic-transfer-matching.js';
 export {
+  buildLedgerFeeAdjustedExactHashTransferRecognizer,
+  buildLedgerFeeAdjustedExactHashTransferRelationships,
+  LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY,
+  type LedgerFeeAdjustedExactHashAssetIdentityBlock,
+  type LedgerFeeAdjustedExactHashTransferAmbiguity,
+  type LedgerFeeAdjustedExactHashTransferMatch,
+  type LedgerFeeAdjustedExactHashTransferRelationshipResult,
+} from './ledger-linking/matching/fee-adjusted-exact-hash-transfer-matching.js';
+export {
   buildLedgerSameHashGroupedTransferRecognizer,
   buildLedgerSameHashGroupedTransferRelationships,
   LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,

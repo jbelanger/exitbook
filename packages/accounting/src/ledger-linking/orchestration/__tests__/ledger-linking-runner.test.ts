@@ -51,6 +51,11 @@ describe('runLedgerLinking', () => {
         },
         {
           consumedCandidateCount: 0,
+          name: 'fee_adjusted_exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
           name: 'same_hash_grouped_transfer',
           relationshipCount: 0,
         },
@@ -84,6 +89,9 @@ describe('runLedgerLinking', () => {
     expect(result.exactHashAmbiguities).toEqual([]);
     expect(result.exactHashAssetIdentityBlocks).toEqual([]);
     expect(result.exactHashMatches).toHaveLength(1);
+    expect(result.feeAdjustedExactHashAssetIdentityBlocks).toEqual([]);
+    expect(result.feeAdjustedExactHashMatches).toEqual([]);
+    expect(result.feeAdjustedExactHashAmbiguities).toEqual([]);
     expect(result.sameHashGroupedMatches).toEqual([]);
     expect(result.sameHashGroupedUnresolvedGroups).toEqual([]);
     expect(result.counterpartyRoundtripMatches).toEqual([]);
@@ -173,6 +181,11 @@ describe('runLedgerLinking', () => {
         {
           consumedCandidateCount: 0,
           name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'fee_adjusted_exact_hash_transfer',
           relationshipCount: 0,
         },
         {
@@ -384,6 +397,171 @@ describe('runLedgerLinking', () => {
     expect(harness.savedRelationships).toHaveLength(1);
   });
 
+  it('suggests asset identity for fee-adjusted exact-hash exchange withdrawals before materialization', async () => {
+    const harness = makeHarness([
+      makePosting({
+        ownerAccountId: 1,
+        sourceActivityFingerprint: 'source_activity:v1:coinbase-withdrawal',
+        journalFingerprint: 'ledger_journal:v1:coinbase-withdrawal',
+        postingFingerprint: 'ledger_posting:v1:coinbase-withdrawal',
+        quantity: '-1.26',
+        platformKey: 'coinbase',
+        platformKind: 'exchange',
+        assetId: 'exchange:coinbase:eth',
+      }),
+      makePosting({
+        ownerAccountId: 2,
+        sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+        journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+        postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+        quantity: '1.25',
+        platformKey: 'ethereum',
+        platformKind: 'blockchain',
+        assetId: 'blockchain:ethereum:native',
+        activityDatetime: new Date('2026-04-23T00:01:00.000Z'),
+      }),
+    ]);
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.acceptedRelationships).toEqual([]);
+    expect(result.feeAdjustedExactHashMatches).toEqual([]);
+    expect(result.feeAdjustedExactHashAssetIdentityBlocks).toEqual([
+      {
+        amount: '1.25',
+        assetSymbol: ETH,
+        reason: 'same_symbol_different_asset_ids',
+        residualAmount: '0.01',
+        residualSide: 'source',
+        sourceAmount: '1.26',
+        sourceAssetId: 'exchange:coinbase:eth',
+        sourceBlockchainTransactionHash: '0xabc123',
+        sourceCandidateId: 1,
+        sourcePostingFingerprint: 'ledger_posting:v1:coinbase-withdrawal',
+        targetAmount: '1.25',
+        targetAssetId: 'blockchain:ethereum:native',
+        targetBlockchainTransactionHash: '0xabc123',
+        targetCandidateId: 2,
+        targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+        timeDistanceSeconds: 60,
+      },
+    ]);
+    expect(result.assetIdentitySuggestions).toEqual([
+      {
+        assetIdA: 'blockchain:ethereum:native',
+        assetIdB: 'exchange:coinbase:eth',
+        assetSymbol: ETH,
+        blockCount: 1,
+        evidenceKind: 'exact_hash_observed',
+        examples: [
+          {
+            amount: '1.25',
+            residualAmount: '0.01',
+            residualSide: 'source',
+            sourceAmount: '1.26',
+            sourceBlockchainTransactionHash: '0xabc123',
+            sourceCandidateId: 1,
+            sourcePostingFingerprint: 'ledger_posting:v1:coinbase-withdrawal',
+            targetAmount: '1.25',
+            targetBlockchainTransactionHash: '0xabc123',
+            targetCandidateId: 2,
+            targetPostingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+            timeDistanceSeconds: 60,
+          },
+        ],
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+    expect(harness.savedRelationships).toEqual([[]]);
+  });
+
+  it('materializes fee-adjusted exact-hash transfers with accepted asset identity and leaves source residual unmatched', async () => {
+    const harness = makeHarness(
+      [
+        makePosting({
+          ownerAccountId: 1,
+          sourceActivityFingerprint: 'source_activity:v1:coinbase-withdrawal',
+          journalFingerprint: 'ledger_journal:v1:coinbase-withdrawal',
+          postingFingerprint: 'ledger_posting:v1:coinbase-withdrawal',
+          quantity: '-1.26',
+          platformKey: 'coinbase',
+          platformKind: 'exchange',
+          assetId: 'exchange:coinbase:eth',
+        }),
+        makePosting({
+          ownerAccountId: 2,
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          quantity: '1.25',
+          platformKey: 'ethereum',
+          platformKind: 'blockchain',
+          assetId: 'blockchain:ethereum:native',
+          activityDatetime: new Date('2026-04-23T00:01:00.000Z'),
+        }),
+      ],
+      {
+        assetIdentityAssertions: [
+          {
+            assetIdA: 'exchange:coinbase:eth',
+            assetIdB: 'blockchain:ethereum:native',
+            evidenceKind: 'exact_hash_observed',
+            relationshipKind: 'internal_transfer',
+          },
+        ],
+      }
+    );
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports, { includeDiagnostics: true }));
+
+    expect(result.acceptedRelationships).toHaveLength(1);
+    expect(result.feeAdjustedExactHashMatches).toHaveLength(1);
+    expect(result.feeAdjustedExactHashMatches[0]).toMatchObject({
+      amount: '1.25',
+      residualAmount: '0.01',
+      residualSide: 'source',
+      sourceCandidateId: 1,
+      targetCandidateId: 2,
+    });
+    expect(result.matchedSourceCandidateCount).toBe(1);
+    expect(result.matchedTargetCandidateCount).toBe(1);
+    expect(result.unmatchedSourceCandidateCount).toBe(1);
+    expect(result.unmatchedTargetCandidateCount).toBe(0);
+    expect(result.diagnostics?.unmatchedCandidates).toEqual([
+      expect.objectContaining({
+        candidateId: 1,
+        claimedAmount: '1.25',
+        direction: 'source',
+        originalAmount: '1.26',
+        remainingAmount: '0.01',
+      }),
+    ]);
+    expect(harness.savedRelationships[0]?.[0]).toMatchObject({
+      allocations: [
+        {
+          allocationSide: 'source',
+          postingFingerprint: 'ledger_posting:v1:coinbase-withdrawal',
+          quantity: parseDecimal('1.25'),
+        },
+        {
+          allocationSide: 'target',
+          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          quantity: parseDecimal('1.25'),
+        },
+      ],
+      evidence: {
+        amount: '1.25',
+        residualAmount: '0.01',
+        residualSide: 'source',
+        sourceAmount: '1.26',
+        targetAmount: '1.25',
+        timeDistanceSeconds: 60,
+      },
+      recognitionStrategy: 'fee_adjusted_exact_hash_transfer',
+      relationshipKind: 'internal_transfer',
+    });
+  });
+
   it('suggests amount/time asset identity assertions when exact-hash evidence is unavailable', async () => {
     const harness = makeHarness([
       makePosting({
@@ -478,6 +656,11 @@ describe('runLedgerLinking', () => {
         {
           consumedCandidateCount: 0,
           name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'fee_adjusted_exact_hash_transfer',
           relationshipCount: 0,
         },
         {
@@ -576,6 +759,11 @@ describe('runLedgerLinking', () => {
         },
         {
           consumedCandidateCount: 0,
+          name: 'fee_adjusted_exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
           name: 'same_hash_grouped_transfer',
           relationshipCount: 0,
         },
@@ -670,6 +858,11 @@ describe('runLedgerLinking', () => {
         {
           consumedCandidateCount: 0,
           name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'fee_adjusted_exact_hash_transfer',
           relationshipCount: 0,
         },
         {

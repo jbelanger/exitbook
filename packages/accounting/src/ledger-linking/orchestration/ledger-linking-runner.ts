@@ -37,6 +37,14 @@ import {
   type LedgerExactHashTransferRelationshipResult,
 } from '../matching/deterministic-transfer-matching.js';
 import {
+  buildLedgerFeeAdjustedExactHashTransferRecognizer,
+  LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY,
+  type LedgerFeeAdjustedExactHashAssetIdentityBlock,
+  type LedgerFeeAdjustedExactHashTransferAmbiguity,
+  type LedgerFeeAdjustedExactHashTransferMatch,
+  type LedgerFeeAdjustedExactHashTransferRelationshipResult,
+} from '../matching/fee-adjusted-exact-hash-transfer-matching.js';
+import {
   buildLedgerReviewedRelationshipOverrideRecognizer,
   LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
   type ILedgerLinkingReviewedRelationshipOverrideReader,
@@ -79,6 +87,7 @@ interface LedgerTransferCandidateDirection {
 type LedgerLinkingDeterministicPayload =
   | LedgerReviewedRelationshipOverrideResult
   | LedgerExactHashTransferRelationshipResult
+  | LedgerFeeAdjustedExactHashTransferRelationshipResult
   | LedgerSameHashGroupedTransferRelationshipResult
   | LedgerCounterpartyRoundtripRelationshipResult
   | LedgerStrictExchangeAmountTimeTransferRelationshipResult;
@@ -116,6 +125,9 @@ export interface LedgerLinkingRunResult {
   exactHashAmbiguities: readonly LedgerExactHashTransferAmbiguity[];
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[];
   exactHashMatches: readonly LedgerExactHashTransferMatch[];
+  feeAdjustedExactHashAmbiguities: readonly LedgerFeeAdjustedExactHashTransferAmbiguity[];
+  feeAdjustedExactHashAssetIdentityBlocks: readonly LedgerFeeAdjustedExactHashAssetIdentityBlock[];
+  feeAdjustedExactHashMatches: readonly LedgerFeeAdjustedExactHashTransferMatch[];
   matchedSourceCandidateCount: number;
   matchedTargetCandidateCount: number;
   persistence: LedgerLinkingPersistenceResult;
@@ -174,6 +186,9 @@ export async function runLedgerLinking(
     buildLedgerExactHashTransferRecognizer(
       assetIdentityResolverResult.value
     ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+    buildLedgerFeeAdjustedExactHashTransferRecognizer(
+      assetIdentityResolverResult.value
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
     buildLedgerSameHashGroupedTransferRecognizer(
       assetIdentityResolverResult.value
     ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
@@ -194,6 +209,11 @@ export async function runLedgerLinking(
     return err(exactHashRun.error);
   }
   const exactHashResult = exactHashRun.value.payload;
+  const feeAdjustedExactHashRun = findFeeAdjustedExactHashRun(deterministicResult.value.runs);
+  if (feeAdjustedExactHashRun.isErr()) {
+    return err(feeAdjustedExactHashRun.error);
+  }
+  const feeAdjustedExactHashResult = feeAdjustedExactHashRun.value.payload;
   const sameHashRun = findSameHashGroupedRun(deterministicResult.value.runs);
   if (sameHashRun.isErr()) {
     return err(sameHashRun.error);
@@ -224,6 +244,7 @@ export async function runLedgerLinking(
 
   const assetIdentitySuggestionsResult = buildRunAssetIdentitySuggestions(
     exactHashResult.assetIdentityBlocks,
+    feeAdjustedExactHashResult.assetIdentityBlocks,
     diagnosticsResult.value
   );
   if (assetIdentitySuggestionsResult.isErr()) {
@@ -232,6 +253,7 @@ export async function runLedgerLinking(
 
   const matchCounts = countMatchedTransferCandidates(candidates, deterministicResult.value.candidateClaims);
   const candidateCounts = countTransferCandidatesByDirection(candidates);
+  const unmatchedCandidateCounts = countTransferCandidatesByDirection(diagnosticsResult.value.unmatchedCandidates);
   const persistenceResult = await resolvePersistenceResult(
     profileId,
     ports,
@@ -252,6 +274,9 @@ export async function runLedgerLinking(
     exactHashAmbiguities: exactHashResult.ambiguities,
     exactHashAssetIdentityBlocks: exactHashResult.assetIdentityBlocks,
     exactHashMatches: exactHashResult.matches,
+    feeAdjustedExactHashAmbiguities: feeAdjustedExactHashResult.ambiguities,
+    feeAdjustedExactHashAssetIdentityBlocks: feeAdjustedExactHashResult.assetIdentityBlocks,
+    feeAdjustedExactHashMatches: feeAdjustedExactHashResult.matches,
     matchedSourceCandidateCount: matchCounts.matchedSourceCandidateCount,
     matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,
     persistence: persistenceResult.value,
@@ -265,8 +290,8 @@ export async function runLedgerLinking(
     strictExchangeAmountTimeTransferMatches: strictExchangeAmountTimeResult.matches,
     targetCandidateCount: candidateCounts.targetCandidateCount,
     transferCandidateCount: candidates.length,
-    unmatchedSourceCandidateCount: candidateCounts.sourceCandidateCount - matchCounts.matchedSourceCandidateCount,
-    unmatchedTargetCandidateCount: candidateCounts.targetCandidateCount - matchCounts.matchedTargetCandidateCount,
+    unmatchedSourceCandidateCount: unmatchedCandidateCounts.sourceCandidateCount,
+    unmatchedTargetCandidateCount: unmatchedCandidateCounts.targetCandidateCount,
   });
 }
 
@@ -297,17 +322,28 @@ function buildReviewedRelationshipOverrideRecognizers(
 
 function buildRunAssetIdentitySuggestions(
   exactHashAssetIdentityBlocks: readonly LedgerExactHashAssetIdentityBlock[],
+  feeAdjustedExactHashAssetIdentityBlocks: readonly LedgerFeeAdjustedExactHashAssetIdentityBlock[],
   diagnostics: LedgerLinkingDiagnostics
 ): Result<LedgerLinkingAssetIdentitySuggestion[], Error> {
-  const exactHashSuggestions = buildLedgerLinkingAssetIdentitySuggestions(exactHashAssetIdentityBlocks, {
-    evidenceKind: 'exact_hash_observed',
-  });
+  const exactHashSuggestions = buildLedgerLinkingAssetIdentitySuggestions(
+    [
+      ...exactHashAssetIdentityBlocks,
+      ...feeAdjustedExactHashAssetIdentityBlocks.map((block) => ({
+        ...block,
+        sourceAmount: block.sourceAmount,
+        targetAmount: block.targetAmount,
+      })),
+    ],
+    {
+      evidenceKind: 'exact_hash_observed',
+    }
+  );
   if (exactHashSuggestions.isErr()) {
     return err(exactHashSuggestions.error);
   }
 
   const exactHashCandidatePairKeys = new Set(
-    exactHashAssetIdentityBlocks.map((block) =>
+    [...exactHashAssetIdentityBlocks, ...feeAdjustedExactHashAssetIdentityBlocks].map((block) =>
       buildSourceTargetCandidatePairKey(block.sourceCandidateId, block.targetCandidateId)
     )
   );
@@ -379,6 +415,19 @@ function findSameHashGroupedRun(
   }
 
   return ok(run as LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>);
+}
+
+function findFeeAdjustedExactHashRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
+): Result<LedgerDeterministicRecognizerRun<LedgerFeeAdjustedExactHashTransferRelationshipResult>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY);
+  if (run === undefined) {
+    return err(
+      new Error(`Ledger deterministic recognizer ${LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY} did not run`)
+    );
+  }
+
+  return ok(run as LedgerDeterministicRecognizerRun<LedgerFeeAdjustedExactHashTransferRelationshipResult>);
 }
 
 function findCounterpartyRoundtripRun(

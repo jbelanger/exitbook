@@ -913,6 +913,11 @@ Completed checkpoints:
   deterministic recognizer pipeline
 - exact-hash, strict same-hash grouped, quantity-aware same-hash residual, and
   strict counterparty roundtrip recognizers
+- fee-adjusted exact-hash recognizer for one-to-one exchange withdrawals where
+  the source amount is larger than the target amount, the hash matches, timing
+  is source-before-target within 24 hours, and an accepted asset identity
+  assertion exists. It materializes only the arrived amount and leaves the
+  source-side residual unresolved for later fee/residual classification.
 - strict exchange amount/time recognizer for cross-platform pairs with an
   exchange side, source-before-target ordering, exact symbol equality, accepted
   asset identity assertion, a one-hour materialization window, and broader
@@ -955,14 +960,18 @@ Completed checkpoints:
 
 Active next slices:
 
-Current live corpus after the related-profile evidence pass: `104` profile
-Issues remain open, all warnings. Asset review has no action-required rows.
-Diagnostics still identifies fiat cash movements, obvious spam/airdrop inflows,
-tiny native dust inflows, and processor-marked asset migration/internal exchange
-context that are intentionally not projected as blocked transfer-gap issues. The
-2024 CA average-cost cost-basis run completes with no blocking issues; the
-remaining scoped cost-basis item is a warning for one Kraken dust sweep with
-uncertain proceeds allocation.
+Current live corpus after the fee-adjusted exact-hash pass: `93` profile Issues
+remain open, all warnings. `links-v2 review` is empty: no asset identity
+suggestions and no link proposals remain. The persisted v2 run has `126`
+accepted relationships: 2 reviewed amount/time overrides, 50 exact-hash
+relationships, 12 fee-adjusted exact-hash relationships, 2 counterparty
+roundtrips, and 60 strict exchange amount/time relationships. Diagnostics still
+identifies fiat cash movements, obvious spam/airdrop inflows, tiny native dust
+inflows, external transfer evidence, and processor-marked asset
+migration/internal exchange context that are intentionally not projected as
+accepted relationships. The 2024 CA average-cost cost-basis run completes with
+no blocking issues; the remaining scoped cost-basis item is a warning for one
+Kraken dust sweep with uncertain proceeds allocation.
 
 1. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
@@ -970,8 +979,10 @@ uncertain proceeds allocation.
 2. Analyze the remaining external-evidence warnings by source platform, asset,
    and address/hash context before adding more recognizers. These are real
    transfer-like candidates, not CAD bank movement or obvious spam.
-3. Add partial/residual strategies only when the posting allocation model can
-   represent the residual honestly and the evidence is reviewable.
+3. Add additional partial/residual strategies only when the posting allocation
+   model can represent the residual honestly and the evidence is reviewable.
+   Fee-adjusted exact-hash covers the safest same-hash exchange-withdrawal
+   subset; the remaining residuals still need explicit classification.
 4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
    linking behavior.
 

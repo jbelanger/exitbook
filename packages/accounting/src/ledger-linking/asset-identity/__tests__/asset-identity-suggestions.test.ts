@@ -80,6 +80,28 @@ describe('buildLedgerLinkingAssetIdentitySuggestions', () => {
     ]);
   });
 
+  it('preserves fee-adjusted exact-hash residual evidence on examples', () => {
+    const suggestions = assertOk(
+      buildLedgerLinkingAssetIdentitySuggestions([
+        makeBlock({
+          amount: '1.96490624',
+          residualAmount: '0.00173837',
+          residualSide: 'source',
+          sourceAmount: '1.96664461',
+          targetAmount: '1.96490624',
+        }),
+      ])
+    );
+
+    expect(suggestions[0]?.examples[0]).toMatchObject({
+      amount: '1.96490624',
+      residualAmount: '0.00173837',
+      residualSide: 'source',
+      sourceAmount: '1.96664461',
+      targetAmount: '1.96490624',
+    });
+  });
+
   it('rejects malformed inputs instead of producing weak suggestions', () => {
     const result = buildLedgerLinkingAssetIdentitySuggestions([
       makeBlock({

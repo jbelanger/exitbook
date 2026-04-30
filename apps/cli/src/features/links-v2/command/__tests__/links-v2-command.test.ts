@@ -373,7 +373,7 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       [
         '  Records only the asset identity assertion.',
-        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash relationships.',
+        '  A later links-v2 run can use that assertion to materialize deterministic exact-hash or fee-adjusted exact-hash relationships.',
       ].join('\n')
     );
     expect(consoleLogSpy).toHaveBeenCalledWith('Accept command: exitbook links-v2 review accept ai_test_1');
@@ -382,6 +382,7 @@ describe('links-v2 command', () => {
       [
         '  Accept only if the two shown asset ids name the same asset.',
         '  Exact-hash evidence means the same transaction hash was observed on both sides.',
+        '  If source/target amounts differ, only the arrived amount is linkable; the residual stays unresolved.',
         '  If a blockchain asset id is involved, verify the network/token matches the exchange asset.',
         '  If the asset mapping is unclear, leave it pending; no relationship will be created from this identity.',
       ].join('\n')
@@ -687,7 +688,9 @@ describe('links-v2 command', () => {
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity suggestions for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Suggestions: 1 of 1');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Evidence: 1 exact-hash blocker(s), 0 amount/time blocker(s)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Evidence: 1 exact-hash blocker(s), 0 fee-adjusted exact-hash blocker(s), 0 amount/time blocker(s)'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  internal_transfer ETH: blockchain:ethereum:native <-> exchange:kraken:eth (1 exact-hash blocker(s))'
     );
@@ -717,6 +720,12 @@ function makeRunResult() {
         consumedCandidateCount: 2,
         name: 'exact_hash_transfer',
         relationshipCount: 1,
+      },
+      {
+        claimedCandidateCount: 0,
+        consumedCandidateCount: 0,
+        name: 'fee_adjusted_exact_hash_transfer',
+        relationshipCount: 0,
       },
       {
         claimedCandidateCount: 0,
@@ -767,6 +776,9 @@ function makeRunResult() {
         },
       },
     ],
+    feeAdjustedExactHashAmbiguities: [],
+    feeAdjustedExactHashAssetIdentityBlocks: [],
+    feeAdjustedExactHashMatches: [],
     matchedSourceCandidateCount: 1,
     matchedTargetCandidateCount: 1,
     persistence: {

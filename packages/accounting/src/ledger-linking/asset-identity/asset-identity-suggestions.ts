@@ -18,10 +18,14 @@ export type LedgerLinkingAssetIdentitySuggestionEvidenceKind = Extract<
 export interface LedgerLinkingAssetIdentitySuggestionInput {
   amount: string;
   assetSymbol: Currency;
+  residualAmount?: string | undefined;
+  residualSide?: 'source' | 'target' | undefined;
+  sourceAmount?: string | undefined;
   sourceAssetId: string;
   sourceBlockchainTransactionHash?: string | undefined;
   sourceCandidateId?: number | undefined;
   sourcePostingFingerprint: string;
+  targetAmount?: string | undefined;
   targetAssetId: string;
   targetBlockchainTransactionHash?: string | undefined;
   targetCandidateId?: number | undefined;
@@ -31,9 +35,13 @@ export interface LedgerLinkingAssetIdentitySuggestionInput {
 
 export interface LedgerLinkingAssetIdentitySuggestionExample {
   amount: string;
+  residualAmount?: string | undefined;
+  residualSide?: 'source' | 'target' | undefined;
+  sourceAmount?: string | undefined;
   sourceBlockchainTransactionHash?: string | undefined;
   sourceCandidateId?: number | undefined;
   sourcePostingFingerprint: string;
+  targetAmount?: string | undefined;
   targetBlockchainTransactionHash?: string | undefined;
   targetCandidateId?: number | undefined;
   targetPostingFingerprint: string;
@@ -184,6 +192,18 @@ function validateAssetIdentitySuggestionInput(
     }
   }
 
+  for (const fieldName of ['sourceAmount', 'targetAmount', 'residualAmount'] as const) {
+    const value = block[fieldName];
+    if (value !== undefined && value.trim().length === 0) {
+      return err(new Error(`Ledger-linking asset identity suggestion input has empty ${fieldName}`));
+    }
+  }
+
+  const residualSide: string | undefined = block.residualSide;
+  if (residualSide !== undefined && residualSide !== 'source' && residualSide !== 'target') {
+    return err(new Error(`Ledger-linking asset identity suggestion input has invalid residualSide ${residualSide}`));
+  }
+
   if (evidenceKind === 'exact_hash_observed') {
     const hashFields = {
       sourceBlockchainTransactionHash: block.sourceBlockchainTransactionHash,
@@ -218,11 +238,15 @@ function toSuggestionExample(
 ): LedgerLinkingAssetIdentitySuggestionExample {
   return {
     amount: block.amount.trim(),
+    ...(block.residualAmount !== undefined ? { residualAmount: block.residualAmount.trim() } : {}),
+    ...(block.residualSide !== undefined ? { residualSide: block.residualSide } : {}),
+    ...(block.sourceAmount !== undefined ? { sourceAmount: block.sourceAmount.trim() } : {}),
     ...(block.sourceBlockchainTransactionHash !== undefined
       ? { sourceBlockchainTransactionHash: block.sourceBlockchainTransactionHash.trim() }
       : {}),
     ...(block.sourceCandidateId !== undefined ? { sourceCandidateId: block.sourceCandidateId } : {}),
     sourcePostingFingerprint: block.sourcePostingFingerprint.trim(),
+    ...(block.targetAmount !== undefined ? { targetAmount: block.targetAmount.trim() } : {}),
     ...(block.targetBlockchainTransactionHash !== undefined
       ? { targetBlockchainTransactionHash: block.targetBlockchainTransactionHash.trim() }
       : {}),
