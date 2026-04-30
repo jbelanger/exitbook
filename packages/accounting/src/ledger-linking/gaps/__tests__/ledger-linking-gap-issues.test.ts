@@ -57,6 +57,62 @@ describe('buildLedgerLinkingGapIssues', () => {
     expect(buildLedgerLinkingGapRef(issues[0]!)).toMatch(/^[a-f0-9]{10}$/);
   });
 
+  it('classifies missing exchange hash gaps with exact related-profile counterpart evidence separately', () => {
+    const source = makeCandidate({
+      candidateId: 7,
+      direction: 'source',
+      platformKind: 'exchange',
+      postingFingerprint: 'ledger_posting:v1:source',
+    });
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [source],
+        classifications: [
+          {
+            candidateId: 7,
+            classifications: ['exchange_transfer_missing_hash', 'missing_linking_evidence'],
+            direction: 'source',
+            platformKey: 'kraken',
+          },
+        ],
+      }),
+      {
+        crossProfileCounterpartsByCandidateId: new Map([
+          [
+            7,
+            [
+              {
+                activityDatetime: new Date('2026-04-23T00:00:15.000Z'),
+                amount: '1',
+                candidateId: 88,
+                direction: 'target',
+                platformKey: 'solana',
+                platformKind: 'blockchain',
+                postingFingerprint: 'ledger_posting:v1:child-target',
+                profileDisplayName: 'Child profile',
+                profileKey: 'child',
+                secondsDeltaFromGap: 15,
+              },
+            ],
+          ],
+        ]),
+      }
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      gapReason: 'related_profile_counterpart_evidence',
+      postingFingerprint: 'ledger_posting:v1:source',
+      relatedProfileCounterparts: [
+        {
+          candidateId: 88,
+          profileKey: 'child',
+          secondsDeltaFromGap: 15,
+        },
+      ],
+    });
+  });
+
   it('keeps target-before-source amount/time proposals as timing-mismatch gap context', () => {
     const source = makeCandidate({
       candidateId: 7,

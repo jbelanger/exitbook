@@ -14,9 +14,24 @@ export const LedgerLinkingGapReasonSchema = z.enum([
   'external_transfer_evidence_unmatched',
   'missing_linking_evidence',
   'processor_asset_migration_context',
+  'related_profile_counterpart_evidence',
   'unclassified_unmatched_transfer_candidate',
 ]);
 export type LedgerLinkingGapReason = z.infer<typeof LedgerLinkingGapReasonSchema>;
+
+export const LedgerLinkingGapCrossProfileCounterpartSchema = z.object({
+  activityDatetime: DateSchema,
+  amount: z.string().min(1),
+  candidateId: z.number().int().positive(),
+  direction: z.enum(['source', 'target']),
+  platformKey: z.string().min(1),
+  platformKind: z.enum(['exchange', 'blockchain']),
+  postingFingerprint: z.string().min(1),
+  profileDisplayName: z.string().min(1),
+  profileKey: z.string().min(1),
+  secondsDeltaFromGap: z.number(),
+});
+export type LedgerLinkingGapCrossProfileCounterpart = z.infer<typeof LedgerLinkingGapCrossProfileCounterpartSchema>;
 
 export const LedgerLinkingGapCounterpartSchema = z.object({
   candidateId: z.number().int().positive(),
@@ -46,19 +61,30 @@ export const LedgerLinkingGapIssueSchema = z.object({
   platformKind: z.enum(['exchange', 'blockchain']),
   postingFingerprint: z.string().min(1),
   remainingAmount: z.string().min(1),
+  relatedProfileCounterparts: z.array(LedgerLinkingGapCrossProfileCounterpartSchema).optional(),
   sourceActivityFingerprint: z.string().min(1),
   toAddress: z.string().min(1).optional(),
   timingCounterpart: LedgerLinkingGapCounterpartSchema.optional(),
 });
 export type LedgerLinkingGapIssue = z.infer<typeof LedgerLinkingGapIssueSchema>;
 
+export interface LedgerLinkingGapIssueBuildOptions {
+  crossProfileCounterpartsByCandidateId?:
+    | ReadonlyMap<number, readonly LedgerLinkingGapCrossProfileCounterpart[]>
+    | undefined;
+}
+
 interface CandidateClassificationIndex {
   classifications: readonly LedgerLinkingDiagnosticClassification[];
+  relatedProfileCounterparts?: readonly LedgerLinkingGapCrossProfileCounterpart[] | undefined;
   timingCounterpart?: LedgerLinkingGapCounterpart | undefined;
 }
 
-export function buildLedgerLinkingGapIssues(diagnostics: LedgerLinkingDiagnostics): LedgerLinkingGapIssue[] {
-  const index = buildCandidateClassificationIndex(diagnostics);
+export function buildLedgerLinkingGapIssues(
+  diagnostics: LedgerLinkingDiagnostics,
+  options: LedgerLinkingGapIssueBuildOptions = {}
+): LedgerLinkingGapIssue[] {
+  const index = buildCandidateClassificationIndex(diagnostics, options);
 
   return diagnostics.unmatchedCandidates
     .flatMap((candidate) => {
@@ -68,9 +94,21 @@ export function buildLedgerLinkingGapIssues(diagnostics: LedgerLinkingDiagnostic
         return [];
       }
 
-      const gapReason = resolveLedgerLinkingGapReason(classifications, candidateIndex?.timingCounterpart);
+      const gapReason = resolveLedgerLinkingGapReason(
+        classifications,
+        candidateIndex?.timingCounterpart,
+        candidateIndex?.relatedProfileCounterparts
+      );
 
-      return [toLedgerLinkingGapIssue(candidate, classifications, gapReason, candidateIndex?.timingCounterpart)];
+      return [
+        toLedgerLinkingGapIssue(
+          candidate,
+          classifications,
+          gapReason,
+          candidateIndex?.timingCounterpart,
+          candidateIndex?.relatedProfileCounterparts
+        ),
+      ];
     })
     .sort(compareLedgerLinkingGapIssues);
 }
@@ -84,14 +122,19 @@ export function buildLedgerLinkingGapRef(issue: Pick<LedgerLinkingGapIssue, 'pos
 }
 
 function buildCandidateClassificationIndex(
-  diagnostics: LedgerLinkingDiagnostics
+  diagnostics: LedgerLinkingDiagnostics,
+  options: LedgerLinkingGapIssueBuildOptions
 ): Map<number, CandidateClassificationIndex> {
   const timingCounterparts = buildTargetBeforeSourceCounterparts(diagnostics.amountTimeProposals);
   const index = new Map<number, CandidateClassificationIndex>();
 
   for (const classification of diagnostics.candidateClassifications) {
+    const relatedProfileCounterparts = options.crossProfileCounterpartsByCandidateId?.get(classification.candidateId);
     index.set(classification.candidateId, {
       classifications: classification.classifications,
+      ...(relatedProfileCounterparts !== undefined && relatedProfileCounterparts.length > 0
+        ? { relatedProfileCounterparts }
+        : {}),
       ...(timingCounterparts.has(classification.candidateId)
         ? { timingCounterpart: timingCounterparts.get(classification.candidateId) }
         : {}),
@@ -132,7 +175,8 @@ function buildTargetBeforeSourceCounterparts(
 
 function resolveLedgerLinkingGapReason(
   classifications: readonly LedgerLinkingDiagnosticClassification[],
-  timingCounterpart: LedgerLinkingGapCounterpart | undefined
+  timingCounterpart: LedgerLinkingGapCounterpart | undefined,
+  relatedProfileCounterparts: readonly LedgerLinkingGapCrossProfileCounterpart[] | undefined
 ): LedgerLinkingGapReason {
   if (timingCounterpart !== undefined) {
     return 'bridge_or_migration_timing_mismatch';
@@ -140,6 +184,10 @@ function resolveLedgerLinkingGapReason(
 
   if (classifications.includes('processor_asset_migration_context')) {
     return 'processor_asset_migration_context';
+  }
+
+  if (relatedProfileCounterparts !== undefined && relatedProfileCounterparts.length > 0) {
+    return 'related_profile_counterpart_evidence';
   }
 
   if (classifications.includes('exchange_transfer_missing_hash')) {
@@ -169,7 +217,8 @@ function toLedgerLinkingGapIssue(
   candidate: LedgerLinkingCandidateRemainder,
   classifications: readonly LedgerLinkingDiagnosticClassification[],
   gapReason: LedgerLinkingGapReason,
-  timingCounterpart: LedgerLinkingGapCounterpart | undefined
+  timingCounterpart: LedgerLinkingGapCounterpart | undefined,
+  relatedProfileCounterparts: readonly LedgerLinkingGapCrossProfileCounterpart[] | undefined
 ): LedgerLinkingGapIssue {
   const journalDiagnosticCodes = candidate.journalDiagnosticCodes ?? [];
 
@@ -194,6 +243,9 @@ function toLedgerLinkingGapIssue(
     platformKind: candidate.platformKind,
     postingFingerprint: candidate.postingFingerprint,
     remainingAmount: candidate.remainingAmount,
+    ...(relatedProfileCounterparts !== undefined && relatedProfileCounterparts.length > 0
+      ? { relatedProfileCounterparts: [...relatedProfileCounterparts] }
+      : {}),
     sourceActivityFingerprint: candidate.sourceActivityFingerprint,
     ...(candidate.toAddress !== undefined ? { toAddress: candidate.toAddress } : {}),
     ...(timingCounterpart !== undefined ? { timingCounterpart } : {}),
@@ -221,9 +273,11 @@ function ledgerLinkingGapReasonRank(reason: LedgerLinkingGapReason): number {
       return 2;
     case 'processor_asset_migration_context':
       return 3;
-    case 'external_transfer_evidence_unmatched':
+    case 'related_profile_counterpart_evidence':
       return 4;
-    case 'unclassified_unmatched_transfer_candidate':
+    case 'external_transfer_evidence_unmatched':
       return 5;
+    case 'unclassified_unmatched_transfer_candidate':
+      return 6;
   }
 }

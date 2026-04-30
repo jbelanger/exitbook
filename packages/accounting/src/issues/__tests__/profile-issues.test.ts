@@ -192,6 +192,57 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     );
   });
 
+  it('surfaces related-profile counterpart evidence as a non-blocking ledger-linking-v2 gap', () => {
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [
+        createLedgerLinkingGapIssue({
+          assetSymbol: 'USDC' as LedgerLinkingGapIssue['assetSymbol'],
+          gapReason: 'related_profile_counterpart_evidence',
+          relatedProfileCounterparts: [
+            {
+              activityDatetime: new Date('2024-05-19T11:32:08.000Z'),
+              amount: '99',
+              candidateId: 88,
+              direction: 'target',
+              platformKey: 'solana',
+              platformKind: 'blockchain',
+              postingFingerprint: 'ledger_posting:v1:child-target',
+              profileDisplayName: 'Maely',
+              profileKey: 'maely',
+              secondsDeltaFromGap: 14.612,
+            },
+          ],
+        }),
+      ],
+      assetReviewSummaries: [],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      openIssueCount: 1,
+      blockingIssueCount: 0,
+    });
+    expect(snapshot.issues[0]?.issue).toMatchObject({
+      family: 'transfer_gap',
+      severity: 'warning',
+      summary: 'USDC outflow has related-profile evidence in links-v2',
+    });
+    expect(snapshot.issues[0]?.issue.details).toContain(
+      'exact opposite-direction amount/time evidence exists in another profile'
+    );
+    expect(snapshot.issues[0]?.issue.details).toContain(
+      'Related profile counterpart evidence: 99 on Maely [maely] solana at 2024-05-19T11:32:08.000Z (14.612s later).'
+    );
+    expect(snapshot.issues[0]?.issue.details).toContain(
+      'This is external/related-owner evidence, not a same-owner internal link.'
+    );
+  });
+
   it('prefers ledger-linking-v2 gaps over legacy movement gaps when both are supplied', () => {
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 42,

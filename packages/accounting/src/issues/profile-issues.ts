@@ -8,6 +8,7 @@ import { sha256Hex } from '@exitbook/foundation';
 import {
   buildLedgerLinkingGapIssueKey,
   buildLedgerLinkingGapRef,
+  type LedgerLinkingGapCrossProfileCounterpart,
   type LedgerLinkingGapIssue,
   type LedgerLinkingGapReason,
 } from '../ledger-linking/gaps/ledger-linking-gap-issues.js';
@@ -263,6 +264,10 @@ function buildTransferGapNextActions(gapRef: string, transactionRef: string): Ac
 }
 
 function buildLedgerLinkingGapSummary(issue: LedgerLinkingGapIssue): string {
+  if (issue.gapReason === 'related_profile_counterpart_evidence') {
+    return `${issue.assetSymbol} ${formatLedgerLinkingDirection(issue.direction)} has related-profile evidence in links-v2`;
+  }
+
   return `${issue.assetSymbol} ${formatLedgerLinkingDirection(issue.direction)} remains unresolved in links-v2`;
 }
 
@@ -290,6 +295,10 @@ function buildLedgerLinkingGapDetails(issue: LedgerLinkingGapIssue): string {
         issue.timingCounterpart.timeDistanceSeconds
       )}.`
     );
+  }
+
+  if (issue.relatedProfileCounterparts !== undefined && issue.relatedProfileCounterparts.length > 0) {
+    detailSegments.push(formatRelatedProfileCounterpartDetails(issue.relatedProfileCounterparts));
   }
 
   return detailSegments.join(' ');
@@ -335,6 +344,7 @@ function getLedgerLinkingGapSeverity(reason: LedgerLinkingGapReason): Accounting
     case 'bridge_or_migration_timing_mismatch':
     case 'external_transfer_evidence_unmatched':
     case 'processor_asset_migration_context':
+    case 'related_profile_counterpart_evidence':
     case 'unclassified_unmatched_transfer_candidate':
       return 'warning';
   }
@@ -356,9 +366,38 @@ function formatLedgerLinkingGapReason(reason: LedgerLinkingGapReason): string {
       return 'candidate has no hash or endpoint evidence for automatic linking';
     case 'processor_asset_migration_context':
       return 'processor diagnostics indicate asset migration or internal exchange movement context';
+    case 'related_profile_counterpart_evidence':
+      return 'exact opposite-direction amount/time evidence exists in another profile';
     case 'unclassified_unmatched_transfer_candidate':
       return 'candidate remains unmatched and needs classification';
   }
+}
+
+function formatRelatedProfileCounterpartDetails(
+  counterparts: readonly LedgerLinkingGapCrossProfileCounterpart[]
+): string {
+  const formatted = counterparts
+    .slice(0, 3)
+    .map(
+      (counterpart) =>
+        `${counterpart.amount} on ${counterpart.profileDisplayName} [${counterpart.profileKey}] ${counterpart.platformKey} at ${counterpart.activityDatetime.toISOString()} (${formatSignedDurationSeconds(
+          counterpart.secondsDeltaFromGap
+        )})`
+    );
+
+  const remainingCount = counterparts.length - formatted.length;
+  const suffix = remainingCount > 0 ? `, plus ${remainingCount} more` : '';
+
+  return `Related profile counterpart evidence: ${formatted.join('; ')}${suffix}. This is external/related-owner evidence, not a same-owner internal link.`;
+}
+
+function formatSignedDurationSeconds(seconds: number): string {
+  if (seconds === 0) {
+    return 'same time';
+  }
+
+  const absolute = formatDurationSeconds(Math.abs(seconds));
+  return seconds > 0 ? `${absolute} later` : `${absolute} earlier`;
 }
 
 function formatDurationSeconds(seconds: number): string {

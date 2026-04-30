@@ -948,37 +948,31 @@ Completed checkpoints:
 - assets with non-blocking review evidence, such as an unmatched CoinGecko
   reference, surface as warning `asset_review_required` Issues before their
   related ledger-linking-v2 transfer gaps are shown
+- related-owner wallets remain separate profiles. Ledger-linking-v2 now uses
+  exact opposite-direction amount/time matches from other profiles as
+  warning-grade gap evidence only; it does not materialize cross-profile
+  relationships or treat those wallets as same-owner internal transfer targets
 
 Active next slices:
 
-Current live corpus after the asset and precision-normalized linking pass:
-`104` profile Issues remain open: `2` blocked links-v2 hash-evidence gaps and
-`102` links-v2 warnings. Asset review has no action-required rows. Diagnostics
-still identifies fiat cash movements, obvious spam/airdrop inflows, tiny native
-dust inflows, and processor-marked asset migration/internal exchange context
-that are intentionally not projected as blocked transfer-gap issues. The 2024
-CA average-cost cost-basis run now completes with no blocking issues; the
+Current live corpus after the related-profile evidence pass: `104` profile
+Issues remain open, all warnings. Asset review has no action-required rows.
+Diagnostics still identifies fiat cash movements, obvious spam/airdrop inflows,
+tiny native dust inflows, and processor-marked asset migration/internal exchange
+context that are intentionally not projected as blocked transfer-gap issues. The
+2024 CA average-cost cost-basis run completes with no blocking issues; the
 remaining scoped cost-basis item is a warning for one Kraken dust sweep with
 uncertain proceeds allocation.
 
-1. Investigate the remaining blocked non-fiat exchange rows. The current live
-   corpus has two Kraken `USDC -99` withdrawals without enough linking evidence.
-   Do not auto-link these without source evidence. The former
-   `LINK +48.21975374` and `USDC -270.7758064` blockers are resolved by the
-   precision-normalized strict exchange amount/time recognizer because local
-   evidence shows one-to-one source-before-target transfers where an exchange
-   truncated displayed precision. The former `RENDER +64.987572` and
-   `RNDR -64.98757287` blockers now use processor `possible_asset_migration`
-   diagnostics and surface as warnings, not blocked missing-hash gaps.
-2. Promote target-before-source bridge or migration timing clues into better
+1. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
    current source-before-target rule.
-3. Analyze the remaining external-evidence warnings by source platform, asset,
+2. Analyze the remaining external-evidence warnings by source platform, asset,
    and address/hash context before adding more recognizers. These are real
    transfer-like candidates, not CAD bank movement or obvious spam.
-4. Add partial/residual strategies only when the posting allocation model can
+3. Add partial/residual strategies only when the posting allocation model can
    represent the residual honestly and the evidence is reviewable.
-5. Compare v1 and v2 link coverage on the imported corpus before removing legacy
+4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
    linking behavior.
 
 Acceptance:

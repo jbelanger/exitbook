@@ -48,14 +48,21 @@ export {
   type LedgerLinkingUnmatchedCandidateGroup,
 } from './ledger-linking/diagnostics/linking-diagnostics.js';
 export {
+  buildLedgerLinkingCrossProfileCounterpartsByCandidateId,
+  type LedgerLinkingCrossProfileDiagnostics,
+} from './ledger-linking/gaps/cross-profile-counterpart-evidence.js';
+export {
   buildLedgerLinkingGapIssues,
   buildLedgerLinkingGapIssueKey,
   buildLedgerLinkingGapRef,
+  LedgerLinkingGapCrossProfileCounterpartSchema,
   LedgerLinkingGapCounterpartSchema,
   LedgerLinkingGapIssueSchema,
   LedgerLinkingGapReasonSchema,
+  type LedgerLinkingGapCrossProfileCounterpart,
   type LedgerLinkingGapCounterpart,
   type LedgerLinkingGapIssue,
+  type LedgerLinkingGapIssueBuildOptions,
   type LedgerLinkingGapReason,
 } from './ledger-linking/gaps/ledger-linking-gap-issues.js';
 export {
