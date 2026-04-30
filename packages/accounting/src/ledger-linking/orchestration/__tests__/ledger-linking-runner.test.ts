@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LedgerLinkingAssetIdentityAssertion } from '../../asset-identity/asset-identity-resolution.js';
 import type { LedgerLinkingPostingInput } from '../../candidates/candidate-construction.js';
+import type { LedgerLinkingReviewedRelationshipOverride } from '../../matching/reviewed-relationship-override-matching.js';
 import type { LedgerLinkingRelationshipDraft } from '../../relationships/relationship-materialization.js';
 import { runLedgerLinking, type LedgerLinkingRunPorts } from '../ledger-linking-runner.js';
 
@@ -683,6 +684,64 @@ describe('runLedgerLinking', () => {
     expect(harness.savedRelationships).toEqual([]);
   });
 
+  it('replays reviewed relationship overrides before deterministic recognizers', async () => {
+    const reviewedRelationshipOverride = makeReviewedRelationshipOverride();
+    const harness = makeHarness(
+      [
+        makePosting({
+          assetId: 'exchange:kraken:eth',
+          blockchainTransactionHash: undefined,
+          journalFingerprint: 'ledger_journal:v1:reviewed-source',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          postingFingerprint: 'ledger_posting:v1:reviewed-source',
+          quantity: '-1',
+          sourceActivityFingerprint: 'source_activity:v1:reviewed-source',
+        }),
+        makePosting({
+          assetId: 'blockchain:ethereum:native',
+          blockchainTransactionHash: undefined,
+          journalFingerprint: 'ledger_journal:v1:reviewed-target',
+          postingFingerprint: 'ledger_posting:v1:reviewed-target',
+          quantity: '1',
+          sourceActivityFingerprint: 'source_activity:v1:reviewed-target',
+        }),
+      ],
+      {
+        reviewedRelationshipOverrides: [reviewedRelationshipOverride],
+      }
+    );
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.reviewedRelationshipOverrideMatches).toEqual([
+      {
+        overrideEventId: 'override-event-1',
+        relationshipStableKey: result.acceptedRelationships[0]?.relationshipStableKey,
+        reviewId: 'lp_test_1',
+        sourceCandidateId: 1,
+        targetCandidateId: 2,
+      },
+    ]);
+    expect(result.deterministicRecognizerStats[0]).toMatchObject({
+      claimedCandidateCount: 2,
+      consumedCandidateCount: 2,
+      name: 'reviewed_amount_time',
+      relationshipCount: 1,
+    });
+    expect(result.exactHashMatches).toEqual([]);
+    expect(result.acceptedRelationships[0]).toMatchObject({
+      evidence: {
+        amount: '1',
+        overrideEventId: 'override-event-1',
+        reviewId: 'lp_test_1',
+      },
+      recognitionStrategy: 'reviewed_amount_time',
+      relationshipKind: 'internal_transfer',
+    });
+    expect(harness.savedRelationships).toEqual([result.acceptedRelationships]);
+  });
+
   it('returns persistence failures without swallowing them', async () => {
     const harness = makeHarness(
       [
@@ -720,6 +779,7 @@ describe('runLedgerLinking', () => {
 interface HarnessOptions {
   assetIdentityAssertions?: readonly LedgerLinkingAssetIdentityAssertion[] | undefined;
   previousCount?: number | undefined;
+  reviewedRelationshipOverrides?: readonly LedgerLinkingReviewedRelationshipOverride[] | undefined;
   storeError?: Error | undefined;
 }
 
@@ -757,12 +817,45 @@ function makeHarness(postings: readonly LedgerLinkingPostingInput[], options: Ha
         });
       },
     },
+    ...(options.reviewedRelationshipOverrides !== undefined
+      ? {
+          reviewedRelationshipOverrideReader: {
+            async loadReviewedLedgerLinkingRelationshipOverrides() {
+              return ok([...options.reviewedRelationshipOverrides!]);
+            },
+          },
+        }
+      : {}),
   };
 
   return {
     loadedProfileIds,
     ports,
     savedRelationships,
+  };
+}
+
+function makeReviewedRelationshipOverride(): LedgerLinkingReviewedRelationshipOverride {
+  return {
+    acceptedAt: '2026-04-29T00:00:00.000Z',
+    assetIdentityReason: 'accepted_assertion',
+    assetSymbol: 'ETH',
+    overrideEventId: 'override-event-1',
+    proposalKind: 'amount_time',
+    proposalUniqueness: 'unique_pair',
+    quantity: parseDecimal('1'),
+    relationshipKind: 'internal_transfer',
+    reviewId: 'lp_test_1',
+    sourceActivityFingerprint: 'source_activity:v1:reviewed-source',
+    sourceAssetId: 'exchange:kraken:eth',
+    sourceJournalFingerprint: 'ledger_journal:v1:reviewed-source',
+    sourcePostingFingerprint: 'ledger_posting:v1:reviewed-source',
+    targetActivityFingerprint: 'source_activity:v1:reviewed-target',
+    targetAssetId: 'blockchain:ethereum:native',
+    targetJournalFingerprint: 'ledger_journal:v1:reviewed-target',
+    targetPostingFingerprint: 'ledger_posting:v1:reviewed-target',
+    timeDirection: 'source_before_target',
+    timeDistanceSeconds: 1800,
   };
 }
 

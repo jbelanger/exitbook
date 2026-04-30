@@ -6,6 +6,10 @@ export {
   replayLedgerLinkingAssetIdentityAssertionOverrides,
 } from './ledger-linking-asset-identity-replay.js';
 export {
+  readLedgerLinkingRelationshipOverrides,
+  replayLedgerLinkingRelationshipOverrides,
+} from './ledger-linking-relationship-replay.js';
+export {
   readResolvedLinkGapExceptions,
   readResolvedLinkGapIssueKeys,
   replayResolvedLinkGapExceptions,

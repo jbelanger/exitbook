@@ -1,6 +1,7 @@
 import {
   buildLedgerLinkingReviewQueue,
   canonicalizeLedgerLinkingAssetIdentityPair,
+  buildReviewedLedgerLinkingRelationshipStableKey,
   ledgerTransactionHashesMatch,
   runLedgerLinking,
   type LedgerLinkingAssetIdentityAssertion,
@@ -11,7 +12,7 @@ import {
   type LedgerLinkingReviewQueue,
   type LedgerLinkingRunResult,
 } from '@exitbook/accounting/ledger-linking';
-import type { OverrideEvent } from '@exitbook/core';
+import type { LedgerLinkingRelationshipAcceptPayload, OverrideEvent } from '@exitbook/core';
 import {
   buildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore,
@@ -19,6 +20,7 @@ import {
 } from '@exitbook/data/accounting';
 import { materializeStoredLedgerLinkingAssetIdentityAssertions, OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
+import { Decimal } from 'decimal.js';
 import type { z } from 'zod';
 import { z as zod } from 'zod';
 
@@ -148,9 +150,9 @@ interface LinksV2ReviewAcceptOutput {
     id: number;
     profileKey: string;
   };
-  result: LinksV2AssetIdentityAcceptResult;
+  result: LinksV2ReviewAcceptResult;
   reviewId: string;
-  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'asset_identity_suggestion' }>;
+  reviewItem: LedgerLinkingReviewItem;
 }
 
 interface LinksV2AssetIdentityAcceptOutput {
@@ -165,6 +167,22 @@ interface LinksV2AssetIdentityAcceptResult {
   assertion: LedgerLinkingAssetIdentityAssertion;
   materialization: LedgerLinkingAssetIdentityAssertionReplacementResult;
   overrideEvent: OverrideEvent;
+}
+
+type LinksV2ReviewAcceptResult =
+  | {
+      kind: 'asset_identity';
+      result: LinksV2AssetIdentityAcceptResult;
+    }
+  | {
+      kind: 'link_proposal';
+      result: LinksV2LinkProposalAcceptResult;
+    };
+
+interface LinksV2LinkProposalAcceptResult {
+  overrideEvent: OverrideEvent;
+  relationshipStableKey: string;
+  run: LedgerLinkingRunResult;
 }
 
 interface LinksV2CommandProfile {
@@ -341,6 +359,15 @@ function resolveLinksV2DryRunMode(
   return 'dryRun' in prepared && prepared.dryRun === true;
 }
 
+function buildLinksV2RunPorts(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>
+) {
+  return buildLedgerLinkingRunPorts(database, {
+    overrideStore: new OverrideStore(ctx.dataDir),
+  });
+}
+
 async function executePreparedLinksV2RunCommand(
   ctx: CommandRuntime,
   prepared: LinksV2StatusCommandOptions | LinksV2RunCommandOptions,
@@ -350,7 +377,7 @@ async function executePreparedLinksV2RunCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         dryRun: config.dryRun,
       }),
       ExitCodes.GENERAL_ERROR
@@ -380,7 +407,7 @@ async function executePreparedLinksV2DiagnoseCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         amountTimeProposalWindowMinutes: prepared.proposalWindowHours * 60,
         dryRun: true,
         includeDiagnostics: true,
@@ -455,7 +482,7 @@ async function executePreparedLinksV2AssetIdentitySuggestionsCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         dryRun: true,
       }),
       ExitCodes.GENERAL_ERROR
@@ -492,7 +519,7 @@ async function executePreparedLinksV2ReviewCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         dryRun: true,
         includeDiagnostics: true,
       }),
@@ -532,7 +559,7 @@ async function executePreparedLinksV2ReviewViewCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         dryRun: true,
         includeDiagnostics: true,
       }),
@@ -566,7 +593,7 @@ async function executePreparedLinksV2ReviewAcceptCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const run = yield* toCliResult(
-      await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database), {
+      await runLedgerLinking(profile.id, buildLinksV2RunPorts(ctx, database), {
         dryRun: true,
         includeDiagnostics: true,
       }),
@@ -575,24 +602,27 @@ async function executePreparedLinksV2ReviewAcceptCommand(
     const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
     const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
 
-    if (reviewItem.kind === 'link_proposal') {
-      return yield* cliErr(
-        new Error(
-          `Review item ${reviewItem.reviewId} is a link proposal. links-v2 review accept currently supports asset identity suggestions only.`
-        ),
-        ExitCodes.INVALID_ARGS
-      );
-    }
-
-    const result = yield* toCliResult(
-      await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
-        assetIdA: reviewItem.suggestion.assetIdA,
-        assetIdB: reviewItem.suggestion.assetIdB,
-        evidenceKind: reviewItem.suggestion.evidenceKind,
-        relationshipKind: reviewItem.suggestion.relationshipKind,
-      }),
-      ExitCodes.GENERAL_ERROR
-    );
+    const result =
+      reviewItem.kind === 'asset_identity_suggestion'
+        ? {
+            kind: 'asset_identity' as const,
+            result: yield* toCliResult(
+              await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
+                assetIdA: reviewItem.suggestion.assetIdA,
+                assetIdB: reviewItem.suggestion.assetIdB,
+                evidenceKind: reviewItem.suggestion.evidenceKind,
+                relationshipKind: reviewItem.suggestion.relationshipKind,
+              }),
+              ExitCodes.GENERAL_ERROR
+            ),
+          }
+        : {
+            kind: 'link_proposal' as const,
+            result: yield* toCliResult(
+              await acceptLinksV2LinkProposalOverride(ctx, database, profile, reviewItem),
+              ExitCodes.GENERAL_ERROR
+            ),
+          };
     const output: LinksV2ReviewAcceptOutput = {
       profile: {
         id: profile.id,
@@ -683,6 +713,89 @@ async function acceptLinksV2AssetIdentityOverride(
   });
 }
 
+async function acceptLinksV2LinkProposalOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
+): Promise<Result<LinksV2LinkProposalAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const payload = buildLinksV2RelationshipAcceptPayload(reviewItem);
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-relationship-accept',
+      payload,
+    });
+    const relationshipStableKey = buildReviewedLedgerLinkingRelationshipStableKey({
+      acceptedAt: overrideEvent.created_at,
+      assetIdentityReason: payload.asset_identity_reason,
+      assetSymbol: payload.asset_symbol,
+      overrideEventId: overrideEvent.id,
+      proposalKind: payload.proposal_kind,
+      proposalUniqueness: payload.proposal_uniqueness,
+      quantity: new Decimal(payload.quantity),
+      relationshipKind: reviewItem.relationshipKind,
+      reviewId: payload.review_id,
+      sourceActivityFingerprint: payload.source_activity_fingerprint,
+      sourceAssetId: payload.source_asset_id,
+      sourceJournalFingerprint: payload.source_journal_fingerprint,
+      sourcePostingFingerprint: payload.source_posting_fingerprint,
+      targetActivityFingerprint: payload.target_activity_fingerprint,
+      targetAssetId: payload.target_asset_id,
+      targetJournalFingerprint: payload.target_journal_fingerprint,
+      targetPostingFingerprint: payload.target_posting_fingerprint,
+      timeDirection: payload.time_direction,
+      timeDistanceSeconds: payload.time_distance_seconds,
+    });
+    const run = yield* await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database, { overrideStore }), {
+      dryRun: false,
+      includeDiagnostics: true,
+    });
+
+    if (
+      !run.reviewedRelationshipOverrideMatches.some((match) => match.relationshipStableKey === relationshipStableKey)
+    ) {
+      return yield* err(
+        new Error(`Accepted links-v2 relationship override ${relationshipStableKey} was not materialized by the runner`)
+      );
+    }
+
+    return {
+      overrideEvent,
+      relationshipStableKey,
+      run,
+    };
+  });
+}
+
+function buildLinksV2RelationshipAcceptPayload(
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
+): LedgerLinkingRelationshipAcceptPayload {
+  const { proposal } = reviewItem;
+
+  return {
+    asset_identity_reason: proposal.assetIdentityReason,
+    asset_symbol: proposal.assetSymbol,
+    proposal_kind: reviewItem.proposalKind,
+    proposal_uniqueness: proposal.uniqueness,
+    quantity: proposal.amount,
+    relationship_kind: reviewItem.relationshipKind,
+    review_id: reviewItem.reviewId,
+    source_activity_fingerprint: proposal.source.sourceActivityFingerprint,
+    source_asset_id: proposal.source.assetId,
+    source_journal_fingerprint: proposal.source.journalFingerprint,
+    source_posting_fingerprint: proposal.source.postingFingerprint,
+    target_activity_fingerprint: proposal.target.sourceActivityFingerprint,
+    target_asset_id: proposal.target.assetId,
+    target_journal_fingerprint: proposal.target.journalFingerprint,
+    target_posting_fingerprint: proposal.target.postingFingerprint,
+    time_direction: proposal.timeDirection,
+    time_distance_seconds: proposal.timeDistanceSeconds,
+    type: 'ledger_linking_relationship_accept',
+  };
+}
+
 function buildLinksV2ReviewQueueFromRun(run: LedgerLinkingRunResult): Result<LedgerLinkingReviewQueue, Error> {
   if (run.diagnostics === undefined) {
     return err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner'));
@@ -759,21 +872,38 @@ function renderLinksV2ReviewAcceptOutput(
   output: LinksV2ReviewAcceptOutput,
   config: LinksV2ReviewExecutionConfig
 ): void {
-  const { assertion, materialization, overrideEvent } = output.result;
-  const { suggestion } = output.reviewItem;
-
   console.log(config.title);
   console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
   console.log(`Review id: ${output.reviewId}`);
-  console.log('Action: asset identity override accepted');
+
+  if (output.result.kind === 'asset_identity') {
+    const { assertion, materialization, overrideEvent } = output.result.result;
+    if (output.reviewItem.kind !== 'asset_identity_suggestion') {
+      throw new Error(`Expected asset identity review item for accepted result ${output.reviewId}`);
+    }
+
+    const { suggestion } = output.reviewItem;
+    console.log('Action: asset identity override accepted');
+    console.log(`Override event: ${overrideEvent.id}`);
+    console.log(`Relationship kind: ${assertion.relationshipKind}`);
+    console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
+    console.log(`Evidence: ${assertion.evidenceKind}`);
+    console.log(`Observed blockers: ${suggestion.blockCount}`);
+    console.log(
+      `Materialized assertions: ${materialization.savedCount} saved, ${materialization.previousCount} replaced`
+    );
+    return;
+  }
+
+  const { overrideEvent, relationshipStableKey, run } = output.result.result;
   console.log(`Override event: ${overrideEvent.id}`);
-  console.log(`Relationship kind: ${assertion.relationshipKind}`);
-  console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
-  console.log(`Evidence: ${assertion.evidenceKind}`);
-  console.log(`Observed blockers: ${suggestion.blockCount}`);
-  console.log(
-    `Materialized assertions: ${materialization.savedCount} saved, ${materialization.previousCount} replaced`
-  );
+  console.log('Action: reviewed link override accepted');
+  console.log(`Relationship stable key: ${relationshipStableKey}`);
+  if (run.persistence.mode === 'persisted') {
+    console.log(
+      `Materialized relationships: ${run.persistence.materialization.savedCount} saved, ${run.persistence.materialization.previousCount} replaced`
+    );
+  }
 }
 
 function renderLinksV2AssetIdentityReviewDetail(
@@ -819,11 +949,13 @@ function renderLinksV2LinkProposalReviewDetail(
   console.log(`Target asset id: ${proposal.target.assetId}`);
   console.log(`Time evidence: ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}`);
   console.log(`Asset identity: ${formatAssetIdentityReason(proposal.assetIdentityReason)}`);
-  console.log('Decision help:');
   console.log(
-    '  This is review-only evidence. It cannot be accepted until reviewed relationship materialization exists.'
+    `Would accept: reviewed ${item.proposalKind} relationship ${proposal.source.postingFingerprint} -> ${proposal.target.postingFingerprint}`
   );
-  console.log('  Use it to decide whether the processor facts or asset identity assertions need attention first.');
+  console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
+  console.log('Decision help:');
+  console.log('  This records a durable reviewed relationship override.');
+  console.log('  Replay requires the exact source and target posting fingerprints and quantity to still resolve.');
 }
 
 function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {
@@ -971,6 +1103,7 @@ function renderLinksV2RunOutput(
   console.log(`Same-hash unresolved groups: ${run.sameHashGroupedUnresolvedGroups.length}`);
   console.log(`Counterparty roundtrip matches: ${run.counterpartyRoundtripMatches.length}`);
   console.log(`Counterparty roundtrip ambiguities: ${run.counterpartyRoundtripAmbiguities.length}`);
+  console.log(`Reviewed relationship overrides: ${run.reviewedRelationshipOverrideMatches.length}`);
   console.log(`Asset identity suggestions: ${run.assetIdentitySuggestions.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
 
@@ -1157,7 +1290,7 @@ function formatAssetIdentityAcceptImpact(evidenceKind: LedgerLinkingAssetIdentit
     case 'amount_time_observed':
       return [
         '  Records only the asset identity assertion.',
-        '  Amount/time link proposals stay review-only and will not become relationships yet.',
+        '  A later reviewed link accept can materialize amount/time proposals for this asset pair.',
       ].join('\n');
   }
 }

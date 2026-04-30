@@ -146,9 +146,8 @@ Examples:
 
 Notes:
   - Always runs in dry-run mode.
-  - Shows the linking action queue: asset identity suggestions and review-only link proposals.
-  - Accept currently persists asset identity suggestions only.
-  - Link proposal acceptance is intentionally blocked until reviewed relationship materialization is designed.
+  - Shows the linking action queue: asset identity suggestions and reviewed link proposals.
+  - Accept persists user decisions as override events before materializing projections.
 `
     )
     .action(async (rawOptions: unknown) => {
@@ -194,8 +193,8 @@ Examples:
   $ exitbook links-v2 review accept ai_055f73938f17 --json
 
 Notes:
-  - Currently accepts asset identity suggestions only.
-  - Link proposals remain review-only until durable reviewed relationship materialization is designed.
+  - Asset identity accepts record durable pairwise assertions.
+  - Link proposal accepts record durable reviewed relationship overrides and rerun links-v2 materialization.
 `
     )
     .action(async (reviewId: string, rawOptions: unknown, command: Command) => {

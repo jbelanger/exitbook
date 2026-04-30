@@ -48,6 +48,7 @@ const {
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
   buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
+  buildReviewedLedgerLinkingRelationshipStableKey: () => 'ledger-linking:reviewed_amount_time:v1:test',
   canonicalizeLedgerLinkingAssetIdentityPair: (assetIdA: string, assetIdB: string) => {
     const sorted = [assetIdA.trim(), assetIdB.trim()].sort();
     const canonicalAssetIdA = sorted[0];
@@ -387,7 +388,7 @@ describe('links-v2 command', () => {
     );
   });
 
-  it('shows review-only guidance for a link proposal review item', async () => {
+  it('shows accept guidance for a link proposal review item', async () => {
     const program = createProgram();
     mockRunLedgerLinking.mockResolvedValue(
       ok({
@@ -405,9 +406,14 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Kind: link_proposal');
     expect(consoleLogSpy).toHaveBeenCalledWith('Proposal kind: amount_time');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationship kind: internal_transfer');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '  This is review-only evidence. It cannot be accepted until reviewed relationship materialization exists.'
+      'Would accept: reviewed amount_time relationship ledger_posting:v1:diagnostic-source -> ledger_posting:v1:diagnostic-target'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Accept command: exitbook links-v2 review accept lp_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
+    expect(consoleLogSpy).toHaveBeenCalledWith('  This records a durable reviewed relationship override.');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  Replay requires the exact source and target posting fingerprints and quantity to still resolve.'
     );
     expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
   });
@@ -523,7 +529,7 @@ describe('links-v2 command', () => {
     });
   });
 
-  it('does not accept link proposals from the links-v2 review queue yet', async () => {
+  it('accepts link proposals from the links-v2 review queue as reviewed relationship overrides', async () => {
     const program = createProgram();
     mockRunLedgerLinking.mockResolvedValue(
       ok({
@@ -531,17 +537,65 @@ describe('links-v2 command', () => {
         diagnostics: makeDiagnostics(),
       })
     );
-    mockExitCliFailure.mockImplementationOnce(
-      (command: string, failure: { error: Error; exitCode: number }, format: 'json' | 'text') => {
-        throw new Error(`CLI:${command}:${format}:${failure.error.message}:${failure.exitCode}`);
+    mockRunLedgerLinking
+      .mockResolvedValueOnce(
+        ok({
+          ...makeRunResult(),
+          diagnostics: makeDiagnostics(),
+        })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          ...makeRunResult(),
+          reviewedRelationshipOverrideMatches: [
+            {
+              overrideEventId: 'override-event-1',
+              relationshipStableKey: 'ledger-linking:reviewed_amount_time:v1:test',
+              reviewId: 'lp_test_1',
+              sourceCandidateId: 7,
+              targetCandidateId: 8,
+            },
+          ],
+        })
+      );
+
+    await program.parseAsync(['links-v2', 'review', 'accept', 'lp_test_1'], { from: 'user' });
+
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-relationship-accept',
+      payload: {
+        asset_identity_reason: 'accepted_assertion',
+        asset_symbol: 'ETH',
+        proposal_kind: 'amount_time',
+        proposal_uniqueness: 'unique_pair',
+        quantity: '1',
+        relationship_kind: 'internal_transfer',
+        review_id: 'lp_test_1',
+        source_activity_fingerprint: 'source_activity:v1:diagnostic-source',
+        source_asset_id: 'exchange:kraken:eth',
+        source_journal_fingerprint: 'ledger_journal:v1:source',
+        source_posting_fingerprint: 'ledger_posting:v1:diagnostic-source',
+        target_activity_fingerprint: 'source_activity:v1:diagnostic-target',
+        target_asset_id: 'blockchain:ethereum:native',
+        target_journal_fingerprint: 'ledger_journal:v1:target',
+        target_posting_fingerprint: 'ledger_posting:v1:diagnostic-target',
+        time_direction: 'source_before_target',
+        time_distance_seconds: 1800,
+        type: 'ledger_linking_relationship_accept',
+      },
+    });
+    expect(mockRunLedgerLinking).toHaveBeenLastCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        dryRun: false,
+        includeDiagnostics: true,
       }
     );
-
-    await expect(program.parseAsync(['links-v2', 'review', 'accept', 'lp_test_1'], { from: 'user' })).rejects.toThrow(
-      'CLI:links-v2-review-accept:text:Review item lp_test_1 is a link proposal. links-v2 review accept currently supports asset identity suggestions only.:2'
-    );
-
-    expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override accepted');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationship stable key: ledger-linking:reviewed_amount_time:v1:test');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Materialized relationships: 1 saved, 0 replaced');
   });
 
   it('lists persisted links-v2 relationships', async () => {
@@ -719,6 +773,7 @@ function makeRunResult() {
       },
     },
     postingInputCount: 3,
+    reviewedRelationshipOverrideMatches: [],
     sameHashGroupedMatches: [],
     sameHashGroupedUnresolvedGroups: [],
     skippedCandidates: [

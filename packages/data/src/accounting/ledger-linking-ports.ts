@@ -4,10 +4,14 @@ import type {
   ILedgerLinkingCandidateSourceReader,
   ILedgerLinkingRelationshipReader,
   ILedgerLinkingRelationshipStore,
+  ILedgerLinkingReviewedRelationshipOverrideReader,
   LedgerLinkingRunPorts,
 } from '@exitbook/accounting/ledger-linking';
+import { err } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
+import { readLedgerLinkingRelationshipOverrides } from '../overrides/ledger-linking-relationship-replay.js';
+import type { OverrideStore } from '../overrides/override-store.js';
 
 export function buildLedgerLinkingRelationshipStore(db: DataSession): ILedgerLinkingRelationshipStore {
   return {
@@ -50,10 +54,46 @@ export function buildLedgerLinkingAssetIdentityAssertionStore(
   };
 }
 
-export function buildLedgerLinkingRunPorts(db: DataSession): LedgerLinkingRunPorts {
+export interface BuildLedgerLinkingRunPortsOptions {
+  overrideStore?: Pick<OverrideStore, 'exists' | 'readByScopes'> | undefined;
+}
+
+export function buildLedgerLinkingReviewedRelationshipOverrideReader(
+  db: DataSession,
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>
+): ILedgerLinkingReviewedRelationshipOverrideReader {
+  return {
+    async loadReviewedLedgerLinkingRelationshipOverrides(profileId) {
+      const profileResult = await db.profiles.findById(profileId);
+      if (profileResult.isErr()) {
+        return err(profileResult.error);
+      }
+
+      const profile = profileResult.value;
+      if (profile === undefined) {
+        return err(new Error(`Cannot read ledger-linking relationship overrides for missing profile ${profileId}`));
+      }
+
+      return readLedgerLinkingRelationshipOverrides(overrideStore, profile.profileKey);
+    },
+  };
+}
+
+export function buildLedgerLinkingRunPorts(
+  db: DataSession,
+  options: BuildLedgerLinkingRunPortsOptions = {}
+): LedgerLinkingRunPorts {
   return {
     assetIdentityAssertionReader: buildLedgerLinkingAssetIdentityAssertionReader(db),
     candidateSourceReader: buildLedgerLinkingCandidateSourceReader(db),
     relationshipStore: buildLedgerLinkingRelationshipStore(db),
+    ...(options.overrideStore
+      ? {
+          reviewedRelationshipOverrideReader: buildLedgerLinkingReviewedRelationshipOverrideReader(
+            db,
+            options.overrideStore
+          ),
+        }
+      : {}),
   };
 }

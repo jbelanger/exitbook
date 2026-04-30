@@ -893,6 +893,10 @@ Boundary rules:
   condition, but must not become accepted relationship truth.
 - Asset identity suggestions are review inputs only. Accepted pairwise
   assertions remain the durable truth that unlocks relationship materialization.
+- Reviewed link proposals become durable truth only after a user action appends
+  an override event. The event must store stable source/target activity,
+  journal, posting, asset, and quantity evidence; candidate ids and symbols alone
+  are never replay identity.
 
 Files:
 
@@ -1058,7 +1062,15 @@ First implementation slices:
     those events into the SQL assertion projection. Processing also rematerializes
     these assertions after successful rebuilds so user decisions survive DB
     regeneration.
-32. Then broaden matching strategies only where processor-v2 ledger facts are
+32. Complete. Add reviewed link proposal acceptance without making amount/time
+    automatic. `links-v2 review accept <review-id>` appends a ledger-linking
+    relationship override for `link_proposal` items, replays that override into a
+    ledger relationship draft using stable source/target activity, journal,
+    posting, asset, and quantity evidence, and then lets `links-v2 run`
+    materialize deterministic recognizer output plus reviewed relationship
+    overrides. If replay cannot resolve the exact referenced postings and
+    quantities, it fails closed instead of guessing.
+33. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

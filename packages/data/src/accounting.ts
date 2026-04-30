@@ -11,7 +11,9 @@ export {
   buildLedgerLinkingCandidateSourceReader,
   buildLedgerLinkingRelationshipReader,
   buildLedgerLinkingRelationshipStore,
+  buildLedgerLinkingReviewedRelationshipOverrideReader,
   buildLedgerLinkingRunPorts,
+  type BuildLedgerLinkingRunPortsOptions,
 } from './accounting/ledger-linking-ports.js';
 export { buildLinkingPorts } from './accounting/linking-ports.js';
 export { buildLinksFreshnessPorts } from './projections/links-freshness.js';

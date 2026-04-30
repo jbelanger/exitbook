@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import { MovementRoleSchema, NonPrincipalMovementRoleSchema } from '../transaction/movement.js';
@@ -19,6 +20,7 @@ export const ScopeSchema = z.enum([
   'asset-review-confirm',
   'asset-review-clear',
   'ledger-linking-asset-identity-accept',
+  'ledger-linking-relationship-accept',
 ]);
 
 /**
@@ -240,6 +242,44 @@ export const LedgerLinkingAssetIdentityAcceptPayloadSchema = z.object({
 });
 
 /**
+ * Ledger-linking relationship accepted by the user from a review proposal.
+ *
+ * The payload stores stable posting identities and exact allocation quantity so
+ * replay can fail closed if the current ledger no longer has the reviewed facts.
+ */
+export const LedgerLinkingRelationshipAcceptPayloadSchema = z.object({
+  type: z.literal('ledger_linking_relationship_accept'),
+  asset_identity_reason: z.enum(['same_asset_id', 'accepted_assertion']),
+  asset_symbol: z.string().min(1, 'Asset symbol must not be empty'),
+  proposal_kind: z.literal('amount_time'),
+  proposal_uniqueness: z.enum(['unique_pair', 'ambiguous_source', 'ambiguous_target', 'ambiguous_both']),
+  quantity: z
+    .string()
+    .min(1, 'Quantity must not be empty')
+    .refine(isPositiveDecimalString, 'Quantity must be a positive decimal'),
+  relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
+  review_id: z.string().min(1, 'Review ID must not be empty'),
+  source_activity_fingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
+  source_asset_id: z.string().min(1, 'Source asset ID must not be empty'),
+  source_journal_fingerprint: z.string().min(1, 'Source journal fingerprint must not be empty'),
+  source_posting_fingerprint: z.string().min(1, 'Source posting fingerprint must not be empty'),
+  target_activity_fingerprint: z.string().min(1, 'Target activity fingerprint must not be empty'),
+  target_asset_id: z.string().min(1, 'Target asset ID must not be empty'),
+  target_journal_fingerprint: z.string().min(1, 'Target journal fingerprint must not be empty'),
+  target_posting_fingerprint: z.string().min(1, 'Target posting fingerprint must not be empty'),
+  time_direction: z.enum(['source_before_target', 'target_before_source', 'same_time']),
+  time_distance_seconds: z.number().finite().nonnegative(),
+});
+
+function isPositiveDecimalString(value: string): boolean {
+  try {
+    return new Decimal(value).gt(0);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Union of all override payload types
  */
 export const OverridePayloadSchema = z.discriminatedUnion('type', [
@@ -256,6 +296,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   AssetReviewConfirmPayloadSchema,
   AssetReviewClearPayloadSchema,
   LedgerLinkingAssetIdentityAcceptPayloadSchema,
+  LedgerLinkingRelationshipAcceptPayloadSchema,
 ]);
 
 /**
@@ -276,6 +317,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   'asset-review-confirm': 'asset_review_confirm',
   'asset-review-clear': 'asset_review_clear',
   'ledger-linking-asset-identity-accept': 'ledger_linking_asset_identity_accept',
+  'ledger-linking-relationship-accept': 'ledger_linking_relationship_accept',
 };
 
 /**
@@ -325,6 +367,7 @@ export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayloadSchema>;
 export type AssetReviewClearPayload = z.infer<typeof AssetReviewClearPayloadSchema>;
 export type LedgerLinkingAssetIdentityAcceptPayload = z.infer<typeof LedgerLinkingAssetIdentityAcceptPayloadSchema>;
+export type LedgerLinkingRelationshipAcceptPayload = z.infer<typeof LedgerLinkingRelationshipAcceptPayloadSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
 

@@ -37,6 +37,14 @@ import {
   type LedgerExactHashTransferRelationshipResult,
 } from '../matching/deterministic-transfer-matching.js';
 import {
+  buildLedgerReviewedRelationshipOverrideRecognizer,
+  LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+  type ILedgerLinkingReviewedRelationshipOverrideReader,
+  type LedgerLinkingReviewedRelationshipOverride,
+  type LedgerReviewedRelationshipOverrideMatch,
+  type LedgerReviewedRelationshipOverrideResult,
+} from '../matching/reviewed-relationship-override-matching.js';
+import {
   buildLedgerSameHashGroupedTransferRecognizer,
   LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY,
   type LedgerSameHashGroupedTransferMatch,
@@ -53,6 +61,7 @@ export interface LedgerLinkingRunPorts {
   assetIdentityAssertionReader: ILedgerLinkingAssetIdentityAssertionReader;
   candidateSourceReader: ILedgerLinkingCandidateSourceReader;
   relationshipStore: ILedgerLinkingRelationshipStore;
+  reviewedRelationshipOverrideReader?: ILedgerLinkingReviewedRelationshipOverrideReader | undefined;
 }
 
 interface LedgerTransferCandidateDirection {
@@ -61,6 +70,7 @@ interface LedgerTransferCandidateDirection {
 }
 
 type LedgerLinkingDeterministicPayload =
+  | LedgerReviewedRelationshipOverrideResult
   | LedgerExactHashTransferRelationshipResult
   | LedgerSameHashGroupedTransferRelationshipResult
   | LedgerCounterpartyRoundtripRelationshipResult;
@@ -102,6 +112,7 @@ export interface LedgerLinkingRunResult {
   matchedTargetCandidateCount: number;
   persistence: LedgerLinkingPersistenceResult;
   postingInputCount: number;
+  reviewedRelationshipOverrideMatches: readonly LedgerReviewedRelationshipOverrideMatch[];
   sameHashGroupedMatches: readonly LedgerSameHashGroupedTransferMatch[];
   sameHashGroupedUnresolvedGroups: readonly LedgerSameHashGroupedTransferUnresolvedGroup[];
   skippedCandidates: readonly LedgerLinkingCandidateSkip[];
@@ -143,7 +154,13 @@ export async function runLedgerLinking(
   }
 
   const { candidates, skipped } = candidateBuildResult.value;
+  const reviewedRelationshipOverridesResult = await loadReviewedRelationshipOverrides(profileId, ports);
+  if (reviewedRelationshipOverridesResult.isErr()) {
+    return err(reviewedRelationshipOverridesResult.error);
+  }
+
   const deterministicRecognizers: LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>[] = [
+    ...buildReviewedRelationshipOverrideRecognizers(reviewedRelationshipOverridesResult.value),
     buildLedgerExactHashTransferRecognizer(
       assetIdentityResolverResult.value
     ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
@@ -174,6 +191,7 @@ export async function runLedgerLinking(
     return err(counterpartyRoundtripRun.error);
   }
   const counterpartyRoundtripResult = counterpartyRoundtripRun.value.payload;
+  const reviewedRelationshipOverrideResult = findReviewedRelationshipOverrideRun(deterministicResult.value.runs);
   const diagnosticsResult = buildLedgerLinkingDiagnostics(
     candidates,
     deterministicResult.value.candidateClaims,
@@ -220,6 +238,7 @@ export async function runLedgerLinking(
     matchedTargetCandidateCount: matchCounts.matchedTargetCandidateCount,
     persistence: persistenceResult.value,
     postingInputCount: postingInputsResult.value.length,
+    reviewedRelationshipOverrideMatches: reviewedRelationshipOverrideResult?.payload.matches ?? [],
     sameHashGroupedMatches: sameHashResult.matches,
     sameHashGroupedUnresolvedGroups: sameHashResult.unresolvedGroups,
     skippedCandidates: skipped,
@@ -229,6 +248,31 @@ export async function runLedgerLinking(
     unmatchedSourceCandidateCount: candidateCounts.sourceCandidateCount - matchCounts.matchedSourceCandidateCount,
     unmatchedTargetCandidateCount: candidateCounts.targetCandidateCount - matchCounts.matchedTargetCandidateCount,
   });
+}
+
+async function loadReviewedRelationshipOverrides(
+  profileId: number,
+  ports: LedgerLinkingRunPorts
+): Promise<Result<readonly LedgerLinkingReviewedRelationshipOverride[], Error>> {
+  if (ports.reviewedRelationshipOverrideReader === undefined) {
+    return ok([]);
+  }
+
+  return ports.reviewedRelationshipOverrideReader.loadReviewedLedgerLinkingRelationshipOverrides(profileId);
+}
+
+function buildReviewedRelationshipOverrideRecognizers(
+  reviewedRelationshipOverrides: readonly LedgerLinkingReviewedRelationshipOverride[]
+): LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>[] {
+  if (reviewedRelationshipOverrides.length === 0) {
+    return [];
+  }
+
+  return [
+    buildLedgerReviewedRelationshipOverrideRecognizer(
+      reviewedRelationshipOverrides
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+  ];
 }
 
 function buildRunAssetIdentitySuggestions(
@@ -326,6 +370,13 @@ function findCounterpartyRoundtripRun(
   }
 
   return ok(run as LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>);
+}
+
+function findReviewedRelationshipOverrideRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
+): LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY);
+  return run as LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined;
 }
 
 function toDeterministicRecognizerStats(

@@ -1,5 +1,5 @@
 ---
-last_verified: 2026-04-19
+last_verified: 2026-04-29
 status: canonical
 ---
 
@@ -63,7 +63,9 @@ Append-only logical event stored as one row in SQLite:
     | 'asset-exclude'
     | 'asset-include'
     | 'asset-review-confirm'
-    | 'asset-review-clear',
+    | 'asset-review-clear'
+    | 'ledger-linking-asset-identity-accept'
+    | 'ledger-linking-relationship-accept',
   reason?: string,
   payload: OverridePayload
 }
@@ -132,6 +134,9 @@ This is direction-aware, movement-aware, and asset-id-aware.
 | `transactions edit movement-role <TX-REF> --movement <MOVEMENT-REF> --clear`    | clears one durable movement-role override             | appends `scope='transaction-movement-role'`, `type='transaction_movement_role_override'`, `action='clear'` |
 | `prices set ...`                                                                | saves manual price                                    | appends `scope='price'`, `type='price_override'`                                                           |
 | `prices set-fx ...`                                                             | saves manual FX                                       | appends `scope='fx'`, `type='fx_override'`                                                                 |
+| `links-v2 review accept <asset-identity-review-id>`                             | materializes a v2 asset identity assertion projection | appends `scope='ledger-linking-asset-identity-accept'`, `type='ledger_linking_asset_identity_accept'`      |
+| `links-v2 review accept <link-proposal-review-id>`                              | materializes v2 reviewed relationships on next run    | appends `scope='ledger-linking-relationship-accept'`, `type='ledger_linking_relationship_accept'`          |
+| `links-v2 asset-identity accept ...`                                            | materializes a v2 asset identity assertion projection | appends `scope='ledger-linking-asset-identity-accept'`, `type='ledger_linking_asset_identity_accept'`      |
 
 Additional rules:
 
@@ -274,6 +279,45 @@ Materialization rules:
 - effective downstream reads must use:
   - `movement_role_override ?? movement_role ?? 'principal'`
 
+### Ledger-Linking V2 Replay
+
+Ledger-linking v2 user decisions are event-first. SQL ledger-linking tables are
+materialized projections of the override stream plus current processor-v2 ledger
+facts.
+
+Asset identity replay input:
+
+- `scope='ledger-linking-asset-identity-accept'`
+
+Asset identity replay semantics:
+
+1. replay accepted identity events in append order
+2. canonicalize the pair of asset ids symmetrically
+3. key final state by `relationship_kind + asset_id_a + asset_id_b`
+4. replace the profile-scoped SQL asset identity assertion projection
+
+Reviewed relationship replay input:
+
+- `scope='ledger-linking-relationship-accept'`
+
+Reviewed relationship replay semantics:
+
+1. replay accepted relationship events in append order
+2. key final state by the deterministic v2 relationship stable key
+3. during `links-v2 run`, resolve exact source/target activity, journal,
+   posting, asset, and quantity evidence against current ledger candidates
+4. fail closed if a reviewed posting or quantity no longer resolves
+5. materialize the reviewed relationship alongside deterministic recognizer
+   output
+
+Important rules:
+
+- candidate ids are never durable replay identity
+- symbols are display/evidence only; posting fingerprints, asset ids, and
+  quantities are replay identity
+- reviewed amount/time proposals do not become truth until the user accepts the
+  review item
+
 ### Reviewed Metadata Rules
 
 When replay updates or materializes a confirmed link:
@@ -373,6 +417,33 @@ type OverridePayload =
       action: 'set' | 'clear';
       movement_fingerprint: string;
       movement_role?: 'principal' | 'staking_reward' | 'protocol_overhead' | 'refund_rebate';
+    }
+  | {
+      type: 'ledger_linking_asset_identity_accept';
+      asset_id_a: string;
+      asset_id_b: string;
+      evidence_kind: 'manual' | 'seeded' | 'exact_hash_observed' | 'amount_time_observed';
+      relationship_kind: string;
+    }
+  | {
+      type: 'ledger_linking_relationship_accept';
+      asset_identity_reason: 'same_asset_id' | 'accepted_assertion';
+      asset_symbol: string;
+      proposal_kind: 'amount_time';
+      proposal_uniqueness: 'unique_pair' | 'ambiguous_source' | 'ambiguous_target' | 'ambiguous_both';
+      quantity: string;
+      relationship_kind: string;
+      review_id: string;
+      source_activity_fingerprint: string;
+      source_asset_id: string;
+      source_journal_fingerprint: string;
+      source_posting_fingerprint: string;
+      target_activity_fingerprint: string;
+      target_asset_id: string;
+      target_journal_fingerprint: string;
+      target_posting_fingerprint: string;
+      time_direction: 'source_before_target' | 'target_before_source' | 'same_time';
+      time_distance_seconds: number;
     };
 ```
 
@@ -386,6 +457,8 @@ Scope/payload pairing is enforced:
 - `scope='link-gap-reopen' -> type='link_gap_reopen'`
 - `scope='transaction-movement-role' -> type='transaction_movement_role_override'`
 - `scope='transaction-user-note' -> type='transaction_user_note_override'`
+- `scope='ledger-linking-asset-identity-accept' -> type='ledger_linking_asset_identity_accept'`
+- `scope='ledger-linking-relationship-accept' -> type='ledger_linking_relationship_accept'`
 
 ## Pipeline / Flow
 
@@ -413,6 +486,11 @@ graph TD
 - **Exact gap-resolution identity**: Gap-resolution events are keyed by persisted `tx_fingerprint`.
 - **Exact movement-role identity**: Transaction movement-role events are keyed by persisted `movement_fingerprint`.
 - **Exact transaction-user-note identity**: Transaction-user-note events are keyed by persisted `tx_fingerprint`.
+- **Exact ledger-linking asset identity**: Ledger-linking asset identity events
+  are keyed by `relationship_kind` plus the canonical unordered asset-id pair.
+- **Exact ledger-linking reviewed relationship identity**: Ledger-linking
+  relationship accept events carry source/target activity fingerprints, journal
+  fingerprints, posting fingerprints, asset ids, and exact positive quantity.
 - **User precedence**: Replay always runs after algorithmic link generation.
 - **No vague orphaned links**: Orphaned confirms never persist zero-amount or fingerprint-less links.
 - **Projected user-note projection**: Transaction-user-note materialization projects only user-authored notes into `transactions.user_notes_json`.
@@ -445,4 +523,4 @@ graph TD
 
 ---
 
-_Last updated: 2026-03-26_
+_Last updated: 2026-04-29_

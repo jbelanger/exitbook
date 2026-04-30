@@ -179,6 +179,72 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append a ledger-linking relationship accept event', async () => {
+      const payload = {
+        type: 'ledger_linking_relationship_accept',
+        asset_identity_reason: 'accepted_assertion',
+        asset_symbol: 'ETH',
+        proposal_kind: 'amount_time',
+        proposal_uniqueness: 'unique_pair',
+        quantity: '10',
+        relationship_kind: 'internal_transfer',
+        review_id: 'lp_test_1',
+        source_activity_fingerprint: 'source_activity:v1:source',
+        source_asset_id: 'exchange:kraken:eth',
+        source_journal_fingerprint: 'ledger_journal:v1:source',
+        source_posting_fingerprint: 'ledger_posting:v1:source',
+        target_activity_fingerprint: 'source_activity:v1:target',
+        target_asset_id: 'blockchain:ethereum:native',
+        target_journal_fingerprint: 'ledger_journal:v1:target',
+        target_posting_fingerprint: 'ledger_posting:v1:target',
+        time_direction: 'source_before_target',
+        time_distance_seconds: 30,
+      } satisfies CreateOverrideEventOptions['payload'];
+
+      const result = await appendOverride({
+        scope: 'ledger-linking-relationship-accept',
+        payload,
+        reason: 'Accepted reviewed amount/time relationship evidence',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const event = result.value;
+        expect(event.scope).toBe('ledger-linking-relationship-accept');
+        expect(event.reason).toBe('Accepted reviewed amount/time relationship evidence');
+        expect(event.payload).toEqual(payload);
+      }
+    });
+
+    it('should reject ledger-linking relationship events with non-positive quantity', async () => {
+      const result = await appendOverride({
+        scope: 'ledger-linking-relationship-accept',
+        payload: {
+          type: 'ledger_linking_relationship_accept',
+          asset_identity_reason: 'accepted_assertion',
+          asset_symbol: 'ETH',
+          proposal_kind: 'amount_time',
+          proposal_uniqueness: 'unique_pair',
+          quantity: '0',
+          relationship_kind: 'internal_transfer',
+          review_id: 'lp_test_1',
+          source_activity_fingerprint: 'source_activity:v1:source',
+          source_asset_id: 'exchange:kraken:eth',
+          source_journal_fingerprint: 'ledger_journal:v1:source',
+          source_posting_fingerprint: 'ledger_posting:v1:source',
+          target_activity_fingerprint: 'source_activity:v1:target',
+          target_asset_id: 'blockchain:ethereum:native',
+          target_journal_fingerprint: 'ledger_journal:v1:target',
+          target_posting_fingerprint: 'ledger_posting:v1:target',
+          time_direction: 'source_before_target',
+          time_distance_seconds: 30,
+        },
+      });
+
+      expect(assertErr(result).message).toContain('Quantity must be a positive decimal');
+    });
+
     it('should reject mismatched scope and payload type', async () => {
       // Attempt to write a price_override payload with scope 'link'
       const result = await appendOverride({

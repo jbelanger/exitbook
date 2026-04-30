@@ -74,6 +74,17 @@ export {
   type LedgerSameHashGroupedTransferUnresolvedGroup,
 } from './ledger-linking/matching/same-hash-grouped-transfer-matching.js';
 export {
+  buildLedgerReviewedRelationshipOverrideRecognizer,
+  buildLedgerReviewedRelationshipOverrides,
+  buildReviewedLedgerLinkingRelationshipStableKey,
+  LedgerLinkingReviewedRelationshipOverrideSchema,
+  LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+  type ILedgerLinkingReviewedRelationshipOverrideReader,
+  type LedgerLinkingReviewedRelationshipOverride,
+  type LedgerReviewedRelationshipOverrideMatch,
+  type LedgerReviewedRelationshipOverrideResult,
+} from './ledger-linking/matching/reviewed-relationship-override-matching.js';
+export {
   buildFullCandidateClaims,
   runLedgerDeterministicRecognizers,
   type LedgerDeterministicCandidateClaim,
