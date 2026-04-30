@@ -11,8 +11,12 @@ const {
   mockCtx,
   mockExitCliFailure,
   mockLoadLedgerLinkingAssetIdentityAssertions,
+  mockMaterializeStoredLedgerLinkingAssetIdentityAssertions,
   mockOutputSuccess,
+  mockOverrideStoreAppend,
+  mockOverrideStoreConstructor,
   mockResolveCommandProfile,
+  mockReplaceLedgerLinkingAssetIdentityAssertions,
   mockRunCommand,
   mockRunLedgerLinking,
   mockSaveLedgerLinkingAssetIdentityAssertion,
@@ -21,18 +25,24 @@ const {
   mockBuildLedgerLinkingAssetIdentityAssertionStore: vi.fn(),
   mockBuildLedgerLinkingRunPorts: vi.fn(),
   mockCtx: {
+    dataDir: '/tmp/exitbook-ledger-linking-v2',
     openDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockLoadLedgerLinkingAssetIdentityAssertions: vi.fn(),
+  mockMaterializeStoredLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockOverrideStoreAppend: vi.fn(),
+  mockOverrideStoreConstructor: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
+  mockReplaceLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLedgerLinking: vi.fn(),
   mockSaveLedgerLinkingAssetIdentityAssertion: vi.fn(),
 }));
 
-vi.mock('@exitbook/accounting/ledger-linking', () => ({
+vi.mock('@exitbook/accounting/ledger-linking', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@exitbook/accounting/ledger-linking')>()),
   runLedgerLinking: mockRunLedgerLinking,
 }));
 
@@ -40,6 +50,16 @@ vi.mock('@exitbook/data/accounting', () => ({
   buildLedgerLinkingAssetIdentityAssertionReader: mockBuildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore: mockBuildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts: mockBuildLedgerLinkingRunPorts,
+}));
+
+vi.mock('@exitbook/data/overrides', () => ({
+  materializeStoredLedgerLinkingAssetIdentityAssertions: mockMaterializeStoredLedgerLinkingAssetIdentityAssertions,
+  OverrideStore: vi.fn().mockImplementation(function MockOverrideStore(dataDir: string) {
+    mockOverrideStoreConstructor(dataDir);
+    return {
+      append: mockOverrideStoreAppend,
+    };
+  }),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -87,6 +107,29 @@ describe('ledger linking-v2 command', () => {
       })
     );
     mockBuildLedgerLinkingRunPorts.mockReturnValue({ tag: 'ledger-linking-ports' });
+    mockOverrideStoreAppend.mockResolvedValue(
+      ok({
+        actor: 'user',
+        created_at: '2026-04-29T00:00:00.000Z',
+        id: 'override-event-1',
+        profile_key: 'default',
+        scope: 'ledger-linking-asset-identity-accept',
+        source: 'cli',
+        payload: {
+          asset_id_a: 'blockchain:ethereum:native',
+          asset_id_b: 'exchange:kraken:eth',
+          evidence_kind: 'manual',
+          relationship_kind: 'internal_transfer',
+          type: 'ledger_linking_asset_identity_accept',
+        },
+      })
+    );
+    mockMaterializeStoredLedgerLinkingAssetIdentityAssertions.mockResolvedValue(
+      ok({
+        previousCount: 0,
+        savedCount: 1,
+      })
+    );
     mockLoadLedgerLinkingAssetIdentityAssertions.mockResolvedValue(
       ok([
         {
@@ -112,6 +155,7 @@ describe('ledger linking-v2 command', () => {
       loadLedgerLinkingAssetIdentityAssertions: mockLoadLedgerLinkingAssetIdentityAssertions,
     });
     mockBuildLedgerLinkingAssetIdentityAssertionStore.mockReturnValue({
+      replaceLedgerLinkingAssetIdentityAssertions: mockReplaceLedgerLinkingAssetIdentityAssertions,
       saveLedgerLinkingAssetIdentityAssertion: mockSaveLedgerLinkingAssetIdentityAssertion,
     });
     mockRunLedgerLinking.mockResolvedValue(ok(makeRunResult()));
@@ -128,7 +172,14 @@ describe('ledger linking-v2 command', () => {
     await program.parseAsync(['ledger', 'linking-v2', 'run', '--json'], { from: 'user' });
 
     expect(mockResolveCommandProfile).toHaveBeenCalledWith(mockCtx, { tag: 'db' });
-    expect(mockBuildLedgerLinkingRunPorts).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockBuildLedgerLinkingRunPorts).toHaveBeenCalledWith(
+      { tag: 'db' },
+      {
+        overrideStore: {
+          append: mockOverrideStoreAppend,
+        },
+      }
+    );
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: false });
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('ledger-linking-v2-run');
@@ -156,7 +207,7 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Matched candidates: 1 source, 1 target');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidates: 0 source, 0 target');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 3');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Deterministic recognizers: 4');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  exact_hash_transfer: 1 relationship(s), 2 claimed candidate(s), 2 fully consumed candidate(s)'
     );
@@ -166,6 +217,9 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  counterparty_roundtrip: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
     );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  strict_exchange_amount_time_transfer: 0 relationship(s), 0 claimed candidate(s), 0 fully consumed candidate(s)'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('Accepted relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Exact-hash asset identity blocks: 0');
@@ -173,6 +227,8 @@ describe('ledger linking-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Same-hash unresolved groups: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Counterparty roundtrip matches: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Counterparty roundtrip ambiguities: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Strict exchange amount/time matches: 0');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Strict exchange amount/time ambiguities: 0');
     expect(consoleLogSpy).toHaveBeenCalledWith('Asset identity suggestions: 0');
   });
 
@@ -240,14 +296,30 @@ describe('ledger linking-v2 command', () => {
       { from: 'user' }
     );
 
-    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
-      assetIdA: 'exchange:kraken:eth',
-      assetIdB: 'blockchain:ethereum:native',
-      evidenceKind: 'manual',
-      relationshipKind: 'internal_transfer',
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-asset-identity-accept',
+      payload: {
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        evidence_kind: 'manual',
+        relationship_kind: 'internal_transfer',
+        type: 'ledger_linking_asset_identity_accept',
+      },
     });
-    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity assertion created.');
+    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockMaterializeStoredLedgerLinkingAssetIdentityAssertions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replaceLedgerLinkingAssetIdentityAssertions: mockReplaceLedgerLinkingAssetIdentityAssertions,
+      }),
+      expect.objectContaining({
+        append: mockOverrideStoreAppend,
+      }),
+      7,
+      'default'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger linking asset identity override accepted.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Override event: override-event-1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
   });
 
@@ -309,6 +381,12 @@ function makeRunResult() {
         name: 'counterparty_roundtrip',
         relationshipCount: 0,
       },
+      {
+        claimedCandidateCount: 0,
+        consumedCandidateCount: 0,
+        name: 'strict_exchange_amount_time_transfer',
+        relationshipCount: 0,
+      },
     ],
     counterpartyRoundtripAmbiguities: [],
     counterpartyRoundtripMatches: [],
@@ -352,6 +430,7 @@ function makeRunResult() {
       },
     },
     postingInputCount: 3,
+    reviewedRelationshipOverrideMatches: [],
     sameHashGroupedMatches: [],
     sameHashGroupedUnresolvedGroups: [],
     skippedCandidates: [
@@ -361,6 +440,8 @@ function makeRunResult() {
       },
     ],
     sourceCandidateCount: 1,
+    strictExchangeAmountTimeTransferAmbiguities: [],
+    strictExchangeAmountTimeTransferMatches: [],
     targetCandidateCount: 1,
     transferCandidateCount: 2,
     unmatchedSourceCandidateCount: 0,

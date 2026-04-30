@@ -59,6 +59,11 @@ describe('runLedgerLinking', () => {
           name: 'counterparty_roundtrip',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'strict_exchange_amount_time_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 1,
@@ -83,6 +88,8 @@ describe('runLedgerLinking', () => {
     expect(result.sameHashGroupedUnresolvedGroups).toEqual([]);
     expect(result.counterpartyRoundtripMatches).toEqual([]);
     expect(result.counterpartyRoundtripAmbiguities).toEqual([]);
+    expect(result.strictExchangeAmountTimeTransferMatches).toEqual([]);
+    expect(result.strictExchangeAmountTimeTransferAmbiguities).toEqual([]);
     expect(result.persistence).toEqual({
       mode: 'persisted',
       materialization: {
@@ -178,6 +185,11 @@ describe('runLedgerLinking', () => {
           name: 'counterparty_roundtrip',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'strict_exchange_amount_time_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 0,
       matchedTargetCandidateCount: 0,
@@ -194,6 +206,8 @@ describe('runLedgerLinking', () => {
     ]);
     expect(result.counterpartyRoundtripMatches).toEqual([]);
     expect(result.counterpartyRoundtripAmbiguities).toEqual([]);
+    expect(result.strictExchangeAmountTimeTransferMatches).toEqual([]);
+    expect(result.strictExchangeAmountTimeTransferAmbiguities).toEqual([]);
     expect(result.sameHashGroupedMatches).toEqual([]);
     expect(result.sameHashGroupedUnresolvedGroups).toEqual([
       {
@@ -476,6 +490,11 @@ describe('runLedgerLinking', () => {
           name: 'counterparty_roundtrip',
           relationshipCount: 0,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'strict_exchange_amount_time_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 2,
@@ -565,6 +584,11 @@ describe('runLedgerLinking', () => {
           name: 'counterparty_roundtrip',
           relationshipCount: 1,
         },
+        {
+          consumedCandidateCount: 0,
+          name: 'strict_exchange_amount_time_transfer',
+          relationshipCount: 0,
+        },
       ],
       matchedSourceCandidateCount: 1,
       matchedTargetCandidateCount: 1,
@@ -584,6 +608,110 @@ describe('runLedgerLinking', () => {
           allocationSide: 'target',
           sourceActivityFingerprint: 'source_activity:v1:service-to-wallet',
           quantity: parseDecimal('165'),
+        },
+      ],
+    });
+    expect(result.persistence).toEqual({
+      mode: 'persisted',
+      materialization: {
+        previousCount: 0,
+        resolvedAllocationCount: 2,
+        savedCount: 1,
+        unresolvedAllocationCount: 0,
+      },
+    });
+    expect(harness.savedRelationships).toEqual([result.acceptedRelationships]);
+  });
+
+  it('materializes strict exchange amount/time transfers after stronger recognizers', async () => {
+    const harness = makeHarness(
+      [
+        makePosting({
+          assetId: 'exchange:kraken:eth',
+          blockchainTransactionHash: undefined,
+          journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+          platformKey: 'kraken',
+          platformKind: 'exchange',
+          postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+          quantity: '-1',
+          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+        }),
+        makePosting({
+          activityDatetime: new Date('2026-04-23T00:30:00.000Z'),
+          assetId: 'blockchain:ethereum:native',
+          blockchainTransactionHash: '0xdef456',
+          journalFingerprint: 'ledger_journal:v1:ethereum-deposit',
+          ownerAccountId: 2,
+          postingFingerprint: 'ledger_posting:v1:ethereum-deposit',
+          quantity: '1',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+        }),
+      ],
+      {
+        assetIdentityAssertions: [
+          {
+            assetIdA: 'exchange:kraken:eth',
+            assetIdB: 'blockchain:ethereum:native',
+            evidenceKind: 'manual',
+            relationshipKind: 'internal_transfer',
+          },
+        ],
+      }
+    );
+
+    const result = assertOk(await runLedgerLinking(1, harness.ports));
+
+    expect(result.exactHashMatches).toEqual([]);
+    expect(result.sameHashGroupedMatches).toEqual([]);
+    expect(result.counterpartyRoundtripMatches).toEqual([]);
+    expect(result.strictExchangeAmountTimeTransferMatches).toHaveLength(1);
+    expect(result).toMatchObject({
+      deterministicRecognizerStats: [
+        {
+          consumedCandidateCount: 0,
+          name: 'exact_hash_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'same_hash_grouped_transfer',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 0,
+          name: 'counterparty_roundtrip',
+          relationshipCount: 0,
+        },
+        {
+          consumedCandidateCount: 2,
+          name: 'strict_exchange_amount_time_transfer',
+          relationshipCount: 1,
+        },
+      ],
+      matchedSourceCandidateCount: 1,
+      matchedTargetCandidateCount: 1,
+      unmatchedSourceCandidateCount: 0,
+      unmatchedTargetCandidateCount: 0,
+    });
+    expect(result.acceptedRelationships[0]).toMatchObject({
+      recognitionStrategy: 'strict_exchange_amount_time_transfer',
+      relationshipKind: 'internal_transfer',
+      evidence: {
+        assetIdentityReason: 'accepted_assertion',
+        sourcePlatformKey: 'kraken',
+        targetPlatformKey: 'ethereum',
+        timeDistanceSeconds: 1800,
+      },
+      allocations: [
+        {
+          allocationSide: 'source',
+          sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+          quantity: parseDecimal('1'),
+        },
+        {
+          allocationSide: 'target',
+          sourceActivityFingerprint: 'source_activity:v1:ethereum-deposit',
+          quantity: parseDecimal('1'),
         },
       ],
     });

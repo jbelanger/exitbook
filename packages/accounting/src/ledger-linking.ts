@@ -74,6 +74,14 @@ export {
   type LedgerSameHashGroupedTransferUnresolvedGroup,
 } from './ledger-linking/matching/same-hash-grouped-transfer-matching.js';
 export {
+  buildLedgerStrictExchangeAmountTimeTransferRecognizer,
+  buildLedgerStrictExchangeAmountTimeTransferRelationships,
+  LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY,
+  type LedgerStrictExchangeAmountTimeTransferAmbiguity,
+  type LedgerStrictExchangeAmountTimeTransferMatch,
+  type LedgerStrictExchangeAmountTimeTransferRelationshipResult,
+} from './ledger-linking/matching/strict-exchange-amount-time-transfer-matching.js';
+export {
   buildLedgerReviewedRelationshipOverrideRecognizer,
   buildLedgerReviewedRelationshipOverrides,
   buildReviewedLedgerLinkingRelationshipStableKey,

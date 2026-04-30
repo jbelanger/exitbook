@@ -1103,6 +1103,8 @@ function renderLinksV2RunOutput(
   console.log(`Same-hash unresolved groups: ${run.sameHashGroupedUnresolvedGroups.length}`);
   console.log(`Counterparty roundtrip matches: ${run.counterpartyRoundtripMatches.length}`);
   console.log(`Counterparty roundtrip ambiguities: ${run.counterpartyRoundtripAmbiguities.length}`);
+  console.log(`Strict exchange amount/time matches: ${run.strictExchangeAmountTimeTransferMatches.length}`);
+  console.log(`Strict exchange amount/time ambiguities: ${run.strictExchangeAmountTimeTransferAmbiguities.length}`);
   console.log(`Reviewed relationship overrides: ${run.reviewedRelationshipOverrideMatches.length}`);
   console.log(`Asset identity suggestions: ${run.assetIdentitySuggestions.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);

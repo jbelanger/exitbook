@@ -51,6 +51,13 @@ import {
   type LedgerSameHashGroupedTransferRelationshipResult,
   type LedgerSameHashGroupedTransferUnresolvedGroup,
 } from '../matching/same-hash-grouped-transfer-matching.js';
+import {
+  buildLedgerStrictExchangeAmountTimeTransferRecognizer,
+  LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY,
+  type LedgerStrictExchangeAmountTimeTransferAmbiguity,
+  type LedgerStrictExchangeAmountTimeTransferMatch,
+  type LedgerStrictExchangeAmountTimeTransferRelationshipResult,
+} from '../matching/strict-exchange-amount-time-transfer-matching.js';
 import type {
   ILedgerLinkingRelationshipStore,
   LedgerLinkingRelationshipDraft,
@@ -73,7 +80,8 @@ type LedgerLinkingDeterministicPayload =
   | LedgerReviewedRelationshipOverrideResult
   | LedgerExactHashTransferRelationshipResult
   | LedgerSameHashGroupedTransferRelationshipResult
-  | LedgerCounterpartyRoundtripRelationshipResult;
+  | LedgerCounterpartyRoundtripRelationshipResult
+  | LedgerStrictExchangeAmountTimeTransferRelationshipResult;
 
 export interface LedgerLinkingRunOptions {
   amountTimeProposalWindowMinutes?: number | undefined;
@@ -117,6 +125,8 @@ export interface LedgerLinkingRunResult {
   sameHashGroupedUnresolvedGroups: readonly LedgerSameHashGroupedTransferUnresolvedGroup[];
   skippedCandidates: readonly LedgerLinkingCandidateSkip[];
   sourceCandidateCount: number;
+  strictExchangeAmountTimeTransferAmbiguities: readonly LedgerStrictExchangeAmountTimeTransferAmbiguity[];
+  strictExchangeAmountTimeTransferMatches: readonly LedgerStrictExchangeAmountTimeTransferMatch[];
   targetCandidateCount: number;
   transferCandidateCount: number;
   unmatchedSourceCandidateCount: number;
@@ -170,6 +180,9 @@ export async function runLedgerLinking(
     buildLedgerCounterpartyRoundtripRecognizer(
       assetIdentityResolverResult.value
     ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
+    buildLedgerStrictExchangeAmountTimeTransferRecognizer(
+      assetIdentityResolverResult.value
+    ) as LedgerDeterministicRecognizer<LedgerLinkingDeterministicPayload>,
   ];
   const deterministicResult = runLedgerDeterministicRecognizers(candidates, deterministicRecognizers);
   if (deterministicResult.isErr()) {
@@ -191,6 +204,11 @@ export async function runLedgerLinking(
     return err(counterpartyRoundtripRun.error);
   }
   const counterpartyRoundtripResult = counterpartyRoundtripRun.value.payload;
+  const strictExchangeAmountTimeRun = findStrictExchangeAmountTimeTransferRun(deterministicResult.value.runs);
+  if (strictExchangeAmountTimeRun.isErr()) {
+    return err(strictExchangeAmountTimeRun.error);
+  }
+  const strictExchangeAmountTimeResult = strictExchangeAmountTimeRun.value.payload;
   const reviewedRelationshipOverrideResult = findReviewedRelationshipOverrideRun(deterministicResult.value.runs);
   const diagnosticsResult = buildLedgerLinkingDiagnostics(
     candidates,
@@ -243,6 +261,8 @@ export async function runLedgerLinking(
     sameHashGroupedUnresolvedGroups: sameHashResult.unresolvedGroups,
     skippedCandidates: skipped,
     sourceCandidateCount: candidateCounts.sourceCandidateCount,
+    strictExchangeAmountTimeTransferAmbiguities: strictExchangeAmountTimeResult.ambiguities,
+    strictExchangeAmountTimeTransferMatches: strictExchangeAmountTimeResult.matches,
     targetCandidateCount: candidateCounts.targetCandidateCount,
     transferCandidateCount: candidates.length,
     unmatchedSourceCandidateCount: candidateCounts.sourceCandidateCount - matchCounts.matchedSourceCandidateCount,
@@ -370,6 +390,19 @@ function findCounterpartyRoundtripRun(
   }
 
   return ok(run as LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>);
+}
+
+function findStrictExchangeAmountTimeTransferRun(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
+): Result<LedgerDeterministicRecognizerRun<LedgerStrictExchangeAmountTimeTransferRelationshipResult>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY);
+  if (run === undefined) {
+    return err(
+      new Error(`Ledger deterministic recognizer ${LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY} did not run`)
+    );
+  }
+
+  return ok(run as LedgerDeterministicRecognizerRun<LedgerStrictExchangeAmountTimeTransferRelationshipResult>);
 }
 
 function findReviewedRelationshipOverrideRun(

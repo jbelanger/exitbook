@@ -911,6 +911,10 @@ Completed checkpoints:
   deterministic recognizer pipeline
 - exact-hash, strict same-hash grouped, quantity-aware same-hash residual, and
   strict counterparty roundtrip recognizers
+- strict exchange amount/time recognizer for cross-platform pairs with an
+  exchange side, source-before-target ordering, exact amount/symbol equality,
+  accepted asset identity assertion, a one-hour materialization window, and
+  broader amount/time uniqueness across the review window
 - recognition provenance split from accounting relationship kind
 - asset identity assertions, suggestions, review view, and event-first accept
   path
@@ -922,8 +926,11 @@ Active next slices:
 1. Persist ledger-native unresolved gaps and surface them through accounting
    issues after the model is stable. A gap should mean "eligible candidate left
    unresolved after the linker ran", not "no matcher exists yet".
-2. Analyze bridge and asset migration shapes from current unresolved candidates
-   before adding recognizers.
+2. Analyze bridge, token-version, and asset migration shapes from current
+   unresolved candidates before adding recognizers. Current unresolved review
+   evidence includes RENDER Ethereum/Solana migration-like identity, Arbitrum
+   USDC contract-version identity, one target-before-source INJ candidate, and
+   ambiguous USDC amount/time candidates.
 3. Add partial/residual strategies only when the posting allocation model can
    represent the residual honestly and the evidence is reviewable.
 4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
