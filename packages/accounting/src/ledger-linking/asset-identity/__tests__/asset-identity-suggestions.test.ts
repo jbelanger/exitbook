@@ -153,6 +153,47 @@ describe('buildLedgerLinkingAssetIdentitySuggestions', () => {
     ]);
   });
 
+  it('does not build amount/time identity suggestions from target-before-source blockers', () => {
+    const suggestions = assertOk(
+      buildLedgerLinkingAssetIdentitySuggestionsFromDiagnostics({
+        assetIdentityBlockerProposalCount: 1,
+        assetIdentityBlockerProposals: [
+          {
+            amount: '1',
+            assetSymbol: ETH,
+            reason: 'same_symbol_different_asset_ids',
+            source: makeRemainder({
+              assetId: 'exchange:kraken:eth',
+              blockchainTransactionHash: undefined,
+              candidateId: 7,
+              postingFingerprint: 'ledger_posting:v1:source',
+            }),
+            target: makeRemainder({
+              assetId: 'blockchain:ethereum:native',
+              blockchainTransactionHash: '0xtarget',
+              candidateId: 8,
+              direction: 'target',
+              postingFingerprint: 'ledger_posting:v1:target',
+            }),
+            timeDirection: 'target_before_source',
+            timeDistanceSeconds: 1800,
+          },
+        ],
+        amountTimeProposalCount: 0,
+        amountTimeProposalGroups: [],
+        amountTimeProposals: [],
+        amountTimeUniqueProposalCount: 0,
+        amountTimeWindowMinutes: 1440,
+        candidateClassificationGroups: [],
+        candidateClassifications: [],
+        unmatchedCandidateGroups: [],
+        unmatchedCandidates: [],
+      })
+    );
+
+    expect(suggestions).toEqual([]);
+  });
+
   it('rejects invalid example limits', () => {
     const result = buildLedgerLinkingAssetIdentitySuggestions([makeBlock()], {
       maxExamplesPerSuggestion: 0,

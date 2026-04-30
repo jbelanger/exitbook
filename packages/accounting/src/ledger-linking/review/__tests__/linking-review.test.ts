@@ -84,6 +84,21 @@ describe('buildLedgerLinkingReviewQueue', () => {
       kind: 'link_proposal',
     });
   });
+
+  it('does not expose target-before-source amount/time proposals as acceptable review items', () => {
+    const queue = buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: [],
+      diagnostics: makeDiagnostics([
+        makeAmountTimeProposal({
+          timeDirection: 'target_before_source',
+        }),
+      ]),
+    });
+
+    expect(queue.itemCount).toBe(0);
+    expect(queue.linkProposalCount).toBe(0);
+    expect(queue.items).toEqual([]);
+  });
 });
 
 function makeAssetIdentitySuggestion(

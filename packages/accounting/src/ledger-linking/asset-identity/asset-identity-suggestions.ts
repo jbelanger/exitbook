@@ -143,19 +143,21 @@ export function buildLedgerLinkingAssetIdentitySuggestionsFromDiagnostics(
   options: Omit<LedgerLinkingAssetIdentitySuggestionOptions, 'evidenceKind'> = {}
 ): Result<LedgerLinkingAssetIdentitySuggestion[], Error> {
   return buildLedgerLinkingAssetIdentitySuggestions(
-    diagnostics.assetIdentityBlockerProposals.map((proposal) => ({
-      amount: proposal.amount,
-      assetSymbol: proposal.assetSymbol,
-      sourceAssetId: proposal.source.assetId,
-      sourceBlockchainTransactionHash: proposal.source.blockchainTransactionHash,
-      sourceCandidateId: proposal.source.candidateId,
-      sourcePostingFingerprint: proposal.source.postingFingerprint,
-      targetAssetId: proposal.target.assetId,
-      targetBlockchainTransactionHash: proposal.target.blockchainTransactionHash,
-      targetCandidateId: proposal.target.candidateId,
-      targetPostingFingerprint: proposal.target.postingFingerprint,
-      timeDistanceSeconds: proposal.timeDistanceSeconds,
-    })),
+    diagnostics.assetIdentityBlockerProposals
+      .filter((proposal) => proposal.timeDirection !== 'target_before_source')
+      .map((proposal) => ({
+        amount: proposal.amount,
+        assetSymbol: proposal.assetSymbol,
+        sourceAssetId: proposal.source.assetId,
+        sourceBlockchainTransactionHash: proposal.source.blockchainTransactionHash,
+        sourceCandidateId: proposal.source.candidateId,
+        sourcePostingFingerprint: proposal.source.postingFingerprint,
+        targetAssetId: proposal.target.assetId,
+        targetBlockchainTransactionHash: proposal.target.blockchainTransactionHash,
+        targetCandidateId: proposal.target.candidateId,
+        targetPostingFingerprint: proposal.target.postingFingerprint,
+        timeDistanceSeconds: proposal.timeDistanceSeconds,
+      })),
     {
       ...options,
       evidenceKind: 'amount_time_observed',

@@ -48,7 +48,9 @@ export interface LedgerLinkingReviewLinkProposalItem {
 
 export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBuildInput): LedgerLinkingReviewQueue {
   const assetIdentityItems = input.assetIdentitySuggestions.map(toAssetIdentityReviewItem);
-  const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? []).map(toAmountTimeLinkProposalReviewItem);
+  const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? [])
+    .filter(hasActionableInternalTransferTiming)
+    .map(toAmountTimeLinkProposalReviewItem);
   const items = [...assetIdentityItems, ...linkProposalItems].sort(compareReviewItems);
 
   return {
@@ -57,6 +59,10 @@ export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBui
     items,
     linkProposalCount: linkProposalItems.length,
   };
+}
+
+function hasActionableInternalTransferTiming(proposal: LedgerLinkingAmountTimeProposal): boolean {
+  return proposal.timeDirection !== 'target_before_source';
 }
 
 function toAssetIdentityReviewItem(

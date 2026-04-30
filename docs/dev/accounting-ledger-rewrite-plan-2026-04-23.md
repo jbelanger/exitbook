@@ -920,6 +920,9 @@ Completed checkpoints:
   path
 - reviewed amount/time link proposals accepted only through durable override
   events, not automatic matching
+- `links-v2 review` now hides target-before-source amount/time proposals and
+  target-before-source amount/time asset identity suggestions; diagnostics still
+  retain those clues
 
 Active next slices:
 
@@ -927,10 +930,11 @@ Active next slices:
    issues after the model is stable. A gap should mean "eligible candidate left
    unresolved after the linker ran", not "no matcher exists yet".
 2. Analyze bridge, token-version, and asset migration shapes from current
-   unresolved candidates before adding recognizers. Current unresolved review
-   evidence includes RENDER Ethereum/Solana migration-like identity, Arbitrum
-   USDC contract-version identity, one target-before-source INJ candidate, and
-   ambiguous USDC amount/time candidates.
+   unresolved candidates before adding recognizers. Current live corpus review
+   queue is empty after manually accepting the RENDER migration/bridge and the
+   clear Kraken-to-Arbitrum USDC link; diagnostics still show one
+   target-before-source INJ bridge clue that should become gap context, not an
+   acceptable link.
 3. Add partial/residual strategies only when the posting allocation model can
    represent the residual honestly and the evidence is reviewable.
 4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
