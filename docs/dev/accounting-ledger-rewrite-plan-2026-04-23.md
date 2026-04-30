@@ -821,57 +821,28 @@ Acceptance:
 
 ### 7. Ledger Linking V2 / Cross-Source Relationships
 
-Status: in progress. The durable relationship persistence slice is complete:
-`accounting_journal_relationships` now stores profile scope, relationship
-origin, stable endpoint fingerprints, and nullable current endpoint ids. The
-ledger-native relationship materialization boundary, candidate input read port,
-first exact-hash deterministic matcher, and runner orchestration boundary are
-also in place. A simple non-TUI `ledger linking-v2 run` command now invokes the
-runner for the active profile, with `--dry-run` preview support. Persisted gaps
-are deferred until the linking model is finalized; current dry-run output
-surfaces in-memory matched/unmatched candidate counts, exact-hash asset identity
-blockers, and deterministic recognizer stats. Exact-hash recognition now runs
-through a deterministic recognizer pipeline that claims consumed candidates
-before materialization. Same-hash v2 starts with strict whole-candidate
-groups only: every consumed source/target posting must be fully allocated in the
-accepted relationship. The deterministic recognizer pipeline now tracks
-quantity-aware candidate claims, so same-hash can also accept narrow residual
-cases when the larger side is exactly one candidate and the smaller side is
-fully allocated. Ambiguous residual placement remains unresolved instead of
-guessing which posting carries the leftover quantity. Durable relationship
-headers now separate
-accounting effect from recognition evidence: `relationship_kind` records the
-accounting meaning, while `recognition_strategy`, `recognition_evidence_json`,
-and nullable `confidence_score` record why the relationship was accepted.
-Counterparty roundtrip is now deterministic-only and strict: it accepts
-one-to-one same-chain blockchain out-and-back flows on the same owned account,
-with exact amount, accepted asset identity, complete address evidence, a shared
-counterparty address, a shared self address, and a bounded forward time window.
-Accepted pairwise asset identity assertions are now modeled separately from
-relationships so exchange-scoped and chain-scoped asset ids can be linked only
-when an explicit assertion exists.
-`ledger linking-v2 asset-identity accept/list` provides a minimal non-TUI way
-to seed and inspect those accepted assertions. A parallel top-level `links-v2`
-command now exists for v1/v2 comparison work: bare `links-v2` and
-`links-v2 status` are read-only previews, `links-v2 run` materializes accepted
-ledger relationships, `links-v2 list/view` browses persisted ledger
-relationships, and `links-v2 asset-identity` manages the same accepted
-assertions without touching legacy transaction links. Asset identity blockers
-are now grouped into read-only suggestions so exact-hash evidence can be
-reviewed without making symbol-only identity guesses. `links-v2 review`
-provides the linking work queue, combining asset identity suggestions with
-amount/time link proposals under stable review ids without persisting proposals
-or gaps. `links-v2 review accept <review-id>` now records accepted asset
-identity suggestions as durable override events, then materializes the current
-override replay into the ledger-linking asset identity assertion table used by
-the runner. `links-v2 asset-identity accept` uses the same event-first path.
-Link proposal acceptance remains blocked until reviewed relationship
-materialization is designed. `links-v2 review view
-<review-id>` gives the operator a focused evidence detail before accepting,
-including why exact-hash evidence is stronger than amount/time-only evidence and
-why leaving uncertain identity pending is safe. The detail view also separates
-the impact of accepting an asset identity assertion from relationship
-materialization, so amount/time evidence does not imply automatic linking.
+Status: in progress. The ledger-native relationship model is now usable for v2
+linking comparison work. Durable relationship persistence uses
+header-plus-allocation rows, matching reads source activities, journals, and
+postings directly, and the deterministic recognizer pipeline is quantity-aware.
+Exact-hash, strict same-hash grouped, narrow same-hash residual, and strict
+counterparty roundtrip recognizers materialize accepted relationships without
+depending on legacy movement linking.
+
+The `links-v2` command is the user-facing parallel workflow. It can preview,
+run, list, view, diagnose, and review ledger relationships while leaving legacy
+`links` untouched. Asset identity decisions and reviewed link proposal decisions
+are event-first overrides:
+
+- asset identity accepts append `ledger-linking-asset-identity-accept` events
+  and replay into the SQL assertion projection
+- reviewed link proposal accepts append `ledger-linking-relationship-accept`
+  events and replay into deterministic reviewed relationship drafts before other
+  recognizers run
+
+Persisted gaps remain deferred until the accepted relationship model and review
+queue shape are stable enough to project unresolved candidate remainders into
+accounting issues without treating diagnostics as truth.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -931,147 +902,32 @@ Implementation shape:
    separate new modules so consumers can depend on the persisted ledger
    relationship model without inheriting legacy proposal internals.
 
-Strategy rebuild order:
+Completed checkpoints:
 
-1. Exact-hash deterministic transfers.
-2. Asset identity suggestion/review UX for exact-hash blockers.
-3. Same-hash grouped recognizer, rebuilt ledger-native from v1 evidence.
-4. Persisted ledger-native gaps once the accepted relationship model is stable.
-5. Counterparty roundtrip.
-6. Amount/timing as proposal or review-only evidence until proven safe.
-7. Bridge and partial-match strategies last, because they carry the most
-   heuristic pressure.
+- durable relationship headers plus posting allocation rows
+- processor-authored relationship drafts materialized into the same allocation
+  model
+- ledger-native candidate construction, read ports, runner orchestration, and
+  deterministic recognizer pipeline
+- exact-hash, strict same-hash grouped, quantity-aware same-hash residual, and
+  strict counterparty roundtrip recognizers
+- recognition provenance split from accounting relationship kind
+- asset identity assertions, suggestions, review view, and event-first accept
+  path
+- reviewed amount/time link proposals accepted only through durable override
+  events, not automatic matching
 
-First implementation slices:
+Active next slices:
 
-1. Complete. Upgrade `accounting_journal_relationships` into the canonical
-   durable ledger linking table: store profile scope, relationship origin,
-   stable endpoint fingerprints, and nullable current DB endpoint ids.
-2. Complete. Keep processor-authored relationships replaceable during
-   `replaceForSourceActivity()` while allowing future linking-v2 relationships
-   to survive reprocess as stale unresolved endpoints.
-3. Complete. Add repository tests for processor relationship replacement, durable
-   endpoint identity, and stale cross-source endpoint visibility.
-4. Complete. Add the ledger-native linking module boundary only after the
-   persistence model is green.
-5. Complete. Build transfer-style matching candidates after the new table can
-   represent accepted relationships without relying on legacy movements.
-6. Complete. Add a ledger-native data read port that loads candidate input postings
-   without exposing legacy transaction movements.
-7. Complete. Build the first deterministic matching strategy on top of
-   ledger-native candidates.
-8. Complete. Add the ledger-native runner/orchestration boundary that loads
-   posting inputs, builds transfer candidates, runs deterministic recognizers, and
-   materializes accepted relationships only.
-9. Complete. Add a simple non-TUI `ledger linking-v2 run` command that invokes
-   the runner without adding proposals or gap persistence. Include `--dry-run`
-   so candidate recognition can be reviewed before replacing persisted
-   ledger-linking relationships. Surface in-memory matched/unmatched candidate
-   counts without treating them as persisted gaps.
-10. Complete. Keep exact-hash materialization strict on canonical asset id, and
-    surface same-symbol/different-asset-id exact-hash blockers in memory so
-    exchange/chain identity gaps are visible without becoming relationship
-    truth.
-11. Complete. Route deterministic recognizers through a small ledger-native
-    pipeline that runs on a shrinking pool of unclaimed candidates and fails
-    fast on invalid or double-consumed candidate claims.
-12. Complete. Surface deterministic recognizer stats in the run result and CLI
-    output so future strategies remain explainable without persisting proposals
-    or gaps.
-13. Complete. Add accepted, profile-scoped, pairwise asset identity assertions
-    for ledger-linking. Assertions are relationship-kind scoped, canonicalized
-    symmetrically, and used by exact-hash recognition without globally merging
-    asset ids.
-14. Complete. Add minimal non-TUI asset identity assertion commands under
-    `ledger linking-v2 asset-identity`: `accept` saves one canonical pair and
-    `list` shows the active profile's accepted assertions.
-15. Complete. Keep v2 migration-only for now, but expose it through a parallel
-    top-level `links-v2` command so v1 links and v2 ledger relationships can be
-    compared for a while before legacy code removal. Keep `ledger linking-v2`
-    as the lower-level ledger migration alias over the same implementation.
-16. Complete. Add read-only v2 browsing parity for persisted ledger relationships
-    under `links-v2 list/view` before introducing review or gap persistence.
-    These commands should read ledger relationships, not legacy
-    `transaction_links`.
-17. Complete. Add read-only asset identity suggestions from exact-hash blockers
-    under `links-v2 asset-identity suggestions` and the lower-level
-    `ledger linking-v2 asset-identity suggestions` alias. Suggestions are grouped
-    exact-hash evidence and do not persist assertions automatically.
-18. Complete. Refactor relationship persistence to the greenfield header-plus-
-    allocation model before implementing same-hash. Exact-hash relationships are
-    one source allocation plus one target allocation with full posting amounts.
-19. Done. Rebuild the same-hash grouped recognizer on ledger-native candidates.
-    It is deterministic-only: it accepts strict whole-candidate groups where
-    source and target totals balance exactly, and leaves ambiguous or partial
-    groups unresolved until residual candidate quantities are represented
-    explicitly.
-20. Then persist ledger-native unresolved gaps and surface them through
-    accounting issues after the model is stable. At that point a gap should mean
-    "eligible candidate left unresolved after the linker ran", not "no matcher
-    exists yet".
-21. Complete. Add durable accepted-relationship recognition provenance before
-    broadening matching strategies. Counterparty roundtrip can now be added
-    without persisting a bare `external_transfer`: each accepted relationship has
-    separate accounting kind, recognition strategy, evidence JSON, and nullable
-    confidence score.
-22. Complete. Add the strict ledger-native counterparty roundtrip recognizer.
-    It materializes only unambiguous one-to-one blockchain roundtrips on the same
-    owned account and records `counterparty_roundtrip` evidence separately from
-    the `external_transfer` accounting kind.
-23. Complete. Upgrade the deterministic recognizer pipeline from whole-candidate
-    id claims to quantity-aware candidate claims. The runner now validates
-    claimed quantities centrally and passes residual candidate amounts to later
-    recognizers; existing recognizers still claim full candidates.
-24. Complete. Allow strict quantity-aware same-hash residual relationships when
-    the larger unbalanced side is one candidate. The relationship allocates the
-    matched quantity and leaves the residual quantity available for later passes.
-    If residual placement would require choosing between multiple larger-side
-    candidates, the group remains unresolved.
-25. Complete. Add read-only `links-v2 diagnose` output for quantity-aware
-    unmatched candidate remainders and exact amount/time proposal evidence. These
-    proposals are diagnostic only and are not persisted as relationship truth.
-26. Complete. Add read-only unmatched-candidate classifications to
-    `links-v2 diagnose` so the next strategy or processor-v2 fix can be chosen
-    from observable remainder shapes instead of raw unmatched counts.
-    Classifications are non-exclusive diagnostic tags and are not persisted as
-    gaps or accepted relationships.
-27. Complete. Extend asset identity suggestions beyond exact-hash blockers to
-    include diagnostic amount/time blockers. Suggestions now carry the evidence
-    kind that should be saved on acceptance, including `amount_time_observed`.
-    Hash normalization also treats optional `0x` prefixes as equivalent so
-    stronger exact-hash blockers are not hidden behind weaker amount/time
-    evidence.
-28. Complete. Add a read-only `links-v2 review` work queue over the existing
-    linking-v2 evidence. The queue contains asset identity suggestions and
-    amount/time link proposals with stable review ids, evidence strength, and
-    clear source/target evidence, but it does not yet persist proposals or add
-    an accept path.
-29. Complete. Add `links-v2 review accept <review-id>` for
-    `asset_identity_suggestion` items only. Accept resolves the current review
-    queue by stable id, persists the pairwise asset identity decision, and
-    rejects `link_proposal` ids until reviewed relationship materialization has
-    a durable model.
-30. Complete. Add `links-v2 review view <review-id>` so users can inspect one
-    review item before deciding. The detail view explains the evidence strength,
-    shows the assertion that would be accepted for asset identity items,
-    explains whether accepting can unblock deterministic linking, and makes link
-    proposals explicitly review-only.
-31. Complete. Move asset identity acceptance to the override model. Both
-    `links-v2 review accept` and `links-v2 asset-identity accept` append
-    `ledger-linking-asset-identity-accept` override events first, then replay
-    those events into the SQL assertion projection. Processing also rematerializes
-    these assertions after successful rebuilds so user decisions survive DB
-    regeneration.
-32. Complete. Add reviewed link proposal acceptance without making amount/time
-    automatic. `links-v2 review accept <review-id>` appends a ledger-linking
-    relationship override for `link_proposal` items, replays that override into a
-    ledger relationship draft using stable source/target activity, journal,
-    posting, asset, and quantity evidence, and then lets `links-v2 run`
-    materialize deterministic recognizer output plus reviewed relationship
-    overrides. If replay cannot resolve the exact referenced postings and
-    quantities, it fails closed instead of guessing.
-33. Then broaden matching strategies only where processor-v2 ledger facts are
-    already stable enough to support them.
+1. Persist ledger-native unresolved gaps and surface them through accounting
+   issues after the model is stable. A gap should mean "eligible candidate left
+   unresolved after the linker ran", not "no matcher exists yet".
+2. Analyze bridge and asset migration shapes from current unresolved candidates
+   before adding recognizers.
+3. Add partial/residual strategies only when the posting allocation model can
+   represent the residual honestly and the evidence is reviewable.
+4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
+   linking behavior.
 
 Acceptance:
 
@@ -1296,8 +1152,9 @@ Smells to watch:
   explicit duplicate detection and must not subtract account-history fees twice.
 - `balance-v2` is now a compatibility facade over `ledger-balance`; remove or
   rename it before the migration is considered complete.
-- Cross-source relationships need a dedicated materialization path before
-  consumer cutover.
+- Cross-source relationships now have a dedicated materialization path, but
+  persisted gaps and reviewed-override revoke/dismiss flows still need to land
+  before the user-facing workflow is complete.
 - The old linking package contains useful behavior evidence, but reusing its
   movement-oriented utilities directly would keep the legacy model alive inside
   the ledger rewrite.
