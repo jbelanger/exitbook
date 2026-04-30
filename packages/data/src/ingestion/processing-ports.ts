@@ -3,6 +3,7 @@ import { err, resultDoAsync } from '@exitbook/foundation';
 import type { ProcessingPorts } from '@exitbook/ingestion/ports';
 
 import type { DataSession } from '../data-session.js';
+import { materializeStoredLedgerLinkingAssetIdentityAssertions } from '../overrides/ledger-linking-asset-identity-replay.js';
 import type { OverrideStore } from '../overrides/override-store.js';
 import { materializeStoredTransactionOverrides } from '../overrides/transaction-override-materialization.js';
 import { buildProfileProjectionScopeKey, resolveAffectedProfileIds } from '../projections/profile-scope-key.js';
@@ -60,6 +61,57 @@ async function materializeProfileScopedTransactionOverrides(
     }
 
     return updatedCount;
+  });
+}
+
+async function materializeProfileScopedLedgerLinkingAssetIdentityOverrides(
+  db: DataSession,
+  overrideStore: Pick<OverrideStore, 'exists' | 'readByScopes'>,
+  scope: { accountIds?: readonly number[] | undefined }
+): Promise<import('@exitbook/foundation').Result<number, Error>> {
+  return resultDoAsync(async function* () {
+    const profiles = yield* await db.profiles.list();
+    const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+    const profileIds = new Set<number>();
+
+    if (scope.accountIds) {
+      for (const accountId of scope.accountIds) {
+        const account = yield* await db.accounts.findById(accountId);
+        if (!account) {
+          continue;
+        }
+
+        if (!profileById.has(account.profileId)) {
+          return yield* err(
+            new Error(`Profile key not found for account ${accountId} and profile ${String(account.profileId)}`)
+          );
+        }
+
+        profileIds.add(account.profileId);
+      }
+    } else {
+      for (const profile of profiles) {
+        profileIds.add(profile.id);
+      }
+    }
+
+    let materializedCount = 0;
+    for (const profileId of [...profileIds].sort((left, right) => left - right)) {
+      const profile = profileById.get(profileId);
+      if (!profile) {
+        return yield* err(new Error(`Profile not found for ledger-linking override replay: ${profileId}`));
+      }
+
+      const materializeResult = yield* await materializeStoredLedgerLinkingAssetIdentityAssertions(
+        db.accountingLedger,
+        overrideStore,
+        profile.id,
+        profile.profileKey
+      );
+      materializedCount += materializeResult.savedCount;
+    }
+
+    return materializedCount;
   });
 }
 
@@ -155,6 +207,11 @@ export function buildProcessingPorts(
           const accounts = yield* await db.accounts.findAll({ profileId });
           return accounts.filter((account) => account.platformKey === blockchain).map((account) => account.identifier);
         }),
+    },
+
+    ledgerLinkingOverrides: {
+      materializeStoredAssetIdentityAssertions: (scope) =>
+        materializeProfileScopedLedgerLinkingAssetIdentityOverrides(db, options.overrideStore, scope ?? {}),
     },
 
     transactionOverrides: {

@@ -209,6 +209,12 @@ export class ProcessingWorkflow {
         });
         if (materializeOverridesResult.isErr()) return err(materializeOverridesResult.error);
 
+        const materializeLedgerLinkingOverridesResult =
+          await this.ports.ledgerLinkingOverrides.materializeStoredAssetIdentityAssertions({
+            accountIds,
+          });
+        if (materializeLedgerLinkingOverridesResult.isErr()) return err(materializeLedgerLinkingOverridesResult.error);
+
         const interpretationResult = await this.ports.rebuildTransactionInterpretation(accountIds);
         if (interpretationResult.isErr()) {
           const errorMessage = `Processed transactions were rebuilt, but transaction interpretation failed: ${interpretationResult.error.message}`;

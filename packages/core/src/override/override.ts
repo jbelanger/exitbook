@@ -18,6 +18,7 @@ export const ScopeSchema = z.enum([
   'asset-include',
   'asset-review-confirm',
   'asset-review-clear',
+  'ledger-linking-asset-identity-accept',
 ]);
 
 /**
@@ -225,6 +226,20 @@ export const AssetReviewClearPayloadSchema = z.object({
 });
 
 /**
+ * Ledger-linking asset identity assertion accepted by the user.
+ *
+ * The accounting package validates relationship/evidence semantics during
+ * replay; the override event only enforces stable, non-empty persisted input.
+ */
+export const LedgerLinkingAssetIdentityAcceptPayloadSchema = z.object({
+  type: z.literal('ledger_linking_asset_identity_accept'),
+  asset_id_a: z.string().min(1, 'Asset ID A must not be empty'),
+  asset_id_b: z.string().min(1, 'Asset ID B must not be empty'),
+  evidence_kind: z.enum(['manual', 'seeded', 'exact_hash_observed', 'amount_time_observed']).default('manual'),
+  relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
+});
+
+/**
  * Union of all override payload types
  */
 export const OverridePayloadSchema = z.discriminatedUnion('type', [
@@ -240,6 +255,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   AssetIncludePayloadSchema,
   AssetReviewConfirmPayloadSchema,
   AssetReviewClearPayloadSchema,
+  LedgerLinkingAssetIdentityAcceptPayloadSchema,
 ]);
 
 /**
@@ -259,6 +275,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   'asset-include': 'asset_include',
   'asset-review-confirm': 'asset_review_confirm',
   'asset-review-clear': 'asset_review_clear',
+  'ledger-linking-asset-identity-accept': 'ledger_linking_asset_identity_accept',
 };
 
 /**
@@ -307,6 +324,7 @@ export type AssetExcludePayload = z.infer<typeof AssetExcludePayloadSchema>;
 export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayloadSchema>;
 export type AssetReviewClearPayload = z.infer<typeof AssetReviewClearPayloadSchema>;
+export type LedgerLinkingAssetIdentityAcceptPayload = z.infer<typeof LedgerLinkingAssetIdentityAcceptPayloadSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
 

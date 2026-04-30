@@ -14,10 +14,14 @@ const {
   mockExitCliFailure,
   mockLoadLedgerLinkingAssetIdentityAssertions,
   mockLoadLedgerLinkingRelationships,
+  mockMaterializeStoredLedgerLinkingAssetIdentityAssertions,
   mockOutputSuccess,
+  mockOverrideStoreAppend,
+  mockOverrideStoreConstructor,
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunLedgerLinking,
+  mockReplaceLedgerLinkingAssetIdentityAssertions,
   mockSaveLedgerLinkingAssetIdentityAssertion,
 } = vi.hoisted(() => ({
   mockBuildLedgerLinkingReviewQueue: vi.fn(),
@@ -31,15 +35,33 @@ const {
   mockExitCliFailure: vi.fn(),
   mockLoadLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockLoadLedgerLinkingRelationships: vi.fn(),
+  mockMaterializeStoredLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockOutputSuccess: vi.fn(),
+  mockOverrideStoreAppend: vi.fn(),
+  mockOverrideStoreConstructor: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLedgerLinking: vi.fn(),
+  mockReplaceLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockSaveLedgerLinkingAssetIdentityAssertion: vi.fn(),
 }));
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
   buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
+  canonicalizeLedgerLinkingAssetIdentityPair: (assetIdA: string, assetIdB: string) => {
+    const sorted = [assetIdA.trim(), assetIdB.trim()].sort();
+    const canonicalAssetIdA = sorted[0];
+    const canonicalAssetIdB = sorted[1];
+
+    if (canonicalAssetIdA === undefined || canonicalAssetIdB === undefined) {
+      throw new Error('Expected two asset ids');
+    }
+
+    return ok({
+      assetIdA: canonicalAssetIdA,
+      assetIdB: canonicalAssetIdB,
+    });
+  },
   ledgerTransactionHashesMatch: (sourceHash: string | undefined, targetHash: string | undefined) =>
     sourceHash?.replace(/^0x/i, '').toLowerCase() === targetHash?.replace(/^0x/i, '').toLowerCase(),
   runLedgerLinking: mockRunLedgerLinking,
@@ -50,6 +72,16 @@ vi.mock('@exitbook/data/accounting', () => ({
   buildLedgerLinkingAssetIdentityAssertionStore: mockBuildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRelationshipReader: mockBuildLedgerLinkingRelationshipReader,
   buildLedgerLinkingRunPorts: mockBuildLedgerLinkingRunPorts,
+}));
+
+vi.mock('@exitbook/data/overrides', () => ({
+  materializeStoredLedgerLinkingAssetIdentityAssertions: mockMaterializeStoredLedgerLinkingAssetIdentityAssertions,
+  OverrideStore: vi.fn().mockImplementation(function MockOverrideStore(dataDir: string) {
+    mockOverrideStoreConstructor(dataDir);
+    return {
+      append: mockOverrideStoreAppend,
+    };
+  }),
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -87,6 +119,7 @@ describe('links-v2 command', () => {
       const fn = typeof appOrFn === 'function' ? appOrFn : maybeFn;
       await fn?.(mockCtx);
     });
+    Object.assign(mockCtx, { dataDir: '/tmp/exitbook-links-v2' });
     mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
     mockResolveCommandProfile.mockResolvedValue(
       ok({
@@ -137,6 +170,29 @@ describe('links-v2 command', () => {
       ])
     );
     mockLoadLedgerLinkingRelationships.mockResolvedValue(ok([makePersistedRelationship()]));
+    mockOverrideStoreAppend.mockResolvedValue(
+      ok({
+        actor: 'user',
+        created_at: '2026-04-29T00:00:00.000Z',
+        id: 'override-event-1',
+        profile_key: 'default',
+        scope: 'ledger-linking-asset-identity-accept',
+        source: 'cli',
+        payload: {
+          asset_id_a: 'blockchain:ethereum:native',
+          asset_id_b: 'exchange:kraken:eth',
+          evidence_kind: 'exact_hash_observed',
+          relationship_kind: 'internal_transfer',
+          type: 'ledger_linking_asset_identity_accept',
+        },
+      })
+    );
+    mockMaterializeStoredLedgerLinkingAssetIdentityAssertions.mockResolvedValue(
+      ok({
+        previousCount: 0,
+        savedCount: 1,
+      })
+    );
     mockSaveLedgerLinkingAssetIdentityAssertion.mockResolvedValue(
       ok({
         action: 'created',
@@ -152,6 +208,7 @@ describe('links-v2 command', () => {
       loadLedgerLinkingAssetIdentityAssertions: mockLoadLedgerLinkingAssetIdentityAssertions,
     });
     mockBuildLedgerLinkingAssetIdentityAssertionStore.mockReturnValue({
+      replaceLedgerLinkingAssetIdentityAssertions: mockReplaceLedgerLinkingAssetIdentityAssertions,
       saveLedgerLinkingAssetIdentityAssertion: mockSaveLedgerLinkingAssetIdentityAssertion,
     });
     mockBuildLedgerLinkingRelationshipReader.mockReturnValue({
@@ -352,7 +409,7 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  This is review-only evidence. It cannot be accepted until reviewed relationship materialization exists.'
     );
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).not.toHaveBeenCalled();
+    expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
   });
 
   it('emits JSON for review view when --json is parsed by the parent review command', async () => {
@@ -404,17 +461,35 @@ describe('links-v2 command', () => {
         includeDiagnostics: true,
       }
     );
-    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
-      assetIdA: 'blockchain:ethereum:native',
-      assetIdB: 'exchange:kraken:eth',
-      evidenceKind: 'exact_hash_observed',
-      relationshipKind: 'internal_transfer',
+    expect(mockOverrideStoreConstructor).toHaveBeenCalledWith('/tmp/exitbook-links-v2');
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-asset-identity-accept',
+      payload: {
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        evidence_kind: 'exact_hash_observed',
+        relationship_kind: 'internal_transfer',
+        type: 'ledger_linking_asset_identity_accept',
+      },
     });
+    expect(mockMaterializeStoredLedgerLinkingAssetIdentityAssertions).toHaveBeenCalledWith(
+      {
+        replaceLedgerLinkingAssetIdentityAssertions: mockReplaceLedgerLinkingAssetIdentityAssertions,
+        saveLedgerLinkingAssetIdentityAssertion: mockSaveLedgerLinkingAssetIdentityAssertion,
+      },
+      expect.objectContaining({
+        append: mockOverrideStoreAppend,
+      }),
+      7,
+      'default'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review item accepted.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Review id: ai_test_1');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Action: asset identity assertion created');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: asset identity override accepted');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Override event: override-event-1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Materialized assertions: 1 saved, 0 replaced');
   });
 
   it('emits JSON for review accept when --json is parsed by the parent review command', async () => {
@@ -435,11 +510,16 @@ describe('links-v2 command', () => {
 
     expect(mockOutputSuccess).toHaveBeenCalledOnce();
     expect(mockOutputSuccess.mock.calls[0]?.[0]).toBe('links-v2-review-accept');
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
-      assetIdA: 'blockchain:ethereum:native',
-      assetIdB: 'exchange:kraken:eth',
-      evidenceKind: 'exact_hash_observed',
-      relationshipKind: 'internal_transfer',
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-asset-identity-accept',
+      payload: {
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        evidence_kind: 'exact_hash_observed',
+        relationship_kind: 'internal_transfer',
+        type: 'ledger_linking_asset_identity_accept',
+      },
     });
   });
 
@@ -461,7 +541,7 @@ describe('links-v2 command', () => {
       'CLI:links-v2-review-accept:text:Review item lp_test_1 is a link proposal. links-v2 review accept currently supports asset identity suggestions only.:2'
     );
 
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).not.toHaveBeenCalled();
+    expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
   });
 
   it('lists persisted links-v2 relationships', async () => {
@@ -521,15 +601,21 @@ describe('links-v2 command', () => {
       { from: 'user' }
     );
 
-    expect(mockBuildLedgerLinkingAssetIdentityAssertionStore).toHaveBeenCalledWith({ tag: 'db' });
-    expect(mockSaveLedgerLinkingAssetIdentityAssertion).toHaveBeenCalledWith(7, {
-      assetIdA: 'exchange:kraken:eth',
-      assetIdB: 'blockchain:ethereum:native',
-      evidenceKind: 'manual',
-      relationshipKind: 'internal_transfer',
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-asset-identity-accept',
+      payload: {
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        evidence_kind: 'manual',
+        relationship_kind: 'internal_transfer',
+        type: 'ledger_linking_asset_identity_accept',
+      },
     });
-    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity assertion created.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity override accepted.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Override event: override-event-1');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Materialized assertions: 1 saved, 0 replaced');
   });
 
   it('previews asset identity suggestions under links-v2 without writing', async () => {

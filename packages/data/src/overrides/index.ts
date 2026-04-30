@@ -1,6 +1,11 @@
 export { readExcludedAssetIds, replayAssetExclusionEvents } from './asset-exclusion-replay.js';
 export { readAssetReviewDecisions, replayAssetReviewEvents, type AssetReviewDecision } from './asset-review-replay.js';
 export {
+  materializeStoredLedgerLinkingAssetIdentityAssertions,
+  readLedgerLinkingAssetIdentityAssertionOverrides,
+  replayLedgerLinkingAssetIdentityAssertionOverrides,
+} from './ledger-linking-asset-identity-replay.js';
+export {
   readResolvedLinkGapExceptions,
   readResolvedLinkGapIssueKeys,
   replayResolvedLinkGapExceptions,

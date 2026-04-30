@@ -154,6 +154,31 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append a ledger-linking asset identity accept event', async () => {
+      const payload = {
+        type: 'ledger_linking_asset_identity_accept',
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        evidence_kind: 'exact_hash_observed',
+        relationship_kind: 'internal_transfer',
+      } satisfies CreateOverrideEventOptions['payload'];
+
+      const result = await appendOverride({
+        scope: 'ledger-linking-asset-identity-accept',
+        payload,
+        reason: 'Accepted exact-hash asset identity evidence',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const event = result.value;
+        expect(event.scope).toBe('ledger-linking-asset-identity-accept');
+        expect(event.reason).toBe('Accepted exact-hash asset identity evidence');
+        expect(event.payload).toEqual(payload);
+      }
+    });
+
     it('should reject mismatched scope and payload type', async () => {
       // Attempt to write a price_override payload with scope 'link'
       const result = await appendOverride({

@@ -861,10 +861,12 @@ are now grouped into read-only suggestions so exact-hash evidence can be
 reviewed without making symbol-only identity guesses. `links-v2 review`
 provides the linking work queue, combining asset identity suggestions with
 amount/time link proposals under stable review ids without persisting proposals
-or gaps. `links-v2 review accept <review-id>` now persists accepted asset
-identity suggestions through the same durable assertion model as
-`links-v2 asset-identity accept`; link proposal acceptance remains blocked until
-reviewed relationship materialization is designed. `links-v2 review view
+or gaps. `links-v2 review accept <review-id>` now records accepted asset
+identity suggestions as durable override events, then materializes the current
+override replay into the ledger-linking asset identity assertion table used by
+the runner. `links-v2 asset-identity accept` uses the same event-first path.
+Link proposal acceptance remains blocked until reviewed relationship
+materialization is designed. `links-v2 review view
 <review-id>` gives the operator a focused evidence detail before accepting,
 including why exact-hash evidence is stronger than amount/time-only evidence and
 why leaving uncertain identity pending is safe. The detail view also separates
@@ -1042,7 +1044,7 @@ First implementation slices:
     an accept path.
 29. Complete. Add `links-v2 review accept <review-id>` for
     `asset_identity_suggestion` items only. Accept resolves the current review
-    queue by stable id, persists the pairwise asset identity assertion, and
+    queue by stable id, persists the pairwise asset identity decision, and
     rejects `link_proposal` ids until reviewed relationship materialization has
     a durable model.
 30. Complete. Add `links-v2 review view <review-id>` so users can inspect one
@@ -1050,7 +1052,13 @@ First implementation slices:
     shows the assertion that would be accepted for asset identity items,
     explains whether accepting can unblock deterministic linking, and makes link
     proposals explicitly review-only.
-31. Then broaden matching strategies only where processor-v2 ledger facts are
+31. Complete. Move asset identity acceptance to the override model. Both
+    `links-v2 review accept` and `links-v2 asset-identity accept` append
+    `ledger-linking-asset-identity-accept` override events first, then replay
+    those events into the SQL assertion projection. Processing also rematerializes
+    these assertions after successful rebuilds so user decisions survive DB
+    regeneration.
+32. Then broaden matching strategies only where processor-v2 ledger facts are
     already stable enough to support them.
 
 Acceptance:

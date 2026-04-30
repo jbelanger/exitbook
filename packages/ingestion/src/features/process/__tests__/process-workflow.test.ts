@@ -25,6 +25,7 @@ function createWorkflow(params?: {
   const findLatestSessionPerAccount = vi.fn().mockResolvedValue(ok([{ accountId: 14, status: importStatus }]));
   const emit = vi.fn();
   const markProcessedTransactionsFresh = vi.fn().mockResolvedValue(ok(undefined));
+  const materializeLedgerLinkingAssetIdentityAssertions = vi.fn().mockResolvedValue(ok(0));
   const materializeStoredOverrides = vi.fn().mockResolvedValue(ok(0));
   const rebuildTransactionInterpretation = vi.fn().mockResolvedValue(ok(undefined));
   const rebuildAssetReviewProjection = vi.fn().mockResolvedValue(ok(undefined));
@@ -70,6 +71,9 @@ function createWorkflow(params?: {
     importSessionLookup: {
       findLatestSessionPerAccount,
     },
+    ledgerLinkingOverrides: {
+      materializeStoredAssetIdentityAssertions: materializeLedgerLinkingAssetIdentityAssertions,
+    },
     markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
     markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
     markProcessedTransactionsFresh,
@@ -109,6 +113,7 @@ function createWorkflow(params?: {
       findAccountsWithRawData,
       findLatestSessionPerAccount,
       markProcessedTransactionsFresh,
+      materializeLedgerLinkingAssetIdentityAssertions,
       materializeStoredOverrides,
       rebuildAssetReviewProjection,
       rebuildTransactionInterpretation,
@@ -164,6 +169,7 @@ describe('ProcessingWorkflow', () => {
 
       expect(result.isOk(), result.isErr() ? result.error.message : '').toBe(true);
       expect(mocks.materializeStoredOverrides).toHaveBeenCalledWith({ accountIds: [14] });
+      expect(mocks.materializeLedgerLinkingAssetIdentityAssertions).toHaveBeenCalledWith({ accountIds: [14] });
       expect(mocks.rebuildTransactionInterpretation).toHaveBeenCalledWith([14]);
       expect(mocks.markProcessedTransactionsFresh).toHaveBeenCalledWith([14]);
       expect(mocks.rebuildAssetReviewProjection).toHaveBeenCalledWith([14]);
@@ -278,6 +284,9 @@ describe('ProcessingWorkflow', () => {
         },
         importSessionLookup: {
           findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+        },
+        ledgerLinkingOverrides: {
+          materializeStoredAssetIdentityAssertions: vi.fn().mockResolvedValue(ok(0)),
         },
         markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
         markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
@@ -468,6 +477,9 @@ describe('ProcessingWorkflow', () => {
         importSessionLookup: {
           findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
         },
+        ledgerLinkingOverrides: {
+          materializeStoredAssetIdentityAssertions: vi.fn().mockResolvedValue(ok(0)),
+        },
         markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
         markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),
         markProcessedTransactionsFresh: vi.fn().mockResolvedValue(ok(undefined)),
@@ -640,6 +652,9 @@ describe('ProcessingWorkflow', () => {
         },
         importSessionLookup: {
           findLatestSessionPerAccount: vi.fn().mockResolvedValue(ok([])),
+        },
+        ledgerLinkingOverrides: {
+          materializeStoredAssetIdentityAssertions: vi.fn().mockResolvedValue(ok(0)),
         },
         markProcessedTransactionsBuilding: vi.fn().mockResolvedValue(ok(undefined)),
         markProcessedTransactionsFailed: vi.fn().mockResolvedValue(ok(undefined)),

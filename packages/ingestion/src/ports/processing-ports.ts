@@ -13,6 +13,14 @@ export interface ITransactionOverrideProjection {
   ): Promise<Result<number, Error>>;
 }
 
+export interface ILedgerLinkingOverrideProjection {
+  materializeStoredAssetIdentityAssertions(scope?: AccountScopedMaterializationScope): Promise<Result<number, Error>>;
+}
+
+export interface AccountScopedMaterializationScope {
+  accountIds?: readonly number[] | undefined;
+}
+
 /**
  * All driven ports required by the processing pipeline.
  * Constructed in the composition root (CLI) and injected into ProcessingWorkflow.
@@ -24,6 +32,7 @@ export interface ProcessingPorts {
   accountingLedgerSink: IAccountingLedgerSink;
   accountLookup: IAccountLookup;
   importSessionLookup: IImportSessionLookup;
+  ledgerLinkingOverrides: ILedgerLinkingOverrideProjection;
   transactionOverrides: ITransactionOverrideProjection;
 
   /** Mark processed-transactions projection as building for the affected profile scopes. */

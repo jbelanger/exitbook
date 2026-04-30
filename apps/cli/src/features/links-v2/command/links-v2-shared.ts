@@ -1,20 +1,23 @@
 import {
   buildLedgerLinkingReviewQueue,
+  canonicalizeLedgerLinkingAssetIdentityPair,
   ledgerTransactionHashesMatch,
   runLedgerLinking,
   type LedgerLinkingAssetIdentityAssertion,
-  type LedgerLinkingAssetIdentityAssertionSaveResult,
+  type LedgerLinkingAssetIdentityAssertionReplacementResult,
   type LedgerLinkingAssetIdentitySuggestion,
   type LedgerLinkingDiagnostics,
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewQueue,
   type LedgerLinkingRunResult,
 } from '@exitbook/accounting/ledger-linking';
+import type { OverrideEvent } from '@exitbook/core';
 import {
   buildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts,
 } from '@exitbook/data/accounting';
+import { materializeStoredLedgerLinkingAssetIdentityAssertions, OverrideStore } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { z } from 'zod';
 import { z as zod } from 'zod';
@@ -145,7 +148,7 @@ interface LinksV2ReviewAcceptOutput {
     id: number;
     profileKey: string;
   };
-  result: LedgerLinkingAssetIdentityAssertionSaveResult;
+  result: LinksV2AssetIdentityAcceptResult;
   reviewId: string;
   reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'asset_identity_suggestion' }>;
 }
@@ -155,7 +158,18 @@ interface LinksV2AssetIdentityAcceptOutput {
     id: number;
     profileKey: string;
   };
-  result: LedgerLinkingAssetIdentityAssertionSaveResult;
+  result: LinksV2AssetIdentityAcceptResult;
+}
+
+interface LinksV2AssetIdentityAcceptResult {
+  assertion: LedgerLinkingAssetIdentityAssertion;
+  materialization: LedgerLinkingAssetIdentityAssertionReplacementResult;
+  overrideEvent: OverrideEvent;
+}
+
+interface LinksV2CommandProfile {
+  id: number;
+  profileKey: string;
 }
 
 export interface LinksV2RunExecutionConfig {
@@ -571,15 +585,12 @@ async function executePreparedLinksV2ReviewAcceptCommand(
     }
 
     const result = yield* toCliResult(
-      await buildLedgerLinkingAssetIdentityAssertionStore(database).saveLedgerLinkingAssetIdentityAssertion(
-        profile.id,
-        {
-          assetIdA: reviewItem.suggestion.assetIdA,
-          assetIdB: reviewItem.suggestion.assetIdB,
-          evidenceKind: reviewItem.suggestion.evidenceKind,
-          relationshipKind: reviewItem.suggestion.relationshipKind,
-        }
-      ),
+      await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
+        assetIdA: reviewItem.suggestion.assetIdA,
+        assetIdB: reviewItem.suggestion.assetIdB,
+        evidenceKind: reviewItem.suggestion.evidenceKind,
+        relationshipKind: reviewItem.suggestion.relationshipKind,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const output: LinksV2ReviewAcceptOutput = {
@@ -609,15 +620,12 @@ async function executePreparedLinksV2AssetIdentityAcceptCommand(
     const database = await ctx.openDatabaseSession();
     const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
     const result = yield* toCliResult(
-      await buildLedgerLinkingAssetIdentityAssertionStore(database).saveLedgerLinkingAssetIdentityAssertion(
-        profile.id,
-        {
-          assetIdA: prepared.assetIdA,
-          assetIdB: prepared.assetIdB,
-          evidenceKind: prepared.evidenceKind,
-          relationshipKind: prepared.relationshipKind,
-        }
-      ),
+      await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
+        assetIdA: prepared.assetIdA,
+        assetIdB: prepared.assetIdB,
+        evidenceKind: prepared.evidenceKind,
+        relationshipKind: prepared.relationshipKind,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const output: LinksV2AssetIdentityAcceptOutput = {
@@ -633,6 +641,45 @@ async function executePreparedLinksV2AssetIdentityAcceptCommand(
     }
 
     return textSuccess(() => renderLinksV2AssetIdentityAcceptOutput(output, config));
+  });
+}
+
+async function acceptLinksV2AssetIdentityOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  assertion: LedgerLinkingAssetIdentityAssertion
+): Promise<Result<LinksV2AssetIdentityAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    const canonicalPair = yield* canonicalizeLedgerLinkingAssetIdentityPair(assertion.assetIdA, assertion.assetIdB);
+    const canonicalAssertion: LedgerLinkingAssetIdentityAssertion = {
+      ...assertion,
+      ...canonicalPair,
+    };
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-asset-identity-accept',
+      payload: {
+        asset_id_a: canonicalAssertion.assetIdA,
+        asset_id_b: canonicalAssertion.assetIdB,
+        evidence_kind: canonicalAssertion.evidenceKind,
+        relationship_kind: canonicalAssertion.relationshipKind,
+        type: 'ledger_linking_asset_identity_accept',
+      },
+    });
+    const materialization = yield* await materializeStoredLedgerLinkingAssetIdentityAssertions(
+      buildLedgerLinkingAssetIdentityAssertionStore(database),
+      overrideStore,
+      profile.id,
+      profile.profileKey
+    );
+
+    return {
+      assertion: canonicalAssertion,
+      materialization,
+      overrideEvent,
+    };
   });
 }
 
@@ -712,17 +759,21 @@ function renderLinksV2ReviewAcceptOutput(
   output: LinksV2ReviewAcceptOutput,
   config: LinksV2ReviewExecutionConfig
 ): void {
-  const { action, assertion } = output.result;
+  const { assertion, materialization, overrideEvent } = output.result;
   const { suggestion } = output.reviewItem;
 
   console.log(config.title);
   console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
   console.log(`Review id: ${output.reviewId}`);
-  console.log(`Action: asset identity assertion ${action}`);
+  console.log('Action: asset identity override accepted');
+  console.log(`Override event: ${overrideEvent.id}`);
   console.log(`Relationship kind: ${assertion.relationshipKind}`);
   console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
   console.log(`Evidence: ${assertion.evidenceKind}`);
   console.log(`Observed blockers: ${suggestion.blockCount}`);
+  console.log(
+    `Materialized assertions: ${materialization.savedCount} saved, ${materialization.previousCount} replaced`
+  );
 }
 
 function renderLinksV2AssetIdentityReviewDetail(
@@ -979,13 +1030,17 @@ function renderLinksV2AssetIdentityAcceptOutput(
   output: LinksV2AssetIdentityAcceptOutput,
   config: LinksV2AssetIdentityExecutionConfig
 ): void {
-  const { assertion, action } = output.result;
+  const { assertion, materialization, overrideEvent } = output.result;
 
-  console.log(`${config.label} asset identity assertion ${action}.`);
+  console.log(`${config.label} asset identity override accepted.`);
   console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(`Override event: ${overrideEvent.id}`);
   console.log(`Relationship kind: ${assertion.relationshipKind}`);
   console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
   console.log(`Evidence: ${assertion.evidenceKind}`);
+  console.log(
+    `Materialized assertions: ${materialization.savedCount} saved, ${materialization.previousCount} replaced`
+  );
 }
 
 function limitAssetIdentitySuggestions(
