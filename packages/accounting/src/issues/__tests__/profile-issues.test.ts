@@ -90,7 +90,7 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       blockingIssueCount: 2,
     });
 
-    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['transfer_gap', 'asset_review_blocker']);
+    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['transfer_gap', 'asset_review_required']);
     expect(snapshot.issues[0]?.issue.nextActions[0]).toMatchObject({
       kind: 'review_gap',
       mode: 'routed',
@@ -203,10 +203,10 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       openIssueCount: 1,
       blockingIssueCount: 1,
     });
-    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['asset_review_blocker']);
+    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['asset_review_required']);
   });
 
-  it('routes ledger-linking-v2 gaps through asset review when the asset has non-blocking review evidence', () => {
+  it('surfaces non-blocking asset review work before related ledger-linking-v2 gaps', () => {
     const reviewAssetId = 'blockchain:ethereum:0xunmatched';
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 42,
@@ -246,9 +246,10 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       blockingIssueCount: 0,
     });
     expect(snapshot.issues[0]?.issue).toMatchObject({
-      family: 'transfer_gap',
+      family: 'asset_review_required',
+      code: 'ASSET_REVIEW_REQUIRED',
       severity: 'warning',
-      summary: 'NOREF outflow needs asset review before links-v2',
+      summary: `Asset review needed for ${reviewAssetId}`,
     });
     expect(snapshot.issues[0]?.issue.nextActions[0]).toMatchObject({
       kind: 'review_asset',
@@ -261,7 +262,7 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       },
     });
     expect(snapshot.issues[0]?.issue.details).toContain(
-      "Asset review should be resolved before linking: Provider 'coingecko' could not match this token to a canonical asset."
+      "Provider 'coingecko' could not match this token to a canonical asset"
     );
     expect(snapshot.issues[0]?.issue.evidenceRefs).toContainEqual({
       kind: 'asset',
@@ -293,7 +294,9 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
       scopeKey: 'profile:7',
       title: 'Clean profile',
       linkGapIssues: [],
-      assetReviewSummaries: [createAssetReviewSummary({ accountingBlocked: false })],
+      assetReviewSummaries: [
+        createAssetReviewSummary({ accountingBlocked: false, evidence: [], reviewStatus: 'clear' }),
+      ],
       excludedAssetIds: new Set<string>(),
       updatedAt: new Date('2026-04-14T12:00:00.000Z'),
     });
@@ -304,7 +307,7 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     expect(snapshot.issues).toHaveLength(0);
   });
 
-  it('does not surface asset-review blocker issues for excluded assets', () => {
+  it('does not surface asset-review-required issues for excluded assets', () => {
     const assetId = 'blockchain:ethereum:0xscam';
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 7,
@@ -322,7 +325,7 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     expect(snapshot.issues).toHaveLength(0);
   });
 
-  it('does not surface ambiguity blockers once every conflicting alternative is excluded', () => {
+  it('does not surface ambiguity review items once every conflicting alternative is excluded', () => {
     const currentAssetId = 'blockchain:arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
     const excludedAssetId = 'blockchain:arbitrum:0xc7cb7517e223682158c18d1f6481c771c1c614f8';
     const snapshot = buildProfileAccountingIssueScopeSnapshot({

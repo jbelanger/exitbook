@@ -1338,13 +1338,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('next_actions_json', 'text', (col) => col.notNull())
     .addCheckConstraint(
       'accounting_issue_rows_family_valid',
-      sql`family IN ('transfer_gap', 'asset_review_blocker', 'missing_price', 'tax_readiness', 'execution_failure')`
+      sql`family IN ('transfer_gap', 'asset_review_required', 'missing_price', 'tax_readiness', 'execution_failure')`
     )
     .addCheckConstraint(
       'accounting_issue_rows_code_valid',
       sql`code IN (
         'LINK_GAP',
-        'ASSET_REVIEW_BLOCKER',
+        'ASSET_REVIEW_REQUIRED',
         'MISSING_PRICE_DATA',
         'FX_FALLBACK_USED',
         'UNRESOLVED_ASSET_REVIEW',

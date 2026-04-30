@@ -141,7 +141,7 @@ Rules:
 The issue family may surface rows from these families:
 
 - `transfer_gap`
-- `asset_review_blocker`
+- `asset_review_required`
 - `missing_price`
 - `tax_readiness`
 - `execution_failure`
@@ -540,7 +540,7 @@ Current Issues
 
 ISSUE-REF   SEV      TYPE                  SUMMARY                               NEXT
 2d4c8e1af3  blocked  Transfer gap          ADA transfer still needs review       Review in links gaps
-7b12aa09ce  blocked  Asset review blocker  USDC asset review blocks accounting   Review in assets
+7b12aa09ce  blocked  Asset review required USDC asset review blocks accounting   Review in assets
 31a9ef2b77  warning  Transfer gap          Small SOL residual is unexplained     Inspect gap detail
 
 Scoped Accounting Lenses
@@ -588,14 +588,14 @@ Evidence
   TX-REF  9c1f37d0ab
 ```
 
-### Asset Blocker Detail Mockup
+### Asset Review Detail Mockup
 
 ```text
-Issue d9233f5e30 [BLOCKED] Asset review blocker
+Issue d9233f5e30 [BLOCKED] Asset review required
 
 Scope: profile (profile:1)
 Summary
-  Asset review still blocks accounting for blockchain:arbitrum:0…18d1f6481c771c1c614f8
+  Asset review blocks accounting for blockchain:arbitrum:0…18d1f6481c771c1c614f8
 
 Possible next actions
   1. Review in assets

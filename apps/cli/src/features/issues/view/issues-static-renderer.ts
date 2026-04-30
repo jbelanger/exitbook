@@ -168,8 +168,8 @@ function colorizeSeverity(severity: AccountingIssueSummaryItem['severity'], valu
 
 function formatFamilyLabel(family: AccountingIssueSummaryItem['family']): string {
   switch (family) {
-    case 'asset_review_blocker':
-      return 'Asset review blocker';
+    case 'asset_review_required':
+      return 'Asset review required';
     case 'execution_failure':
       return 'Execution failure';
     case 'missing_price':
@@ -240,7 +240,7 @@ function buildOwningWorkflowExampleLines(issue: AccountingIssueDetailItem): stri
 }
 
 function findAssetWorkflowSelector(issue: AccountingIssueDetailItem): string | undefined {
-  if (issue.family !== 'asset_review_blocker') {
+  if (issue.family !== 'asset_review_required') {
     return undefined;
   }
 

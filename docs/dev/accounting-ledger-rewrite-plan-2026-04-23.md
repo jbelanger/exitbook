@@ -938,24 +938,24 @@ Completed checkpoints:
   unresolved posting candidates split between blocked evidence gaps and warning
   review gaps
 - profile Issues suppress ledger-linking-v2 transfer-gap rows for assets that
-  already have an open asset-review blocker, so known scam or ambiguous assets
-  stay owned by asset review first
-- ledger-linking-v2 transfer gaps whose asset still needs non-blocking asset
-  review, such as an unmatched CoinGecko reference, keep a visible Issue row but
-  route the first action to `assets` before `links-v2 diagnose`
+  already have an open asset-review-required item, so known scam, ambiguous, or
+  unmatched-reference assets stay owned by asset review first
+- assets with non-blocking review evidence, such as an unmatched CoinGecko
+  reference, surface as warning `asset_review_required` Issues before their
+  related ledger-linking-v2 transfer gaps are shown
 
 Active next slices:
 
-Current live corpus after the classification pass: `118` profile Issues remain
-open: `8` asset-review blockers, `6` blocked links-v2 hash-evidence gaps, and
-`104` links-v2 warnings. The warnings split into `102` unmatched candidates
+Current live corpus after the classification pass: `128` profile Issues remain
+open: `8` blocked asset-review-required items, `14` warning
+asset-review-required items, `6` blocked links-v2 hash-evidence gaps, and `100`
+links-v2 warnings. The links-v2 warnings split into `98` unmatched candidates
 with transfer hash/address evidence and `2` target-before-source bridge/migration
 timing clues. Diagnostics also identifies `41` fiat cash movements, `12` obvious
 spam/airdrop inflows, and `32` tiny native dust inflows that are intentionally
 not projected as transfer-gap issues. `assets list` currently shows `22`
 action-required assets; unmatched CoinGecko references are treated as asset
-review evidence, not direct linker truth. Four remaining v2 warning rows now
-route to asset review first: `FAM`, `JUP`, `NOODLE`, and `UNDG`.
+review evidence, not direct linker truth.
 
 1. Investigate the remaining blocked non-fiat exchange rows. The current live
    corpus has six Kraken transfer rows without on-chain hashes: two `USDC -99`,

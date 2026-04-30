@@ -208,7 +208,7 @@ describe('AccountingIssueRepository', () => {
 
     const summaries = assertOk(await repo.listCurrentIssueSummaries('profile:1'));
     expect(summaries).toHaveLength(2);
-    expect(summaries.map((record) => record.issue.family)).toEqual(['asset_review_blocker', 'transfer_gap']);
+    expect(summaries.map((record) => record.issue.family)).toEqual(['asset_review_required', 'transfer_gap']);
     expect(summaries[0]?.issue.issueRef).toHaveLength(10);
 
     const transferGap = summaries.find((record) => record.issue.family === 'transfer_gap');
@@ -247,7 +247,9 @@ describe('AccountingIssueRepository', () => {
     expect(originalTransferGap).toBeDefined();
 
     const secondSnapshot = createSnapshot({
-      assetReviewSummaries: [createAssetReviewSummary({ accountingBlocked: false })],
+      assetReviewSummaries: [
+        createAssetReviewSummary({ accountingBlocked: false, evidence: [], reviewStatus: 'clear' }),
+      ],
       linkGapIssues: [
         createLinkGapIssue({
           missingAmount: '0.5',
@@ -386,7 +388,7 @@ describe('AccountingIssueRepository', () => {
       'profile:1',
     ]);
     expect(scopedSummaries.map((record) => record.issue.family)).toEqual([
-      'asset_review_blocker',
+      'asset_review_required',
       'missing_price',
       'transfer_gap',
     ]);

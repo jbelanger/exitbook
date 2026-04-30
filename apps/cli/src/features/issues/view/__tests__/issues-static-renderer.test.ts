@@ -225,16 +225,16 @@ describe('issues-static-renderer', () => {
     expect(output).toContain('LEDGER-POSTING ledger_posting:v1:17');
   });
 
-  it('renders owning workflow command examples for asset review blockers', () => {
+  it('renders owning workflow command examples for asset review-required issues', () => {
     const output = stripVTControlCharacters(
       buildIssuesStaticDetail({
         activeProfileKey: 'default',
         activeProfileSource: 'default',
         profileDisplayName: 'default',
         issue: createDetailItem({
-          family: 'asset_review_blocker',
-          code: 'ASSET_REVIEW_BLOCKER',
-          summary: 'Asset review still blocks accounting for blockchain:ethereum:0xaaa',
+          family: 'asset_review_required',
+          code: 'ASSET_REVIEW_REQUIRED',
+          summary: 'Asset review blocks accounting for blockchain:ethereum:0xaaa',
           details: 'Asset blockchain:ethereum:0xaaa currently blocks accounting.',
           whyThisMatters: 'Blocks accounting and reporting flows that involve this asset until review is complete.',
           evidenceRefs: [

@@ -12,7 +12,7 @@ export type AccountingIssueScopeStatus = z.infer<typeof AccountingIssueScopeStat
 
 export const AccountingIssueFamilySchema = z.enum([
   'transfer_gap',
-  'asset_review_blocker',
+  'asset_review_required',
   'missing_price',
   'tax_readiness',
   'execution_failure',
@@ -24,7 +24,7 @@ export type AccountingIssueSeverity = z.infer<typeof AccountingIssueSeveritySche
 
 export const AccountingIssueCodeSchema = z.enum([
   'LINK_GAP',
-  'ASSET_REVIEW_BLOCKER',
+  'ASSET_REVIEW_REQUIRED',
   'MISSING_PRICE_DATA',
   'FX_FALLBACK_USED',
   'UNRESOLVED_ASSET_REVIEW',
@@ -138,10 +138,10 @@ export function buildTransferGapIssueKey(issueKey: string): string {
   return `transfer_gap:${issueKey}`;
 }
 
-export function buildAssetReviewBlockerIssueKey(
+export function buildAssetReviewRequiredIssueKey(
   summary: Pick<AssetReviewSummary, 'assetId' | 'evidenceFingerprint'>
 ): string {
-  return `asset_review_blocker:${summary.assetId}|${summary.evidenceFingerprint}`;
+  return `asset_review_required:${summary.assetId}|${summary.evidenceFingerprint}`;
 }
 
 export function buildAccountingIssueSelector(scopeKey: string, issueKey: string): string {

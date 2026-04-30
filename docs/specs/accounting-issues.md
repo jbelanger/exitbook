@@ -48,7 +48,7 @@ Accounting issues are always read inside an explicit accounting scope.
 - Purpose: current-state, profile-global accounting issues.
 - Current families:
   - `transfer_gap`
-  - `asset_review_blocker`
+  - `asset_review_required`
 - Scope key rule: reuse the profile projection scope key builder:
   `buildProfileProjectionScopeKey(profileId)`, which currently produces
   `profile:<profileId>`.
@@ -98,16 +98,16 @@ Rules:
 
 The profile scope uses the following canonical key recipes:
 
-| Family                 | Canonical `issueKey`                                      | Notes                                                                                                   |
-| ---------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `transfer_gap`         | `transfer_gap:${buildLinkGapIssueKey(identity)}`          | Legacy movement-gap identity inputs: `txFingerprint`, `assetId`, `direction`.                           |
-| `transfer_gap`         | `transfer_gap:ledger_linking_v2:${postingFingerprint}`    | Ledger-linking-v2 gap identity. Used instead of legacy movement gaps when v2 diagnostics are available. |
-| `asset_review_blocker` | `asset_review_blocker:${assetId}\|${evidenceFingerprint}` | Includes `evidenceFingerprint` so changed review evidence produces a new canonical issue.               |
+| Family                  | Canonical `issueKey`                                       | Notes                                                                                                   |
+| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `transfer_gap`          | `transfer_gap:${buildLinkGapIssueKey(identity)}`           | Legacy movement-gap identity inputs: `txFingerprint`, `assetId`, `direction`.                           |
+| `transfer_gap`          | `transfer_gap:ledger_linking_v2:${postingFingerprint}`     | Ledger-linking-v2 gap identity. Used instead of legacy movement gaps when v2 diagnostics are available. |
+| `asset_review_required` | `asset_review_required:${assetId}\|${evidenceFingerprint}` | Includes `evidenceFingerprint` so changed review evidence produces a new canonical issue.               |
 
 Examples:
 
 - `transfer_gap:9c1f37d0ab|cardano:ADA|outflow`
-- `asset_review_blocker:blockchain:ethereum:0xa0b8...|asset-review:v1:usdc`
+- `asset_review_required:blockchain:ethereum:0xa0b8...|asset-review:v1:usdc`
 
 ### `ISSUE-REF`
 
@@ -142,7 +142,7 @@ type AccountingIssueScopeStatus = 'ready' | 'has-open-issues' | 'failed';
 
 type AccountingIssueFamily =
   | 'transfer_gap'
-  | 'asset_review_blocker'
+  | 'asset_review_required'
   | 'missing_price'
   | 'tax_readiness'
   | 'execution_failure';
@@ -151,7 +151,7 @@ type AccountingIssueSeverity = 'warning' | 'blocked';
 
 type AccountingIssueCode =
   | 'LINK_GAP'
-  | 'ASSET_REVIEW_BLOCKER'
+  | 'ASSET_REVIEW_REQUIRED'
   | 'MISSING_PRICE_DATA'
   | 'FX_FALLBACK_USED'
   | 'UNRESOLVED_ASSET_REVIEW'
@@ -264,13 +264,9 @@ interface AccountingIssueScopeSummary {
 - Ledger-linking-v2 non-link-work rule: fiat cash movements, obvious
   spam/airdrop inflows, and tiny native dust inflows remain visible in
   diagnostics but do not create `transfer_gap` issue rows.
-- Ledger-linking-v2 blocked-asset rule: candidates for assets that already have
-  an open `asset_review_blocker` issue do not create duplicate `transfer_gap`
-  rows until the asset-review blocker is resolved.
-- Ledger-linking-v2 asset-review-first rule: candidates for assets with pending
-  non-blocking asset review evidence, such as an unmatched reference provider,
-  remain visible as `transfer_gap` warnings but route their primary action to
-  `assets` before `links-v2 diagnose`.
+- Ledger-linking-v2 asset-review-first rule: candidates for assets that already
+  have an open `asset_review_required` issue do not create duplicate
+  `transfer_gap` rows until the asset-review item is resolved.
 - Ledger-linking-v2 excluded-asset rule: candidates for assets excluded from
   accounting do not create `transfer_gap` issue rows.
 - Evidence refs:
@@ -299,26 +295,30 @@ interface AccountingIssueScopeSummary {
   - `mode: 'review_only'`
   - `routeTarget.family: 'links-v2'`
 
-### `asset_review_blocker`
+### `asset_review_required`
 
 - Source: current asset-review projection summaries.
 - Scope kind: `profile`.
-- Code: `ASSET_REVIEW_BLOCKER`.
+- Code: `ASSET_REVIEW_REQUIRED`.
 - Inclusion rule:
-  - only rows with `accountingBlocked === true` become issue rows
+  - rows with `accountingBlocked === true` become issue rows
+  - rows with `reviewStatus === 'needs-review'` become issue rows even when not
+    accounting-blocking
+  - rows with stale confirmations become issue rows
   - assets excluded by the current profile exclusion policy do not become
-    `asset_review_blocker` issue rows
+    `asset_review_required` issue rows
   - same-symbol ambiguity is evaluated against the current exclusion policy at
     read time; if every conflicting alternative is excluded, the surviving
-    asset does not remain an `asset_review_blocker`
+    asset does not remain an `asset_review_required`
 - Canonical key inputs:
   - `assetId`
   - `evidenceFingerprint`
 - Evidence refs:
   - one `asset` selector using the canonical asset selector / asset id
 - Severity mapping:
-  - always `blocked` because this family exists specifically to surface
-    accounting blockers
+  - `blocked` when `accountingBlocked === true`
+  - `warning` when the asset still needs review but is not currently
+    accounting-blocking
 - Primary next action:
   - `kind: 'review_asset'`
   - `label: 'Review in assets'`
@@ -537,7 +537,7 @@ assemble issue persistence ad hoc.
 - Profile-global scope materialization.
 - Families:
   - `transfer_gap`
-  - `asset_review_blocker`
+  - `asset_review_required`
 - Read surfaces:
   - `issues`
   - `issues list`

@@ -133,10 +133,10 @@ describe('materializeProfileAccountingIssueScopeSnapshot', () => {
     }
 
     expect(result.value.scope.openIssueCount).toBe(2);
-    expect(result.value.issues.map((issue) => issue.issue.family)).toEqual(['transfer_gap', 'asset_review_blocker']);
+    expect(result.value.issues.map((issue) => issue.issue.family)).toEqual(['transfer_gap', 'asset_review_required']);
   });
 
-  it('omits excluded asset-review blockers from the materialized profile scope', async () => {
+  it('omits excluded asset-review-required items from the materialized profile scope', async () => {
     const assetId = 'blockchain:ethereum:0xscam';
     const sourceReader = {
       loadProfileAccountingIssueSourceData: vi.fn().mockResolvedValue(

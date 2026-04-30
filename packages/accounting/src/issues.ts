@@ -18,7 +18,7 @@ export {
   StoredAccountingIssueRowStatusSchema,
   buildAccountingIssueRef,
   buildAccountingIssueSelector,
-  buildAssetReviewBlockerIssueKey,
+  buildAssetReviewRequiredIssueKey,
   buildTransferGapIssueKey,
 } from './issues/issue-model.js';
 export type {
