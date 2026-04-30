@@ -12,6 +12,7 @@ describe('buildLedgerTransferLinkingCandidates', () => {
     const result = assertOk(
       buildLedgerTransferLinkingCandidates([
         makePosting({
+          journalDiagnosticCodes: ['possible_asset_migration'],
           postingFingerprint: 'ledger_posting:v1:source',
           quantity: '-1.25',
         }),
@@ -30,6 +31,7 @@ describe('buildLedgerTransferLinkingCandidates', () => {
         amount: candidate.amount.toFixed(),
         candidateId: candidate.candidateId,
         direction: candidate.direction,
+        journalDiagnosticCodes: candidate.journalDiagnosticCodes,
         ownerAccountId: candidate.ownerAccountId,
         platformKey: candidate.platformKey,
         postingFingerprint: candidate.postingFingerprint,
@@ -39,6 +41,7 @@ describe('buildLedgerTransferLinkingCandidates', () => {
         amount: '1.25',
         candidateId: 1,
         direction: 'source',
+        journalDiagnosticCodes: ['possible_asset_migration'],
         ownerAccountId: 1,
         platformKey: 'kraken',
         postingFingerprint: 'ledger_posting:v1:source',
@@ -47,6 +50,7 @@ describe('buildLedgerTransferLinkingCandidates', () => {
         amount: '1.25',
         candidateId: 2,
         direction: 'target',
+        journalDiagnosticCodes: [],
         ownerAccountId: 2,
         platformKey: 'ethereum',
         postingFingerprint: 'ledger_posting:v1:target',

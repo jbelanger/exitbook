@@ -800,6 +800,7 @@ describe('AccountingLedgerRepository', () => {
       postingInputs.map((posting) => ({
         balanceCategory: posting.balanceCategory,
         journalKind: posting.journalKind,
+        journalDiagnosticCodes: posting.journalDiagnosticCodes,
         ownerAccountId: posting.ownerAccountId,
         platformKey: posting.platformKey,
         postingFingerprintPrefix: posting.postingFingerprint.slice(0, 'ledger_posting:v1:'.length),
@@ -810,6 +811,7 @@ describe('AccountingLedgerRepository', () => {
       {
         balanceCategory: 'liquid',
         journalKind: 'transfer',
+        journalDiagnosticCodes: ['possible_asset_migration'],
         ownerAccountId: 1,
         platformKey: 'cardano',
         postingFingerprintPrefix: 'ledger_posting:v1:',
@@ -819,6 +821,7 @@ describe('AccountingLedgerRepository', () => {
       {
         balanceCategory: 'liquid',
         journalKind: 'transfer',
+        journalDiagnosticCodes: undefined,
         ownerAccountId: 2,
         platformKey: 'ethereum',
         postingFingerprintPrefix: 'ledger_posting:v1:',
@@ -1176,6 +1179,13 @@ describe('AccountingLedgerRepository', () => {
         sourceActivity: makeSourceActivity(),
         journals: [
           makeJournal({
+            diagnostics: [
+              {
+                code: 'possible_asset_migration',
+                message: 'Kraken spotfromfutures row may reflect an internal asset migration.',
+                severity: 'info',
+              },
+            ],
             journalStableKey: 'journal:source',
             postings: [
               makePosting({

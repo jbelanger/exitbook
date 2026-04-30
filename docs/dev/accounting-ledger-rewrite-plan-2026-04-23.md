@@ -936,6 +936,9 @@ Completed checkpoints:
 - ledger-linking-v2 diagnostics classify fiat cash movements, obvious
   spam/airdrops, tiny native dust, missing exchange hashes, external transfer
   evidence, and bridge/migration timing clues before projecting issues
+- ledger-linking-v2 candidate reads carry processor journal diagnostic codes, so
+  rows already marked as possible asset migration or internal exchange movement
+  context stay visible as review warnings instead of blocked missing-hash gaps
 - ledger-linking-v2 Issues omit non-link-work candidates and keep remaining
   unresolved posting candidates split between blocked evidence gaps and warning
   review gaps
@@ -949,22 +952,24 @@ Completed checkpoints:
 Active next slices:
 
 Current live corpus after the asset and precision-normalized linking pass:
-`104` profile Issues remain open: `4` blocked links-v2 hash-evidence gaps and
-`100` links-v2 warnings. Asset review has no action-required rows. Diagnostics
-still identifies fiat cash movements, obvious spam/airdrop inflows, and tiny
-native dust inflows that are intentionally not projected as transfer-gap issues.
-The 2024 CA average-cost cost-basis run now completes with no blocking issues;
-the remaining scoped cost-basis item is a warning for one Kraken dust sweep with
+`104` profile Issues remain open: `2` blocked links-v2 hash-evidence gaps and
+`102` links-v2 warnings. Asset review has no action-required rows. Diagnostics
+still identifies fiat cash movements, obvious spam/airdrop inflows, tiny native
+dust inflows, and processor-marked asset migration/internal exchange context
+that are intentionally not projected as blocked transfer-gap issues. The 2024
+CA average-cost cost-basis run now completes with no blocking issues; the
+remaining scoped cost-basis item is a warning for one Kraken dust sweep with
 uncertain proceeds allocation.
 
 1. Investigate the remaining blocked non-fiat exchange rows. The current live
-   corpus has four Kraken transfer rows without enough linking evidence: two
-   `USDC -99`, one `RENDER +64.987572`, and one `RNDR -64.98757287`. Do not
-   auto-link these without processor/source evidence. The former
+   corpus has two Kraken `USDC -99` withdrawals without enough linking evidence.
+   Do not auto-link these without source evidence. The former
    `LINK +48.21975374` and `USDC -270.7758064` blockers are resolved by the
    precision-normalized strict exchange amount/time recognizer because local
    evidence shows one-to-one source-before-target transfers where an exchange
-   truncated displayed precision.
+   truncated displayed precision. The former `RENDER +64.987572` and
+   `RNDR -64.98757287` blockers now use processor `possible_asset_migration`
+   diagnostics and surface as warnings, not blocked missing-hash gaps.
 2. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
    current source-before-target rule.

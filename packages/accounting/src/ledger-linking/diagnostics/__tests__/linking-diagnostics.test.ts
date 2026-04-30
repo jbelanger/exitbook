@@ -239,6 +239,19 @@ describe('buildLedgerLinkingDiagnostics', () => {
             platformKey: 'solana',
           }),
           makeCandidate({
+            amount: '64.987572',
+            assetId: 'exchange:kraken:render',
+            assetSymbol: 'RENDER',
+            blockchainTransactionHash: undefined,
+            candidateId: 9,
+            direction: 'target',
+            fromAddress: undefined,
+            journalDiagnosticCodes: ['possible_asset_migration'],
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            toAddress: undefined,
+          }),
+          makeCandidate({
             amount: '0.5',
             candidateId: 4,
             direction: 'source',
@@ -313,6 +326,12 @@ describe('buildLedgerLinkingDiagnostics', () => {
         direction: 'target',
         platformKey: 'solana',
       },
+      {
+        candidateId: 9,
+        classifications: ['processor_asset_migration_context'],
+        direction: 'target',
+        platformKey: 'kraken',
+      },
     ]);
     expect(result.assetIdentityBlockerProposals).toEqual([
       {
@@ -365,6 +384,12 @@ describe('buildLedgerLinkingDiagnostics', () => {
       {
         candidateCount: 1,
         classification: 'likely_dust_airdrop',
+        sourceCandidateCount: 0,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 1,
+        classification: 'processor_asset_migration_context',
         sourceCandidateCount: 0,
         targetCandidateCount: 1,
       },

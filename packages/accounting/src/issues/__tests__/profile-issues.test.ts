@@ -157,6 +157,41 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     });
   });
 
+  it('surfaces processor-marked asset migration context as a non-blocking ledger-linking-v2 gap', () => {
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [
+        createLedgerLinkingGapIssue({
+          assetSymbol: 'RENDER' as LedgerLinkingGapIssue['assetSymbol'],
+          classifications: ['processor_asset_migration_context'],
+          direction: 'target',
+          gapReason: 'processor_asset_migration_context',
+          journalDiagnosticCodes: ['possible_asset_migration'],
+          platformKey: 'kraken',
+        }),
+      ],
+      assetReviewSummaries: [],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      openIssueCount: 1,
+      blockingIssueCount: 0,
+    });
+    expect(snapshot.issues[0]?.issue).toMatchObject({
+      family: 'transfer_gap',
+      severity: 'warning',
+      summary: 'RENDER inflow remains unresolved in links-v2',
+    });
+    expect(snapshot.issues[0]?.issue.details).toContain(
+      'processor diagnostics indicate asset migration or internal exchange movement context'
+    );
+  });
+
   it('prefers ledger-linking-v2 gaps over legacy movement gaps when both are supplied', () => {
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 42,

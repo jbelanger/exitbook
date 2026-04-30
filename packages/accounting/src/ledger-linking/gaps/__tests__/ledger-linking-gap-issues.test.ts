@@ -135,6 +135,37 @@ describe('buildLedgerLinkingGapIssues', () => {
     expect(issues[0]?.gapReason).toBe('external_transfer_evidence_unmatched');
   });
 
+  it('surfaces processor-marked asset migration context as a warning gap reason', () => {
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [
+          makeCandidate({
+            candidateId: 13,
+            direction: 'target',
+            journalDiagnosticCodes: ['possible_asset_migration'],
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:asset-migration',
+          }),
+        ],
+        classifications: [
+          {
+            candidateId: 13,
+            classifications: ['processor_asset_migration_context'],
+            direction: 'target',
+            platformKey: 'kraken',
+          },
+        ],
+      })
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      gapReason: 'processor_asset_migration_context',
+      journalDiagnosticCodes: ['possible_asset_migration'],
+      postingFingerprint: 'ledger_posting:v1:asset-migration',
+    });
+  });
+
   it('omits non-link-work classifications from surfaced gap issues', () => {
     const issues = buildLedgerLinkingGapIssues(
       makeDiagnostics({
@@ -199,6 +230,7 @@ function makeDiagnostics(input: {
 function makeCandidate(overrides: {
   candidateId: number;
   direction: 'source' | 'target';
+  journalDiagnosticCodes?: readonly string[] | undefined;
   platformKind?: 'blockchain' | 'exchange' | undefined;
   postingFingerprint: string;
 }): LedgerLinkingCandidateRemainder {
@@ -212,6 +244,7 @@ function makeCandidate(overrides: {
     direction: overrides.direction,
     fromAddress: undefined,
     journalFingerprint: `ledger_journal:v1:${overrides.candidateId}`,
+    journalDiagnosticCodes: overrides.journalDiagnosticCodes ?? [],
     originalAmount: '1',
     ownerAccountId: 1,
     platformKey: overrides.platformKind === 'exchange' ? 'kraken' : 'ethereum',

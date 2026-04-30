@@ -1,3 +1,4 @@
+import { POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE } from '@exitbook/core';
 import { err, isFiat, normalizeIdentifierForMatching, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
@@ -24,6 +25,7 @@ export interface LedgerLinkingCandidateRemainder {
   direction: LedgerTransferLinkingCandidate['direction'];
   fromAddress: string | undefined;
   journalFingerprint: string;
+  journalDiagnosticCodes?: readonly string[] | undefined;
   originalAmount: string;
   ownerAccountId: number;
   platformKey: string;
@@ -94,6 +96,7 @@ export type LedgerLinkingDiagnosticClassification =
   | 'amount_time_ambiguous'
   | 'asset_identity_blocked'
   | 'same_account_roundtrip_candidate'
+  | 'processor_asset_migration_context'
   | 'external_transfer_evidence'
   | 'fiat_cash_movement'
   | 'likely_dust_airdrop'
@@ -254,6 +257,7 @@ function buildCandidateRemainders(
       direction: candidate.direction,
       fromAddress: candidate.fromAddress,
       journalFingerprint: candidate.journalFingerprint,
+      journalDiagnosticCodes: candidate.journalDiagnosticCodes ?? [],
       originalAmount: candidate.amount.toFixed(),
       ownerAccountId: candidate.ownerAccountId,
       platformKey: candidate.platformKey,
@@ -495,6 +499,11 @@ function applySingleCandidateClassifications(
   unmatchedCandidates: readonly CandidateRemainderWithDecimal[]
 ): void {
   for (const candidate of unmatchedCandidates) {
+    if (isProcessorAssetMigrationContextCandidate(candidate)) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'processor_asset_migration_context');
+      continue;
+    }
+
     if (isFiatCashMovementCandidate(candidate)) {
       addClassification(classificationsByCandidateId, candidate.candidateId, 'fiat_cash_movement');
     }
@@ -530,6 +539,10 @@ function applySingleCandidateClassifications(
       addClassification(classificationsByCandidateId, candidate.candidateId, 'external_transfer_evidence');
     }
   }
+}
+
+function isProcessorAssetMigrationContextCandidate(candidate: CandidateRemainderWithDecimal): boolean {
+  return (candidate.journalDiagnosticCodes ?? []).includes(POSSIBLE_ASSET_MIGRATION_DIAGNOSTIC_CODE);
 }
 
 function isFiatCashMovementCandidate(candidate: CandidateRemainderWithDecimal): boolean {

@@ -417,6 +417,7 @@ export class AccountingLedgerRepository extends BaseRepository {
           'source_activities.blockchain_transaction_hash as blockchain_transaction_hash',
           'source_activities.from_address as from_address',
           'source_activities.to_address as to_address',
+          'accounting_journals.id as journal_id',
           'accounting_journals.journal_fingerprint as journal_fingerprint',
           'accounting_journals.journal_kind as journal_kind',
           'accounting_postings.posting_fingerprint as posting_fingerprint',
@@ -433,18 +434,24 @@ export class AccountingLedgerRepository extends BaseRepository {
         .orderBy('accounting_postings.posting_fingerprint', 'asc')
         .execute();
 
+      const diagnosticCodesByJournalId = await this.findDiagnosticCodesByJournalId(rows.map((row) => row.journal_id));
+
       const postingInputs: LedgerLinkingPostingInput[] = [];
       for (const row of rows) {
         const assetSymbolResult = parseCurrency(row.asset_symbol);
         if (assetSymbolResult.isErr()) {
           return err(assetSymbolResult.error);
         }
+        const journalDiagnosticCodes = diagnosticCodesByJournalId.get(row.journal_id);
 
         postingInputs.push({
           ownerAccountId: row.owner_account_id,
           sourceActivityFingerprint: row.source_activity_fingerprint,
           journalFingerprint: row.journal_fingerprint,
           journalKind: row.journal_kind,
+          ...(journalDiagnosticCodes !== undefined && journalDiagnosticCodes.length > 0
+            ? { journalDiagnosticCodes }
+            : {}),
           postingFingerprint: row.posting_fingerprint,
           platformKey: row.platform_key,
           platformKind: row.platform_kind,
@@ -464,6 +471,30 @@ export class AccountingLedgerRepository extends BaseRepository {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  private async findDiagnosticCodesByJournalId(journalIds: readonly number[]): Promise<Map<number, string[]>> {
+    const uniqueJournalIds = [...new Set(journalIds)];
+    if (uniqueJournalIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .selectFrom('accounting_journal_diagnostics')
+      .select(['journal_id', 'diagnostic_code'])
+      .where('journal_id', 'in', uniqueJournalIds)
+      .orderBy('journal_id', 'asc')
+      .orderBy('diagnostic_order', 'asc')
+      .execute();
+
+    const codesByJournalId = new Map<number, string[]>();
+    for (const row of rows) {
+      const codes = codesByJournalId.get(row.journal_id) ?? [];
+      codes.push(row.diagnostic_code);
+      codesByJournalId.set(row.journal_id, codes);
+    }
+
+    return codesByJournalId;
   }
 
   private async replaceLedgerLinkingRelationshipsInTransaction(

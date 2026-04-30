@@ -13,6 +13,7 @@ export const LedgerLinkingGapReasonSchema = z.enum([
   'exchange_transfer_missing_hash',
   'external_transfer_evidence_unmatched',
   'missing_linking_evidence',
+  'processor_asset_migration_context',
   'unclassified_unmatched_transfer_candidate',
 ]);
 export type LedgerLinkingGapReason = z.infer<typeof LedgerLinkingGapReasonSchema>;
@@ -38,6 +39,7 @@ export const LedgerLinkingGapIssueSchema = z.object({
   fromAddress: z.string().min(1).optional(),
   gapReason: LedgerLinkingGapReasonSchema,
   journalFingerprint: z.string().min(1),
+  journalDiagnosticCodes: z.array(z.string().min(1)).optional(),
   originalAmount: z.string().min(1),
   ownerAccountId: z.number().int().positive(),
   platformKey: z.string().min(1),
@@ -136,6 +138,10 @@ function resolveLedgerLinkingGapReason(
     return 'bridge_or_migration_timing_mismatch';
   }
 
+  if (classifications.includes('processor_asset_migration_context')) {
+    return 'processor_asset_migration_context';
+  }
+
   if (classifications.includes('exchange_transfer_missing_hash')) {
     return 'exchange_transfer_missing_hash';
   }
@@ -165,6 +171,8 @@ function toLedgerLinkingGapIssue(
   gapReason: LedgerLinkingGapReason,
   timingCounterpart: LedgerLinkingGapCounterpart | undefined
 ): LedgerLinkingGapIssue {
+  const journalDiagnosticCodes = candidate.journalDiagnosticCodes ?? [];
+
   return {
     activityDatetime: candidate.activityDatetime,
     assetId: candidate.assetId,
@@ -179,6 +187,7 @@ function toLedgerLinkingGapIssue(
     ...(candidate.fromAddress !== undefined ? { fromAddress: candidate.fromAddress } : {}),
     gapReason,
     journalFingerprint: candidate.journalFingerprint,
+    ...(journalDiagnosticCodes.length > 0 ? { journalDiagnosticCodes: [...journalDiagnosticCodes] } : {}),
     originalAmount: candidate.originalAmount,
     ownerAccountId: candidate.ownerAccountId,
     platformKey: candidate.platformKey,
@@ -210,9 +219,11 @@ function ledgerLinkingGapReasonRank(reason: LedgerLinkingGapReason): number {
       return 1;
     case 'missing_linking_evidence':
       return 2;
-    case 'external_transfer_evidence_unmatched':
+    case 'processor_asset_migration_context':
       return 3;
-    case 'unclassified_unmatched_transfer_candidate':
+    case 'external_transfer_evidence_unmatched':
       return 4;
+    case 'unclassified_unmatched_transfer_candidate':
+      return 5;
   }
 }

@@ -12,6 +12,7 @@ export const LedgerLinkingPostingInputSchema = z.object({
   sourceActivityFingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
   journalFingerprint: z.string().min(1, 'Journal fingerprint must not be empty'),
   journalKind: AccountingJournalKindSchema,
+  journalDiagnosticCodes: z.array(z.string().min(1, 'Journal diagnostic code must not be empty')).optional(),
   postingFingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
   platformKey: z.string().min(1, 'Platform key must not be empty'),
   platformKind: PlatformKindSchema,
@@ -33,6 +34,7 @@ export interface LedgerTransferLinkingCandidate {
   ownerAccountId: number;
   sourceActivityFingerprint: string;
   journalFingerprint: string;
+  journalDiagnosticCodes?: readonly string[] | undefined;
   postingFingerprint: string;
   direction: 'source' | 'target';
   platformKey: string;
@@ -93,6 +95,7 @@ export function buildLedgerTransferLinkingCandidates(
       ownerAccountId: validatedPosting.ownerAccountId,
       sourceActivityFingerprint: validatedPosting.sourceActivityFingerprint,
       journalFingerprint: validatedPosting.journalFingerprint,
+      journalDiagnosticCodes: validatedPosting.journalDiagnosticCodes ?? [],
       postingFingerprint: validatedPosting.postingFingerprint,
       direction: validatedPosting.quantity.isNegative() ? 'source' : 'target',
       platformKey: validatedPosting.platformKey,

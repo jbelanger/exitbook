@@ -177,6 +177,7 @@ function makeRemainder(overrides: {
     direction: overrides.direction,
     fromAddress: undefined,
     journalFingerprint: `ledger_journal:v1:${overrides.candidateId}`,
+    journalDiagnosticCodes: [],
     originalAmount: '1',
     ownerAccountId: overrides.direction === 'source' ? 1 : 2,
     platformKey: overrides.direction === 'source' ? 'kraken' : 'ethereum',

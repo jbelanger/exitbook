@@ -334,6 +334,7 @@ function getLedgerLinkingGapSeverity(reason: LedgerLinkingGapReason): Accounting
       return 'blocked';
     case 'bridge_or_migration_timing_mismatch':
     case 'external_transfer_evidence_unmatched':
+    case 'processor_asset_migration_context':
     case 'unclassified_unmatched_transfer_candidate':
       return 'warning';
   }
@@ -353,6 +354,8 @@ function formatLedgerLinkingGapReason(reason: LedgerLinkingGapReason): string {
       return 'candidate has transfer hash or address evidence, but no accepted same-owner link';
     case 'missing_linking_evidence':
       return 'candidate has no hash or endpoint evidence for automatic linking';
+    case 'processor_asset_migration_context':
+      return 'processor diagnostics indicate asset migration or internal exchange movement context';
     case 'unclassified_unmatched_transfer_candidate':
       return 'candidate remains unmatched and needs classification';
   }
