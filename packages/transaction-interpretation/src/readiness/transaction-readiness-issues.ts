@@ -1,4 +1,4 @@
-import type { Transaction } from '@exitbook/core';
+import { getMovementRole, type Transaction } from '@exitbook/core';
 
 import type { TransactionAnnotation } from '../annotations/annotation-types.js';
 import { deriveOperationLabel } from '../labels/derive-operation-label.js';
@@ -21,7 +21,7 @@ function getAssertedTransactionAnnotations(
 }
 
 export function collectTransactionReadinessIssues(
-  transaction: Pick<Transaction, 'diagnostics' | 'operation'>,
+  transaction: Pick<Transaction, 'diagnostics' | 'movements' | 'operation'>,
   annotations: readonly TransactionAnnotation[] = []
 ): TransactionReadinessIssue[] {
   const issues: TransactionReadinessIssue[] = [];
@@ -30,7 +30,11 @@ export function collectTransactionReadinessIssues(
   const unknownClassificationDiagnostic = transaction.diagnostics?.find((diagnostic) =>
     UNKNOWN_CLASSIFICATION_DIAGNOSTIC_CODES.has(diagnostic.code)
   );
-  if (unknownClassificationDiagnostic !== undefined && derivedOperation.source !== 'annotation') {
+  if (
+    unknownClassificationDiagnostic !== undefined &&
+    derivedOperation.source !== 'annotation' &&
+    !hasOnlyRoleExplainedMovements(transaction)
+  ) {
     issues.push({
       code: 'unknown_classification',
       diagnosticCode: unknownClassificationDiagnostic.code,
@@ -50,4 +54,10 @@ export function collectTransactionReadinessIssues(
   }
 
   return issues;
+}
+
+function hasOnlyRoleExplainedMovements(transaction: Pick<Transaction, 'movements'>): boolean {
+  const movements = [...(transaction.movements.inflows ?? []), ...(transaction.movements.outflows ?? [])];
+
+  return movements.length > 0 && movements.every((movement) => getMovementRole(movement) !== 'principal');
 }

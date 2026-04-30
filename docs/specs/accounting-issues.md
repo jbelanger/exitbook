@@ -375,6 +375,14 @@ interface AccountingIssueScopeSummary {
   - `INCOMPLETE_TRANSFER_LINKING`
     map to `warning`
   - `FX_FALLBACK_USED` maps to `warning`
+- Classification readiness rule:
+  - `classification_uncertain` and `classification_failed` diagnostics produce
+    `UNKNOWN_TRANSACTION_CLASSIFICATION` only while the operation remains
+    unresolved.
+  - The operation is considered resolved when an asserted transaction annotation
+    supplies meaning, or when every non-fee movement is explicitly role-modeled
+    as non-principal, such as `staking_reward`, `protocol_overhead`, or
+    `refund_rebate`.
 - Evidence refs:
   - transaction refs when the readiness row is transaction-backed
   - no synthetic evidence refs when the issue is scope-backed only

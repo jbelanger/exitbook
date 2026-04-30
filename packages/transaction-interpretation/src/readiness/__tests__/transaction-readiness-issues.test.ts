@@ -94,6 +94,68 @@ describe('collectTransactionReadinessIssues', () => {
     ).toEqual([]);
   });
 
+  it('suppresses unknown classification when movement roles fully explain the residual', () => {
+    const transaction = makeTransaction({
+      diagnostics: [
+        {
+          code: 'classification_uncertain',
+          message: 'One-sided trade residual',
+          severity: 'info',
+        },
+      ],
+      movements: {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:fet',
+            assetSymbol: 'FET' as Currency,
+            grossAmount: parseDecimal('0.00000488'),
+            netAmount: parseDecimal('0.00000488'),
+            movementFingerprint: 'in-rebate',
+            movementRole: 'refund_rebate',
+          },
+        ],
+        outflows: [],
+      },
+      operation: { category: 'trade', type: 'buy' },
+    });
+
+    expect(collectTransactionReadinessIssues(transaction)).toEqual([]);
+  });
+
+  it('keeps unknown classification when any principal movement remains unexplained', () => {
+    const transaction = makeTransaction({
+      diagnostics: [
+        {
+          code: 'classification_uncertain',
+          message: 'Complex residual',
+          severity: 'warning',
+        },
+      ],
+      movements: {
+        inflows: [
+          {
+            assetId: 'exchange:kraken:fet',
+            assetSymbol: 'FET' as Currency,
+            grossAmount: parseDecimal('1'),
+            netAmount: parseDecimal('1'),
+            movementFingerprint: 'in-principal',
+            movementRole: 'principal',
+          },
+        ],
+        outflows: [],
+      },
+      operation: { category: 'trade', type: 'buy' },
+    });
+
+    expect(collectTransactionReadinessIssues(transaction)).toEqual([
+      {
+        code: 'unknown_classification',
+        diagnosticCode: 'classification_uncertain',
+        diagnosticMessage: 'Complex residual',
+      },
+    ]);
+  });
+
   it('reports allocation uncertainty independently from operation interpretation', () => {
     const transaction = makeTransaction({
       diagnostics: [
