@@ -914,9 +914,11 @@ Completed checkpoints:
 - exact-hash, strict same-hash grouped, quantity-aware same-hash residual, and
   strict counterparty roundtrip recognizers
 - strict exchange amount/time recognizer for cross-platform pairs with an
-  exchange side, source-before-target ordering, exact amount/symbol equality,
-  accepted asset identity assertion, a one-hour materialization window, and
-  broader amount/time uniqueness across the review window
+  exchange side, source-before-target ordering, exact symbol equality, accepted
+  asset identity assertion, a one-hour materialization window, and broader
+  amount/time uniqueness across the review window; amount matching accepts
+  exact equality or display-precision truncation to at least six decimal places
+  with explicit provenance
 - recognition provenance split from accounting relationship kind
 - asset identity assertions, suggestions, review view, and event-first accept
   path
@@ -946,22 +948,23 @@ Completed checkpoints:
 
 Active next slices:
 
-Current live corpus after the classification pass: `128` profile Issues remain
-open: `8` blocked asset-review-required items, `14` warning
-asset-review-required items, `6` blocked links-v2 hash-evidence gaps, and `100`
-links-v2 warnings. The links-v2 warnings split into `98` unmatched candidates
-with transfer hash/address evidence and `2` target-before-source bridge/migration
-timing clues. Diagnostics also identifies `41` fiat cash movements, `12` obvious
-spam/airdrop inflows, and `32` tiny native dust inflows that are intentionally
-not projected as transfer-gap issues. `assets list` currently shows `22`
-action-required assets; unmatched CoinGecko references are treated as asset
-review evidence, not direct linker truth.
+Current live corpus after the asset and precision-normalized linking pass:
+`104` profile Issues remain open: `4` blocked links-v2 hash-evidence gaps and
+`100` links-v2 warnings. Asset review has no action-required rows. Diagnostics
+still identifies fiat cash movements, obvious spam/airdrop inflows, and tiny
+native dust inflows that are intentionally not projected as transfer-gap issues.
+The 2024 CA average-cost cost-basis run now completes with no blocking issues;
+the remaining scoped cost-basis item is a warning for one Kraken dust sweep with
+uncertain proceeds allocation.
 
 1. Investigate the remaining blocked non-fiat exchange rows. The current live
-   corpus has six Kraken transfer rows without on-chain hashes: two `USDC -99`,
-   one `USDC -270.7758064`, one `LINK +48.21975374`, one
-   `RENDER +64.987572`, and one `RNDR -64.98757287`. Do not auto-link these
-   without processor/source evidence.
+   corpus has four Kraken transfer rows without enough linking evidence: two
+   `USDC -99`, one `RENDER +64.987572`, and one `RNDR -64.98757287`. Do not
+   auto-link these without processor/source evidence. The former
+   `LINK +48.21975374` and `USDC -270.7758064` blockers are resolved by the
+   precision-normalized strict exchange amount/time recognizer because local
+   evidence shows one-to-one source-before-target transfers where an exchange
+   truncated displayed precision.
 2. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
    current source-before-target rule.

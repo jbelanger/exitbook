@@ -14,9 +14,11 @@ export const LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY = 'strict_exch
 
 const MAX_STRICT_EXCHANGE_AMOUNT_TIME_SECONDS = 60 * 60;
 const AMOUNT_TIME_UNIQUENESS_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+const MIN_PRECISION_NORMALIZED_DECIMAL_PLACES = 6;
 
 export interface LedgerStrictExchangeAmountTimeTransferMatch {
   amount: string;
+  amountMatchKind: StrictExchangeAmountMatch['kind'];
   assetIdentityResolution: Extract<LedgerLinkingAssetIdentityResolution, { reason: 'accepted_assertion' }>;
   assetSymbol: LedgerTransferLinkingCandidate['assetSymbol'];
   relationship: LedgerLinkingRelationshipDraft;
@@ -46,6 +48,7 @@ export interface LedgerStrictExchangeAmountTimeTransferRelationshipResult {
 }
 
 interface StrictExchangeAmountTimePotentialPair {
+  amountMatch: StrictExchangeAmountMatch;
   assetIdentityResolution: Extract<LedgerLinkingAssetIdentityResolution, { reason: 'accepted_assertion' }>;
   source: LedgerTransferLinkingCandidate;
   target: LedgerTransferLinkingCandidate;
@@ -56,6 +59,22 @@ interface AmountTimeUniquenessPair {
   source: LedgerTransferLinkingCandidate;
   target: LedgerTransferLinkingCandidate;
 }
+
+interface ExactStrictExchangeAmountMatch {
+  amount: string;
+  kind: 'exact';
+}
+
+interface PrecisionTruncatedStrictExchangeAmountMatch {
+  amount: string;
+  amountDifference: string;
+  kind: 'precision_truncated';
+  normalizedDecimalPlaces: number;
+  sourceAmount: string;
+  targetAmount: string;
+}
+
+type StrictExchangeAmountMatch = ExactStrictExchangeAmountMatch | PrecisionTruncatedStrictExchangeAmountMatch;
 
 export function buildLedgerStrictExchangeAmountTimeTransferRelationships(
   candidates: readonly LedgerTransferLinkingCandidate[],
@@ -160,6 +179,11 @@ function buildPotentialStrictExchangeAmountTimePair(
     return ok(undefined);
   }
 
+  const amountMatch = getStrictExchangeAmountMatch(source, target);
+  if (amountMatch === undefined) {
+    return ok(undefined);
+  }
+
   const timeDistanceSecondsResult = getSourceBeforeTargetDistanceSeconds(source, target);
   if (timeDistanceSecondsResult.isErr()) {
     return err(timeDistanceSecondsResult.error);
@@ -177,6 +201,7 @@ function buildPotentialStrictExchangeAmountTimePair(
   }
 
   return ok({
+    amountMatch,
     assetIdentityResolution,
     source,
     target,
@@ -204,7 +229,7 @@ function hasStrictExchangeAmountTimeShape(
     return false;
   }
 
-  return source.amount.eq(target.amount);
+  return true;
 }
 
 function getSourceBeforeTargetDistanceSeconds(
@@ -270,7 +295,7 @@ function buildPotentialAmountTimeUniquenessPair(
     return ok(undefined);
   }
 
-  if (source.assetSymbol !== target.assetSymbol || !source.amount.eq(target.amount)) {
+  if (source.assetSymbol !== target.assetSymbol || getStrictExchangeAmountMatch(source, target) === undefined) {
     return ok(undefined);
   }
 
@@ -426,7 +451,8 @@ function buildStrictExchangeAmountTimeMatch(
   pair: StrictExchangeAmountTimePotentialPair
 ): LedgerStrictExchangeAmountTimeTransferMatch {
   return {
-    amount: pair.source.amount.toFixed(),
+    amount: pair.amountMatch.amount,
+    amountMatchKind: pair.amountMatch.kind,
     assetIdentityResolution: pair.assetIdentityResolution,
     assetSymbol: pair.source.assetSymbol,
     relationship: buildStrictExchangeAmountTimeRelationship(pair),
@@ -465,7 +491,7 @@ function buildStrictExchangeAmountTimeRelationship(
     ],
     confidenceScore: parseDecimal('1'),
     evidence: {
-      amount: pair.source.amount.toFixed(),
+      amount: pair.amountMatch.amount,
       assetIdentityEvidenceKind: pair.assetIdentityResolution.assertion.evidenceKind,
       assetIdentityReason: pair.assetIdentityResolution.reason,
       assetSymbol: pair.source.assetSymbol,
@@ -480,11 +506,80 @@ function buildStrictExchangeAmountTimeRelationship(
       targetPlatformKind: pair.target.platformKind,
       targetPostingFingerprint: pair.target.postingFingerprint,
       timeDistanceSeconds: pair.timeDistanceSeconds,
+      ...(pair.amountMatch.kind === 'precision_truncated'
+        ? {
+            amountDifference: pair.amountMatch.amountDifference,
+            amountMatchKind: pair.amountMatch.kind,
+            normalizedAmount: pair.amountMatch.amount,
+            normalizedDecimalPlaces: pair.amountMatch.normalizedDecimalPlaces,
+            sourceAmount: pair.amountMatch.sourceAmount,
+            targetAmount: pair.amountMatch.targetAmount,
+          }
+        : {}),
     },
     recognitionStrategy: LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY,
     relationshipStableKey: buildStrictExchangeAmountTimeRelationshipStableKey(pair),
     relationshipKind: 'internal_transfer',
   };
+}
+
+function getStrictExchangeAmountMatch(
+  source: LedgerTransferLinkingCandidate,
+  target: LedgerTransferLinkingCandidate
+): StrictExchangeAmountMatch | undefined {
+  if (source.amount.eq(target.amount)) {
+    return {
+      amount: source.amount.toFixed(),
+      kind: 'exact',
+    };
+  }
+
+  return getPrecisionTruncatedAmountMatch(source.amount.toFixed(), target.amount.toFixed());
+}
+
+function getPrecisionTruncatedAmountMatch(
+  sourceAmount: string,
+  targetAmount: string
+): PrecisionTruncatedStrictExchangeAmountMatch | undefined {
+  const normalizedDecimalPlaces = Math.min(countDecimalPlaces(sourceAmount), countDecimalPlaces(targetAmount));
+  if (normalizedDecimalPlaces < MIN_PRECISION_NORMALIZED_DECIMAL_PLACES) {
+    return undefined;
+  }
+
+  const normalizedSourceAmount = truncateDecimalString(sourceAmount, normalizedDecimalPlaces);
+  const normalizedTargetAmount = truncateDecimalString(targetAmount, normalizedDecimalPlaces);
+  if (normalizedSourceAmount !== normalizedTargetAmount) {
+    return undefined;
+  }
+
+  const amountDifference = parseDecimal(sourceAmount).minus(parseDecimal(targetAmount)).abs();
+  const precisionUnit = parseDecimal(`0.${'0'.repeat(normalizedDecimalPlaces - 1)}1`);
+  if (!amountDifference.gt(0) || !amountDifference.lt(precisionUnit)) {
+    return undefined;
+  }
+
+  return {
+    amount: normalizedSourceAmount,
+    amountDifference: amountDifference.toFixed(),
+    kind: 'precision_truncated',
+    normalizedDecimalPlaces,
+    sourceAmount,
+    targetAmount,
+  };
+}
+
+function countDecimalPlaces(amount: string): number {
+  const decimalPointIndex = amount.indexOf('.');
+  return decimalPointIndex === -1 ? 0 : amount.length - decimalPointIndex - 1;
+}
+
+function truncateDecimalString(amount: string, decimalPlaces: number): string {
+  if (decimalPlaces === 0) {
+    return amount.split('.')[0] ?? amount;
+  }
+
+  const [whole = '0', fraction = ''] = amount.split('.');
+  return `${whole}.${fraction.padEnd(decimalPlaces, '0').slice(0, decimalPlaces)}`;
 }
 
 function buildStrictExchangeAmountTimeRelationshipStableKey(pair: StrictExchangeAmountTimePotentialPair): string {

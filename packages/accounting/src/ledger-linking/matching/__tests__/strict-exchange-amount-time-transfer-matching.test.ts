@@ -116,6 +116,85 @@ describe('buildLedgerStrictExchangeAmountTimeTransferRelationships', () => {
     });
   });
 
+  it('accepts tiny display-precision truncation when the pair is otherwise strict', () => {
+    const assetIdentityResolver = assertOk(
+      buildLedgerLinkingAssetIdentityResolver([
+        {
+          assetIdA: 'exchange:kraken:usdc',
+          assetIdB: 'exchange:kucoin:usdc',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+
+    const result = assertOk(
+      buildLedgerStrictExchangeAmountTimeTransferRelationships(
+        [
+          makeCandidate({
+            amount: '270.7758064',
+            assetId: 'exchange:kraken:usdc',
+            assetSymbol: USDC,
+            candidateId: 1,
+            direction: 'source',
+            journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+            sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+          }),
+          makeCandidate({
+            activityDatetime: new Date('2026-04-23T00:04:00.000Z'),
+            amount: '270.775806',
+            assetId: 'exchange:kucoin:usdc',
+            assetSymbol: USDC,
+            candidateId: 2,
+            direction: 'target',
+            journalFingerprint: 'ledger_journal:v1:kucoin-deposit',
+            ownerAccountId: 2,
+            platformKey: 'kucoin',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:kucoin-deposit',
+            sourceActivityFingerprint: 'source_activity:v1:kucoin-deposit',
+          }),
+        ],
+        assetIdentityResolver
+      )
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      amount: '270.775806',
+      amountMatchKind: 'precision_truncated',
+      sourceCandidateId: 1,
+      targetCandidateId: 2,
+    });
+    expect(result.relationships[0]?.allocations).toEqual([
+      {
+        allocationSide: 'source',
+        journalFingerprint: 'ledger_journal:v1:kraken-withdrawal',
+        postingFingerprint: 'ledger_posting:v1:kraken-withdrawal',
+        quantity: parseDecimal('270.7758064'),
+        sourceActivityFingerprint: 'source_activity:v1:kraken-withdrawal',
+      },
+      {
+        allocationSide: 'target',
+        journalFingerprint: 'ledger_journal:v1:kucoin-deposit',
+        postingFingerprint: 'ledger_posting:v1:kucoin-deposit',
+        quantity: parseDecimal('270.775806'),
+        sourceActivityFingerprint: 'source_activity:v1:kucoin-deposit',
+      },
+    ]);
+    expect(result.relationships[0]?.evidence).toMatchObject({
+      amount: '270.775806',
+      amountDifference: '0.0000004',
+      amountMatchKind: 'precision_truncated',
+      normalizedAmount: '270.775806',
+      normalizedDecimalPlaces: 6,
+      sourceAmount: '270.7758064',
+      targetAmount: '270.775806',
+    });
+  });
+
   it('does not match loose amount/time shapes', () => {
     const assetIdentityResolver = assertOk(
       buildLedgerLinkingAssetIdentityResolver([
@@ -222,6 +301,51 @@ describe('buildLedgerStrictExchangeAmountTimeTransferRelationships', () => {
     expect(result.ambiguities).toEqual([]);
   });
 
+  it('does not treat low-precision amount differences as display truncation', () => {
+    const assetIdentityResolver = assertOk(
+      buildLedgerLinkingAssetIdentityResolver([
+        {
+          assetIdA: 'exchange:kraken:eth',
+          assetIdB: 'blockchain:ethereum:native',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+
+    const result = assertOk(
+      buildLedgerStrictExchangeAmountTimeTransferRelationships(
+        [
+          makeCandidate({
+            amount: '1.25',
+            assetId: 'exchange:kraken:eth',
+            candidateId: 1,
+            direction: 'source',
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:source',
+            sourceActivityFingerprint: 'source_activity:v1:source',
+          }),
+          makeCandidate({
+            activityDatetime: new Date('2026-04-23T00:30:00.000Z'),
+            amount: '1.2',
+            assetId: 'blockchain:ethereum:native',
+            candidateId: 2,
+            direction: 'target',
+            ownerAccountId: 2,
+            postingFingerprint: 'ledger_posting:v1:target',
+            sourceActivityFingerprint: 'source_activity:v1:target',
+          }),
+        ],
+        assetIdentityResolver
+      )
+    );
+
+    expect(result.matches).toEqual([]);
+    expect(result.relationships).toEqual([]);
+    expect(result.ambiguities).toEqual([]);
+  });
+
   it('leaves amount/time pairs unresolved when the counterpart is ambiguous', () => {
     const assetIdentityResolver = assertOk(
       buildLedgerLinkingAssetIdentityResolver([
@@ -261,6 +385,75 @@ describe('buildLedgerStrictExchangeAmountTimeTransferRelationships', () => {
             candidateId: 3,
             direction: 'target',
             ownerAccountId: 3,
+            postingFingerprint: 'ledger_posting:v1:second-target',
+            sourceActivityFingerprint: 'source_activity:v1:second-target',
+          }),
+        ],
+        assetIdentityResolver
+      )
+    );
+
+    expect(result.matches).toEqual([]);
+    expect(result.relationships).toEqual([]);
+    expect(result.ambiguities).toEqual([
+      {
+        candidateId: 1,
+        direction: 'source',
+        matchingCandidateIds: [2, 3],
+        reason: 'multiple_strict_exchange_amount_time_counterparts',
+      },
+    ]);
+  });
+
+  it('uses precision-truncated amount pairs when checking broader uniqueness', () => {
+    const assetIdentityResolver = assertOk(
+      buildLedgerLinkingAssetIdentityResolver([
+        {
+          assetIdA: 'exchange:kraken:usdc',
+          assetIdB: 'exchange:kucoin:usdc',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+
+    const result = assertOk(
+      buildLedgerStrictExchangeAmountTimeTransferRelationships(
+        [
+          makeCandidate({
+            amount: '270.7758064',
+            assetId: 'exchange:kraken:usdc',
+            assetSymbol: USDC,
+            candidateId: 1,
+            direction: 'source',
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:source',
+            sourceActivityFingerprint: 'source_activity:v1:source',
+          }),
+          makeCandidate({
+            activityDatetime: new Date('2026-04-23T00:04:00.000Z'),
+            amount: '270.775806',
+            assetId: 'exchange:kucoin:usdc',
+            assetSymbol: USDC,
+            candidateId: 2,
+            direction: 'target',
+            ownerAccountId: 2,
+            platformKey: 'kucoin',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:first-target',
+            sourceActivityFingerprint: 'source_activity:v1:first-target',
+          }),
+          makeCandidate({
+            activityDatetime: new Date('2026-04-23T00:45:00.000Z'),
+            amount: '270.775806',
+            assetId: 'exchange:kucoin:usdc',
+            assetSymbol: USDC,
+            candidateId: 3,
+            direction: 'target',
+            ownerAccountId: 3,
+            platformKey: 'kucoin',
+            platformKind: 'exchange',
             postingFingerprint: 'ledger_posting:v1:second-target',
             sourceActivityFingerprint: 'source_activity:v1:second-target',
           }),
