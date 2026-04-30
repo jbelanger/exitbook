@@ -940,6 +940,9 @@ Completed checkpoints:
 - profile Issues suppress ledger-linking-v2 transfer-gap rows for assets that
   already have an open asset-review blocker, so known scam or ambiguous assets
   stay owned by asset review first
+- ledger-linking-v2 transfer gaps whose asset still needs non-blocking asset
+  review, such as an unmatched CoinGecko reference, keep a visible Issue row but
+  route the first action to `assets` before `links-v2 diagnose`
 
 Active next slices:
 
@@ -949,7 +952,10 @@ open: `8` asset-review blockers, `6` blocked links-v2 hash-evidence gaps, and
 with transfer hash/address evidence and `2` target-before-source bridge/migration
 timing clues. Diagnostics also identifies `41` fiat cash movements, `12` obvious
 spam/airdrop inflows, and `32` tiny native dust inflows that are intentionally
-not projected as transfer-gap issues.
+not projected as transfer-gap issues. `assets list` currently shows `22`
+action-required assets; unmatched CoinGecko references are treated as asset
+review evidence, not direct linker truth. Four remaining v2 warning rows now
+route to asset review first: `FAM`, `JUP`, `NOODLE`, and `UNDG`.
 
 1. Investigate the remaining blocked non-fiat exchange rows. The current live
    corpus has six Kraken transfer rows without on-chain hashes: two `USDC -99`,

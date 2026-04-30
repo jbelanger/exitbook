@@ -206,6 +206,87 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['asset_review_blocker']);
   });
 
+  it('routes ledger-linking-v2 gaps through asset review when the asset has non-blocking review evidence', () => {
+    const reviewAssetId = 'blockchain:ethereum:0xunmatched';
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [
+        createLedgerLinkingGapIssue({
+          assetId: reviewAssetId,
+          assetSymbol: 'NOREF' as LedgerLinkingGapIssue['assetSymbol'],
+          gapReason: 'external_transfer_evidence_unmatched',
+          classifications: ['external_transfer_evidence'],
+        }),
+      ],
+      assetReviewSummaries: [
+        createAssetReviewSummary({
+          assetId: reviewAssetId,
+          accountingBlocked: false,
+          referenceStatus: 'unmatched',
+          warningSummary: "Provider 'coingecko' could not match this token to a canonical asset",
+          evidence: [
+            {
+              kind: 'unmatched-reference',
+              severity: 'warning',
+              message: "Provider 'coingecko' could not match this token to a canonical asset",
+              metadata: { provider: 'coingecko' },
+            },
+          ],
+        }),
+      ],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      openIssueCount: 1,
+      blockingIssueCount: 0,
+    });
+    expect(snapshot.issues[0]?.issue).toMatchObject({
+      family: 'transfer_gap',
+      severity: 'warning',
+      summary: 'NOREF outflow needs asset review before links-v2',
+    });
+    expect(snapshot.issues[0]?.issue.nextActions[0]).toMatchObject({
+      kind: 'review_asset',
+      label: 'Review in assets',
+      mode: 'routed',
+      routeTarget: {
+        family: 'assets',
+        selectorKind: 'asset-selector',
+        selectorValue: reviewAssetId,
+      },
+    });
+    expect(snapshot.issues[0]?.issue.details).toContain(
+      "Asset review should be resolved before linking: Provider 'coingecko' could not match this token to a canonical asset."
+    );
+    expect(snapshot.issues[0]?.issue.evidenceRefs).toContainEqual({
+      kind: 'asset',
+      selector: reviewAssetId,
+    });
+  });
+
+  it('does not surface ledger-linking-v2 gaps for excluded assets', () => {
+    const excludedAssetId = 'blockchain:ethereum:0xexcluded';
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [createLedgerLinkingGapIssue({ assetId: excludedAssetId })],
+      assetReviewSummaries: [],
+      excludedAssetIds: new Set<string>([excludedAssetId]),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope.status).toBe('ready');
+    expect(snapshot.scope.openIssueCount).toBe(0);
+    expect(snapshot.issues).toHaveLength(0);
+  });
+
   it('returns a ready scope when there are no current issues', () => {
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 7,

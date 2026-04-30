@@ -41,13 +41,23 @@ export function buildProfileAccountingIssueScopeSnapshot(
   const updatedAt = input.updatedAt ?? new Date();
   const normalizedAssetReviewSummaries = [...input.assetReviewSummaries]
     .map((summary) => applyAssetExclusionsToReviewSummary(summary, input.excludedAssetIds ?? new Set<string>()))
-    .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
-  const accountingBlockedAssetIds = new Set(normalizedAssetReviewSummaries.map((summary) => summary.assetId));
-  const transferGapIssues = buildProfileTransferGapAccountingIssues(input, accountingBlockedAssetIds);
+  const reviewSummariesByAssetId = new Map(
+    normalizedAssetReviewSummaries
+      .filter((summary) => !input.excludedAssetIds?.has(summary.assetId))
+      .map((summary) => [summary.assetId, summary])
+  );
+  const blockingAssetReviewSummaries = normalizedAssetReviewSummaries.filter(
+    (summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId)
+  );
+  const accountingBlockedAssetIds = new Set(blockingAssetReviewSummaries.map((summary) => summary.assetId));
+  const transferGapIssues = buildProfileTransferGapAccountingIssues(input, {
+    accountingBlockedAssetIds,
+    reviewSummariesByAssetId,
+  });
   const issues = [
     ...transferGapIssues,
-    ...normalizedAssetReviewSummaries.map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
+    ...blockingAssetReviewSummaries.map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
   ];
 
   const blockingIssueCount = issues.filter((issue) => issue.issue.severity === 'blocked').length;
@@ -70,12 +80,18 @@ export function buildProfileAccountingIssueScopeSnapshot(
 
 function buildProfileTransferGapAccountingIssues(
   input: BuildProfileAccountingIssueScopeSnapshotInput,
-  accountingBlockedAssetIds: ReadonlySet<string>
+  context: {
+    accountingBlockedAssetIds: ReadonlySet<string>;
+    reviewSummariesByAssetId: ReadonlyMap<string, AssetReviewSummary>;
+  }
 ): AccountingIssueScopeSnapshot['issues'] {
   if (input.ledgerLinkingGapIssues !== undefined) {
     return input.ledgerLinkingGapIssues
-      .filter((issue) => !accountingBlockedAssetIds.has(issue.assetId))
-      .map((issue) => buildLedgerLinkingGapAccountingIssue(input.scopeKey, issue));
+      .filter((issue) => !input.excludedAssetIds?.has(issue.assetId))
+      .filter((issue) => !context.accountingBlockedAssetIds.has(issue.assetId))
+      .map((issue) =>
+        buildLedgerLinkingGapAccountingIssue(input.scopeKey, issue, context.reviewSummariesByAssetId.get(issue.assetId))
+      );
   }
 
   return input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue));
@@ -83,7 +99,8 @@ function buildProfileTransferGapAccountingIssues(
 
 function buildLedgerLinkingGapAccountingIssue(
   scopeKey: string,
-  gapIssue: LedgerLinkingGapIssue
+  gapIssue: LedgerLinkingGapIssue,
+  assetReviewSummary: AssetReviewSummary | undefined
 ): AccountingIssueScopeSnapshot['issues'][number] {
   const issueKey = buildTransferGapIssueKey(buildLedgerLinkingGapIssueKey(gapIssue));
   const gapRef = buildLedgerLinkingGapRef(gapIssue);
@@ -96,12 +113,12 @@ function buildLedgerLinkingGapAccountingIssue(
     family: 'transfer_gap',
     code: 'LINK_GAP',
     severity: getLedgerLinkingGapSeverity(gapIssue.gapReason),
-    summary: buildLedgerLinkingGapSummary(gapIssue),
-    details: buildLedgerLinkingGapDetails(gapIssue),
+    summary: buildLedgerLinkingGapSummary(gapIssue, assetReviewSummary),
+    details: buildLedgerLinkingGapDetails(gapIssue, assetReviewSummary),
     whyThisMatters:
       'Unresolved ledger-linking candidates leave transfer accounting incomplete until they are linked, dismissed, or explained.',
-    evidenceRefs: buildLedgerLinkingGapEvidenceRefs(gapRef, gapIssue),
-    nextActions: buildLedgerLinkingGapNextActions(),
+    evidenceRefs: buildLedgerLinkingGapEvidenceRefs(gapRef, gapIssue, assetReviewSummary),
+    nextActions: buildLedgerLinkingGapNextActions(gapIssue, assetReviewSummary),
   };
 
   return {
@@ -259,11 +276,21 @@ function buildTransferGapNextActions(gapRef: string, transactionRef: string): Ac
   ];
 }
 
-function buildLedgerLinkingGapSummary(issue: LedgerLinkingGapIssue): string {
+function buildLedgerLinkingGapSummary(
+  issue: LedgerLinkingGapIssue,
+  assetReviewSummary: AssetReviewSummary | undefined
+): string {
+  if (requiresAssetReviewBeforeLinking(assetReviewSummary)) {
+    return `${issue.assetSymbol} ${formatLedgerLinkingDirection(issue.direction)} needs asset review before links-v2`;
+  }
+
   return `${issue.assetSymbol} ${formatLedgerLinkingDirection(issue.direction)} remains unresolved in links-v2`;
 }
 
-function buildLedgerLinkingGapDetails(issue: LedgerLinkingGapIssue): string {
+function buildLedgerLinkingGapDetails(
+  issue: LedgerLinkingGapIssue,
+  assetReviewSummary: AssetReviewSummary | undefined
+): string {
   const detailSegments = [
     `${issue.remainingAmount} ${issue.assetSymbol} remains unmatched on ${issue.platformKey}.`,
     `Reason: ${formatLedgerLinkingGapReason(issue.gapReason)}.`,
@@ -289,10 +316,20 @@ function buildLedgerLinkingGapDetails(issue: LedgerLinkingGapIssue): string {
     );
   }
 
+  if (requiresAssetReviewBeforeLinking(assetReviewSummary)) {
+    detailSegments.push(
+      `Asset review should be resolved before linking: ${formatAssetReviewSummary(assetReviewSummary)}.`
+    );
+  }
+
   return detailSegments.join(' ');
 }
 
-function buildLedgerLinkingGapEvidenceRefs(gapRef: string, issue: LedgerLinkingGapIssue): AccountingIssueEvidenceRef[] {
+function buildLedgerLinkingGapEvidenceRefs(
+  gapRef: string,
+  issue: LedgerLinkingGapIssue,
+  assetReviewSummary: AssetReviewSummary | undefined
+): AccountingIssueEvidenceRef[] {
   return [
     {
       kind: 'gap',
@@ -304,10 +341,44 @@ function buildLedgerLinkingGapEvidenceRefs(gapRef: string, issue: LedgerLinkingG
       postingFingerprint: issue.postingFingerprint,
       sourceActivityFingerprint: issue.sourceActivityFingerprint,
     },
+    ...(requiresAssetReviewBeforeLinking(assetReviewSummary)
+      ? [
+          {
+            kind: 'asset' as const,
+            selector: assetReviewSummary.assetId,
+          },
+        ]
+      : []),
   ];
 }
 
-function buildLedgerLinkingGapNextActions(): AccountingIssueNextAction[] {
+function buildLedgerLinkingGapNextActions(
+  issue: LedgerLinkingGapIssue,
+  assetReviewSummary: AssetReviewSummary | undefined
+): AccountingIssueNextAction[] {
+  if (requiresAssetReviewBeforeLinking(assetReviewSummary)) {
+    return [
+      {
+        kind: 'review_asset',
+        label: 'Review in assets',
+        mode: 'routed',
+        routeTarget: {
+          family: 'assets',
+          selectorKind: 'asset-selector',
+          selectorValue: issue.assetId,
+        },
+      },
+      {
+        kind: 'review_links_v2_diagnostics',
+        label: 'Review links-v2 diagnostics',
+        mode: 'review_only',
+        routeTarget: {
+          family: 'links-v2',
+        },
+      },
+    ];
+  }
+
   return [
     {
       kind: 'review_links_v2_diagnostics',
@@ -318,6 +389,22 @@ function buildLedgerLinkingGapNextActions(): AccountingIssueNextAction[] {
       },
     },
   ];
+}
+
+function requiresAssetReviewBeforeLinking(summary: AssetReviewSummary | undefined): summary is AssetReviewSummary {
+  return summary !== undefined && (summary.reviewStatus === 'needs-review' || summary.confirmationIsStale);
+}
+
+function formatAssetReviewSummary(summary: AssetReviewSummary): string {
+  if (summary.warningSummary !== undefined) {
+    return summary.warningSummary;
+  }
+
+  if (summary.referenceStatus === 'unmatched') {
+    return 'asset reference is unmatched';
+  }
+
+  return 'asset review is pending';
 }
 
 function getLedgerLinkingGapSeverity(reason: LedgerLinkingGapReason): AccountingIssueDetailItem['severity'] {

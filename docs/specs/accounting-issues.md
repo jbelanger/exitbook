@@ -267,6 +267,12 @@ interface AccountingIssueScopeSummary {
 - Ledger-linking-v2 blocked-asset rule: candidates for assets that already have
   an open `asset_review_blocker` issue do not create duplicate `transfer_gap`
   rows until the asset-review blocker is resolved.
+- Ledger-linking-v2 asset-review-first rule: candidates for assets with pending
+  non-blocking asset review evidence, such as an unmatched reference provider,
+  remain visible as `transfer_gap` warnings but route their primary action to
+  `assets` before `links-v2 diagnose`.
+- Ledger-linking-v2 excluded-asset rule: candidates for assets excluded from
+  accounting do not create `transfer_gap` issue rows.
 - Evidence refs:
   - for legacy movement-gap rows, one `gap` ref using `GAP-REF` and one
     `transaction` ref using `TX-REF`
