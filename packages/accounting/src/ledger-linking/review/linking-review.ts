@@ -7,20 +7,26 @@ import type {
   LedgerLinkingAmountTimeProposalUniqueness,
   LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
+import {
+  buildLedgerLinkingGapResolutionSuggestions,
+  type LedgerLinkingGapResolutionSuggestion,
+} from '../gaps/ledger-linking-gap-resolutions.js';
 
 const REVIEW_ID_HASH_LENGTH = 12;
 
-export type LedgerLinkingReviewItemKind = 'asset_identity_suggestion' | 'link_proposal';
+export type LedgerLinkingReviewItemKind = 'asset_identity_suggestion' | 'link_proposal' | 'gap_resolution';
 export type LedgerLinkingReviewEvidenceStrength = 'strong' | 'medium' | 'weak';
 export type LedgerLinkingReviewLinkProposalKind = 'amount_time';
 
 export interface LedgerLinkingReviewQueueBuildInput {
   assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
   diagnostics?: LedgerLinkingDiagnostics | undefined;
+  resolvedGapResolutionKeys?: ReadonlySet<string> | undefined;
 }
 
 export interface LedgerLinkingReviewQueue {
   assetIdentitySuggestionCount: number;
+  gapResolutionCount: number;
   itemCount: number;
   items: readonly LedgerLinkingReviewItem[];
   linkProposalCount: number;
@@ -28,6 +34,7 @@ export interface LedgerLinkingReviewQueue {
 
 export type LedgerLinkingReviewItem =
   | LedgerLinkingReviewAssetIdentitySuggestionItem
+  | LedgerLinkingReviewGapResolutionItem
   | LedgerLinkingReviewLinkProposalItem;
 
 export interface LedgerLinkingReviewAssetIdentitySuggestionItem {
@@ -46,15 +53,29 @@ export interface LedgerLinkingReviewLinkProposalItem {
   reviewId: string;
 }
 
+export interface LedgerLinkingReviewGapResolutionItem {
+  evidenceStrength: LedgerLinkingReviewEvidenceStrength;
+  kind: 'gap_resolution';
+  resolution: LedgerLinkingGapResolutionSuggestion;
+  reviewId: string;
+}
+
 export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBuildInput): LedgerLinkingReviewQueue {
   const assetIdentityItems = input.assetIdentitySuggestions.map(toAssetIdentityReviewItem);
   const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? [])
     .filter(hasActionableInternalTransferTiming)
     .map(toAmountTimeLinkProposalReviewItem);
-  const items = [...assetIdentityItems, ...linkProposalItems].sort(compareReviewItems);
+  const gapResolutionItems =
+    input.diagnostics === undefined
+      ? []
+      : buildLedgerLinkingGapResolutionSuggestions(input.diagnostics, {
+          resolvedGapResolutionKeys: input.resolvedGapResolutionKeys,
+        }).map(toGapResolutionReviewItem);
+  const items = [...assetIdentityItems, ...linkProposalItems, ...gapResolutionItems].sort(compareReviewItems);
 
   return {
     assetIdentitySuggestionCount: assetIdentityItems.length,
+    gapResolutionCount: gapResolutionItems.length,
     itemCount: items.length,
     items,
     linkProposalCount: linkProposalItems.length,
@@ -107,6 +128,24 @@ function toAmountTimeLinkProposalReviewItem(
   };
 }
 
+function toGapResolutionReviewItem(
+  resolution: LedgerLinkingGapResolutionSuggestion
+): LedgerLinkingReviewGapResolutionItem {
+  return {
+    evidenceStrength: resolveGapResolutionEvidenceStrength(resolution),
+    kind: 'gap_resolution',
+    resolution,
+    reviewId: buildReviewId('gr', [
+      'gap_resolution',
+      'v1',
+      resolution.resolutionKind,
+      resolution.candidate.postingFingerprint,
+      resolution.candidate.remainingAmount,
+      resolution.candidate.assetId,
+    ]),
+  };
+}
+
 function resolveAssetIdentityEvidenceStrength(
   suggestion: LedgerLinkingAssetIdentitySuggestion
 ): LedgerLinkingReviewEvidenceStrength {
@@ -114,6 +153,19 @@ function resolveAssetIdentityEvidenceStrength(
     case 'exact_hash_observed':
       return 'strong';
     case 'amount_time_observed':
+      return 'medium';
+  }
+}
+
+function resolveGapResolutionEvidenceStrength(
+  resolution: LedgerLinkingGapResolutionSuggestion
+): LedgerLinkingReviewEvidenceStrength {
+  switch (resolution.resolutionKind) {
+    case 'accepted_transfer_residual':
+    case 'fiat_cash_movement':
+    case 'likely_spam_airdrop':
+      return 'strong';
+    case 'likely_dust_airdrop':
       return 'medium';
   }
 }
@@ -143,6 +195,8 @@ function reviewItemKindRank(kind: LedgerLinkingReviewItemKind): number {
       return 0;
     case 'link_proposal':
       return 1;
+    case 'gap_resolution':
+      return 2;
   }
 }
 
@@ -171,6 +225,10 @@ function compareReviewItemDetails(left: LedgerLinkingReviewItem, right: LedgerLi
 
   if (left.kind === 'link_proposal' && right.kind === 'link_proposal') {
     return compareLinkProposalItems(left, right);
+  }
+
+  if (left.kind === 'gap_resolution' && right.kind === 'gap_resolution') {
+    return compareGapResolutionItems(left, right);
   }
 
   return 0;
@@ -203,6 +261,32 @@ function compareLinkProposalItems(
     left.proposal.source.candidateId - right.proposal.source.candidateId ||
     left.proposal.target.candidateId - right.proposal.target.candidateId
   );
+}
+
+function compareGapResolutionItems(
+  left: LedgerLinkingReviewGapResolutionItem,
+  right: LedgerLinkingReviewGapResolutionItem
+): number {
+  return (
+    gapResolutionKindRank(left.resolution.resolutionKind) - gapResolutionKindRank(right.resolution.resolutionKind) ||
+    left.resolution.candidate.assetSymbol.localeCompare(right.resolution.candidate.assetSymbol) ||
+    left.resolution.candidate.platformKey.localeCompare(right.resolution.candidate.platformKey) ||
+    left.resolution.candidate.activityDatetime.getTime() - right.resolution.candidate.activityDatetime.getTime() ||
+    left.resolution.candidate.postingFingerprint.localeCompare(right.resolution.candidate.postingFingerprint)
+  );
+}
+
+function gapResolutionKindRank(kind: LedgerLinkingGapResolutionSuggestion['resolutionKind']): number {
+  switch (kind) {
+    case 'accepted_transfer_residual':
+      return 0;
+    case 'fiat_cash_movement':
+      return 1;
+    case 'likely_spam_airdrop':
+      return 2;
+    case 'likely_dust_airdrop':
+      return 3;
+  }
 }
 
 function compareLinkProposalUniqueness(

@@ -986,6 +986,19 @@ Kraken dust sweep with uncertain proceeds allocation.
 4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
    linking behavior.
 
+Gap-resolution slice:
+
+1. Add ledger-native gap-resolution override events keyed by posting
+   fingerprint, not legacy transaction movement gap identity.
+2. Add `gap_resolution` items to `links-v2 review` for safe non-link classes:
+   fiat cash movement, likely spam airdrop, likely dust airdrop, and residuals
+   left after accepted partial transfer relationships.
+3. Accept gap resolutions through override events only.
+4. Suppress accepted ledger-linking-v2 gap resolutions from profile Issues
+   while keeping diagnostics available for audit context.
+5. Do not resolve ambiguous external transfers, related-profile evidence, or
+   processor migration context until their policy is explicit.
+
 Acceptance:
 
 - Linking-v2 has its own files and module boundary.

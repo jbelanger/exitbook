@@ -10,6 +10,7 @@ import type { IProfileAccountingIssueSourceReader } from '@exitbook/accounting/p
 import { err, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { DataSession } from '../data-session.js';
+import { readResolvedLedgerLinkingGapResolutionKeys } from '../overrides/index.js';
 import { OverrideStore } from '../overrides/override-store.js';
 
 import { buildLedgerLinkingRunPorts } from './ledger-linking-ports.js';
@@ -35,6 +36,10 @@ export function buildProfileAccountingIssueSourceReader(
           profile.profileId,
           ledgerLinkingRunPorts
         );
+        const resolvedGapResolutionKeys = yield* await readResolvedLedgerLinkingGapResolutionKeys(
+          overrideStore,
+          profile.profileKey
+        );
         const crossProfileDiagnostics =
           ledgerLinkingDiagnostics.unmatchedCandidates.length === 0
             ? []
@@ -49,6 +54,7 @@ export function buildProfileAccountingIssueSourceReader(
           assetReviewSummaries: linkGapSource.assetReviewSummaries ?? [],
           ledgerLinkingGapIssues: buildLedgerLinkingGapIssues(ledgerLinkingDiagnostics, {
             crossProfileCounterpartsByCandidateId,
+            resolvedGapResolutionKeys,
           }),
         };
       }),

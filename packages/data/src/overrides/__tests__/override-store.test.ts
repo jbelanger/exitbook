@@ -217,6 +217,40 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append a ledger-linking gap resolution accept event', async () => {
+      const payload = {
+        type: 'ledger_linking_gap_resolution_accept',
+        asset_id: 'exchange:coinbase:eth',
+        asset_symbol: 'ETH',
+        claimed_amount: '1.25',
+        direction: 'source',
+        journal_fingerprint: 'ledger_journal:v1:source',
+        original_amount: '1.26',
+        platform_key: 'coinbase',
+        platform_kind: 'exchange',
+        posting_fingerprint: 'ledger_posting:v1:source',
+        remaining_amount: '0.01',
+        resolution_kind: 'accepted_transfer_residual',
+        review_id: 'gr_test_1',
+        source_activity_fingerprint: 'source_activity:v1:source',
+      } satisfies CreateOverrideEventOptions['payload'];
+
+      const result = await appendOverride({
+        scope: 'ledger-linking-gap-resolution-accept',
+        payload,
+        reason: 'Accepted fee-adjusted source residual',
+      });
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const event = result.value;
+        expect(event.scope).toBe('ledger-linking-gap-resolution-accept');
+        expect(event.reason).toBe('Accepted fee-adjusted source residual');
+        expect(event.payload).toEqual(payload);
+      }
+    });
+
     it('should reject ledger-linking relationship events with non-positive quantity', async () => {
       const result = await appendOverride({
         scope: 'ledger-linking-relationship-accept',

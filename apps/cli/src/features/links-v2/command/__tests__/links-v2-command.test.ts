@@ -18,6 +18,7 @@ const {
   mockOutputSuccess,
   mockOverrideStoreAppend,
   mockOverrideStoreConstructor,
+  mockReadResolvedLedgerLinkingGapResolutionKeys,
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunLedgerLinking,
@@ -39,6 +40,7 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreAppend: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
+  mockReadResolvedLedgerLinkingGapResolutionKeys: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLedgerLinking: vi.fn(),
@@ -47,6 +49,8 @@ const {
 }));
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
+  buildLedgerLinkingGapResolutionKey: ({ postingFingerprint }: { postingFingerprint: string }) =>
+    `ledger_linking_v2:${postingFingerprint}`,
   buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
   buildReviewedLedgerLinkingRelationshipStableKey: () => 'ledger-linking:reviewed_amount_time:v1:test',
   canonicalizeLedgerLinkingAssetIdentityPair: (assetIdA: string, assetIdB: string) => {
@@ -83,6 +87,7 @@ vi.mock('@exitbook/data/overrides', () => ({
       append: mockOverrideStoreAppend,
     };
   }),
+  readResolvedLedgerLinkingGapResolutionKeys: mockReadResolvedLedgerLinkingGapResolutionKeys,
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -154,6 +159,7 @@ describe('links-v2 command', () => {
 
         return {
           assetIdentitySuggestionCount: assetIdentityItems.length,
+          gapResolutionCount: 0,
           itemCount: items.length,
           items,
           linkProposalCount: linkProposalItems.length,
@@ -215,6 +221,7 @@ describe('links-v2 command', () => {
     mockBuildLedgerLinkingRelationshipReader.mockReturnValue({
       loadLedgerLinkingRelationships: mockLoadLedgerLinkingRelationships,
     });
+    mockReadResolvedLedgerLinkingGapResolutionKeys.mockResolvedValue(ok(new Set<string>()));
     mockRunLedgerLinking.mockResolvedValue(
       ok({
         ...makeRunResult(),
@@ -325,10 +332,13 @@ describe('links-v2 command', () => {
     expect(mockBuildLedgerLinkingReviewQueue).toHaveBeenCalledWith({
       assetIdentitySuggestions: [assetIdentitySuggestion],
       diagnostics,
+      resolvedGapResolutionKeys: new Set<string>(),
     });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review queue.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Review items: 2 of 2 (1 asset identity suggestion, 1 link proposal)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Review items: 2 of 2 (1 asset identity suggestion, 1 link proposal, 0 gap resolutions)'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('  ai_test_1 asset_identity_suggestion internal_transfer ETH (strong)');
     expect(consoleLogSpy).toHaveBeenCalledWith('    assets: blockchain:ethereum:native <-> exchange:kraken:eth');
     expect(consoleLogSpy).toHaveBeenCalledWith('  lp_test_1 link_proposal amount_time unique_pair ETH 1 (medium)');
@@ -415,6 +425,39 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('  This records a durable reviewed relationship override.');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  Replay requires the exact source and target posting fingerprints and quantity to still resolve.'
+    );
+    expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
+  });
+
+  it('shows accept guidance for a gap resolution review item', async () => {
+    const program = createProgram();
+    const gapResolutionItem = makeGapResolutionReviewItem();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        diagnostics: makeDiagnostics(),
+      })
+    );
+    mockBuildLedgerLinkingReviewQueue.mockReturnValue({
+      assetIdentitySuggestionCount: 0,
+      gapResolutionCount: 1,
+      itemCount: 1,
+      items: [gapResolutionItem],
+      linkProposalCount: 0,
+    });
+
+    await program.parseAsync(['links-v2', 'review', 'view', 'gr_test_1'], {
+      from: 'user',
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review item.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Review id: gr_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Kind: gap_resolution');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Resolution: fiat cash movement');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Would accept: resolved non-link posting ledger_posting:v1:cad-deposit');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Accept command: exitbook links-v2 review accept gr_test_1');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  This records a durable gap-resolution override; it does not create a relationship.'
     );
     expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
   });
@@ -597,6 +640,51 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override accepted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationship stable key: ledger-linking:reviewed_amount_time:v1:test');
     expect(consoleLogSpy).toHaveBeenCalledWith('Materialized relationships: 1 saved, 0 replaced');
+  });
+
+  it('accepts gap resolutions from the links-v2 review queue as reviewed non-link overrides', async () => {
+    const program = createProgram();
+    const gapResolutionItem = makeGapResolutionReviewItem();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        diagnostics: makeDiagnostics(),
+      })
+    );
+    mockBuildLedgerLinkingReviewQueue.mockReturnValue({
+      assetIdentitySuggestionCount: 0,
+      gapResolutionCount: 1,
+      itemCount: 1,
+      items: [gapResolutionItem],
+      linkProposalCount: 0,
+    });
+
+    await program.parseAsync(['links-v2', 'review', 'accept', 'gr_test_1'], { from: 'user' });
+
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-gap-resolution-accept',
+      payload: {
+        asset_id: 'exchange:kraken:cad',
+        asset_symbol: 'CAD',
+        claimed_amount: '0',
+        direction: 'target',
+        journal_fingerprint: 'ledger_journal:v1:cad-deposit',
+        original_amount: '100',
+        platform_key: 'kraken',
+        platform_kind: 'exchange',
+        posting_fingerprint: 'ledger_posting:v1:cad-deposit',
+        remaining_amount: '100',
+        resolution_kind: 'fiat_cash_movement',
+        review_id: 'gr_test_1',
+        source_activity_fingerprint: 'source_activity:v1:cad-deposit',
+        type: 'ledger_linking_gap_resolution_accept',
+      },
+      reason: 'fiat cash movement',
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: gap resolution accepted');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Resolution key: ledger_linking_v2:ledger_posting:v1:cad-deposit');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Resolution: fiat cash movement');
   });
 
   it('lists persisted links-v2 relationships', async () => {
@@ -952,6 +1040,36 @@ function makeDiagnostics() {
       },
     ],
     unmatchedCandidates: [source, target],
+  };
+}
+
+function makeGapResolutionReviewItem() {
+  return {
+    evidenceStrength: 'strong',
+    kind: 'gap_resolution',
+    resolution: {
+      candidate: {
+        activityDatetime: new Date('2026-04-23T01:00:00.000Z'),
+        assetId: 'exchange:kraken:cad',
+        assetSymbol: 'CAD',
+        candidateId: 9,
+        claimedAmount: '0',
+        direction: 'target',
+        journalFingerprint: 'ledger_journal:v1:cad-deposit',
+        journalDiagnosticCodes: [],
+        originalAmount: '100',
+        ownerAccountId: 3,
+        platformKey: 'kraken',
+        platformKind: 'exchange',
+        postingFingerprint: 'ledger_posting:v1:cad-deposit',
+        remainingAmount: '100',
+        sourceActivityFingerprint: 'source_activity:v1:cad-deposit',
+      },
+      classifications: ['fiat_cash_movement'],
+      resolutionKey: 'ledger_linking_v2:ledger_posting:v1:cad-deposit',
+      resolutionKind: 'fiat_cash_movement',
+    },
+    reviewId: 'gr_test_1',
   };
 }
 

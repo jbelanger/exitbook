@@ -21,6 +21,7 @@ export const ScopeSchema = z.enum([
   'asset-review-clear',
   'ledger-linking-asset-identity-accept',
   'ledger-linking-relationship-accept',
+  'ledger-linking-gap-resolution-accept',
 ]);
 
 /**
@@ -271,9 +272,48 @@ export const LedgerLinkingRelationshipAcceptPayloadSchema = z.object({
   time_distance_seconds: z.number().finite().nonnegative(),
 });
 
+export const LedgerLinkingGapResolutionKindSchema = z.enum([
+  'accepted_transfer_residual',
+  'fiat_cash_movement',
+  'likely_dust_airdrop',
+  'likely_spam_airdrop',
+]);
+
+/**
+ * Ledger-linking unmatched posting intentionally resolved without creating a
+ * relationship.
+ *
+ * The payload is posting-native so replay fails closed when a reprocess changes
+ * ledger identity.
+ */
+export const LedgerLinkingGapResolutionAcceptPayloadSchema = z.object({
+  type: z.literal('ledger_linking_gap_resolution_accept'),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
+  asset_symbol: z.string().min(1, 'Asset symbol must not be empty'),
+  claimed_amount: z.string().min(1, 'Claimed amount must not be empty').refine(isNonNegativeDecimalString),
+  direction: z.enum(['source', 'target']),
+  journal_fingerprint: z.string().min(1, 'Journal fingerprint must not be empty'),
+  original_amount: z.string().min(1, 'Original amount must not be empty').refine(isPositiveDecimalString),
+  platform_key: z.string().min(1, 'Platform key must not be empty'),
+  platform_kind: z.enum(['exchange', 'blockchain']),
+  posting_fingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
+  remaining_amount: z.string().min(1, 'Remaining amount must not be empty').refine(isPositiveDecimalString),
+  resolution_kind: LedgerLinkingGapResolutionKindSchema,
+  review_id: z.string().min(1, 'Review ID must not be empty'),
+  source_activity_fingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
+});
+
 function isPositiveDecimalString(value: string): boolean {
   try {
     return new Decimal(value).gt(0);
+  } catch {
+    return false;
+  }
+}
+
+function isNonNegativeDecimalString(value: string): boolean {
+  try {
+    return new Decimal(value).gte(0);
   } catch {
     return false;
   }
@@ -297,6 +337,7 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   AssetReviewClearPayloadSchema,
   LedgerLinkingAssetIdentityAcceptPayloadSchema,
   LedgerLinkingRelationshipAcceptPayloadSchema,
+  LedgerLinkingGapResolutionAcceptPayloadSchema,
 ]);
 
 /**
@@ -318,6 +359,7 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   'asset-review-clear': 'asset_review_clear',
   'ledger-linking-asset-identity-accept': 'ledger_linking_asset_identity_accept',
   'ledger-linking-relationship-accept': 'ledger_linking_relationship_accept',
+  'ledger-linking-gap-resolution-accept': 'ledger_linking_gap_resolution_accept',
 };
 
 /**
@@ -368,6 +410,8 @@ export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayload
 export type AssetReviewClearPayload = z.infer<typeof AssetReviewClearPayloadSchema>;
 export type LedgerLinkingAssetIdentityAcceptPayload = z.infer<typeof LedgerLinkingAssetIdentityAcceptPayloadSchema>;
 export type LedgerLinkingRelationshipAcceptPayload = z.infer<typeof LedgerLinkingRelationshipAcceptPayloadSchema>;
+export type LedgerLinkingGapResolutionAcceptPayload = z.infer<typeof LedgerLinkingGapResolutionAcceptPayloadSchema>;
+export type LedgerLinkingGapResolutionKind = z.infer<typeof LedgerLinkingGapResolutionKindSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;
 

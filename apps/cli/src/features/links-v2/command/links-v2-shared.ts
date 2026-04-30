@@ -1,5 +1,6 @@
 import {
   buildLedgerLinkingReviewQueue,
+  buildLedgerLinkingGapResolutionKey,
   canonicalizeLedgerLinkingAssetIdentityPair,
   buildReviewedLedgerLinkingRelationshipStableKey,
   ledgerTransactionHashesMatch,
@@ -12,13 +13,21 @@ import {
   type LedgerLinkingReviewQueue,
   type LedgerLinkingRunResult,
 } from '@exitbook/accounting/ledger-linking';
-import type { LedgerLinkingRelationshipAcceptPayload, OverrideEvent } from '@exitbook/core';
+import type {
+  LedgerLinkingGapResolutionAcceptPayload,
+  LedgerLinkingRelationshipAcceptPayload,
+  OverrideEvent,
+} from '@exitbook/core';
 import {
   buildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore,
   buildLedgerLinkingRunPorts,
 } from '@exitbook/data/accounting';
-import { materializeStoredLedgerLinkingAssetIdentityAssertions, OverrideStore } from '@exitbook/data/overrides';
+import {
+  materializeStoredLedgerLinkingAssetIdentityAssertions,
+  OverrideStore,
+  readResolvedLedgerLinkingGapResolutionKeys,
+} from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 import type { z } from 'zod';
@@ -178,12 +187,21 @@ type LinksV2ReviewAcceptResult =
   | {
       kind: 'link_proposal';
       result: LinksV2LinkProposalAcceptResult;
+    }
+  | {
+      kind: 'gap_resolution';
+      result: LinksV2GapResolutionAcceptResult;
     };
 
 interface LinksV2LinkProposalAcceptResult {
   overrideEvent: OverrideEvent;
   relationshipStableKey: string;
   run: LedgerLinkingRunResult;
+}
+
+interface LinksV2GapResolutionAcceptResult {
+  overrideEvent: OverrideEvent;
+  resolutionKey: string;
 }
 
 interface LinksV2CommandProfile {
@@ -527,7 +545,14 @@ async function executePreparedLinksV2ReviewCommand(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
+    const resolvedGapResolutionKeys = yield* toCliResult(
+      await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
+      ExitCodes.GENERAL_ERROR
+    );
+    const reviewQueue = yield* toCliResult(
+      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      ExitCodes.GENERAL_ERROR
+    );
     const shownItems = reviewQueue.items.slice(0, prepared.limit);
     const output: LinksV2ReviewOutput = {
       profile: {
@@ -536,6 +561,7 @@ async function executePreparedLinksV2ReviewCommand(
       },
       reviewQueue: {
         assetIdentitySuggestionCount: reviewQueue.assetIdentitySuggestionCount,
+        gapResolutionCount: reviewQueue.gapResolutionCount,
         itemCount: reviewQueue.itemCount,
         items: shownItems,
         linkProposalCount: reviewQueue.linkProposalCount,
@@ -567,7 +593,14 @@ async function executePreparedLinksV2ReviewViewCommand(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
+    const resolvedGapResolutionKeys = yield* toCliResult(
+      await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
+      ExitCodes.GENERAL_ERROR
+    );
+    const reviewQueue = yield* toCliResult(
+      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      ExitCodes.GENERAL_ERROR
+    );
     const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
     const output: LinksV2ReviewViewOutput = {
       profile: {
@@ -601,30 +634,20 @@ async function executePreparedLinksV2ReviewAcceptCommand(
       }),
       ExitCodes.GENERAL_ERROR
     );
-    const reviewQueue = yield* toCliResult(buildLinksV2ReviewQueueFromRun(run), ExitCodes.GENERAL_ERROR);
+    const resolvedGapResolutionKeys = yield* toCliResult(
+      await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
+      ExitCodes.GENERAL_ERROR
+    );
+    const reviewQueue = yield* toCliResult(
+      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      ExitCodes.GENERAL_ERROR
+    );
     const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
 
-    const result =
-      reviewItem.kind === 'asset_identity_suggestion'
-        ? {
-            kind: 'asset_identity' as const,
-            result: yield* toCliResult(
-              await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
-                assetIdA: reviewItem.suggestion.assetIdA,
-                assetIdB: reviewItem.suggestion.assetIdB,
-                evidenceKind: reviewItem.suggestion.evidenceKind,
-                relationshipKind: reviewItem.suggestion.relationshipKind,
-              }),
-              ExitCodes.GENERAL_ERROR
-            ),
-          }
-        : {
-            kind: 'link_proposal' as const,
-            result: yield* toCliResult(
-              await acceptLinksV2LinkProposalOverride(ctx, database, profile, reviewItem),
-              ExitCodes.GENERAL_ERROR
-            ),
-          };
+    const result = yield* toCliResult(
+      await acceptLinksV2ReviewItem(ctx, database, profile, reviewItem),
+      ExitCodes.GENERAL_ERROR
+    );
     const output: LinksV2ReviewAcceptOutput = {
       profile: {
         id: profile.id,
@@ -715,6 +738,38 @@ async function acceptLinksV2AssetIdentityOverride(
   });
 }
 
+async function acceptLinksV2ReviewItem(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  reviewItem: LedgerLinkingReviewItem
+): Promise<Result<LinksV2ReviewAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    switch (reviewItem.kind) {
+      case 'asset_identity_suggestion':
+        return {
+          kind: 'asset_identity' as const,
+          result: yield* await acceptLinksV2AssetIdentityOverride(ctx, database, profile, {
+            assetIdA: reviewItem.suggestion.assetIdA,
+            assetIdB: reviewItem.suggestion.assetIdB,
+            evidenceKind: reviewItem.suggestion.evidenceKind,
+            relationshipKind: reviewItem.suggestion.relationshipKind,
+          }),
+        };
+      case 'link_proposal':
+        return {
+          kind: 'link_proposal' as const,
+          result: yield* await acceptLinksV2LinkProposalOverride(ctx, database, profile, reviewItem),
+        };
+      case 'gap_resolution':
+        return {
+          kind: 'gap_resolution' as const,
+          result: yield* await acceptLinksV2GapResolutionOverride(ctx, profile, reviewItem),
+        };
+    }
+  });
+}
+
 async function acceptLinksV2LinkProposalOverride(
   ctx: CommandRuntime,
   database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
@@ -771,6 +826,28 @@ async function acceptLinksV2LinkProposalOverride(
   });
 }
 
+async function acceptLinksV2GapResolutionOverride(
+  ctx: CommandRuntime,
+  profile: LinksV2CommandProfile,
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'gap_resolution' }>
+): Promise<Result<LinksV2GapResolutionAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const payload = buildLinksV2GapResolutionAcceptPayload(reviewItem);
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-gap-resolution-accept',
+      payload,
+      reason: formatGapResolutionKind(payload.resolution_kind),
+    });
+
+    return {
+      overrideEvent,
+      resolutionKey: buildLedgerLinkingGapResolutionKey(reviewItem.resolution.candidate),
+    };
+  });
+}
+
 function buildLinksV2RelationshipAcceptPayload(
   reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
 ): LedgerLinkingRelationshipAcceptPayload {
@@ -798,7 +875,41 @@ function buildLinksV2RelationshipAcceptPayload(
   };
 }
 
-function buildLinksV2ReviewQueueFromRun(run: LedgerLinkingRunResult): Result<LedgerLinkingReviewQueue, Error> {
+function buildLinksV2GapResolutionAcceptPayload(
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'gap_resolution' }>
+): LedgerLinkingGapResolutionAcceptPayload {
+  const { candidate, resolutionKind } = reviewItem.resolution;
+
+  return {
+    asset_id: candidate.assetId,
+    asset_symbol: candidate.assetSymbol,
+    claimed_amount: candidate.claimedAmount,
+    direction: candidate.direction,
+    journal_fingerprint: candidate.journalFingerprint,
+    original_amount: candidate.originalAmount,
+    platform_key: candidate.platformKey,
+    platform_kind: candidate.platformKind,
+    posting_fingerprint: candidate.postingFingerprint,
+    remaining_amount: candidate.remainingAmount,
+    resolution_kind: resolutionKind,
+    review_id: reviewItem.reviewId,
+    source_activity_fingerprint: candidate.sourceActivityFingerprint,
+    type: 'ledger_linking_gap_resolution_accept',
+  };
+}
+
+async function readLinksV2ResolvedGapResolutionKeys(
+  ctx: CommandRuntime,
+  profile: LinksV2CommandProfile
+): Promise<Result<Set<string>, Error>> {
+  const overrideStore = new OverrideStore(ctx.dataDir);
+  return readResolvedLedgerLinkingGapResolutionKeys(overrideStore, profile.profileKey);
+}
+
+function buildLinksV2ReviewQueueFromRun(
+  run: LedgerLinkingRunResult,
+  resolvedGapResolutionKeys?: ReadonlySet<string>  
+): Result<LedgerLinkingReviewQueue, Error> {
   if (run.diagnostics === undefined) {
     return err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner'));
   }
@@ -807,6 +918,7 @@ function buildLinksV2ReviewQueueFromRun(run: LedgerLinkingRunResult): Result<Led
     buildLedgerLinkingReviewQueue({
       assetIdentitySuggestions: run.assetIdentitySuggestions,
       diagnostics: run.diagnostics,
+      resolvedGapResolutionKeys,
     })
   );
 }
@@ -838,7 +950,7 @@ function renderLinksV2ReviewOutput(output: LinksV2ReviewOutput, config: LinksV2R
   console.log('Mode: dry run');
   console.log(`Profile: ${profile.profileKey} (#${profile.id})`);
   console.log(
-    `Review items: ${reviewQueue.shownItemCount} of ${reviewQueue.itemCount} (${formatPlural(reviewQueue.assetIdentitySuggestionCount, 'asset identity suggestion', 'asset identity suggestions')}, ${formatPlural(reviewQueue.linkProposalCount, 'link proposal', 'link proposals')})`
+    `Review items: ${reviewQueue.shownItemCount} of ${reviewQueue.itemCount} (${formatPlural(reviewQueue.assetIdentitySuggestionCount, 'asset identity suggestion', 'asset identity suggestions')}, ${formatPlural(reviewQueue.linkProposalCount, 'link proposal', 'link proposals')}, ${formatPlural(reviewQueue.gapResolutionCount, 'gap resolution', 'gap resolutions')})`
   );
 
   if (reviewQueue.itemCount === 0) {
@@ -867,7 +979,12 @@ function renderLinksV2ReviewViewOutput(output: LinksV2ReviewViewOutput, config: 
     return;
   }
 
-  renderLinksV2LinkProposalReviewDetail(reviewItem);
+  if (reviewItem.kind === 'link_proposal') {
+    renderLinksV2LinkProposalReviewDetail(reviewItem);
+    return;
+  }
+
+  renderLinksV2GapResolutionReviewDetail(reviewItem);
 }
 
 function renderLinksV2ReviewAcceptOutput(
@@ -897,15 +1014,27 @@ function renderLinksV2ReviewAcceptOutput(
     return;
   }
 
-  const { overrideEvent, relationshipStableKey, run } = output.result.result;
-  console.log(`Override event: ${overrideEvent.id}`);
-  console.log('Action: reviewed link override accepted');
-  console.log(`Relationship stable key: ${relationshipStableKey}`);
-  if (run.persistence.mode === 'persisted') {
-    console.log(
-      `Materialized relationships: ${run.persistence.materialization.savedCount} saved, ${run.persistence.materialization.previousCount} replaced`
-    );
+  if (output.result.kind === 'link_proposal') {
+    const { overrideEvent, relationshipStableKey, run } = output.result.result;
+    console.log(`Override event: ${overrideEvent.id}`);
+    console.log('Action: reviewed link override accepted');
+    console.log(`Relationship stable key: ${relationshipStableKey}`);
+    if (run.persistence.mode === 'persisted') {
+      console.log(
+        `Materialized relationships: ${run.persistence.materialization.savedCount} saved, ${run.persistence.materialization.previousCount} replaced`
+      );
+    }
+    return;
   }
+
+  const { overrideEvent, resolutionKey } = output.result.result;
+  if (output.reviewItem.kind !== 'gap_resolution') {
+    throw new Error(`Expected gap resolution review item for accepted result ${output.reviewId}`);
+  }
+  console.log(`Override event: ${overrideEvent.id}`);
+  console.log('Action: gap resolution accepted');
+  console.log(`Resolution key: ${resolutionKey}`);
+  console.log(`Resolution: ${formatGapResolutionKind(output.reviewItem.resolution.resolutionKind)}`);
 }
 
 function renderLinksV2AssetIdentityReviewDetail(
@@ -960,6 +1089,27 @@ function renderLinksV2LinkProposalReviewDetail(
   console.log('  Replay requires the exact source and target posting fingerprints and quantity to still resolve.');
 }
 
+function renderLinksV2GapResolutionReviewDetail(
+  item: Extract<LedgerLinkingReviewItem, { kind: 'gap_resolution' }>
+): void {
+  const { candidate, classifications, resolutionKind } = item.resolution;
+
+  console.log(`Resolution: ${formatGapResolutionKind(resolutionKind)}`);
+  console.log(`Asset: ${candidate.remainingAmount} ${candidate.assetSymbol}`);
+  console.log(`Direction: ${formatCandidateDirection(candidate.direction)}`);
+  console.log(`Platform: ${candidate.platformKey} (${candidate.platformKind})`);
+  console.log(`Activity: ${formatDate(candidate.activityDatetime)}`);
+  console.log(`Posting: ${candidate.postingFingerprint}`);
+  console.log(`Original amount: ${candidate.originalAmount}`);
+  console.log(`Already linked amount: ${candidate.claimedAmount}`);
+  console.log(`Classifications: ${classifications.join(', ')}`);
+  console.log(`Would accept: resolved non-link posting ${candidate.postingFingerprint}`);
+  console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
+  console.log('Decision help:');
+  console.log('  This records a durable gap-resolution override; it does not create a relationship.');
+  console.log('  Accept only when this posting should intentionally remain unlinked.');
+}
+
 function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {
   switch (item.kind) {
     case 'asset_identity_suggestion':
@@ -967,6 +1117,9 @@ function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {
       return;
     case 'link_proposal':
       renderLinksV2LinkProposalReviewItem(item);
+      return;
+    case 'gap_resolution':
+      renderLinksV2GapResolutionReviewItem(item);
       return;
   }
 }
@@ -1002,6 +1155,22 @@ function renderLinksV2LinkProposalReviewItem(item: Extract<LedgerLinkingReviewIt
   );
   console.log(
     `    evidence: time ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}, ${formatAssetIdentityReason(proposal.assetIdentityReason)}`
+  );
+}
+
+function renderLinksV2GapResolutionReviewItem(
+  item: Extract<LedgerLinkingReviewItem, { kind: 'gap_resolution' }>
+): void {
+  const { candidate, resolutionKind } = item.resolution;
+
+  console.log(
+    `  ${item.reviewId} gap_resolution ${formatGapResolutionKind(resolutionKind)} ${candidate.assetSymbol} ${candidate.remainingAmount} (${item.evidenceStrength})`
+  );
+  console.log(
+    `    posting: ${candidate.platformKey} #${candidate.candidateId} ${formatDate(candidate.activityDatetime)} ${shortenValue(candidate.postingFingerprint)}`
+  );
+  console.log(
+    `    evidence: ${formatCandidateDirection(candidate.direction)}, original ${candidate.originalAmount}, linked ${candidate.claimedAmount}`
   );
 }
 
@@ -1235,6 +1404,23 @@ function formatDate(date: Date): string {
 
 function formatPlural(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatCandidateDirection(direction: 'source' | 'target'): string {
+  return direction === 'source' ? 'outflow' : 'inflow';
+}
+
+function formatGapResolutionKind(kind: LedgerLinkingGapResolutionAcceptPayload['resolution_kind']): string {
+  switch (kind) {
+    case 'accepted_transfer_residual':
+      return 'accepted transfer residual';
+    case 'fiat_cash_movement':
+      return 'fiat cash movement';
+    case 'likely_dust_airdrop':
+      return 'likely dust airdrop';
+    case 'likely_spam_airdrop':
+      return 'likely spam airdrop';
+  }
 }
 
 function formatAssetIdentitySuggestionExample(

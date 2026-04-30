@@ -8,6 +8,8 @@ import {
   type LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
 
+import { buildLedgerLinkingGapResolutionKey } from './ledger-linking-gap-resolutions.js';
+
 export const LedgerLinkingGapReasonSchema = z.enum([
   'bridge_or_migration_timing_mismatch',
   'exchange_transfer_missing_hash',
@@ -72,6 +74,7 @@ export interface LedgerLinkingGapIssueBuildOptions {
   crossProfileCounterpartsByCandidateId?:
     | ReadonlyMap<number, readonly LedgerLinkingGapCrossProfileCounterpart[]>
     | undefined;
+  resolvedGapResolutionKeys?: ReadonlySet<string> | undefined;
 }
 
 interface CandidateClassificationIndex {
@@ -91,6 +94,10 @@ export function buildLedgerLinkingGapIssues(
       const candidateIndex = index.get(candidate.candidateId);
       const classifications = candidateIndex?.classifications ?? ['unclassified'];
       if (isNonLinkWorkCandidate(classifications)) {
+        return [];
+      }
+
+      if (options.resolvedGapResolutionKeys?.has(buildLedgerLinkingGapResolutionKey(candidate))) {
         return [];
       }
 

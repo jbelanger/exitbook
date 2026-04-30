@@ -66,6 +66,12 @@ export {
   type LedgerLinkingGapReason,
 } from './ledger-linking/gaps/ledger-linking-gap-issues.js';
 export {
+  buildLedgerLinkingGapResolutionKey,
+  buildLedgerLinkingGapResolutionSuggestions,
+  type LedgerLinkingGapResolutionSuggestion,
+  type LedgerLinkingGapResolutionSuggestionOptions,
+} from './ledger-linking/gaps/ledger-linking-gap-resolutions.js';
+export {
   buildLedgerCounterpartyRoundtripRecognizer,
   buildLedgerCounterpartyRoundtripRelationships,
   LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY,
@@ -140,6 +146,7 @@ export {
   buildLedgerLinkingReviewQueue,
   type LedgerLinkingReviewAssetIdentitySuggestionItem,
   type LedgerLinkingReviewEvidenceStrength,
+  type LedgerLinkingReviewGapResolutionItem,
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewItemKind,
   type LedgerLinkingReviewLinkProposalItem,

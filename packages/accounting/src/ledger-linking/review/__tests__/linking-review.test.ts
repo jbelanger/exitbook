@@ -21,6 +21,7 @@ describe('buildLedgerLinkingReviewQueue', () => {
 
     expect(queue.itemCount).toBe(2);
     expect(queue.assetIdentitySuggestionCount).toBe(1);
+    expect(queue.gapResolutionCount).toBe(0);
     expect(queue.linkProposalCount).toBe(1);
     expect(queue.items.map((item) => item.kind)).toEqual(['asset_identity_suggestion', 'link_proposal']);
 
@@ -96,8 +97,57 @@ describe('buildLedgerLinkingReviewQueue', () => {
     });
 
     expect(queue.itemCount).toBe(0);
+    expect(queue.gapResolutionCount).toBe(0);
     expect(queue.linkProposalCount).toBe(0);
     expect(queue.items).toEqual([]);
+  });
+
+  it('adds safe gap resolution review items and filters already accepted resolution keys', () => {
+    const residual = makeRemainder({
+      candidateId: 21,
+      direction: 'source',
+      postingFingerprint: 'ledger_posting:v1:residual',
+      claimedAmount: '1.25',
+      remainingAmount: '0.01',
+    });
+    const spam = makeRemainder({
+      candidateId: 22,
+      direction: 'target',
+      postingFingerprint: 'ledger_posting:v1:spam',
+    });
+    const queue = buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: [],
+      diagnostics: makeDiagnostics([], {
+        candidateClassifications: [
+          {
+            candidateId: 21,
+            classifications: ['external_transfer_evidence'],
+            direction: 'source',
+            platformKey: 'kraken',
+          },
+          {
+            candidateId: 22,
+            classifications: ['likely_spam_airdrop'],
+            direction: 'target',
+            platformKey: 'ethereum',
+          },
+        ],
+        unmatchedCandidates: [residual, spam],
+      }),
+      resolvedGapResolutionKeys: new Set(['ledger_linking_v2:ledger_posting:v1:spam']),
+    });
+
+    expect(queue.itemCount).toBe(1);
+    expect(queue.gapResolutionCount).toBe(1);
+    expect(queue.items[0]).toMatchObject({
+      evidenceStrength: 'strong',
+      kind: 'gap_resolution',
+      resolution: {
+        resolutionKind: 'accepted_transfer_residual',
+        resolutionKey: 'ledger_linking_v2:ledger_posting:v1:residual',
+      },
+    });
+    expect(queue.items[0]?.reviewId).toMatch(/^gr_[a-f0-9]{12}$/);
   });
 });
 
@@ -122,7 +172,10 @@ function makeAssetIdentitySuggestion(
   };
 }
 
-function makeDiagnostics(proposals: readonly LedgerLinkingAmountTimeProposal[]): LedgerLinkingDiagnostics {
+function makeDiagnostics(
+  proposals: readonly LedgerLinkingAmountTimeProposal[],
+  overrides: Partial<Pick<LedgerLinkingDiagnostics, 'candidateClassifications' | 'unmatchedCandidates'>> = {}
+): LedgerLinkingDiagnostics {
   return {
     assetIdentityBlockerProposalCount: 0,
     assetIdentityBlockerProposals: [],
@@ -132,9 +185,9 @@ function makeDiagnostics(proposals: readonly LedgerLinkingAmountTimeProposal[]):
     amountTimeUniqueProposalCount: proposals.filter((proposal) => proposal.uniqueness === 'unique_pair').length,
     amountTimeWindowMinutes: 1440,
     candidateClassificationGroups: [],
-    candidateClassifications: [],
+    candidateClassifications: overrides.candidateClassifications ?? [],
     unmatchedCandidateGroups: [],
-    unmatchedCandidates: [],
+    unmatchedCandidates: overrides.unmatchedCandidates ?? [],
   };
 }
 
@@ -164,8 +217,10 @@ function makeAmountTimeProposal(
 
 function makeRemainder(overrides: {
   candidateId: number;
+  claimedAmount?: string | undefined;
   direction: 'source' | 'target';
   postingFingerprint: string;
+  remainingAmount?: string | undefined;
 }): LedgerLinkingCandidateRemainder {
   return {
     activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
@@ -173,7 +228,7 @@ function makeRemainder(overrides: {
     assetSymbol: ETH,
     blockchainTransactionHash: undefined,
     candidateId: overrides.candidateId,
-    claimedAmount: '0',
+    claimedAmount: overrides.claimedAmount ?? '0',
     direction: overrides.direction,
     fromAddress: undefined,
     journalFingerprint: `ledger_journal:v1:${overrides.candidateId}`,
@@ -183,7 +238,7 @@ function makeRemainder(overrides: {
     platformKey: overrides.direction === 'source' ? 'kraken' : 'ethereum',
     platformKind: overrides.direction === 'source' ? 'exchange' : 'blockchain',
     postingFingerprint: overrides.postingFingerprint,
-    remainingAmount: '1',
+    remainingAmount: overrides.remainingAmount ?? '1',
     sourceActivityFingerprint: `source_activity:v1:${overrides.candidateId}`,
     toAddress: undefined,
   };

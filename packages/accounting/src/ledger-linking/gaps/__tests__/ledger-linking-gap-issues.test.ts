@@ -191,6 +191,44 @@ describe('buildLedgerLinkingGapIssues', () => {
     expect(issues[0]?.gapReason).toBe('external_transfer_evidence_unmatched');
   });
 
+  it('omits candidates with accepted ledger-linking gap resolutions', () => {
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [
+          makeCandidate({
+            candidateId: 11,
+            direction: 'source',
+            postingFingerprint: 'ledger_posting:v1:resolved',
+          }),
+          makeCandidate({
+            candidateId: 12,
+            direction: 'source',
+            postingFingerprint: 'ledger_posting:v1:open',
+          }),
+        ],
+        classifications: [
+          {
+            candidateId: 11,
+            classifications: ['external_transfer_evidence'],
+            direction: 'source',
+            platformKey: 'ethereum',
+          },
+          {
+            candidateId: 12,
+            classifications: ['external_transfer_evidence'],
+            direction: 'source',
+            platformKey: 'ethereum',
+          },
+        ],
+      }),
+      {
+        resolvedGapResolutionKeys: new Set(['ledger_linking_v2:ledger_posting:v1:resolved']),
+      }
+    );
+
+    expect(issues.map((issue) => issue.postingFingerprint)).toEqual(['ledger_posting:v1:open']);
+  });
+
   it('surfaces processor-marked asset migration context as a warning gap reason', () => {
     const issues = buildLedgerLinkingGapIssues(
       makeDiagnostics({

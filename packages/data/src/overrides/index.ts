@@ -10,6 +10,12 @@ export {
   replayLedgerLinkingRelationshipOverrides,
 } from './ledger-linking-relationship-replay.js';
 export {
+  readResolvedLedgerLinkingGapResolutionKeys,
+  readResolvedLedgerLinkingGapResolutions,
+  replayResolvedLedgerLinkingGapResolutions,
+  type ResolvedLedgerLinkingGapResolution,
+} from './ledger-linking-gap-resolution-replay.js';
+export {
   readResolvedLinkGapExceptions,
   readResolvedLinkGapIssueKeys,
   replayResolvedLinkGapExceptions,
