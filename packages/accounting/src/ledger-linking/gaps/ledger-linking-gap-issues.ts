@@ -11,7 +11,7 @@ import {
 export const LedgerLinkingGapReasonSchema = z.enum([
   'bridge_or_migration_timing_mismatch',
   'exchange_transfer_missing_hash',
-  'likely_spam_airdrop',
+  'external_transfer_evidence_unmatched',
   'missing_linking_evidence',
   'unclassified_unmatched_transfer_candidate',
 ]);
@@ -59,12 +59,16 @@ export function buildLedgerLinkingGapIssues(diagnostics: LedgerLinkingDiagnostic
   const index = buildCandidateClassificationIndex(diagnostics);
 
   return diagnostics.unmatchedCandidates
-    .map((candidate) => {
+    .flatMap((candidate) => {
       const candidateIndex = index.get(candidate.candidateId);
       const classifications = candidateIndex?.classifications ?? ['unclassified'];
+      if (isNonLinkWorkCandidate(classifications)) {
+        return [];
+      }
+
       const gapReason = resolveLedgerLinkingGapReason(classifications, candidateIndex?.timingCounterpart);
 
-      return toLedgerLinkingGapIssue(candidate, classifications, gapReason, candidateIndex?.timingCounterpart);
+      return [toLedgerLinkingGapIssue(candidate, classifications, gapReason, candidateIndex?.timingCounterpart)];
     })
     .sort(compareLedgerLinkingGapIssues);
 }
@@ -132,10 +136,6 @@ function resolveLedgerLinkingGapReason(
     return 'bridge_or_migration_timing_mismatch';
   }
 
-  if (classifications.includes('likely_spam_airdrop')) {
-    return 'likely_spam_airdrop';
-  }
-
   if (classifications.includes('exchange_transfer_missing_hash')) {
     return 'exchange_transfer_missing_hash';
   }
@@ -144,7 +144,19 @@ function resolveLedgerLinkingGapReason(
     return 'missing_linking_evidence';
   }
 
+  if (classifications.includes('external_transfer_evidence')) {
+    return 'external_transfer_evidence_unmatched';
+  }
+
   return 'unclassified_unmatched_transfer_candidate';
+}
+
+function isNonLinkWorkCandidate(classifications: readonly LedgerLinkingDiagnosticClassification[]): boolean {
+  return (
+    classifications.includes('fiat_cash_movement') ||
+    classifications.includes('likely_dust_airdrop') ||
+    classifications.includes('likely_spam_airdrop')
+  );
 }
 
 function toLedgerLinkingGapIssue(
@@ -198,7 +210,7 @@ function ledgerLinkingGapReasonRank(reason: LedgerLinkingGapReason): number {
       return 1;
     case 'missing_linking_evidence':
       return 2;
-    case 'likely_spam_airdrop':
+    case 'external_transfer_evidence_unmatched':
       return 3;
     case 'unclassified_unmatched_transfer_candidate':
       return 4;

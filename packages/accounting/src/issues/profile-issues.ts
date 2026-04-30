@@ -43,7 +43,8 @@ export function buildProfileAccountingIssueScopeSnapshot(
     .map((summary) => applyAssetExclusionsToReviewSummary(summary, input.excludedAssetIds ?? new Set<string>()))
     .filter((summary) => summary.accountingBlocked && !input.excludedAssetIds?.has(summary.assetId))
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
-  const transferGapIssues = buildProfileTransferGapAccountingIssues(input);
+  const accountingBlockedAssetIds = new Set(normalizedAssetReviewSummaries.map((summary) => summary.assetId));
+  const transferGapIssues = buildProfileTransferGapAccountingIssues(input, accountingBlockedAssetIds);
   const issues = [
     ...transferGapIssues,
     ...normalizedAssetReviewSummaries.map((summary) => buildAssetReviewAccountingIssue(input.scopeKey, summary)),
@@ -68,10 +69,13 @@ export function buildProfileAccountingIssueScopeSnapshot(
 }
 
 function buildProfileTransferGapAccountingIssues(
-  input: BuildProfileAccountingIssueScopeSnapshotInput
+  input: BuildProfileAccountingIssueScopeSnapshotInput,
+  accountingBlockedAssetIds: ReadonlySet<string>
 ): AccountingIssueScopeSnapshot['issues'] {
   if (input.ledgerLinkingGapIssues !== undefined) {
-    return input.ledgerLinkingGapIssues.map((issue) => buildLedgerLinkingGapAccountingIssue(input.scopeKey, issue));
+    return input.ledgerLinkingGapIssues
+      .filter((issue) => !accountingBlockedAssetIds.has(issue.assetId))
+      .map((issue) => buildLedgerLinkingGapAccountingIssue(input.scopeKey, issue));
   }
 
   return input.linkGapIssues.map((issue) => buildTransferGapAccountingIssue(input.scopeKey, issue));
@@ -322,7 +326,7 @@ function getLedgerLinkingGapSeverity(reason: LedgerLinkingGapReason): Accounting
     case 'missing_linking_evidence':
       return 'blocked';
     case 'bridge_or_migration_timing_mismatch':
-    case 'likely_spam_airdrop':
+    case 'external_transfer_evidence_unmatched':
     case 'unclassified_unmatched_transfer_candidate':
       return 'warning';
   }
@@ -338,8 +342,8 @@ function formatLedgerLinkingGapReason(reason: LedgerLinkingGapReason): string {
       return 'timing suggests bridge or migration context, but not an acceptable normal transfer link';
     case 'exchange_transfer_missing_hash':
       return 'exchange-side transfer evidence is missing an on-chain transaction hash';
-    case 'likely_spam_airdrop':
-      return 'candidate looks like an unsolicited spam or airdrop inflow';
+    case 'external_transfer_evidence_unmatched':
+      return 'candidate has transfer hash or address evidence, but no accepted same-owner link';
     case 'missing_linking_evidence':
       return 'candidate has no hash or endpoint evidence for automatic linking';
     case 'unclassified_unmatched_transfer_candidate':

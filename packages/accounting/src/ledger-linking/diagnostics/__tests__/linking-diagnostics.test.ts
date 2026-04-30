@@ -114,7 +114,7 @@ describe('buildLedgerLinkingDiagnostics', () => {
       },
       {
         candidateCount: 1,
-        classification: 'unclassified',
+        classification: 'external_transfer_evidence',
         sourceCandidateCount: 1,
         targetCandidateCount: 0,
       },
@@ -178,7 +178,7 @@ describe('buildLedgerLinkingDiagnostics', () => {
     ]);
   });
 
-  it('classifies blocked identities, missing evidence, same-account roundtrips, and spam targets', () => {
+  it('classifies blocked identities, missing evidence, fiat cash movements, same-account roundtrips, and spam targets', () => {
     const resolver = assertOk(buildLedgerLinkingAssetIdentityResolver());
     const result = assertOk(
       buildLedgerLinkingDiagnostics(
@@ -207,6 +207,36 @@ describe('buildLedgerLinkingDiagnostics', () => {
             candidateId: 3,
             direction: 'target',
             platformKey: 'arbitrum',
+          }),
+          makeCandidate({
+            amount: '500',
+            assetId: 'exchange:kraken:cad',
+            assetSymbol: 'CAD',
+            blockchainTransactionHash: undefined,
+            candidateId: 6,
+            direction: 'target',
+            fromAddress: undefined,
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            toAddress: undefined,
+          }),
+          makeCandidate({
+            amount: '1',
+            assetId: 'blockchain:ethereum:0x0f49943d89e7417522107f6e824c30aad487e6c0',
+            assetSymbol: 'SP',
+            candidateId: 7,
+            direction: 'target',
+            fromAddress: '0x0f49943d89e7417522107f6e824c30aad487e6c0',
+            platformKey: 'ethereum',
+            toAddress: '0xself',
+          }),
+          makeCandidate({
+            amount: '0.000000001',
+            assetId: 'blockchain:solana:native',
+            assetSymbol: 'SOL',
+            candidateId: 8,
+            direction: 'target',
+            platformKey: 'solana',
           }),
           makeCandidate({
             amount: '0.5',
@@ -265,6 +295,24 @@ describe('buildLedgerLinkingDiagnostics', () => {
         direction: 'target',
         platformKey: 'ethereum',
       },
+      {
+        candidateId: 6,
+        classifications: ['fiat_cash_movement', 'missing_linking_evidence'],
+        direction: 'target',
+        platformKey: 'kraken',
+      },
+      {
+        candidateId: 7,
+        classifications: ['likely_spam_airdrop'],
+        direction: 'target',
+        platformKey: 'ethereum',
+      },
+      {
+        candidateId: 8,
+        classifications: ['likely_dust_airdrop'],
+        direction: 'target',
+        platformKey: 'solana',
+      },
     ]);
     expect(result.assetIdentityBlockerProposals).toEqual([
       {
@@ -286,6 +334,18 @@ describe('buildLedgerLinkingDiagnostics', () => {
       },
       {
         candidateCount: 2,
+        classification: 'likely_spam_airdrop',
+        sourceCandidateCount: 0,
+        targetCandidateCount: 2,
+      },
+      {
+        candidateCount: 2,
+        classification: 'missing_linking_evidence',
+        sourceCandidateCount: 1,
+        targetCandidateCount: 1,
+      },
+      {
+        candidateCount: 2,
         classification: 'same_account_roundtrip_candidate',
         sourceCandidateCount: 1,
         targetCandidateCount: 1,
@@ -298,15 +358,15 @@ describe('buildLedgerLinkingDiagnostics', () => {
       },
       {
         candidateCount: 1,
-        classification: 'likely_spam_airdrop',
+        classification: 'fiat_cash_movement',
         sourceCandidateCount: 0,
         targetCandidateCount: 1,
       },
       {
         candidateCount: 1,
-        classification: 'missing_linking_evidence',
-        sourceCandidateCount: 1,
-        targetCandidateCount: 0,
+        classification: 'likely_dust_airdrop',
+        sourceCandidateCount: 0,
+        targetCandidateCount: 1,
       },
     ]);
   });

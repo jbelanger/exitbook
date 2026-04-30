@@ -1,4 +1,4 @@
-last_verified: 2026-04-19
+last_verified: 2026-04-30
 status: canonical
 
 ---
@@ -255,16 +255,31 @@ interface AccountingIssueScopeSummary {
 
 - Source: accounting-owned profile link-gap analysis over processed
   transactions, links, accounts, and resolved-gap visibility inputs.
+- Ledger-linking-v2 source: unresolved ledger transfer candidate remainders from
+  `links-v2 diagnose`, projected by stable posting fingerprint.
 - Scope kind: `profile`.
 - Code: `LINK_GAP`.
 - Canonical key inputs: existing `LinkGapIssueIdentity`.
+- Ledger-linking-v2 canonical key input: posting fingerprint.
+- Ledger-linking-v2 non-link-work rule: fiat cash movements, obvious
+  spam/airdrop inflows, and tiny native dust inflows remain visible in
+  diagnostics but do not create `transfer_gap` issue rows.
+- Ledger-linking-v2 blocked-asset rule: candidates for assets that already have
+  an open `asset_review_blocker` issue do not create duplicate `transfer_gap`
+  rows until the asset-review blocker is resolved.
 - Evidence refs:
-  - one `gap` ref using `GAP-REF`
-  - one `transaction` ref using `TX-REF`
+  - for legacy movement-gap rows, one `gap` ref using `GAP-REF` and one
+    `transaction` ref using `TX-REF`
+  - for ledger-linking-v2 rows, one `ledger_posting` ref using source activity,
+    journal, and posting fingerprints
 - Severity mapping:
   - reuse the family-owned gap severity signal when available
   - collapse blocking/error-style gap severity to issue severity `blocked`
   - collapse warning/info-style gap severity to issue severity `warning`
+  - ledger-linking-v2 exchange transfer candidates missing an on-chain hash are
+    `blocked`
+  - ledger-linking-v2 external transfer evidence and bridge/migration timing
+    candidates are `warning`
 - Primary next action:
   - `kind: 'review_gap'`
   - `label: 'Review in links gaps'`
@@ -272,6 +287,11 @@ interface AccountingIssueScopeSummary {
   - `routeTarget.family: 'links'`
   - `routeTarget.selectorKind: 'gap-ref'`
   - `routeTarget.selectorValue: <GAP-REF>`
+- Ledger-linking-v2 primary next action:
+  - `kind: 'review_links_v2_diagnostics'`
+  - `label: 'Review links-v2 diagnostics'`
+  - `mode: 'review_only'`
+  - `routeTarget.family: 'links-v2'`
 
 ### `asset_review_blocker`
 

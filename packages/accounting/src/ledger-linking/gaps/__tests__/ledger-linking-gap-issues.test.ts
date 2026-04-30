@@ -110,11 +110,43 @@ describe('buildLedgerLinkingGapIssues', () => {
     });
   });
 
-  it('marks likely spam airdrops separately from blocking evidence gaps', () => {
+  it('surfaces external transfer evidence as an unmatched external-evidence gap', () => {
+    const issues = buildLedgerLinkingGapIssues(
+      makeDiagnostics({
+        candidates: [
+          makeCandidate({
+            candidateId: 11,
+            direction: 'source',
+            postingFingerprint: 'ledger_posting:v1:external',
+          }),
+        ],
+        classifications: [
+          {
+            candidateId: 11,
+            classifications: ['external_transfer_evidence'],
+            direction: 'source',
+            platformKey: 'ethereum',
+          },
+        ],
+      })
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.gapReason).toBe('external_transfer_evidence_unmatched');
+  });
+
+  it('omits non-link-work classifications from surfaced gap issues', () => {
     const issues = buildLedgerLinkingGapIssues(
       makeDiagnostics({
         candidates: [
           makeCandidate({ candidateId: 9, direction: 'target', postingFingerprint: 'ledger_posting:v1:spam' }),
+          makeCandidate({
+            candidateId: 10,
+            direction: 'target',
+            platformKind: 'exchange',
+            postingFingerprint: 'ledger_posting:v1:fiat',
+          }),
+          makeCandidate({ candidateId: 12, direction: 'target', postingFingerprint: 'ledger_posting:v1:dust' }),
         ],
         classifications: [
           {
@@ -123,11 +155,23 @@ describe('buildLedgerLinkingGapIssues', () => {
             direction: 'target',
             platformKey: 'ethereum',
           },
+          {
+            candidateId: 10,
+            classifications: ['fiat_cash_movement', 'missing_linking_evidence'],
+            direction: 'target',
+            platformKey: 'kraken',
+          },
+          {
+            candidateId: 12,
+            classifications: ['likely_dust_airdrop'],
+            direction: 'target',
+            platformKey: 'solana',
+          },
         ],
       })
     );
 
-    expect(issues[0]?.gapReason).toBe('likely_spam_airdrop');
+    expect(issues).toHaveLength(0);
   });
 });
 

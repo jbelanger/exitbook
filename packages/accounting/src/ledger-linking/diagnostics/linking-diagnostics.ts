@@ -1,4 +1,4 @@
-import { err, normalizeIdentifierForMatching, ok, type Result } from '@exitbook/foundation';
+import { err, isFiat, normalizeIdentifierForMatching, ok, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { LedgerLinkingAssetIdentityResolver } from '../asset-identity/asset-identity-resolution.js';
@@ -7,6 +7,7 @@ import type { LedgerDeterministicCandidateClaim } from '../matching/deterministi
 
 const DEFAULT_AMOUNT_TIME_WINDOW_MINUTES = 7 * 24 * 60;
 const SAME_ACCOUNT_ROUNDTRIP_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+const TINY_NATIVE_DUST_AIRDROP_MAX_AMOUNT = new Decimal('0.0000001');
 const SPAM_AIRDROP_SYMBOL_PATTERN = /\b(airdrop|claim|reward|visit|https?:\/\/|www\.|\.org|\.xyz|\.net)\b/i;
 
 export interface LedgerLinkingDiagnosticsOptions {
@@ -93,6 +94,9 @@ export type LedgerLinkingDiagnosticClassification =
   | 'amount_time_ambiguous'
   | 'asset_identity_blocked'
   | 'same_account_roundtrip_candidate'
+  | 'external_transfer_evidence'
+  | 'fiat_cash_movement'
+  | 'likely_dust_airdrop'
   | 'likely_spam_airdrop'
   | 'exchange_transfer_missing_hash'
   | 'missing_linking_evidence'
@@ -491,11 +495,23 @@ function applySingleCandidateClassifications(
   unmatchedCandidates: readonly CandidateRemainderWithDecimal[]
 ): void {
   for (const candidate of unmatchedCandidates) {
+    if (isFiatCashMovementCandidate(candidate)) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'fiat_cash_movement');
+    }
+
     if (isLikelySpamAirdropCandidate(candidate)) {
       addClassification(classificationsByCandidateId, candidate.candidateId, 'likely_spam_airdrop');
     }
 
-    if (candidate.platformKind === 'exchange' && candidate.blockchainTransactionHash === undefined) {
+    if (isLikelyDustAirdropCandidate(candidate)) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'likely_dust_airdrop');
+    }
+
+    if (
+      candidate.platformKind === 'exchange' &&
+      candidate.blockchainTransactionHash === undefined &&
+      !isFiatCashMovementCandidate(candidate)
+    ) {
       addClassification(classificationsByCandidateId, candidate.candidateId, 'exchange_transfer_missing_hash');
     }
 
@@ -506,7 +522,26 @@ function applySingleCandidateClassifications(
     ) {
       addClassification(classificationsByCandidateId, candidate.candidateId, 'missing_linking_evidence');
     }
+
+    if (
+      (classificationsByCandidateId.get(candidate.candidateId)?.size ?? 0) === 0 &&
+      hasExternalTransferEvidence(candidate)
+    ) {
+      addClassification(classificationsByCandidateId, candidate.candidateId, 'external_transfer_evidence');
+    }
   }
+}
+
+function isFiatCashMovementCandidate(candidate: CandidateRemainderWithDecimal): boolean {
+  return candidate.platformKind === 'exchange' && isFiat(candidate.assetSymbol);
+}
+
+function hasExternalTransferEvidence(candidate: CandidateRemainderWithDecimal): boolean {
+  return (
+    candidate.blockchainTransactionHash !== undefined ||
+    candidate.fromAddress !== undefined ||
+    candidate.toAddress !== undefined
+  );
 }
 
 function isAssetIdentityBlockedPair(
@@ -572,8 +607,41 @@ function isLikelySpamAirdropCandidate(candidate: CandidateRemainderWithDecimal):
   return (
     candidate.direction === 'target' &&
     candidate.platformKind === 'blockchain' &&
-    SPAM_AIRDROP_SYMBOL_PATTERN.test(candidate.assetSymbol)
+    (SPAM_AIRDROP_SYMBOL_PATTERN.test(candidate.assetSymbol) || isTokenContractSenderAirdropCandidate(candidate))
   );
+}
+
+function isLikelyDustAirdropCandidate(candidate: CandidateRemainderWithDecimal): boolean {
+  return (
+    candidate.direction === 'target' &&
+    candidate.platformKind === 'blockchain' &&
+    isNativeAssetId(candidate.assetId) &&
+    candidate.remainingAmountDecimal.lte(TINY_NATIVE_DUST_AIRDROP_MAX_AMOUNT)
+  );
+}
+
+function isTokenContractSenderAirdropCandidate(candidate: CandidateRemainderWithDecimal): boolean {
+  const tokenRef = getBlockchainTokenRef(candidate);
+  if (tokenRef === undefined || !tokenRef.startsWith('0x')) {
+    return false;
+  }
+
+  const fromAddress = normalizeAddressForDiagnostics(candidate.fromAddress);
+  return fromAddress !== undefined && fromAddress === normalizeIdentifierForMatching(tokenRef);
+}
+
+function isNativeAssetId(assetId: string): boolean {
+  const parts = assetId.split(':');
+  return parts[0] === 'blockchain' && parts[2] === 'native';
+}
+
+function getBlockchainTokenRef(candidate: CandidateRemainderWithDecimal): string | undefined {
+  const parts = candidate.assetId.split(':');
+  if (parts[0] !== 'blockchain' || parts[2] === undefined || parts[2] === 'native') {
+    return undefined;
+  }
+
+  return parts.slice(2).join(':');
 }
 
 function normalizeAddressForDiagnostics(address: string | undefined): string | undefined {

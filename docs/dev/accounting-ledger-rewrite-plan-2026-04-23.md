@@ -840,9 +840,11 @@ are event-first overrides:
   events and replay into deterministic reviewed relationship drafts before other
   recognizers run
 
-Persisted gaps remain deferred until the accepted relationship model and review
-queue shape are stable enough to project unresolved candidate remainders into
-accounting issues without treating diagnostics as truth.
+Unresolved ledger-linking-v2 candidates now project into the profile Issues
+queue as posting-keyed transfer gaps. Diagnostics remain evidence and triage
+state only; they do not become relationship truth. Non-link-work classifications
+such as fiat cash movements, obvious spam/airdrops, and tiny native dust are
+kept visible in diagnostics but omitted from the operator issue queue.
 
 Goal: build ledger-native linking that persists relationship truth spanning
 source activities before consumers depend on ledger relationships for transfer,
@@ -925,22 +927,44 @@ Completed checkpoints:
   retain those clues
 - ledger-linking-v2 unresolved candidates project to the existing accounting
   Issues queue as ledger-native transfer gaps, keyed by posting fingerprint and
-  routed back to `links-v2 diagnose`
+  pointing back to `links-v2 diagnose` for review context
 - profile Issues prefer v2 ledger gaps over legacy movement gaps whenever v2
   diagnostics are available, so the user queue does not double-count the same
   unresolved linking work
+- ledger-linking-v2 diagnostics classify fiat cash movements, obvious
+  spam/airdrops, tiny native dust, missing exchange hashes, external transfer
+  evidence, and bridge/migration timing clues before projecting issues
+- ledger-linking-v2 Issues omit non-link-work candidates and keep remaining
+  unresolved posting candidates split between blocked evidence gaps and warning
+  review gaps
+- profile Issues suppress ledger-linking-v2 transfer-gap rows for assets that
+  already have an open asset-review blocker, so known scam or ambiguous assets
+  stay owned by asset review first
 
 Active next slices:
 
-1. Analyze bridge, token-version, and asset migration shapes from current
-   unresolved candidates before adding recognizers. Current live corpus review
-   queue is empty after manually accepting the RENDER migration/bridge and the
-   clear Kraken-to-Arbitrum USDC link; diagnostics still show one
-   target-before-source INJ bridge clue that should become gap context, not an
-   acceptable link.
-2. Add partial/residual strategies only when the posting allocation model can
+Current live corpus after the classification pass: `118` profile Issues remain
+open: `8` asset-review blockers, `6` blocked links-v2 hash-evidence gaps, and
+`104` links-v2 warnings. The warnings split into `102` unmatched candidates
+with transfer hash/address evidence and `2` target-before-source bridge/migration
+timing clues. Diagnostics also identifies `41` fiat cash movements, `12` obvious
+spam/airdrop inflows, and `32` tiny native dust inflows that are intentionally
+not projected as transfer-gap issues.
+
+1. Investigate the remaining blocked non-fiat exchange rows. The current live
+   corpus has six Kraken transfer rows without on-chain hashes: two `USDC -99`,
+   one `USDC -270.7758064`, one `LINK +48.21975374`, one
+   `RENDER +64.987572`, and one `RNDR -64.98757287`. Do not auto-link these
+   without processor/source evidence.
+2. Promote target-before-source bridge or migration timing clues into better
+   review context. They are not acceptable normal transfer links under the
+   current source-before-target rule.
+3. Analyze the remaining external-evidence warnings by source platform, asset,
+   and address/hash context before adding more recognizers. These are real
+   transfer-like candidates, not CAD bank movement or obvious spam.
+4. Add partial/residual strategies only when the posting allocation model can
    represent the residual honestly and the evidence is reviewable.
-3. Compare v1 and v2 link coverage on the imported corpus before removing legacy
+5. Compare v1 and v2 link coverage on the imported corpus before removing legacy
    linking behavior.
 
 Acceptance:

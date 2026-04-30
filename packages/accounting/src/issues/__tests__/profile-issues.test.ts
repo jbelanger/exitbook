@@ -181,6 +181,31 @@ describe('buildProfileAccountingIssueScopeSnapshot', () => {
     });
   });
 
+  it('does not duplicate ledger-linking-v2 gaps for assets already blocked by asset review', () => {
+    const blockedAssetId = 'blockchain:ethereum:0xscam';
+    const snapshot = buildProfileAccountingIssueScopeSnapshot({
+      profileId: 42,
+      scopeKey: 'profile:42',
+      title: 'Main profile',
+      linkGapIssues: [],
+      ledgerLinkingGapIssues: [
+        createLedgerLinkingGapIssue({
+          assetId: blockedAssetId,
+          assetSymbol: 'SCAM' as LedgerLinkingGapIssue['assetSymbol'],
+        }),
+      ],
+      assetReviewSummaries: [createAssetReviewSummary({ assetId: blockedAssetId })],
+      excludedAssetIds: new Set<string>(),
+      updatedAt: new Date('2026-04-14T12:00:00.000Z'),
+    });
+
+    expect(snapshot.scope).toMatchObject({
+      openIssueCount: 1,
+      blockingIssueCount: 1,
+    });
+    expect(snapshot.issues.map((issue) => issue.issue.family)).toEqual(['asset_review_blocker']);
+  });
+
   it('returns a ready scope when there are no current issues', () => {
     const snapshot = buildProfileAccountingIssueScopeSnapshot({
       profileId: 7,
