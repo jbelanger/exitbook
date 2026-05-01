@@ -1035,11 +1035,10 @@ when the replacement model is simpler and more honest.
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
    already reversible through revoke override events.
-2. Continue clearing warning-grade gap resolutions from the live corpus, then
-   analyze the remaining transfer gaps that still have no review action:
-   missing evidence, exchange missing hash, and swap/service-route no-link
-   flows. Keep them in `links-v2 review`, not a separate gaps command family.
-3. Add more recognizers only after the remaining unresolved work proves a
+2. Keep transfer-gap work paused while the live review queue and profile Issues
+   are empty. Do not add recognizers for raw diagnostic remainders that are
+   already covered by explicit gap-resolution decisions.
+3. Add more recognizers only after new unresolved work proves a
    repeatable, ledger-native evidence pattern. Do not port movement heuristics
    simply because they existed in v1.
 4. Rebuild consumers later against journals/postings/relationships directly.
@@ -1056,14 +1055,17 @@ asset identity suggestions or link proposals. `links-v2 review` is now empty and
 profile Issues are clear after excluding `19` obvious spam, suspicious-airdrop,
 unmatched-reference, and conflicting stablecoin-copy assets. Cost-basis remains
 an old `accounting-model` consumer, so its behavior is not a ledger-v2 readiness
-gate.
+gate. A refreshed 2024 CA average-cost run succeeds on the cleaned corpus
+(`781` transactions, `426` lots, `235` disposals), with one non-blocking tax
+readiness warning: Kraken dust-sweeping transaction `def7d6dd12` has uncertain
+proceeds allocation across multiple tiny disposed assets.
 
-1. Promote target-before-source bridge or migration timing clues into better
-   review context. They are not acceptable normal transfer links under the
-   current source-before-target rule.
-2. Analyze the remaining external-evidence warnings by source platform, asset,
-   and address/hash context before adding more recognizers. These are real
-   transfer-like candidates, not CAD bank movement or obvious spam.
+1. Keep target-before-source bridge or migration timing clues as diagnostics
+   unless they reappear as unresolved review work in a new corpus. They are not
+   acceptable normal transfer links under the current source-before-target rule.
+2. Treat currently accepted external-evidence warnings as closed non-link
+   decisions. Reopen only if new asset identity, owned-wallet, or source-system
+   evidence appears.
 3. Add additional partial/residual strategies only when the posting allocation
    model can represent the residual honestly and the evidence is reviewable.
    Fee-adjusted exact-hash covers the safest same-hash exchange-withdrawal
