@@ -31,15 +31,19 @@ export type LedgerCostBasisPostingBlockerReason =
   | 'unsupported_protocol_posting';
 
 export type LedgerCostBasisRelationshipBlockerReason =
+  | 'relationship_allocation_invalid'
   | 'relationship_allocation_missing_posting'
+  | 'relationship_allocation_overallocated'
   | 'relationship_allocation_posting_mismatch'
   | 'relationship_partially_excluded';
 
 export type LedgerCostBasisRelationshipAllocationBlockerState =
   | 'blocked_by_relationship'
   | 'excluded_posting'
+  | 'invalid_allocation'
   | 'mismatched_posting'
-  | 'missing_posting';
+  | 'missing_posting'
+  | 'overallocated_posting';
 
 export type LedgerCostBasisRelationshipAllocationMismatchReason =
   | 'asset_id_mismatch'
@@ -48,6 +52,12 @@ export type LedgerCostBasisRelationshipAllocationMismatchReason =
   | 'current_posting_id_mismatch'
   | 'journal_fingerprint_mismatch'
   | 'source_activity_fingerprint_mismatch';
+
+export type LedgerCostBasisRelationshipAllocationValidationReason =
+  | 'non_positive_quantity'
+  | 'overallocated_posting'
+  | 'source_allocation_points_at_positive_posting'
+  | 'target_allocation_points_at_negative_posting';
 
 export type LedgerCostBasisExclusionReason = 'asset_excluded';
 
@@ -96,6 +106,7 @@ export interface LedgerCostBasisRelationshipBlockerAllocation {
   quantity: Decimal;
   state: LedgerCostBasisRelationshipAllocationBlockerState;
   mismatchReasons: readonly LedgerCostBasisRelationshipAllocationMismatchReason[];
+  validationReasons: readonly LedgerCostBasisRelationshipAllocationValidationReason[];
 }
 
 export interface LedgerCostBasisRelationshipBlocker {
@@ -144,6 +155,7 @@ interface RelationshipProjectionIntegrity {
 interface RelationshipAllocationIntegrity {
   allocation: CostBasisLedgerRelationshipAllocation;
   mismatchReasons: readonly LedgerCostBasisRelationshipAllocationMismatchReason[];
+  validationReasons: readonly LedgerCostBasisRelationshipAllocationValidationReason[];
   state: LedgerCostBasisRelationshipAllocationBlockerState | 'valid';
 }
 
@@ -403,6 +415,10 @@ function findRelationshipProjectionIntegrity(
   const blockers: LedgerCostBasisRelationshipBlocker[] = [];
   const blockedRelationshipStableKeys = new Set<string>();
   const blockedPostingFingerprints = new Set<string>();
+  const validRelationshipAllocations: {
+    allocationIntegrity: readonly RelationshipAllocationIntegrity[];
+    relationship: CostBasisLedgerRelationship;
+  }[] = [];
 
   for (const relationship of relationships) {
     const allocationIntegrity = relationship.allocations.map((allocation) =>
@@ -411,15 +427,21 @@ function findRelationshipProjectionIntegrity(
     const missingAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'missing_posting');
     const excludedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'excluded_posting');
     const mismatchedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'mismatched_posting');
+    const invalidAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'invalid_allocation');
     const validAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'valid');
     const nonExcludedPresentAllocations = allocationIntegrity.filter(
-      (allocation) => allocation.state === 'valid' || allocation.state === 'mismatched_posting'
+      (allocation) =>
+        allocation.state === 'valid' ||
+        allocation.state === 'mismatched_posting' ||
+        allocation.state === 'invalid_allocation'
     );
 
     const hasMissingAllocation = missingAllocations.length > 0;
     const hasMismatchedAllocation = mismatchedAllocations.length > 0;
+    const hasInvalidAllocation = invalidAllocations.length > 0;
     const hasPartialExclusion = excludedAllocations.length > 0 && nonExcludedPresentAllocations.length > 0;
-    if (!hasMissingAllocation && !hasMismatchedAllocation && !hasPartialExclusion) {
+    if (!hasMissingAllocation && !hasMismatchedAllocation && !hasInvalidAllocation && !hasPartialExclusion) {
+      validRelationshipAllocations.push({ allocationIntegrity, relationship });
       continue;
     }
 
@@ -432,9 +454,12 @@ function findRelationshipProjectionIntegrity(
       buildRelationshipBlocker({
         missingAllocations,
         excludedAllocations,
+        invalidAllocations,
         mismatchedAllocations,
+        overallocatedAllocations: [],
         relationship,
         reason: selectRelationshipBlockerReason({
+          hasInvalidAllocation,
           hasMissingAllocation,
           hasMismatchedAllocation,
         }),
@@ -443,13 +468,52 @@ function findRelationshipProjectionIntegrity(
     );
   }
 
+  const overallocatedPostingFingerprints = findOverallocatedPostingFingerprints(
+    validRelationshipAllocations,
+    contextByPostingFingerprint
+  );
+  if (overallocatedPostingFingerprints.size > 0) {
+    for (const { allocationIntegrity, relationship } of validRelationshipAllocations) {
+      const overallocatedAllocations = allocationIntegrity.filter((allocation) =>
+        overallocatedPostingFingerprints.has(allocation.allocation.postingFingerprint)
+      );
+      if (overallocatedAllocations.length === 0) {
+        continue;
+      }
+
+      const validAllocations = allocationIntegrity.filter(
+        (allocation) => !overallocatedPostingFingerprints.has(allocation.allocation.postingFingerprint)
+      );
+
+      blockedRelationshipStableKeys.add(relationship.relationshipStableKey);
+      for (const allocation of allocationIntegrity) {
+        blockedPostingFingerprints.add(allocation.allocation.postingFingerprint);
+      }
+
+      blockers.push(
+        buildRelationshipBlocker({
+          missingAllocations: [],
+          excludedAllocations: [],
+          invalidAllocations: [],
+          mismatchedAllocations: [],
+          overallocatedAllocations,
+          relationship,
+          reason: 'relationship_allocation_overallocated',
+          validAllocations,
+        })
+      );
+    }
+  }
+
   return { blockers, blockedPostingFingerprints, blockedRelationshipStableKeys };
 }
 
 function buildRelationshipBlocker(params: {
   excludedAllocations: readonly RelationshipAllocationIntegrity[];
+  invalidAllocations: readonly RelationshipAllocationIntegrity[];
   mismatchedAllocations: readonly RelationshipAllocationIntegrity[];
   missingAllocations: readonly RelationshipAllocationIntegrity[];
+  overallocatedAllocations: readonly RelationshipAllocationIntegrity[];
   reason: LedgerCostBasisRelationshipBlockerReason;
   relationship: CostBasisLedgerRelationship;
   validAllocations: readonly RelationshipAllocationIntegrity[];
@@ -459,8 +523,20 @@ function buildRelationshipBlocker(params: {
     ...params.excludedAllocations.map((allocation) =>
       buildRelationshipBlockerAllocation(allocation, 'excluded_posting')
     ),
+    ...params.invalidAllocations.map((allocation) =>
+      buildRelationshipBlockerAllocation(allocation, 'invalid_allocation')
+    ),
     ...params.mismatchedAllocations.map((allocation) =>
       buildRelationshipBlockerAllocation(allocation, 'mismatched_posting')
+    ),
+    ...params.overallocatedAllocations.map((allocation) =>
+      buildRelationshipBlockerAllocation(
+        {
+          ...allocation,
+          validationReasons: [...allocation.validationReasons, 'overallocated_posting'],
+        },
+        'overallocated_posting'
+      )
     ),
     ...params.validAllocations.map((allocation) =>
       buildRelationshipBlockerAllocation(allocation, 'blocked_by_relationship')
@@ -492,13 +568,16 @@ function buildRelationshipBlockerAllocation(
     quantity: allocation.quantity,
     state,
     mismatchReasons: allocationIntegrity.mismatchReasons,
+    validationReasons: allocationIntegrity.validationReasons,
   };
 }
 
 function buildRelationshipBlockerMessage(params: {
   excludedAllocations: readonly RelationshipAllocationIntegrity[];
+  invalidAllocations: readonly RelationshipAllocationIntegrity[];
   mismatchedAllocations: readonly RelationshipAllocationIntegrity[];
   missingAllocations: readonly RelationshipAllocationIntegrity[];
+  overallocatedAllocations: readonly RelationshipAllocationIntegrity[];
   reason: LedgerCostBasisRelationshipBlockerReason;
   relationship: CostBasisLedgerRelationship;
   validAllocations: readonly RelationshipAllocationIntegrity[];
@@ -517,10 +596,28 @@ function buildRelationshipBlockerMessage(params: {
     return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} has allocation metadata that does not match loaded posting(s): ${mismatches}`;
   }
 
+  if (params.reason === 'relationship_allocation_invalid') {
+    const invalidAllocations = params.invalidAllocations
+      .map(({ allocation, validationReasons }) => `${allocation.postingFingerprint} (${validationReasons.join(', ')})`)
+      .join(', ');
+    return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} has invalid allocation(s): ${invalidAllocations}`;
+  }
+
+  if (params.reason === 'relationship_allocation_overallocated') {
+    const overallocatedPostingFingerprints = params.overallocatedAllocations
+      .map(({ allocation }) => allocation.postingFingerprint)
+      .join(', ');
+    return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} overallocates posting(s): ${overallocatedPostingFingerprints}`;
+  }
+
   const excludedPostingFingerprints = params.excludedAllocations
     .map(({ allocation }) => allocation.postingFingerprint)
     .join(', ');
-  const blockedPostingFingerprints = [...params.validAllocations, ...params.mismatchedAllocations]
+  const blockedPostingFingerprints = [
+    ...params.validAllocations,
+    ...params.mismatchedAllocations,
+    ...params.invalidAllocations,
+  ]
     .map(({ allocation }) => allocation.postingFingerprint)
     .join(', ');
   return (
@@ -530,6 +627,7 @@ function buildRelationshipBlockerMessage(params: {
 }
 
 function selectRelationshipBlockerReason(params: {
+  hasInvalidAllocation: boolean;
   hasMismatchedAllocation: boolean;
   hasMissingAllocation: boolean;
 }): LedgerCostBasisRelationshipBlockerReason {
@@ -539,6 +637,10 @@ function selectRelationshipBlockerReason(params: {
 
   if (params.hasMismatchedAllocation) {
     return 'relationship_allocation_posting_mismatch';
+  }
+
+  if (params.hasInvalidAllocation) {
+    return 'relationship_allocation_invalid';
   }
 
   return 'relationship_partially_excluded';
@@ -551,19 +653,60 @@ function buildRelationshipAllocationIntegrity(
 ): RelationshipAllocationIntegrity {
   const context = contextByPostingFingerprint.get(allocation.postingFingerprint);
   if (context === undefined) {
-    return { allocation, mismatchReasons: [], state: 'missing_posting' };
+    return { allocation, mismatchReasons: [], validationReasons: [], state: 'missing_posting' };
   }
 
   if (excludedAssetIds?.has(context.posting.assetId) === true) {
-    return { allocation, mismatchReasons: [], state: 'excluded_posting' };
+    return { allocation, mismatchReasons: [], validationReasons: [], state: 'excluded_posting' };
   }
 
   const mismatchReasons = findRelationshipAllocationMismatchReasons(allocation, context);
   if (mismatchReasons.length > 0) {
-    return { allocation, mismatchReasons, state: 'mismatched_posting' };
+    return { allocation, mismatchReasons, validationReasons: [], state: 'mismatched_posting' };
   }
 
-  return { allocation, mismatchReasons: [], state: 'valid' };
+  const validationReasons = findRelationshipAllocationValidationReasons(allocation, context);
+  if (validationReasons.length > 0) {
+    return { allocation, mismatchReasons: [], validationReasons, state: 'invalid_allocation' };
+  }
+
+  return { allocation, mismatchReasons: [], validationReasons: [], state: 'valid' };
+}
+
+function findOverallocatedPostingFingerprints(
+  relationshipAllocations: readonly {
+    allocationIntegrity: readonly RelationshipAllocationIntegrity[];
+    relationship: CostBasisLedgerRelationship;
+  }[],
+  contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>
+): Set<string> {
+  const allocatedQuantityByPostingFingerprint = new Map<string, Decimal>();
+
+  for (const { allocationIntegrity } of relationshipAllocations) {
+    for (const allocation of allocationIntegrity) {
+      if (allocation.state !== 'valid') {
+        continue;
+      }
+
+      const currentQuantity =
+        allocatedQuantityByPostingFingerprint.get(allocation.allocation.postingFingerprint) ??
+        allocation.allocation.quantity.times(0);
+      allocatedQuantityByPostingFingerprint.set(
+        allocation.allocation.postingFingerprint,
+        currentQuantity.plus(allocation.allocation.quantity)
+      );
+    }
+  }
+
+  const overallocatedPostingFingerprints = new Set<string>();
+  for (const [postingFingerprint, allocatedQuantity] of allocatedQuantityByPostingFingerprint) {
+    const context = contextByPostingFingerprint.get(postingFingerprint);
+    if (context !== undefined && allocatedQuantity.gt(context.posting.quantity.abs())) {
+      overallocatedPostingFingerprints.add(postingFingerprint);
+    }
+  }
+
+  return overallocatedPostingFingerprints;
 }
 
 function findRelationshipAllocationMismatchReasons(
@@ -592,6 +735,25 @@ function findRelationshipAllocationMismatchReasons(
   }
 
   return mismatchReasons;
+}
+
+function findRelationshipAllocationValidationReasons(
+  allocation: CostBasisLedgerRelationshipAllocation,
+  context: LedgerPostingContext
+): LedgerCostBasisRelationshipAllocationValidationReason[] {
+  const validationReasons: LedgerCostBasisRelationshipAllocationValidationReason[] = [];
+
+  if (allocation.quantity.lte(0)) {
+    validationReasons.push('non_positive_quantity');
+  }
+  if (allocation.allocationSide === 'source' && context.posting.quantity.gt(0)) {
+    validationReasons.push('source_allocation_points_at_positive_posting');
+  }
+  if (allocation.allocationSide === 'target' && context.posting.quantity.lt(0)) {
+    validationReasons.push('target_allocation_points_at_negative_posting');
+  }
+
+  return validationReasons;
 }
 
 function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExcludedPosting {

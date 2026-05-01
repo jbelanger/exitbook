@@ -1,5 +1,5 @@
 import { parseCurrency, parseDecimal, type Currency } from '@exitbook/foundation';
-import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
+import { assertOk } from '@exitbook/foundation/test-utils';
 import type { AccountingJournalKind, AccountingJournalRelationshipKind } from '@exitbook/ledger';
 import { describe, expect, it } from 'vitest';
 
@@ -272,16 +272,70 @@ describe('projectLedgerCostBasisEvents', () => {
     ]);
   });
 
-  it('rejects relationship allocations whose side contradicts posting sign', () => {
+  it('blocks relationship allocations whose side contradicts posting sign', () => {
     const facts = makeTransferFacts({
       relationshipKind: 'internal_transfer',
       source: { allocationSide: 'target' },
     });
 
-    const error = assertErr(projectLedgerCostBasisEvents(facts));
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
 
-    expect(error.message).toContain('target allocation');
-    expect(error.message).toContain('points at negative posting posting:source');
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_invalid',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'invalid_allocation'],
+      ['posting:target', 'blocked_by_relationship'],
+    ]);
+    expect(blocker.allocations[0]?.validationReasons).toEqual(['target_allocation_points_at_negative_posting']);
+  });
+
+  it('blocks relationship allocations with non-positive quantities', () => {
+    const facts = makeTransferFacts({
+      relationshipKind: 'internal_transfer',
+      source: { allocationQuantity: '0' },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_invalid',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'invalid_allocation'],
+      ['posting:target', 'blocked_by_relationship'],
+    ]);
+    expect(blocker.allocations[0]?.validationReasons).toEqual(['non_positive_quantity']);
+  });
+
+  it('blocks relationships that over-allocate a posting', () => {
+    const facts = makeTransferFacts({
+      relationshipKind: 'internal_transfer',
+      source: { allocationQuantity: '1.1', quantity: '-1' },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_overallocated',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'overallocated_posting'],
+      ['posting:target', 'blocked_by_relationship'],
+    ]);
+    expect(blocker.allocations[0]?.validationReasons).toEqual(['overallocated_posting']);
   });
 });
 
