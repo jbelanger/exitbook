@@ -192,6 +192,53 @@ describe('projectLedgerCostBasisEvents', () => {
     ]);
   });
 
+  it('blocks accepted relationship allocations whose posting metadata no longer matches', () => {
+    const facts = makeTransferFacts({ relationshipKind: 'internal_transfer' });
+    const relationship = facts.relationships[0];
+    if (relationship === undefined) {
+      throw new Error('Expected relationship fixture');
+    }
+
+    const projection = assertOk(
+      projectLedgerCostBasisEvents({
+        ...facts,
+        relationships: [
+          {
+            ...relationship,
+            allocations: relationship.allocations.map((allocation) =>
+              allocation.postingFingerprint === 'posting:source'
+                ? {
+                    ...allocation,
+                    assetSymbol: ETH,
+                    currentPostingId: 999,
+                    journalFingerprint: 'journal:stale',
+                  }
+                : allocation
+            ),
+          },
+        ],
+      })
+    );
+
+    expect(projection.events).toEqual([]);
+    expect(projection.excludedPostings).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_posting_mismatch',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'mismatched_posting'],
+      ['posting:target', 'blocked_by_relationship'],
+    ]);
+    expect(blocker.allocations[0]?.mismatchReasons).toEqual([
+      'journal_fingerprint_mismatch',
+      'asset_symbol_mismatch',
+      'current_posting_id_mismatch',
+    ]);
+  });
+
   it('blocks mixed excluded and non-excluded relationship allocations', () => {
     const excludedAssetId = 'blockchain:ethereum:0xspam';
     const facts = makeTransferFacts({
@@ -321,16 +368,24 @@ function makeTransferFacts(params: {
             allocationSide: source.allocationSide,
             assetId: source.assetId,
             assetSymbol: source.assetSymbol,
+            currentJournalId: 1,
+            currentPostingId: 1,
+            journalFingerprint: 'journal:source',
             postingFingerprint: source.postingFingerprint,
             quantity: source.allocationQuantity,
+            sourceActivityFingerprint: 'activity:source',
           }),
           makeAllocation({
             id: 2,
             allocationSide: target.allocationSide,
             assetId: target.assetId,
             assetSymbol: target.assetSymbol,
+            currentJournalId: 2,
+            currentPostingId: 2,
+            journalFingerprint: 'journal:target',
             postingFingerprint: target.postingFingerprint,
             quantity: target.allocationQuantity,
+            sourceActivityFingerprint: 'activity:target',
           }),
         ],
       }),

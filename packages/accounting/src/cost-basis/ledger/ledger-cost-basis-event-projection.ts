@@ -32,12 +32,22 @@ export type LedgerCostBasisPostingBlockerReason =
 
 export type LedgerCostBasisRelationshipBlockerReason =
   | 'relationship_allocation_missing_posting'
+  | 'relationship_allocation_posting_mismatch'
   | 'relationship_partially_excluded';
 
 export type LedgerCostBasisRelationshipAllocationBlockerState =
   | 'blocked_by_relationship'
   | 'excluded_posting'
+  | 'mismatched_posting'
   | 'missing_posting';
+
+export type LedgerCostBasisRelationshipAllocationMismatchReason =
+  | 'asset_id_mismatch'
+  | 'asset_symbol_mismatch'
+  | 'current_journal_id_mismatch'
+  | 'current_posting_id_mismatch'
+  | 'journal_fingerprint_mismatch'
+  | 'source_activity_fingerprint_mismatch';
 
 export type LedgerCostBasisExclusionReason = 'asset_excluded';
 
@@ -85,6 +95,7 @@ export interface LedgerCostBasisRelationshipBlockerAllocation {
   assetSymbol: Currency;
   quantity: Decimal;
   state: LedgerCostBasisRelationshipAllocationBlockerState;
+  mismatchReasons: readonly LedgerCostBasisRelationshipAllocationMismatchReason[];
 }
 
 export interface LedgerCostBasisRelationshipBlocker {
@@ -128,6 +139,12 @@ interface RelationshipProjectionIntegrity {
   blockers: readonly LedgerCostBasisRelationshipBlocker[];
   blockedPostingFingerprints: ReadonlySet<string>;
   blockedRelationshipStableKeys: ReadonlySet<string>;
+}
+
+interface RelationshipAllocationIntegrity {
+  allocation: CostBasisLedgerRelationshipAllocation;
+  mismatchReasons: readonly LedgerCostBasisRelationshipAllocationMismatchReason[];
+  state: LedgerCostBasisRelationshipAllocationBlockerState | 'valid';
 }
 
 interface LedgerCostBasisPostingProjection {
@@ -388,37 +405,40 @@ function findRelationshipProjectionIntegrity(
   const blockedPostingFingerprints = new Set<string>();
 
   for (const relationship of relationships) {
-    const missingAllocations = relationship.allocations.filter(
-      (allocation) => !contextByPostingFingerprint.has(allocation.postingFingerprint)
+    const allocationIntegrity = relationship.allocations.map((allocation) =>
+      buildRelationshipAllocationIntegrity(allocation, contextByPostingFingerprint, excludedAssetIds)
     );
-    const presentAllocations = relationship.allocations.filter((allocation) =>
-      contextByPostingFingerprint.has(allocation.postingFingerprint)
-    );
-    const excludedAllocations = presentAllocations.filter((allocation) =>
-      isRelationshipAllocationExcluded(allocation, contextByPostingFingerprint, excludedAssetIds)
-    );
-    const includedAllocations = presentAllocations.filter(
-      (allocation) => !isRelationshipAllocationExcluded(allocation, contextByPostingFingerprint, excludedAssetIds)
+    const missingAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'missing_posting');
+    const excludedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'excluded_posting');
+    const mismatchedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'mismatched_posting');
+    const validAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'valid');
+    const nonExcludedPresentAllocations = allocationIntegrity.filter(
+      (allocation) => allocation.state === 'valid' || allocation.state === 'mismatched_posting'
     );
 
     const hasMissingAllocation = missingAllocations.length > 0;
-    const hasPartialExclusion = excludedAllocations.length > 0 && includedAllocations.length > 0;
-    if (!hasMissingAllocation && !hasPartialExclusion) {
+    const hasMismatchedAllocation = mismatchedAllocations.length > 0;
+    const hasPartialExclusion = excludedAllocations.length > 0 && nonExcludedPresentAllocations.length > 0;
+    if (!hasMissingAllocation && !hasMismatchedAllocation && !hasPartialExclusion) {
       continue;
     }
 
     blockedRelationshipStableKeys.add(relationship.relationshipStableKey);
-    for (const allocation of includedAllocations) {
-      blockedPostingFingerprints.add(allocation.postingFingerprint);
+    for (const allocation of nonExcludedPresentAllocations) {
+      blockedPostingFingerprints.add(allocation.allocation.postingFingerprint);
     }
 
     blockers.push(
       buildRelationshipBlocker({
-        includedAllocations,
         missingAllocations,
         excludedAllocations,
+        mismatchedAllocations,
         relationship,
-        reason: hasMissingAllocation ? 'relationship_allocation_missing_posting' : 'relationship_partially_excluded',
+        reason: selectRelationshipBlockerReason({
+          hasMissingAllocation,
+          hasMismatchedAllocation,
+        }),
+        validAllocations,
       })
     );
   }
@@ -427,18 +447,22 @@ function findRelationshipProjectionIntegrity(
 }
 
 function buildRelationshipBlocker(params: {
-  excludedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
-  includedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
-  missingAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  excludedAllocations: readonly RelationshipAllocationIntegrity[];
+  mismatchedAllocations: readonly RelationshipAllocationIntegrity[];
+  missingAllocations: readonly RelationshipAllocationIntegrity[];
   reason: LedgerCostBasisRelationshipBlockerReason;
   relationship: CostBasisLedgerRelationship;
+  validAllocations: readonly RelationshipAllocationIntegrity[];
 }): LedgerCostBasisRelationshipBlocker {
   const allocations: LedgerCostBasisRelationshipBlockerAllocation[] = [
     ...params.missingAllocations.map((allocation) => buildRelationshipBlockerAllocation(allocation, 'missing_posting')),
     ...params.excludedAllocations.map((allocation) =>
       buildRelationshipBlockerAllocation(allocation, 'excluded_posting')
     ),
-    ...params.includedAllocations.map((allocation) =>
+    ...params.mismatchedAllocations.map((allocation) =>
+      buildRelationshipBlockerAllocation(allocation, 'mismatched_posting')
+    ),
+    ...params.validAllocations.map((allocation) =>
       buildRelationshipBlockerAllocation(allocation, 'blocked_by_relationship')
     ),
   ];
@@ -454,9 +478,11 @@ function buildRelationshipBlocker(params: {
 }
 
 function buildRelationshipBlockerAllocation(
-  allocation: CostBasisLedgerRelationshipAllocation,
+  allocationIntegrity: RelationshipAllocationIntegrity,
   state: LedgerCostBasisRelationshipAllocationBlockerState
 ): LedgerCostBasisRelationshipBlockerAllocation {
+  const { allocation } = allocationIntegrity;
+
   return {
     allocationId: allocation.id,
     allocationSide: allocation.allocationSide,
@@ -465,28 +491,37 @@ function buildRelationshipBlockerAllocation(
     assetSymbol: allocation.assetSymbol,
     quantity: allocation.quantity,
     state,
+    mismatchReasons: allocationIntegrity.mismatchReasons,
   };
 }
 
 function buildRelationshipBlockerMessage(params: {
-  excludedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
-  includedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
-  missingAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  excludedAllocations: readonly RelationshipAllocationIntegrity[];
+  mismatchedAllocations: readonly RelationshipAllocationIntegrity[];
+  missingAllocations: readonly RelationshipAllocationIntegrity[];
   reason: LedgerCostBasisRelationshipBlockerReason;
   relationship: CostBasisLedgerRelationship;
+  validAllocations: readonly RelationshipAllocationIntegrity[];
 }): string {
   if (params.reason === 'relationship_allocation_missing_posting') {
     const missingPostingFingerprints = params.missingAllocations
-      .map((allocation) => allocation.postingFingerprint)
+      .map(({ allocation }) => allocation.postingFingerprint)
       .join(', ');
     return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} references missing posting allocation(s): ${missingPostingFingerprints}`;
   }
 
+  if (params.reason === 'relationship_allocation_posting_mismatch') {
+    const mismatches = params.mismatchedAllocations
+      .map(({ allocation, mismatchReasons }) => `${allocation.postingFingerprint} (${mismatchReasons.join(', ')})`)
+      .join(', ');
+    return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} has allocation metadata that does not match loaded posting(s): ${mismatches}`;
+  }
+
   const excludedPostingFingerprints = params.excludedAllocations
-    .map((allocation) => allocation.postingFingerprint)
+    .map(({ allocation }) => allocation.postingFingerprint)
     .join(', ');
-  const blockedPostingFingerprints = params.includedAllocations
-    .map((allocation) => allocation.postingFingerprint)
+  const blockedPostingFingerprints = [...params.validAllocations, ...params.mismatchedAllocations]
+    .map(({ allocation }) => allocation.postingFingerprint)
     .join(', ');
   return (
     `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} mixes excluded posting allocation(s) ` +
@@ -494,13 +529,69 @@ function buildRelationshipBlockerMessage(params: {
   );
 }
 
-function isRelationshipAllocationExcluded(
+function selectRelationshipBlockerReason(params: {
+  hasMismatchedAllocation: boolean;
+  hasMissingAllocation: boolean;
+}): LedgerCostBasisRelationshipBlockerReason {
+  if (params.hasMissingAllocation) {
+    return 'relationship_allocation_missing_posting';
+  }
+
+  if (params.hasMismatchedAllocation) {
+    return 'relationship_allocation_posting_mismatch';
+  }
+
+  return 'relationship_partially_excluded';
+}
+
+function buildRelationshipAllocationIntegrity(
   allocation: CostBasisLedgerRelationshipAllocation,
   contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>,
   excludedAssetIds: ReadonlySet<string> | undefined
-): boolean {
+): RelationshipAllocationIntegrity {
   const context = contextByPostingFingerprint.get(allocation.postingFingerprint);
-  return context !== undefined && excludedAssetIds?.has(context.posting.assetId) === true;
+  if (context === undefined) {
+    return { allocation, mismatchReasons: [], state: 'missing_posting' };
+  }
+
+  if (excludedAssetIds?.has(context.posting.assetId) === true) {
+    return { allocation, mismatchReasons: [], state: 'excluded_posting' };
+  }
+
+  const mismatchReasons = findRelationshipAllocationMismatchReasons(allocation, context);
+  if (mismatchReasons.length > 0) {
+    return { allocation, mismatchReasons, state: 'mismatched_posting' };
+  }
+
+  return { allocation, mismatchReasons: [], state: 'valid' };
+}
+
+function findRelationshipAllocationMismatchReasons(
+  allocation: CostBasisLedgerRelationshipAllocation,
+  context: LedgerPostingContext
+): LedgerCostBasisRelationshipAllocationMismatchReason[] {
+  const mismatchReasons: LedgerCostBasisRelationshipAllocationMismatchReason[] = [];
+
+  if (allocation.sourceActivityFingerprint !== context.sourceActivity.sourceActivityFingerprint) {
+    mismatchReasons.push('source_activity_fingerprint_mismatch');
+  }
+  if (allocation.journalFingerprint !== context.journal.journalFingerprint) {
+    mismatchReasons.push('journal_fingerprint_mismatch');
+  }
+  if (allocation.assetId !== context.posting.assetId) {
+    mismatchReasons.push('asset_id_mismatch');
+  }
+  if (allocation.assetSymbol !== context.posting.assetSymbol) {
+    mismatchReasons.push('asset_symbol_mismatch');
+  }
+  if (allocation.currentJournalId !== undefined && allocation.currentJournalId !== context.journal.id) {
+    mismatchReasons.push('current_journal_id_mismatch');
+  }
+  if (allocation.currentPostingId !== undefined && allocation.currentPostingId !== context.posting.id) {
+    mismatchReasons.push('current_posting_id_mismatch');
+  }
+
+  return mismatchReasons;
 }
 
 function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExcludedPosting {

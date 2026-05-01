@@ -1172,7 +1172,8 @@ Cost-basis migration model:
   asset exclusions are explicit projector input; excluded postings are reported
   for audit and do not emit cost-basis input events. Relationship-level
   integrity blockers catch accepted allocations that no longer point at loaded
-  postings or that mix excluded and non-excluded postings.
+  postings, that no longer match their loaded posting metadata, or that mix
+  excluded and non-excluded postings.
 - Next implementation slice after event projection: adapt standard or Canada
   calculation behind this event model only after the calculation boundary
   handles projection blockers and excluded-posting audit output deliberately.

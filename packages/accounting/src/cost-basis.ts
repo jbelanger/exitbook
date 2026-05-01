@@ -59,6 +59,7 @@ export {
   type LedgerCostBasisPostingBlocker,
   type LedgerCostBasisProjectionBlocker,
   type LedgerCostBasisProjectionBlockerReason,
+  type LedgerCostBasisRelationshipAllocationMismatchReason,
   type LedgerCostBasisRelationshipAllocationBlockerState,
   type LedgerCostBasisRelationshipBlocker,
   type LedgerCostBasisRelationshipBlockerAllocation,
