@@ -1049,7 +1049,8 @@ related-profile transfer gaps were accepted as explicit non-link decisions
 through override events. The remaining weak external-transfer gap resolutions
 were accepted as non-link decisions after confirming the review queue had no
 asset identity suggestions or link proposals. `links-v2 review` is now empty and
-profile Issues are down to asset-review-required items only. Cost-basis remains
+profile Issues are clear after excluding `19` obvious spam, suspicious-airdrop,
+unmatched-reference, and conflicting stablecoin-copy assets. Cost-basis remains
 an old `accounting-model` consumer, so its behavior is not a ledger-v2 readiness
 gate.
 
