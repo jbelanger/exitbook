@@ -1043,9 +1043,12 @@ Current live corpus after the latest review pass: the persisted v2 run has
 `128` accepted relationships, including reviewed asset-migration, bridge, and
 amount/time overrides. The safe gap-resolution queue was cleared, then
 related-profile transfer gaps were accepted as explicit non-link decisions
-through override events. `links-v2 review` now primarily shows weak
-external-transfer gap resolutions. Cost-basis remains an old
-`accounting-model` consumer, so its behavior is not a ledger-v2 readiness gate.
+through override events. The remaining weak external-transfer gap resolutions
+were accepted as non-link decisions after confirming the review queue had no
+asset identity suggestions or link proposals. `links-v2 review` is now empty and
+profile Issues are down to asset-review-required items only. Cost-basis remains
+an old `accounting-model` consumer, so its behavior is not a ledger-v2 readiness
+gate.
 
 1. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
