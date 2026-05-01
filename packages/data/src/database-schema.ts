@@ -246,12 +246,21 @@ export interface AccountingJournalRelationshipsTable {
   relationship_origin: AccountingJournalRelationshipOrigin;
   relationship_stable_key: string;
   relationship_kind: AccountingJournalRelationshipKind;
-  recognition_strategy: string;
+  recognition_strategy: AccountingJournalRelationshipRecognitionStrategy;
   recognition_evidence_json: JSONString;
   confidence_score: DecimalString | null;
   created_at: DateTime;
   updated_at: DateTime | null;
 }
+
+export type AccountingJournalRelationshipRecognitionStrategy =
+  | 'processor_supplied'
+  | 'reviewed_relationship'
+  | 'exact_hash_transfer'
+  | 'fee_adjusted_exact_hash_transfer'
+  | 'same_hash_grouped_transfer'
+  | 'counterparty_roundtrip'
+  | 'strict_exchange_amount_time_transfer';
 
 export type AccountingJournalRelationshipAllocationSide = 'source' | 'target';
 

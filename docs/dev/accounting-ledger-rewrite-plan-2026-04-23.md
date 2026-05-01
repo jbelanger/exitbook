@@ -1010,6 +1010,8 @@ Completed checkpoints:
   reprocess
 - ledger-linking runner recognizer lookup now uses one typed helper instead of
   one near-identical `findRun` helper per recognizer
+- `accounting_journal_relationships.recognition_strategy` is now constrained to
+  the known processor and ledger-linking strategies instead of arbitrary text
 
 Active next slices:
 

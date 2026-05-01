@@ -308,6 +308,25 @@ describe('ledger schema draft', () => {
     expect(counts.map((row) => row.count)).toEqual([1, 2, 1, 2, 2, 1, 2, 1]);
   });
 
+  it('rejects unknown accounting journal relationship recognition strategies', async () => {
+    await expect(
+      db
+        .insertInto('accounting_journal_relationships')
+        .values({
+          profile_id: 1,
+          relationship_origin: 'ledger_linking',
+          relationship_stable_key: 'relationship:bad-strategy',
+          relationship_kind: 'internal_transfer',
+          recognition_strategy: 'test_strategy' as never,
+          recognition_evidence_json: '{}',
+          confidence_score: null,
+          created_at: '2026-04-23T00:00:00.000Z',
+          updated_at: null,
+        })
+        .execute()
+    ).rejects.toThrow();
+  });
+
   it('rejects fee postings without settlement', async () => {
     await db
       .insertInto('source_activities')

@@ -707,7 +707,7 @@ describe('AccountingLedgerRepository', () => {
           ],
           confidenceScore: parseDecimal('1'),
           evidence: { reason: 'test' },
-          recognitionStrategy: 'test_strategy',
+          recognitionStrategy: 'exact_hash_transfer',
           relationshipStableKey: 'relationship:ledger-linking',
           relationshipKind: 'internal_transfer',
         },
@@ -725,7 +725,7 @@ describe('AccountingLedgerRepository', () => {
     expect(relationship).toMatchObject({
       confidence_score: '1',
       recognition_evidence_json: '{"reason":"test"}',
-      recognition_strategy: 'test_strategy',
+      recognition_strategy: 'exact_hash_transfer',
       relationship_origin: 'ledger_linking',
     });
     await expect(loadRelationshipAllocationsByStableKey('relationship:ledger-linking')).resolves.toMatchObject([
@@ -759,7 +759,7 @@ describe('AccountingLedgerRepository', () => {
         ],
         confidenceScore: parseDecimal('1'),
         evidence: { reason: 'overclaim-test' },
-        recognitionStrategy: 'test_strategy',
+        recognitionStrategy: 'exact_hash_transfer',
         relationshipStableKey: 'relationship:overclaim',
         relationshipKind: 'internal_transfer',
       },
@@ -767,6 +767,29 @@ describe('AccountingLedgerRepository', () => {
 
     expect(assertErr(result).message).toContain(
       `source allocation ${sourceEndpoint.postingFingerprint} quantity 10.00000001 exceeds posting quantity 10`
+    );
+    await expect(countLedgerLinkingRows()).resolves.toBe(0);
+  });
+
+  it('rejects unknown ledger-linking recognition strategies before inserting rows', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    const result = await repository.replaceLedgerLinkingRelationships(1, [
+      {
+        allocations: [
+          makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10'),
+          makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
+        ],
+        confidenceScore: parseDecimal('1'),
+        evidence: { reason: 'bad-strategy-test' },
+        recognitionStrategy: 'unknown_strategy',
+        relationshipStableKey: 'relationship:bad-strategy',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+
+    expect(assertErr(result).message).toContain(
+      "Unknown ledger-linking relationship recognition strategy 'unknown_strategy'"
     );
     await expect(countLedgerLinkingRows()).resolves.toBe(0);
   });
@@ -817,7 +840,7 @@ describe('AccountingLedgerRepository', () => {
       evidence: {
         reason: 'test',
       },
-      recognitionStrategy: 'test_strategy',
+      recognitionStrategy: 'exact_hash_transfer',
       updatedAt: undefined,
     });
   });
@@ -862,7 +885,7 @@ describe('AccountingLedgerRepository', () => {
         ],
         confidenceScore: parseDecimal('1'),
         evidence: { reason: 'bad-test' },
-        recognitionStrategy: 'test_strategy',
+        recognitionStrategy: 'exact_hash_transfer',
         relationshipStableKey: 'relationship:bad',
         relationshipKind: 'internal_transfer',
       },
@@ -1364,7 +1387,7 @@ describe('AccountingLedgerRepository', () => {
       ],
       confidenceScore: parseDecimal('1'),
       evidence: { reason: 'test' },
-      recognitionStrategy: 'test_strategy',
+      recognitionStrategy: 'exact_hash_transfer',
       relationshipStableKey,
       relationshipKind: 'internal_transfer' as const,
     };
@@ -1395,7 +1418,7 @@ describe('AccountingLedgerRepository', () => {
         relationship_origin: 'ledger_linking',
         relationship_stable_key: 'relationship:ledger-linking',
         relationship_kind: 'internal_transfer',
-        recognition_strategy: 'test_strategy',
+        recognition_strategy: 'exact_hash_transfer',
         recognition_evidence_json: '{"reason":"test"}',
         confidence_score: '1',
         created_at: ACTIVITY_DATETIME,

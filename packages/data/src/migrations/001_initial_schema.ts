@@ -486,8 +486,16 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration')`
     )
     .addCheckConstraint(
-      'accounting_journal_relationships_recognition_strategy_not_empty',
-      sql`trim(recognition_strategy) <> ''`
+      'accounting_journal_relationships_recognition_strategy_valid',
+      sql`recognition_strategy IN (
+        'processor_supplied',
+        'reviewed_relationship',
+        'exact_hash_transfer',
+        'fee_adjusted_exact_hash_transfer',
+        'same_hash_grouped_transfer',
+        'counterparty_roundtrip',
+        'strict_exchange_amount_time_transfer'
+      )`
     )
     .addCheckConstraint(
       'accounting_journal_relationships_recognition_evidence_json_valid',

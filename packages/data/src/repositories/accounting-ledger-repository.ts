@@ -1666,6 +1666,11 @@ function toLedgerLinkingRelationshipRow(
   relationship: LedgerLinkingRelationshipDraft,
   now: string
 ): Result<Insertable<AccountingJournalRelationshipsTable>, Error> {
+  const recognitionStrategy = parseLedgerLinkingRelationshipRecognitionStrategy(relationship.recognitionStrategy);
+  if (recognitionStrategy.isErr()) {
+    return err(recognitionStrategy.error);
+  }
+
   const evidenceJson = serializeToJson(relationship.evidence);
   if (evidenceJson.isErr()) {
     return err(
@@ -1680,12 +1685,30 @@ function toLedgerLinkingRelationshipRow(
     relationship_origin: 'ledger_linking',
     relationship_stable_key: relationship.relationshipStableKey,
     relationship_kind: relationship.relationshipKind,
-    recognition_strategy: relationship.recognitionStrategy,
+    recognition_strategy: recognitionStrategy.value,
     recognition_evidence_json: evidenceJson.value ?? '{}',
     confidence_score: relationship.confidenceScore?.toFixed() ?? null,
     created_at: now,
     updated_at: null,
   });
+}
+
+function parseLedgerLinkingRelationshipRecognitionStrategy(
+  recognitionStrategy: string
+): Result<AccountingJournalRelationshipsTable['recognition_strategy'], Error> {
+  switch (recognitionStrategy) {
+    case 'reviewed_relationship':
+    case 'exact_hash_transfer':
+    case 'fee_adjusted_exact_hash_transfer':
+    case 'same_hash_grouped_transfer':
+    case 'counterparty_roundtrip':
+    case 'strict_exchange_amount_time_transfer':
+      return ok(recognitionStrategy);
+    case 'processor_supplied':
+      return err(new Error('Ledger-linking relationships cannot use processor_supplied recognition strategy'));
+    default:
+      return err(new Error(`Unknown ledger-linking relationship recognition strategy '${recognitionStrategy}'`));
+  }
 }
 
 function toLedgerLinkingRelationshipAllocationRow(
