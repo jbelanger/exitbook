@@ -50,6 +50,14 @@ export {
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
 export {
+  projectLedgerCostBasisEvents,
+  type LedgerCostBasisEventProjection,
+  type LedgerCostBasisInputEvent,
+  type LedgerCostBasisInputEventKind,
+  type LedgerCostBasisProjectionBlocker,
+  type LedgerCostBasisProjectionBlockerReason,
+} from './cost-basis/ledger/ledger-cost-basis-event-projection.js';
+export {
   buildAccountingExclusionFingerprint,
   COST_BASIS_CALCULATION_ENGINE_VERSION,
   COST_BASIS_STORAGE_SCHEMA_VERSION,

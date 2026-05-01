@@ -1161,8 +1161,18 @@ Cost-basis migration model:
   source-component refs, diagnostics, and accepted relationship allocations as
   ledger-native records. Do not classify tax events or change calculation
   behavior in this slice.
-- Next implementation slice after the reader: add pure cost-basis event
-  projection tests for the core invariants before wiring any CLI command.
+- Current slice: add a pure ledger event projector under
+  `packages/accounting/src/cost-basis/ledger/**`. It converts posting signs,
+  journal kinds, and relationship allocations into jurisdiction-neutral
+  cost-basis input events plus explicit blockers. Internal transfer,
+  same-hash carryover, bridge, and asset migration relationships carry basis
+  rather than producing disposals. External/unlinked outflows produce disposal
+  candidates. Partially allocated relationship postings must surface a residual
+  blocker rather than silently treating the remainder as a disposal.
+- Next implementation slice after event projection: adapt standard or Canada
+  calculation behind this event model only after invariant tests cover transfer,
+  bridge/migration carryover, fee, spam/exclusion, and unresolved-blocker
+  behavior.
 
 Acceptance:
 
