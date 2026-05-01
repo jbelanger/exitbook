@@ -109,6 +109,7 @@ interface ResolvedLedgerLinkingAllocationEndpoint {
   journalFingerprint: string;
   postingId: number;
   postingFingerprint: string;
+  postingQuantity: Decimal;
 }
 
 export class AccountingLedgerRepository extends BaseRepository {
@@ -540,6 +541,15 @@ export class AccountingLedgerRepository extends BaseRepository {
           const endpoint = await resolveLedgerLinkingAllocationEndpoint(db, profileId, allocation);
           if (endpoint.isErr()) {
             return err(endpoint.error);
+          }
+
+          const maxQuantity = endpoint.value.postingQuantity.abs();
+          if (allocation.quantity.gt(maxQuantity)) {
+            return err(
+              new Error(
+                `Cannot materialize ledger-linking relationship ${relationship.relationshipStableKey}: ${allocation.allocationSide} allocation ${allocation.postingFingerprint} quantity ${allocation.quantity.toFixed()} exceeds posting quantity ${maxQuantity.toFixed()}`
+              )
+            );
           }
 
           resolvedAllocations.push({ allocation, endpoint: endpoint.value });
@@ -1375,7 +1385,7 @@ async function resolveLedgerLinkingAllocationEndpoint(
 
   const posting = await db
     .selectFrom('accounting_postings')
-    .select(['id', 'posting_fingerprint', 'asset_id', 'asset_symbol'])
+    .select(['id', 'posting_fingerprint', 'asset_id', 'asset_symbol', 'quantity'])
     .where('journal_id', '=', journal.journal_id)
     .where('posting_fingerprint', '=', allocation.postingFingerprint)
     .executeTakeFirst();
@@ -1396,6 +1406,7 @@ async function resolveLedgerLinkingAllocationEndpoint(
     journalFingerprint: journal.journal_fingerprint,
     postingId: posting.id,
     postingFingerprint: posting.posting_fingerprint,
+    postingQuantity: parseDecimal(posting.quantity),
   });
 }
 

@@ -748,6 +748,29 @@ describe('AccountingLedgerRepository', () => {
     ]);
   });
 
+  it('rejects ledger-linking allocations that exceed the current posting quantity', async () => {
+    const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
+
+    const result = await repository.replaceLedgerLinkingRelationships(1, [
+      {
+        allocations: [
+          makeLedgerLinkingAllocationDraft(sourceEndpoint, 'source', '10.00000001'),
+          makeLedgerLinkingAllocationDraft(targetEndpoint, 'target', '10'),
+        ],
+        confidenceScore: parseDecimal('1'),
+        evidence: { reason: 'overclaim-test' },
+        recognitionStrategy: 'test_strategy',
+        relationshipStableKey: 'relationship:overclaim',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+
+    expect(assertErr(result).message).toContain(
+      `source allocation ${sourceEndpoint.postingFingerprint} quantity 10.00000001 exceeds posting quantity 10`
+    );
+    await expect(countLedgerLinkingRows()).resolves.toBe(0);
+  });
+
   it('loads persisted ledger-linking relationships by profile', async () => {
     const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
 

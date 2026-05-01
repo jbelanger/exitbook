@@ -999,6 +999,9 @@ Completed checkpoints:
 - ledger-linking materialization now reports stale allocation refs replaced
   during a run, so reprocess fallout is visible instead of hidden behind a
   hardcoded zero
+- ledger-linking persistence now rejects allocation quantities that exceed the
+  current posting quantity, even if an upstream recognizer or manual command
+  accidentally overclaims
 
 Active next slices:
 
@@ -1012,8 +1015,7 @@ preserve current local data. Breaking/rebuilding derived v2 data is acceptable
 when the replacement model is simpler and more honest.
 
 1. Finish relationship read-layer honesty: expose stale relationship
-   allocations after reprocess, validate linker allocation overclaims at
-   persistence, and pin recognizer order in tests.
+   allocations after reprocess and pin recognizer order in tests.
 2. Decide whether pending review-item dismissals need durable override events
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
