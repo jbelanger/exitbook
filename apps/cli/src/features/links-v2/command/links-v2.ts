@@ -6,10 +6,12 @@ import { registerLinksV2RelationshipCommands } from './links-v2-relationships.js
 import {
   executeLinksV2AssetIdentityAcceptCommand,
   executeLinksV2AssetIdentityListCommand,
+  executeLinksV2AssetIdentityRevokeCommand,
   executeLinksV2AssetIdentitySuggestionsCommand,
   executeLinksV2DiagnoseCommand,
   executeLinksV2ReviewAcceptCommand,
   executeLinksV2ReviewCommand,
+  executeLinksV2ReviewRevokeCommand,
   executeLinksV2ReviewViewCommand,
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
@@ -42,6 +44,11 @@ const LINKS_V2_REVIEW_CONFIG = {
 const LINKS_V2_REVIEW_ACCEPT_CONFIG = {
   commandId: 'links-v2-review-accept',
   title: 'Links v2 review item accepted.',
+} as const;
+
+const LINKS_V2_REVIEW_REVOKE_CONFIG = {
+  commandId: 'links-v2-review-revoke',
+  title: 'Links v2 review decision revoked.',
 } as const;
 
 const LINKS_V2_REVIEW_VIEW_CONFIG = {
@@ -206,6 +213,35 @@ Notes:
       );
     });
 
+  review
+    .command('revoke')
+    .description('Revoke one accepted v2 linking review decision')
+    .argument('<target-kind>', 'Accepted decision kind: relationship or gap-resolution')
+    .argument('<target-id>', 'Relationship stable key, or posting fingerprint for a gap resolution')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 review revoke relationship ledger-linking:reviewed_relationship:v2:abc123
+  $ exitbook links-v2 review revoke gap-resolution ledger_posting:v1:abc123
+  $ exitbook links-v2 review revoke relationship ledger-linking:reviewed_relationship:v2:abc123 --json
+
+Notes:
+  - Relationship revokes affect reviewed relationship overrides only.
+  - Gap-resolution revokes reopen a posting as unresolved link work.
+`
+    )
+    .action(async (targetKind: string, targetId: string, rawOptions: unknown, command: Command) => {
+      await executeLinksV2ReviewRevokeCommand(
+        targetKind,
+        targetId,
+        mergeReviewChildOptions(rawOptions, command),
+        appRuntime,
+        LINKS_V2_REVIEW_REVOKE_CONFIG
+      );
+    });
+
   linksV2
     .command('run')
     .description('Run ledger-native link materialization for the active profile')
@@ -329,6 +365,32 @@ Notes:
       await executeLinksV2AssetIdentityAcceptCommand(rawOptions, appRuntime, {
         ...LINKS_V2_ASSET_IDENTITY_CONFIG,
         commandId: 'links-v2-asset-identity-accept',
+      });
+    });
+
+  assetIdentity
+    .command('revoke')
+    .description('Revoke one accepted v2 asset identity assertion')
+    .requiredOption('--asset-id-a <assetId>', 'First asset id in the pair')
+    .requiredOption('--asset-id-b <assetId>', 'Second asset id in the pair')
+    .option('--relationship-kind <kind>', 'Relationship kind scope', 'internal_transfer')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 asset-identity revoke --asset-id-a exchange:kraken:eth --asset-id-b blockchain:ethereum:native
+  $ exitbook links-v2 asset-identity revoke --asset-id-a exchange:coinbase:btc --asset-id-b blockchain:bitcoin:native --json
+
+Notes:
+  - The pair is matched canonically; command input order does not matter.
+  - Revoking removes the accepted assertion from the replayed assertion projection.
+`
+    )
+    .action(async (rawOptions: unknown) => {
+      await executeLinksV2AssetIdentityRevokeCommand(rawOptions, appRuntime, {
+        ...LINKS_V2_ASSET_IDENTITY_CONFIG,
+        commandId: 'links-v2-asset-identity-revoke',
       });
     });
 }

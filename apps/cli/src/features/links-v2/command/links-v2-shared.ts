@@ -28,7 +28,10 @@ import {
 import {
   materializeStoredLedgerLinkingAssetIdentityAssertions,
   OverrideStore,
+  readLedgerLinkingAssetIdentityAssertionOverrides,
+  readLedgerLinkingRelationshipOverrides,
   readResolvedLedgerLinkingGapResolutionKeys,
+  readResolvedLedgerLinkingGapResolutions,
 } from '@exitbook/data/overrides';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
@@ -68,6 +71,8 @@ export const LinksV2ReviewCommandOptionsSchema = JsonFlagSchema.extend({
 
 export const LinksV2ReviewViewCommandOptionsSchema = JsonFlagSchema;
 export const LinksV2ReviewAcceptCommandOptionsSchema = JsonFlagSchema;
+export const LinksV2ReviewRevokeTargetKindSchema = zod.enum(['relationship', 'gap-resolution']);
+export const LinksV2ReviewRevokeCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksV2AssetIdentityListCommandOptionsSchema = JsonFlagSchema;
 
@@ -83,6 +88,13 @@ export const LinksV2AssetIdentityAcceptCommandOptionsSchema = JsonFlagSchema.ext
     .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
     .default('internal_transfer'),
 });
+export const LinksV2AssetIdentityRevokeCommandOptionsSchema = JsonFlagSchema.extend({
+  assetIdA: zod.string().trim().min(1, 'Asset id A must not be empty'),
+  assetIdB: zod.string().trim().min(1, 'Asset id B must not be empty'),
+  relationshipKind: zod
+    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
+    .default('internal_transfer'),
+});
 
 export type LinksV2StatusCommandOptions = z.infer<typeof LinksV2StatusCommandOptionsSchema>;
 export type LinksV2RunCommandOptions = z.infer<typeof LinksV2RunCommandOptionsSchema>;
@@ -90,7 +102,10 @@ export type LinksV2DiagnoseCommandOptions = z.infer<typeof LinksV2DiagnoseComman
 export type LinksV2ReviewCommandOptions = z.infer<typeof LinksV2ReviewCommandOptionsSchema>;
 export type LinksV2ReviewViewCommandOptions = z.infer<typeof LinksV2ReviewViewCommandOptionsSchema>;
 export type LinksV2ReviewAcceptCommandOptions = z.infer<typeof LinksV2ReviewAcceptCommandOptionsSchema>;
+export type LinksV2ReviewRevokeCommandOptions = z.infer<typeof LinksV2ReviewRevokeCommandOptionsSchema>;
+export type LinksV2ReviewRevokeTargetKind = z.infer<typeof LinksV2ReviewRevokeTargetKindSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
+export type LinksV2AssetIdentityRevokeCommandOptions = z.infer<typeof LinksV2AssetIdentityRevokeCommandOptionsSchema>;
 export type LinksV2AssetIdentityListCommandOptions = z.infer<typeof LinksV2AssetIdentityListCommandOptionsSchema>;
 export type LinksV2AssetIdentitySuggestionsCommandOptions = z.infer<
   typeof LinksV2AssetIdentitySuggestionsCommandOptionsSchema
@@ -167,6 +182,16 @@ interface LinksV2ReviewAcceptOutput {
   reviewItem: LedgerLinkingReviewItem;
 }
 
+interface LinksV2ReviewRevokeOutput {
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  result: LinksV2ReviewRevokeResult;
+  targetId: string;
+  targetKind: LinksV2ReviewRevokeTargetKind;
+}
+
 interface LinksV2AssetIdentityAcceptOutput {
   profile: {
     id: number;
@@ -175,7 +200,21 @@ interface LinksV2AssetIdentityAcceptOutput {
   result: LinksV2AssetIdentityAcceptResult;
 }
 
+interface LinksV2AssetIdentityRevokeOutput {
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  result: LinksV2AssetIdentityRevokeResult;
+}
+
 interface LinksV2AssetIdentityAcceptResult {
+  assertion: LedgerLinkingAssetIdentityAssertion;
+  materialization: LedgerLinkingAssetIdentityAssertionReplacementResult;
+  overrideEvent: OverrideEvent;
+}
+
+interface LinksV2AssetIdentityRevokeResult {
   assertion: LedgerLinkingAssetIdentityAssertion;
   materialization: LedgerLinkingAssetIdentityAssertionReplacementResult;
   overrideEvent: OverrideEvent;
@@ -195,13 +234,34 @@ type LinksV2ReviewAcceptResult =
       result: LinksV2GapResolutionAcceptResult;
     };
 
+type LinksV2ReviewRevokeResult =
+  | {
+      kind: 'relationship';
+      result: LinksV2RelationshipRevokeResult;
+    }
+  | {
+      kind: 'gap_resolution';
+      result: LinksV2GapResolutionRevokeResult;
+    };
+
 interface LinksV2LinkProposalAcceptResult {
   overrideEvent: OverrideEvent;
   relationshipStableKey: string;
   run: LedgerLinkingRunResult;
 }
 
+interface LinksV2RelationshipRevokeResult {
+  overrideEvent: OverrideEvent;
+  relationshipStableKey: string;
+  run: LedgerLinkingRunResult;
+}
+
 interface LinksV2GapResolutionAcceptResult {
+  overrideEvent: OverrideEvent;
+  resolutionKey: string;
+}
+
+interface LinksV2GapResolutionRevokeResult {
   overrideEvent: OverrideEvent;
   resolutionKey: string;
 }
@@ -352,6 +412,25 @@ export async function executeLinksV2ReviewAcceptCommand(
   });
 }
 
+export async function executeLinksV2ReviewRevokeCommand(
+  targetKind: string,
+  targetId: string,
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2ReviewExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewRevokeCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2ReviewRevokeCommand(runtime, targetKind, targetId, prepared, config),
+  });
+}
+
 export async function executeLinksV2AssetIdentityAcceptCommand(
   rawOptions: unknown,
   appRuntime: CliAppRuntime,
@@ -366,6 +445,23 @@ export async function executeLinksV2AssetIdentityAcceptCommand(
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2AssetIdentityAcceptCommandOptionsSchema),
     action: async ({ runtime, prepared }) =>
       executePreparedLinksV2AssetIdentityAcceptCommand(runtime, prepared, config),
+  });
+}
+
+export async function executeLinksV2AssetIdentityRevokeCommand(
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2AssetIdentityExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2AssetIdentityRevokeCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2AssetIdentityRevokeCommand(runtime, prepared, config),
   });
 }
 
@@ -668,6 +764,39 @@ async function executePreparedLinksV2ReviewAcceptCommand(
   });
 }
 
+async function executePreparedLinksV2ReviewRevokeCommand(
+  ctx: CommandRuntime,
+  rawTargetKind: string,
+  targetId: string,
+  prepared: LinksV2ReviewRevokeCommandOptions,
+  config: LinksV2ReviewExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const targetKind = yield* toCliResult(resolveLinksV2ReviewRevokeTargetKind(rawTargetKind), ExitCodes.INVALID_ARGS);
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const result = yield* toCliResult(
+      await revokeLinksV2ReviewOverride(ctx, database, profile, targetKind, targetId),
+      ExitCodes.GENERAL_ERROR
+    );
+    const output: LinksV2ReviewRevokeOutput = {
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      result,
+      targetId,
+      targetKind,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2ReviewRevokeOutput(output, config));
+  });
+}
+
 async function executePreparedLinksV2AssetIdentityAcceptCommand(
   ctx: CommandRuntime,
   prepared: LinksV2AssetIdentityAcceptCommandOptions,
@@ -698,6 +827,38 @@ async function executePreparedLinksV2AssetIdentityAcceptCommand(
     }
 
     return textSuccess(() => renderLinksV2AssetIdentityAcceptOutput(output, config));
+  });
+}
+
+async function executePreparedLinksV2AssetIdentityRevokeCommand(
+  ctx: CommandRuntime,
+  prepared: LinksV2AssetIdentityRevokeCommandOptions,
+  config: LinksV2AssetIdentityExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const result = yield* toCliResult(
+      await revokeLinksV2AssetIdentityOverride(ctx, database, profile, {
+        assetIdA: prepared.assetIdA,
+        assetIdB: prepared.assetIdB,
+        relationshipKind: prepared.relationshipKind,
+      }),
+      ExitCodes.GENERAL_ERROR
+    );
+    const output: LinksV2AssetIdentityRevokeOutput = {
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      result,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2AssetIdentityRevokeOutput(output, config));
   });
 }
 
@@ -740,6 +901,63 @@ async function acceptLinksV2AssetIdentityOverride(
   });
 }
 
+async function revokeLinksV2AssetIdentityOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  assertionTarget: Pick<LedgerLinkingAssetIdentityAssertion, 'assetIdA' | 'assetIdB' | 'relationshipKind'>
+): Promise<Result<LinksV2AssetIdentityRevokeResult, Error>> {
+  return resultDoAsync(async function* () {
+    const canonicalPair = yield* canonicalizeLedgerLinkingAssetIdentityPair(
+      assertionTarget.assetIdA,
+      assertionTarget.assetIdB
+    );
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const currentAssertions = yield* await readLedgerLinkingAssetIdentityAssertionOverrides(
+      overrideStore,
+      profile.profileKey
+    );
+    const assertion = currentAssertions.find(
+      (item) =>
+        item.assetIdA === canonicalPair.assetIdA &&
+        item.assetIdB === canonicalPair.assetIdB &&
+        item.relationshipKind === assertionTarget.relationshipKind
+    );
+
+    if (assertion === undefined) {
+      return yield* err(
+        new Error(
+          `No accepted links-v2 asset identity assertion found for ${canonicalPair.assetIdA} <-> ${canonicalPair.assetIdB} (${assertionTarget.relationshipKind})`
+        )
+      );
+    }
+
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-asset-identity-revoke',
+      payload: {
+        asset_id_a: canonicalPair.assetIdA,
+        asset_id_b: canonicalPair.assetIdB,
+        relationship_kind: assertion.relationshipKind,
+        type: 'ledger_linking_asset_identity_revoke',
+      },
+      reason: 'Revoked links-v2 asset identity assertion',
+    });
+    const materialization = yield* await materializeStoredLedgerLinkingAssetIdentityAssertions(
+      buildLedgerLinkingAssetIdentityAssertionStore(database),
+      overrideStore,
+      profile.id,
+      profile.profileKey
+    );
+
+    return {
+      assertion,
+      materialization,
+      overrideEvent,
+    };
+  });
+}
+
 async function acceptLinksV2ReviewItem(
   ctx: CommandRuntime,
   database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
@@ -770,6 +988,40 @@ async function acceptLinksV2ReviewItem(
         };
     }
   });
+}
+
+function resolveLinksV2ReviewRevokeTargetKind(rawTargetKind: string): Result<LinksV2ReviewRevokeTargetKind, Error> {
+  const parsed = LinksV2ReviewRevokeTargetKindSchema.safeParse(rawTargetKind);
+  if (!parsed.success) {
+    return err(new Error("Review revoke target kind must be 'relationship' or 'gap-resolution'"));
+  }
+
+  return ok(parsed.data);
+}
+
+async function revokeLinksV2ReviewOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  targetKind: LinksV2ReviewRevokeTargetKind,
+  targetId: string
+): Promise<Result<LinksV2ReviewRevokeResult, Error>> {
+  switch (targetKind) {
+    case 'relationship':
+      return resultDoAsync(async function* () {
+        return {
+          kind: 'relationship' as const,
+          result: yield* await revokeLinksV2RelationshipOverride(ctx, database, profile, targetId),
+        };
+      });
+    case 'gap-resolution':
+      return resultDoAsync(async function* () {
+        return {
+          kind: 'gap_resolution' as const,
+          result: yield* await revokeLinksV2GapResolutionOverride(ctx, profile, targetId),
+        };
+      });
+  }
 }
 
 async function acceptLinksV2LinkProposalOverride(
@@ -809,6 +1061,60 @@ async function acceptLinksV2LinkProposalOverride(
   });
 }
 
+async function revokeLinksV2RelationshipOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  relationshipStableKey: string
+): Promise<Result<LinksV2RelationshipRevokeResult, Error>> {
+  return resultDoAsync(async function* () {
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const reviewedRelationships = yield* await readLedgerLinkingRelationshipOverrides(
+      overrideStore,
+      profile.profileKey
+    );
+    if (
+      !reviewedRelationships.some(
+        (relationship) => buildReviewedLedgerLinkingRelationshipStableKey(relationship) === relationshipStableKey
+      )
+    ) {
+      return yield* err(
+        new Error(`No accepted reviewed links-v2 relationship override found for ${relationshipStableKey}`)
+      );
+    }
+
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-relationship-revoke',
+      payload: {
+        relationship_stable_key: relationshipStableKey,
+        type: 'ledger_linking_relationship_revoke',
+      },
+      reason: 'Revoked links-v2 reviewed relationship override',
+    });
+    const run = yield* await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database, { overrideStore }), {
+      dryRun: false,
+      includeDiagnostics: true,
+    });
+
+    if (
+      run.reviewedRelationshipOverrideMatches.some((match) => match.relationshipStableKey === relationshipStableKey)
+    ) {
+      return yield* err(
+        new Error(
+          `Revoked links-v2 relationship override ${relationshipStableKey} was still materialized by the runner`
+        )
+      );
+    }
+
+    return {
+      overrideEvent,
+      relationshipStableKey,
+      run,
+    };
+  });
+}
+
 async function acceptLinksV2GapResolutionOverride(
   ctx: CommandRuntime,
   profile: LinksV2CommandProfile,
@@ -827,6 +1133,37 @@ async function acceptLinksV2GapResolutionOverride(
     return {
       overrideEvent,
       resolutionKey: buildLedgerLinkingGapResolutionKey(reviewItem.resolution.candidate),
+    };
+  });
+}
+
+async function revokeLinksV2GapResolutionOverride(
+  ctx: CommandRuntime,
+  profile: LinksV2CommandProfile,
+  postingFingerprint: string
+): Promise<Result<LinksV2GapResolutionRevokeResult, Error>> {
+  return resultDoAsync(async function* () {
+    const overrideStore = new OverrideStore(ctx.dataDir);
+    const resolutionKey = buildLedgerLinkingGapResolutionKey({ postingFingerprint });
+    const resolutions = yield* await readResolvedLedgerLinkingGapResolutions(overrideStore, profile.profileKey);
+
+    if (!resolutions.has(resolutionKey)) {
+      return yield* err(new Error(`No accepted links-v2 gap resolution found for posting ${postingFingerprint}`));
+    }
+
+    const overrideEvent = yield* await overrideStore.append({
+      profileKey: profile.profileKey,
+      scope: 'ledger-linking-gap-resolution-revoke',
+      payload: {
+        posting_fingerprint: postingFingerprint,
+        type: 'ledger_linking_gap_resolution_revoke',
+      },
+      reason: 'Revoked links-v2 gap resolution',
+    });
+
+    return {
+      overrideEvent,
+      resolutionKey,
     };
   });
 }
@@ -1060,6 +1397,32 @@ function renderLinksV2ReviewAcceptOutput(
   console.log('Action: gap resolution accepted');
   console.log(`Resolution key: ${resolutionKey}`);
   console.log(`Resolution: ${formatGapResolutionKind(output.reviewItem.resolution.resolutionKind)}`);
+}
+
+function renderLinksV2ReviewRevokeOutput(
+  output: LinksV2ReviewRevokeOutput,
+  config: LinksV2ReviewExecutionConfig
+): void {
+  console.log(config.title);
+  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+
+  if (output.result.kind === 'relationship') {
+    const { overrideEvent, relationshipStableKey, run } = output.result.result;
+    console.log('Action: reviewed link override revoked');
+    console.log(`Override event: ${overrideEvent.id}`);
+    console.log(`Relationship stable key: ${relationshipStableKey}`);
+    if (run.persistence.mode === 'persisted') {
+      console.log(
+        `Materialized relationships: ${run.persistence.materialization.savedCount} saved, ${run.persistence.materialization.previousCount} replaced`
+      );
+    }
+    return;
+  }
+
+  const { overrideEvent, resolutionKey } = output.result.result;
+  console.log('Action: gap resolution revoked');
+  console.log(`Override event: ${overrideEvent.id}`);
+  console.log(`Resolution key: ${resolutionKey}`);
 }
 
 function renderLinksV2AssetIdentityReviewDetail(
@@ -1367,6 +1730,23 @@ function renderLinksV2AssetIdentityAcceptOutput(
   const { assertion, materialization, overrideEvent } = output.result;
 
   console.log(`${config.label} asset identity override accepted.`);
+  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log(`Override event: ${overrideEvent.id}`);
+  console.log(`Relationship kind: ${assertion.relationshipKind}`);
+  console.log(`Assets: ${assertion.assetIdA} <-> ${assertion.assetIdB}`);
+  console.log(`Evidence: ${assertion.evidenceKind}`);
+  console.log(
+    `Materialized assertions: ${materialization.savedCount} saved, ${materialization.previousCount} replaced`
+  );
+}
+
+function renderLinksV2AssetIdentityRevokeOutput(
+  output: LinksV2AssetIdentityRevokeOutput,
+  config: LinksV2AssetIdentityExecutionConfig
+): void {
+  const { assertion, materialization, overrideEvent } = output.result;
+
+  console.log(`${config.label} asset identity override revoked.`);
   console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
   console.log(`Override event: ${overrideEvent.id}`);
   console.log(`Relationship kind: ${assertion.relationshipKind}`);

@@ -18,7 +18,10 @@ const {
   mockOutputSuccess,
   mockOverrideStoreAppend,
   mockOverrideStoreConstructor,
+  mockReadLedgerLinkingAssetIdentityAssertionOverrides,
+  mockReadLedgerLinkingRelationshipOverrides,
   mockReadResolvedLedgerLinkingGapResolutionKeys,
+  mockReadResolvedLedgerLinkingGapResolutions,
   mockResolveCommandProfile,
   mockRunCommand,
   mockRunLedgerLinking,
@@ -40,7 +43,10 @@ const {
   mockOutputSuccess: vi.fn(),
   mockOverrideStoreAppend: vi.fn(),
   mockOverrideStoreConstructor: vi.fn(),
+  mockReadLedgerLinkingAssetIdentityAssertionOverrides: vi.fn(),
+  mockReadLedgerLinkingRelationshipOverrides: vi.fn(),
   mockReadResolvedLedgerLinkingGapResolutionKeys: vi.fn(),
+  mockReadResolvedLedgerLinkingGapResolutions: vi.fn(),
   mockResolveCommandProfile: vi.fn(),
   mockRunCommand: vi.fn(),
   mockRunLedgerLinking: vi.fn(),
@@ -90,7 +96,10 @@ vi.mock('@exitbook/data/overrides', () => ({
       append: mockOverrideStoreAppend,
     };
   }),
+  readLedgerLinkingAssetIdentityAssertionOverrides: mockReadLedgerLinkingAssetIdentityAssertionOverrides,
+  readLedgerLinkingRelationshipOverrides: mockReadLedgerLinkingRelationshipOverrides,
   readResolvedLedgerLinkingGapResolutionKeys: mockReadResolvedLedgerLinkingGapResolutionKeys,
+  readResolvedLedgerLinkingGapResolutions: mockReadResolvedLedgerLinkingGapResolutions,
 }));
 
 vi.mock('../../../../runtime/command-runtime.js', () => ({
@@ -179,6 +188,18 @@ describe('links-v2 command', () => {
         },
       ])
     );
+    mockReadLedgerLinkingAssetIdentityAssertionOverrides.mockResolvedValue(
+      ok([
+        {
+          assetIdA: 'blockchain:ethereum:native',
+          assetIdB: 'exchange:kraken:eth',
+          evidenceKind: 'manual',
+          relationshipKind: 'internal_transfer',
+        },
+      ])
+    );
+    mockReadLedgerLinkingRelationshipOverrides.mockResolvedValue(ok([{}]));
+    mockReadResolvedLedgerLinkingGapResolutions.mockResolvedValue(ok(new Map()));
     mockLoadLedgerLinkingRelationships.mockResolvedValue(ok([makePersistedRelationship()]));
     mockOverrideStoreAppend.mockResolvedValue(
       ok({
@@ -715,6 +736,64 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Resolution: fiat cash movement');
   });
 
+  it('revokes a reviewed relationship override from links-v2 review', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        reviewedRelationshipOverrideMatches: [],
+      })
+    );
+
+    await program.parseAsync(
+      ['links-v2', 'review', 'revoke', 'relationship', 'ledger-linking:reviewed_relationship:v2:test'],
+      { from: 'user' }
+    );
+
+    expect(mockReadLedgerLinkingRelationshipOverrides).toHaveBeenCalled();
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-relationship-revoke',
+      payload: {
+        relationship_stable_key: 'ledger-linking:reviewed_relationship:v2:test',
+        type: 'ledger_linking_relationship_revoke',
+      },
+      reason: 'Revoked links-v2 reviewed relationship override',
+    });
+    expect(mockRunLedgerLinking).toHaveBeenLastCalledWith(
+      7,
+      { tag: 'ledger-linking-ports' },
+      {
+        dryRun: false,
+        includeDiagnostics: true,
+      }
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override revoked');
+  });
+
+  it('revokes a gap resolution from links-v2 review', async () => {
+    const program = createProgram();
+    mockReadResolvedLedgerLinkingGapResolutions.mockResolvedValue(
+      ok(new Map([['ledger_linking_v2:ledger_posting:v1:cad-deposit', { reviewId: 'gr_test_1' }]]))
+    );
+
+    await program.parseAsync(['links-v2', 'review', 'revoke', 'gap-resolution', 'ledger_posting:v1:cad-deposit'], {
+      from: 'user',
+    });
+
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-gap-resolution-revoke',
+      payload: {
+        posting_fingerprint: 'ledger_posting:v1:cad-deposit',
+        type: 'ledger_linking_gap_resolution_revoke',
+      },
+      reason: 'Revoked links-v2 gap resolution',
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: gap resolution revoked');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Resolution key: ledger_linking_v2:ledger_posting:v1:cad-deposit');
+  });
+
   it('lists persisted links-v2 relationships', async () => {
     const program = createProgram();
 
@@ -785,6 +864,39 @@ describe('links-v2 command', () => {
     });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity override accepted.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Override event: override-event-1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Materialized assertions: 1 saved, 0 replaced');
+  });
+
+  it('revokes one asset identity assertion under links-v2', async () => {
+    const program = createProgram();
+
+    await program.parseAsync(
+      [
+        'links-v2',
+        'asset-identity',
+        'revoke',
+        '--asset-id-a',
+        'exchange:kraken:eth',
+        '--asset-id-b',
+        'blockchain:ethereum:native',
+      ],
+      { from: 'user' }
+    );
+
+    expect(mockReadLedgerLinkingAssetIdentityAssertionOverrides).toHaveBeenCalled();
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-asset-identity-revoke',
+      payload: {
+        asset_id_a: 'blockchain:ethereum:native',
+        asset_id_b: 'exchange:kraken:eth',
+        relationship_kind: 'internal_transfer',
+        type: 'ledger_linking_asset_identity_revoke',
+      },
+      reason: 'Revoked links-v2 asset identity assertion',
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity override revoked.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Assets: blockchain:ethereum:native <-> exchange:kraken:eth');
     expect(consoleLogSpy).toHaveBeenCalledWith('Materialized assertions: 1 saved, 0 replaced');
   });
