@@ -7,7 +7,10 @@ import type {
   AccountingIssueSeverity,
   StoredAccountingIssueRowStatus,
 } from '@exitbook/accounting/issues';
-import type { LedgerLinkingAssetIdentityEvidenceKind } from '@exitbook/accounting/ledger-linking';
+import type {
+  LedgerLinkingAssetIdentityEvidenceKind,
+  LedgerLinkingAssetIdentityRelationshipKind,
+} from '@exitbook/accounting/ledger-linking';
 import type {
   AssetReviewEvidence,
   AssetReferenceStatus,
@@ -277,7 +280,7 @@ export interface AccountingJournalRelationshipAllocationsTable {
 export interface LedgerLinkingAssetIdentityAssertionsTable {
   id: Generated<number>;
   profile_id: number; // FK to profiles.id
-  relationship_kind: AccountingJournalRelationshipKind;
+  relationship_kind: LedgerLinkingAssetIdentityRelationshipKind;
   asset_id_a: string;
   asset_id_b: string;
   evidence_kind: LedgerLinkingAssetIdentityEvidenceKind;

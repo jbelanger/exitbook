@@ -314,14 +314,26 @@ export class AccountingLedgerRepository extends BaseRepository {
         .orderBy('asset_id_b', 'asc')
         .execute();
 
-      return ok(
-        rows.map((row) => ({
+      const assertions: LedgerLinkingAssetIdentityAssertion[] = [];
+      for (const row of rows) {
+        const assertion = LedgerLinkingAssetIdentityAssertionSchema.safeParse({
           assetIdA: row.asset_id_a,
           assetIdB: row.asset_id_b,
           evidenceKind: row.evidence_kind,
           relationshipKind: row.relationship_kind,
-        }))
-      );
+        });
+        if (!assertion.success) {
+          return err(
+            new Error(
+              `Invalid ledger-linking asset identity assertion row for profile ${profileId}: ${assertion.error.message}`
+            )
+          );
+        }
+
+        assertions.push(assertion.data);
+      }
+
+      return ok(assertions);
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }

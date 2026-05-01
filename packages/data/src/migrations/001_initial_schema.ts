@@ -624,7 +624,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('updated_at', 'text')
     .addCheckConstraint(
       'ledger_linking_asset_identity_assertions_relationship_kind_valid',
-      sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration')`
+      sql`relationship_kind IN ('internal_transfer', 'external_transfer', 'same_hash_carryover')`
     )
     .addCheckConstraint(
       'ledger_linking_asset_identity_assertions_asset_ids_not_empty',

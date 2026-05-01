@@ -342,7 +342,11 @@ Notes:
     .description('Accept one pairwise asset identity assertion for v2 linking')
     .requiredOption('--asset-id-a <assetId>', 'First asset id in the pair')
     .requiredOption('--asset-id-b <assetId>', 'Second asset id in the pair')
-    .option('--relationship-kind <kind>', 'Relationship kind scope', 'internal_transfer')
+    .option(
+      '--relationship-kind <kind>',
+      'Relationship kind scope: internal_transfer, same_hash_carryover, external_transfer',
+      'internal_transfer'
+    )
     .option(
       '--evidence-kind <kind>',
       'Assertion evidence kind: manual, seeded, exact_hash_observed, amount_time_observed',
@@ -359,6 +363,7 @@ Examples:
 Notes:
   - The pair is stored canonically; command input order does not matter.
   - Defaults to relationship kind "internal_transfer" and evidence kind "manual".
+  - Asset identity assertions are only for relationship kinds that recognizers currently resolve.
 `
     )
     .action(async (rawOptions: unknown) => {
@@ -373,7 +378,11 @@ Notes:
     .description('Revoke one accepted v2 asset identity assertion')
     .requiredOption('--asset-id-a <assetId>', 'First asset id in the pair')
     .requiredOption('--asset-id-b <assetId>', 'Second asset id in the pair')
-    .option('--relationship-kind <kind>', 'Relationship kind scope', 'internal_transfer')
+    .option(
+      '--relationship-kind <kind>',
+      'Relationship kind scope: internal_transfer, same_hash_carryover, external_transfer',
+      'internal_transfer'
+    )
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',

@@ -85,14 +85,14 @@ export const LinksV2AssetIdentityAcceptCommandOptionsSchema = JsonFlagSchema.ext
   assetIdB: zod.string().trim().min(1, 'Asset id B must not be empty'),
   evidenceKind: zod.enum(['manual', 'seeded', 'exact_hash_observed', 'amount_time_observed']).default('manual'),
   relationshipKind: zod
-    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
+    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover'])
     .default('internal_transfer'),
 });
 export const LinksV2AssetIdentityRevokeCommandOptionsSchema = JsonFlagSchema.extend({
   assetIdA: zod.string().trim().min(1, 'Asset id A must not be empty'),
   assetIdB: zod.string().trim().min(1, 'Asset id B must not be empty'),
   relationshipKind: zod
-    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
+    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover'])
     .default('internal_transfer'),
 });
 

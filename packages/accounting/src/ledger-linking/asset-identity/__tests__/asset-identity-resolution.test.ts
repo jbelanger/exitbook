@@ -68,7 +68,7 @@ describe('buildLedgerLinkingAssetIdentityResolver', () => {
     const resolver = assertOk(
       buildLedgerLinkingAssetIdentityResolver([
         makeAssertion({
-          relationshipKind: 'bridge',
+          relationshipKind: 'external_transfer',
         }),
       ])
     );

@@ -1,5 +1,4 @@
 import { err, ok, type Result } from '@exitbook/foundation';
-import { AccountingJournalRelationshipKindSchema } from '@exitbook/ledger';
 import { z } from 'zod';
 
 export const LedgerLinkingAssetIdentityEvidenceKindSchema = z.enum([
@@ -9,15 +8,24 @@ export const LedgerLinkingAssetIdentityEvidenceKindSchema = z.enum([
   'amount_time_observed',
 ]);
 
+export const LedgerLinkingAssetIdentityRelationshipKindSchema = z.enum([
+  'internal_transfer',
+  'same_hash_carryover',
+  'external_transfer',
+]);
+
 export const LedgerLinkingAssetIdentityAssertionSchema = z.object({
   assetIdA: z.string().min(1, 'Asset id A must not be empty'),
   assetIdB: z.string().min(1, 'Asset id B must not be empty'),
   evidenceKind: LedgerLinkingAssetIdentityEvidenceKindSchema,
-  relationshipKind: AccountingJournalRelationshipKindSchema,
+  relationshipKind: LedgerLinkingAssetIdentityRelationshipKindSchema,
 });
 
 export type LedgerLinkingAssetIdentityAssertion = z.infer<typeof LedgerLinkingAssetIdentityAssertionSchema>;
 export type LedgerLinkingAssetIdentityEvidenceKind = z.infer<typeof LedgerLinkingAssetIdentityEvidenceKindSchema>;
+export type LedgerLinkingAssetIdentityRelationshipKind = z.infer<
+  typeof LedgerLinkingAssetIdentityRelationshipKindSchema
+>;
 
 export type LedgerLinkingAssetIdentityResolution =
   | {

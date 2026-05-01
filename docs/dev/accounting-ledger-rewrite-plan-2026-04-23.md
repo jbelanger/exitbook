@@ -940,6 +940,10 @@ Completed checkpoints:
   `links-v2 review revoke gap-resolution <posting-fingerprint>`, and
   `links-v2 asset-identity revoke` now append revoke override events through
   the same replay path as accepts
+- ledger-linking asset identity assertions are narrowed to the relationship
+  scopes that recognizers actually resolve today: `internal_transfer`,
+  `same_hash_carryover`, and `external_transfer`. `bridge` and
+  `asset_migration` must be modeled as relationships, not asset identity.
 - `links-v2 review` now hides target-before-source amount/time proposals and
   target-before-source amount/time asset identity suggestions; diagnostics still
   retain those clues
@@ -976,6 +980,10 @@ runner and storage model are independent and quantity-aware, but user-reviewed
 truth still has to become allocation-native and reversible before bridge,
 migration, and manual relationship work can be considered complete.
 
+Greenfield rule: do not keep old override or database shapes alive just to
+preserve current local data. Breaking/rebuilding derived v2 data is acceptable
+when the replacement model is simpler and more honest.
+
 1. Decide whether pending review-item dismissals need durable override events
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
@@ -984,22 +992,17 @@ migration, and manual relationship work can be considered complete.
    same allocation-native reviewed relationship override. This is the v2
    equivalent of legacy `links create` and must support internal transfer,
    bridge, and asset migration relationships.
-3. Narrow or fix asset-identity relationship-kind handling. Today recognizers
-   resolve asset identity as `internal_transfer`; bridge and asset migration
-   should not look reachable through the same asset-identity assertion path
-   unless recognizers actually use them. RNDR -> RENDER belongs to an
-   `asset_migration` relationship, not asset identity.
-4. Add bridge and asset-migration review proposals after the override model can
+3. Add bridge and asset-migration review proposals after the override model can
    represent them honestly. Start from high-confidence v1 evidence such as
    RNDR/RENDER, Wormhole RENDER, and Ethereum-to-Injective INJ bridge cases.
-5. Expand gap-resolution review items for remaining known non-links:
+4. Expand gap-resolution review items for remaining known non-links:
    related-profile transfer evidence, external purchases sent directly to an
    imported wallet, and swap/service-route no-link flows. Keep them in
    `links-v2 review`, not a separate gaps command family.
-6. Add a v1/v2 coverage comparison diagnostic before deleting legacy linking.
-   Prefer a `links-v2 diagnose --compare-legacy` shape over another top-level
-   command.
-7. Finish read-layer cleanup after the user-decision model is stable: populate
+5. Add a v1/v2 evidence comparison diagnostic while legacy linking still exists.
+   This is an analysis aid, not a compatibility gate. Prefer a
+   `links-v2 diagnose --compare-legacy` shape over another top-level command.
+6. Finish read-layer cleanup after the user-decision model is stable: populate
    `unresolvedAllocationCount`, expose stale relationship allocations, pin
    recognizer order in tests, validate linker allocation overclaims at
    persistence, and decide whether `confidence_score` is real or should be
@@ -1239,6 +1242,9 @@ Decisions:
   provider normalization exposes stable ledger facts for those assets.
 - Exchange asset ids stay exchange-scoped when provider APIs do not supply
   chain-native asset identity; do not guess chain identity from symbols alone.
+- Linking-v2 may break current local v2 data and override event payloads when
+  the model is wrong. Preserve learned evidence, not compatibility with a shape
+  we would not choose greenfield.
 - Exchange amount and fee tests use strict `> 0` checks; `Decimal.isPositive()`
   treats zero as positive and must not drive materialization.
 - KuCoin live reference balances are currently liquid-only and intentionally
@@ -1276,9 +1282,9 @@ Smells to watch:
   before the user-facing workflow is complete.
 - Reviewed relationship overrides are now allocation-native, but the user
   workflow still lacks revoke/dismiss and manual creation paths.
-- Asset-identity acceptance exposes relationship kinds that recognizers do not
-  currently consume. Either constrain the CLI to the reachable internal-transfer
-  identity path or make bridge/migration callers real before advertising them.
+- Bridge and asset-migration relationship kinds are valid relationship truth,
+  but still need manual creation/proposal paths. They no longer masquerade as
+  asset-identity assertion scopes.
 - `unresolvedAllocationCount` and `confidence_score` are advertised in the
   linking-v2 result/schema surface but are not populated end-to-end yet.
 - The duplicated `links-v2` and `ledger linking-v2` CLI surfaces are acceptable

@@ -1,11 +1,11 @@
 import { err, ok, type Currency, type Result } from '@exitbook/foundation';
-import type { AccountingJournalRelationshipKind } from '@exitbook/ledger';
 
 import type { LedgerLinkingDiagnostics } from '../diagnostics/linking-diagnostics.js';
 
 import {
   canonicalizeLedgerLinkingAssetIdentityPair,
   type LedgerLinkingAssetIdentityEvidenceKind,
+  type LedgerLinkingAssetIdentityRelationshipKind,
 } from './asset-identity-resolution.js';
 
 const DEFAULT_MAX_EXAMPLES_PER_SUGGESTION = 3;
@@ -55,13 +55,13 @@ export interface LedgerLinkingAssetIdentitySuggestion {
   blockCount: number;
   evidenceKind: LedgerLinkingAssetIdentitySuggestionEvidenceKind;
   examples: readonly LedgerLinkingAssetIdentitySuggestionExample[];
-  relationshipKind: AccountingJournalRelationshipKind;
+  relationshipKind: LedgerLinkingAssetIdentityRelationshipKind;
 }
 
 export interface LedgerLinkingAssetIdentitySuggestionOptions {
   evidenceKind?: LedgerLinkingAssetIdentitySuggestionEvidenceKind | undefined;
   maxExamplesPerSuggestion?: number | undefined;
-  relationshipKind?: AccountingJournalRelationshipKind | undefined;
+  relationshipKind?: LedgerLinkingAssetIdentityRelationshipKind | undefined;
 }
 
 interface AssetIdentitySuggestionGroup {
@@ -70,7 +70,7 @@ interface AssetIdentitySuggestionGroup {
   assetSymbol: Currency;
   evidenceKind: LedgerLinkingAssetIdentitySuggestionEvidenceKind;
   examples: LedgerLinkingAssetIdentitySuggestionExample[];
-  relationshipKind: AccountingJournalRelationshipKind;
+  relationshipKind: LedgerLinkingAssetIdentityRelationshipKind;
 }
 
 export function buildLedgerLinkingAssetIdentitySuggestions(
@@ -258,7 +258,7 @@ function toSuggestionExample(
 
 function buildAssetIdentitySuggestionKey(
   evidenceKind: LedgerLinkingAssetIdentitySuggestionEvidenceKind,
-  relationshipKind: AccountingJournalRelationshipKind,
+  relationshipKind: LedgerLinkingAssetIdentityRelationshipKind,
   assetIdA: string,
   assetIdB: string,
   block: LedgerLinkingAssetIdentitySuggestionInput
