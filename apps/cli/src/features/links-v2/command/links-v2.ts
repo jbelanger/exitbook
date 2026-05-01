@@ -11,6 +11,7 @@ import {
   executeLinksV2DiagnoseCommand,
   executeLinksV2ReviewAcceptCommand,
   executeLinksV2ReviewCommand,
+  executeLinksV2ReviewCreateRelationshipCommand,
   executeLinksV2ReviewRevokeCommand,
   executeLinksV2ReviewViewCommand,
   executeLinksV2RunCommand,
@@ -44,6 +45,11 @@ const LINKS_V2_REVIEW_CONFIG = {
 const LINKS_V2_REVIEW_ACCEPT_CONFIG = {
   commandId: 'links-v2-review-accept',
   title: 'Links v2 review item accepted.',
+} as const;
+
+const LINKS_V2_REVIEW_CREATE_RELATIONSHIP_CONFIG = {
+  commandId: 'links-v2-review-create-relationship',
+  title: 'Links v2 manual relationship created.',
 } as const;
 
 const LINKS_V2_REVIEW_REVOKE_CONFIG = {
@@ -213,6 +219,42 @@ Notes:
       );
     });
 
+  const reviewCreate = review.command('create').description('Create a reviewed v2 linking decision manually');
+
+  reviewCreate
+    .command('relationship')
+    .description('Create one manual v2 relationship override')
+    .requiredOption('--source-posting <fingerprint>', 'Source-side posting fingerprint')
+    .requiredOption('--target-posting <fingerprint>', 'Target-side posting fingerprint')
+    .option(
+      '--relationship-kind <kind>',
+      'Relationship kind: internal_transfer, external_transfer, same_hash_carryover, bridge, asset_migration',
+      'internal_transfer'
+    )
+    .option('--source-quantity <quantity>', 'Source quantity to allocate; defaults to the full source amount')
+    .option('--target-quantity <quantity>', 'Target quantity to allocate; defaults to the full target amount')
+    .requiredOption('--reason <reason>', 'Human review reason/evidence for creating this relationship')
+    .option('--json', 'Output results in JSON format')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ exitbook links-v2 review create relationship --source-posting ledger_posting:v1:src --target-posting ledger_posting:v1:tgt --reason "Exchange withdrawal received on-chain"
+  $ exitbook links-v2 review create relationship --relationship-kind asset_migration --source-posting ledger_posting:v1:rndr --target-posting ledger_posting:v1:render --reason "RNDR to RENDER migration evidence"
+
+Notes:
+  - This records the same durable reviewed relationship override as accepting a proposal.
+  - Use this when the relationship is real but no pending proposal can represent it.
+`
+    )
+    .action(async (rawOptions: unknown, command: Command) => {
+      await executeLinksV2ReviewCreateRelationshipCommand(
+        mergeReviewChildOptions(rawOptions, command),
+        appRuntime,
+        LINKS_V2_REVIEW_CREATE_RELATIONSHIP_CONFIG
+      );
+    });
+
   review
     .command('revoke')
     .description('Revoke one accepted v2 linking review decision')
@@ -269,9 +311,21 @@ Notes:
 
 function mergeReviewChildOptions(rawOptions: unknown, command: Command): Record<string, unknown> {
   return {
-    ...command.parent?.opts(),
+    ...collectParentOptions(command),
     ...(typeof rawOptions === 'object' && rawOptions !== null ? (rawOptions as Record<string, unknown>) : {}),
   };
+}
+
+function collectParentOptions(command: Command): Record<string, unknown> {
+  const options: Record<string, unknown> = {};
+  let parent = command.parent;
+
+  while (parent !== null && parent !== undefined) {
+    Object.assign(options, parent.opts());
+    parent = parent.parent;
+  }
+
+  return options;
 }
 
 function registerLinksV2AssetIdentityCommand(linksV2: Command, appRuntime: CliAppRuntime): void {

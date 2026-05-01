@@ -1,6 +1,7 @@
 import {
   buildLedgerLinkingReviewQueue,
   buildLedgerLinkingGapResolutionKey,
+  buildLedgerTransferLinkingCandidates,
   canonicalizeLedgerLinkingAssetIdentityPair,
   buildReviewedLedgerLinkingRelationshipStableKey,
   LedgerLinkingReviewedRelationshipOverrideSchema,
@@ -14,6 +15,7 @@ import {
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewQueue,
   type LedgerLinkingRunResult,
+  type LedgerTransferLinkingCandidate,
 } from '@exitbook/accounting/ledger-linking';
 import type {
   LedgerLinkingGapResolutionAcceptPayload,
@@ -23,6 +25,7 @@ import type {
 import {
   buildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore,
+  buildLedgerLinkingCandidateSourceReader,
   buildLedgerLinkingRunPorts,
 } from '@exitbook/data/accounting';
 import {
@@ -54,6 +57,8 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
+import { buildLinksV2ManualRelationshipAcceptPayload } from './links-v2-manual-relationships.js';
+
 export const LinksV2StatusCommandOptionsSchema = JsonFlagSchema;
 
 export const LinksV2RunCommandOptionsSchema = JsonFlagSchema.extend({
@@ -71,6 +76,16 @@ export const LinksV2ReviewCommandOptionsSchema = JsonFlagSchema.extend({
 
 export const LinksV2ReviewViewCommandOptionsSchema = JsonFlagSchema;
 export const LinksV2ReviewAcceptCommandOptionsSchema = JsonFlagSchema;
+export const LinksV2ReviewCreateRelationshipCommandOptionsSchema = JsonFlagSchema.extend({
+  reason: zod.string().trim().min(1, 'Manual relationship reason must not be empty'),
+  relationshipKind: zod
+    .enum(['internal_transfer', 'external_transfer', 'same_hash_carryover', 'bridge', 'asset_migration'])
+    .default('internal_transfer'),
+  sourcePosting: zod.string().trim().min(1, 'Source posting fingerprint must not be empty'),
+  sourceQuantity: zod.string().trim().min(1, 'Source quantity must not be empty').optional(),
+  targetPosting: zod.string().trim().min(1, 'Target posting fingerprint must not be empty'),
+  targetQuantity: zod.string().trim().min(1, 'Target quantity must not be empty').optional(),
+});
 export const LinksV2ReviewRevokeTargetKindSchema = zod.enum(['relationship', 'gap-resolution']);
 export const LinksV2ReviewRevokeCommandOptionsSchema = JsonFlagSchema;
 
@@ -102,6 +117,9 @@ export type LinksV2DiagnoseCommandOptions = z.infer<typeof LinksV2DiagnoseComman
 export type LinksV2ReviewCommandOptions = z.infer<typeof LinksV2ReviewCommandOptionsSchema>;
 export type LinksV2ReviewViewCommandOptions = z.infer<typeof LinksV2ReviewViewCommandOptionsSchema>;
 export type LinksV2ReviewAcceptCommandOptions = z.infer<typeof LinksV2ReviewAcceptCommandOptionsSchema>;
+export type LinksV2ReviewCreateRelationshipCommandOptions = z.infer<
+  typeof LinksV2ReviewCreateRelationshipCommandOptionsSchema
+>;
 export type LinksV2ReviewRevokeCommandOptions = z.infer<typeof LinksV2ReviewRevokeCommandOptionsSchema>;
 export type LinksV2ReviewRevokeTargetKind = z.infer<typeof LinksV2ReviewRevokeTargetKindSchema>;
 export type LinksV2AssetIdentityAcceptCommandOptions = z.infer<typeof LinksV2AssetIdentityAcceptCommandOptionsSchema>;
@@ -182,6 +200,14 @@ interface LinksV2ReviewAcceptOutput {
   reviewItem: LedgerLinkingReviewItem;
 }
 
+interface LinksV2ReviewCreateRelationshipOutput {
+  profile: {
+    id: number;
+    profileKey: string;
+  };
+  result: LinksV2RelationshipAcceptResult;
+}
+
 interface LinksV2ReviewRevokeOutput {
   profile: {
     id: number;
@@ -227,7 +253,7 @@ type LinksV2ReviewAcceptResult =
     }
   | {
       kind: 'link_proposal';
-      result: LinksV2LinkProposalAcceptResult;
+      result: LinksV2RelationshipAcceptResult;
     }
   | {
       kind: 'gap_resolution';
@@ -244,10 +270,13 @@ type LinksV2ReviewRevokeResult =
       result: LinksV2GapResolutionRevokeResult;
     };
 
-interface LinksV2LinkProposalAcceptResult {
+interface LinksV2RelationshipAcceptResult {
   overrideEvent: OverrideEvent;
+  relationshipKind: string;
   relationshipStableKey: string;
   run: LedgerLinkingRunResult;
+  sourcePostingFingerprint: string;
+  targetPostingFingerprint: string;
 }
 
 interface LinksV2RelationshipRevokeResult {
@@ -409,6 +438,23 @@ export async function executeLinksV2ReviewAcceptCommand(
     prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewAcceptCommandOptionsSchema),
     action: async ({ runtime, prepared }) =>
       executePreparedLinksV2ReviewAcceptCommand(runtime, reviewId, prepared, config),
+  });
+}
+
+export async function executeLinksV2ReviewCreateRelationshipCommand(
+  rawOptions: unknown,
+  appRuntime: CliAppRuntime,
+  config: LinksV2ReviewExecutionConfig
+): Promise<void> {
+  const format = detectCliOutputFormat(rawOptions);
+
+  await runCliRuntimeCommand({
+    command: config.commandId,
+    format,
+    appRuntime,
+    prepare: async () => parseCliCommandOptionsResult(rawOptions, LinksV2ReviewCreateRelationshipCommandOptionsSchema),
+    action: async ({ runtime, prepared }) =>
+      executePreparedLinksV2ReviewCreateRelationshipCommand(runtime, prepared, config),
   });
 }
 
@@ -764,6 +810,34 @@ async function executePreparedLinksV2ReviewAcceptCommand(
   });
 }
 
+async function executePreparedLinksV2ReviewCreateRelationshipCommand(
+  ctx: CommandRuntime,
+  prepared: LinksV2ReviewCreateRelationshipCommandOptions,
+  config: LinksV2ReviewExecutionConfig
+): Promise<CliCommandResult> {
+  return resultDoAsync(async function* () {
+    const database = await ctx.openDatabaseSession();
+    const profile = yield* toCliResult(await resolveCommandProfile(ctx, database), ExitCodes.GENERAL_ERROR);
+    const result = yield* toCliResult(
+      await createLinksV2ManualRelationshipOverride(ctx, database, profile, prepared),
+      ExitCodes.GENERAL_ERROR
+    );
+    const output: LinksV2ReviewCreateRelationshipOutput = {
+      profile: {
+        id: profile.id,
+        profileKey: profile.profileKey,
+      },
+      result,
+    };
+
+    if (prepared.json === true) {
+      return jsonSuccess(output);
+    }
+
+    return textSuccess(() => renderLinksV2ReviewCreateRelationshipOutput(output, config));
+  });
+}
+
 async function executePreparedLinksV2ReviewRevokeCommand(
   ctx: CommandRuntime,
   rawTargetKind: string,
@@ -1029,10 +1103,44 @@ async function acceptLinksV2LinkProposalOverride(
   database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
   profile: LinksV2CommandProfile,
   reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
-): Promise<Result<LinksV2LinkProposalAcceptResult, Error>> {
+): Promise<Result<LinksV2RelationshipAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    const payload = buildLinksV2RelationshipAcceptPayload(reviewItem);
+
+    return yield* await acceptLinksV2RelationshipOverridePayload(ctx, database, profile, payload);
+  });
+}
+
+async function createLinksV2ManualRelationshipOverride(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  options: LinksV2ReviewCreateRelationshipCommandOptions
+): Promise<Result<LinksV2RelationshipAcceptResult, Error>> {
+  return resultDoAsync(async function* () {
+    const candidates = yield* await loadLinksV2ManualRelationshipCandidates(database, profile.id);
+    const payload = yield* buildLinksV2ManualRelationshipAcceptPayload({
+      candidates,
+      reason: options.reason,
+      relationshipKind: options.relationshipKind,
+      sourcePostingFingerprint: options.sourcePosting,
+      sourceQuantity: options.sourceQuantity,
+      targetPostingFingerprint: options.targetPosting,
+      targetQuantity: options.targetQuantity,
+    });
+
+    return yield* await acceptLinksV2RelationshipOverridePayload(ctx, database, profile, payload);
+  });
+}
+
+async function acceptLinksV2RelationshipOverridePayload(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profile: LinksV2CommandProfile,
+  payload: LedgerLinkingRelationshipAcceptPayload
+): Promise<Result<LinksV2RelationshipAcceptResult, Error>> {
   return resultDoAsync(async function* () {
     const overrideStore = new OverrideStore(ctx.dataDir);
-    const payload = buildLinksV2RelationshipAcceptPayload(reviewItem);
     const overrideEvent = yield* await overrideStore.append({
       profileKey: profile.profileKey,
       scope: 'ledger-linking-relationship-accept',
@@ -1055,10 +1163,38 @@ async function acceptLinksV2LinkProposalOverride(
 
     return {
       overrideEvent,
+      relationshipKind: payload.relationship_kind,
       relationshipStableKey,
       run,
+      sourcePostingFingerprint: resolveFirstRelationshipAllocationPosting(payload, 'source'),
+      targetPostingFingerprint: resolveFirstRelationshipAllocationPosting(payload, 'target'),
     };
   });
+}
+
+async function loadLinksV2ManualRelationshipCandidates(
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  profileId: number
+): Promise<Result<LedgerTransferLinkingCandidate[], Error>> {
+  return resultDoAsync(async function* () {
+    const postingInputs =
+      yield* await buildLedgerLinkingCandidateSourceReader(database).loadLedgerLinkingPostingInputs(profileId);
+    const candidateBuild = yield* buildLedgerTransferLinkingCandidates(postingInputs);
+
+    return candidateBuild.candidates;
+  });
+}
+
+function resolveFirstRelationshipAllocationPosting(
+  payload: LedgerLinkingRelationshipAcceptPayload,
+  side: 'source' | 'target'
+): string {
+  const allocation = payload.allocations.find((item) => item.allocation_side === side);
+  if (allocation === undefined) {
+    throw new Error(`Accepted links-v2 relationship payload is missing a ${side} allocation`);
+  }
+
+  return allocation.posting_fingerprint;
 }
 
 async function revokeLinksV2RelationshipOverride(
@@ -1496,6 +1632,27 @@ function renderLinksV2GapResolutionReviewDetail(
   console.log('Decision help:');
   console.log('  This records a durable gap-resolution override; it does not create a relationship.');
   console.log('  Accept only when this posting should intentionally remain unlinked.');
+}
+
+function renderLinksV2ReviewCreateRelationshipOutput(
+  output: LinksV2ReviewCreateRelationshipOutput,
+  config: LinksV2ReviewExecutionConfig
+): void {
+  const { overrideEvent, relationshipKind, relationshipStableKey, run } = output.result;
+
+  console.log(config.title);
+  console.log(`Profile: ${output.profile.profileKey} (#${output.profile.id})`);
+  console.log('Action: manual reviewed link override accepted');
+  console.log(`Override event: ${overrideEvent.id}`);
+  console.log(`Relationship kind: ${relationshipKind}`);
+  console.log(`Relationship stable key: ${relationshipStableKey}`);
+  console.log(`Source posting: ${output.result.sourcePostingFingerprint}`);
+  console.log(`Target posting: ${output.result.targetPostingFingerprint}`);
+  if (run.persistence.mode === 'persisted') {
+    console.log(
+      `Materialized relationships: ${run.persistence.materialization.savedCount} saved, ${run.persistence.materialization.previousCount} replaced`
+    );
+  }
 }
 
 function renderLinksV2ReviewItem(item: LedgerLinkingReviewItem): void {

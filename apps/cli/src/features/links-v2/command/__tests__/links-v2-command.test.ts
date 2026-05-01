@@ -1,5 +1,7 @@
+import type { LedgerLinkingRelationshipAcceptPayload } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
 import { Command } from 'commander';
+import { Decimal } from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CliAppRuntime } from '../../../../runtime/app-runtime.js';
@@ -8,11 +10,14 @@ const {
   mockBuildLedgerLinkingReviewQueue,
   mockBuildLedgerLinkingAssetIdentityAssertionReader,
   mockBuildLedgerLinkingAssetIdentityAssertionStore,
+  mockBuildLedgerLinkingCandidateSourceReader,
   mockBuildLedgerLinkingRelationshipReader,
   mockBuildLedgerLinkingRunPorts,
+  mockBuildLedgerTransferLinkingCandidates,
   mockCtx,
   mockExitCliFailure,
   mockLoadLedgerLinkingAssetIdentityAssertions,
+  mockLoadLedgerLinkingPostingInputs,
   mockLoadLedgerLinkingRelationships,
   mockMaterializeStoredLedgerLinkingAssetIdentityAssertions,
   mockOutputSuccess,
@@ -31,13 +36,16 @@ const {
   mockBuildLedgerLinkingReviewQueue: vi.fn(),
   mockBuildLedgerLinkingAssetIdentityAssertionReader: vi.fn(),
   mockBuildLedgerLinkingAssetIdentityAssertionStore: vi.fn(),
+  mockBuildLedgerLinkingCandidateSourceReader: vi.fn(),
   mockBuildLedgerLinkingRelationshipReader: vi.fn(),
   mockBuildLedgerLinkingRunPorts: vi.fn(),
+  mockBuildLedgerTransferLinkingCandidates: vi.fn(),
   mockCtx: {
     openDatabaseSession: vi.fn(),
   },
   mockExitCliFailure: vi.fn(),
   mockLoadLedgerLinkingAssetIdentityAssertions: vi.fn(),
+  mockLoadLedgerLinkingPostingInputs: vi.fn(),
   mockLoadLedgerLinkingRelationships: vi.fn(),
   mockMaterializeStoredLedgerLinkingAssetIdentityAssertions: vi.fn(),
   mockOutputSuccess: vi.fn(),
@@ -55,6 +63,7 @@ const {
 }));
 
 vi.mock('@exitbook/accounting/ledger-linking', () => ({
+  buildLedgerTransferLinkingCandidates: mockBuildLedgerTransferLinkingCandidates,
   buildLedgerLinkingGapResolutionKey: ({ postingFingerprint }: { postingFingerprint: string }) =>
     `ledger_linking_v2:${postingFingerprint}`,
   buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
@@ -84,6 +93,7 @@ vi.mock('@exitbook/accounting/ledger-linking', () => ({
 vi.mock('@exitbook/data/accounting', () => ({
   buildLedgerLinkingAssetIdentityAssertionReader: mockBuildLedgerLinkingAssetIdentityAssertionReader,
   buildLedgerLinkingAssetIdentityAssertionStore: mockBuildLedgerLinkingAssetIdentityAssertionStore,
+  buildLedgerLinkingCandidateSourceReader: mockBuildLedgerLinkingCandidateSourceReader,
   buildLedgerLinkingRelationshipReader: mockBuildLedgerLinkingRelationshipReader,
   buildLedgerLinkingRunPorts: mockBuildLedgerLinkingRunPorts,
 }));
@@ -126,6 +136,26 @@ function createProgram(): Command {
   return program;
 }
 
+function getLastRelationshipAcceptAppendInput(): {
+  payload: LedgerLinkingRelationshipAcceptPayload;
+  profileKey: string;
+  scope: 'ledger-linking-relationship-accept';
+} {
+  const call = mockOverrideStoreAppend.mock.calls.at(-1);
+  const input = call?.[0] as
+    | {
+        payload: LedgerLinkingRelationshipAcceptPayload;
+        profileKey: string;
+        scope: 'ledger-linking-relationship-accept';
+      }
+    | undefined;
+  if (input === undefined) {
+    throw new Error('Expected an override append call');
+  }
+
+  return input;
+}
+
 describe('links-v2 command', () => {
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -148,6 +178,16 @@ describe('links-v2 command', () => {
       })
     );
     mockBuildLedgerLinkingRunPorts.mockReturnValue({ tag: 'ledger-linking-ports' });
+    mockBuildLedgerLinkingCandidateSourceReader.mockReturnValue({
+      loadLedgerLinkingPostingInputs: mockLoadLedgerLinkingPostingInputs,
+    });
+    mockLoadLedgerLinkingPostingInputs.mockResolvedValue(ok([]));
+    mockBuildLedgerTransferLinkingCandidates.mockReturnValue(
+      ok({
+        candidates: makeManualRelationshipCandidates(),
+        skipped: [],
+      })
+    );
     mockBuildLedgerLinkingReviewQueue.mockImplementation(
       (input: {
         assetIdentitySuggestions: readonly unknown[];
@@ -691,6 +731,89 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Materialized relationships: 1 saved, 0 replaced');
   });
 
+  it('creates manual reviewed relationship overrides from posting fingerprints', async () => {
+    const program = createProgram();
+    mockRunLedgerLinking.mockResolvedValue(
+      ok({
+        ...makeRunResult(),
+        reviewedRelationshipOverrideMatches: [
+          {
+            allocations: [
+              {
+                allocationSide: 'source',
+                candidateId: 11,
+                postingFingerprint: 'ledger_posting:v1:manual-source',
+                quantity: '19.5536',
+              },
+              {
+                allocationSide: 'target',
+                candidateId: 12,
+                postingFingerprint: 'ledger_posting:v1:manual-target',
+                quantity: '19.5536',
+              },
+            ],
+            overrideEventId: 'override-event-1',
+            relationshipStableKey: 'ledger-linking:reviewed_relationship:v2:test',
+            reviewId: 'manual_test',
+          },
+        ],
+      })
+    );
+
+    await program.parseAsync(
+      [
+        'links-v2',
+        'review',
+        'create',
+        'relationship',
+        '--relationship-kind',
+        'asset_migration',
+        '--source-posting',
+        'ledger_posting:v1:manual-source',
+        '--target-posting',
+        'ledger_posting:v1:manual-target',
+        '--reason',
+        'RNDR to RENDER migration evidence',
+      ],
+      { from: 'user' }
+    );
+
+    expect(mockBuildLedgerLinkingCandidateSourceReader).toHaveBeenCalledWith({ tag: 'db' });
+    const appendInput = getLastRelationshipAcceptAppendInput();
+    expect(appendInput.profileKey).toBe('default');
+    expect(appendInput.scope).toBe('ledger-linking-relationship-accept');
+    expect(appendInput.payload.allocations).toEqual([
+      {
+        allocation_side: 'source',
+        asset_id: 'exchange:kucoin:rndr',
+        asset_symbol: 'RNDR',
+        journal_fingerprint: 'ledger_journal:v1:manual-source',
+        posting_fingerprint: 'ledger_posting:v1:manual-source',
+        quantity: '19.5536',
+        source_activity_fingerprint: 'source_activity:v1:manual-source',
+      },
+      {
+        allocation_side: 'target',
+        asset_id: 'blockchain:ethereum:render',
+        asset_symbol: 'RENDER',
+        journal_fingerprint: 'ledger_journal:v1:manual-target',
+        posting_fingerprint: 'ledger_posting:v1:manual-target',
+        quantity: '19.5536',
+        source_activity_fingerprint: 'source_activity:v1:manual-target',
+      },
+    ]);
+    expect(appendInput.payload.evidence.reason).toBe('RNDR to RENDER migration evidence');
+    expect(appendInput.payload.evidence.sourceCandidateId).toBe(11);
+    expect(appendInput.payload.evidence.targetCandidateId).toBe(12);
+    expect(appendInput.payload.proposal_kind).toBe('manual_relationship');
+    expect(appendInput.payload.relationship_kind).toBe('asset_migration');
+    expect(appendInput.payload.type).toBe('ledger_linking_relationship_accept');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: manual reviewed link override accepted');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationship kind: asset_migration');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Source posting: ledger_posting:v1:manual-source');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Target posting: ledger_posting:v1:manual-target');
+  });
+
   it('accepts gap resolutions from the links-v2 review queue as reviewed non-link overrides', async () => {
     const program = createProgram();
     const gapResolutionItem = makeGapResolutionReviewItem();
@@ -1056,6 +1179,47 @@ function makeAssetIdentitySuggestion() {
     ],
     relationshipKind: 'internal_transfer',
   };
+}
+
+function makeManualRelationshipCandidates() {
+  return [
+    {
+      activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
+      amount: new Decimal('19.5536'),
+      assetId: 'exchange:kucoin:rndr',
+      assetSymbol: 'RNDR',
+      blockchainTransactionHash: undefined,
+      candidateId: 11,
+      direction: 'source',
+      fromAddress: undefined,
+      journalDiagnosticCodes: ['possible_asset_migration'],
+      journalFingerprint: 'ledger_journal:v1:manual-source',
+      ownerAccountId: 1,
+      platformKey: 'kucoin',
+      platformKind: 'exchange',
+      postingFingerprint: 'ledger_posting:v1:manual-source',
+      sourceActivityFingerprint: 'source_activity:v1:manual-source',
+      toAddress: undefined,
+    },
+    {
+      activityDatetime: new Date('2026-04-23T00:05:00.000Z'),
+      amount: new Decimal('19.5536'),
+      assetId: 'blockchain:ethereum:render',
+      assetSymbol: 'RENDER',
+      blockchainTransactionHash: '0xrender',
+      candidateId: 12,
+      direction: 'target',
+      fromAddress: '0xfrom',
+      journalDiagnosticCodes: ['possible_asset_migration'],
+      journalFingerprint: 'ledger_journal:v1:manual-target',
+      ownerAccountId: 2,
+      platformKey: 'ethereum',
+      platformKind: 'blockchain',
+      postingFingerprint: 'ledger_posting:v1:manual-target',
+      sourceActivityFingerprint: 'source_activity:v1:manual-target',
+      toAddress: '0xto',
+    },
+  ];
 }
 
 function makeDiagnostics() {

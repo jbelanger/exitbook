@@ -940,6 +940,12 @@ Completed checkpoints:
   `links-v2 review revoke gap-resolution <posting-fingerprint>`, and
   `links-v2 asset-identity revoke` now append revoke override events through
   the same replay path as accepts
+- `links-v2 review create relationship` now creates manual allocation-native
+  reviewed relationship overrides from source/target posting fingerprints. It
+  requires a human reason, supports internal transfer, external transfer,
+  same-hash carryover, bridge, and asset migration relationship kinds, and
+  materializes through the same reviewed-relationship recognizer as proposal
+  accepts.
 - ledger-linking asset identity assertions are narrowed to the relationship
   scopes that recognizers actually resolve today: `internal_transfer`,
   `same_hash_carryover`, and `external_transfer`. `bridge` and
@@ -988,21 +994,17 @@ when the replacement model is simpler and more honest.
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
    reversible through revoke override events.
-2. Add manual v2 relationship creation inside `links-v2 review`, backed by the
-   same allocation-native reviewed relationship override. This is the v2
-   equivalent of legacy `links create` and must support internal transfer,
-   bridge, and asset migration relationships.
-3. Add bridge and asset-migration review proposals after the override model can
+2. Add bridge and asset-migration review proposals after the override model can
    represent them honestly. Start from high-confidence v1 evidence such as
    RNDR/RENDER, Wormhole RENDER, and Ethereum-to-Injective INJ bridge cases.
-4. Expand gap-resolution review items for remaining known non-links:
+3. Expand gap-resolution review items for remaining known non-links:
    related-profile transfer evidence, external purchases sent directly to an
    imported wallet, and swap/service-route no-link flows. Keep them in
    `links-v2 review`, not a separate gaps command family.
-5. Add a v1/v2 evidence comparison diagnostic while legacy linking still exists.
+4. Add a v1/v2 evidence comparison diagnostic while legacy linking still exists.
    This is an analysis aid, not a compatibility gate. Prefer a
    `links-v2 diagnose --compare-legacy` shape over another top-level command.
-6. Finish read-layer cleanup after the user-decision model is stable: populate
+5. Finish read-layer cleanup after the user-decision model is stable: populate
    `unresolvedAllocationCount`, expose stale relationship allocations, pin
    recognizer order in tests, validate linker allocation overclaims at
    persistence, and decide whether `confidence_score` is real or should be
@@ -1280,11 +1282,12 @@ Smells to watch:
 - Cross-source relationships now have a dedicated materialization path, but
   persisted gaps and reviewed-override revoke/dismiss flows still need to land
   before the user-facing workflow is complete.
-- Reviewed relationship overrides are now allocation-native, but the user
-  workflow still lacks revoke/dismiss and manual creation paths.
+- Reviewed relationship overrides are now allocation-native and reversible, but
+  pending review-item dismissals still need a stable identity policy before
+  becoming durable.
 - Bridge and asset-migration relationship kinds are valid relationship truth,
-  but still need manual creation/proposal paths. They no longer masquerade as
-  asset-identity assertion scopes.
+  but still need first-class proposal paths. Manual creation exists for cases
+  where the operator already has evidence.
 - `unresolvedAllocationCount` and `confidence_score` are advertised in the
   linking-v2 result/schema surface but are not populated end-to-end yet.
 - The duplicated `links-v2` and `ledger linking-v2` CLI surfaces are acceptable
