@@ -1005,6 +1005,9 @@ Completed checkpoints:
 - ledger-linking runner tests now pin deterministic recognizer order:
   reviewed overrides, exact hash, fee-adjusted exact hash, same-hash grouped,
   counterparty roundtrip, then strict exchange amount/time
+- `links-v2 list --stale` now filters accepted relationships whose allocation
+  fingerprints no longer resolve to current journal/posting rows after
+  reprocess
 
 Active next slices:
 
@@ -1017,20 +1020,18 @@ Greenfield rule: do not keep old override or database shapes alive just to
 preserve current local data. Breaking/rebuilding derived v2 data is acceptable
 when the replacement model is simpler and more honest.
 
-1. Finish relationship read-layer honesty: expose stale relationship
-   allocations after reprocess.
-2. Decide whether pending review-item dismissals need durable override events
+1. Decide whether pending review-item dismissals need durable override events
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
    already reversible through revoke override events.
-3. Continue clearing warning-grade gap resolutions from the live corpus, then
+2. Continue clearing warning-grade gap resolutions from the live corpus, then
    analyze the remaining transfer gaps that still have no review action:
    missing evidence, exchange missing hash, and swap/service-route no-link
    flows. Keep them in `links-v2 review`, not a separate gaps command family.
-4. Add more recognizers only after the remaining unresolved work proves a
+3. Add more recognizers only after the remaining unresolved work proves a
    repeatable, ledger-native evidence pattern. Do not port movement heuristics
    simply because they existed in v1.
-5. Rebuild consumers later against journals/postings/relationships directly.
+4. Rebuild consumers later against journals/postings/relationships directly.
    Cost-basis, portfolio, and price enrichment must not use `accounting-model`
    as an adapter layer for the final ledger design.
 

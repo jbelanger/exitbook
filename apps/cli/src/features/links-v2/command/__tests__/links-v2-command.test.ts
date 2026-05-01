@@ -1030,8 +1030,25 @@ describe('links-v2 command', () => {
 
     expect(mockBuildLedgerLinkingRelationshipReader).toHaveBeenCalledWith(expect.objectContaining({ tag: 'db' }));
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationships for default (#7)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1 of 1 (0 stale)');
     expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  #42 internal_transfer via exact_hash_transfer resolved 2 allocation(s) relationship:ledger-linking'
+    );
+  });
+
+  it('filters persisted links-v2 relationships to stale refs', async () => {
+    const program = createProgram();
+    mockLoadLedgerLinkingRelationships.mockResolvedValue(
+      ok([makePersistedRelationship(), makeStalePersistedRelationship()])
+    );
+
+    await program.parseAsync(['links-v2', 'list', '--stale'], { from: 'user' });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1 of 2 (1 stale)');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '  #43 internal_transfer via exact_hash_transfer stale 2 allocation(s) relationship:ledger-linking:stale'
+    );
+    expect(consoleLogSpy).not.toHaveBeenCalledWith(
       '  #42 internal_transfer via exact_hash_transfer resolved 2 allocation(s) relationship:ledger-linking'
     );
   });
@@ -1622,5 +1639,20 @@ function makePersistedRelationship() {
     confidenceScore: '1',
     createdAt: '2026-04-29T00:00:00.000Z',
     updatedAt: undefined,
+  };
+}
+
+function makeStalePersistedRelationship() {
+  const relationship = makePersistedRelationship();
+
+  return {
+    ...relationship,
+    id: 43,
+    relationshipStableKey: 'relationship:ledger-linking:stale',
+    allocations: relationship.allocations.map((allocation) => ({
+      ...allocation,
+      currentJournalId: undefined,
+      currentPostingId: undefined,
+    })),
   };
 }

@@ -2,7 +2,7 @@ import type { LedgerLinkingPersistedRelationship } from '@exitbook/accounting/le
 import { buildLedgerLinkingRelationshipReader } from '@exitbook/data/accounting';
 import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 import type { Command } from 'commander';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import {
   cliErr,
@@ -20,7 +20,9 @@ import type { CliAppRuntime } from '../../../runtime/app-runtime.js';
 import type { CommandRuntime } from '../../../runtime/command-runtime.js';
 import { resolveCommandProfile } from '../../profiles/profile-resolution.js';
 
-const LinksV2RelationshipListCommandOptionsSchema = JsonFlagSchema;
+const LinksV2RelationshipListCommandOptionsSchema = JsonFlagSchema.extend({
+  stale: z.boolean().optional(),
+});
 const LinksV2RelationshipViewCommandOptionsSchema = JsonFlagSchema;
 
 type LinksV2RelationshipListCommandOptions = z.infer<typeof LinksV2RelationshipListCommandOptionsSchema>;
@@ -31,7 +33,11 @@ interface LinksV2RelationshipListOutput {
     id: number;
     profileKey: string;
   };
+  shownRelationshipCount: number;
   relationships: readonly LedgerLinkingPersistedRelationship[];
+  staleOnly: boolean;
+  staleRelationshipCount: number;
+  totalRelationshipCount: number;
 }
 
 interface LinksV2RelationshipViewOutput {
@@ -46,17 +52,19 @@ export function registerLinksV2RelationshipCommands(linksV2: Command, appRuntime
   linksV2
     .command('list')
     .description('List persisted ledger-native relationships for the active profile')
+    .option('--stale', 'Show only relationships with unresolved current journal/posting refs')
     .option('--json', 'Output results in JSON format')
     .addHelpText(
       'after',
       `
 Examples:
   $ exitbook links-v2 list
+  $ exitbook links-v2 list --stale
   $ exitbook links-v2 list --json
 
 Notes:
   - Reads persisted v2 ledger relationships only.
-  - Does not read legacy transaction links or suggested proposals.
+  - Stale relationships are accepted relationships whose stable fingerprints no longer resolve to current journal/posting rows after reprocess.
 `
     )
     .action(async (rawOptions: unknown) => {
@@ -126,12 +134,18 @@ async function executePreparedLinksV2RelationshipListCommand(
       await buildLedgerLinkingRelationshipReader(database).loadLedgerLinkingRelationships(profile.id),
       ExitCodes.GENERAL_ERROR
     );
+    const staleRelationships = relationships.filter(relationshipIsStale);
+    const shownRelationships = prepared.stale === true ? staleRelationships : relationships;
     const output: LinksV2RelationshipListOutput = {
       profile: {
         id: profile.id,
         profileKey: profile.profileKey,
       },
-      relationships,
+      shownRelationshipCount: shownRelationships.length,
+      relationships: shownRelationships,
+      staleOnly: prepared.stale === true,
+      staleRelationshipCount: staleRelationships.length,
+      totalRelationshipCount: relationships.length,
     };
 
     if (prepared.json === true) {
@@ -228,7 +242,14 @@ function findLinksV2Relationship(
 
 function renderLinksV2RelationshipListOutput(output: LinksV2RelationshipListOutput): void {
   console.log(`Links v2 relationships for ${output.profile.profileKey} (#${output.profile.id})`);
-  console.log(`Relationships: ${output.relationships.length}`);
+  console.log(
+    `Relationships: ${output.shownRelationshipCount} of ${output.totalRelationshipCount} (${output.staleRelationshipCount} stale)`
+  );
+
+  if (output.staleOnly && output.relationships.length === 0) {
+    console.log('No stale links-v2 relationships.');
+    return;
+  }
 
   for (const relationship of output.relationships) {
     console.log(
@@ -267,9 +288,11 @@ function renderRelationshipAllocation(allocation: LedgerLinkingPersistedRelation
 }
 
 function relationshipResolutionStatus(relationship: LedgerLinkingPersistedRelationship): 'resolved' | 'stale' {
-  return relationship.allocations.length > 0 && relationship.allocations.every(allocationIsResolved)
-    ? 'resolved'
-    : 'stale';
+  return relationshipIsStale(relationship) ? 'stale' : 'resolved';
+}
+
+function relationshipIsStale(relationship: LedgerLinkingPersistedRelationship): boolean {
+  return relationship.allocations.length === 0 || !relationship.allocations.every(allocationIsResolved);
 }
 
 function allocationIsResolved(allocation: LedgerLinkingPersistedRelationship['allocations'][number]): boolean {
