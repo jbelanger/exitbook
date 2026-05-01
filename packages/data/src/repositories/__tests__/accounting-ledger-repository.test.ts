@@ -21,6 +21,7 @@ const ACTIVITY_FINGERPRINT = 'source_activity:v1:test-activity';
 const ACTIVITY_DATETIME = '2026-04-23T00:00:00.000Z';
 const CARDANO_ASSET_ID = 'blockchain:cardano:native';
 const ADA = assertOk(parseCurrency('ADA'));
+const USD = assertOk(parseCurrency('USD'));
 
 describe('AccountingLedgerRepository', () => {
   let db: KyselyDB;
@@ -941,6 +942,128 @@ describe('AccountingLedgerRepository', () => {
     ]);
   });
 
+  it('loads cost-basis ledger facts by profile without legacy transaction links', async () => {
+    const sourceJournal = makeJournal({
+      diagnostics: [
+        {
+          code: 'cost_basis_review',
+          message: 'Synthetic cost-basis diagnostic for the ledger reader.',
+          metadata: { reason: 'test' },
+          severity: 'warning',
+        },
+      ],
+      journalStableKey: 'journal:source',
+      postings: [
+        makePosting({
+          postingStableKey: 'posting:source',
+          quantity: '-10',
+          componentKind: 'utxo_input',
+          componentId: 'input:source',
+          priceAtTxTime: {
+            price: { amount: parseDecimal('2.5'), currency: USD },
+            source: 'test-price',
+            fetchedAt: new Date(ACTIVITY_DATETIME),
+            granularity: 'exact',
+          },
+        }),
+      ],
+      relationships: [
+        {
+          relationshipStableKey: 'relationship:processor',
+          relationshipKind: 'internal_transfer',
+          allocations: [
+            {
+              allocationSide: 'source',
+              quantity: parseDecimal('10'),
+              sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
+              journalStableKey: 'journal:source',
+              postingStableKey: 'posting:source',
+            },
+            {
+              allocationSide: 'target',
+              quantity: parseDecimal('10'),
+              sourceActivityFingerprint: ACTIVITY_FINGERPRINT,
+              journalStableKey: 'journal:target',
+              postingStableKey: 'posting:target',
+            },
+          ],
+        },
+      ],
+    });
+    const targetJournal = makeJournal({
+      journalKind: 'internal_transfer',
+      journalStableKey: 'journal:target',
+      postings: [
+        makePosting({
+          postingStableKey: 'posting:target',
+          quantity: '10',
+          componentKind: 'utxo_output',
+          componentId: 'output:target',
+        }),
+      ],
+    });
+
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity(),
+        journals: [sourceJournal, targetJournal],
+      })
+    );
+
+    const sourceEndpoint = await loadEndpoint('journal:source', 'posting:source');
+    const targetEndpoint = await loadEndpoint('journal:target', 'posting:target');
+    assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        makeLedgerLinkingRelationshipDraft(sourceEndpoint, targetEndpoint, 'relationship:ledger-linking'),
+      ])
+    );
+
+    const facts = assertOk(await repository.findCostBasisLedgerFactsByProfileId(1));
+
+    expect(facts.sourceActivities.map((activity) => activity.sourceActivityFingerprint)).toEqual([
+      ACTIVITY_FINGERPRINT,
+    ]);
+    expect(facts.journals.map((journal) => journal.journalStableKey)).toEqual(['journal:source', 'journal:target']);
+    expect(facts.journals[0]?.diagnostics).toEqual([
+      {
+        code: 'cost_basis_review',
+        message: 'Synthetic cost-basis diagnostic for the ledger reader.',
+        metadata: { reason: 'test' },
+        severity: 'warning',
+      },
+    ]);
+
+    const sourcePosting = facts.postings.find((posting) => posting.postingStableKey === 'posting:source');
+    expect(sourcePosting?.quantity.toFixed()).toBe('-10');
+    expect(sourcePosting?.priceAtTxTime?.price.amount.toFixed()).toBe('2.5');
+    expect(sourcePosting?.priceAtTxTime?.price.currency).toBe('USD');
+    expect(sourcePosting?.sourceComponents).toHaveLength(1);
+    expect(sourcePosting?.sourceComponents[0]).toMatchObject({
+      componentId: 'input:source',
+      componentKind: 'utxo_input',
+    });
+    expect(sourcePosting?.sourceComponents[0]?.quantity.toFixed()).toBe('10');
+
+    expect(
+      facts.relationships.map((relationship) => ({
+        allocationQuantities: relationship.allocations.map((allocation) => allocation.quantity.toFixed()),
+        origin: relationship.relationshipOrigin,
+        strategy: relationship.recognitionStrategy,
+      }))
+    ).toEqual([
+      {
+        allocationQuantities: ['10', '10'],
+        origin: 'ledger_linking',
+        strategy: 'exact_hash_transfer',
+      },
+      {
+        allocationQuantities: ['10', '10'],
+        origin: 'processor',
+        strategy: 'processor_supplied',
+      },
+    ]);
+  });
+
   it('rejects invalid profile ids when loading ledger-linking posting inputs', async () => {
     const result = await repository.findLedgerLinkingPostingInputsByProfileId(0);
 
@@ -1247,6 +1370,7 @@ describe('AccountingLedgerRepository', () => {
     componentId: string;
     componentKind: AccountingPostingDraft['sourceComponentRefs'][number]['component']['componentKind'];
     postingStableKey: string;
+    priceAtTxTime?: AccountingPostingDraft['priceAtTxTime'] | undefined;
     quantity: string;
     role?: AccountingPostingRole | undefined;
     settlement?: AccountingPostingDraft['settlement'];
@@ -1262,6 +1386,7 @@ describe('AccountingLedgerRepository', () => {
       role: params.role ?? 'principal',
       balanceCategory: params.balanceCategory ?? 'liquid',
       ...(params.settlement === undefined ? {} : { settlement: params.settlement }),
+      ...(params.priceAtTxTime === undefined ? {} : { priceAtTxTime: params.priceAtTxTime }),
       sourceComponentRefs: [
         {
           component: {

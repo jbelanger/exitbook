@@ -11,7 +11,16 @@ import {
   type LedgerLinkingRelationshipDraft,
   type LedgerLinkingRelationshipMaterializationResult,
 } from '@exitbook/accounting/ledger-linking';
-import { err, ok, parseCurrency, parseDecimal, type Result } from '@exitbook/foundation';
+import type {
+  CostBasisLedgerFacts,
+  CostBasisLedgerJournalDiagnostic,
+  CostBasisLedgerPosting,
+  CostBasisLedgerPostingSourceComponent,
+  CostBasisLedgerRelationship,
+  CostBasisLedgerRelationshipAllocation,
+} from '@exitbook/accounting/ports';
+import { PriceAtTxTimeSchema } from '@exitbook/core';
+import { err, ok, parseCurrency, parseDecimal, tryParseDecimal, type Result } from '@exitbook/foundation';
 import {
   computeAccountingJournalFingerprint,
   computeAccountingPostingFingerprint,
@@ -406,6 +415,39 @@ export class AccountingLedgerRepository extends BaseRepository {
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  async findCostBasisLedgerFactsByProfileId(profileId: number): Promise<Result<CostBasisLedgerFacts, Error>> {
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      return err(new Error(`Profile id must be a positive integer, received ${profileId}`));
+    }
+
+    const sourceActivitiesResult = await loadCostBasisLedgerSourceActivitiesByProfileId(this.db, profileId);
+    if (sourceActivitiesResult.isErr()) {
+      return err(sourceActivitiesResult.error);
+    }
+
+    const journalsResult = await loadCostBasisLedgerJournalsByProfileId(this.db, profileId);
+    if (journalsResult.isErr()) {
+      return err(journalsResult.error);
+    }
+
+    const postingsResult = await loadCostBasisLedgerPostingsByProfileId(this.db, profileId);
+    if (postingsResult.isErr()) {
+      return err(postingsResult.error);
+    }
+
+    const relationshipsResult = await loadCostBasisLedgerRelationshipsByProfileId(this.db, profileId);
+    if (relationshipsResult.isErr()) {
+      return err(relationshipsResult.error);
+    }
+
+    return ok({
+      sourceActivities: sourceActivitiesResult.value,
+      journals: journalsResult.value,
+      postings: postingsResult.value,
+      relationships: relationshipsResult.value,
+    });
   }
 
   async findLedgerLinkingPostingInputsByProfileId(
@@ -1239,6 +1281,554 @@ async function loadRelationshipAllocationsByRelationshipIds(
   } catch (error) {
     return err(error instanceof Error ? error : new Error(String(error)));
   }
+}
+
+async function loadCostBasisLedgerSourceActivitiesByProfileId(
+  db: KyselyDB,
+  profileId: number
+): Promise<Result<CostBasisLedgerFacts['sourceActivities'], Error>> {
+  try {
+    const rows = await db
+      .selectFrom('source_activities')
+      .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+      .select([
+        'source_activities.id as id',
+        'source_activities.owner_account_id as owner_account_id',
+        'source_activities.source_activity_origin as source_activity_origin',
+        'source_activities.source_activity_stable_key as source_activity_stable_key',
+        'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+        'source_activities.platform_key as platform_key',
+        'source_activities.platform_kind as platform_kind',
+        'source_activities.activity_status as activity_status',
+        'source_activities.activity_datetime as activity_datetime',
+        'source_activities.activity_timestamp_ms as activity_timestamp_ms',
+        'source_activities.from_address as from_address',
+        'source_activities.to_address as to_address',
+        'source_activities.blockchain_name as blockchain_name',
+        'source_activities.blockchain_block_height as blockchain_block_height',
+        'source_activities.blockchain_transaction_hash as blockchain_transaction_hash',
+        'source_activities.blockchain_is_confirmed as blockchain_is_confirmed',
+      ])
+      .where('accounts.profile_id', '=', profileId)
+      .orderBy('source_activities.activity_datetime', 'asc')
+      .orderBy('source_activities.source_activity_fingerprint', 'asc')
+      .execute();
+
+    return ok(
+      rows.map((row) => ({
+        id: row.id,
+        ownerAccountId: row.owner_account_id,
+        sourceActivityOrigin: row.source_activity_origin,
+        sourceActivityStableKey: row.source_activity_stable_key,
+        sourceActivityFingerprint: row.source_activity_fingerprint,
+        platformKey: row.platform_key,
+        platformKind: row.platform_kind,
+        activityStatus: row.activity_status,
+        activityDatetime: new Date(row.activity_datetime),
+        activityTimestampMs: row.activity_timestamp_ms ?? undefined,
+        fromAddress: row.from_address ?? undefined,
+        toAddress: row.to_address ?? undefined,
+        blockchainName: row.blockchain_name ?? undefined,
+        blockchainBlockHeight: row.blockchain_block_height ?? undefined,
+        blockchainTransactionHash: row.blockchain_transaction_hash ?? undefined,
+        blockchainIsConfirmed: row.blockchain_is_confirmed ?? undefined,
+      }))
+    );
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerJournalsByProfileId(
+  db: KyselyDB,
+  profileId: number
+): Promise<Result<CostBasisLedgerFacts['journals'], Error>> {
+  try {
+    const rows = await db
+      .selectFrom('accounting_journals')
+      .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
+      .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+      .select([
+        'accounting_journals.id as id',
+        'accounting_journals.source_activity_id as source_activity_id',
+        'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+        'accounting_journals.journal_fingerprint as journal_fingerprint',
+        'accounting_journals.journal_stable_key as journal_stable_key',
+        'accounting_journals.journal_kind as journal_kind',
+      ])
+      .where('accounts.profile_id', '=', profileId)
+      .orderBy('source_activities.activity_datetime', 'asc')
+      .orderBy('source_activities.source_activity_fingerprint', 'asc')
+      .orderBy('accounting_journals.journal_stable_key', 'asc')
+      .execute();
+
+    const diagnosticsResult = await loadCostBasisLedgerDiagnosticsByJournalIds(
+      db,
+      rows.map((row) => row.id)
+    );
+    if (diagnosticsResult.isErr()) {
+      return err(diagnosticsResult.error);
+    }
+
+    return ok(
+      rows.map((row) => ({
+        id: row.id,
+        sourceActivityId: row.source_activity_id,
+        sourceActivityFingerprint: row.source_activity_fingerprint,
+        journalFingerprint: row.journal_fingerprint,
+        journalStableKey: row.journal_stable_key,
+        journalKind: row.journal_kind,
+        diagnostics: diagnosticsResult.value.get(row.id) ?? [],
+      }))
+    );
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerPostingsByProfileId(
+  db: KyselyDB,
+  profileId: number
+): Promise<Result<CostBasisLedgerPosting[], Error>> {
+  try {
+    const rows = await db
+      .selectFrom('accounting_postings')
+      .innerJoin('accounting_journals', 'accounting_journals.id', 'accounting_postings.journal_id')
+      .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
+      .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+      .select([
+        'accounting_postings.id as id',
+        'accounting_postings.journal_id as journal_id',
+        'accounting_journals.journal_fingerprint as journal_fingerprint',
+        'accounting_postings.posting_fingerprint as posting_fingerprint',
+        'accounting_postings.posting_stable_key as posting_stable_key',
+        'accounting_postings.asset_id as asset_id',
+        'accounting_postings.asset_symbol as asset_symbol',
+        'accounting_postings.quantity as quantity',
+        'accounting_postings.posting_role as posting_role',
+        'accounting_postings.balance_category as balance_category',
+        'accounting_postings.settlement as settlement',
+        'accounting_postings.price_amount as price_amount',
+        'accounting_postings.price_currency as price_currency',
+        'accounting_postings.price_source as price_source',
+        'accounting_postings.price_fetched_at as price_fetched_at',
+        'accounting_postings.price_granularity as price_granularity',
+        'accounting_postings.fx_rate_to_usd as fx_rate_to_usd',
+        'accounting_postings.fx_source as fx_source',
+        'accounting_postings.fx_timestamp as fx_timestamp',
+      ])
+      .where('accounts.profile_id', '=', profileId)
+      .orderBy('source_activities.activity_datetime', 'asc')
+      .orderBy('source_activities.source_activity_fingerprint', 'asc')
+      .orderBy('accounting_journals.journal_stable_key', 'asc')
+      .orderBy('accounting_postings.posting_stable_key', 'asc')
+      .execute();
+
+    const sourceComponentsResult = await loadCostBasisLedgerPostingSourceComponentsByPostingIds(
+      db,
+      rows.map((row) => row.id)
+    );
+    if (sourceComponentsResult.isErr()) {
+      return err(sourceComponentsResult.error);
+    }
+
+    const postings: CostBasisLedgerPosting[] = [];
+    for (const row of rows) {
+      const assetSymbolResult = parseCurrency(row.asset_symbol);
+      if (assetSymbolResult.isErr()) {
+        return err(assetSymbolResult.error);
+      }
+
+      const quantityResult = parseStoredDecimal(row.quantity, `Ledger posting ${row.posting_fingerprint} quantity`);
+      if (quantityResult.isErr()) {
+        return err(quantityResult.error);
+      }
+
+      const priceAtTxTimeResult = parseCostBasisLedgerPostingPrice(row);
+      if (priceAtTxTimeResult.isErr()) {
+        return err(priceAtTxTimeResult.error);
+      }
+
+      postings.push({
+        id: row.id,
+        journalId: row.journal_id,
+        journalFingerprint: row.journal_fingerprint,
+        postingFingerprint: row.posting_fingerprint,
+        postingStableKey: row.posting_stable_key,
+        assetId: row.asset_id,
+        assetSymbol: assetSymbolResult.value,
+        quantity: quantityResult.value,
+        role: row.posting_role,
+        balanceCategory: row.balance_category,
+        settlement: row.settlement ?? undefined,
+        priceAtTxTime: priceAtTxTimeResult.value,
+        sourceComponents: sourceComponentsResult.value.get(row.id) ?? [],
+      });
+    }
+
+    return ok(postings);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerRelationshipsByProfileId(
+  db: KyselyDB,
+  profileId: number
+): Promise<Result<CostBasisLedgerRelationship[], Error>> {
+  try {
+    const rows = await db
+      .selectFrom('accounting_journal_relationships')
+      .select([
+        'id',
+        'relationship_origin',
+        'relationship_stable_key',
+        'relationship_kind',
+        'recognition_strategy',
+        'recognition_evidence_json',
+        'confidence_score',
+      ])
+      .where('profile_id', '=', profileId)
+      .orderBy('relationship_origin', 'asc')
+      .orderBy('relationship_stable_key', 'asc')
+      .execute();
+
+    const allocationsResult = await loadCostBasisLedgerRelationshipAllocationsByRelationshipIds(
+      db,
+      rows.map((row) => row.id)
+    );
+    if (allocationsResult.isErr()) {
+      return err(allocationsResult.error);
+    }
+
+    const relationships: CostBasisLedgerRelationship[] = [];
+    for (const row of rows) {
+      const evidenceResult = parseCostBasisLedgerRelationshipEvidence(
+        row.relationship_stable_key,
+        row.recognition_evidence_json
+      );
+      if (evidenceResult.isErr()) {
+        return err(evidenceResult.error);
+      }
+
+      const confidenceScoreResult = row.confidence_score
+        ? parseStoredDecimal(row.confidence_score, `Ledger relationship ${row.relationship_stable_key} confidence`)
+        : ok(undefined);
+      if (confidenceScoreResult.isErr()) {
+        return err(confidenceScoreResult.error);
+      }
+
+      const allocations = allocationsResult.value.get(row.id) ?? [];
+      if (allocations.length === 0) {
+        return err(new Error(`Cost-basis ledger relationship ${row.relationship_stable_key} has no allocations`));
+      }
+
+      relationships.push({
+        id: row.id,
+        relationshipOrigin: row.relationship_origin,
+        relationshipStableKey: row.relationship_stable_key,
+        relationshipKind: row.relationship_kind,
+        recognitionStrategy: row.recognition_strategy,
+        recognitionEvidence: evidenceResult.value,
+        confidenceScore: confidenceScoreResult.value,
+        allocations,
+      });
+    }
+
+    return ok(relationships);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerDiagnosticsByJournalIds(
+  db: KyselyDB,
+  journalIds: readonly number[]
+): Promise<Result<Map<number, CostBasisLedgerJournalDiagnostic[]>, Error>> {
+  const diagnosticsByJournalId = new Map<number, CostBasisLedgerJournalDiagnostic[]>();
+  if (journalIds.length === 0) {
+    return ok(diagnosticsByJournalId);
+  }
+
+  try {
+    for (const journalIdBatch of chunkItems([...journalIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+      const rows = await db
+        .selectFrom('accounting_journal_diagnostics')
+        .select([
+          'journal_id',
+          'diagnostic_code',
+          'diagnostic_message',
+          'severity',
+          'metadata_json',
+          'diagnostic_order',
+        ])
+        .where('journal_id', 'in', journalIdBatch)
+        .orderBy('journal_id', 'asc')
+        .orderBy('diagnostic_order', 'asc')
+        .execute();
+
+      for (const row of rows) {
+        const metadataResult = parseOptionalJsonObject(
+          `ledger journal diagnostic ${row.journal_id}/${row.diagnostic_order} metadata`,
+          row.metadata_json
+        );
+        if (metadataResult.isErr()) {
+          return err(metadataResult.error);
+        }
+
+        const diagnostics = diagnosticsByJournalId.get(row.journal_id) ?? [];
+        diagnostics.push({
+          code: row.diagnostic_code,
+          message: row.diagnostic_message,
+          severity: row.severity ?? undefined,
+          metadata: metadataResult.value,
+        });
+        diagnosticsByJournalId.set(row.journal_id, diagnostics);
+      }
+    }
+
+    return ok(diagnosticsByJournalId);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerPostingSourceComponentsByPostingIds(
+  db: KyselyDB,
+  postingIds: readonly number[]
+): Promise<Result<Map<number, CostBasisLedgerPostingSourceComponent[]>, Error>> {
+  const componentsByPostingId = new Map<number, CostBasisLedgerPostingSourceComponent[]>();
+  if (postingIds.length === 0) {
+    return ok(componentsByPostingId);
+  }
+
+  try {
+    for (const postingIdBatch of chunkItems([...postingIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+      const rows = await db
+        .selectFrom('accounting_posting_source_components')
+        .select([
+          'posting_id',
+          'source_component_fingerprint',
+          'source_activity_fingerprint',
+          'component_kind',
+          'component_id',
+          'occurrence',
+          'asset_id',
+          'quantity',
+        ])
+        .where('posting_id', 'in', postingIdBatch)
+        .orderBy('posting_id', 'asc')
+        .orderBy('id', 'asc')
+        .execute();
+
+      for (const row of rows) {
+        const quantityResult = parseStoredDecimal(
+          row.quantity,
+          `Ledger posting source component ${row.source_component_fingerprint} quantity`
+        );
+        if (quantityResult.isErr()) {
+          return err(quantityResult.error);
+        }
+
+        const components = componentsByPostingId.get(row.posting_id) ?? [];
+        components.push({
+          sourceComponentFingerprint: row.source_component_fingerprint,
+          sourceActivityFingerprint: row.source_activity_fingerprint,
+          componentKind: row.component_kind,
+          componentId: row.component_id,
+          occurrence: row.occurrence ?? undefined,
+          assetId: row.asset_id ?? undefined,
+          quantity: quantityResult.value,
+        });
+        componentsByPostingId.set(row.posting_id, components);
+      }
+    }
+
+    return ok(componentsByPostingId);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+async function loadCostBasisLedgerRelationshipAllocationsByRelationshipIds(
+  db: KyselyDB,
+  relationshipIds: readonly number[]
+): Promise<Result<Map<number, CostBasisLedgerRelationshipAllocation[]>, Error>> {
+  const allocationsByRelationshipId = new Map<number, CostBasisLedgerRelationshipAllocation[]>();
+  if (relationshipIds.length === 0) {
+    return ok(allocationsByRelationshipId);
+  }
+
+  try {
+    for (const relationshipIdBatch of chunkItems([...relationshipIds], SQLITE_SAFE_IN_BATCH_SIZE)) {
+      const rows = await db
+        .selectFrom('accounting_journal_relationship_allocations')
+        .select([
+          'relationship_id',
+          'id',
+          'allocation_side',
+          'allocation_quantity',
+          'source_activity_fingerprint',
+          'journal_id',
+          'posting_id',
+          'journal_fingerprint',
+          'posting_fingerprint',
+          'asset_id',
+          'asset_symbol',
+        ])
+        .where('relationship_id', 'in', relationshipIdBatch)
+        .orderBy('relationship_id', 'asc')
+        .orderBy('allocation_side', 'asc')
+        .orderBy('id', 'asc')
+        .execute();
+
+      for (const row of rows) {
+        const quantityResult = parseStoredDecimal(
+          row.allocation_quantity,
+          `Ledger relationship allocation ${row.id} quantity`
+        );
+        if (quantityResult.isErr()) {
+          return err(quantityResult.error);
+        }
+
+        const assetSymbolResult = parseCurrency(row.asset_symbol);
+        if (assetSymbolResult.isErr()) {
+          return err(assetSymbolResult.error);
+        }
+
+        const allocations = allocationsByRelationshipId.get(row.relationship_id) ?? [];
+        allocations.push({
+          allocationSide: row.allocation_side,
+          assetId: row.asset_id,
+          assetSymbol: assetSymbolResult.value,
+          id: row.id,
+          quantity: quantityResult.value,
+          sourceActivityFingerprint: row.source_activity_fingerprint,
+          journalFingerprint: row.journal_fingerprint,
+          postingFingerprint: row.posting_fingerprint,
+          currentJournalId: row.journal_id ?? undefined,
+          currentPostingId: row.posting_id ?? undefined,
+        });
+        allocationsByRelationshipId.set(row.relationship_id, allocations);
+      }
+    }
+
+    return ok(allocationsByRelationshipId);
+  } catch (error) {
+    return err(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+function parseCostBasisLedgerPostingPrice(row: {
+  fx_rate_to_usd: string | null;
+  fx_source: string | null;
+  fx_timestamp: string | null;
+  posting_fingerprint: string;
+  price_amount: string | null;
+  price_currency: string | null;
+  price_fetched_at: string | null;
+  price_granularity: 'exact' | 'minute' | 'hour' | 'day' | null;
+  price_source: string | null;
+}): Result<CostBasisLedgerFacts['postings'][number]['priceAtTxTime'], Error> {
+  const corePriceFields = [row.price_amount, row.price_currency, row.price_source, row.price_fetched_at];
+  const hasAnyCorePrice = corePriceFields.some((value) => value !== null);
+  if (!hasAnyCorePrice) {
+    return ok(undefined);
+  }
+
+  if (corePriceFields.some((value) => value === null)) {
+    return err(new Error(`Ledger posting ${row.posting_fingerprint} has incomplete price metadata`));
+  }
+
+  const priceAmountResult = parseStoredDecimal(row.price_amount, `Ledger posting ${row.posting_fingerprint} price`);
+  if (priceAmountResult.isErr()) {
+    return err(priceAmountResult.error);
+  }
+
+  const priceCurrencyResult = parseCurrency(row.price_currency ?? '');
+  if (priceCurrencyResult.isErr()) {
+    return err(priceCurrencyResult.error);
+  }
+
+  const fxRateResult =
+    row.fx_rate_to_usd === null
+      ? ok(undefined)
+      : parseStoredDecimal(row.fx_rate_to_usd, `Ledger posting ${row.posting_fingerprint} FX rate`);
+  if (fxRateResult.isErr()) {
+    return err(fxRateResult.error);
+  }
+
+  const priceAtTxTime = {
+    price: {
+      amount: priceAmountResult.value,
+      currency: priceCurrencyResult.value,
+    },
+    source: row.price_source ?? '',
+    fetchedAt: new Date(row.price_fetched_at ?? ''),
+    granularity: row.price_granularity ?? undefined,
+    fxRateToUSD: fxRateResult.value,
+    fxSource: row.fx_source ?? undefined,
+    fxTimestamp: row.fx_timestamp ? new Date(row.fx_timestamp) : undefined,
+  };
+
+  const validation = PriceAtTxTimeSchema.safeParse(priceAtTxTime);
+  if (!validation.success) {
+    return err(
+      new Error(`Ledger posting ${row.posting_fingerprint} has invalid price metadata: ${validation.error.message}`)
+    );
+  }
+
+  return ok(validation.data);
+}
+
+function parseCostBasisLedgerRelationshipEvidence(
+  relationshipStableKey: string,
+  rawEvidence: unknown
+): Result<Record<string, unknown>, Error> {
+  const evidence = parseJson(rawEvidence);
+  if (evidence.isErr()) {
+    return err(
+      new Error(
+        `Failed to parse cost-basis ledger relationship ${relationshipStableKey} evidence: ${evidence.error.message}`
+      )
+    );
+  }
+
+  if (!isJsonObject(evidence.value)) {
+    return err(new Error(`Cost-basis ledger relationship ${relationshipStableKey} evidence must be a JSON object`));
+  }
+
+  return ok(evidence.value);
+}
+
+function parseOptionalJsonObject(label: string, rawValue: unknown): Result<Record<string, unknown> | undefined, Error> {
+  if (rawValue === null || rawValue === undefined) {
+    return ok(undefined);
+  }
+
+  const parsed = parseJson(rawValue);
+  if (parsed.isErr()) {
+    return err(new Error(`Failed to parse ${label}: ${parsed.error.message}`));
+  }
+
+  if (!isJsonObject(parsed.value)) {
+    return err(new Error(`${label} must be a JSON object`));
+  }
+
+  return ok(parsed.value);
+}
+
+function parseStoredDecimal(value: string | null, label: string): Result<Decimal, Error> {
+  if (value === null) {
+    return err(new Error(`${label} is missing`));
+  }
+
+  const out = { value: new Decimal('0') };
+  if (!tryParseDecimal(value, out)) {
+    return err(new Error(`${label} is not a valid decimal: ${value}`));
+  }
+
+  return ok(out.value);
 }
 
 async function loadRelationshipIdsByAllocationSourceActivityFingerprints(

@@ -14,12 +14,23 @@ export { CostBasisWorkflow } from './cost-basis/workflow/cost-basis-workflow.js'
 export type {
   CostBasisContext,
   CostBasisDependencyWatermark,
+  CostBasisLedgerContext,
+  CostBasisLedgerFacts,
+  CostBasisLedgerJournal,
+  CostBasisLedgerJournalDiagnostic,
+  CostBasisLedgerPosting,
+  CostBasisLedgerPostingSourceComponent,
+  CostBasisLedgerRelationship,
+  CostBasisLedgerRelationshipAllocation,
+  CostBasisLedgerRelationshipOrigin,
+  CostBasisLedgerSourceActivity,
   CostBasisProjectionWatermark,
   CostBasisSnapshotRecord,
   ICostBasisArtifactStore,
   ICostBasisContextReader,
   ICostBasisDependencyWatermarkReader,
   ICostBasisFailureSnapshotStore,
+  ICostBasisLedgerContextReader,
 } from './ports/index.js';
 export type {
   CanadaCostBasisWorkflowResult,

@@ -1126,7 +1126,12 @@ Primary consumers:
 
 Steps:
 
-1. Build ledger read ports owned by each consumer capability.
+1. Build ledger read ports owned by each consumer capability. For cost basis,
+   the first slice is a raw ledger context reader:
+   `ICostBasisLedgerContextReader` in
+   `packages/accounting/src/ports/cost-basis-ledger-persistence.ts`,
+   implemented by `packages/data/src/accounting/cost-basis-ledger-ports.ts`
+   and `AccountingLedgerRepository`.
 2. Move cost basis from `AccountingTransactionView` to journal/posting reads.
 3. Move transfer validation from movement fingerprints to posting fingerprints
    and journal relationships.
@@ -1135,6 +1140,29 @@ Steps:
 6. Move accounting issues/gaps to journal/posting references.
 7. Update CLI accounting displays to show source activity plus
    journals/postings.
+
+Cost-basis migration model:
+
+- Problem: current standard and Canada cost-basis pipelines consume
+  `Transaction[]`, legacy `TransactionLink[]`, `AccountingTransactionView`, and
+  transaction annotations. That boundary keeps movement fingerprints and
+  semantic annotations in the accounting truth path.
+- Already true: ledger source activities, journals, postings, posting prices,
+  source-component provenance, and accepted relationship allocations exist as
+  durable rows. Linking-v2 accepts relationship and gap decisions through
+  override events.
+- Missing: a cost-basis-owned ledger input model, posting-fingerprint transfer
+  validation, event projection from journals/postings/relationships, and
+  invariant tests for disposal/acquisition/carryover behavior.
+- Rejected option: build an adapter that reconstructs `AccountingTransactionView`
+  from ledger rows. It would speed porting but would preserve the old movement
+  model as hidden compatibility debt.
+- Chosen first slice: read source activities, journals, postings,
+  source-component refs, diagnostics, and accepted relationship allocations as
+  ledger-native records. Do not classify tax events or change calculation
+  behavior in this slice.
+- Next implementation slice after the reader: add pure cost-basis event
+  projection tests for the core invariants before wiring any CLI command.
 
 Acceptance:
 

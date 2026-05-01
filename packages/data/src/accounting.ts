@@ -3,6 +3,7 @@ export { buildProfileLinkGapSourceReader } from './accounting/profile-link-gap-s
 export { buildProfileAccountingIssueSourceReader } from './accounting/profile-accounting-issue-source-reader.js';
 export { refreshProfileAccountingIssueProjection } from './accounting/profile-accounting-issue-projection.js';
 export { buildCostBasisArtifactFreshnessPorts } from './accounting/cost-basis-artifact-freshness.js';
+export { buildCostBasisLedgerPorts } from './accounting/cost-basis-ledger-ports.js';
 export { buildCostBasisPorts } from './accounting/cost-basis-ports.js';
 export { buildCostBasisResetPorts } from './accounting/cost-basis-reset.js';
 export {

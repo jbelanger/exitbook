@@ -17,6 +17,19 @@ export type {
   ICostBasisDependencyWatermarkReader,
   ICostBasisFailureSnapshotStore,
 } from './cost-basis-persistence.js';
+export type {
+  CostBasisLedgerContext,
+  CostBasisLedgerFacts,
+  CostBasisLedgerJournal,
+  CostBasisLedgerJournalDiagnostic,
+  CostBasisLedgerPosting,
+  CostBasisLedgerPostingSourceComponent,
+  CostBasisLedgerRelationship,
+  CostBasisLedgerRelationshipAllocation,
+  CostBasisLedgerRelationshipOrigin,
+  CostBasisLedgerSourceActivity,
+  ICostBasisLedgerContextReader,
+} from './cost-basis-ledger-persistence.js';
 export type { ILinkingPersistence, LinksSaveResult } from './linking-persistence.js';
 export type { ILinksFreshness, LinksFreshnessResult } from './links-freshness.js';
 export type { ILinksReset, LinksResetImpact } from './links-reset.js';
