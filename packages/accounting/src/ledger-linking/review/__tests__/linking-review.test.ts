@@ -102,6 +102,39 @@ describe('buildLedgerLinkingReviewQueue', () => {
     expect(queue.items).toEqual([]);
   });
 
+  it('classifies bridge-diagnostic amount/time proposals as bridge link proposals', () => {
+    const queue = buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: [],
+      diagnostics: makeDiagnostics([
+        makeAmountTimeProposal({
+          source: makeRemainder({
+            candidateId: 11,
+            direction: 'source',
+            journalDiagnosticCodes: ['bridge_transfer'],
+            platformKey: 'ethereum',
+            platformKind: 'blockchain',
+            postingFingerprint: 'ledger_posting:v1:bridge-source',
+          }),
+          target: makeRemainder({
+            candidateId: 12,
+            direction: 'target',
+            journalDiagnosticCodes: ['bridge_transfer'],
+            platformKey: 'solana',
+            platformKind: 'blockchain',
+            postingFingerprint: 'ledger_posting:v1:bridge-target',
+          }),
+        }),
+      ]),
+    });
+
+    expect(queue.itemCount).toBe(1);
+    expect(queue.items[0]).toMatchObject({
+      kind: 'link_proposal',
+      proposalKind: 'bridge_amount_time',
+      relationshipKind: 'bridge',
+    });
+  });
+
   it('adds safe gap resolution review items and filters already accepted resolution keys', () => {
     const residual = makeRemainder({
       candidateId: 21,
@@ -219,9 +252,14 @@ function makeRemainder(overrides: {
   candidateId: number;
   claimedAmount?: string | undefined;
   direction: 'source' | 'target';
+  journalDiagnosticCodes?: readonly string[] | undefined;
+  platformKey?: string | undefined;
+  platformKind?: 'exchange' | 'blockchain' | undefined;
   postingFingerprint: string;
   remainingAmount?: string | undefined;
 }): LedgerLinkingCandidateRemainder {
+  const defaultPlatformKind = overrides.direction === 'source' ? 'exchange' : 'blockchain';
+
   return {
     activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
     assetId: overrides.direction === 'source' ? 'exchange:kraken:eth' : 'blockchain:ethereum:native',
@@ -232,11 +270,11 @@ function makeRemainder(overrides: {
     direction: overrides.direction,
     fromAddress: undefined,
     journalFingerprint: `ledger_journal:v1:${overrides.candidateId}`,
-    journalDiagnosticCodes: [],
+    journalDiagnosticCodes: overrides.journalDiagnosticCodes ?? [],
     originalAmount: '1',
     ownerAccountId: overrides.direction === 'source' ? 1 : 2,
-    platformKey: overrides.direction === 'source' ? 'kraken' : 'ethereum',
-    platformKind: overrides.direction === 'source' ? 'exchange' : 'blockchain',
+    platformKey: overrides.platformKey ?? (overrides.direction === 'source' ? 'kraken' : 'ethereum'),
+    platformKind: overrides.platformKind ?? defaultPlatformKind,
     postingFingerprint: overrides.postingFingerprint,
     remainingAmount: overrides.remainingAmount ?? '1',
     sourceActivityFingerprint: `source_activity:v1:${overrides.candidateId}`,

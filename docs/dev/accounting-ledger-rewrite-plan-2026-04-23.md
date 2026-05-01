@@ -946,6 +946,9 @@ Completed checkpoints:
   same-hash carryover, bridge, and asset migration relationship kinds, and
   materializes through the same reviewed-relationship recognizer as proposal
   accepts.
+- bridge-diagnostic amount/time review proposals now keep the amount/time
+  evidence but materialize as `bridge` relationships with proposal kind
+  `bridge_amount_time` instead of overloading `internal_transfer`.
 - ledger-linking asset identity assertions are narrowed to the relationship
   scopes that recognizers actually resolve today: `internal_transfer`,
   `same_hash_carryover`, and `external_transfer`. `bridge` and
@@ -994,9 +997,10 @@ when the replacement model is simpler and more honest.
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
    reversible through revoke override events.
-2. Add bridge and asset-migration review proposals after the override model can
-   represent them honestly. Start from high-confidence v1 evidence such as
-   RNDR/RENDER, Wormhole RENDER, and Ethereum-to-Injective INJ bridge cases.
+2. Add asset-migration review proposals after the override model can represent
+   them honestly. Start from high-confidence evidence such as RNDR/RENDER
+   same-hash KuCoin-to-Ethereum migration and processor-marked Kraken
+   RNDR/RENDER migration context.
 3. Expand gap-resolution review items for remaining known non-links:
    related-profile transfer evidence, external purchases sent directly to an
    imported wallet, and swap/service-route no-link flows. Keep them in

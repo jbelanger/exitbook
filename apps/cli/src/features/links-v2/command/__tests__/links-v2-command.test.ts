@@ -802,9 +802,9 @@ describe('links-v2 command', () => {
         source_activity_fingerprint: 'source_activity:v1:manual-target',
       },
     ]);
-    expect(appendInput.payload.evidence.reason).toBe('RNDR to RENDER migration evidence');
-    expect(appendInput.payload.evidence.sourceCandidateId).toBe(11);
-    expect(appendInput.payload.evidence.targetCandidateId).toBe(12);
+    expect(appendInput.payload.evidence['reason']).toBe('RNDR to RENDER migration evidence');
+    expect(appendInput.payload.evidence['sourceCandidateId']).toBe(11);
+    expect(appendInput.payload.evidence['targetCandidateId']).toBe(12);
     expect(appendInput.payload.proposal_kind).toBe('manual_relationship');
     expect(appendInput.payload.relationship_kind).toBe('asset_migration');
     expect(appendInput.payload.type).toBe('ledger_linking_relationship_accept');

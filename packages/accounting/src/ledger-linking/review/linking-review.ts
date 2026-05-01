@@ -5,6 +5,7 @@ import type { LedgerLinkingAssetIdentitySuggestion } from '../asset-identity/ass
 import type {
   LedgerLinkingAmountTimeProposal,
   LedgerLinkingAmountTimeProposalUniqueness,
+  LedgerLinkingCandidateRemainder,
   LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
 import {
@@ -16,7 +17,7 @@ const REVIEW_ID_HASH_LENGTH = 12;
 
 export type LedgerLinkingReviewItemKind = 'asset_identity_suggestion' | 'link_proposal' | 'gap_resolution';
 export type LedgerLinkingReviewEvidenceStrength = 'strong' | 'medium' | 'weak';
-export type LedgerLinkingReviewLinkProposalKind = 'amount_time';
+export type LedgerLinkingReviewLinkProposalKind = 'amount_time' | 'bridge_amount_time';
 
 export interface LedgerLinkingReviewQueueBuildInput {
   assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
@@ -63,7 +64,7 @@ export interface LedgerLinkingReviewGapResolutionItem {
 export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBuildInput): LedgerLinkingReviewQueue {
   const assetIdentityItems = input.assetIdentitySuggestions.map(toAssetIdentityReviewItem);
   const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? [])
-    .filter(hasActionableInternalTransferTiming)
+    .filter(hasActionableTiming)
     .map(toAmountTimeLinkProposalReviewItem);
   const gapResolutionItems =
     input.diagnostics === undefined
@@ -82,7 +83,7 @@ export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBui
   };
 }
 
-function hasActionableInternalTransferTiming(proposal: LedgerLinkingAmountTimeProposal): boolean {
+function hasActionableTiming(proposal: LedgerLinkingAmountTimeProposal): boolean {
   return proposal.timeDirection !== 'target_before_source';
 }
 
@@ -108,17 +109,20 @@ function toAssetIdentityReviewItem(
 function toAmountTimeLinkProposalReviewItem(
   proposal: LedgerLinkingAmountTimeProposal
 ): LedgerLinkingReviewLinkProposalItem {
+  const relationshipKind = resolveAmountTimeProposalRelationshipKind(proposal);
+  const proposalKind = relationshipKind === 'bridge' ? 'bridge_amount_time' : 'amount_time';
+
   return {
     evidenceStrength: resolveAmountTimeProposalEvidenceStrength(proposal.uniqueness),
     kind: 'link_proposal',
     proposal,
-    proposalKind: 'amount_time',
-    relationshipKind: 'internal_transfer',
+    proposalKind,
+    relationshipKind,
     reviewId: buildReviewId('lp', [
       'link_proposal',
-      'amount_time',
+      proposalKind,
       'v1',
-      'internal_transfer',
+      relationshipKind,
       proposal.source.postingFingerprint,
       proposal.target.postingFingerprint,
       proposal.amount,
@@ -126,6 +130,30 @@ function toAmountTimeLinkProposalReviewItem(
       proposal.target.assetId,
     ]),
   };
+}
+
+function resolveAmountTimeProposalRelationshipKind(
+  proposal: LedgerLinkingAmountTimeProposal
+): AccountingJournalRelationshipKind {
+  if (isBridgeAmountTimeProposal(proposal)) {
+    return 'bridge';
+  }
+
+  return 'internal_transfer';
+}
+
+function isBridgeAmountTimeProposal(proposal: LedgerLinkingAmountTimeProposal): boolean {
+  return (
+    proposal.source.platformKind === 'blockchain' &&
+    proposal.target.platformKind === 'blockchain' &&
+    proposal.source.platformKey !== proposal.target.platformKey &&
+    hasJournalDiagnosticCode(proposal.source, 'bridge_transfer') &&
+    hasJournalDiagnosticCode(proposal.target, 'bridge_transfer')
+  );
+}
+
+function hasJournalDiagnosticCode(candidate: LedgerLinkingCandidateRemainder, diagnosticCode: string): boolean {
+  return (candidate.journalDiagnosticCodes ?? []).includes(diagnosticCode);
 }
 
 function toGapResolutionReviewItem(
