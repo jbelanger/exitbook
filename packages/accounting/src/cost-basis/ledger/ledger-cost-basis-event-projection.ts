@@ -28,7 +28,8 @@ export type LedgerCostBasisProjectionBlockerReason =
 export type LedgerCostBasisPostingBlockerReason =
   | 'missing_relationship'
   | 'relationship_residual'
-  | 'unsupported_protocol_posting';
+  | 'unsupported_protocol_posting'
+  | 'zero_quantity_posting';
 
 export type LedgerCostBasisRelationshipBlockerReason =
   | 'relationship_allocation_invalid'
@@ -229,7 +230,18 @@ function projectLedgerPostingCostBasisEvents(
 ): Result<LedgerCostBasisPostingProjection, Error> {
   const { posting } = context;
   if (posting.quantity.isZero()) {
-    return err(new Error(`Ledger cost-basis posting ${posting.postingFingerprint} has zero quantity`));
+    return ok({
+      events: [],
+      blockers: [
+        buildProjectionBlocker({
+          context,
+          blockedQuantity: posting.quantity.abs(),
+          reason: 'zero_quantity_posting',
+          relationshipStableKeys: allocations.map(({ relationship }) => relationship.relationshipStableKey),
+          message: `Ledger cost-basis posting ${posting.postingFingerprint} has zero quantity`,
+        }),
+      ],
+    });
   }
 
   if (allocations.length === 0) {

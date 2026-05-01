@@ -145,6 +145,23 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.01');
   });
 
+  it('blocks zero-quantity postings instead of aborting projection', () => {
+    const facts = makeFacts({
+      postings: [makePosting({ id: 1, postingFingerprint: 'posting:zero', quantity: '0' })],
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectPostingBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'zero_quantity_posting',
+      postingFingerprint: 'posting:zero',
+    });
+    expect(blocker.blockedQuantity.toFixed()).toBe('0');
+  });
+
   it('blocks residual quantities after partial carryover allocation', () => {
     const facts = makeTransferFacts({
       relationshipKind: 'internal_transfer',
