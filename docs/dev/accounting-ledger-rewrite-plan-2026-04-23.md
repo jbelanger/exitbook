@@ -1168,11 +1168,12 @@ Cost-basis migration model:
   same-hash carryover, bridge, and asset migration relationships carry basis
   rather than producing disposals. External/unlinked outflows produce disposal
   candidates. Partially allocated relationship postings must surface a residual
-  blocker rather than silently treating the remainder as a disposal.
+  blocker rather than silently treating the remainder as a disposal. Accepted
+  asset exclusions are explicit projector input; excluded postings are reported
+  for audit and do not emit cost-basis input events.
 - Next implementation slice after event projection: adapt standard or Canada
-  calculation behind this event model only after invariant tests cover transfer,
-  bridge/migration carryover, fee, spam/exclusion, and unresolved-blocker
-  behavior.
+  calculation behind this event model only after the calculation boundary
+  handles projection blockers and excluded-posting audit output deliberately.
 
 Acceptance:
 

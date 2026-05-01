@@ -52,10 +52,13 @@ export {
 export {
   projectLedgerCostBasisEvents,
   type LedgerCostBasisEventProjection,
+  type LedgerCostBasisExcludedPosting,
+  type LedgerCostBasisExclusionReason,
   type LedgerCostBasisInputEvent,
   type LedgerCostBasisInputEventKind,
   type LedgerCostBasisProjectionBlocker,
   type LedgerCostBasisProjectionBlockerReason,
+  type ProjectLedgerCostBasisEventsOptions,
 } from './cost-basis/ledger/ledger-cost-basis-event-projection.js';
 export {
   buildAccountingExclusionFingerprint,

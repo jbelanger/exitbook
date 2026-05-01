@@ -26,6 +26,12 @@ export type LedgerCostBasisProjectionBlockerReason =
   | 'relationship_residual'
   | 'unsupported_protocol_posting';
 
+export type LedgerCostBasisExclusionReason = 'asset_excluded';
+
+export interface ProjectLedgerCostBasisEventsOptions {
+  excludedAssetIds?: ReadonlySet<string> | undefined;
+}
+
 export interface LedgerCostBasisInputEvent {
   eventId: string;
   kind: LedgerCostBasisInputEventKind;
@@ -55,9 +61,21 @@ export interface LedgerCostBasisProjectionBlocker {
   message: string;
 }
 
+export interface LedgerCostBasisExcludedPosting {
+  reason: LedgerCostBasisExclusionReason;
+  sourceActivityFingerprint: string;
+  journalFingerprint: string;
+  postingFingerprint: string;
+  assetId: string;
+  assetSymbol: Currency;
+  postingQuantity: Decimal;
+  message: string;
+}
+
 export interface LedgerCostBasisEventProjection {
   events: readonly LedgerCostBasisInputEvent[];
   blockers: readonly LedgerCostBasisProjectionBlocker[];
+  excludedPostings: readonly LedgerCostBasisExcludedPosting[];
 }
 
 interface LedgerPostingContext {
@@ -71,8 +89,14 @@ interface RelationshipAllocationContext {
   allocation: CostBasisLedgerRelationshipAllocation;
 }
 
+interface LedgerCostBasisPostingProjection {
+  events: readonly LedgerCostBasisInputEvent[];
+  blockers: readonly LedgerCostBasisProjectionBlocker[];
+}
+
 export function projectLedgerCostBasisEvents(
-  facts: CostBasisLedgerFacts
+  facts: CostBasisLedgerFacts,
+  options: ProjectLedgerCostBasisEventsOptions = {}
 ): Result<LedgerCostBasisEventProjection, Error> {
   const journalById = new Map(facts.journals.map((journal) => [journal.id, journal]));
   const sourceActivityById = new Map(facts.sourceActivities.map((activity) => [activity.id, activity]));
@@ -92,8 +116,14 @@ export function projectLedgerCostBasisEvents(
 
   const events: LedgerCostBasisInputEvent[] = [];
   const blockers: LedgerCostBasisProjectionBlocker[] = [];
+  const excludedPostings: LedgerCostBasisExcludedPosting[] = [];
 
   for (const context of contexts) {
+    if (options.excludedAssetIds?.has(context.posting.assetId) === true) {
+      excludedPostings.push(buildExcludedPosting(context));
+      continue;
+    }
+
     const allocations = allocationsByPostingFingerprint.get(context.posting.postingFingerprint) ?? [];
     const projection = projectLedgerPostingCostBasisEvents(context, allocations);
     if (projection.isErr()) {
@@ -104,13 +134,13 @@ export function projectLedgerCostBasisEvents(
     blockers.push(...projection.value.blockers);
   }
 
-  return ok({ events, blockers });
+  return ok({ events, blockers, excludedPostings });
 }
 
 function projectLedgerPostingCostBasisEvents(
   context: LedgerPostingContext,
   allocations: readonly RelationshipAllocationContext[]
-): Result<LedgerCostBasisEventProjection, Error> {
+): Result<LedgerCostBasisPostingProjection, Error> {
   const { posting } = context;
   if (posting.quantity.isZero()) {
     return err(new Error(`Ledger cost-basis posting ${posting.postingFingerprint} has zero quantity`));
@@ -163,7 +193,7 @@ function projectLedgerPostingCostBasisEvents(
   return ok({ events, blockers: [] });
 }
 
-function projectUnrelatedLedgerPosting(context: LedgerPostingContext): Result<LedgerCostBasisEventProjection, Error> {
+function projectUnrelatedLedgerPosting(context: LedgerPostingContext): Result<LedgerCostBasisPostingProjection, Error> {
   const { journal, posting } = context;
 
   if (posting.role === 'fee' || posting.role === 'protocol_overhead') {
@@ -287,6 +317,21 @@ function buildProjectionBlocker(params: {
     blockedQuantity: params.blockedQuantity,
     relationshipStableKeys: params.relationshipStableKeys,
     message: params.message,
+  };
+}
+
+function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExcludedPosting {
+  const { journal, posting, sourceActivity } = context;
+
+  return {
+    reason: 'asset_excluded',
+    sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
+    journalFingerprint: journal.journalFingerprint,
+    postingFingerprint: posting.postingFingerprint,
+    assetId: posting.assetId,
+    assetSymbol: posting.assetSymbol,
+    postingQuantity: posting.quantity,
+    message: `Ledger cost-basis posting ${posting.postingFingerprint} is excluded by accepted asset exclusion ${posting.assetId}`,
   };
 }
 

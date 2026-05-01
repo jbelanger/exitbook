@@ -17,6 +17,7 @@ const BTC = assertOk(parseCurrency('BTC'));
 const ETH = assertOk(parseCurrency('ETH'));
 const RNDR = assertOk(parseCurrency('RNDR'));
 const RENDER = assertOk(parseCurrency('RENDER'));
+const SPAM = assertOk(parseCurrency('SPAM'));
 const USDC = assertOk(parseCurrency('USDC'));
 
 describe('projectLedgerCostBasisEvents', () => {
@@ -46,6 +47,35 @@ describe('projectLedgerCostBasisEvents', () => {
       },
     ]);
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.25');
+  });
+
+  it('omits accepted excluded assets from input events and reports skipped postings', () => {
+    const excludedAssetId = 'blockchain:ethereum:0xspam';
+    const facts = makeFacts({
+      postings: [
+        makePosting({
+          id: 1,
+          assetId: excludedAssetId,
+          assetSymbol: SPAM,
+          postingFingerprint: 'posting:spam-in',
+          quantity: '1000',
+        }),
+        makePosting({ id: 2, postingFingerprint: 'posting:btc-in', quantity: '0.1' }),
+      ],
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts, { excludedAssetIds: new Set([excludedAssetId]) }));
+
+    expect(projection.blockers).toEqual([]);
+    expect(projection.events.map((event) => event.postingFingerprint)).toEqual(['posting:btc-in']);
+    expect(projection.excludedPostings).toMatchObject([
+      {
+        assetId: excludedAssetId,
+        postingFingerprint: 'posting:spam-in',
+        reason: 'asset_excluded',
+      },
+    ]);
+    expect(projection.excludedPostings[0]?.postingQuantity.toFixed()).toBe('1000');
   });
 
   it('projects asset migrations as carryover events across changed asset identities', () => {
