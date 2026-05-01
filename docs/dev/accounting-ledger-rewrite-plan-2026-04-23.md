@@ -1016,6 +1016,9 @@ Completed checkpoints:
   not read like open review work after the queue is cleared
 - `links-v2` is now the only v2 linking CLI surface; the duplicate
   `ledger linking-v2` subset was removed from the ledger command namespace
+- ledger-linking relationship materialization now preloads allocation endpoints
+  for the replacement set instead of resolving each allocation with separate
+  journal and posting queries
 
 Active next slices:
 

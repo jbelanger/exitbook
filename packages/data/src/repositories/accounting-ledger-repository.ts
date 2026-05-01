@@ -521,6 +521,11 @@ export class AccountingLedgerRepository extends BaseRepository {
         return err(validationResult.error);
       }
 
+      const endpointLookup = await loadLedgerLinkingAllocationEndpoints(db, profileId, relationships);
+      if (endpointLookup.isErr()) {
+        return err(endpointLookup.error);
+      }
+
       const previousCount = await countLedgerLinkingRelationshipsByProfileId(db, profileId);
       const unresolvedAllocationCount = await countUnresolvedLedgerLinkingAllocationRefsByProfileId(db, profileId);
       await db
@@ -538,7 +543,7 @@ export class AccountingLedgerRepository extends BaseRepository {
         }[] = [];
 
         for (const allocation of relationship.allocations) {
-          const endpoint = await resolveLedgerLinkingAllocationEndpoint(db, profileId, allocation);
+          const endpoint = resolveLedgerLinkingAllocationEndpoint(profileId, endpointLookup.value, allocation);
           if (endpoint.isErr()) {
             return err(endpoint.error);
           }
@@ -1356,58 +1361,92 @@ async function refreshLedgerLinkingRelationshipEndpointsForSourceActivity(
   await touchRelationshipsByIds(db, relationshipIds, now);
 }
 
-async function resolveLedgerLinkingAllocationEndpoint(
+async function loadLedgerLinkingAllocationEndpoints(
   db: KyselyDB,
   profileId: number,
+  relationships: readonly LedgerLinkingRelationshipDraft[]
+): Promise<Result<ReadonlyMap<string, ResolvedLedgerLinkingAllocationEndpoint>, Error>> {
+  const postingFingerprints = new Set<string>();
+  for (const relationship of relationships) {
+    for (const allocation of relationship.allocations) {
+      postingFingerprints.add(allocation.postingFingerprint);
+    }
+  }
+
+  const endpoints = new Map<string, ResolvedLedgerLinkingAllocationEndpoint>();
+  for (const postingFingerprintBatch of chunkItems([...postingFingerprints], SQLITE_SAFE_IN_BATCH_SIZE)) {
+    const rows = await db
+      .selectFrom('accounting_postings')
+      .innerJoin('accounting_journals', 'accounting_journals.id', 'accounting_postings.journal_id')
+      .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
+      .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
+      .select([
+        'source_activities.source_activity_fingerprint as source_activity_fingerprint',
+        'accounting_journals.id as journal_id',
+        'accounting_journals.journal_fingerprint as journal_fingerprint',
+        'accounting_postings.id as posting_id',
+        'accounting_postings.posting_fingerprint as posting_fingerprint',
+        'accounting_postings.asset_id as asset_id',
+        'accounting_postings.asset_symbol as asset_symbol',
+        'accounting_postings.quantity as quantity',
+      ])
+      .where('accounts.profile_id', '=', profileId)
+      .where('accounting_postings.posting_fingerprint', 'in', postingFingerprintBatch)
+      .execute();
+
+    for (const row of rows) {
+      const lookupKey = buildLedgerLinkingAllocationEndpointLookupKey({
+        journalFingerprint: row.journal_fingerprint,
+        postingFingerprint: row.posting_fingerprint,
+        sourceActivityFingerprint: row.source_activity_fingerprint,
+      });
+      if (endpoints.has(lookupKey)) {
+        return err(
+          new Error(
+            `Cannot materialize ledger-linking relationship: duplicate allocation endpoint ${row.source_activity_fingerprint} / ${row.journal_fingerprint} / ${row.posting_fingerprint} for profile ${profileId}`
+          )
+        );
+      }
+
+      endpoints.set(lookupKey, {
+        assetId: row.asset_id,
+        assetSymbol: row.asset_symbol,
+        sourceActivityFingerprint: row.source_activity_fingerprint,
+        journalId: row.journal_id,
+        journalFingerprint: row.journal_fingerprint,
+        postingId: row.posting_id,
+        postingFingerprint: row.posting_fingerprint,
+        postingQuantity: parseDecimal(row.quantity),
+      });
+    }
+  }
+
+  return ok(endpoints);
+}
+
+function resolveLedgerLinkingAllocationEndpoint(
+  profileId: number,
+  endpointLookup: ReadonlyMap<string, ResolvedLedgerLinkingAllocationEndpoint>,
   allocation: LedgerLinkingRelationshipDraft['allocations'][number]
-): Promise<Result<ResolvedLedgerLinkingAllocationEndpoint, Error>> {
-  const journal = await db
-    .selectFrom('accounting_journals')
-    .innerJoin('source_activities', 'source_activities.id', 'accounting_journals.source_activity_id')
-    .innerJoin('accounts', 'accounts.id', 'source_activities.owner_account_id')
-    .select([
-      'source_activities.source_activity_fingerprint as source_activity_fingerprint',
-      'accounting_journals.id as journal_id',
-      'accounting_journals.journal_fingerprint as journal_fingerprint',
-    ])
-    .where('accounts.profile_id', '=', profileId)
-    .where('source_activities.source_activity_fingerprint', '=', allocation.sourceActivityFingerprint)
-    .where('accounting_journals.journal_fingerprint', '=', allocation.journalFingerprint)
-    .executeTakeFirst();
-
-  if (!journal) {
+): Result<ResolvedLedgerLinkingAllocationEndpoint, Error> {
+  const endpoint = endpointLookup.get(buildLedgerLinkingAllocationEndpointLookupKey(allocation));
+  if (endpoint === undefined) {
     return err(
       new Error(
-        `Cannot materialize ledger-linking relationship: ${allocation.allocationSide} allocation journal ${allocation.journalFingerprint} was not found for profile ${profileId}`
+        `Cannot materialize ledger-linking relationship: ${allocation.allocationSide} allocation endpoint ${allocation.sourceActivityFingerprint} / ${allocation.journalFingerprint} / ${allocation.postingFingerprint} was not found for profile ${profileId}`
       )
     );
   }
 
-  const posting = await db
-    .selectFrom('accounting_postings')
-    .select(['id', 'posting_fingerprint', 'asset_id', 'asset_symbol', 'quantity'])
-    .where('journal_id', '=', journal.journal_id)
-    .where('posting_fingerprint', '=', allocation.postingFingerprint)
-    .executeTakeFirst();
+  return ok(endpoint);
+}
 
-  if (!posting) {
-    return err(
-      new Error(
-        `Cannot materialize ledger-linking relationship: ${allocation.allocationSide} allocation posting ${allocation.postingFingerprint} was not found on journal ${allocation.journalFingerprint}`
-      )
-    );
-  }
-
-  return ok({
-    assetId: posting.asset_id,
-    assetSymbol: posting.asset_symbol,
-    sourceActivityFingerprint: journal.source_activity_fingerprint,
-    journalId: journal.journal_id,
-    journalFingerprint: journal.journal_fingerprint,
-    postingId: posting.id,
-    postingFingerprint: posting.posting_fingerprint,
-    postingQuantity: parseDecimal(posting.quantity),
-  });
+function buildLedgerLinkingAllocationEndpointLookupKey(input: {
+  journalFingerprint: string;
+  postingFingerprint: string;
+  sourceActivityFingerprint: string;
+}): string {
+  return [input.sourceActivityFingerprint, input.journalFingerprint, input.postingFingerprint].join('\0');
 }
 
 function findMissingRawTransactionIds(

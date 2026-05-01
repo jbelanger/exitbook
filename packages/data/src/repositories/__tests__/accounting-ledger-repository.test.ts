@@ -891,7 +891,9 @@ describe('AccountingLedgerRepository', () => {
       },
     ]);
 
-    expect(assertErr(result).message).toContain('target allocation journal ledger_journal:v1:missing was not found');
+    expect(assertErr(result).message).toContain(
+      `target allocation endpoint ${targetEndpoint.sourceActivityFingerprint} / ledger_journal:v1:missing / ${targetEndpoint.postingFingerprint} was not found`
+    );
     await expect(countLedgerLinkingRows()).resolves.toBe(1);
     await expect(loadRelationshipAllocationsByStableKey('relationship:existing')).resolves.toMatchObject([
       { journal_fingerprint: sourceEndpoint.journalFingerprint },
