@@ -4,6 +4,11 @@ import { err, ok, type Result } from '@exitbook/foundation';
 
 import type { OverrideStore } from './override-store.js';
 
+const LEDGER_LINKING_GAP_RESOLUTION_SCOPES = [
+  'ledger-linking-gap-resolution-accept',
+  'ledger-linking-gap-resolution-revoke',
+] as const;
+
 export interface ResolvedLedgerLinkingGapResolution {
   claimedAmount: string;
   postingFingerprint: string;
@@ -20,12 +25,32 @@ export function replayResolvedLedgerLinkingGapResolutions(
   const resolvedByKey = new Map<string, ResolvedLedgerLinkingGapResolution>();
 
   for (const override of overrides) {
-    if (override.scope !== 'ledger-linking-gap-resolution-accept') {
+    if (
+      override.scope !== 'ledger-linking-gap-resolution-accept' &&
+      override.scope !== 'ledger-linking-gap-resolution-revoke'
+    ) {
       return err(
         new Error(
-          `Ledger-linking gap resolution replay received unsupported scope '${override.scope}'. Only 'ledger-linking-gap-resolution-accept' is allowed.`
+          `Ledger-linking gap resolution replay received unsupported scope '${override.scope}'. Only ledger-linking gap resolution accept/revoke scopes are allowed.`
         )
       );
+    }
+
+    if (override.scope === 'ledger-linking-gap-resolution-revoke') {
+      if (override.payload.type !== 'ledger_linking_gap_resolution_revoke') {
+        return err(
+          new Error(
+            `Ledger-linking gap resolution replay expected payload type 'ledger_linking_gap_resolution_revoke' for scope 'ledger-linking-gap-resolution-revoke', got '${override.payload.type}'`
+          )
+        );
+      }
+
+      resolvedByKey.delete(
+        buildLedgerLinkingGapResolutionKey({
+          postingFingerprint: override.payload.posting_fingerprint,
+        })
+      );
+      continue;
     }
 
     if (override.payload.type !== 'ledger_linking_gap_resolution_accept') {
@@ -63,7 +88,7 @@ export async function readResolvedLedgerLinkingGapResolutions(
     return ok(new Map<string, ResolvedLedgerLinkingGapResolution>());
   }
 
-  const overridesResult = await overrideStore.readByScopes(profileKey, ['ledger-linking-gap-resolution-accept']);
+  const overridesResult = await overrideStore.readByScopes(profileKey, [...LEDGER_LINKING_GAP_RESOLUTION_SCOPES]);
   if (overridesResult.isErr()) {
     return err(
       new Error(`Failed to read ledger-linking gap resolution override events: ${overridesResult.error.message}`)

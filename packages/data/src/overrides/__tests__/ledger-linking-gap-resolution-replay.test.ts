@@ -36,6 +36,16 @@ describe('ledger-linking gap resolution replay', () => {
     });
   });
 
+  it('applies revoke events in append order', () => {
+    const result = replayResolvedLedgerLinkingGapResolutions([
+      createGapResolutionEvent('ledger_posting:v1:first', 'accepted_transfer_residual'),
+      createGapResolutionRevokeEvent('ledger_posting:v1:first'),
+      createGapResolutionEvent('ledger_posting:v1:second', 'fiat_cash_movement'),
+    ]);
+
+    expect([...assertOk(result).keys()]).toEqual(['ledger_linking_v2:ledger_posting:v1:second']);
+  });
+
   it('rejects non ledger-linking gap resolution scopes', () => {
     const result = replayResolvedLedgerLinkingGapResolutions([
       {
@@ -44,7 +54,7 @@ describe('ledger-linking gap resolution replay', () => {
       },
     ]);
 
-    expect(assertErr(result).message).toContain("Only 'ledger-linking-gap-resolution-accept' is allowed");
+    expect(assertErr(result).message).toContain('Only ledger-linking gap resolution accept/revoke scopes are allowed');
   });
 
   it('reads accepted gap resolution keys from the override store', async () => {
@@ -58,7 +68,10 @@ describe('ledger-linking gap resolution replay', () => {
     const result = await readResolvedLedgerLinkingGapResolutionKeys(overrideStore, 'default');
 
     const keys = assertOk(result);
-    expect(overrideStore.readByScopes).toHaveBeenCalledWith('default', ['ledger-linking-gap-resolution-accept']);
+    expect(overrideStore.readByScopes).toHaveBeenCalledWith('default', [
+      'ledger-linking-gap-resolution-accept',
+      'ledger-linking-gap-resolution-revoke',
+    ]);
     expect(keys).toEqual(new Set(['ledger_linking_v2:ledger_posting:v1:first']));
   });
 
@@ -102,6 +115,22 @@ function createGapResolutionEvent(
       review_id: 'gr_test',
       source_activity_fingerprint: 'source_activity:v1:test',
       type: 'ledger_linking_gap_resolution_accept',
+    },
+  };
+}
+
+function createGapResolutionRevokeEvent(postingFingerprint: string): OverrideEvent {
+  return {
+    actor: 'user',
+    created_at: '2026-04-30T00:01:00.000Z',
+    id: `gap-resolution-revoke:${postingFingerprint}`,
+    profile_key: 'default',
+    reason: 'Reopened non-link resolution',
+    scope: 'ledger-linking-gap-resolution-revoke',
+    source: 'cli',
+    payload: {
+      posting_fingerprint: postingFingerprint,
+      type: 'ledger_linking_gap_resolution_revoke',
     },
   };
 }

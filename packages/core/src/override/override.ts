@@ -20,8 +20,11 @@ export const ScopeSchema = z.enum([
   'asset-review-confirm',
   'asset-review-clear',
   'ledger-linking-asset-identity-accept',
+  'ledger-linking-asset-identity-revoke',
   'ledger-linking-relationship-accept',
+  'ledger-linking-relationship-revoke',
   'ledger-linking-gap-resolution-accept',
+  'ledger-linking-gap-resolution-revoke',
 ]);
 
 /**
@@ -242,6 +245,13 @@ export const LedgerLinkingAssetIdentityAcceptPayloadSchema = z.object({
   relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
 });
 
+export const LedgerLinkingAssetIdentityRevokePayloadSchema = z.object({
+  type: z.literal('ledger_linking_asset_identity_revoke'),
+  asset_id_a: z.string().min(1, 'Asset ID A must not be empty'),
+  asset_id_b: z.string().min(1, 'Asset ID B must not be empty'),
+  relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
+});
+
 /**
  * Ledger-linking relationship accepted by the user from a review proposal.
  *
@@ -288,6 +298,11 @@ export const LedgerLinkingRelationshipAcceptPayloadSchema = z
     }
   });
 
+export const LedgerLinkingRelationshipRevokePayloadSchema = z.object({
+  type: z.literal('ledger_linking_relationship_revoke'),
+  relationship_stable_key: z.string().min(1, 'Relationship stable key must not be empty'),
+});
+
 export const LedgerLinkingGapResolutionKindSchema = z.enum([
   'accepted_transfer_residual',
   'fiat_cash_movement',
@@ -317,6 +332,11 @@ export const LedgerLinkingGapResolutionAcceptPayloadSchema = z.object({
   resolution_kind: LedgerLinkingGapResolutionKindSchema,
   review_id: z.string().min(1, 'Review ID must not be empty'),
   source_activity_fingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
+});
+
+export const LedgerLinkingGapResolutionRevokePayloadSchema = z.object({
+  type: z.literal('ledger_linking_gap_resolution_revoke'),
+  posting_fingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
 });
 
 function isPositiveDecimalString(value: string): boolean {
@@ -352,8 +372,11 @@ export const OverridePayloadSchema = z.discriminatedUnion('type', [
   AssetReviewConfirmPayloadSchema,
   AssetReviewClearPayloadSchema,
   LedgerLinkingAssetIdentityAcceptPayloadSchema,
+  LedgerLinkingAssetIdentityRevokePayloadSchema,
   LedgerLinkingRelationshipAcceptPayloadSchema,
+  LedgerLinkingRelationshipRevokePayloadSchema,
   LedgerLinkingGapResolutionAcceptPayloadSchema,
+  LedgerLinkingGapResolutionRevokePayloadSchema,
 ]);
 
 /**
@@ -374,8 +397,11 @@ const SCOPE_TO_PAYLOAD_TYPE: Record<Scope, string> = {
   'asset-review-confirm': 'asset_review_confirm',
   'asset-review-clear': 'asset_review_clear',
   'ledger-linking-asset-identity-accept': 'ledger_linking_asset_identity_accept',
+  'ledger-linking-asset-identity-revoke': 'ledger_linking_asset_identity_revoke',
   'ledger-linking-relationship-accept': 'ledger_linking_relationship_accept',
+  'ledger-linking-relationship-revoke': 'ledger_linking_relationship_revoke',
   'ledger-linking-gap-resolution-accept': 'ledger_linking_gap_resolution_accept',
+  'ledger-linking-gap-resolution-revoke': 'ledger_linking_gap_resolution_revoke',
 };
 
 /**
@@ -425,8 +451,11 @@ export type AssetIncludePayload = z.infer<typeof AssetIncludePayloadSchema>;
 export type AssetReviewConfirmPayload = z.infer<typeof AssetReviewConfirmPayloadSchema>;
 export type AssetReviewClearPayload = z.infer<typeof AssetReviewClearPayloadSchema>;
 export type LedgerLinkingAssetIdentityAcceptPayload = z.infer<typeof LedgerLinkingAssetIdentityAcceptPayloadSchema>;
+export type LedgerLinkingAssetIdentityRevokePayload = z.infer<typeof LedgerLinkingAssetIdentityRevokePayloadSchema>;
 export type LedgerLinkingRelationshipAcceptPayload = z.infer<typeof LedgerLinkingRelationshipAcceptPayloadSchema>;
+export type LedgerLinkingRelationshipRevokePayload = z.infer<typeof LedgerLinkingRelationshipRevokePayloadSchema>;
 export type LedgerLinkingGapResolutionAcceptPayload = z.infer<typeof LedgerLinkingGapResolutionAcceptPayloadSchema>;
+export type LedgerLinkingGapResolutionRevokePayload = z.infer<typeof LedgerLinkingGapResolutionRevokePayloadSchema>;
 export type LedgerLinkingGapResolutionKind = z.infer<typeof LedgerLinkingGapResolutionKindSchema>;
 export type OverridePayload = z.infer<typeof OverridePayloadSchema>;
 export type OverrideEvent = z.infer<typeof OverrideEventSchema>;

@@ -263,6 +263,52 @@ describe('OverrideStore', () => {
       }
     });
 
+    it('should append ledger-linking revoke events', async () => {
+      const revokeEvents: Pick<CreateOverrideEventOptions, 'payload' | 'scope'>[] = [
+        {
+          scope: 'ledger-linking-asset-identity-revoke',
+          payload: {
+            type: 'ledger_linking_asset_identity_revoke',
+            asset_id_a: 'exchange:kraken:eth',
+            asset_id_b: 'blockchain:ethereum:native',
+            relationship_kind: 'internal_transfer',
+          },
+        },
+        {
+          scope: 'ledger-linking-relationship-revoke',
+          payload: {
+            type: 'ledger_linking_relationship_revoke',
+            relationship_stable_key: 'ledger-linking:reviewed_relationship:v2:test',
+          },
+        },
+        {
+          scope: 'ledger-linking-gap-resolution-revoke',
+          payload: {
+            type: 'ledger_linking_gap_resolution_revoke',
+            posting_fingerprint: 'ledger_posting:v1:test',
+          },
+        },
+      ];
+
+      const result = await store.appendMany(
+        revokeEvents.map((event) => ({
+          profileKey: DEFAULT_PROFILE_KEY,
+          scope: event.scope,
+          payload: event.payload,
+        }))
+      );
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        expect(result.value.map((event) => event.scope)).toEqual([
+          'ledger-linking-asset-identity-revoke',
+          'ledger-linking-relationship-revoke',
+          'ledger-linking-gap-resolution-revoke',
+        ]);
+      }
+    });
+
     it('should reject ledger-linking relationship events with non-positive quantity', async () => {
       const result = await appendOverride({
         scope: 'ledger-linking-relationship-accept',

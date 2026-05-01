@@ -10,7 +10,10 @@ import { Decimal } from 'decimal.js';
 
 import type { OverrideStore } from './override-store.js';
 
-const LEDGER_LINKING_RELATIONSHIP_SCOPES = ['ledger-linking-relationship-accept'] as const;
+const LEDGER_LINKING_RELATIONSHIP_SCOPES = [
+  'ledger-linking-relationship-accept',
+  'ledger-linking-relationship-revoke',
+] as const;
 
 export function replayLedgerLinkingRelationshipOverrides(
   overrides: readonly OverrideEvent[]
@@ -18,12 +21,28 @@ export function replayLedgerLinkingRelationshipOverrides(
   const reviewedOverridesByRelationshipKey = new Map<string, LedgerLinkingReviewedRelationshipOverride>();
 
   for (const override of overrides) {
-    if (override.scope !== 'ledger-linking-relationship-accept') {
+    if (
+      override.scope !== 'ledger-linking-relationship-accept' &&
+      override.scope !== 'ledger-linking-relationship-revoke'
+    ) {
       return err(
         new Error(
-          `Ledger-linking relationship replay received unsupported scope '${override.scope}'. Only 'ledger-linking-relationship-accept' is allowed.`
+          `Ledger-linking relationship replay received unsupported scope '${override.scope}'. Only ledger-linking relationship accept/revoke scopes are allowed.`
         )
       );
+    }
+
+    if (override.scope === 'ledger-linking-relationship-revoke') {
+      if (override.payload.type !== 'ledger_linking_relationship_revoke') {
+        return err(
+          new Error(
+            `Ledger-linking relationship replay expected payload type 'ledger_linking_relationship_revoke' for scope 'ledger-linking-relationship-revoke', got '${override.payload.type}'`
+          )
+        );
+      }
+
+      reviewedOverridesByRelationshipKey.delete(override.payload.relationship_stable_key);
+      continue;
     }
 
     if (override.payload.type !== 'ledger_linking_relationship_accept') {

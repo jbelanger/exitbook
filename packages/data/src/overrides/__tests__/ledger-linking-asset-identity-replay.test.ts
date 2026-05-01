@@ -34,6 +34,28 @@ function createAcceptEvent(
   };
 }
 
+function createRevokeEvent(
+  assetIdA: string,
+  assetIdB: string,
+  relationshipKind = 'internal_transfer',
+  createdAt = '2026-04-29T00:01:00.000Z'
+): OverrideEvent {
+  return {
+    actor: 'user',
+    created_at: createdAt,
+    id: `ledger-linking-asset-identity-revoke:${assetIdA}:${assetIdB}:${createdAt}`,
+    profile_key: PROFILE_KEY,
+    scope: 'ledger-linking-asset-identity-revoke',
+    source: 'cli',
+    payload: {
+      asset_id_a: assetIdA,
+      asset_id_b: assetIdB,
+      relationship_kind: relationshipKind,
+      type: 'ledger_linking_asset_identity_revoke',
+    },
+  };
+}
+
 describe('ledger-linking asset identity override replay', () => {
   it('replays accepted asset identity assertions with latest event wins', () => {
     const result = replayLedgerLinkingAssetIdentityAssertionOverrides([
@@ -58,6 +80,28 @@ describe('ledger-linking asset identity override replay', () => {
         assetIdA: 'blockchain:ethereum:native',
         assetIdB: 'exchange:kraken:eth',
         evidenceKind: 'exact_hash_observed',
+        relationshipKind: 'internal_transfer',
+      },
+    ]);
+  });
+
+  it('applies revoke events in append order', () => {
+    const result = replayLedgerLinkingAssetIdentityAssertionOverrides([
+      createAcceptEvent('exchange:kraken:eth', 'blockchain:ethereum:native', 'manual', '2026-04-29T00:00:00.000Z'),
+      createRevokeEvent(
+        'blockchain:ethereum:native',
+        'exchange:kraken:eth',
+        'internal_transfer',
+        '2026-04-29T00:01:00.000Z'
+      ),
+      createAcceptEvent('blockchain:bitcoin:native', 'exchange:kraken:btc', 'seeded', '2026-04-29T00:02:00.000Z'),
+    ]);
+
+    expect(assertOk(result)).toEqual([
+      {
+        assetIdA: 'blockchain:bitcoin:native',
+        assetIdB: 'exchange:kraken:btc',
+        evidenceKind: 'seeded',
         relationshipKind: 'internal_transfer',
       },
     ]);
@@ -97,7 +141,10 @@ describe('ledger-linking asset identity override replay', () => {
         relationshipKind: 'internal_transfer',
       },
     ]);
-    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['ledger-linking-asset-identity-accept']);
+    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, [
+      'ledger-linking-asset-identity-accept',
+      'ledger-linking-asset-identity-revoke',
+    ]);
   });
 
   it('materializes replayed assertions into the SQL projection store', async () => {
@@ -127,7 +174,10 @@ describe('ledger-linking asset identity override replay', () => {
       previousCount: 0,
       savedCount: 1,
     });
-    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['ledger-linking-asset-identity-accept']);
+    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, [
+      'ledger-linking-asset-identity-accept',
+      'ledger-linking-asset-identity-revoke',
+    ]);
     expect(assertionStore.replaceLedgerLinkingAssetIdentityAssertions).toHaveBeenCalledWith(7, [
       {
         assetIdA: 'blockchain:ethereum:native',

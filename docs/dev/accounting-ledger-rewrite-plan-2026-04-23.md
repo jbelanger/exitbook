@@ -933,6 +933,9 @@ Completed checkpoints:
   store source/target allocation rows with stable posting identity, current
   asset identity, and per-side quantities instead of the old amount/time
   source-target payload shape
+- asset identity, reviewed relationship, and gap-resolution override replay now
+  understands accept and revoke events in append order. CLI revoke/dismiss
+  commands still need to be wired before the workflow is complete.
 - `links-v2 review` now hides target-before-source amount/time proposals and
   target-before-source amount/time asset identity suggestions; diagnostics still
   retain those clues
@@ -969,9 +972,10 @@ runner and storage model are independent and quantity-aware, but user-reviewed
 truth still has to become allocation-native and reversible before bridge,
 migration, and manual relationship work can be considered complete.
 
-1. Add revoke/dismiss override scopes before expanding user actions. Accidental
-   accepts for asset identities, reviewed relationships, and gap resolutions
-   must be reversible without editing override storage by hand.
+1. Wire `links-v2 review` and asset-identity CLI revoke/dismiss actions now
+   that accept/revoke event replay exists. Accidental accepts for asset
+   identities, reviewed relationships, and gap resolutions must be reversible
+   without editing override storage by hand.
 2. Add manual v2 relationship creation inside `links-v2 review`, backed by the
    same allocation-native reviewed relationship override. This is the v2
    equivalent of legacy `links create` and must support internal transfer,

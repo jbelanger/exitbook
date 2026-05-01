@@ -1,3 +1,4 @@
+import { buildReviewedLedgerLinkingRelationshipStableKey } from '@exitbook/accounting/ledger-linking';
 import type { LedgerLinkingRelationshipAcceptPayload, OverrideEvent } from '@exitbook/core';
 import { ok } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
@@ -56,6 +57,21 @@ function createAcceptEvent(
   };
 }
 
+function createRevokeEvent(relationshipStableKey: string, createdAt = '2026-04-29T00:01:00.000Z'): OverrideEvent {
+  return {
+    actor: 'user',
+    created_at: createdAt,
+    id: `ledger-linking-relationship-revoke:${createdAt}`,
+    profile_key: PROFILE_KEY,
+    scope: 'ledger-linking-relationship-revoke',
+    source: 'cli',
+    payload: {
+      relationship_stable_key: relationshipStableKey,
+      type: 'ledger_linking_relationship_revoke',
+    },
+  };
+}
+
 describe('ledger-linking relationship override replay', () => {
   it('replays accepted reviewed relationship overrides with latest event winning per relationship', () => {
     const result = replayLedgerLinkingRelationshipOverrides([
@@ -95,6 +111,23 @@ describe('ledger-linking relationship override replay', () => {
         reviewId: 'lp_test_1',
       },
     ]);
+  });
+
+  it('applies revoke events in append order', () => {
+    const acceptedResult = replayLedgerLinkingRelationshipOverrides([createAcceptEvent()]);
+    const [accepted] = assertOk(acceptedResult);
+
+    if (accepted === undefined) {
+      throw new Error('Expected reviewed relationship override');
+    }
+
+    const relationshipStableKey = buildReviewedLedgerLinkingRelationshipStableKey(accepted);
+    const result = replayLedgerLinkingRelationshipOverrides([
+      createAcceptEvent({}, '2026-04-29T00:00:00.000Z'),
+      createRevokeEvent(relationshipStableKey, '2026-04-29T00:01:00.000Z'),
+    ]);
+
+    expect(assertOk(result)).toEqual([]);
   });
 
   it('rejects unsupported scopes', () => {
@@ -153,6 +186,9 @@ describe('ledger-linking relationship override replay', () => {
     const result = await readLedgerLinkingRelationshipOverrides(overrideStore, PROFILE_KEY);
 
     expect(assertOk(result)).toHaveLength(1);
-    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, ['ledger-linking-relationship-accept']);
+    expect(overrideStore.readByScopes).toHaveBeenCalledWith(PROFILE_KEY, [
+      'ledger-linking-relationship-accept',
+      'ledger-linking-relationship-revoke',
+    ]);
   });
 });

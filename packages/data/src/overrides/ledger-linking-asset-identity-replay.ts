@@ -10,7 +10,10 @@ import { err, ok, resultDoAsync, type Result } from '@exitbook/foundation';
 
 import type { OverrideStore } from './override-store.js';
 
-const LEDGER_LINKING_ASSET_IDENTITY_SCOPES = ['ledger-linking-asset-identity-accept'] as const;
+const LEDGER_LINKING_ASSET_IDENTITY_SCOPES = [
+  'ledger-linking-asset-identity-accept',
+  'ledger-linking-asset-identity-revoke',
+] as const;
 
 /**
  * Replay accepted ledger-linking asset identity override events.
@@ -23,12 +26,37 @@ export function replayLedgerLinkingAssetIdentityAssertionOverrides(
   const assertionsByKey = new Map<string, LedgerLinkingAssetIdentityAssertion>();
 
   for (const override of overrides) {
-    if (override.scope !== 'ledger-linking-asset-identity-accept') {
+    if (
+      override.scope !== 'ledger-linking-asset-identity-accept' &&
+      override.scope !== 'ledger-linking-asset-identity-revoke'
+    ) {
       return err(
         new Error(
-          `Ledger-linking asset identity replay received unsupported scope '${override.scope}'. Only 'ledger-linking-asset-identity-accept' is allowed.`
+          `Ledger-linking asset identity replay received unsupported scope '${override.scope}'. Only ledger-linking asset identity accept/revoke scopes are allowed.`
         )
       );
+    }
+
+    if (override.scope === 'ledger-linking-asset-identity-revoke') {
+      if (override.payload.type !== 'ledger_linking_asset_identity_revoke') {
+        return err(
+          new Error(
+            `Ledger-linking asset identity replay expected payload type 'ledger_linking_asset_identity_revoke' for scope 'ledger-linking-asset-identity-revoke', got '${override.payload.type}'`
+          )
+        );
+      }
+
+      const revokeKey = buildAssertionOverrideKeyFromParts({
+        assetIdA: override.payload.asset_id_a,
+        assetIdB: override.payload.asset_id_b,
+        relationshipKind: override.payload.relationship_kind,
+      });
+      if (revokeKey.isErr()) {
+        return err(revokeKey.error);
+      }
+
+      assertionsByKey.delete(revokeKey.value);
+      continue;
     }
 
     if (override.payload.type !== 'ledger_linking_asset_identity_accept') {
@@ -98,6 +126,29 @@ export async function materializeStoredLedgerLinkingAssetIdentityAssertions(
 
 function buildAssertionOverrideKey(assertion: LedgerLinkingAssetIdentityAssertion): string {
   return [assertion.relationshipKind, assertion.assetIdA, assertion.assetIdB].join('\0');
+}
+
+function buildAssertionOverrideKeyFromParts(input: {
+  assetIdA: string;
+  assetIdB: string;
+  relationshipKind: string;
+}): Result<string, Error> {
+  const canonicalPair = canonicalizeLedgerLinkingAssetIdentityPair(input.assetIdA, input.assetIdB);
+  if (canonicalPair.isErr()) {
+    return err(canonicalPair.error);
+  }
+
+  const assertion = LedgerLinkingAssetIdentityAssertionSchema.safeParse({
+    assetIdA: canonicalPair.value.assetIdA,
+    assetIdB: canonicalPair.value.assetIdB,
+    evidenceKind: 'manual',
+    relationshipKind: input.relationshipKind,
+  });
+  if (!assertion.success) {
+    return err(new Error(`Invalid ledger-linking asset identity revoke override: ${assertion.error.message}`));
+  }
+
+  return ok(buildAssertionOverrideKey(assertion.data));
 }
 
 function compareAssertions(
