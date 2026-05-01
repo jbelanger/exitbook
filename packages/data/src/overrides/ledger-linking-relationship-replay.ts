@@ -1,10 +1,11 @@
 import {
   buildReviewedLedgerLinkingRelationshipStableKey,
+  type LedgerLinkingReviewedRelationshipAllocationOverride,
   LedgerLinkingReviewedRelationshipOverrideSchema,
   type LedgerLinkingReviewedRelationshipOverride,
 } from '@exitbook/accounting/ledger-linking';
 import type { OverrideEvent } from '@exitbook/core';
-import { err, ok, tryParseDecimal, type Result } from '@exitbook/foundation';
+import { err, ok, parseCurrency, tryParseDecimal, type Result } from '@exitbook/foundation';
 import { Decimal } from 'decimal.js';
 
 import type { OverrideStore } from './override-store.js';
@@ -33,31 +34,19 @@ export function replayLedgerLinkingRelationshipOverrides(
       );
     }
 
-    const quantityResult = parsePositiveOverrideQuantity(override);
-    if (quantityResult.isErr()) {
-      return err(quantityResult.error);
+    const allocationsResult = parseReviewedOverrideAllocations(override);
+    if (allocationsResult.isErr()) {
+      return err(allocationsResult.error);
     }
 
     const reviewedOverride = LedgerLinkingReviewedRelationshipOverrideSchema.safeParse({
       acceptedAt: override.created_at,
-      assetIdentityReason: override.payload.asset_identity_reason,
-      assetSymbol: override.payload.asset_symbol,
+      allocations: allocationsResult.value,
+      evidence: override.payload.evidence,
       overrideEventId: override.id,
       proposalKind: override.payload.proposal_kind,
-      proposalUniqueness: override.payload.proposal_uniqueness,
-      quantity: quantityResult.value,
       relationshipKind: override.payload.relationship_kind,
       reviewId: override.payload.review_id,
-      sourceActivityFingerprint: override.payload.source_activity_fingerprint,
-      sourceAssetId: override.payload.source_asset_id,
-      sourceJournalFingerprint: override.payload.source_journal_fingerprint,
-      sourcePostingFingerprint: override.payload.source_posting_fingerprint,
-      targetActivityFingerprint: override.payload.target_activity_fingerprint,
-      targetAssetId: override.payload.target_asset_id,
-      targetJournalFingerprint: override.payload.target_journal_fingerprint,
-      targetPostingFingerprint: override.payload.target_posting_fingerprint,
-      timeDirection: override.payload.time_direction,
-      timeDistanceSeconds: override.payload.time_distance_seconds,
     });
     if (!reviewedOverride.success) {
       return err(
@@ -92,21 +81,50 @@ export async function readLedgerLinkingRelationshipOverrides(
   return replayLedgerLinkingRelationshipOverrides(overridesResult.value);
 }
 
-function parsePositiveOverrideQuantity(override: OverrideEvent): Result<Decimal, Error> {
+function parseReviewedOverrideAllocations(
+  override: OverrideEvent
+): Result<LedgerLinkingReviewedRelationshipAllocationOverride[], Error> {
   if (override.payload.type !== 'ledger_linking_relationship_accept') {
     return err(
       new Error(
-        `Ledger-linking relationship replay expected payload type 'ledger_linking_relationship_accept' for quantity parsing, got '${override.payload.type}'`
+        `Ledger-linking relationship replay expected payload type 'ledger_linking_relationship_accept' for allocation parsing, got '${override.payload.type}'`
       )
     );
   }
 
-  const parsed = { value: new Decimal(0) };
-  if (!tryParseDecimal(override.payload.quantity, parsed) || !parsed.value.gt(0)) {
-    return err(new Error(`Invalid ledger-linking relationship override ${override.id}: quantity must be positive`));
+  const allocations: LedgerLinkingReviewedRelationshipAllocationOverride[] = [];
+
+  for (const allocation of override.payload.allocations) {
+    const assetSymbolResult = parseCurrency(allocation.asset_symbol);
+    if (assetSymbolResult.isErr()) {
+      return err(
+        new Error(
+          `Invalid ledger-linking relationship override ${override.id}: ${allocation.allocation_side} allocation ${allocation.posting_fingerprint} asset symbol is invalid`
+        )
+      );
+    }
+
+    const parsed = { value: new Decimal(0) };
+    if (!tryParseDecimal(allocation.quantity, parsed) || !parsed.value.gt(0)) {
+      return err(
+        new Error(
+          `Invalid ledger-linking relationship override ${override.id}: ${allocation.allocation_side} allocation ${allocation.posting_fingerprint} quantity must be positive`
+        )
+      );
+    }
+
+    allocations.push({
+      allocationSide: allocation.allocation_side,
+      assetId: allocation.asset_id,
+      assetSymbol: assetSymbolResult.value,
+      journalFingerprint: allocation.journal_fingerprint,
+      postingFingerprint: allocation.posting_fingerprint,
+      quantity: parsed.value,
+      sourceActivityFingerprint: allocation.source_activity_fingerprint,
+    });
   }
 
-  return ok(parsed.value);
+  return ok(allocations);
 }
 
 function compareReviewedOverrides(
@@ -115,8 +133,25 @@ function compareReviewedOverrides(
 ): number {
   return (
     left.relationshipKind.localeCompare(right.relationshipKind) ||
-    left.sourcePostingFingerprint.localeCompare(right.sourcePostingFingerprint) ||
-    left.targetPostingFingerprint.localeCompare(right.targetPostingFingerprint) ||
-    left.quantity.cmp(right.quantity)
+    left.proposalKind.localeCompare(right.proposalKind) ||
+    compareFirstAllocation(left, right)
+  );
+}
+
+function compareFirstAllocation(
+  left: LedgerLinkingReviewedRelationshipOverride,
+  right: LedgerLinkingReviewedRelationshipOverride
+): number {
+  const leftAllocation = left.allocations[0];
+  const rightAllocation = right.allocations[0];
+
+  if (leftAllocation === undefined || rightAllocation === undefined) {
+    return left.allocations.length - right.allocations.length;
+  }
+
+  return (
+    leftAllocation.allocationSide.localeCompare(rightAllocation.allocationSide) ||
+    leftAllocation.postingFingerprint.localeCompare(rightAllocation.postingFingerprint) ||
+    leftAllocation.quantity.cmp(rightAllocation.quantity)
   );
 }

@@ -3,12 +3,14 @@ import {
   buildLedgerLinkingGapResolutionKey,
   canonicalizeLedgerLinkingAssetIdentityPair,
   buildReviewedLedgerLinkingRelationshipStableKey,
+  LedgerLinkingReviewedRelationshipOverrideSchema,
   ledgerTransactionHashesMatch,
   runLedgerLinking,
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionReplacementResult,
   type LedgerLinkingAssetIdentitySuggestion,
   type LedgerLinkingDiagnostics,
+  type LedgerLinkingReviewedRelationshipOverride,
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewQueue,
   type LedgerLinkingRunResult,
@@ -784,27 +786,8 @@ async function acceptLinksV2LinkProposalOverride(
       scope: 'ledger-linking-relationship-accept',
       payload,
     });
-    const relationshipStableKey = buildReviewedLedgerLinkingRelationshipStableKey({
-      acceptedAt: overrideEvent.created_at,
-      assetIdentityReason: payload.asset_identity_reason,
-      assetSymbol: payload.asset_symbol,
-      overrideEventId: overrideEvent.id,
-      proposalKind: payload.proposal_kind,
-      proposalUniqueness: payload.proposal_uniqueness,
-      quantity: new Decimal(payload.quantity),
-      relationshipKind: reviewItem.relationshipKind,
-      reviewId: payload.review_id,
-      sourceActivityFingerprint: payload.source_activity_fingerprint,
-      sourceAssetId: payload.source_asset_id,
-      sourceJournalFingerprint: payload.source_journal_fingerprint,
-      sourcePostingFingerprint: payload.source_posting_fingerprint,
-      targetActivityFingerprint: payload.target_activity_fingerprint,
-      targetAssetId: payload.target_asset_id,
-      targetJournalFingerprint: payload.target_journal_fingerprint,
-      targetPostingFingerprint: payload.target_posting_fingerprint,
-      timeDirection: payload.time_direction,
-      timeDistanceSeconds: payload.time_distance_seconds,
-    });
+    const reviewedOverride = yield* toReviewedRelationshipOverride(overrideEvent, payload);
+    const relationshipStableKey = buildReviewedLedgerLinkingRelationshipStableKey(reviewedOverride);
     const run = yield* await runLedgerLinking(profile.id, buildLedgerLinkingRunPorts(database, { overrideStore }), {
       dryRun: false,
       includeDiagnostics: true,
@@ -854,25 +837,67 @@ function buildLinksV2RelationshipAcceptPayload(
   const { proposal } = reviewItem;
 
   return {
-    asset_identity_reason: proposal.assetIdentityReason,
-    asset_symbol: proposal.assetSymbol,
+    allocations: [
+      {
+        allocation_side: 'source',
+        asset_id: proposal.source.assetId,
+        asset_symbol: proposal.source.assetSymbol,
+        journal_fingerprint: proposal.source.journalFingerprint,
+        posting_fingerprint: proposal.source.postingFingerprint,
+        quantity: proposal.amount,
+        source_activity_fingerprint: proposal.source.sourceActivityFingerprint,
+      },
+      {
+        allocation_side: 'target',
+        asset_id: proposal.target.assetId,
+        asset_symbol: proposal.target.assetSymbol,
+        journal_fingerprint: proposal.target.journalFingerprint,
+        posting_fingerprint: proposal.target.postingFingerprint,
+        quantity: proposal.amount,
+        source_activity_fingerprint: proposal.target.sourceActivityFingerprint,
+      },
+    ],
+    evidence: {
+      assetIdentityReason: proposal.assetIdentityReason,
+      matchedAmount: proposal.amount,
+      proposalUniqueness: proposal.uniqueness,
+      timeDirection: proposal.timeDirection,
+      timeDistanceSeconds: proposal.timeDistanceSeconds,
+    },
     proposal_kind: reviewItem.proposalKind,
-    proposal_uniqueness: proposal.uniqueness,
-    quantity: proposal.amount,
     relationship_kind: reviewItem.relationshipKind,
     review_id: reviewItem.reviewId,
-    source_activity_fingerprint: proposal.source.sourceActivityFingerprint,
-    source_asset_id: proposal.source.assetId,
-    source_journal_fingerprint: proposal.source.journalFingerprint,
-    source_posting_fingerprint: proposal.source.postingFingerprint,
-    target_activity_fingerprint: proposal.target.sourceActivityFingerprint,
-    target_asset_id: proposal.target.assetId,
-    target_journal_fingerprint: proposal.target.journalFingerprint,
-    target_posting_fingerprint: proposal.target.postingFingerprint,
-    time_direction: proposal.timeDirection,
-    time_distance_seconds: proposal.timeDistanceSeconds,
     type: 'ledger_linking_relationship_accept',
   };
+}
+
+function toReviewedRelationshipOverride(
+  overrideEvent: OverrideEvent,
+  payload: LedgerLinkingRelationshipAcceptPayload
+): Result<LedgerLinkingReviewedRelationshipOverride, Error> {
+  const parsed = LedgerLinkingReviewedRelationshipOverrideSchema.safeParse({
+    acceptedAt: overrideEvent.created_at,
+    allocations: payload.allocations.map((allocation) => ({
+      allocationSide: allocation.allocation_side,
+      assetId: allocation.asset_id,
+      assetSymbol: allocation.asset_symbol,
+      journalFingerprint: allocation.journal_fingerprint,
+      postingFingerprint: allocation.posting_fingerprint,
+      quantity: new Decimal(allocation.quantity),
+      sourceActivityFingerprint: allocation.source_activity_fingerprint,
+    })),
+    evidence: payload.evidence,
+    overrideEventId: overrideEvent.id,
+    proposalKind: payload.proposal_kind,
+    relationshipKind: payload.relationship_kind,
+    reviewId: payload.review_id,
+  });
+
+  if (!parsed.success) {
+    return err(new Error(`Invalid accepted links-v2 relationship override: ${parsed.error.message}`));
+  }
+
+  return ok(parsed.data);
 }
 
 function buildLinksV2GapResolutionAcceptPayload(
@@ -908,7 +933,7 @@ async function readLinksV2ResolvedGapResolutionKeys(
 
 function buildLinksV2ReviewQueueFromRun(
   run: LedgerLinkingRunResult,
-  resolvedGapResolutionKeys?: ReadonlySet<string>  
+  resolvedGapResolutionKeys?: ReadonlySet<string>
 ): Result<LedgerLinkingReviewQueue, Error> {
   if (run.diagnostics === undefined) {
     return err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner'));
@@ -1086,7 +1111,7 @@ function renderLinksV2LinkProposalReviewDetail(
   console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
   console.log('Decision help:');
   console.log('  This records a durable reviewed relationship override.');
-  console.log('  Replay requires the exact source and target posting fingerprints and quantity to still resolve.');
+  console.log('  Replay requires every accepted posting allocation and quantity to still resolve.');
 }
 
 function renderLinksV2GapResolutionReviewDetail(

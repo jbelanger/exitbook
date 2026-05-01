@@ -119,9 +119,11 @@ export {
   buildLedgerReviewedRelationshipOverrides,
   buildReviewedLedgerLinkingRelationshipStableKey,
   LedgerLinkingReviewedRelationshipOverrideSchema,
-  LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+  LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
   type ILedgerLinkingReviewedRelationshipOverrideReader,
+  type LedgerLinkingReviewedRelationshipAllocationOverride,
   type LedgerLinkingReviewedRelationshipOverride,
+  type LedgerReviewedRelationshipOverrideAllocationMatch,
   type LedgerReviewedRelationshipOverrideMatch,
   type LedgerReviewedRelationshipOverrideResult,
 } from './ledger-linking/matching/reviewed-relationship-override-matching.js';

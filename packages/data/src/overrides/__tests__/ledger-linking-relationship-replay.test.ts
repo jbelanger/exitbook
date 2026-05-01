@@ -23,23 +23,33 @@ function createAcceptEvent(
     scope: 'ledger-linking-relationship-accept',
     source: 'cli',
     payload: {
-      asset_identity_reason: 'accepted_assertion',
-      asset_symbol: 'ETH',
+      allocations: [
+        {
+          allocation_side: 'source',
+          asset_id: 'exchange:kraken:eth',
+          asset_symbol: 'ETH',
+          journal_fingerprint: 'ledger_journal:v1:source',
+          posting_fingerprint: 'ledger_posting:v1:source',
+          quantity: '10',
+          source_activity_fingerprint: 'source_activity:v1:source',
+        },
+        {
+          allocation_side: 'target',
+          asset_id: 'blockchain:ethereum:native',
+          asset_symbol: 'ETH',
+          journal_fingerprint: 'ledger_journal:v1:target',
+          posting_fingerprint: 'ledger_posting:v1:target',
+          quantity: '10',
+          source_activity_fingerprint: 'source_activity:v1:target',
+        },
+      ],
+      evidence: {
+        assetIdentityReason: 'accepted_assertion',
+        proposalUniqueness: 'unique_pair',
+      },
       proposal_kind: 'amount_time',
-      proposal_uniqueness: 'unique_pair',
-      quantity: '10',
       relationship_kind: 'internal_transfer',
       review_id: 'lp_test_1',
-      source_activity_fingerprint: 'source_activity:v1:source',
-      source_asset_id: 'exchange:kraken:eth',
-      source_journal_fingerprint: 'ledger_journal:v1:source',
-      source_posting_fingerprint: 'ledger_posting:v1:source',
-      target_activity_fingerprint: 'source_activity:v1:target',
-      target_asset_id: 'blockchain:ethereum:native',
-      target_journal_fingerprint: 'ledger_journal:v1:target',
-      target_posting_fingerprint: 'ledger_posting:v1:target',
-      time_direction: 'source_before_target',
-      time_distance_seconds: 30,
       type: 'ledger_linking_relationship_accept',
       ...overrides,
     },
@@ -49,31 +59,40 @@ function createAcceptEvent(
 describe('ledger-linking relationship override replay', () => {
   it('replays accepted reviewed relationship overrides with latest event winning per relationship', () => {
     const result = replayLedgerLinkingRelationshipOverrides([
-      createAcceptEvent({ quantity: '10' }, '2026-04-29T00:00:00.000Z'),
-      createAcceptEvent({ quantity: '10', proposal_uniqueness: 'ambiguous_source' }, '2026-04-29T00:01:00.000Z'),
+      createAcceptEvent({}, '2026-04-29T00:00:00.000Z'),
+      createAcceptEvent({ evidence: { proposalUniqueness: 'ambiguous_source' } }, '2026-04-29T00:01:00.000Z'),
     ]);
 
     expect(assertOk(result)).toEqual([
       {
         acceptedAt: '2026-04-29T00:01:00.000Z',
-        assetIdentityReason: 'accepted_assertion',
-        assetSymbol: 'ETH',
+        allocations: [
+          {
+            allocationSide: 'source',
+            assetId: 'exchange:kraken:eth',
+            assetSymbol: 'ETH',
+            journalFingerprint: 'ledger_journal:v1:source',
+            postingFingerprint: 'ledger_posting:v1:source',
+            quantity: new Decimal(10),
+            sourceActivityFingerprint: 'source_activity:v1:source',
+          },
+          {
+            allocationSide: 'target',
+            assetId: 'blockchain:ethereum:native',
+            assetSymbol: 'ETH',
+            journalFingerprint: 'ledger_journal:v1:target',
+            postingFingerprint: 'ledger_posting:v1:target',
+            quantity: new Decimal(10),
+            sourceActivityFingerprint: 'source_activity:v1:target',
+          },
+        ],
+        evidence: {
+          proposalUniqueness: 'ambiguous_source',
+        },
         overrideEventId: 'ledger-linking-relationship:2026-04-29T00:01:00.000Z',
         proposalKind: 'amount_time',
-        proposalUniqueness: 'ambiguous_source',
-        quantity: new Decimal(10),
         relationshipKind: 'internal_transfer',
         reviewId: 'lp_test_1',
-        sourceActivityFingerprint: 'source_activity:v1:source',
-        sourceAssetId: 'exchange:kraken:eth',
-        sourceJournalFingerprint: 'ledger_journal:v1:source',
-        sourcePostingFingerprint: 'ledger_posting:v1:source',
-        targetActivityFingerprint: 'source_activity:v1:target',
-        targetAssetId: 'blockchain:ethereum:native',
-        targetJournalFingerprint: 'ledger_journal:v1:target',
-        targetPostingFingerprint: 'ledger_posting:v1:target',
-        timeDirection: 'source_before_target',
-        timeDistanceSeconds: 30,
       },
     ]);
   });
@@ -95,10 +114,33 @@ describe('ledger-linking relationship override replay', () => {
   });
 
   it('rejects invalid quantities without throwing', () => {
-    const result = replayLedgerLinkingRelationshipOverrides([createAcceptEvent({ quantity: 'not-a-number' })]);
+    const result = replayLedgerLinkingRelationshipOverrides([
+      createAcceptEvent({
+        allocations: [
+          {
+            allocation_side: 'source',
+            asset_id: 'exchange:kraken:eth',
+            asset_symbol: 'ETH',
+            journal_fingerprint: 'ledger_journal:v1:source',
+            posting_fingerprint: 'ledger_posting:v1:source',
+            quantity: 'not-a-number',
+            source_activity_fingerprint: 'source_activity:v1:source',
+          },
+          {
+            allocation_side: 'target',
+            asset_id: 'blockchain:ethereum:native',
+            asset_symbol: 'ETH',
+            journal_fingerprint: 'ledger_journal:v1:target',
+            posting_fingerprint: 'ledger_posting:v1:target',
+            quantity: '10',
+            source_activity_fingerprint: 'source_activity:v1:target',
+          },
+        ],
+      }),
+    ]);
 
     expect(assertErr(result).message).toContain(
-      'Invalid ledger-linking relationship override ledger-linking-relationship:2026-04-29T00:00:00.000Z: quantity must be positive'
+      'Invalid ledger-linking relationship override ledger-linking-relationship:2026-04-29T00:00:00.000Z: source allocation ledger_posting:v1:source quantity must be positive'
     );
   });
 

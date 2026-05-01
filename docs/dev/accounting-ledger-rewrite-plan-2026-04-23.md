@@ -929,6 +929,10 @@ Completed checkpoints:
   path
 - reviewed amount/time link proposals accepted only through durable override
   events, not automatic matching
+- reviewed relationship accepts are allocation-native override events; they
+  store source/target allocation rows with stable posting identity, current
+  asset identity, and per-side quantities instead of the old amount/time
+  source-target payload shape
 - `links-v2 review` now hides target-before-source amount/time proposals and
   target-before-source amount/time asset identity suggestions; diagnostics still
   retain those clues
@@ -959,6 +963,39 @@ Completed checkpoints:
   relationships or treat those wallets as same-owner internal transfer targets
 
 Active next slices:
+
+Reviewed-link stabilization comes before more matching heuristics. The current
+runner and storage model are independent and quantity-aware, but user-reviewed
+truth still has to become allocation-native and reversible before bridge,
+migration, and manual relationship work can be considered complete.
+
+1. Add revoke/dismiss override scopes before expanding user actions. Accidental
+   accepts for asset identities, reviewed relationships, and gap resolutions
+   must be reversible without editing override storage by hand.
+2. Add manual v2 relationship creation inside `links-v2 review`, backed by the
+   same allocation-native reviewed relationship override. This is the v2
+   equivalent of legacy `links create` and must support internal transfer,
+   bridge, and asset migration relationships.
+3. Narrow or fix asset-identity relationship-kind handling. Today recognizers
+   resolve asset identity as `internal_transfer`; bridge and asset migration
+   should not look reachable through the same asset-identity assertion path
+   unless recognizers actually use them. RNDR -> RENDER belongs to an
+   `asset_migration` relationship, not asset identity.
+4. Add bridge and asset-migration review proposals after the override model can
+   represent them honestly. Start from high-confidence v1 evidence such as
+   RNDR/RENDER, Wormhole RENDER, and Ethereum-to-Injective INJ bridge cases.
+5. Expand gap-resolution review items for remaining known non-links:
+   related-profile transfer evidence, external purchases sent directly to an
+   imported wallet, and swap/service-route no-link flows. Keep them in
+   `links-v2 review`, not a separate gaps command family.
+6. Add a v1/v2 coverage comparison diagnostic before deleting legacy linking.
+   Prefer a `links-v2 diagnose --compare-legacy` shape over another top-level
+   command.
+7. Finish read-layer cleanup after the user-decision model is stable: populate
+   `unresolvedAllocationCount`, expose stale relationship allocations, pin
+   recognizer order in tests, validate linker allocation overclaims at
+   persistence, and decide whether `confidence_score` is real or should be
+   removed.
 
 Current live corpus after the gap-resolution pass: `81` profile Issues remain
 open, all warnings. `links-v2 review` is empty: no asset identity suggestions,
@@ -1229,6 +1266,16 @@ Smells to watch:
 - Cross-source relationships now have a dedicated materialization path, but
   persisted gaps and reviewed-override revoke/dismiss flows still need to land
   before the user-facing workflow is complete.
+- Reviewed relationship overrides are now allocation-native, but the user
+  workflow still lacks revoke/dismiss and manual creation paths.
+- Asset-identity acceptance exposes relationship kinds that recognizers do not
+  currently consume. Either constrain the CLI to the reachable internal-transfer
+  identity path or make bridge/migration callers real before advertising them.
+- `unresolvedAllocationCount` and `confidence_score` are advertised in the
+  linking-v2 result/schema surface but are not populated end-to-end yet.
+- The duplicated `links-v2` and `ledger linking-v2` CLI surfaces are acceptable
+  during migration, but one canonical surface must be selected before final
+  documentation.
 - The old linking package contains useful behavior evidence, but reusing its
   movement-oriented utilities directly would keep the legacy model alive inside
   the ledger rewrite.

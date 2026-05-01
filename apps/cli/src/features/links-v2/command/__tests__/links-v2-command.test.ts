@@ -52,7 +52,7 @@ vi.mock('@exitbook/accounting/ledger-linking', () => ({
   buildLedgerLinkingGapResolutionKey: ({ postingFingerprint }: { postingFingerprint: string }) =>
     `ledger_linking_v2:${postingFingerprint}`,
   buildLedgerLinkingReviewQueue: mockBuildLedgerLinkingReviewQueue,
-  buildReviewedLedgerLinkingRelationshipStableKey: () => 'ledger-linking:reviewed_amount_time:v1:test',
+  buildReviewedLedgerLinkingRelationshipStableKey: () => 'ledger-linking:reviewed_relationship:v2:test',
   canonicalizeLedgerLinkingAssetIdentityPair: (assetIdA: string, assetIdB: string) => {
     const sorted = [assetIdA.trim(), assetIdB.trim()].sort();
     const canonicalAssetIdA = sorted[0];
@@ -66,6 +66,9 @@ vi.mock('@exitbook/accounting/ledger-linking', () => ({
       assetIdA: canonicalAssetIdA,
       assetIdB: canonicalAssetIdB,
     });
+  },
+  LedgerLinkingReviewedRelationshipOverrideSchema: {
+    safeParse: (data: unknown) => ({ data, success: true }),
   },
   ledgerTransactionHashesMatch: (sourceHash: string | undefined, targetHash: string | undefined) =>
     sourceHash?.replace(/^0x/i, '').toLowerCase() === targetHash?.replace(/^0x/i, '').toLowerCase(),
@@ -424,7 +427,7 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Decision help:');
     expect(consoleLogSpy).toHaveBeenCalledWith('  This records a durable reviewed relationship override.');
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      '  Replay requires the exact source and target posting fingerprints and quantity to still resolve.'
+      '  Replay requires every accepted posting allocation and quantity to still resolve.'
     );
     expect(mockOverrideStoreAppend).not.toHaveBeenCalled();
   });
@@ -594,10 +597,22 @@ describe('links-v2 command', () => {
           reviewedRelationshipOverrideMatches: [
             {
               overrideEventId: 'override-event-1',
-              relationshipStableKey: 'ledger-linking:reviewed_amount_time:v1:test',
+              relationshipStableKey: 'ledger-linking:reviewed_relationship:v2:test',
               reviewId: 'lp_test_1',
-              sourceCandidateId: 7,
-              targetCandidateId: 8,
+              allocations: [
+                {
+                  allocationSide: 'source',
+                  candidateId: 7,
+                  postingFingerprint: 'ledger_posting:v1:diagnostic-source',
+                  quantity: '1',
+                },
+                {
+                  allocationSide: 'target',
+                  candidateId: 8,
+                  postingFingerprint: 'ledger_posting:v1:diagnostic-target',
+                  quantity: '1',
+                },
+              ],
             },
           ],
         })
@@ -609,23 +624,36 @@ describe('links-v2 command', () => {
       profileKey: 'default',
       scope: 'ledger-linking-relationship-accept',
       payload: {
-        asset_identity_reason: 'accepted_assertion',
-        asset_symbol: 'ETH',
+        allocations: [
+          {
+            allocation_side: 'source',
+            asset_id: 'exchange:kraken:eth',
+            asset_symbol: 'ETH',
+            journal_fingerprint: 'ledger_journal:v1:source',
+            posting_fingerprint: 'ledger_posting:v1:diagnostic-source',
+            quantity: '1',
+            source_activity_fingerprint: 'source_activity:v1:diagnostic-source',
+          },
+          {
+            allocation_side: 'target',
+            asset_id: 'blockchain:ethereum:native',
+            asset_symbol: 'ETH',
+            journal_fingerprint: 'ledger_journal:v1:target',
+            posting_fingerprint: 'ledger_posting:v1:diagnostic-target',
+            quantity: '1',
+            source_activity_fingerprint: 'source_activity:v1:diagnostic-target',
+          },
+        ],
+        evidence: {
+          assetIdentityReason: 'accepted_assertion',
+          matchedAmount: '1',
+          proposalUniqueness: 'unique_pair',
+          timeDirection: 'source_before_target',
+          timeDistanceSeconds: 1800,
+        },
         proposal_kind: 'amount_time',
-        proposal_uniqueness: 'unique_pair',
-        quantity: '1',
         relationship_kind: 'internal_transfer',
         review_id: 'lp_test_1',
-        source_activity_fingerprint: 'source_activity:v1:diagnostic-source',
-        source_asset_id: 'exchange:kraken:eth',
-        source_journal_fingerprint: 'ledger_journal:v1:source',
-        source_posting_fingerprint: 'ledger_posting:v1:diagnostic-source',
-        target_activity_fingerprint: 'source_activity:v1:diagnostic-target',
-        target_asset_id: 'blockchain:ethereum:native',
-        target_journal_fingerprint: 'ledger_journal:v1:target',
-        target_posting_fingerprint: 'ledger_posting:v1:diagnostic-target',
-        time_direction: 'source_before_target',
-        time_distance_seconds: 1800,
         type: 'ledger_linking_relationship_accept',
       },
     });
@@ -638,7 +666,7 @@ describe('links-v2 command', () => {
       }
     );
     expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override accepted');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Relationship stable key: ledger-linking:reviewed_amount_time:v1:test');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Relationship stable key: ledger-linking:reviewed_relationship:v2:test');
     expect(consoleLogSpy).toHaveBeenCalledWith('Materialized relationships: 1 saved, 0 replaced');
   });
 

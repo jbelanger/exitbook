@@ -46,7 +46,7 @@ import {
 } from '../matching/fee-adjusted-exact-hash-transfer-matching.js';
 import {
   buildLedgerReviewedRelationshipOverrideRecognizer,
-  LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+  LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
   type ILedgerLinkingReviewedRelationshipOverrideReader,
   type LedgerLinkingReviewedRelationshipOverride,
   type LedgerReviewedRelationshipOverrideMatch,
@@ -457,7 +457,7 @@ function findStrictExchangeAmountTimeTransferRun(
 function findReviewedRelationshipOverrideRun(
   runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
 ): LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY);
+  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_REVIEWED_RELATIONSHIP_STRATEGY);
   return run as LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined;
 }
 

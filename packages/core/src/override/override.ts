@@ -245,32 +245,48 @@ export const LedgerLinkingAssetIdentityAcceptPayloadSchema = z.object({
 /**
  * Ledger-linking relationship accepted by the user from a review proposal.
  *
- * The payload stores stable posting identities and exact allocation quantity so
- * replay can fail closed if the current ledger no longer has the reviewed facts.
+ * The payload stores allocation rows so reviewed truth can represent partial,
+ * bridge, and asset-migration relationships without assuming one shared amount.
  */
-export const LedgerLinkingRelationshipAcceptPayloadSchema = z.object({
-  type: z.literal('ledger_linking_relationship_accept'),
-  asset_identity_reason: z.enum(['same_asset_id', 'accepted_assertion']),
+export const LedgerLinkingRelationshipAcceptAllocationPayloadSchema = z.object({
+  allocation_side: z.enum(['source', 'target']),
+  asset_id: z.string().min(1, 'Asset ID must not be empty'),
   asset_symbol: z.string().min(1, 'Asset symbol must not be empty'),
-  proposal_kind: z.literal('amount_time'),
-  proposal_uniqueness: z.enum(['unique_pair', 'ambiguous_source', 'ambiguous_target', 'ambiguous_both']),
+  journal_fingerprint: z.string().min(1, 'Journal fingerprint must not be empty'),
+  posting_fingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
   quantity: z
     .string()
     .min(1, 'Quantity must not be empty')
     .refine(isPositiveDecimalString, 'Quantity must be a positive decimal'),
-  relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
-  review_id: z.string().min(1, 'Review ID must not be empty'),
   source_activity_fingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
-  source_asset_id: z.string().min(1, 'Source asset ID must not be empty'),
-  source_journal_fingerprint: z.string().min(1, 'Source journal fingerprint must not be empty'),
-  source_posting_fingerprint: z.string().min(1, 'Source posting fingerprint must not be empty'),
-  target_activity_fingerprint: z.string().min(1, 'Target activity fingerprint must not be empty'),
-  target_asset_id: z.string().min(1, 'Target asset ID must not be empty'),
-  target_journal_fingerprint: z.string().min(1, 'Target journal fingerprint must not be empty'),
-  target_posting_fingerprint: z.string().min(1, 'Target posting fingerprint must not be empty'),
-  time_direction: z.enum(['source_before_target', 'target_before_source', 'same_time']),
-  time_distance_seconds: z.number().finite().nonnegative(),
 });
+
+export const LedgerLinkingRelationshipAcceptPayloadSchema = z
+  .object({
+    type: z.literal('ledger_linking_relationship_accept'),
+    allocations: z.array(LedgerLinkingRelationshipAcceptAllocationPayloadSchema).min(2),
+    evidence: z.record(z.string(), z.unknown()),
+    proposal_kind: z.string().min(1, 'Proposal kind must not be empty'),
+    relationship_kind: z.string().min(1, 'Relationship kind must not be empty'),
+    review_id: z.string().min(1, 'Review ID must not be empty'),
+  })
+  .superRefine((payload, ctx) => {
+    if (!payload.allocations.some((allocation) => allocation.allocation_side === 'source')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Relationship accept allocations require at least one source allocation',
+        path: ['allocations'],
+      });
+    }
+
+    if (!payload.allocations.some((allocation) => allocation.allocation_side === 'target')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Relationship accept allocations require at least one target allocation',
+        path: ['allocations'],
+      });
+    }
+  });
 
 export const LedgerLinkingGapResolutionKindSchema = z.enum([
   'accepted_transfer_residual',

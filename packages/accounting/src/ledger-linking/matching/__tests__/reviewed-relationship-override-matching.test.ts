@@ -7,11 +7,13 @@ import type { LedgerTransferLinkingCandidate } from '../../candidates/candidate-
 import {
   buildLedgerReviewedRelationshipOverrides,
   buildReviewedLedgerLinkingRelationshipStableKey,
-  LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+  LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
   type LedgerLinkingReviewedRelationshipOverride,
 } from '../reviewed-relationship-override-matching.js';
 
 const ETH = assertOk(parseCurrency('ETH'));
+const RENDER = assertOk(parseCurrency('RENDER'));
+const RNDR = assertOk(parseCurrency('RNDR'));
 
 describe('reviewed relationship override matching', () => {
   it('builds a reviewed amount/time relationship from stable posting fingerprints', () => {
@@ -37,11 +39,23 @@ describe('reviewed relationship override matching', () => {
       payload: {
         matches: [
           {
+            allocations: [
+              {
+                allocationSide: 'source',
+                candidateId: 1,
+                postingFingerprint: 'ledger_posting:v1:source',
+                quantity: '10',
+              },
+              {
+                allocationSide: 'target',
+                candidateId: 2,
+                postingFingerprint: 'ledger_posting:v1:target',
+                quantity: '10',
+              },
+            ],
             overrideEventId: 'override-event-1',
             relationshipStableKey,
             reviewId: 'lp_test_1',
-            sourceCandidateId: 1,
-            targetCandidateId: 2,
           },
         ],
       },
@@ -66,21 +80,38 @@ describe('reviewed relationship override matching', () => {
           confidenceScore: new Decimal(1),
           evidence: {
             acceptedAt: '2026-04-29T00:00:00.000Z',
-            amount: '10',
-            assetIdentityReason: 'accepted_assertion',
-            assetSymbol: 'ETH',
             overrideEventId: 'override-event-1',
             proposalKind: 'amount_time',
-            proposalUniqueness: 'unique_pair',
+            reviewEvidence: {
+              assetIdentityReason: 'accepted_assertion',
+              matchedAmount: '10',
+              proposalUniqueness: 'unique_pair',
+              timeDirection: 'source_before_target',
+              timeDistanceSeconds: 30,
+            },
             reviewId: 'lp_test_1',
-            sourceAssetId: 'exchange:kraken:eth',
-            sourcePostingFingerprint: 'ledger_posting:v1:source',
-            targetAssetId: 'blockchain:ethereum:native',
-            targetPostingFingerprint: 'ledger_posting:v1:target',
-            timeDirection: 'source_before_target',
-            timeDistanceSeconds: 30,
+            reviewedAllocations: [
+              {
+                allocationSide: 'source',
+                assetId: 'exchange:kraken:eth',
+                assetSymbol: 'ETH',
+                journalFingerprint: 'ledger_journal:v1:source',
+                postingFingerprint: 'ledger_posting:v1:source',
+                quantity: '10',
+                sourceActivityFingerprint: 'source_activity:v1:source',
+              },
+              {
+                allocationSide: 'target',
+                assetId: 'blockchain:ethereum:native',
+                assetSymbol: 'ETH',
+                journalFingerprint: 'ledger_journal:v1:target',
+                postingFingerprint: 'ledger_posting:v1:target',
+                quantity: '10',
+                sourceActivityFingerprint: 'source_activity:v1:target',
+              },
+            ],
           },
-          recognitionStrategy: LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+          recognitionStrategy: LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
           relationshipKind: 'internal_transfer',
           relationshipStableKey,
         },
@@ -127,6 +158,40 @@ describe('reviewed relationship override matching', () => {
 
     expect(assertErr(result).message).toContain('overclaims source posting ledger_posting:v1:source: 10 of 9');
   });
+
+  it('supports unequal allocation quantities for migration-style reviewed relationships', () => {
+    const accepted = makeReviewedOverride({
+      allocations: [
+        makeReviewedAllocation('source', {
+          assetId: 'exchange:kucoin:rndr',
+          assetSymbol: RNDR,
+          quantity: new Decimal(20),
+        }),
+        makeReviewedAllocation('target', {
+          assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+          assetSymbol: RENDER,
+          quantity: new Decimal('19.5536'),
+        }),
+      ],
+      evidence: {
+        note: 'RNDR to RENDER migration reviewed by operator',
+      },
+      relationshipKind: 'asset_migration',
+    });
+    const result = buildLedgerReviewedRelationshipOverrides(
+      [
+        makeCandidate('source', { amount: new Decimal(20), assetId: 'exchange:kucoin:rndr', assetSymbol: RNDR }),
+        makeCandidate('target', {
+          amount: new Decimal('19.5536'),
+          assetId: 'blockchain:ethereum:0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24',
+          assetSymbol: RENDER,
+        }),
+      ],
+      [accepted]
+    );
+
+    expect(assertOk(result).relationships[0]?.relationshipKind).toBe('asset_migration');
+  });
 });
 
 function makeReviewedOverride(
@@ -134,29 +199,42 @@ function makeReviewedOverride(
 ): LedgerLinkingReviewedRelationshipOverride {
   return {
     acceptedAt: '2026-04-29T00:00:00.000Z',
-    assetIdentityReason: 'accepted_assertion',
-    assetSymbol: ETH,
+    allocations: [makeReviewedAllocation('source'), makeReviewedAllocation('target')],
+    evidence: {
+      assetIdentityReason: 'accepted_assertion',
+      matchedAmount: '10',
+      proposalUniqueness: 'unique_pair',
+      timeDirection: 'source_before_target',
+      timeDistanceSeconds: 30,
+    },
     overrideEventId: 'override-event-1',
     proposalKind: 'amount_time',
-    proposalUniqueness: 'unique_pair',
-    quantity: new Decimal(10),
     relationshipKind: 'internal_transfer',
     reviewId: 'lp_test_1',
-    sourceActivityFingerprint: 'source_activity:v1:source',
-    sourceAssetId: 'exchange:kraken:eth',
-    sourceJournalFingerprint: 'ledger_journal:v1:source',
-    sourcePostingFingerprint: 'ledger_posting:v1:source',
-    targetActivityFingerprint: 'source_activity:v1:target',
-    targetAssetId: 'blockchain:ethereum:native',
-    targetJournalFingerprint: 'ledger_journal:v1:target',
-    targetPostingFingerprint: 'ledger_posting:v1:target',
-    timeDirection: 'source_before_target',
-    timeDistanceSeconds: 30,
     ...overrides,
   };
 }
 
-function makeCandidate(direction: 'source' | 'target'): LedgerTransferLinkingCandidate {
+function makeReviewedAllocation(
+  side: 'source' | 'target',
+  overrides: Partial<LedgerLinkingReviewedRelationshipOverride['allocations'][number]> = {}
+): LedgerLinkingReviewedRelationshipOverride['allocations'][number] {
+  return {
+    allocationSide: side,
+    assetId: side === 'source' ? 'exchange:kraken:eth' : 'blockchain:ethereum:native',
+    assetSymbol: ETH,
+    journalFingerprint: side === 'source' ? 'ledger_journal:v1:source' : 'ledger_journal:v1:target',
+    postingFingerprint: side === 'source' ? 'ledger_posting:v1:source' : 'ledger_posting:v1:target',
+    quantity: new Decimal(10),
+    sourceActivityFingerprint: side === 'source' ? 'source_activity:v1:source' : 'source_activity:v1:target',
+    ...overrides,
+  };
+}
+
+function makeCandidate(
+  direction: 'source' | 'target',
+  overrides: Partial<LedgerTransferLinkingCandidate> = {}
+): LedgerTransferLinkingCandidate {
   return {
     activityDatetime:
       direction === 'source' ? new Date('2026-04-29T00:00:00.000Z') : new Date('2026-04-29T00:00:30.000Z'),
@@ -174,5 +252,6 @@ function makeCandidate(direction: 'source' | 'target'): LedgerTransferLinkingCan
     postingFingerprint: direction === 'source' ? 'ledger_posting:v1:source' : 'ledger_posting:v1:target',
     sourceActivityFingerprint: direction === 'source' ? 'source_activity:v1:source' : 'source_activity:v1:target',
     toAddress: undefined,
+    ...overrides,
   };
 }

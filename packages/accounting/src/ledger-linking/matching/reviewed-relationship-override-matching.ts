@@ -1,10 +1,14 @@
-import { DecimalSchema, err, ok, sha256Hex, type Result } from '@exitbook/foundation';
+import { CurrencySchema, DecimalSchema, err, ok, sha256Hex, type Result } from '@exitbook/foundation';
 import { AccountingJournalRelationshipKindSchema } from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 
 import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
-import type { LedgerLinkingRelationshipDraft } from '../relationships/relationship-materialization.js';
+import type {
+  LedgerLinkingRelationshipAllocationDraft,
+  LedgerLinkingRelationshipAllocationSide,
+  LedgerLinkingRelationshipDraft,
+} from '../relationships/relationship-materialization.js';
 
 import type {
   LedgerDeterministicCandidateClaim,
@@ -12,38 +16,56 @@ import type {
   LedgerDeterministicRecognizerResult,
 } from './deterministic-recognizer-runner.js';
 
-export const LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY = 'reviewed_amount_time';
+export const LEDGER_REVIEWED_RELATIONSHIP_STRATEGY = 'reviewed_relationship';
 
-export const LedgerLinkingReviewedRelationshipOverrideSchema = z.object({
-  acceptedAt: z.string().datetime(),
-  assetIdentityReason: z.enum(['same_asset_id', 'accepted_assertion']),
-  assetSymbol: z.string().min(1, 'Asset symbol must not be empty'),
-  overrideEventId: z.string().min(1, 'Override event ID must not be empty'),
-  proposalKind: z.literal('amount_time'),
-  proposalUniqueness: z.enum(['unique_pair', 'ambiguous_source', 'ambiguous_target', 'ambiguous_both']),
-  quantity: DecimalSchema.refine((quantity) => quantity.gt(0), 'Reviewed relationship quantity must be positive'),
-  relationshipKind: AccountingJournalRelationshipKindSchema,
-  reviewId: z.string().min(1, 'Review ID must not be empty'),
+export const LedgerLinkingReviewedRelationshipAllocationOverrideSchema = z.object({
+  allocationSide: z.enum(['source', 'target']),
+  assetId: z.string().min(1, 'Asset ID must not be empty'),
+  assetSymbol: CurrencySchema,
+  journalFingerprint: z.string().min(1, 'Journal fingerprint must not be empty'),
+  postingFingerprint: z.string().min(1, 'Posting fingerprint must not be empty'),
+  quantity: DecimalSchema.refine((quantity) => quantity.gt(0), 'Reviewed allocation quantity must be positive'),
   sourceActivityFingerprint: z.string().min(1, 'Source activity fingerprint must not be empty'),
-  sourceAssetId: z.string().min(1, 'Source asset ID must not be empty'),
-  sourceJournalFingerprint: z.string().min(1, 'Source journal fingerprint must not be empty'),
-  sourcePostingFingerprint: z.string().min(1, 'Source posting fingerprint must not be empty'),
-  targetActivityFingerprint: z.string().min(1, 'Target activity fingerprint must not be empty'),
-  targetAssetId: z.string().min(1, 'Target asset ID must not be empty'),
-  targetJournalFingerprint: z.string().min(1, 'Target journal fingerprint must not be empty'),
-  targetPostingFingerprint: z.string().min(1, 'Target posting fingerprint must not be empty'),
-  timeDirection: z.enum(['source_before_target', 'target_before_source', 'same_time']),
-  timeDistanceSeconds: z.number().finite().nonnegative(),
 });
 
+export const LedgerLinkingReviewedRelationshipOverrideSchema = z
+  .object({
+    acceptedAt: z.string().datetime(),
+    allocations: z
+      .array(LedgerLinkingReviewedRelationshipAllocationOverrideSchema)
+      .min(2, 'Reviewed relationship requires allocations'),
+    evidence: z.record(z.string(), z.unknown()),
+    overrideEventId: z.string().min(1, 'Override event ID must not be empty'),
+    proposalKind: z.string().min(1, 'Proposal kind must not be empty'),
+    relationshipKind: AccountingJournalRelationshipKindSchema,
+    reviewId: z.string().min(1, 'Review ID must not be empty'),
+  })
+  .refine((relationship) => relationship.allocations.some((allocation) => allocation.allocationSide === 'source'), {
+    message: 'Reviewed relationship requires at least one source allocation',
+    path: ['allocations'],
+  })
+  .refine((relationship) => relationship.allocations.some((allocation) => allocation.allocationSide === 'target'), {
+    message: 'Reviewed relationship requires at least one target allocation',
+    path: ['allocations'],
+  });
+
+export type LedgerLinkingReviewedRelationshipAllocationOverride = z.infer<
+  typeof LedgerLinkingReviewedRelationshipAllocationOverrideSchema
+>;
 export type LedgerLinkingReviewedRelationshipOverride = z.infer<typeof LedgerLinkingReviewedRelationshipOverrideSchema>;
 
+export interface LedgerReviewedRelationshipOverrideAllocationMatch {
+  allocationSide: LedgerLinkingRelationshipAllocationSide;
+  candidateId: number;
+  postingFingerprint: string;
+  quantity: string;
+}
+
 export interface LedgerReviewedRelationshipOverrideMatch {
+  allocations: readonly LedgerReviewedRelationshipOverrideAllocationMatch[];
   overrideEventId: string;
   relationshipStableKey: string;
   reviewId: string;
-  sourceCandidateId: number;
-  targetCandidateId: number;
 }
 
 export interface LedgerReviewedRelationshipOverrideResult {
@@ -60,7 +82,7 @@ export function buildLedgerReviewedRelationshipOverrideRecognizer(
   reviewedOverrides: readonly LedgerLinkingReviewedRelationshipOverride[]
 ): LedgerDeterministicRecognizer<LedgerReviewedRelationshipOverrideResult> {
   return {
-    name: LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+    name: LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
     recognize: (candidates) => buildLedgerReviewedRelationshipOverrides(candidates, reviewedOverrides),
   };
 }
@@ -81,19 +103,9 @@ export function buildLedgerReviewedRelationshipOverrides(
     }
 
     const accepted = validation.data;
-    const source = findReviewedCandidate(candidates, accepted, 'source');
-    if (source.isErr()) {
-      return err(source.error);
-    }
-
-    const target = findReviewedCandidate(candidates, accepted, 'target');
-    if (target.isErr()) {
-      return err(target.error);
-    }
-
-    const quantityValidation = validateReviewedRelationshipQuantity(accepted, source.value, target.value);
-    if (quantityValidation.isErr()) {
-      return err(quantityValidation.error);
+    const allocationMatchesResult = resolveReviewedAllocationMatches(candidates, accepted);
+    if (allocationMatchesResult.isErr()) {
+      return err(allocationMatchesResult.error);
     }
 
     const relationshipStableKey = buildReviewedLedgerLinkingRelationshipStableKey(accepted);
@@ -102,17 +114,24 @@ export function buildLedgerReviewedRelationshipOverrides(
     }
     relationshipStableKeys.add(relationshipStableKey);
 
-    candidateClaims.push(
-      { candidateId: source.value.candidateId, quantity: accepted.quantity },
-      { candidateId: target.value.candidateId, quantity: accepted.quantity }
-    );
+    for (const match of allocationMatchesResult.value) {
+      candidateClaims.push({
+        candidateId: match.candidate.candidateId,
+        quantity: match.allocation.quantity,
+      });
+    }
+
     relationships.push(buildReviewedRelationshipDraft(accepted, relationshipStableKey));
     matches.push({
+      allocations: allocationMatchesResult.value.map((match) => ({
+        allocationSide: match.allocation.allocationSide,
+        candidateId: match.candidate.candidateId,
+        postingFingerprint: match.allocation.postingFingerprint,
+        quantity: match.allocation.quantity.toFixed(),
+      })),
       overrideEventId: accepted.overrideEventId,
       relationshipStableKey,
       reviewId: accepted.reviewId,
-      sourceCandidateId: source.value.candidateId,
-      targetCandidateId: target.value.candidateId,
     });
   }
 
@@ -128,49 +147,80 @@ export function buildLedgerReviewedRelationshipOverrides(
 export function buildReviewedLedgerLinkingRelationshipStableKey(
   reviewedOverride: LedgerLinkingReviewedRelationshipOverride
 ): string {
-  return `ledger-linking:${LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY}:v1:${sha256Hex(
+  return `ledger-linking:${LEDGER_REVIEWED_RELATIONSHIP_STRATEGY}:v2:${sha256Hex(
     [
       reviewedOverride.relationshipKind,
       reviewedOverride.proposalKind,
-      reviewedOverride.sourceActivityFingerprint,
-      reviewedOverride.sourceJournalFingerprint,
-      reviewedOverride.sourcePostingFingerprint,
-      reviewedOverride.targetActivityFingerprint,
-      reviewedOverride.targetJournalFingerprint,
-      reviewedOverride.targetPostingFingerprint,
-      reviewedOverride.sourceAssetId,
-      reviewedOverride.targetAssetId,
-      reviewedOverride.quantity.toFixed(),
+      ...canonicalReviewedAllocations(reviewedOverride).map((allocation) =>
+        [
+          allocation.allocationSide,
+          allocation.sourceActivityFingerprint,
+          allocation.journalFingerprint,
+          allocation.postingFingerprint,
+          allocation.assetId,
+          allocation.quantity.toFixed(),
+        ].join('\u0001')
+      ),
     ].join('\0')
   ).slice(0, 32)}`;
 }
 
-function findReviewedCandidate(
+interface ReviewedAllocationMatch {
+  allocation: LedgerLinkingReviewedRelationshipAllocationOverride;
+  candidate: LedgerTransferLinkingCandidate;
+}
+
+function resolveReviewedAllocationMatches(
+  candidates: readonly LedgerTransferLinkingCandidate[],
+  reviewedOverride: LedgerLinkingReviewedRelationshipOverride
+): Result<ReviewedAllocationMatch[], Error> {
+  const matches: ReviewedAllocationMatch[] = [];
+
+  for (const allocation of reviewedOverride.allocations) {
+    const candidateResult = findReviewedAllocationCandidate(candidates, reviewedOverride, allocation);
+    if (candidateResult.isErr()) {
+      return err(candidateResult.error);
+    }
+
+    const quantityValidation = validateReviewedAllocationQuantity(reviewedOverride, allocation, candidateResult.value);
+    if (quantityValidation.isErr()) {
+      return err(quantityValidation.error);
+    }
+
+    matches.push({
+      allocation,
+      candidate: candidateResult.value,
+    });
+  }
+
+  return ok(matches);
+}
+
+function findReviewedAllocationCandidate(
   candidates: readonly LedgerTransferLinkingCandidate[],
   reviewedOverride: LedgerLinkingReviewedRelationshipOverride,
-  side: 'source' | 'target'
+  allocation: LedgerLinkingReviewedRelationshipAllocationOverride
 ): Result<LedgerTransferLinkingCandidate, Error> {
-  const expected = getReviewedCandidateIdentity(reviewedOverride, side);
   const candidate = candidates.find(
     (item) =>
-      item.direction === side &&
-      item.sourceActivityFingerprint === expected.sourceActivityFingerprint &&
-      item.journalFingerprint === expected.journalFingerprint &&
-      item.postingFingerprint === expected.postingFingerprint
+      item.direction === allocation.allocationSide &&
+      item.sourceActivityFingerprint === allocation.sourceActivityFingerprint &&
+      item.journalFingerprint === allocation.journalFingerprint &&
+      item.postingFingerprint === allocation.postingFingerprint
   );
 
   if (candidate === undefined) {
     return err(
       new Error(
-        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} no longer resolves ${side} posting ${expected.postingFingerprint}`
+        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} no longer resolves ${allocation.allocationSide} posting ${allocation.postingFingerprint}`
       )
     );
   }
 
-  if (candidate.assetId !== expected.assetId) {
+  if (candidate.assetId !== allocation.assetId) {
     return err(
       new Error(
-        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} ${side} posting ${expected.postingFingerprint} asset changed from ${expected.assetId} to ${candidate.assetId}`
+        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} ${allocation.allocationSide} posting ${allocation.postingFingerprint} asset changed from ${allocation.assetId} to ${candidate.assetId}`
       )
     );
   }
@@ -178,23 +228,15 @@ function findReviewedCandidate(
   return ok(candidate);
 }
 
-function validateReviewedRelationshipQuantity(
+function validateReviewedAllocationQuantity(
   reviewedOverride: LedgerLinkingReviewedRelationshipOverride,
-  source: LedgerTransferLinkingCandidate,
-  target: LedgerTransferLinkingCandidate
+  allocation: LedgerLinkingReviewedRelationshipAllocationOverride,
+  candidate: LedgerTransferLinkingCandidate
 ): Result<void, Error> {
-  if (reviewedOverride.quantity.gt(source.amount)) {
+  if (allocation.quantity.gt(candidate.amount)) {
     return err(
       new Error(
-        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} overclaims source posting ${source.postingFingerprint}: ${reviewedOverride.quantity.toFixed()} of ${source.amount.toFixed()}`
-      )
-    );
-  }
-
-  if (reviewedOverride.quantity.gt(target.amount)) {
-    return err(
-      new Error(
-        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} overclaims target posting ${target.postingFingerprint}: ${reviewedOverride.quantity.toFixed()} of ${target.amount.toFixed()}`
+        `Reviewed ledger-linking relationship ${reviewedOverride.reviewId} overclaims ${allocation.allocationSide} posting ${allocation.postingFingerprint}: ${allocation.quantity.toFixed()} of ${candidate.amount.toFixed()}`
       )
     );
   }
@@ -207,67 +249,56 @@ function buildReviewedRelationshipDraft(
   relationshipStableKey: string
 ): LedgerLinkingRelationshipDraft {
   return {
-    allocations: [
-      {
-        allocationSide: 'source',
-        journalFingerprint: reviewedOverride.sourceJournalFingerprint,
-        postingFingerprint: reviewedOverride.sourcePostingFingerprint,
-        quantity: reviewedOverride.quantity,
-        sourceActivityFingerprint: reviewedOverride.sourceActivityFingerprint,
-      },
-      {
-        allocationSide: 'target',
-        journalFingerprint: reviewedOverride.targetJournalFingerprint,
-        postingFingerprint: reviewedOverride.targetPostingFingerprint,
-        quantity: reviewedOverride.quantity,
-        sourceActivityFingerprint: reviewedOverride.targetActivityFingerprint,
-      },
-    ],
+    allocations: reviewedOverride.allocations.map(toRelationshipAllocationDraft),
     confidenceScore: new Decimal(1),
     evidence: {
       acceptedAt: reviewedOverride.acceptedAt,
-      amount: reviewedOverride.quantity.toFixed(),
-      assetIdentityReason: reviewedOverride.assetIdentityReason,
-      assetSymbol: reviewedOverride.assetSymbol,
       overrideEventId: reviewedOverride.overrideEventId,
       proposalKind: reviewedOverride.proposalKind,
-      proposalUniqueness: reviewedOverride.proposalUniqueness,
+      reviewEvidence: reviewedOverride.evidence,
       reviewId: reviewedOverride.reviewId,
-      sourceAssetId: reviewedOverride.sourceAssetId,
-      sourcePostingFingerprint: reviewedOverride.sourcePostingFingerprint,
-      targetAssetId: reviewedOverride.targetAssetId,
-      targetPostingFingerprint: reviewedOverride.targetPostingFingerprint,
-      timeDirection: reviewedOverride.timeDirection,
-      timeDistanceSeconds: reviewedOverride.timeDistanceSeconds,
+      reviewedAllocations: reviewedOverride.allocations.map((allocation) => ({
+        allocationSide: allocation.allocationSide,
+        assetId: allocation.assetId,
+        assetSymbol: allocation.assetSymbol,
+        journalFingerprint: allocation.journalFingerprint,
+        postingFingerprint: allocation.postingFingerprint,
+        quantity: allocation.quantity.toFixed(),
+        sourceActivityFingerprint: allocation.sourceActivityFingerprint,
+      })),
     },
-    recognitionStrategy: LEDGER_REVIEWED_AMOUNT_TIME_RELATIONSHIP_STRATEGY,
+    recognitionStrategy: LEDGER_REVIEWED_RELATIONSHIP_STRATEGY,
     relationshipKind: reviewedOverride.relationshipKind,
     relationshipStableKey,
   };
 }
 
-function getReviewedCandidateIdentity(
-  reviewedOverride: LedgerLinkingReviewedRelationshipOverride,
-  side: 'source' | 'target'
-): {
-  assetId: string;
-  journalFingerprint: string;
-  postingFingerprint: string;
-  sourceActivityFingerprint: string;
-} {
-  if (side === 'source') {
-    return {
-      assetId: reviewedOverride.sourceAssetId,
-      journalFingerprint: reviewedOverride.sourceJournalFingerprint,
-      postingFingerprint: reviewedOverride.sourcePostingFingerprint,
-      sourceActivityFingerprint: reviewedOverride.sourceActivityFingerprint,
-    };
-  }
-
+function toRelationshipAllocationDraft(
+  allocation: LedgerLinkingReviewedRelationshipAllocationOverride
+): LedgerLinkingRelationshipAllocationDraft {
   return {
-    assetId: reviewedOverride.targetAssetId,
-    journalFingerprint: reviewedOverride.targetJournalFingerprint,
-    postingFingerprint: reviewedOverride.targetPostingFingerprint,
-    sourceActivityFingerprint: reviewedOverride.targetActivityFingerprint,
+    allocationSide: allocation.allocationSide,
+    journalFingerprint: allocation.journalFingerprint,
+    postingFingerprint: allocation.postingFingerprint,
+    quantity: allocation.quantity,
+    sourceActivityFingerprint: allocation.sourceActivityFingerprint,
   };
+}
+
+function canonicalReviewedAllocations(
+  reviewedOverride: LedgerLinkingReviewedRelationshipOverride
+): LedgerLinkingReviewedRelationshipAllocationOverride[] {
+  return [...reviewedOverride.allocations].sort(
+    (left, right) =>
+      allocationSideRank(left.allocationSide) - allocationSideRank(right.allocationSide) ||
+      left.sourceActivityFingerprint.localeCompare(right.sourceActivityFingerprint) ||
+      left.journalFingerprint.localeCompare(right.journalFingerprint) ||
+      left.postingFingerprint.localeCompare(right.postingFingerprint) ||
+      left.assetId.localeCompare(right.assetId) ||
+      left.quantity.cmp(right.quantity)
+  );
+}
+
+function allocationSideRank(side: LedgerLinkingRelationshipAllocationSide): number {
+  return side === 'source' ? 0 : 1;
 }
