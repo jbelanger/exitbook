@@ -1062,6 +1062,14 @@ describe('runLedgerLinking', () => {
       name: 'reviewed_relationship',
       relationshipCount: 1,
     });
+    expect(result.deterministicRecognizerStats.map((stats) => stats.name)).toEqual([
+      'reviewed_relationship',
+      'exact_hash_transfer',
+      'fee_adjusted_exact_hash_transfer',
+      'same_hash_grouped_transfer',
+      'counterparty_roundtrip',
+      'strict_exchange_amount_time_transfer',
+    ]);
     expect(result.exactHashMatches).toEqual([]);
     expect(result.acceptedRelationships[0]).toMatchObject({
       evidence: {

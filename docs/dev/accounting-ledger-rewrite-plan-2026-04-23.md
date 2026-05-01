@@ -1002,6 +1002,9 @@ Completed checkpoints:
 - ledger-linking persistence now rejects allocation quantities that exceed the
   current posting quantity, even if an upstream recognizer or manual command
   accidentally overclaims
+- ledger-linking runner tests now pin deterministic recognizer order:
+  reviewed overrides, exact hash, fee-adjusted exact hash, same-hash grouped,
+  counterparty roundtrip, then strict exchange amount/time
 
 Active next slices:
 
@@ -1015,7 +1018,7 @@ preserve current local data. Breaking/rebuilding derived v2 data is acceptable
 when the replacement model is simpler and more honest.
 
 1. Finish relationship read-layer honesty: expose stale relationship
-   allocations after reprocess and pin recognizer order in tests.
+   allocations after reprocess.
 2. Decide whether pending review-item dismissals need durable override events
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
