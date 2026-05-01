@@ -134,6 +134,7 @@ describe('projectLedgerCostBasisEvents', () => {
           role: 'fee',
           assetId: 'blockchain:ethereum:native',
           assetSymbol: ETH,
+          settlement: 'on-chain',
         }),
       ],
     });
@@ -143,6 +144,33 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.blockers).toEqual([]);
     expect(projection.events.map((event) => event.kind)).toEqual(['fee']);
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.01');
+  });
+
+  it('blocks fee postings without settlement', () => {
+    const facts = makeFacts({
+      journalKind: 'expense_only',
+      postings: [
+        makePosting({
+          id: 1,
+          postingFingerprint: 'posting:eth-fee-unsettled',
+          quantity: '-0.01',
+          role: 'fee',
+          assetId: 'blockchain:ethereum:native',
+          assetSymbol: ETH,
+        }),
+      ],
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectPostingBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'fee_settlement_missing',
+      postingFingerprint: 'posting:eth-fee-unsettled',
+    });
+    expect(blocker.blockedQuantity.toFixed()).toBe('0.01');
   });
 
   it('blocks zero-quantity postings instead of aborting projection', () => {
