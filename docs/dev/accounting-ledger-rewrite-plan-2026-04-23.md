@@ -1008,6 +1008,8 @@ Completed checkpoints:
 - `links-v2 list --stale` now filters accepted relationships whose allocation
   fingerprints no longer resolve to current journal/posting rows after
   reprocess
+- ledger-linking runner recognizer lookup now uses one typed helper instead of
+  one near-identical `findRun` helper per recognizer
 
 Active next slices:
 

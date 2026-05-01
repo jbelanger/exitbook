@@ -204,32 +204,50 @@ export async function runLedgerLinking(
     return err(deterministicResult.error);
   }
 
-  const exactHashRun = findExactHashRun(deterministicResult.value.runs);
+  const exactHashRun = findRequiredRunByName<LedgerExactHashTransferRelationshipResult>(
+    deterministicResult.value.runs,
+    LEDGER_EXACT_HASH_TRANSFER_STRATEGY
+  );
   if (exactHashRun.isErr()) {
     return err(exactHashRun.error);
   }
   const exactHashResult = exactHashRun.value.payload;
-  const feeAdjustedExactHashRun = findFeeAdjustedExactHashRun(deterministicResult.value.runs);
+  const feeAdjustedExactHashRun = findRequiredRunByName<LedgerFeeAdjustedExactHashTransferRelationshipResult>(
+    deterministicResult.value.runs,
+    LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY
+  );
   if (feeAdjustedExactHashRun.isErr()) {
     return err(feeAdjustedExactHashRun.error);
   }
   const feeAdjustedExactHashResult = feeAdjustedExactHashRun.value.payload;
-  const sameHashRun = findSameHashGroupedRun(deterministicResult.value.runs);
+  const sameHashRun = findRequiredRunByName<LedgerSameHashGroupedTransferRelationshipResult>(
+    deterministicResult.value.runs,
+    LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY
+  );
   if (sameHashRun.isErr()) {
     return err(sameHashRun.error);
   }
   const sameHashResult = sameHashRun.value.payload;
-  const counterpartyRoundtripRun = findCounterpartyRoundtripRun(deterministicResult.value.runs);
+  const counterpartyRoundtripRun = findRequiredRunByName<LedgerCounterpartyRoundtripRelationshipResult>(
+    deterministicResult.value.runs,
+    LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY
+  );
   if (counterpartyRoundtripRun.isErr()) {
     return err(counterpartyRoundtripRun.error);
   }
   const counterpartyRoundtripResult = counterpartyRoundtripRun.value.payload;
-  const strictExchangeAmountTimeRun = findStrictExchangeAmountTimeTransferRun(deterministicResult.value.runs);
+  const strictExchangeAmountTimeRun = findRequiredRunByName<LedgerStrictExchangeAmountTimeTransferRelationshipResult>(
+    deterministicResult.value.runs,
+    LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY
+  );
   if (strictExchangeAmountTimeRun.isErr()) {
     return err(strictExchangeAmountTimeRun.error);
   }
   const strictExchangeAmountTimeResult = strictExchangeAmountTimeRun.value.payload;
-  const reviewedRelationshipOverrideResult = findReviewedRelationshipOverrideRun(deterministicResult.value.runs);
+  const reviewedRelationshipOverrideResult = findOptionalRunByName<LedgerReviewedRelationshipOverrideResult>(
+    deterministicResult.value.runs,
+    LEDGER_REVIEWED_RELATIONSHIP_STRATEGY
+  );
   const diagnosticsResult = buildLedgerLinkingDiagnostics(
     candidates,
     deterministicResult.value.candidateClaims,
@@ -395,70 +413,24 @@ function assetIdentitySuggestionEvidenceKindRank(
   }
 }
 
-function findExactHashRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): Result<LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>, Error> {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_EXACT_HASH_TRANSFER_STRATEGY);
+function findRequiredRunByName<TPayload>(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[],
+  name: string
+): Result<LedgerDeterministicRecognizerRun<TPayload>, Error> {
+  const run = runs.find((candidateRun) => candidateRun.name === name);
   if (run === undefined) {
-    return err(new Error(`Ledger deterministic recognizer ${LEDGER_EXACT_HASH_TRANSFER_STRATEGY} did not run`));
+    return err(new Error(`Ledger deterministic recognizer ${name} did not run`));
   }
 
-  return ok(run as LedgerDeterministicRecognizerRun<LedgerExactHashTransferRelationshipResult>);
+  return ok(run as LedgerDeterministicRecognizerRun<TPayload>);
 }
 
-function findSameHashGroupedRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): Result<LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>, Error> {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY);
-  if (run === undefined) {
-    return err(new Error(`Ledger deterministic recognizer ${LEDGER_SAME_HASH_GROUPED_TRANSFER_STRATEGY} did not run`));
-  }
-
-  return ok(run as LedgerDeterministicRecognizerRun<LedgerSameHashGroupedTransferRelationshipResult>);
-}
-
-function findFeeAdjustedExactHashRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): Result<LedgerDeterministicRecognizerRun<LedgerFeeAdjustedExactHashTransferRelationshipResult>, Error> {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY);
-  if (run === undefined) {
-    return err(
-      new Error(`Ledger deterministic recognizer ${LEDGER_FEE_ADJUSTED_EXACT_HASH_TRANSFER_STRATEGY} did not run`)
-    );
-  }
-
-  return ok(run as LedgerDeterministicRecognizerRun<LedgerFeeAdjustedExactHashTransferRelationshipResult>);
-}
-
-function findCounterpartyRoundtripRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): Result<LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>, Error> {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY);
-  if (run === undefined) {
-    return err(new Error(`Ledger deterministic recognizer ${LEDGER_COUNTERPARTY_ROUNDTRIP_STRATEGY} did not run`));
-  }
-
-  return ok(run as LedgerDeterministicRecognizerRun<LedgerCounterpartyRoundtripRelationshipResult>);
-}
-
-function findStrictExchangeAmountTimeTransferRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): Result<LedgerDeterministicRecognizerRun<LedgerStrictExchangeAmountTimeTransferRelationshipResult>, Error> {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY);
-  if (run === undefined) {
-    return err(
-      new Error(`Ledger deterministic recognizer ${LEDGER_STRICT_EXCHANGE_AMOUNT_TIME_TRANSFER_STRATEGY} did not run`)
-    );
-  }
-
-  return ok(run as LedgerDeterministicRecognizerRun<LedgerStrictExchangeAmountTimeTransferRelationshipResult>);
-}
-
-function findReviewedRelationshipOverrideRun(
-  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[]
-): LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined {
-  const run = runs.find((candidateRun) => candidateRun.name === LEDGER_REVIEWED_RELATIONSHIP_STRATEGY);
-  return run as LedgerDeterministicRecognizerRun<LedgerReviewedRelationshipOverrideResult> | undefined;
+function findOptionalRunByName<TPayload>(
+  runs: readonly LedgerDeterministicRecognizerRun<LedgerLinkingDeterministicPayload>[],
+  name: string
+): LedgerDeterministicRecognizerRun<TPayload> | undefined {
+  const run = runs.find((candidateRun) => candidateRun.name === name);
+  return run as LedgerDeterministicRecognizerRun<TPayload> | undefined;
 }
 
 function toDeterministicRecognizerStats(
