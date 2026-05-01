@@ -1174,7 +1174,8 @@ Cost-basis migration model:
   block explicitly. Relationship-level integrity blockers catch accepted
   allocations that no longer point at loaded postings, that no longer match
   their loaded posting metadata, that are structurally invalid or overallocated,
-  or that mix excluded and non-excluded postings.
+  that point at cost postings such as fees, or that mix excluded and
+  non-excluded postings.
 - Next implementation slice after event projection: adapt standard or Canada
   calculation behind this event model only after the calculation boundary
   handles projection blockers and excluded-posting audit output deliberately.

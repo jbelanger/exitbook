@@ -354,6 +354,32 @@ describe('projectLedgerCostBasisEvents', () => {
     ]);
     expect(blocker.allocations[0]?.validationReasons).toEqual(['overallocated_posting']);
   });
+
+  it('blocks relationship allocations that point at fee postings', () => {
+    const facts = makeTransferFacts({
+      relationshipKind: 'internal_transfer',
+      source: {
+        assetId: 'blockchain:ethereum:native',
+        assetSymbol: ETH,
+        role: 'fee',
+      },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_invalid',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'invalid_allocation'],
+      ['posting:target', 'blocked_by_relationship'],
+    ]);
+    expect(blocker.allocations[0]?.validationReasons).toEqual(['relationship_allocation_points_at_fee_posting']);
+  });
 });
 
 function expectPostingBlocker(blocker: LedgerCostBasisProjectionBlocker | undefined): LedgerCostBasisPostingBlocker {
@@ -388,6 +414,7 @@ function makeTransferFacts(params: {
     assetSymbol: BTC,
     postingFingerprint: 'posting:source',
     quantity: '-1',
+    role: 'principal',
     ...params.source,
   };
   const target: TransferEndpointOptions = {
@@ -397,6 +424,7 @@ function makeTransferFacts(params: {
     assetSymbol: BTC,
     postingFingerprint: 'posting:target',
     quantity: '1',
+    role: 'principal',
     ...params.target,
   };
 
@@ -408,6 +436,7 @@ function makeTransferFacts(params: {
         assetSymbol: source.assetSymbol,
         postingFingerprint: source.postingFingerprint,
         quantity: source.quantity,
+        role: source.role,
       }),
       makePosting({
         id: 2,
@@ -416,6 +445,7 @@ function makeTransferFacts(params: {
         journalId: 2,
         postingFingerprint: target.postingFingerprint,
         quantity: target.quantity,
+        role: target.role,
       }),
     ],
     journals: [
@@ -471,6 +501,7 @@ interface TransferEndpointOptions {
   assetSymbol: Currency;
   postingFingerprint: string;
   quantity: string;
+  role: CostBasisLedgerPosting['role'];
 }
 
 function makeFacts(params: {

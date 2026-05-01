@@ -57,6 +57,8 @@ export type LedgerCostBasisRelationshipAllocationMismatchReason =
 export type LedgerCostBasisRelationshipAllocationValidationReason =
   | 'non_positive_quantity'
   | 'overallocated_posting'
+  | 'relationship_allocation_points_at_fee_posting'
+  | 'relationship_allocation_points_at_protocol_overhead_posting'
   | 'source_allocation_points_at_positive_posting'
   | 'target_allocation_points_at_negative_posting';
 
@@ -757,6 +759,12 @@ function findRelationshipAllocationValidationReasons(
 
   if (allocation.quantity.lte(0)) {
     validationReasons.push('non_positive_quantity');
+  }
+  if (context.posting.role === 'fee') {
+    validationReasons.push('relationship_allocation_points_at_fee_posting');
+  }
+  if (context.posting.role === 'protocol_overhead') {
+    validationReasons.push('relationship_allocation_points_at_protocol_overhead_posting');
   }
   if (allocation.allocationSide === 'source' && context.posting.quantity.gt(0)) {
     validationReasons.push('source_allocation_points_at_positive_posting');
