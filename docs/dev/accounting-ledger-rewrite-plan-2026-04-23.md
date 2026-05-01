@@ -1012,6 +1012,9 @@ Completed checkpoints:
   one near-identical `findRun` helper per recognizer
 - `accounting_journal_relationships.recognition_strategy` is now constrained to
   the known processor and ledger-linking strategies instead of arbitrary text
+- `links-v2 diagnose` now reports how many unmatched candidate remainders are
+  already covered by accepted gap-resolution decisions, so raw diagnostics do
+  not read like open review work after the queue is cleared
 
 Active next slices:
 

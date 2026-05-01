@@ -370,6 +370,8 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 diagnostics.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
     expect(consoleLogSpy).toHaveBeenCalledWith('Unmatched candidate remainders: 1 source, 1 target');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Resolved gap decisions: 0 of 2 unmatched candidate remainders');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Open diagnostic remainders: 2');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time window: 24h');
     expect(consoleLogSpy).toHaveBeenCalledWith('Amount/time proposals: 1 (1 unique)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Asset identity blockers: 0');

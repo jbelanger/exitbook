@@ -151,6 +151,11 @@ interface LinksV2AssetIdentityListOutput {
 
 interface LinksV2DiagnoseOutput {
   diagnostics: LedgerLinkingDiagnostics;
+  gapResolutionSummary: {
+    openUnmatchedCandidateCount: number;
+    resolvedUnmatchedCandidateCount: number;
+    totalUnmatchedCandidateCount: number;
+  };
   profile: {
     id: number;
     profileKey: string;
@@ -588,8 +593,20 @@ async function executePreparedLinksV2DiagnoseCommand(
       );
     }
 
+    const resolvedGapResolutionKeys = yield* toCliResult(
+      await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
+      ExitCodes.GENERAL_ERROR
+    );
+    const resolvedUnmatchedCandidateCount = run.diagnostics.unmatchedCandidates.filter((candidate) =>
+      resolvedGapResolutionKeys.has(buildLedgerLinkingGapResolutionKey(candidate))
+    ).length;
     const output: LinksV2DiagnoseOutput = {
       diagnostics: run.diagnostics,
+      gapResolutionSummary: {
+        openUnmatchedCandidateCount: run.diagnostics.unmatchedCandidates.length - resolvedUnmatchedCandidateCount,
+        resolvedUnmatchedCandidateCount,
+        totalUnmatchedCandidateCount: run.diagnostics.unmatchedCandidates.length,
+      },
       profile: {
         id: profile.id,
         profileKey: profile.profileKey,
@@ -1856,7 +1873,7 @@ function renderLinksV2DiagnoseOutput(
   prepared: LinksV2DiagnoseCommandOptions,
   config: LinksV2RunExecutionConfig
 ): void {
-  const { diagnostics, profile, runSummary } = output;
+  const { diagnostics, gapResolutionSummary, profile, runSummary } = output;
   const unmatchedSourceCount = diagnostics.unmatchedCandidates.filter(
     (candidate) => candidate.direction === 'source'
   ).length;
@@ -1877,6 +1894,10 @@ function renderLinksV2DiagnoseOutput(
   );
   console.log(`Accepted relationships: ${runSummary.acceptedRelationshipCount}`);
   console.log(`Unmatched candidate remainders: ${unmatchedSourceCount} source, ${unmatchedTargetCount} target`);
+  console.log(
+    `Resolved gap decisions: ${gapResolutionSummary.resolvedUnmatchedCandidateCount} of ${gapResolutionSummary.totalUnmatchedCandidateCount} unmatched candidate remainders`
+  );
+  console.log(`Open diagnostic remainders: ${gapResolutionSummary.openUnmatchedCandidateCount}`);
   console.log(`Amount/time window: ${formatWindowHours(diagnostics.amountTimeWindowMinutes)}`);
   console.log(
     `Amount/time proposals: ${diagnostics.amountTimeProposalCount} (${diagnostics.amountTimeUniqueProposalCount} unique)`
