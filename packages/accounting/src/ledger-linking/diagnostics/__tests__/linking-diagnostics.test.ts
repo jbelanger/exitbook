@@ -396,6 +396,91 @@ describe('buildLedgerLinkingDiagnostics', () => {
     ]);
   });
 
+  it('builds allocation-aware asset migration proposals from same-hash and processor evidence', () => {
+    const resolver = assertOk(buildLedgerLinkingAssetIdentityResolver());
+    const result = assertOk(
+      buildLedgerLinkingDiagnostics(
+        [
+          makeCandidate({
+            amount: '19.5536',
+            assetId: 'exchange:kucoin:rndr',
+            assetSymbol: 'RNDR',
+            blockchainTransactionHash: '0x170983ad',
+            candidateId: 11,
+            direction: 'source',
+            platformKey: 'kucoin',
+            platformKind: 'exchange',
+          }),
+          makeCandidate({
+            amount: '19.5536',
+            activityDatetime: new Date('2026-04-23T00:01:00.000Z'),
+            assetId: 'blockchain:ethereum:render',
+            assetSymbol: 'RENDER',
+            blockchainTransactionHash: '0x170983ad',
+            candidateId: 12,
+            direction: 'target',
+            platformKey: 'ethereum',
+            platformKind: 'blockchain',
+          }),
+          makeCandidate({
+            amount: '64.98757287',
+            activityDatetime: new Date('2026-04-25T00:00:00.000Z'),
+            assetId: 'exchange:kraken:rndr',
+            assetSymbol: 'RNDR',
+            blockchainTransactionHash: undefined,
+            candidateId: 13,
+            direction: 'source',
+            fromAddress: undefined,
+            journalDiagnosticCodes: ['possible_asset_migration'],
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            toAddress: undefined,
+          }),
+          makeCandidate({
+            amount: '64.987572',
+            activityDatetime: new Date('2026-04-16T00:00:00.000Z'),
+            assetId: 'exchange:kraken:render',
+            assetSymbol: 'RENDER',
+            blockchainTransactionHash: undefined,
+            candidateId: 14,
+            direction: 'target',
+            fromAddress: undefined,
+            journalDiagnosticCodes: ['possible_asset_migration'],
+            platformKey: 'kraken',
+            platformKind: 'exchange',
+            toAddress: undefined,
+          }),
+        ],
+        [],
+        resolver,
+        { amountTimeWindowMinutes: 60 }
+      )
+    );
+
+    expect(result.assetMigrationProposalCount).toBe(2);
+    expect(result.assetMigrationUniqueProposalCount).toBe(2);
+    expect(result.assetMigrationProposals.map(toAssetMigrationProposalSummary)).toEqual([
+      {
+        evidence: 'same_hash_symbol_migration',
+        sourceCandidateId: 11,
+        sourceQuantity: '19.5536',
+        targetCandidateId: 12,
+        targetQuantity: '19.5536',
+        timeDirection: 'source_before_target',
+        uniqueness: 'unique_pair',
+      },
+      {
+        evidence: 'processor_context_approximate_amount',
+        sourceCandidateId: 13,
+        sourceQuantity: '64.98757287',
+        targetCandidateId: 14,
+        targetQuantity: '64.987572',
+        timeDirection: 'target_before_source',
+        uniqueness: 'unique_pair',
+      },
+    ]);
+  });
+
   it('rejects overclaimed candidates', () => {
     const resolver = assertOk(buildLedgerLinkingAssetIdentityResolver());
     const result = buildLedgerLinkingDiagnostics(
@@ -495,6 +580,26 @@ function toProposalSummary(proposal: {
     targetCandidateId: proposal.target.candidateId,
     timeDirection: proposal.timeDirection,
     timeDistanceSeconds: proposal.timeDistanceSeconds,
+    uniqueness: proposal.uniqueness,
+  };
+}
+
+function toAssetMigrationProposalSummary(proposal: {
+  evidence: string;
+  source: { candidateId: number };
+  sourceQuantity: string;
+  target: { candidateId: number };
+  targetQuantity: string;
+  timeDirection: string;
+  uniqueness: string;
+}) {
+  return {
+    evidence: proposal.evidence,
+    sourceCandidateId: proposal.source.candidateId,
+    sourceQuantity: proposal.sourceQuantity,
+    targetCandidateId: proposal.target.candidateId,
+    targetQuantity: proposal.targetQuantity,
+    timeDirection: proposal.timeDirection,
     uniqueness: proposal.uniqueness,
   };
 }

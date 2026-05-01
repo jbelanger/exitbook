@@ -5,6 +5,7 @@ import type { LedgerLinkingAssetIdentitySuggestion } from '../asset-identity/ass
 import type {
   LedgerLinkingAmountTimeProposal,
   LedgerLinkingAmountTimeProposalUniqueness,
+  LedgerLinkingAssetMigrationProposal,
   LedgerLinkingCandidateRemainder,
   LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
@@ -17,7 +18,11 @@ const REVIEW_ID_HASH_LENGTH = 12;
 
 export type LedgerLinkingReviewItemKind = 'asset_identity_suggestion' | 'link_proposal' | 'gap_resolution';
 export type LedgerLinkingReviewEvidenceStrength = 'strong' | 'medium' | 'weak';
-export type LedgerLinkingReviewLinkProposalKind = 'amount_time' | 'bridge_amount_time';
+export type LedgerLinkingReviewLinkProposalKind =
+  | 'amount_time'
+  | 'asset_migration_same_hash'
+  | 'bridge_amount_time'
+  | 'processor_asset_migration';
 
 export interface LedgerLinkingReviewQueueBuildInput {
   assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
@@ -48,11 +53,15 @@ export interface LedgerLinkingReviewAssetIdentitySuggestionItem {
 export interface LedgerLinkingReviewLinkProposalItem {
   evidenceStrength: LedgerLinkingReviewEvidenceStrength;
   kind: 'link_proposal';
-  proposal: LedgerLinkingAmountTimeProposal;
+  proposal: LedgerLinkingReviewRelationshipProposal;
   proposalKind: LedgerLinkingReviewLinkProposalKind;
   relationshipKind: AccountingJournalRelationshipKind;
   reviewId: string;
 }
+
+export type LedgerLinkingReviewRelationshipProposal =
+  | LedgerLinkingAmountTimeProposal
+  | LedgerLinkingAssetMigrationProposal;
 
 export interface LedgerLinkingReviewGapResolutionItem {
   evidenceStrength: LedgerLinkingReviewEvidenceStrength;
@@ -63,9 +72,13 @@ export interface LedgerLinkingReviewGapResolutionItem {
 
 export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBuildInput): LedgerLinkingReviewQueue {
   const assetIdentityItems = input.assetIdentitySuggestions.map(toAssetIdentityReviewItem);
-  const linkProposalItems = (input.diagnostics?.amountTimeProposals ?? [])
+  const amountTimeLinkProposalItems = (input.diagnostics?.amountTimeProposals ?? [])
     .filter(hasActionableTiming)
     .map(toAmountTimeLinkProposalReviewItem);
+  const assetMigrationLinkProposalItems = (input.diagnostics?.assetMigrationProposals ?? []).map(
+    toAssetMigrationLinkProposalReviewItem
+  );
+  const linkProposalItems = [...amountTimeLinkProposalItems, ...assetMigrationLinkProposalItems];
   const gapResolutionItems =
     input.diagnostics === undefined
       ? []
@@ -132,6 +145,32 @@ function toAmountTimeLinkProposalReviewItem(
   };
 }
 
+function toAssetMigrationLinkProposalReviewItem(
+  proposal: LedgerLinkingAssetMigrationProposal
+): LedgerLinkingReviewLinkProposalItem {
+  const proposalKind = resolveAssetMigrationProposalKind(proposal);
+
+  return {
+    evidenceStrength: resolveAssetMigrationProposalEvidenceStrength(proposal),
+    kind: 'link_proposal',
+    proposal,
+    proposalKind,
+    relationshipKind: 'asset_migration',
+    reviewId: buildReviewId('lp', [
+      'link_proposal',
+      proposalKind,
+      'v1',
+      'asset_migration',
+      proposal.source.postingFingerprint,
+      proposal.target.postingFingerprint,
+      proposal.sourceQuantity,
+      proposal.targetQuantity,
+      proposal.source.assetId,
+      proposal.target.assetId,
+    ]),
+  };
+}
+
 function resolveAmountTimeProposalRelationshipKind(
   proposal: LedgerLinkingAmountTimeProposal
 ): AccountingJournalRelationshipKind {
@@ -140,6 +179,17 @@ function resolveAmountTimeProposalRelationshipKind(
   }
 
   return 'internal_transfer';
+}
+
+function resolveAssetMigrationProposalKind(
+  proposal: LedgerLinkingAssetMigrationProposal
+): LedgerLinkingReviewLinkProposalKind {
+  switch (proposal.evidence) {
+    case 'same_hash_symbol_migration':
+      return 'asset_migration_same_hash';
+    case 'processor_context_approximate_amount':
+      return 'processor_asset_migration';
+  }
 }
 
 function isBridgeAmountTimeProposal(proposal: LedgerLinkingAmountTimeProposal): boolean {
@@ -202,6 +252,16 @@ function resolveAmountTimeProposalEvidenceStrength(
   uniqueness: LedgerLinkingAmountTimeProposalUniqueness
 ): LedgerLinkingReviewEvidenceStrength {
   return uniqueness === 'unique_pair' ? 'medium' : 'weak';
+}
+
+function resolveAssetMigrationProposalEvidenceStrength(
+  proposal: LedgerLinkingAssetMigrationProposal
+): LedgerLinkingReviewEvidenceStrength {
+  if (proposal.evidence === 'same_hash_symbol_migration' && proposal.uniqueness === 'unique_pair') {
+    return 'strong';
+  }
+
+  return proposal.uniqueness === 'unique_pair' ? 'medium' : 'weak';
 }
 
 function buildReviewId(prefix: string, parts: readonly string[]): string {
@@ -281,14 +341,46 @@ function compareLinkProposalItems(
 ): number {
   return (
     compareLinkProposalUniqueness(left.proposal.uniqueness, right.proposal.uniqueness) ||
+    linkProposalKindRank(left.proposalKind) - linkProposalKindRank(right.proposalKind) ||
     left.proposal.timeDistanceSeconds - right.proposal.timeDistanceSeconds ||
-    left.proposal.assetSymbol.localeCompare(right.proposal.assetSymbol) ||
-    left.proposal.amount.localeCompare(right.proposal.amount) ||
+    getProposalSourceAssetSymbol(left.proposal).localeCompare(getProposalSourceAssetSymbol(right.proposal)) ||
+    getProposalTargetAssetSymbol(left.proposal).localeCompare(getProposalTargetAssetSymbol(right.proposal)) ||
+    getProposalSourceQuantity(left.proposal).localeCompare(getProposalSourceQuantity(right.proposal)) ||
+    getProposalTargetQuantity(left.proposal).localeCompare(getProposalTargetQuantity(right.proposal)) ||
     left.proposal.source.platformKey.localeCompare(right.proposal.source.platformKey) ||
     left.proposal.target.platformKey.localeCompare(right.proposal.target.platformKey) ||
     left.proposal.source.candidateId - right.proposal.source.candidateId ||
     left.proposal.target.candidateId - right.proposal.target.candidateId
   );
+}
+
+function linkProposalKindRank(kind: LedgerLinkingReviewLinkProposalKind): number {
+  switch (kind) {
+    case 'asset_migration_same_hash':
+      return 0;
+    case 'processor_asset_migration':
+      return 1;
+    case 'bridge_amount_time':
+      return 2;
+    case 'amount_time':
+      return 3;
+  }
+}
+
+function getProposalSourceAssetSymbol(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.source.assetSymbol;
+}
+
+function getProposalTargetAssetSymbol(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.target.assetSymbol;
+}
+
+function getProposalSourceQuantity(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.sourceQuantity;
+}
+
+function getProposalTargetQuantity(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.targetQuantity;
 }
 
 function compareGapResolutionItems(

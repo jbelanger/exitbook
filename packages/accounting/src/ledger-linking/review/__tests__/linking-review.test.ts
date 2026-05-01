@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { LedgerLinkingAssetIdentitySuggestion } from '../../asset-identity/asset-identity-suggestions.js';
 import type {
   LedgerLinkingAmountTimeProposal,
+  LedgerLinkingAssetMigrationProposal,
   LedgerLinkingCandidateRemainder,
   LedgerLinkingDiagnostics,
 } from '../../diagnostics/linking-diagnostics.js';
@@ -135,6 +136,27 @@ describe('buildLedgerLinkingReviewQueue', () => {
     });
   });
 
+  it('adds asset-migration proposals as reviewed asset-migration link proposals', () => {
+    const queue = buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: [],
+      diagnostics: makeDiagnostics([], {
+        assetMigrationProposals: [
+          makeAssetMigrationProposal({
+            evidence: 'same_hash_symbol_migration',
+          }),
+        ],
+      }),
+    });
+
+    expect(queue.itemCount).toBe(1);
+    expect(queue.items[0]).toMatchObject({
+      evidenceStrength: 'strong',
+      kind: 'link_proposal',
+      proposalKind: 'asset_migration_same_hash',
+      relationshipKind: 'asset_migration',
+    });
+  });
+
   it('adds safe gap resolution review items and filters already accepted resolution keys', () => {
     const residual = makeRemainder({
       candidateId: 21,
@@ -207,11 +229,17 @@ function makeAssetIdentitySuggestion(
 
 function makeDiagnostics(
   proposals: readonly LedgerLinkingAmountTimeProposal[],
-  overrides: Partial<Pick<LedgerLinkingDiagnostics, 'candidateClassifications' | 'unmatchedCandidates'>> = {}
+  overrides: Partial<
+    Pick<LedgerLinkingDiagnostics, 'assetMigrationProposals' | 'candidateClassifications' | 'unmatchedCandidates'>
+  > = {}
 ): LedgerLinkingDiagnostics {
   return {
     assetIdentityBlockerProposalCount: 0,
     assetIdentityBlockerProposals: [],
+    assetMigrationProposalCount: overrides.assetMigrationProposals?.length ?? 0,
+    assetMigrationProposals: overrides.assetMigrationProposals ?? [],
+    assetMigrationUniqueProposalCount:
+      overrides.assetMigrationProposals?.filter((proposal) => proposal.uniqueness === 'unique_pair').length ?? 0,
     amountTimeProposalCount: proposals.length,
     amountTimeProposalGroups: [],
     amountTimeProposals: proposals,
@@ -236,11 +264,13 @@ function makeAmountTimeProposal(
       direction: 'source',
       postingFingerprint: 'ledger_posting:v1:source',
     }),
+    sourceQuantity: '1',
     target: makeRemainder({
       candidateId: 8,
       direction: 'target',
       postingFingerprint: 'ledger_posting:v1:target',
     }),
+    targetQuantity: '1',
     timeDirection: 'source_before_target',
     timeDistanceSeconds: 1800,
     uniqueness: 'unique_pair',
@@ -248,7 +278,45 @@ function makeAmountTimeProposal(
   };
 }
 
+function makeAssetMigrationProposal(
+  overrides: Partial<LedgerLinkingAssetMigrationProposal> = {}
+): LedgerLinkingAssetMigrationProposal {
+  return {
+    evidence: 'processor_context_approximate_amount',
+    source: makeRemainder({
+      assetId: 'exchange:kraken:rndr',
+      assetSymbol: 'RNDR',
+      candidateId: 31,
+      direction: 'source',
+      journalDiagnosticCodes: ['possible_asset_migration'],
+      platformKey: 'kraken',
+      platformKind: 'exchange',
+      postingFingerprint: 'ledger_posting:v1:migration-source',
+      remainingAmount: '64.98757287',
+    }),
+    sourceQuantity: '64.98757287',
+    target: makeRemainder({
+      assetId: 'exchange:kraken:render',
+      assetSymbol: 'RENDER',
+      candidateId: 32,
+      direction: 'target',
+      journalDiagnosticCodes: ['possible_asset_migration'],
+      platformKey: 'kraken',
+      platformKind: 'exchange',
+      postingFingerprint: 'ledger_posting:v1:migration-target',
+      remainingAmount: '64.987572',
+    }),
+    targetQuantity: '64.987572',
+    timeDirection: 'target_before_source',
+    timeDistanceSeconds: 777906,
+    uniqueness: 'unique_pair',
+    ...overrides,
+  };
+}
+
 function makeRemainder(overrides: {
+  assetId?: string | undefined;
+  assetSymbol?: string | undefined;
   candidateId: number;
   claimedAmount?: string | undefined;
   direction: 'source' | 'target';
@@ -262,8 +330,9 @@ function makeRemainder(overrides: {
 
   return {
     activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
-    assetId: overrides.direction === 'source' ? 'exchange:kraken:eth' : 'blockchain:ethereum:native',
-    assetSymbol: ETH,
+    assetId:
+      overrides.assetId ?? (overrides.direction === 'source' ? 'exchange:kraken:eth' : 'blockchain:ethereum:native'),
+    assetSymbol: overrides.assetSymbol === undefined ? ETH : assertOk(parseCurrency(overrides.assetSymbol)),
     blockchainTransactionHash: undefined,
     candidateId: overrides.candidateId,
     claimedAmount: overrides.claimedAmount ?? '0',

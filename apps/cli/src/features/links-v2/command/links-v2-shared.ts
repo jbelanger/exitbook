@@ -14,6 +14,7 @@ import {
   type LedgerLinkingReviewedRelationshipOverride,
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewQueue,
+  type LedgerLinkingReviewRelationshipProposal,
   type LedgerLinkingRunResult,
   type LedgerTransferLinkingCandidate,
 } from '@exitbook/accounting/ledger-linking';
@@ -1308,6 +1309,8 @@ function buildLinksV2RelationshipAcceptPayload(
   reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
 ): LedgerLinkingRelationshipAcceptPayload {
   const { proposal } = reviewItem;
+  const sourceQuantity = resolveLinkProposalSourceQuantity(proposal);
+  const targetQuantity = resolveLinkProposalTargetQuantity(proposal);
 
   return {
     allocations: [
@@ -1317,7 +1320,7 @@ function buildLinksV2RelationshipAcceptPayload(
         asset_symbol: proposal.source.assetSymbol,
         journal_fingerprint: proposal.source.journalFingerprint,
         posting_fingerprint: proposal.source.postingFingerprint,
-        quantity: proposal.amount,
+        quantity: sourceQuantity,
         source_activity_fingerprint: proposal.source.sourceActivityFingerprint,
       },
       {
@@ -1326,22 +1329,66 @@ function buildLinksV2RelationshipAcceptPayload(
         asset_symbol: proposal.target.assetSymbol,
         journal_fingerprint: proposal.target.journalFingerprint,
         posting_fingerprint: proposal.target.postingFingerprint,
-        quantity: proposal.amount,
+        quantity: targetQuantity,
         source_activity_fingerprint: proposal.target.sourceActivityFingerprint,
       },
     ],
-    evidence: {
-      assetIdentityReason: proposal.assetIdentityReason,
-      matchedAmount: proposal.amount,
-      proposalUniqueness: proposal.uniqueness,
-      timeDirection: proposal.timeDirection,
-      timeDistanceSeconds: proposal.timeDistanceSeconds,
-    },
+    evidence: buildLinksV2RelationshipAcceptEvidence(reviewItem),
     proposal_kind: reviewItem.proposalKind,
     relationship_kind: reviewItem.relationshipKind,
     review_id: reviewItem.reviewId,
     type: 'ledger_linking_relationship_accept',
   };
+}
+
+function buildLinksV2RelationshipAcceptEvidence(
+  reviewItem: Extract<LedgerLinkingReviewItem, { kind: 'link_proposal' }>
+): Record<string, unknown> {
+  const { proposal } = reviewItem;
+  const sharedEvidence = {
+    proposalUniqueness: proposal.uniqueness,
+    sourceQuantity: resolveLinkProposalSourceQuantity(proposal),
+    targetQuantity: resolveLinkProposalTargetQuantity(proposal),
+    timeDirection: proposal.timeDirection,
+    timeDistanceSeconds: proposal.timeDistanceSeconds,
+  };
+
+  if (isAmountTimeReviewProposal(proposal)) {
+    return {
+      ...sharedEvidence,
+      assetIdentityReason: proposal.assetIdentityReason,
+      matchedAmount: proposal.amount,
+    };
+  }
+
+  return {
+    ...sharedEvidence,
+    assetMigrationEvidence: proposal.evidence,
+    sourceAssetSymbol: proposal.source.assetSymbol,
+    targetAssetSymbol: proposal.target.assetSymbol,
+  };
+}
+
+function isAmountTimeReviewProposal(
+  proposal: LedgerLinkingReviewRelationshipProposal
+): proposal is Extract<LedgerLinkingReviewRelationshipProposal, { amount: string }> {
+  return 'amount' in proposal;
+}
+
+function resolveLinkProposalSourceQuantity(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.sourceQuantity;
+}
+
+function resolveLinkProposalTargetQuantity(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  return proposal.targetQuantity;
+}
+
+function formatLinkProposalAssetSummary(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  if (isAmountTimeReviewProposal(proposal)) {
+    return `${proposal.source.assetSymbol} ${proposal.sourceQuantity}`;
+  }
+
+  return `${proposal.source.assetSymbol} ${proposal.sourceQuantity} -> ${proposal.target.assetSymbol} ${proposal.targetQuantity}`;
 }
 
 function toReviewedRelationshipOverride(
@@ -1592,7 +1639,7 @@ function renderLinksV2LinkProposalReviewDetail(
 
   console.log(`Proposal kind: ${item.proposalKind}`);
   console.log(`Relationship kind: ${item.relationshipKind}`);
-  console.log(`Asset: ${proposal.amount} ${proposal.assetSymbol}`);
+  console.log(`Asset: ${formatLinkProposalAssetSummary(proposal)}`);
   console.log(`Uniqueness: ${proposal.uniqueness}`);
   console.log(
     `Source: ${proposal.source.platformKey} #${proposal.source.candidateId} ${formatDate(proposal.source.activityDatetime)}`
@@ -1603,7 +1650,11 @@ function renderLinksV2LinkProposalReviewDetail(
   console.log(`Source asset id: ${proposal.source.assetId}`);
   console.log(`Target asset id: ${proposal.target.assetId}`);
   console.log(`Time evidence: ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}`);
-  console.log(`Asset identity: ${formatAssetIdentityReason(proposal.assetIdentityReason)}`);
+  if (isAmountTimeReviewProposal(proposal)) {
+    console.log(`Asset identity: ${formatAssetIdentityReason(proposal.assetIdentityReason)}`);
+  } else {
+    console.log(`Migration evidence: ${formatAssetMigrationProposalEvidence(proposal.evidence)}`);
+  }
   console.log(
     `Would accept: reviewed ${item.proposalKind} relationship ${proposal.source.postingFingerprint} -> ${proposal.target.postingFingerprint}`
   );
@@ -1690,7 +1741,7 @@ function renderLinksV2LinkProposalReviewItem(item: Extract<LedgerLinkingReviewIt
   const { proposal } = item;
 
   console.log(
-    `  ${item.reviewId} link_proposal ${item.proposalKind} ${proposal.uniqueness} ${proposal.assetSymbol} ${proposal.amount} (${item.evidenceStrength})`
+    `  ${item.reviewId} link_proposal ${item.proposalKind} ${proposal.uniqueness} ${formatLinkProposalAssetSummary(proposal)} (${item.evidenceStrength})`
   );
   console.log(
     `    source: ${proposal.source.platformKey} #${proposal.source.candidateId} ${formatDate(proposal.source.activityDatetime)} ${shortenValue(proposal.source.postingFingerprint)}`
@@ -1698,9 +1749,7 @@ function renderLinksV2LinkProposalReviewItem(item: Extract<LedgerLinkingReviewIt
   console.log(
     `    target: ${proposal.target.platformKey} #${proposal.target.candidateId} ${formatDate(proposal.target.activityDatetime)} ${shortenValue(proposal.target.postingFingerprint)}`
   );
-  console.log(
-    `    evidence: time ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}, ${formatAssetIdentityReason(proposal.assetIdentityReason)}`
-  );
+  console.log(`    evidence: ${formatLinkProposalEvidenceSummary(proposal)}`);
 }
 
 function renderLinksV2GapResolutionReviewItem(
@@ -1733,6 +1782,7 @@ function renderLinksV2DiagnoseOutput(
   ).length;
   const proposalGroups = diagnostics.amountTimeProposalGroups.slice(0, prepared.limit);
   const proposals = diagnostics.amountTimeProposals.slice(0, prepared.limit);
+  const assetMigrationProposals = diagnostics.assetMigrationProposals.slice(0, prepared.limit);
   const unmatchedGroups = diagnostics.unmatchedCandidateGroups.slice(0, prepared.limit);
   const classificationGroups = diagnostics.candidateClassificationGroups.slice(0, prepared.limit);
 
@@ -1747,6 +1797,9 @@ function renderLinksV2DiagnoseOutput(
   console.log(`Amount/time window: ${formatWindowHours(diagnostics.amountTimeWindowMinutes)}`);
   console.log(
     `Amount/time proposals: ${diagnostics.amountTimeProposalCount} (${diagnostics.amountTimeUniqueProposalCount} unique)`
+  );
+  console.log(
+    `Asset-migration proposals: ${diagnostics.assetMigrationProposalCount} (${diagnostics.assetMigrationUniqueProposalCount} unique)`
   );
   console.log(`Asset identity blockers: ${diagnostics.assetIdentityBlockerProposalCount}`);
   console.log(
@@ -1776,6 +1829,21 @@ function renderLinksV2DiagnoseOutput(
   for (const proposal of proposals) {
     console.log(
       `  ${proposal.uniqueness} ${proposal.assetSymbol} ${proposal.amount} ${proposal.source.platformKey} #${proposal.source.candidateId} -> ${proposal.target.platformKey} #${proposal.target.candidateId} (${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection})`
+    );
+    console.log(
+      `    source ${formatDate(proposal.source.activityDatetime)} ${shortenValue(proposal.source.postingFingerprint)}`
+    );
+    console.log(
+      `    target ${formatDate(proposal.target.activityDatetime)} ${shortenValue(proposal.target.postingFingerprint)}`
+    );
+  }
+
+  console.log(
+    `Asset-migration proposal examples: ${assetMigrationProposals.length} of ${diagnostics.assetMigrationProposals.length}`
+  );
+  for (const proposal of assetMigrationProposals) {
+    console.log(
+      `  ${proposal.uniqueness} ${formatAssetMigrationProposalEvidence(proposal.evidence)} ${formatLinkProposalAssetSummary(proposal)} ${proposal.source.platformKey} #${proposal.source.candidateId} -> ${proposal.target.platformKey} #${proposal.target.candidateId} (${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection})`
     );
     console.log(
       `    source ${formatDate(proposal.source.activityDatetime)} ${shortenValue(proposal.source.postingFingerprint)}`
@@ -2065,6 +2133,26 @@ function formatAssetIdentityReason(reason: 'accepted_assertion' | 'same_asset_id
       return 'accepted asset identity assertion';
     case 'same_asset_id':
       return 'same asset id';
+  }
+}
+
+function formatLinkProposalEvidenceSummary(proposal: LedgerLinkingReviewRelationshipProposal): string {
+  const timing = `time ${formatDurationSeconds(proposal.timeDistanceSeconds)}, ${proposal.timeDirection}`;
+  if (isAmountTimeReviewProposal(proposal)) {
+    return `${timing}, ${formatAssetIdentityReason(proposal.assetIdentityReason)}`;
+  }
+
+  return `${timing}, ${formatAssetMigrationProposalEvidence(proposal.evidence)}`;
+}
+
+function formatAssetMigrationProposalEvidence(
+  evidence: Exclude<LedgerLinkingReviewRelationshipProposal, { amount: string }>['evidence']
+): string {
+  switch (evidence) {
+    case 'same_hash_symbol_migration':
+      return 'same transaction hash with symbol migration';
+    case 'processor_context_approximate_amount':
+      return 'processor asset-migration context with approximate amount';
   }
 }
 

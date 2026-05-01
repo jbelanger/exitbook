@@ -5,9 +5,13 @@ import { Decimal } from 'decimal.js';
 import type { LedgerLinkingAssetIdentityResolver } from '../asset-identity/asset-identity-resolution.js';
 import type { LedgerTransferLinkingCandidate } from '../candidates/candidate-construction.js';
 import type { LedgerDeterministicCandidateClaim } from '../matching/deterministic-recognizer-runner.js';
+import { ledgerTransactionHashesMatch } from '../matching/ledger-transaction-hash-utils.js';
 
 const DEFAULT_AMOUNT_TIME_WINDOW_MINUTES = 7 * 24 * 60;
 const SAME_ACCOUNT_ROUNDTRIP_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+const PROCESSOR_ASSET_MIGRATION_WINDOW_SECONDS = 30 * 24 * 60 * 60;
+const ASSET_MIGRATION_ABSOLUTE_TOLERANCE = new Decimal('0.000001');
+const ASSET_MIGRATION_RELATIVE_TOLERANCE = new Decimal('0.000001');
 const TINY_NATIVE_DUST_AIRDROP_MAX_AMOUNT = new Decimal('0.0000001');
 const SPAM_AIRDROP_SYMBOL_PATTERN = /\b(airdrop|claim|reward|visit|https?:\/\/|www\.|\.org|\.xyz|\.net)\b/i;
 
@@ -60,8 +64,25 @@ export interface LedgerLinkingAmountTimeProposal {
   amount: string;
   assetIdentityReason: 'same_asset_id' | 'accepted_assertion';
   assetSymbol: LedgerTransferLinkingCandidate['assetSymbol'];
+  sourceQuantity: string;
   source: LedgerLinkingCandidateRemainder;
+  targetQuantity: string;
   target: LedgerLinkingCandidateRemainder;
+  timeDirection: LedgerLinkingAmountTimeProposalDirection;
+  timeDistanceSeconds: number;
+  uniqueness: LedgerLinkingAmountTimeProposalUniqueness;
+}
+
+export type LedgerLinkingAssetMigrationProposalEvidence =
+  | 'same_hash_symbol_migration'
+  | 'processor_context_approximate_amount';
+
+export interface LedgerLinkingAssetMigrationProposal {
+  evidence: LedgerLinkingAssetMigrationProposalEvidence;
+  source: LedgerLinkingCandidateRemainder;
+  sourceQuantity: string;
+  target: LedgerLinkingCandidateRemainder;
+  targetQuantity: string;
   timeDirection: LedgerLinkingAmountTimeProposalDirection;
   timeDistanceSeconds: number;
   uniqueness: LedgerLinkingAmountTimeProposalUniqueness;
@@ -122,6 +143,9 @@ export interface LedgerLinkingDiagnosticClassificationGroup {
 export interface LedgerLinkingDiagnostics {
   assetIdentityBlockerProposalCount: number;
   assetIdentityBlockerProposals: readonly LedgerLinkingAssetIdentityBlockerProposal[];
+  assetMigrationProposalCount: number;
+  assetMigrationProposals: readonly LedgerLinkingAssetMigrationProposal[];
+  assetMigrationUniqueProposalCount: number;
   amountTimeProposalCount: number;
   amountTimeProposalGroups: readonly LedgerLinkingAmountTimeProposalGroup[];
   amountTimeProposals: readonly LedgerLinkingAmountTimeProposal[];
@@ -138,6 +162,14 @@ interface CandidateRemainderWithDecimal extends LedgerLinkingCandidateRemainder 
 }
 
 interface AmountTimeProposalDraft extends Omit<LedgerLinkingAmountTimeProposal, 'source' | 'target' | 'uniqueness'> {
+  source: CandidateRemainderWithDecimal;
+  target: CandidateRemainderWithDecimal;
+}
+
+interface AssetMigrationProposalDraft extends Omit<
+  LedgerLinkingAssetMigrationProposal,
+  'source' | 'target' | 'uniqueness'
+> {
   source: CandidateRemainderWithDecimal;
   target: CandidateRemainderWithDecimal;
 }
@@ -170,6 +202,7 @@ export function buildLedgerLinkingDiagnostics(
 
   const unmatchedCandidates = buildCandidateRemainders(candidates, claimedQuantitiesResult.value);
   const proposals = buildAmountTimeProposals(unmatchedCandidates, assetIdentityResolver, amountTimeWindowMinutes * 60);
+  const assetMigrationProposals = buildAssetMigrationProposals(unmatchedCandidates, amountTimeWindowMinutes * 60);
   const assetIdentityBlockerProposals = buildAssetIdentityBlockerProposals(
     unmatchedCandidates,
     assetIdentityResolver,
@@ -186,6 +219,11 @@ export function buildLedgerLinkingDiagnostics(
   return ok({
     assetIdentityBlockerProposalCount: assetIdentityBlockerProposals.length,
     assetIdentityBlockerProposals,
+    assetMigrationProposalCount: assetMigrationProposals.length,
+    assetMigrationProposals,
+    assetMigrationUniqueProposalCount: assetMigrationProposals.filter(
+      (proposal) => proposal.uniqueness === 'unique_pair'
+    ).length,
     amountTimeProposalCount: proposals.length,
     amountTimeProposalGroups: proposalGroups,
     amountTimeProposals: proposals,
@@ -363,7 +401,9 @@ function buildAmountTimeProposals(
         assetIdentityReason: assetIdentityResolution.reason,
         assetSymbol: source.assetSymbol,
         source,
+        sourceQuantity: source.remainingAmount,
         target,
+        targetQuantity: target.remainingAmount,
         timeDirection: resolveTimeDirection(source.activityDatetime, target.activityDatetime),
         timeDistanceSeconds,
       });
@@ -371,6 +411,108 @@ function buildAmountTimeProposals(
   }
 
   return classifyAmountTimeProposalUniqueness(drafts).sort(compareAmountTimeProposals);
+}
+
+function buildAssetMigrationProposals(
+  unmatchedCandidates: readonly CandidateRemainderWithDecimal[],
+  sameHashWindowSeconds: number
+): LedgerLinkingAssetMigrationProposal[] {
+  const sources = unmatchedCandidates.filter((candidate) => candidate.direction === 'source');
+  const targets = unmatchedCandidates.filter((candidate) => candidate.direction === 'target');
+  const drafts: AssetMigrationProposalDraft[] = [];
+
+  for (const source of sources) {
+    for (const target of targets) {
+      const timeDistanceSeconds =
+        Math.abs(target.activityDatetime.getTime() - source.activityDatetime.getTime()) / 1000;
+      const evidence = resolveAssetMigrationProposalEvidence(
+        source,
+        target,
+        timeDistanceSeconds,
+        sameHashWindowSeconds
+      );
+      if (evidence === undefined) {
+        continue;
+      }
+
+      drafts.push({
+        evidence,
+        source,
+        sourceQuantity: source.remainingAmount,
+        target,
+        targetQuantity: target.remainingAmount,
+        timeDirection: resolveTimeDirection(source.activityDatetime, target.activityDatetime),
+        timeDistanceSeconds,
+      });
+    }
+  }
+
+  return classifyAssetMigrationProposalUniqueness(drafts).sort(compareAssetMigrationProposals);
+}
+
+function resolveAssetMigrationProposalEvidence(
+  source: CandidateRemainderWithDecimal,
+  target: CandidateRemainderWithDecimal,
+  timeDistanceSeconds: number,
+  sameHashWindowSeconds: number
+): LedgerLinkingAssetMigrationProposalEvidence | undefined {
+  if (source.assetId === target.assetId || source.assetSymbol === target.assetSymbol) {
+    return undefined;
+  }
+
+  if (isSameHashAssetMigrationProposal(source, target, timeDistanceSeconds, sameHashWindowSeconds)) {
+    return 'same_hash_symbol_migration';
+  }
+
+  if (isProcessorContextAssetMigrationProposal(source, target, timeDistanceSeconds)) {
+    return 'processor_context_approximate_amount';
+  }
+
+  return undefined;
+}
+
+function isSameHashAssetMigrationProposal(
+  source: CandidateRemainderWithDecimal,
+  target: CandidateRemainderWithDecimal,
+  timeDistanceSeconds: number,
+  sameHashWindowSeconds: number
+): boolean {
+  return (
+    source.remainingAmountDecimal.eq(target.remainingAmountDecimal) &&
+    timeDistanceSeconds <= sameHashWindowSeconds &&
+    resolveTimeDirection(source.activityDatetime, target.activityDatetime) !== 'target_before_source' &&
+    source.platformKey !== target.platformKey &&
+    ledgerTransactionHashesMatch(source.blockchainTransactionHash, target.blockchainTransactionHash) === true
+  );
+}
+
+function isProcessorContextAssetMigrationProposal(
+  source: CandidateRemainderWithDecimal,
+  target: CandidateRemainderWithDecimal,
+  timeDistanceSeconds: number
+): boolean {
+  return (
+    source.platformKind === 'exchange' &&
+    target.platformKind === 'exchange' &&
+    source.platformKey === target.platformKey &&
+    timeDistanceSeconds <= PROCESSOR_ASSET_MIGRATION_WINDOW_SECONDS &&
+    isProcessorAssetMigrationContextCandidate(source) &&
+    isProcessorAssetMigrationContextCandidate(target) &&
+    amountsAreCloseForAssetMigration(source.remainingAmountDecimal, target.remainingAmountDecimal)
+  );
+}
+
+function amountsAreCloseForAssetMigration(sourceAmount: Decimal, targetAmount: Decimal): boolean {
+  if (sourceAmount.eq(targetAmount)) {
+    return true;
+  }
+
+  const difference = sourceAmount.minus(targetAmount).abs();
+  if (difference.lte(ASSET_MIGRATION_ABSOLUTE_TOLERANCE)) {
+    return true;
+  }
+
+  return difference.div(Decimal.max(sourceAmount.abs(), targetAmount.abs())).lte(ASSET_MIGRATION_RELATIVE_TOLERANCE);
 }
 
 function buildAssetIdentityBlockerProposals(
@@ -711,6 +853,24 @@ function buildCandidateClassificationGroups(
 function classifyAmountTimeProposalUniqueness(
   proposals: readonly AmountTimeProposalDraft[]
 ): LedgerLinkingAmountTimeProposal[] {
+  return classifyPairProposalUniqueness(proposals);
+}
+
+function classifyAssetMigrationProposalUniqueness(
+  proposals: readonly AssetMigrationProposalDraft[]
+): LedgerLinkingAssetMigrationProposal[] {
+  return classifyPairProposalUniqueness(proposals);
+}
+
+function classifyPairProposalUniqueness<
+  TDraft extends { source: CandidateRemainderWithDecimal; target: CandidateRemainderWithDecimal },
+>(
+  proposals: readonly TDraft[]
+): (Omit<TDraft, 'source' | 'target'> & {
+    source: LedgerLinkingCandidateRemainder;
+    target: LedgerLinkingCandidateRemainder;
+    uniqueness: LedgerLinkingAmountTimeProposalUniqueness;
+  })[] {
   const sourceProposalCounts = countProposalsByCandidateId(proposals, 'source');
   const targetProposalCounts = countProposalsByCandidateId(proposals, 'target');
 
@@ -733,7 +893,7 @@ function toPublicCandidateRemainder(candidate: CandidateRemainderWithDecimal): L
 }
 
 function countProposalsByCandidateId(
-  proposals: readonly AmountTimeProposalDraft[],
+  proposals: readonly { source: CandidateRemainderWithDecimal; target: CandidateRemainderWithDecimal }[],
   side: 'source' | 'target'
 ): Map<number, number> {
   const counts = new Map<number, number>();
@@ -863,6 +1023,34 @@ function compareAmountTimeProposals(
     left.source.candidateId - right.source.candidateId ||
     left.target.candidateId - right.target.candidateId
   );
+}
+
+function compareAssetMigrationProposals(
+  left: LedgerLinkingAssetMigrationProposal,
+  right: LedgerLinkingAssetMigrationProposal
+): number {
+  return (
+    compareUniqueness(left.uniqueness, right.uniqueness) ||
+    assetMigrationEvidenceRank(left.evidence) - assetMigrationEvidenceRank(right.evidence) ||
+    left.timeDistanceSeconds - right.timeDistanceSeconds ||
+    left.source.assetSymbol.localeCompare(right.source.assetSymbol) ||
+    left.target.assetSymbol.localeCompare(right.target.assetSymbol) ||
+    left.sourceQuantity.localeCompare(right.sourceQuantity) ||
+    left.targetQuantity.localeCompare(right.targetQuantity) ||
+    left.source.platformKey.localeCompare(right.source.platformKey) ||
+    left.target.platformKey.localeCompare(right.target.platformKey) ||
+    left.source.candidateId - right.source.candidateId ||
+    left.target.candidateId - right.target.candidateId
+  );
+}
+
+function assetMigrationEvidenceRank(evidence: LedgerLinkingAssetMigrationProposalEvidence): number {
+  switch (evidence) {
+    case 'same_hash_symbol_migration':
+      return 0;
+    case 'processor_context_approximate_amount':
+      return 1;
+  }
 }
 
 function compareAssetIdentityBlockerProposals(

@@ -37,6 +37,8 @@ export {
 export {
   buildLedgerLinkingDiagnostics,
   type LedgerLinkingAssetIdentityBlockerProposal,
+  type LedgerLinkingAssetMigrationProposal,
+  type LedgerLinkingAssetMigrationProposalEvidence,
   type LedgerLinkingAmountTimeProposal,
   type LedgerLinkingAmountTimeProposalDirection,
   type LedgerLinkingAmountTimeProposalGroup,
@@ -157,6 +159,7 @@ export {
   type LedgerLinkingReviewLinkProposalKind,
   type LedgerLinkingReviewQueue,
   type LedgerLinkingReviewQueueBuildInput,
+  type LedgerLinkingReviewRelationshipProposal,
 } from './ledger-linking/review/linking-review.js';
 export {
   LedgerLinkingRelationshipAllocationDraftSchema,

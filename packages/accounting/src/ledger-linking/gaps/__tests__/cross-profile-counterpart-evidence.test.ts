@@ -179,6 +179,9 @@ function makeDiagnostics(
   return {
     assetIdentityBlockerProposalCount: 0,
     assetIdentityBlockerProposals: [],
+    assetMigrationProposalCount: 0,
+    assetMigrationProposals: [],
+    assetMigrationUniqueProposalCount: 0,
     amountTimeProposalCount: 0,
     amountTimeProposalGroups: [],
     amountTimeProposals: [],

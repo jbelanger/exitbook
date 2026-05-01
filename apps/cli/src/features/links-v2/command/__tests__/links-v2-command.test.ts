@@ -709,6 +709,8 @@ describe('links-v2 command', () => {
           assetIdentityReason: 'accepted_assertion',
           matchedAmount: '1',
           proposalUniqueness: 'unique_pair',
+          sourceQuantity: '1',
+          targetQuantity: '1',
           timeDirection: 'source_before_target',
           timeDistanceSeconds: 1800,
         },
@@ -729,6 +731,95 @@ describe('links-v2 command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override accepted');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationship stable key: ledger-linking:reviewed_relationship:v2:test');
     expect(consoleLogSpy).toHaveBeenCalledWith('Materialized relationships: 1 saved, 0 replaced');
+  });
+
+  it('accepts asset-migration link proposals with separate source and target quantities', async () => {
+    const program = createProgram();
+    const reviewItem = makeAssetMigrationReviewItem();
+    mockBuildLedgerLinkingReviewQueue.mockReturnValue({
+      assetIdentitySuggestionCount: 0,
+      gapResolutionCount: 0,
+      itemCount: 1,
+      items: [reviewItem],
+      linkProposalCount: 1,
+    });
+    mockRunLedgerLinking
+      .mockResolvedValueOnce(
+        ok({
+          ...makeRunResult(),
+          diagnostics: makeDiagnostics(),
+        })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          ...makeRunResult(),
+          reviewedRelationshipOverrideMatches: [
+            {
+              overrideEventId: 'override-event-1',
+              relationshipStableKey: 'ledger-linking:reviewed_relationship:v2:test',
+              reviewId: 'lp_migration_1',
+              allocations: [
+                {
+                  allocationSide: 'source',
+                  candidateId: 91,
+                  postingFingerprint: 'ledger_posting:v1:migration-source',
+                  quantity: '64.98757287',
+                },
+                {
+                  allocationSide: 'target',
+                  candidateId: 92,
+                  postingFingerprint: 'ledger_posting:v1:migration-target',
+                  quantity: '64.987572',
+                },
+              ],
+            },
+          ],
+        })
+      );
+
+    await program.parseAsync(['links-v2', 'review', 'accept', 'lp_migration_1'], { from: 'user' });
+
+    expect(mockOverrideStoreAppend).toHaveBeenCalledWith({
+      profileKey: 'default',
+      scope: 'ledger-linking-relationship-accept',
+      payload: {
+        allocations: [
+          {
+            allocation_side: 'source',
+            asset_id: 'exchange:kraken:rndr',
+            asset_symbol: 'RNDR',
+            journal_fingerprint: 'ledger_journal:v1:migration-source',
+            posting_fingerprint: 'ledger_posting:v1:migration-source',
+            quantity: '64.98757287',
+            source_activity_fingerprint: 'source_activity:v1:migration-source',
+          },
+          {
+            allocation_side: 'target',
+            asset_id: 'exchange:kraken:render',
+            asset_symbol: 'RENDER',
+            journal_fingerprint: 'ledger_journal:v1:migration-target',
+            posting_fingerprint: 'ledger_posting:v1:migration-target',
+            quantity: '64.987572',
+            source_activity_fingerprint: 'source_activity:v1:migration-target',
+          },
+        ],
+        evidence: {
+          assetMigrationEvidence: 'processor_context_approximate_amount',
+          proposalUniqueness: 'unique_pair',
+          sourceAssetSymbol: 'RNDR',
+          sourceQuantity: '64.98757287',
+          targetAssetSymbol: 'RENDER',
+          targetQuantity: '64.987572',
+          timeDirection: 'target_before_source',
+          timeDistanceSeconds: 777906,
+        },
+        proposal_kind: 'processor_asset_migration',
+        relationship_kind: 'asset_migration',
+        review_id: 'lp_migration_1',
+        type: 'ledger_linking_relationship_accept',
+      },
+    });
+    expect(consoleLogSpy).toHaveBeenCalledWith('Action: reviewed link override accepted');
   });
 
   it('creates manual reviewed relationship overrides from posting fingerprints', async () => {
@@ -1222,6 +1313,67 @@ function makeManualRelationshipCandidates() {
   ];
 }
 
+function makeAssetMigrationReviewItem() {
+  const source = {
+    activityDatetime: new Date('2024-08-15T17:46:34.970Z'),
+    assetId: 'exchange:kraken:rndr',
+    assetSymbol: 'RNDR',
+    blockchainTransactionHash: undefined,
+    candidateId: 91,
+    claimedAmount: '0',
+    direction: 'source',
+    fromAddress: undefined,
+    journalFingerprint: 'ledger_journal:v1:migration-source',
+    journalDiagnosticCodes: ['possible_asset_migration'],
+    originalAmount: '64.98757287',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:migration-source',
+    remainingAmount: '64.98757287',
+    sourceActivityFingerprint: 'source_activity:v1:migration-source',
+    toAddress: undefined,
+  };
+  const target = {
+    activityDatetime: new Date('2024-08-06T12:41:28.653Z'),
+    assetId: 'exchange:kraken:render',
+    assetSymbol: 'RENDER',
+    blockchainTransactionHash: undefined,
+    candidateId: 92,
+    claimedAmount: '0',
+    direction: 'target',
+    fromAddress: undefined,
+    journalFingerprint: 'ledger_journal:v1:migration-target',
+    journalDiagnosticCodes: ['possible_asset_migration'],
+    originalAmount: '64.987572',
+    ownerAccountId: 1,
+    platformKey: 'kraken',
+    platformKind: 'exchange',
+    postingFingerprint: 'ledger_posting:v1:migration-target',
+    remainingAmount: '64.987572',
+    sourceActivityFingerprint: 'source_activity:v1:migration-target',
+    toAddress: undefined,
+  };
+
+  return {
+    evidenceStrength: 'medium',
+    kind: 'link_proposal',
+    proposal: {
+      evidence: 'processor_context_approximate_amount',
+      source,
+      sourceQuantity: '64.98757287',
+      target,
+      targetQuantity: '64.987572',
+      timeDirection: 'target_before_source',
+      timeDistanceSeconds: 777906,
+      uniqueness: 'unique_pair',
+    },
+    proposalKind: 'processor_asset_migration',
+    relationshipKind: 'asset_migration',
+    reviewId: 'lp_migration_1',
+  };
+}
+
 function makeDiagnostics() {
   const source = {
     activityDatetime: new Date('2026-04-23T00:00:00.000Z'),
@@ -1267,6 +1419,9 @@ function makeDiagnostics() {
   return {
     assetIdentityBlockerProposalCount: 0,
     assetIdentityBlockerProposals: [],
+    assetMigrationProposalCount: 0,
+    assetMigrationProposals: [],
+    assetMigrationUniqueProposalCount: 0,
     amountTimeProposalCount: 1,
     amountTimeProposalGroups: [
       {
@@ -1289,7 +1444,9 @@ function makeDiagnostics() {
         assetIdentityReason: 'accepted_assertion',
         assetSymbol: 'ETH',
         source,
+        sourceQuantity: '1',
         target,
+        targetQuantity: '1',
         timeDirection: 'source_before_target',
         timeDistanceSeconds: 1800,
         uniqueness: 'unique_pair',
