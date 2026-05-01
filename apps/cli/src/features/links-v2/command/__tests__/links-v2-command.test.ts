@@ -319,11 +319,11 @@ describe('links-v2 command', () => {
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: true });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 status.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: dry run');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Legacy transaction links: untouched.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger-native relationships only.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Planned materialization: 1 relationship(s)');
   });
 
-  it('runs v2 materialization from the parallel command', async () => {
+  it('runs v2 materialization from the ledger-native command', async () => {
     const program = createProgram();
     mockRunLedgerLinking.mockResolvedValue(ok(makeRunResult()));
 
@@ -332,7 +332,7 @@ describe('links-v2 command', () => {
     expect(mockRunLedgerLinking).toHaveBeenCalledWith(7, { tag: 'ledger-linking-ports' }, { dryRun: false });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 run completed.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Mode: persisted');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Legacy transaction links: untouched.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Ledger-native relationships only.');
   });
 
   it('emits JSON status output with the links-v2 status command id', async () => {

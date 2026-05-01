@@ -308,7 +308,7 @@ export interface LinksV2RunExecutionConfig {
   commandId: string;
   forceDryRun?: boolean | undefined;
   title: string;
-  migrationNote?: string | undefined;
+  materializationNote?: string | undefined;
 }
 
 export interface LinksV2AssetIdentityExecutionConfig {
@@ -1979,8 +1979,8 @@ function renderLinksV2RunOutput(
   console.log(`Asset identity suggestions: ${run.assetIdentitySuggestions.length}`);
   console.log(`Skipped postings: ${run.skippedCandidates.length}`);
 
-  if (config.migrationNote !== undefined) {
-    console.log(config.migrationNote);
+  if (config.materializationNote !== undefined) {
+    console.log(config.materializationNote);
   }
 
   if (run.persistence.mode === 'dry_run') {
@@ -1989,8 +1989,12 @@ function renderLinksV2RunOutput(
   }
 
   const materialization = run.persistence.materialization;
+  const staleAllocationSummary =
+    materialization.unresolvedAllocationCount > 0
+      ? `, ${materialization.unresolvedAllocationCount} stale allocation refs replaced`
+      : '';
   console.log(
-    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedAllocationCount} allocation refs resolved`
+    `Materialized: ${materialization.savedCount} saved, ${materialization.previousCount} replaced, ${materialization.resolvedAllocationCount} allocation refs resolved${staleAllocationSummary}`
   );
 }
 

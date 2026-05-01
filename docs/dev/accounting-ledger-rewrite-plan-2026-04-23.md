@@ -5,11 +5,16 @@ status: active
 
 # Accounting Ledger Rewrite Plan
 
-This is a temporary migration tracker. Keep it alive only until the ledger
+This is a temporary execution tracker. Keep it alive only until the ledger
 rewrite is complete, then move stable behavior into canonical architecture docs
 and delete or archive this file.
 
 ## Goal
+
+Build the ledger-native accounting model we would choose greenfield, using the
+old movement model only as evidence of real-world cases. Current local data and
+legacy compatibility are allowed to break when the replacement model is simpler
+and more honest.
 
 Move accounting truth from generic processed transactions and movements to
 processor-authored ledger artifacts:
@@ -20,13 +25,14 @@ raw_transactions -> source_activities -> accounting_journals -> accounting_posti
                                       -> accounting_overrides
 ```
 
-Consumers must eventually read journals/postings, not
-`transaction_movements`, semantic annotations, or reconstructed movement roles.
+Consumers must read journals/postings/relationships directly, not
+`transaction_movements`, semantic annotations, reconstructed movement roles, or
+adapters that preserve the old accounting model shape.
 
 ## Current Verdict
 
 The core ledger vocabulary and identity contracts are mature enough for
-migration work.
+greenfield ledger-native work.
 
 Cardano and EVM are the reference baselines for the current model. Cardano is
 the first completed ledger-v2 implementation and the preferred UTXO, staking,
@@ -45,10 +51,11 @@ without requiring new core journal kinds, posting roles, or exchange-specific
 source activity identity.
 
 The completed pilots did not require new core journal kinds, posting roles, or
-chain-specific accounting escape hatches. The remaining risks are migration,
+chain-specific accounting escape hatches. The remaining risks are
 reconciliation, exchange ergonomics, live balance category support,
-opening-state analysis and acquisition, and cross-source relationship
-materialization.
+opening-state analysis and acquisition, cross-source relationship
+materialization, and replacing consumers that still read the old accounting
+model.
 
 ## Settled Contracts
 
@@ -989,51 +996,46 @@ Completed checkpoints:
   exact opposite-direction amount/time matches from other profiles as
   warning-grade gap evidence only; it does not materialize cross-profile
   relationships or treat those wallets as same-owner internal transfer targets
+- ledger-linking materialization now reports stale allocation refs replaced
+  during a run, so reprocess fallout is visible instead of hidden behind a
+  hardcoded zero
 
 Active next slices:
 
 Reviewed-link stabilization comes before more matching heuristics. The current
-runner and storage model are independent and quantity-aware, but user-reviewed
-truth still has to become allocation-native and reversible before bridge,
-migration, and manual relationship work can be considered complete.
+runner and storage model are independent, quantity-aware, allocation-native, and
+reversible for accepted user decisions. The next work is model correctness and
+operator clarity, not legacy parity.
 
 Greenfield rule: do not keep old override or database shapes alive just to
 preserve current local data. Breaking/rebuilding derived v2 data is acceptable
 when the replacement model is simpler and more honest.
 
-1. Decide whether pending review-item dismissals need durable override events
+1. Finish relationship read-layer honesty: expose stale relationship
+   allocations after reprocess, validate linker allocation overclaims at
+   persistence, and pin recognizer order in tests.
+2. Decide whether pending review-item dismissals need durable override events
    now, or whether they should wait until repeated noisy proposals appear.
    Accepted asset identities, reviewed relationships, and gap resolutions are
-   reversible through revoke override events.
-2. Review and accept the high-confidence bridge and asset-migration proposals
-   on the live corpus, then rerun links-v2 diagnostics to see the true remaining
-   gaps.
+   already reversible through revoke override events.
 3. Continue clearing warning-grade gap resolutions from the live corpus, then
    analyze the remaining transfer gaps that still have no review action:
    missing evidence, exchange missing hash, and swap/service-route no-link
    flows. Keep them in `links-v2 review`, not a separate gaps command family.
-4. Add a v1/v2 evidence comparison diagnostic while legacy linking still exists.
-   This is an analysis aid, not a compatibility gate. Prefer a
-   `links-v2 diagnose --compare-legacy` shape over another top-level command.
-5. Finish read-layer cleanup after the user-decision model is stable: populate
-   `unresolvedAllocationCount`, expose stale relationship allocations, pin
-   recognizer order in tests, validate linker allocation overclaims at
-   persistence, and decide whether `confidence_score` is real or should be
-   removed.
+4. Add more recognizers only after the remaining unresolved work proves a
+   repeatable, ledger-native evidence pattern. Do not port movement heuristics
+   simply because they existed in v1.
+5. Rebuild consumers later against journals/postings/relationships directly.
+   Cost-basis, portfolio, and price enrichment must not use `accounting-model`
+   as an adapter layer for the final ledger design.
 
-Current live corpus after the gap-resolution pass: `81` profile Issues remain
-open, all warnings. `links-v2 review` is empty: no asset identity suggestions,
-link proposals, or gap-resolution items remain. The persisted v2 run has `126`
-accepted relationships: 2 reviewed amount/time overrides, 50 exact-hash
-relationships, 12 fee-adjusted exact-hash relationships, 2 counterparty
-roundtrips, and 60 strict exchange amount/time relationships. The live review
-pass accepted `97` ledger-native gap-resolution overrides: 12 accepted transfer
-residuals, 41 fiat cash movements, 32 likely dust airdrops, and 12 likely spam
-airdrops. Remaining warning reasons are 71 external-transfer evidence gaps, 8
-related-profile counterpart gaps, and 2 processor-marked migration/context gaps.
-The 2024 CA average-cost cost-basis run completes with no blocking issues; the
-remaining scoped cost-basis item is a warning for one Kraken dust sweep with
-uncertain proceeds allocation.
+Current live corpus after the latest review pass: the persisted v2 run has
+`128` accepted relationships, including reviewed asset-migration, bridge, and
+amount/time overrides. The safe gap-resolution queue was cleared, then
+related-profile transfer gaps were accepted as explicit non-link decisions
+through override events. `links-v2 review` now primarily shows weak
+external-transfer gap resolutions. Cost-basis remains an old
+`accounting-model` consumer, so its behavior is not a ledger-v2 readiness gate.
 
 1. Promote target-before-source bridge or migration timing clues into better
    review context. They are not acceptable normal transfer links under the
@@ -1045,8 +1047,8 @@ uncertain proceeds allocation.
    model can represent the residual honestly and the evidence is reviewable.
    Fee-adjusted exact-hash covers the safest same-hash exchange-withdrawal
    subset; the remaining residuals still need explicit classification.
-4. Compare v1 and v2 link coverage on the imported corpus before removing legacy
-   linking behavior.
+4. Keep old linking behavior available only as case evidence while it remains in
+   the tree. It is not a compatibility target for v2.
 
 Gap-resolution slice:
 
@@ -1067,8 +1069,8 @@ queue was cleared through `links-v2 review accept <review-id>` override events.
 Acceptance:
 
 - Linking-v2 has its own files and module boundary.
-- The parallel `links-v2` CLI remains separate from legacy `links` while the
-  two workflows are compared.
+- `links-v2` is the canonical ledger-native linking workflow. Any legacy `links`
+  command that still exists is reference material, not a design constraint.
 - Linking-v2 does not import legacy movement-matching utilities as its core
   implementation.
 - `links-v2 review` is the user-facing linking action queue; diagnostics remain
@@ -1078,13 +1080,14 @@ Acceptance:
 - Reprocess does not silently point a relationship at a different posting.
 - Any required processor-v2 fix is handled upstream before the affected
   relationship class is accepted.
-- Persisted gaps reach parity with the current issue flow, but remain a
+- Persisted gaps are explicit non-link decisions and remain a
   diagnostic/work-queue projection rather than relationship truth.
 
-### 8. Migrate Consumers
+### 8. Rebuild Consumers On Ledger
 
-Consumer migration starts only after the previous gates pass. Do not start
-cost-basis or portfolio migration during linking strategy parity work.
+Consumer rewrite starts only after the previous gates pass. Do not start
+cost-basis or portfolio work during linking model stabilization, and do not
+preserve `accounting-model` as a compatibility adapter in the final design.
 
 Primary consumers:
 

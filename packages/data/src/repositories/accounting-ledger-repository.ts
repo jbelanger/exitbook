@@ -521,6 +521,7 @@ export class AccountingLedgerRepository extends BaseRepository {
       }
 
       const previousCount = await countLedgerLinkingRelationshipsByProfileId(db, profileId);
+      const unresolvedAllocationCount = await countUnresolvedLedgerLinkingAllocationRefsByProfileId(db, profileId);
       await db
         .deleteFrom('accounting_journal_relationships')
         .where('profile_id', '=', profileId)
@@ -569,7 +570,7 @@ export class AccountingLedgerRepository extends BaseRepository {
         previousCount,
         resolvedAllocationCount,
         savedCount: relationships.length,
-        unresolvedAllocationCount: 0,
+        unresolvedAllocationCount,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
@@ -1142,6 +1143,28 @@ async function countLedgerLinkingRelationshipsByProfileId(db: KyselyDB, profileI
     .select(({ fn }) => fn.countAll<number>().as('count'))
     .where('profile_id', '=', profileId)
     .where('relationship_origin', '=', 'ledger_linking')
+    .executeTakeFirst();
+
+  return Number(row?.count ?? 0);
+}
+
+async function countUnresolvedLedgerLinkingAllocationRefsByProfileId(db: KyselyDB, profileId: number): Promise<number> {
+  const row = await db
+    .selectFrom('accounting_journal_relationship_allocations')
+    .innerJoin(
+      'accounting_journal_relationships',
+      'accounting_journal_relationships.id',
+      'accounting_journal_relationship_allocations.relationship_id'
+    )
+    .select(({ fn }) => fn.countAll<number>().as('count'))
+    .where('accounting_journal_relationships.profile_id', '=', profileId)
+    .where('accounting_journal_relationships.relationship_origin', '=', 'ledger_linking')
+    .where((eb) =>
+      eb.or([
+        eb('accounting_journal_relationship_allocations.journal_id', 'is', null),
+        eb('accounting_journal_relationship_allocations.posting_id', 'is', null),
+      ])
+    )
     .executeTakeFirst();
 
   return Number(row?.count ?? 0);

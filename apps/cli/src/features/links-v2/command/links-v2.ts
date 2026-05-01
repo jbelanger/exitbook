@@ -17,19 +17,19 @@ import {
   executeLinksV2RunCommand,
 } from './links-v2-shared.js';
 
-const LINKS_V2_MIGRATION_NOTE = 'Legacy transaction links: untouched.';
+const LINKS_V2_MATERIALIZATION_NOTE = 'Ledger-native relationships only.';
 
 const LINKS_V2_STATUS_CONFIG = {
   commandId: 'links-v2-status',
   forceDryRun: true,
   title: 'Links v2 status.',
-  migrationNote: LINKS_V2_MIGRATION_NOTE,
+  materializationNote: LINKS_V2_MATERIALIZATION_NOTE,
 } as const;
 
 const LINKS_V2_RUN_CONFIG = {
   commandId: 'links-v2-run',
   title: 'Links v2 run completed.',
-  migrationNote: LINKS_V2_MIGRATION_NOTE,
+  materializationNote: LINKS_V2_MATERIALIZATION_NOTE,
 } as const;
 
 const LINKS_V2_DIAGNOSE_CONFIG = {
@@ -71,7 +71,7 @@ const LINKS_V2_ASSET_IDENTITY_CONFIG = {
 export function registerLinksV2Command(program: Command, appRuntime: CliAppRuntime): void {
   const linksV2 = program
     .command('links-v2')
-    .description('Run the parallel ledger-native link migration workflow')
+    .description('Run the ledger-native linking workflow')
     .addHelpText(
       'after',
       `
@@ -90,9 +90,7 @@ Examples:
 
 Notes:
   - Bare "links-v2" is read-only and behaves like "links-v2 status".
-  - The legacy "links" command remains the v1 proposal, review, and gaps workflow.
   - This command writes only ledger-native relationships when "links-v2 run" is used without --dry-run.
-  - It does not create, modify, or delete legacy transaction links.
 `
     );
 
@@ -109,7 +107,7 @@ Examples:
 
 Notes:
   - Always runs in dry-run mode.
-  - Use this while comparing v1 links with v2 ledger relationships.
+  - Use this before materializing ledger-native relationships.
 `
     )
     .action(async (rawOptions: unknown) => {
@@ -299,7 +297,6 @@ Examples:
 
 Notes:
   - Persists accepted ledger-native relationships only unless --dry-run is set.
-  - The v1 "links" command remains available for proposal review and comparison.
 `
     )
     .action(async (rawOptions: unknown) => {

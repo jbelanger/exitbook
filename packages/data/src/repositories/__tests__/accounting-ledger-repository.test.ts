@@ -633,6 +633,68 @@ describe('AccountingLedgerRepository', () => {
     expect(staleAllocations[1]?.posting_fingerprint).toBe(targetEndpoint.postingFingerprint);
   });
 
+  it('reports stale ledger-linking allocation refs replaced during materialization', async () => {
+    const [sourceJournal, targetJournal] = makeRelatedJournals();
+
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity(),
+        journals: [sourceJournal, targetJournal],
+      })
+    );
+
+    const staleSourceEndpoint = await loadEndpoint('journal:source', 'posting:source');
+    const staleTargetEndpoint = await loadEndpoint('journal:target', 'posting:target');
+    await insertLedgerLinkingRelationship(staleSourceEndpoint, staleTargetEndpoint);
+
+    assertOk(
+      await repository.replaceForSourceActivity({
+        sourceActivity: makeSourceActivity(),
+        journals: [
+          makeJournal({
+            journalStableKey: 'journal:new-source',
+            postings: [
+              makePosting({
+                postingStableKey: 'posting:new-source',
+                quantity: '-10',
+                componentKind: 'utxo_input',
+                componentId: 'input:new-source',
+              }),
+            ],
+          }),
+          makeJournal({
+            journalStableKey: 'journal:new-target',
+            journalKind: 'internal_transfer',
+            postings: [
+              makePosting({
+                postingStableKey: 'posting:new-target',
+                quantity: '10',
+                componentKind: 'utxo_output',
+                componentId: 'output:new-target',
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    const sourceEndpoint = await loadEndpoint('journal:new-source', 'posting:new-source');
+    const targetEndpoint = await loadEndpoint('journal:new-target', 'posting:new-target');
+
+    const result = assertOk(
+      await repository.replaceLedgerLinkingRelationships(1, [
+        makeLedgerLinkingRelationshipDraft(sourceEndpoint, targetEndpoint, 'relationship:ledger-linking:refreshed'),
+      ])
+    );
+
+    expect(result).toEqual({
+      previousCount: 1,
+      resolvedAllocationCount: 2,
+      savedCount: 1,
+      unresolvedAllocationCount: 2,
+    });
+  });
+
   it('materializes ledger-linking relationships by stable endpoint fingerprints', async () => {
     const { sourceEndpoint, targetEndpoint } = await seedCrossSourceLedgerEndpoints();
 
