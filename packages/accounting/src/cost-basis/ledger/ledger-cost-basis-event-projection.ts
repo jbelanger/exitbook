@@ -22,9 +22,22 @@ const BASIS_CARRYOVER_RELATIONSHIP_KINDS = new Set<AccountingJournalRelationship
 export type LedgerCostBasisInputEventKind = 'acquisition' | 'disposal' | 'carryover-in' | 'carryover-out' | 'fee';
 
 export type LedgerCostBasisProjectionBlockerReason =
+  | LedgerCostBasisPostingBlockerReason
+  | LedgerCostBasisRelationshipBlockerReason;
+
+export type LedgerCostBasisPostingBlockerReason =
   | 'missing_relationship'
   | 'relationship_residual'
   | 'unsupported_protocol_posting';
+
+export type LedgerCostBasisRelationshipBlockerReason =
+  | 'relationship_allocation_missing_posting'
+  | 'relationship_partially_excluded';
+
+export type LedgerCostBasisRelationshipAllocationBlockerState =
+  | 'blocked_by_relationship'
+  | 'excluded_posting'
+  | 'missing_posting';
 
 export type LedgerCostBasisExclusionReason = 'asset_excluded';
 
@@ -48,8 +61,11 @@ export interface LedgerCostBasisInputEvent {
   relationshipAllocationId?: number | undefined;
 }
 
-export interface LedgerCostBasisProjectionBlocker {
-  reason: LedgerCostBasisProjectionBlockerReason;
+export type LedgerCostBasisProjectionBlocker = LedgerCostBasisPostingBlocker | LedgerCostBasisRelationshipBlocker;
+
+export interface LedgerCostBasisPostingBlocker {
+  scope: 'posting';
+  reason: LedgerCostBasisPostingBlockerReason;
   sourceActivityFingerprint: string;
   journalFingerprint: string;
   postingFingerprint: string;
@@ -58,6 +74,25 @@ export interface LedgerCostBasisProjectionBlocker {
   postingQuantity: Decimal;
   blockedQuantity: Decimal;
   relationshipStableKeys: readonly string[];
+  message: string;
+}
+
+export interface LedgerCostBasisRelationshipBlockerAllocation {
+  allocationId: number;
+  allocationSide: CostBasisLedgerRelationshipAllocation['allocationSide'];
+  postingFingerprint: string;
+  assetId: string;
+  assetSymbol: Currency;
+  quantity: Decimal;
+  state: LedgerCostBasisRelationshipAllocationBlockerState;
+}
+
+export interface LedgerCostBasisRelationshipBlocker {
+  scope: 'relationship';
+  reason: LedgerCostBasisRelationshipBlockerReason;
+  relationshipStableKey: string;
+  relationshipKind: AccountingJournalRelationshipKind;
+  allocations: readonly LedgerCostBasisRelationshipBlockerAllocation[];
   message: string;
 }
 
@@ -89,9 +124,15 @@ interface RelationshipAllocationContext {
   allocation: CostBasisLedgerRelationshipAllocation;
 }
 
+interface RelationshipProjectionIntegrity {
+  blockers: readonly LedgerCostBasisRelationshipBlocker[];
+  blockedPostingFingerprints: ReadonlySet<string>;
+  blockedRelationshipStableKeys: ReadonlySet<string>;
+}
+
 interface LedgerCostBasisPostingProjection {
   events: readonly LedgerCostBasisInputEvent[];
-  blockers: readonly LedgerCostBasisProjectionBlocker[];
+  blockers: readonly LedgerCostBasisPostingBlocker[];
 }
 
 export function projectLedgerCostBasisEvents(
@@ -100,8 +141,6 @@ export function projectLedgerCostBasisEvents(
 ): Result<LedgerCostBasisEventProjection, Error> {
   const journalById = new Map(facts.journals.map((journal) => [journal.id, journal]));
   const sourceActivityById = new Map(facts.sourceActivities.map((activity) => [activity.id, activity]));
-
-  const allocationsByPostingFingerprint = groupRelationshipAllocationsByPostingFingerprint(facts.relationships);
 
   const contexts: LedgerPostingContext[] = [];
   for (const posting of facts.postings) {
@@ -114,8 +153,19 @@ export function projectLedgerCostBasisEvents(
 
   contexts.sort(compareLedgerPostingContexts);
 
+  const contextByPostingFingerprint = new Map(contexts.map((context) => [context.posting.postingFingerprint, context]));
+  const relationshipIntegrity = findRelationshipProjectionIntegrity(
+    facts.relationships,
+    contextByPostingFingerprint,
+    options.excludedAssetIds
+  );
+  const allocationsByPostingFingerprint = groupRelationshipAllocationsByPostingFingerprint(
+    facts.relationships,
+    relationshipIntegrity.blockedRelationshipStableKeys
+  );
+
   const events: LedgerCostBasisInputEvent[] = [];
-  const blockers: LedgerCostBasisProjectionBlocker[] = [];
+  const blockers: LedgerCostBasisProjectionBlocker[] = [...relationshipIntegrity.blockers];
   const excludedPostings: LedgerCostBasisExcludedPosting[] = [];
 
   for (const context of contexts) {
@@ -125,6 +175,13 @@ export function projectLedgerCostBasisEvents(
     }
 
     const allocations = allocationsByPostingFingerprint.get(context.posting.postingFingerprint) ?? [];
+    if (
+      allocations.length === 0 &&
+      relationshipIntegrity.blockedPostingFingerprints.has(context.posting.postingFingerprint)
+    ) {
+      continue;
+    }
+
     const projection = projectLedgerPostingCostBasisEvents(context, allocations);
     if (projection.isErr()) {
       return err(projection.error);
@@ -301,12 +358,13 @@ function buildProjectionBlocker(params: {
   blockedQuantity: Decimal;
   context: LedgerPostingContext;
   message: string;
-  reason: LedgerCostBasisProjectionBlockerReason;
+  reason: LedgerCostBasisPostingBlockerReason;
   relationshipStableKeys: readonly string[];
-}): LedgerCostBasisProjectionBlocker {
+}): LedgerCostBasisPostingBlocker {
   const { journal, posting, sourceActivity } = params.context;
 
   return {
+    scope: 'posting',
     reason: params.reason,
     sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
     journalFingerprint: journal.journalFingerprint,
@@ -318,6 +376,131 @@ function buildProjectionBlocker(params: {
     relationshipStableKeys: params.relationshipStableKeys,
     message: params.message,
   };
+}
+
+function findRelationshipProjectionIntegrity(
+  relationships: readonly CostBasisLedgerRelationship[],
+  contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>,
+  excludedAssetIds: ReadonlySet<string> | undefined
+): RelationshipProjectionIntegrity {
+  const blockers: LedgerCostBasisRelationshipBlocker[] = [];
+  const blockedRelationshipStableKeys = new Set<string>();
+  const blockedPostingFingerprints = new Set<string>();
+
+  for (const relationship of relationships) {
+    const missingAllocations = relationship.allocations.filter(
+      (allocation) => !contextByPostingFingerprint.has(allocation.postingFingerprint)
+    );
+    const presentAllocations = relationship.allocations.filter((allocation) =>
+      contextByPostingFingerprint.has(allocation.postingFingerprint)
+    );
+    const excludedAllocations = presentAllocations.filter((allocation) =>
+      isRelationshipAllocationExcluded(allocation, contextByPostingFingerprint, excludedAssetIds)
+    );
+    const includedAllocations = presentAllocations.filter(
+      (allocation) => !isRelationshipAllocationExcluded(allocation, contextByPostingFingerprint, excludedAssetIds)
+    );
+
+    const hasMissingAllocation = missingAllocations.length > 0;
+    const hasPartialExclusion = excludedAllocations.length > 0 && includedAllocations.length > 0;
+    if (!hasMissingAllocation && !hasPartialExclusion) {
+      continue;
+    }
+
+    blockedRelationshipStableKeys.add(relationship.relationshipStableKey);
+    for (const allocation of includedAllocations) {
+      blockedPostingFingerprints.add(allocation.postingFingerprint);
+    }
+
+    blockers.push(
+      buildRelationshipBlocker({
+        includedAllocations,
+        missingAllocations,
+        excludedAllocations,
+        relationship,
+        reason: hasMissingAllocation ? 'relationship_allocation_missing_posting' : 'relationship_partially_excluded',
+      })
+    );
+  }
+
+  return { blockers, blockedPostingFingerprints, blockedRelationshipStableKeys };
+}
+
+function buildRelationshipBlocker(params: {
+  excludedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  includedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  missingAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  reason: LedgerCostBasisRelationshipBlockerReason;
+  relationship: CostBasisLedgerRelationship;
+}): LedgerCostBasisRelationshipBlocker {
+  const allocations: LedgerCostBasisRelationshipBlockerAllocation[] = [
+    ...params.missingAllocations.map((allocation) => buildRelationshipBlockerAllocation(allocation, 'missing_posting')),
+    ...params.excludedAllocations.map((allocation) =>
+      buildRelationshipBlockerAllocation(allocation, 'excluded_posting')
+    ),
+    ...params.includedAllocations.map((allocation) =>
+      buildRelationshipBlockerAllocation(allocation, 'blocked_by_relationship')
+    ),
+  ];
+
+  return {
+    scope: 'relationship',
+    reason: params.reason,
+    relationshipStableKey: params.relationship.relationshipStableKey,
+    relationshipKind: params.relationship.relationshipKind,
+    allocations,
+    message: buildRelationshipBlockerMessage(params),
+  };
+}
+
+function buildRelationshipBlockerAllocation(
+  allocation: CostBasisLedgerRelationshipAllocation,
+  state: LedgerCostBasisRelationshipAllocationBlockerState
+): LedgerCostBasisRelationshipBlockerAllocation {
+  return {
+    allocationId: allocation.id,
+    allocationSide: allocation.allocationSide,
+    postingFingerprint: allocation.postingFingerprint,
+    assetId: allocation.assetId,
+    assetSymbol: allocation.assetSymbol,
+    quantity: allocation.quantity,
+    state,
+  };
+}
+
+function buildRelationshipBlockerMessage(params: {
+  excludedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  includedAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  missingAllocations: readonly CostBasisLedgerRelationshipAllocation[];
+  reason: LedgerCostBasisRelationshipBlockerReason;
+  relationship: CostBasisLedgerRelationship;
+}): string {
+  if (params.reason === 'relationship_allocation_missing_posting') {
+    const missingPostingFingerprints = params.missingAllocations
+      .map((allocation) => allocation.postingFingerprint)
+      .join(', ');
+    return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} references missing posting allocation(s): ${missingPostingFingerprints}`;
+  }
+
+  const excludedPostingFingerprints = params.excludedAllocations
+    .map((allocation) => allocation.postingFingerprint)
+    .join(', ');
+  const blockedPostingFingerprints = params.includedAllocations
+    .map((allocation) => allocation.postingFingerprint)
+    .join(', ');
+  return (
+    `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} mixes excluded posting allocation(s) ` +
+    `${excludedPostingFingerprints} with non-excluded allocation(s) ${blockedPostingFingerprints}`
+  );
+}
+
+function isRelationshipAllocationExcluded(
+  allocation: CostBasisLedgerRelationshipAllocation,
+  contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>,
+  excludedAssetIds: ReadonlySet<string> | undefined
+): boolean {
+  const context = contextByPostingFingerprint.get(allocation.postingFingerprint);
+  return context !== undefined && excludedAssetIds?.has(context.posting.assetId) === true;
 }
 
 function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExcludedPosting {
@@ -395,11 +578,16 @@ function resolveLedgerPostingContext(
 }
 
 function groupRelationshipAllocationsByPostingFingerprint(
-  relationships: readonly CostBasisLedgerRelationship[]
+  relationships: readonly CostBasisLedgerRelationship[],
+  blockedRelationshipStableKeys: ReadonlySet<string>
 ): Map<string, RelationshipAllocationContext[]> {
   const allocationsByPostingFingerprint = new Map<string, RelationshipAllocationContext[]>();
 
   for (const relationship of relationships) {
+    if (blockedRelationshipStableKeys.has(relationship.relationshipStableKey)) {
+      continue;
+    }
+
     for (const allocation of relationship.allocations) {
       const allocations = allocationsByPostingFingerprint.get(allocation.postingFingerprint) ?? [];
       allocations.push({ relationship, allocation });

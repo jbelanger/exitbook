@@ -11,7 +11,12 @@ import type {
   CostBasisLedgerRelationshipAllocation,
   CostBasisLedgerSourceActivity,
 } from '../../../ports/cost-basis-ledger-persistence.js';
-import { projectLedgerCostBasisEvents } from '../ledger-cost-basis-event-projection.js';
+import {
+  projectLedgerCostBasisEvents,
+  type LedgerCostBasisPostingBlocker,
+  type LedgerCostBasisProjectionBlocker,
+  type LedgerCostBasisRelationshipBlocker,
+} from '../ledger-cost-basis-event-projection.js';
 
 const BTC = assertOk(parseCurrency('BTC'));
 const ETH = assertOk(parseCurrency('ETH'));
@@ -154,12 +159,70 @@ describe('projectLedgerCostBasisEvents', () => {
       ['carryover-in', '0.9'],
     ]);
     expect(projection.blockers).toHaveLength(1);
-    expect(projection.blockers[0]).toMatchObject({
+    const blocker = expectPostingBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
       reason: 'relationship_residual',
       postingFingerprint: 'posting:source',
       relationshipStableKeys: ['relationship:test'],
     });
-    expect(projection.blockers[0]?.blockedQuantity.toFixed()).toBe('0.1');
+    expect(blocker.blockedQuantity.toFixed()).toBe('0.1');
+  });
+
+  it('blocks accepted relationship allocations that point at missing postings', () => {
+    const facts = makeTransferFacts({ relationshipKind: 'internal_transfer' });
+
+    const projection = assertOk(
+      projectLedgerCostBasisEvents({
+        ...facts,
+        postings: facts.postings.filter((posting) => posting.postingFingerprint !== 'posting:target'),
+      })
+    );
+
+    expect(projection.events).toEqual([]);
+    expect(projection.excludedPostings).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_missing_posting',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:target', 'missing_posting'],
+      ['posting:source', 'blocked_by_relationship'],
+    ]);
+  });
+
+  it('blocks mixed excluded and non-excluded relationship allocations', () => {
+    const excludedAssetId = 'blockchain:ethereum:0xspam';
+    const facts = makeTransferFacts({
+      relationshipKind: 'asset_migration',
+      source: {
+        allocationQuantity: '1000',
+        assetId: excludedAssetId,
+        assetSymbol: SPAM,
+        quantity: '-1000',
+      },
+      target: {
+        assetId: 'blockchain:ethereum:0xrender',
+        assetSymbol: RENDER,
+        postingFingerprint: 'posting:render-in',
+      },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts, { excludedAssetIds: new Set([excludedAssetId]) }));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.excludedPostings.map((posting) => posting.postingFingerprint)).toEqual(['posting:source']);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_partially_excluded',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'excluded_posting'],
+      ['posting:render-in', 'blocked_by_relationship'],
+    ]);
   });
 
   it('rejects relationship allocations whose side contradicts posting sign', () => {
@@ -174,6 +237,26 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(error.message).toContain('points at negative posting posting:source');
   });
 });
+
+function expectPostingBlocker(blocker: LedgerCostBasisProjectionBlocker | undefined): LedgerCostBasisPostingBlocker {
+  expect(blocker?.scope).toBe('posting');
+  if (blocker?.scope !== 'posting') {
+    throw new Error('Expected posting blocker');
+  }
+
+  return blocker;
+}
+
+function expectRelationshipBlocker(
+  blocker: LedgerCostBasisProjectionBlocker | undefined
+): LedgerCostBasisRelationshipBlocker {
+  expect(blocker?.scope).toBe('relationship');
+  if (blocker?.scope !== 'relationship') {
+    throw new Error('Expected relationship blocker');
+  }
+
+  return blocker;
+}
 
 function makeTransferFacts(params: {
   relationshipKind: AccountingJournalRelationshipKind;

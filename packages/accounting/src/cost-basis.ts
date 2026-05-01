@@ -56,8 +56,14 @@ export {
   type LedgerCostBasisExclusionReason,
   type LedgerCostBasisInputEvent,
   type LedgerCostBasisInputEventKind,
+  type LedgerCostBasisPostingBlocker,
   type LedgerCostBasisProjectionBlocker,
   type LedgerCostBasisProjectionBlockerReason,
+  type LedgerCostBasisRelationshipAllocationBlockerState,
+  type LedgerCostBasisRelationshipBlocker,
+  type LedgerCostBasisRelationshipBlockerAllocation,
+  type LedgerCostBasisRelationshipBlockerReason,
+  type LedgerCostBasisPostingBlockerReason,
   type ProjectLedgerCostBasisEventsOptions,
 } from './cost-basis/ledger/ledger-cost-basis-event-projection.js';
 export {
