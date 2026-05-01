@@ -888,7 +888,6 @@ Files:
   evidence during migration
 - `packages/accounting/src/ledger-shadow/shadow-reconciliation.ts`
 - `apps/cli/src/features/links-v2/**`
-- `apps/cli/src/features/ledger/command/ledger-linking-v2.ts`
 
 Implementation shape:
 
@@ -1015,6 +1014,8 @@ Completed checkpoints:
 - `links-v2 diagnose` now reports how many unmatched candidate remainders are
   already covered by accepted gap-resolution decisions, so raw diagnostics do
   not read like open review work after the queue is cleared
+- `links-v2` is now the only v2 linking CLI surface; the duplicate
+  `ledger linking-v2` subset was removed from the ledger command namespace
 
 Active next slices:
 
@@ -1316,14 +1317,15 @@ Smells to watch:
 - Reviewed relationship overrides are now allocation-native and reversible, but
   pending review-item dismissals still need a stable identity policy before
   becoming durable.
-- Bridge and asset-migration relationship kinds are valid relationship truth,
-  but still need first-class proposal paths. Manual creation exists for cases
-  where the operator already has evidence.
-- `unresolvedAllocationCount` and `confidence_score` are advertised in the
-  linking-v2 result/schema surface but are not populated end-to-end yet.
-- The duplicated `links-v2` and `ledger linking-v2` CLI surfaces are acceptable
-  during migration, but one canonical surface must be selected before final
-  documentation.
+- Bridge and asset-migration relationship kinds are valid relationship truth.
+  Manual and reviewed proposal paths exist; auto-materialization still needs
+  strict evidence before it should be allowed.
+- `unresolvedAllocationCount` and `confidence_score` are populated
+  end-to-end. Future relationship read-model fields should get the same
+  persistence and CLI coverage before being advertised.
+- The canonical v2 linking command is `links-v2`; do not reintroduce a second
+  `ledger linking-v2` surface unless the command owns meaningfully different
+  ledger operations.
 - The old linking package contains useful behavior evidence, but reusing its
   movement-oriented utilities directly would keep the legacy model alive inside
   the ledger rewrite.
