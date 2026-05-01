@@ -7,14 +7,20 @@ import type {
   LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
 
+import type { LedgerLinkingGapCrossProfileCounterpart } from './ledger-linking-gap-issues.js';
+
 export interface LedgerLinkingGapResolutionSuggestion {
   candidate: LedgerLinkingCandidateRemainder;
   classifications: readonly LedgerLinkingDiagnosticClassification[];
+  relatedProfileCounterparts?: readonly LedgerLinkingGapCrossProfileCounterpart[] | undefined;
   resolutionKind: LedgerLinkingGapResolutionKind;
   resolutionKey: string;
 }
 
 export interface LedgerLinkingGapResolutionSuggestionOptions {
+  relatedProfileCounterpartsByCandidateId?:
+    | ReadonlyMap<number, readonly LedgerLinkingGapCrossProfileCounterpart[]>
+    | undefined;
   resolvedGapResolutionKeys?: ReadonlySet<string> | undefined;
 }
 
@@ -38,7 +44,8 @@ export function buildLedgerLinkingGapResolutionSuggestions(
   return diagnostics.unmatchedCandidates
     .flatMap((candidate) => {
       const classifications = classificationsByCandidateId.get(candidate.candidateId) ?? ['unclassified'];
-      const resolutionKind = resolveGapResolutionKind(candidate, classifications);
+      const relatedProfileCounterparts = options.relatedProfileCounterpartsByCandidateId?.get(candidate.candidateId);
+      const resolutionKind = resolveGapResolutionKind(candidate, classifications, relatedProfileCounterparts);
       if (resolutionKind === undefined) {
         return [];
       }
@@ -52,6 +59,9 @@ export function buildLedgerLinkingGapResolutionSuggestions(
         {
           candidate,
           classifications,
+          ...(relatedProfileCounterparts !== undefined && relatedProfileCounterparts.length > 0
+            ? { relatedProfileCounterparts }
+            : {}),
           resolutionKind,
           resolutionKey,
         },
@@ -62,7 +72,8 @@ export function buildLedgerLinkingGapResolutionSuggestions(
 
 function resolveGapResolutionKind(
   candidate: LedgerLinkingCandidateRemainder,
-  classifications: readonly LedgerLinkingDiagnosticClassification[]
+  classifications: readonly LedgerLinkingDiagnosticClassification[],
+  relatedProfileCounterparts: readonly LedgerLinkingGapCrossProfileCounterpart[] | undefined
 ): LedgerLinkingGapResolutionKind | undefined {
   if (isAcceptedTransferResidual(candidate)) {
     return 'accepted_transfer_residual';
@@ -78,6 +89,14 @@ function resolveGapResolutionKind(
 
   if (classifications.includes('likely_dust_airdrop')) {
     return 'likely_dust_airdrop';
+  }
+
+  if (relatedProfileCounterparts !== undefined && relatedProfileCounterparts.length > 0) {
+    return 'related_profile_transfer';
+  }
+
+  if (classifications.includes('external_transfer_evidence')) {
+    return 'external_transfer_unmatched';
   }
 
   return undefined;
@@ -123,5 +142,9 @@ function gapResolutionKindRank(kind: LedgerLinkingGapResolutionKind): number {
       return 2;
     case 'likely_dust_airdrop':
       return 3;
+    case 'related_profile_transfer':
+      return 4;
+    case 'external_transfer_unmatched':
+      return 5;
   }
 }

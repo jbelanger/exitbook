@@ -305,9 +305,11 @@ export const LedgerLinkingRelationshipRevokePayloadSchema = z.object({
 
 export const LedgerLinkingGapResolutionKindSchema = z.enum([
   'accepted_transfer_residual',
+  'external_transfer_unmatched',
   'fiat_cash_movement',
   'likely_dust_airdrop',
   'likely_spam_airdrop',
+  'related_profile_transfer',
 ]);
 
 /**

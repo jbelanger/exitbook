@@ -9,6 +9,7 @@ import type {
   LedgerLinkingCandidateRemainder,
   LedgerLinkingDiagnostics,
 } from '../diagnostics/linking-diagnostics.js';
+import type { LedgerLinkingGapCrossProfileCounterpart } from '../gaps/ledger-linking-gap-issues.js';
 import {
   buildLedgerLinkingGapResolutionSuggestions,
   type LedgerLinkingGapResolutionSuggestion,
@@ -26,6 +27,9 @@ export type LedgerLinkingReviewLinkProposalKind =
 
 export interface LedgerLinkingReviewQueueBuildInput {
   assetIdentitySuggestions: readonly LedgerLinkingAssetIdentitySuggestion[];
+  relatedProfileCounterpartsByCandidateId?:
+    | ReadonlyMap<number, readonly LedgerLinkingGapCrossProfileCounterpart[]>
+    | undefined;
   diagnostics?: LedgerLinkingDiagnostics | undefined;
   resolvedGapResolutionKeys?: ReadonlySet<string> | undefined;
 }
@@ -83,6 +87,7 @@ export function buildLedgerLinkingReviewQueue(input: LedgerLinkingReviewQueueBui
     input.diagnostics === undefined
       ? []
       : buildLedgerLinkingGapResolutionSuggestions(input.diagnostics, {
+          relatedProfileCounterpartsByCandidateId: input.relatedProfileCounterpartsByCandidateId,
           resolvedGapResolutionKeys: input.resolvedGapResolutionKeys,
         }).map(toGapResolutionReviewItem);
   const items = [...assetIdentityItems, ...linkProposalItems, ...gapResolutionItems].sort(compareReviewItems);
@@ -243,8 +248,11 @@ function resolveGapResolutionEvidenceStrength(
     case 'fiat_cash_movement':
     case 'likely_spam_airdrop':
       return 'strong';
+    case 'related_profile_transfer':
     case 'likely_dust_airdrop':
       return 'medium';
+    case 'external_transfer_unmatched':
+      return 'weak';
   }
 }
 
@@ -406,6 +414,10 @@ function gapResolutionKindRank(kind: LedgerLinkingGapResolutionSuggestion['resol
       return 2;
     case 'likely_dust_airdrop':
       return 3;
+    case 'related_profile_transfer':
+      return 4;
+    case 'external_transfer_unmatched':
+      return 5;
   }
 }
 

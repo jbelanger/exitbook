@@ -953,6 +953,10 @@ Completed checkpoints:
   proposals for high-confidence RNDR/RENDER cases: same-hash
   KuCoin-to-Ethereum symbol migration and processor-marked Kraken migration
   context with separate source/target quantities.
+- `links-v2 review` now surfaces warning-grade gap resolutions for
+  related-profile transfer evidence and external-transfer evidence with no
+  owned counterparty, keeping those decisions in the same override-backed review
+  queue instead of stranding them in Issues.
 - ledger-linking asset identity assertions are narrowed to the relationship
   scopes that recognizers actually resolve today: `internal_transfer`,
   `same_hash_carryover`, and `external_transfer`. `bridge` and
@@ -1004,10 +1008,10 @@ when the replacement model is simpler and more honest.
 2. Review and accept the high-confidence bridge and asset-migration proposals
    on the live corpus, then rerun links-v2 diagnostics to see the true remaining
    gaps.
-3. Expand gap-resolution review items for remaining known non-links:
-   related-profile transfer evidence, external purchases sent directly to an
-   imported wallet, and swap/service-route no-link flows. Keep them in
-   `links-v2 review`, not a separate gaps command family.
+3. Continue clearing warning-grade gap resolutions from the live corpus, then
+   analyze the remaining transfer gaps that still have no review action:
+   missing evidence, exchange missing hash, and swap/service-route no-link
+   flows. Keep them in `links-v2 review`, not a separate gaps command family.
 4. Add a v1/v2 evidence comparison diagnostic while legacy linking still exists.
    This is an analysis aid, not a compatibility gate. Prefer a
    `links-v2 diagnose --compare-legacy` shape over another top-level command.

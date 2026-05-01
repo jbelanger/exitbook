@@ -168,7 +168,21 @@ describe('links-v2 command', () => {
       await fn?.(mockCtx);
     });
     Object.assign(mockCtx, { dataDir: '/tmp/exitbook-links-v2' });
-    mockCtx.openDatabaseSession.mockResolvedValue({ tag: 'db' });
+    mockCtx.openDatabaseSession.mockResolvedValue({
+      tag: 'db',
+      profiles: {
+        list: vi.fn().mockResolvedValue(
+          ok([
+            {
+              createdAt: new Date('2026-04-28T00:00:00.000Z'),
+              displayName: 'Default',
+              id: 7,
+              profileKey: 'default',
+            },
+          ])
+        ),
+      },
+    });
     mockResolveCommandProfile.mockResolvedValue(
       ok({
         id: 7,
@@ -396,6 +410,7 @@ describe('links-v2 command', () => {
     expect(mockBuildLedgerLinkingReviewQueue).toHaveBeenCalledWith({
       assetIdentitySuggestions: [assetIdentitySuggestion],
       diagnostics,
+      relatedProfileCounterpartsByCandidateId: new Map(),
       resolvedGapResolutionKeys: new Set<string>(),
     });
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 review queue.');
@@ -869,7 +884,7 @@ describe('links-v2 command', () => {
       { from: 'user' }
     );
 
-    expect(mockBuildLedgerLinkingCandidateSourceReader).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockBuildLedgerLinkingCandidateSourceReader).toHaveBeenCalledWith(expect.objectContaining({ tag: 'db' }));
     const appendInput = getLastRelationshipAcceptAppendInput();
     expect(appendInput.profileKey).toBe('default');
     expect(appendInput.scope).toBe('ledger-linking-relationship-accept');
@@ -1013,7 +1028,7 @@ describe('links-v2 command', () => {
 
     await program.parseAsync(['links-v2', 'list'], { from: 'user' });
 
-    expect(mockBuildLedgerLinkingRelationshipReader).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockBuildLedgerLinkingRelationshipReader).toHaveBeenCalledWith(expect.objectContaining({ tag: 'db' }));
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 relationships for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith('Relationships: 1');
     expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -1042,7 +1057,9 @@ describe('links-v2 command', () => {
 
     await program.parseAsync(['links-v2', 'asset-identity', 'list'], { from: 'user' });
 
-    expect(mockBuildLedgerLinkingAssetIdentityAssertionReader).toHaveBeenCalledWith({ tag: 'db' });
+    expect(mockBuildLedgerLinkingAssetIdentityAssertionReader).toHaveBeenCalledWith(
+      expect.objectContaining({ tag: 'db' })
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith('Links v2 asset identity assertions for default (#7)');
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '  internal_transfer: blockchain:ethereum:native <-> exchange:kraken:eth (manual)'

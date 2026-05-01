@@ -1,4 +1,5 @@
 import {
+  buildLedgerLinkingCrossProfileCounterpartsByCandidateId,
   buildLedgerLinkingReviewQueue,
   buildLedgerLinkingGapResolutionKey,
   buildLedgerTransferLinkingCandidates,
@@ -10,7 +11,9 @@ import {
   type LedgerLinkingAssetIdentityAssertion,
   type LedgerLinkingAssetIdentityAssertionReplacementResult,
   type LedgerLinkingAssetIdentitySuggestion,
+  type LedgerLinkingCrossProfileDiagnostics,
   type LedgerLinkingDiagnostics,
+  type LedgerLinkingGapCrossProfileCounterpart,
   type LedgerLinkingReviewedRelationshipOverride,
   type LedgerLinkingReviewItem,
   type LedgerLinkingReviewQueue,
@@ -694,8 +697,15 @@ async function executePreparedLinksV2ReviewCommand(
       await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
       ExitCodes.GENERAL_ERROR
     );
+    const relatedProfileCounterpartsByCandidateId = yield* toCliResult(
+      await loadLinksV2RelatedProfileCounterparts(ctx, database, profile.id, run),
+      ExitCodes.GENERAL_ERROR
+    );
     const reviewQueue = yield* toCliResult(
-      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      buildLinksV2ReviewQueueFromRun(run, {
+        relatedProfileCounterpartsByCandidateId,
+        resolvedGapResolutionKeys,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const shownItems = reviewQueue.items.slice(0, prepared.limit);
@@ -742,8 +752,15 @@ async function executePreparedLinksV2ReviewViewCommand(
       await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
       ExitCodes.GENERAL_ERROR
     );
+    const relatedProfileCounterpartsByCandidateId = yield* toCliResult(
+      await loadLinksV2RelatedProfileCounterparts(ctx, database, profile.id, run),
+      ExitCodes.GENERAL_ERROR
+    );
     const reviewQueue = yield* toCliResult(
-      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      buildLinksV2ReviewQueueFromRun(run, {
+        relatedProfileCounterpartsByCandidateId,
+        resolvedGapResolutionKeys,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
@@ -783,8 +800,15 @@ async function executePreparedLinksV2ReviewAcceptCommand(
       await readLinksV2ResolvedGapResolutionKeys(ctx, profile),
       ExitCodes.GENERAL_ERROR
     );
+    const relatedProfileCounterpartsByCandidateId = yield* toCliResult(
+      await loadLinksV2RelatedProfileCounterparts(ctx, database, profile.id, run),
+      ExitCodes.GENERAL_ERROR
+    );
     const reviewQueue = yield* toCliResult(
-      buildLinksV2ReviewQueueFromRun(run, resolvedGapResolutionKeys),
+      buildLinksV2ReviewQueueFromRun(run, {
+        relatedProfileCounterpartsByCandidateId,
+        resolvedGapResolutionKeys,
+      }),
       ExitCodes.GENERAL_ERROR
     );
     const reviewItem = yield* resolveLinksV2ReviewItem(reviewId, reviewQueue.items);
@@ -1451,9 +1475,14 @@ async function readLinksV2ResolvedGapResolutionKeys(
   return readResolvedLedgerLinkingGapResolutionKeys(overrideStore, profile.profileKey);
 }
 
+interface LinksV2ReviewQueueBuildContext {
+  relatedProfileCounterpartsByCandidateId?: ReadonlyMap<number, readonly LedgerLinkingGapCrossProfileCounterpart[]>;
+  resolvedGapResolutionKeys?: ReadonlySet<string>;
+}
+
 function buildLinksV2ReviewQueueFromRun(
   run: LedgerLinkingRunResult,
-  resolvedGapResolutionKeys?: ReadonlySet<string>
+  context: LinksV2ReviewQueueBuildContext = {}
 ): Result<LedgerLinkingReviewQueue, Error> {
   if (run.diagnostics === undefined) {
     return err(new Error('Links v2 review diagnostics were not returned by the ledger-linking runner'));
@@ -1463,9 +1492,55 @@ function buildLinksV2ReviewQueueFromRun(
     buildLedgerLinkingReviewQueue({
       assetIdentitySuggestions: run.assetIdentitySuggestions,
       diagnostics: run.diagnostics,
-      resolvedGapResolutionKeys,
+      relatedProfileCounterpartsByCandidateId: context.relatedProfileCounterpartsByCandidateId,
+      resolvedGapResolutionKeys: context.resolvedGapResolutionKeys,
     })
   );
+}
+
+async function loadLinksV2RelatedProfileCounterparts(
+  ctx: CommandRuntime,
+  database: Awaited<ReturnType<CommandRuntime['openDatabaseSession']>>,
+  activeProfileId: number,
+  activeRun: LedgerLinkingRunResult
+): Promise<Result<Map<number, LedgerLinkingGapCrossProfileCounterpart[]>, Error>> {
+  return resultDoAsync(async function* () {
+    if (activeRun.diagnostics === undefined || activeRun.diagnostics.unmatchedCandidates.length === 0) {
+      return new Map();
+    }
+
+    const profiles = yield* await database.profiles.list();
+    if (profiles.length <= 1) {
+      return new Map();
+    }
+
+    const ports = buildLinksV2RunPorts(ctx, database);
+    const crossProfileDiagnostics: LedgerLinkingCrossProfileDiagnostics[] = [];
+    for (const candidateProfile of profiles) {
+      if (candidateProfile.id === activeProfileId) {
+        continue;
+      }
+
+      const run = yield* await runLedgerLinking(candidateProfile.id, ports, {
+        dryRun: true,
+        includeDiagnostics: true,
+      });
+      if (run.diagnostics === undefined) {
+        return yield* err(
+          new Error(`Links v2 diagnostics were not returned for related profile ${candidateProfile.id}`)
+        );
+      }
+
+      crossProfileDiagnostics.push({
+        diagnostics: run.diagnostics,
+        profileDisplayName: candidateProfile.displayName,
+        profileId: candidateProfile.id,
+        profileKey: candidateProfile.profileKey,
+      });
+    }
+
+    return buildLedgerLinkingCrossProfileCounterpartsByCandidateId(activeRun.diagnostics, crossProfileDiagnostics);
+  });
 }
 
 function resolveLinksV2ReviewItem(
@@ -1678,6 +1753,14 @@ function renderLinksV2GapResolutionReviewDetail(
   console.log(`Original amount: ${candidate.originalAmount}`);
   console.log(`Already linked amount: ${candidate.claimedAmount}`);
   console.log(`Classifications: ${classifications.join(', ')}`);
+  if (item.resolution.relatedProfileCounterparts !== undefined) {
+    console.log('Related profile evidence:');
+    for (const counterpart of item.resolution.relatedProfileCounterparts) {
+      console.log(
+        `  ${counterpart.profileDisplayName} (${counterpart.profileKey}) ${formatCandidateDirection(counterpart.direction)} ${counterpart.amount} ${candidate.assetSymbol} on ${counterpart.platformKey}, delta ${formatSignedDurationSeconds(counterpart.secondsDeltaFromGap)}`
+      );
+    }
+  }
   console.log(`Would accept: resolved non-link posting ${candidate.postingFingerprint}`);
   console.log(`Accept command: exitbook links-v2 review accept ${item.reviewId}`);
   console.log('Decision help:');
@@ -2028,6 +2111,11 @@ function formatDurationSeconds(seconds: number): string {
   return Number.isInteger(days) ? `${days}d` : `${days.toFixed(1)}d`;
 }
 
+function formatSignedDurationSeconds(seconds: number): string {
+  const sign = seconds < 0 ? '-' : '+';
+  return `${sign}${formatDurationSeconds(Math.abs(seconds))}`;
+}
+
 function formatDate(date: Date): string {
   return date.toISOString();
 }
@@ -2044,12 +2132,16 @@ function formatGapResolutionKind(kind: LedgerLinkingGapResolutionAcceptPayload['
   switch (kind) {
     case 'accepted_transfer_residual':
       return 'accepted transfer residual';
+    case 'external_transfer_unmatched':
+      return 'external transfer unmatched';
     case 'fiat_cash_movement':
       return 'fiat cash movement';
     case 'likely_dust_airdrop':
       return 'likely dust airdrop';
     case 'likely_spam_airdrop':
       return 'likely spam airdrop';
+    case 'related_profile_transfer':
+      return 'related profile transfer';
   }
 }
 

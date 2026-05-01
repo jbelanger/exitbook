@@ -204,6 +204,81 @@ describe('buildLedgerLinkingReviewQueue', () => {
     });
     expect(queue.items[0]?.reviewId).toMatch(/^gr_[a-f0-9]{12}$/);
   });
+
+  it('adds warning-grade gap resolution review items for related-profile and external transfer evidence', () => {
+    const relatedProfileCandidate = makeRemainder({
+      candidateId: 23,
+      direction: 'source',
+      postingFingerprint: 'ledger_posting:v1:related-profile',
+    });
+    const externalCandidate = makeRemainder({
+      candidateId: 24,
+      direction: 'target',
+      postingFingerprint: 'ledger_posting:v1:external',
+    });
+
+    const queue = buildLedgerLinkingReviewQueue({
+      assetIdentitySuggestions: [],
+      diagnostics: makeDiagnostics([], {
+        candidateClassifications: [
+          {
+            candidateId: 23,
+            classifications: ['external_transfer_evidence'],
+            direction: 'source',
+            platformKey: 'ethereum',
+          },
+          {
+            candidateId: 24,
+            classifications: ['external_transfer_evidence'],
+            direction: 'target',
+            platformKey: 'ethereum',
+          },
+        ],
+        unmatchedCandidates: [relatedProfileCandidate, externalCandidate],
+      }),
+      relatedProfileCounterpartsByCandidateId: new Map([
+        [
+          23,
+          [
+            {
+              activityDatetime: new Date('2026-04-23T00:01:00.000Z'),
+              amount: '1',
+              candidateId: 91,
+              direction: 'target',
+              platformKey: 'ethereum',
+              platformKind: 'blockchain',
+              postingFingerprint: 'ledger_posting:v1:related-counterpart',
+              profileDisplayName: 'Related',
+              profileKey: 'related',
+              secondsDeltaFromGap: 60,
+            },
+          ],
+        ],
+      ]),
+    });
+
+    expect(queue.items).toHaveLength(2);
+    const relatedProfileItem = queue.items[0];
+    const externalItem = queue.items[1];
+    expect(relatedProfileItem).toBeDefined();
+    expect(externalItem).toBeDefined();
+    if (relatedProfileItem === undefined || externalItem === undefined) {
+      return;
+    }
+
+    expect(relatedProfileItem.kind).toBe('gap_resolution');
+    if (relatedProfileItem.kind === 'gap_resolution') {
+      expect(relatedProfileItem.evidenceStrength).toBe('medium');
+      expect(relatedProfileItem.resolution.resolutionKind).toBe('related_profile_transfer');
+      expect(relatedProfileItem.resolution.relatedProfileCounterparts?.[0]?.profileKey).toBe('related');
+    }
+
+    expect(externalItem.kind).toBe('gap_resolution');
+    if (externalItem.kind === 'gap_resolution') {
+      expect(externalItem.evidenceStrength).toBe('weak');
+      expect(externalItem.resolution.resolutionKind).toBe('external_transfer_unmatched');
+    }
+  });
 });
 
 function makeAssetIdentitySuggestion(
