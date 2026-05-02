@@ -1,5 +1,6 @@
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 
+import type { StandardLedgerPostingProvenance } from '../../standard/operation-engine/standard-ledger-operation-engine.js';
 import type {
   CostBasisWorkflowResult,
   StandardLedgerCostBasisWorkflowResult,
@@ -213,7 +214,12 @@ export function createStandardLedgerWorkflowArtifact(
           provenance: {
             kind: 'acquire-operation',
             operationId: 'operation:buy-old',
-            sourceEventId: 'event:buy-old',
+            ...makeStandardLedgerPostingProvenance({
+              sourceEventId: 'event:buy-old',
+              sourceActivityFingerprint: 'activity:buy-old',
+              journalFingerprint: 'journal:buy-old',
+              postingFingerprint: 'posting:buy-old',
+            }),
           },
         },
         {
@@ -231,7 +237,12 @@ export function createStandardLedgerWorkflowArtifact(
           provenance: {
             kind: 'acquire-operation',
             operationId: 'operation:buy-new',
-            sourceEventId: 'event:buy-new',
+            ...makeStandardLedgerPostingProvenance({
+              sourceEventId: 'event:buy-new',
+              sourceActivityFingerprint: 'activity:buy-new',
+              journalFingerprint: 'journal:buy-new',
+              postingFingerprint: 'posting:buy-new',
+            }),
           },
         },
         {
@@ -249,9 +260,17 @@ export function createStandardLedgerWorkflowArtifact(
           provenance: {
             kind: 'carry-operation',
             operationId: 'operation:carry',
+            ...makeStandardLedgerPostingProvenance({
+              sourceEventId: 'event:carry-target',
+              sourceActivityFingerprint: 'activity:carry-target',
+              journalFingerprint: 'journal:carry-target',
+              postingFingerprint: 'posting:carry-target',
+            }),
             relationshipStableKey: 'relationship:bridge',
+            relationshipKind: 'bridge',
+            relationshipBasisTreatment: 'carry_basis',
+            relationshipAllocationId: 2,
             sourceLotId: 'standard-ledger-lot:new',
-            targetLegSourceEventId: 'event:carry-target',
           },
         },
       ],
@@ -268,6 +287,16 @@ export function createStandardLedgerWorkflowArtifact(
           costBasis: parseDecimal('200'),
           gainLoss: parseDecimal('400'),
           disposalDate: new Date('2024-11-01T00:00:00.000Z'),
+          provenance: {
+            kind: 'dispose-operation',
+            operationId: 'operation:sell',
+            ...makeStandardLedgerPostingProvenance({
+              sourceEventId: 'event:sell',
+              sourceActivityFingerprint: 'activity:sell',
+              journalFingerprint: 'journal:sell',
+              postingFingerprint: 'posting:sell',
+            }),
+          },
           slices: [
             {
               lotId: 'standard-ledger-lot:old',
@@ -356,6 +385,21 @@ export function createStandardLedgerWorkflowArtifact(
       projectionBlockerMessages: [],
     },
     ...overrides,
+  };
+}
+
+function makeStandardLedgerPostingProvenance(
+  overrides: Partial<StandardLedgerPostingProvenance> & Pick<StandardLedgerPostingProvenance, 'sourceEventId'>
+): StandardLedgerPostingProvenance {
+  return {
+    sourceEventId: overrides.sourceEventId,
+    sourceActivityFingerprint: overrides.sourceActivityFingerprint ?? `activity:${overrides.sourceEventId}`,
+    ownerAccountId: overrides.ownerAccountId ?? 1,
+    journalFingerprint: overrides.journalFingerprint ?? `journal:${overrides.sourceEventId}`,
+    journalKind: overrides.journalKind ?? 'trade',
+    postingFingerprint: overrides.postingFingerprint ?? `posting:${overrides.sourceEventId}`,
+    postingRole: overrides.postingRole ?? 'principal',
+    ...(overrides.relationshipContext === undefined ? {} : { relationshipContext: overrides.relationshipContext }),
   };
 }
 

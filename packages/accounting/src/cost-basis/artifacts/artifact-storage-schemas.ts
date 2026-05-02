@@ -283,20 +283,46 @@ const StoredStandardLedgerCalculationBlockerReasonSchema = z.enum([
   'upstream_operation_blocker',
 ]);
 
+const StoredStandardLedgerRelationshipBasisTreatmentSchema = z.enum(['carry_basis', 'dispose_and_acquire']);
+
+const StoredStandardLedgerRelationshipContextSchema = z.object({
+  relationshipStableKey: z.string().min(1),
+  relationshipKind: AccountingJournalRelationshipKindSchema,
+  relationshipBasisTreatment: StoredStandardLedgerRelationshipBasisTreatmentSchema,
+  relationshipAllocationId: z.number().int().positive(),
+});
+
+const StoredStandardLedgerPostingProvenanceSchema = z.object({
+  sourceEventId: z.string().min(1),
+  sourceActivityFingerprint: z.string().min(1),
+  ownerAccountId: z.number().int().positive(),
+  journalFingerprint: z.string().min(1),
+  journalKind: AccountingJournalKindSchema,
+  postingFingerprint: z.string().min(1),
+  postingRole: AccountingPostingRoleSchema,
+  relationshipContext: StoredStandardLedgerRelationshipContextSchema.optional(),
+});
+
 const StoredStandardLedgerLotProvenanceSchema = z.discriminatedUnion('kind', [
-  z.object({
+  StoredStandardLedgerPostingProvenanceSchema.extend({
     kind: z.literal('acquire-operation'),
     operationId: z.string().min(1),
-    sourceEventId: z.string().min(1),
   }),
-  z.object({
+  StoredStandardLedgerPostingProvenanceSchema.extend({
     kind: z.literal('carry-operation'),
     operationId: z.string().min(1),
     relationshipStableKey: z.string().min(1),
+    relationshipKind: AccountingJournalRelationshipKindSchema,
+    relationshipBasisTreatment: z.literal('carry_basis'),
+    relationshipAllocationId: z.number().int().positive(),
     sourceLotId: z.string().min(1),
-    targetLegSourceEventId: z.string().min(1),
   }),
 ]);
+
+const StoredStandardLedgerDisposalProvenanceSchema = StoredStandardLedgerPostingProvenanceSchema.extend({
+  kind: z.literal('dispose-operation'),
+  operationId: z.string().min(1),
+});
 
 export const StoredStandardLedgerLotSchema = z.object({
   id: z.string().min(1),
@@ -334,6 +360,7 @@ export const StoredStandardLedgerDisposalSchema = z.object({
   costBasis: DecimalStringSchema,
   gainLoss: DecimalStringSchema,
   disposalDate: IsoDateTimeStringSchema,
+  provenance: StoredStandardLedgerDisposalProvenanceSchema,
   slices: z.array(StoredStandardLedgerLotSelectionSliceSchema),
 });
 

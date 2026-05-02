@@ -95,6 +95,11 @@ describe('runStandardLedgerCostBasisCalculation', () => {
     ]);
     expect(result.executionMeta.exclusionFingerprint).toBe('accounting-exclusions:none');
     expect(result.engineResult.disposals[0]?.gainLoss.toFixed()).toBe('40');
+    expect(result.engineResult.disposals[0]?.provenance).toMatchObject({
+      sourceActivityFingerprint: 'activity:sell',
+      journalFingerprint: 'journal:sell',
+      postingFingerprint: 'posting:sell',
+    });
   });
 
   it('fails before projection when an in-scope asset still blocks accounting review', () => {

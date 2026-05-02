@@ -600,6 +600,8 @@ describe('buildStandardLedgerCostBasisFilingFacts', () => {
         totalProceeds: disposition.totalProceeds.toFixed(),
         totalCostBasis: disposition.totalCostBasis.toFixed(),
         gainLoss: disposition.gainLoss.toFixed(),
+        sourceEventId: disposition.sourceEventId,
+        postingFingerprint: disposition.provenance.postingFingerprint,
         taxTreatmentCategory: disposition.taxTreatmentCategory,
       }))
     ).toEqual([
@@ -609,6 +611,8 @@ describe('buildStandardLedgerCostBasisFilingFacts', () => {
         totalProceeds: '400',
         totalCostBasis: '100',
         gainLoss: '300',
+        sourceEventId: 'event:sell',
+        postingFingerprint: 'posting:sell',
         taxTreatmentCategory: 'long_term',
       },
       {
@@ -617,6 +621,8 @@ describe('buildStandardLedgerCostBasisFilingFacts', () => {
         totalProceeds: '200',
         totalCostBasis: '100',
         gainLoss: '100',
+        sourceEventId: 'event:sell',
+        postingFingerprint: 'posting:sell',
         taxTreatmentCategory: 'short_term',
       },
     ]);

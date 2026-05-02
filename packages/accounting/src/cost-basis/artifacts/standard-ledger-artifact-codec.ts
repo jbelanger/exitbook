@@ -225,6 +225,7 @@ function toStoredStandardLedgerDisposal(
     costBasis: disposal.costBasis.toFixed(),
     gainLoss: disposal.gainLoss.toFixed(),
     disposalDate: disposal.disposalDate.toISOString(),
+    provenance: disposal.provenance,
     slices: disposal.slices.map(toStoredStandardLedgerLotSelectionSlice),
   };
 }
@@ -244,6 +245,7 @@ function fromStoredStandardLedgerDisposal(
     costBasis: parseDecimal(disposal.costBasis),
     gainLoss: parseDecimal(disposal.gainLoss),
     disposalDate: new Date(disposal.disposalDate),
+    provenance: disposal.provenance,
     slices: disposal.slices.map(fromStoredStandardLedgerLotSelectionSlice),
   };
 }

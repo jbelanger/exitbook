@@ -26,6 +26,7 @@ describe('standard ledger artifact codec', () => {
     expect(restored.projection.operationBlockers[0]?.sourceProjectionBlocker?.scope).toBe('posting');
     expect(restored.engineResult.lots[0]?.totalCostBasis?.toFixed()).toBe('100');
     expect(restored.engineResult.disposals[0]?.slices[0]?.costBasis?.toFixed()).toBe('50');
+    expect(restored.engineResult.disposals[0]?.provenance.postingFingerprint).toBe('posting:sell');
     expect(restored.engineResult.carries[0]?.sourceLegs[0]?.quantity.toFixed()).toBe('0.25');
     expect(restored.engineResult.blockers[0]?.sourceOperationBlocker?.sourceProjectionBlocker?.scope).toBe('posting');
     expect(restored.executionMeta.eventIds).toEqual(['event:buy', 'event:sell']);
@@ -123,6 +124,12 @@ function makeStandardLedgerWorkflowResult(): StandardLedgerCostBasisWorkflowResu
             kind: 'acquire-operation',
             operationId: 'operation:buy',
             sourceEventId: 'event:buy',
+            sourceActivityFingerprint: 'activity:buy',
+            ownerAccountId: 1,
+            journalFingerprint: 'journal:buy',
+            journalKind: 'trade',
+            postingFingerprint: 'posting:buy',
+            postingRole: 'principal',
           },
         },
       ],
@@ -139,6 +146,17 @@ function makeStandardLedgerWorkflowResult(): StandardLedgerCostBasisWorkflowResu
           costBasis: parseDecimal('50'),
           gainLoss: parseDecimal('50'),
           disposalDate: new Date('2026-01-02T00:00:00.000Z'),
+          provenance: {
+            kind: 'dispose-operation',
+            operationId: 'operation:sell',
+            sourceEventId: 'event:sell',
+            sourceActivityFingerprint: 'activity:sell',
+            ownerAccountId: 1,
+            journalFingerprint: 'journal:sell',
+            journalKind: 'trade',
+            postingFingerprint: 'posting:sell',
+            postingRole: 'principal',
+          },
           slices: [
             {
               lotId: 'standard-ledger-lot:operation:buy',

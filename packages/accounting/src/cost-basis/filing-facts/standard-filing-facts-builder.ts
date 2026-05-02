@@ -5,7 +5,6 @@ import { resolveCostBasisJurisdictionRules } from '../jurisdictions/registry.js'
 import type {
   StandardLedgerCarry,
   StandardLedgerLot,
-  StandardLedgerLotProvenance,
   StandardLedgerLotSelectionSlice,
   StandardLedgerBasisStatus,
 } from '../standard/operation-engine/standard-ledger-operation-engine.js';
@@ -216,7 +215,7 @@ export function buildStandardLedgerCostBasisFilingFacts(
         totalCostBasis: pricedLotResult.value.totalCostBasis,
         costBasisPerUnit: pricedLotResult.value.costBasisPerUnit,
         operationId: lot.provenance.operationId,
-        sourceEventId: getStandardLedgerLotSourceEventId(lot.provenance),
+        sourceEventId: lot.provenance.sourceEventId,
         provenance: lot.provenance,
         status: deriveStandardLedgerLotStatus(lot),
       });
@@ -256,6 +255,8 @@ export function buildStandardLedgerCostBasisFilingFacts(
           acquiredAt: slice.acquisitionDate,
           disposedAt: disposal.disposalDate,
           quantity: slice.quantity,
+          sourceEventId: disposal.provenance.sourceEventId,
+          provenance: disposal.provenance,
           proceedsPerUnit: totalProceeds.div(slice.quantity),
           totalProceeds,
           totalCostBasis: pricedSlice.value.costBasis,
@@ -396,10 +397,6 @@ function requirePricedStandardLedgerLotSelectionSlice(
     costBasis: slice.costBasis,
     costBasisPerUnit: slice.costBasisPerUnit,
   });
-}
-
-function getStandardLedgerLotSourceEventId(provenance: StandardLedgerLotProvenance): string {
-  return provenance.kind === 'acquire-operation' ? provenance.sourceEventId : provenance.targetLegSourceEventId;
 }
 
 function deriveStandardLedgerLotStatus(lot: StandardLedgerLot): StandardCostBasisAcquisitionFilingFact['status'] {

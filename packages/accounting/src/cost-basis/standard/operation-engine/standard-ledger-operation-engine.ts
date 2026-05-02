@@ -1,5 +1,6 @@
 import type { Currency } from '@exitbook/foundation';
 import { ok, parseDecimal, type Result } from '@exitbook/foundation';
+import type { AccountingJournalKind, AccountingPostingRole } from '@exitbook/ledger';
 import type { Decimal } from 'decimal.js';
 
 import type {
@@ -12,6 +13,7 @@ import type {
   LedgerCostBasisOperationBlocker,
   LedgerCostBasisOperationBlockerPropagation,
   LedgerCostBasisOperationProjection,
+  LedgerCostBasisOperationRelationshipContext,
 } from '../../ledger/ledger-cost-basis-operation-projection.js';
 import type { ICostBasisStrategy } from '../strategies/base-strategy.js';
 
@@ -46,18 +48,35 @@ export interface StandardLedgerLot {
 }
 
 export type StandardLedgerLotProvenance =
-  | {
+  | (StandardLedgerPostingProvenance & {
       kind: 'acquire-operation';
       operationId: string;
-      sourceEventId: string;
-    }
-  | {
+    })
+  | (StandardLedgerPostingProvenance & {
       kind: 'carry-operation';
       operationId: string;
+      relationshipAllocationId: number;
+      relationshipBasisTreatment: LedgerCostBasisCarryOperation['relationshipBasisTreatment'];
+      relationshipKind: LedgerCostBasisCarryOperation['relationshipKind'];
       relationshipStableKey: string;
       sourceLotId: string;
-      targetLegSourceEventId: string;
-    };
+    });
+
+export interface StandardLedgerPostingProvenance {
+  sourceEventId: string;
+  sourceActivityFingerprint: string;
+  ownerAccountId: number;
+  journalFingerprint: string;
+  journalKind: AccountingJournalKind;
+  postingFingerprint: string;
+  postingRole: AccountingPostingRole;
+  relationshipContext?: LedgerCostBasisOperationRelationshipContext | undefined;
+}
+
+export type StandardLedgerDisposalProvenance = StandardLedgerPostingProvenance & {
+  kind: 'dispose-operation';
+  operationId: string;
+};
 
 export interface StandardLedgerDisposal {
   assetId: string;
@@ -70,6 +89,7 @@ export interface StandardLedgerDisposal {
   grossProceeds: Decimal;
   id: string;
   operationId: string;
+  provenance: StandardLedgerDisposalProvenance;
   quantity: Decimal;
   slices: readonly StandardLedgerLotSelectionSlice[];
 }
@@ -233,8 +253,8 @@ function processAcquireOperation(
       costBasisPerUnit: operation.priceAtTxTime?.price.amount,
       id: `standard-ledger-lot:${operation.operationId}`,
       operationId: operation.operationId,
+      postingProvenance: buildPostingProvenance(operation),
       quantity: operation.quantity,
-      sourceEventId: operation.sourceEventId,
     })
   );
 }
@@ -306,6 +326,11 @@ function processDisposeOperation(
       grossProceeds,
       id: `standard-ledger-disposal:${operation.operationId}`,
       operationId: operation.operationId,
+      provenance: {
+        kind: 'dispose-operation',
+        operationId: operation.operationId,
+        ...buildPostingProvenance(operation),
+      },
       quantity: operation.quantity,
       slices: selection.slices,
     },
@@ -426,11 +451,8 @@ function processCarryOperation(
         chainKey: targetLeg.chainKey,
         costBasisPerUnit: targetCostBasis === undefined ? undefined : targetCostBasis.dividedBy(targetQuantity),
         id: `standard-ledger-lot:${operation.operationId}:target:${targetLotIndex}`,
-        operationId: operation.operationId,
+        postingProvenance: buildCarryTargetLotProvenance(operation, targetLeg, slice.lotId),
         quantity: targetQuantity,
-        relationshipStableKey: operation.relationshipStableKey,
-        sourceLotId: slice.lotId,
-        targetLegSourceEventId: targetLeg.sourceEventId,
       });
       targetChainState.lots.push(targetLot);
       carrySlices.push({
@@ -526,8 +548,8 @@ function buildAcquireLot(params: {
   costBasisPerUnit?: Decimal | undefined;
   id: string;
   operationId: string;
+  postingProvenance: StandardLedgerPostingProvenance;
   quantity: Decimal;
-  sourceEventId: string;
 }): StandardLedgerLot {
   return buildLot({
     acquisitionDate: params.acquisitionDate,
@@ -540,7 +562,7 @@ function buildAcquireLot(params: {
     provenance: {
       kind: 'acquire-operation',
       operationId: params.operationId,
-      sourceEventId: params.sourceEventId,
+      ...params.postingProvenance,
     },
     quantity: params.quantity,
   });
@@ -554,11 +576,8 @@ function buildCarryTargetLot(params: {
   chainKey: string;
   costBasisPerUnit?: Decimal | undefined;
   id: string;
-  operationId: string;
+  postingProvenance: Extract<StandardLedgerLotProvenance, { kind: 'carry-operation' }>;
   quantity: Decimal;
-  relationshipStableKey: string;
-  sourceLotId: string;
-  targetLegSourceEventId: string;
 }): StandardLedgerLot {
   return buildLot({
     acquisitionDate: params.acquisitionDate,
@@ -569,14 +588,48 @@ function buildCarryTargetLot(params: {
     costBasisPerUnit: params.costBasisPerUnit,
     id: params.id,
     provenance: {
-      kind: 'carry-operation',
-      operationId: params.operationId,
-      relationshipStableKey: params.relationshipStableKey,
-      sourceLotId: params.sourceLotId,
-      targetLegSourceEventId: params.targetLegSourceEventId,
+      ...params.postingProvenance,
     },
     quantity: params.quantity,
   });
+}
+
+function buildPostingProvenance(
+  operation: LedgerCostBasisAcquireOperation | LedgerCostBasisDisposeOperation
+): StandardLedgerPostingProvenance {
+  return {
+    sourceEventId: operation.sourceEventId,
+    sourceActivityFingerprint: operation.sourceActivityFingerprint,
+    ownerAccountId: operation.ownerAccountId,
+    journalFingerprint: operation.journalFingerprint,
+    journalKind: operation.journalKind,
+    postingFingerprint: operation.postingFingerprint,
+    postingRole: operation.postingRole,
+    ...(operation.relationshipContext === undefined ? {} : { relationshipContext: operation.relationshipContext }),
+  };
+}
+
+function buildCarryTargetLotProvenance(
+  operation: LedgerCostBasisCarryOperation,
+  targetLeg: LedgerCostBasisCarryLeg,
+  sourceLotId: string
+): Extract<StandardLedgerLotProvenance, { kind: 'carry-operation' }> {
+  return {
+    kind: 'carry-operation',
+    operationId: operation.operationId,
+    sourceEventId: targetLeg.sourceEventId,
+    sourceActivityFingerprint: targetLeg.sourceActivityFingerprint,
+    ownerAccountId: targetLeg.ownerAccountId,
+    journalFingerprint: targetLeg.journalFingerprint,
+    journalKind: targetLeg.journalKind,
+    postingFingerprint: targetLeg.postingFingerprint,
+    postingRole: targetLeg.postingRole,
+    relationshipStableKey: operation.relationshipStableKey,
+    relationshipKind: operation.relationshipKind,
+    relationshipBasisTreatment: operation.relationshipBasisTreatment,
+    relationshipAllocationId: targetLeg.allocationId,
+    sourceLotId,
+  };
 }
 
 function buildLot(params: {

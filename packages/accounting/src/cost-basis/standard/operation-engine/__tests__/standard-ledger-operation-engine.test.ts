@@ -39,6 +39,12 @@ describe('runStandardLedgerOperationEngine', () => {
     expect(result.disposals[0]?.grossProceeds.toFixed()).toBe('450');
     expect(result.disposals[0]?.costBasis.toFixed()).toBe('200');
     expect(result.disposals[0]?.gainLoss.toFixed()).toBe('250');
+    expect(result.disposals[0]?.provenance).toMatchObject({
+      kind: 'dispose-operation',
+      operationId: 'op:sell',
+      sourceEventId: 'event:op:sell',
+      postingFingerprint: 'posting:op:sell',
+    });
     expect(result.disposals[0]?.slices.map((slice) => [slice.lotId, slice.quantity.toFixed()])).toEqual([
       ['standard-ledger-lot:op:buy-1', '1'],
       ['standard-ledger-lot:op:buy-2', '0.5'],
@@ -92,6 +98,16 @@ describe('runStandardLedgerOperationEngine', () => {
       ['standard-ledger-lot:op:buy-old', '0.5'],
       ['standard-ledger-lot:op:buy-new', '0'],
     ]);
+    expect(result.lots.find((lot) => lot.id === 'standard-ledger-lot:op:migrate:target:1')?.provenance).toMatchObject({
+      kind: 'carry-operation',
+      operationId: 'op:migrate',
+      sourceEventId: 'event:op:migrate:target',
+      relationshipStableKey: 'relationship:op:migrate',
+      relationshipKind: 'asset_migration',
+      relationshipBasisTreatment: 'carry_basis',
+      relationshipAllocationId: 2,
+      sourceLotId: 'standard-ledger-lot:op:buy-new',
+    });
     expect(
       result.lots
         .filter((lot) => lot.chainKey === 'blockchain:ethereum:0xrender')

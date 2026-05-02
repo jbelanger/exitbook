@@ -5,6 +5,7 @@ import type { CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { AcquisitionLot, LotTransfer } from '../model/types.js';
 import type {
   StandardLedgerCarry,
+  StandardLedgerDisposalProvenance,
   StandardLedgerLotProvenance,
 } from '../standard/operation-engine/standard-ledger-operation-engine.js';
 
@@ -115,6 +116,8 @@ export interface StandardLedgerCostBasisDispositionFilingFact extends CostBasisF
   chainKey: string;
   disposalId: string;
   operationId: string;
+  sourceEventId: string;
+  provenance: StandardLedgerDisposalProvenance;
   sourceLotId: string;
   acquiredAt: Date;
   holdingPeriodDays: number;
