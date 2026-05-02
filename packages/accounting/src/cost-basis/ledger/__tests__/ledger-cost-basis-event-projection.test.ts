@@ -167,10 +167,37 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.blockers).toHaveLength(1);
     const blocker = expectPostingBlocker(projection.blockers[0]);
     expect(blocker).toMatchObject({
-      reason: 'fee_settlement_missing',
+      reason: 'cost_settlement_missing',
       postingFingerprint: 'posting:eth-fee-unsettled',
     });
     expect(blocker.blockedQuantity.toFixed()).toBe('0.01');
+  });
+
+  it('blocks protocol overhead postings without settlement', () => {
+    const facts = makeFacts({
+      journalKind: 'expense_only',
+      postings: [
+        makePosting({
+          id: 1,
+          postingFingerprint: 'posting:protocol-overhead',
+          quantity: '-0.02',
+          role: 'protocol_overhead',
+          assetId: 'blockchain:ethereum:native',
+          assetSymbol: ETH,
+        }),
+      ],
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectPostingBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'cost_settlement_missing',
+      postingFingerprint: 'posting:protocol-overhead',
+    });
+    expect(blocker.blockedQuantity.toFixed()).toBe('0.02');
   });
 
   it('blocks zero-quantity postings instead of aborting projection', () => {

@@ -26,7 +26,7 @@ export type LedgerCostBasisProjectionBlockerReason =
   | LedgerCostBasisRelationshipBlockerReason;
 
 export type LedgerCostBasisPostingBlockerReason =
-  | 'fee_settlement_missing'
+  | 'cost_settlement_missing'
   | 'missing_relationship'
   | 'relationship_residual'
   | 'unsupported_protocol_posting'
@@ -283,22 +283,22 @@ function projectLedgerPostingCostBasisEvents(
 function projectUnrelatedLedgerPosting(context: LedgerPostingContext): Result<LedgerCostBasisPostingProjection, Error> {
   const { journal, posting } = context;
 
-  if (posting.role === 'fee' && posting.settlement === undefined) {
+  if (isFeeLikeCostPosting(posting) && posting.settlement === undefined) {
     return ok({
       events: [],
       blockers: [
         buildProjectionBlocker({
           context,
           blockedQuantity: posting.quantity.abs(),
-          reason: 'fee_settlement_missing',
+          reason: 'cost_settlement_missing',
           relationshipStableKeys: [],
-          message: `Ledger cost-basis fee posting ${posting.postingFingerprint} has no settlement`,
+          message: `Ledger cost-basis ${posting.role} posting ${posting.postingFingerprint} has no settlement`,
         }),
       ],
     });
   }
 
-  if (posting.role === 'fee' || posting.role === 'protocol_overhead') {
+  if (isFeeLikeCostPosting(posting)) {
     return ok({ events: [buildPostingEvent(context, 'fee', posting.quantity.abs())], blockers: [] });
   }
 
@@ -359,6 +359,10 @@ function projectRelationshipAllocationEvent(
     relationshipKind: relationship.relationshipKind,
     relationshipStableKey: relationship.relationshipStableKey,
   });
+}
+
+function isFeeLikeCostPosting(posting: CostBasisLedgerPosting): boolean {
+  return posting.role === 'fee' || posting.role === 'protocol_overhead';
 }
 
 function buildPostingEvent(

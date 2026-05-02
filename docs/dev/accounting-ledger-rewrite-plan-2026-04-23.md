@@ -1171,7 +1171,7 @@ Cost-basis migration model:
   blocker rather than silently treating the remainder as a disposal. Accepted
   asset exclusions are explicit projector input; excluded postings are reported
   for audit and do not emit cost-basis input events. Zero-quantity postings
-  block explicitly. Fee postings without settlement block explicitly.
+  block explicitly. Fee-like cost postings without settlement block explicitly.
   Relationship-level integrity blockers catch accepted allocations that no
   longer point at loaded postings, that no longer match their loaded posting
   metadata, that are structurally invalid or overallocated, that point at cost
