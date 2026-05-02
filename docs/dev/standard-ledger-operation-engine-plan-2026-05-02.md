@@ -28,6 +28,8 @@ Use:
 
 - `packages/accounting/src/cost-basis/ledger/ledger-cost-basis-operation-projection.ts`
   as the calculator input boundary.
+- `packages/accounting/src/cost-basis/standard/operation-engine/standard-ledger-operation-pipeline.ts`
+  as the composed ledger-native standard execution boundary.
 - `packages/accounting/src/cost-basis/standard/strategies/**` for FIFO/LIFO lot
   ordering.
 - `packages/accounting/src/cost-basis/standard/calculation/gain-loss-utils.ts`
@@ -39,6 +41,17 @@ Do not build new standard work on:
 - `packages/accounting/src/cost-basis/standard/matching/lot-matcher.ts`
 - movement-fingerprint transfer validation
 - transaction annotations as accounting truth
+
+Canada is out of scope for this standard rewrite. Canada still depends on the
+legacy accounting model through:
+
+- `packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-tax-event-projection.ts`
+- `packages/accounting/src/cost-basis/jurisdictions/canada/tax/canada-accounting-model-context.ts`
+- `packages/accounting/src/cost-basis/jurisdictions/canada/workflow/canada-acb-workflow.ts`
+
+Do not delete `packages/accounting/src/accounting-model/**` when the standard
+path lands. Delete only standard-specific legacy dependencies after standard no
+longer references them. Canada needs a separate ledger-native ACB plan.
 
 ## Chosen Shape
 
@@ -162,10 +175,37 @@ ledger source-activity/posting provenance into misleading transaction fields.
 Migration path:
 
 1. Build and test operation-native results.
-2. Add a thin workflow adapter only where a current consumer still requires old
-   report shapes.
-3. Replace report/export/view consumers with ledger provenance.
-4. Delete the legacy `LotMatcher` path after no consumer references it.
+2. Define a ledger-native standard workflow result and stored artifact codec.
+3. Replace report/export/view consumers with ledger provenance in explicit
+   slices.
+4. Add a thin workflow adapter only if a current outer-edge consumer still
+   requires old report shapes; keep it named as temporary provenance loss.
+5. Delete the legacy standard `LotMatcher` path after no standard consumer
+   references it.
+
+The standard workflow result migration touches more than the calculator. Treat
+these as explicit consumer phases:
+
+- `packages/accounting/src/cost-basis/workflow/workflow-result-types.ts`
+- `packages/accounting/src/cost-basis/artifacts/standard-artifact-codec.ts`
+- `packages/accounting/src/cost-basis/artifacts/artifact-storage-schemas.ts`
+- `packages/accounting/src/cost-basis/artifacts/artifact-snapshot-storage.ts`
+- `packages/accounting/src/cost-basis/filing-facts/standard-filing-facts-builder.ts`
+- `packages/accounting/src/cost-basis/filing-facts/filing-facts-builder.ts`
+- `packages/accounting/src/cost-basis/filing-facts/filing-facts-types.ts`
+- `packages/accounting/src/cost-basis/standard/export/standard-tax-package-source-coverage.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-context-builder.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-build-context.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-builder-shared.ts`
+- `packages/accounting/src/cost-basis/export/us-tax-package-builder.ts`
+- `packages/accounting/src/cost-basis/export/us-tax-package-renderers.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-readiness-metadata.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-review-gate.ts`
+- `packages/accounting/src/cost-basis/export/tax-package-scope-validator.ts`
+- tests beside each touched consumer
+
+Use `CostBasisLedgerFacts` fixtures for new standard workflow tests. Existing
+`AccountingModelBuildResult` fixtures are legacy evidence only.
 
 ## Initial Invariants
 
@@ -200,8 +240,14 @@ Add invariant tests before wiring the workflow:
 6. Add fee operation blockers; do not add fee tax math yet.
 7. Add a ledger-native operation pipeline that composes event projection,
    operation projection, strategy selection, and engine execution.
-8. Wire a non-Canada workflow path only after the operation engine invariants
-   are green.
+8. Add ledger-native standard workflow result and artifact codec, without
+   switching public filing/export consumers yet.
+9. Migrate standard filing facts and source coverage to ledger provenance.
+10. Migrate US tax package rendering/readiness to ledger provenance.
+11. Wire the non-Canada workflow path through ledger facts once artifact and
+    reporting consumers accept the ledger-native result.
+12. Delete standard-only legacy calculation/matching code. Keep
+    `accounting-model/**` for Canada until Canada is migrated separately.
 
 ## Smells To Watch
 
