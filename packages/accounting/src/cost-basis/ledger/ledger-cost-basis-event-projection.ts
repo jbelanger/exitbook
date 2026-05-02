@@ -142,10 +142,26 @@ export interface LedgerCostBasisExcludedPosting {
   message: string;
 }
 
+export interface LedgerCostBasisJournalPostingContext {
+  postingFingerprint: string;
+  postingRole: AccountingPostingRole;
+  assetId: string;
+  assetSymbol: Currency;
+  postingQuantity: Decimal;
+}
+
+export interface LedgerCostBasisJournalContext {
+  journalFingerprint: string;
+  journalKind: AccountingJournalKind;
+  postings: readonly LedgerCostBasisJournalPostingContext[];
+  relationshipStableKeys: readonly string[];
+}
+
 export interface LedgerCostBasisEventProjection {
   events: readonly LedgerCostBasisInputEvent[];
   blockers: readonly LedgerCostBasisProjectionBlocker[];
   excludedPostings: readonly LedgerCostBasisExcludedPosting[];
+  journalContexts: readonly LedgerCostBasisJournalContext[];
   exclusionFingerprint: string;
 }
 
@@ -238,6 +254,7 @@ export function projectLedgerCostBasisEvents(
     events,
     blockers,
     excludedPostings,
+    journalContexts: buildJournalContexts(contexts, facts.relationships),
     exclusionFingerprint: buildAccountingExclusionFingerprint({
       excludedAssetIds: options.excludedAssetIds ?? [],
       excludedPostingFingerprints: excludedPostings.map((posting) => posting.postingFingerprint),
@@ -840,6 +857,56 @@ function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExc
     postingQuantity: posting.quantity,
     message: `Ledger cost-basis posting ${posting.postingFingerprint} is excluded by accepted asset exclusion ${posting.assetId}`,
   };
+}
+
+function buildJournalContexts(
+  contexts: readonly LedgerPostingContext[],
+  relationships: readonly CostBasisLedgerRelationship[]
+): LedgerCostBasisJournalContext[] {
+  const contextByPostingFingerprint = new Map(
+    contexts.map((context) => [context.posting.postingFingerprint, context] as const)
+  );
+  const relationshipStableKeysByJournalFingerprint = new Map<string, Set<string>>();
+
+  for (const relationship of relationships) {
+    for (const allocation of relationship.allocations) {
+      const context = contextByPostingFingerprint.get(allocation.postingFingerprint);
+      if (context === undefined) {
+        continue;
+      }
+
+      const relationshipStableKeys =
+        relationshipStableKeysByJournalFingerprint.get(context.journal.journalFingerprint) ?? new Set<string>();
+      relationshipStableKeys.add(relationship.relationshipStableKey);
+      relationshipStableKeysByJournalFingerprint.set(context.journal.journalFingerprint, relationshipStableKeys);
+    }
+  }
+
+  const contextsByJournalFingerprint = new Map<string, LedgerPostingContext[]>();
+  for (const context of contexts) {
+    const journalContexts = contextsByJournalFingerprint.get(context.journal.journalFingerprint) ?? [];
+    journalContexts.push(context);
+    contextsByJournalFingerprint.set(context.journal.journalFingerprint, journalContexts);
+  }
+
+  return [...contextsByJournalFingerprint.values()].map((journalContexts) => {
+    const firstContext = journalContexts[0]!;
+
+    return {
+      journalFingerprint: firstContext.journal.journalFingerprint,
+      journalKind: firstContext.journal.journalKind,
+      postings: journalContexts.map(({ posting }) => ({
+        postingFingerprint: posting.postingFingerprint,
+        postingRole: posting.role,
+        assetId: posting.assetId,
+        assetSymbol: posting.assetSymbol,
+        postingQuantity: posting.quantity,
+      })),
+      relationshipStableKeys: [
+        ...(relationshipStableKeysByJournalFingerprint.get(firstContext.journal.journalFingerprint) ?? []),
+      ].sort(),
+    };
+  });
 }
 
 function resolveLedgerPostingContext(

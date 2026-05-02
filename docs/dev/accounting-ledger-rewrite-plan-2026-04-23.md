@@ -1188,8 +1188,12 @@ Cost-basis migration model:
   Projected events retain `journalKind` and `postingRole` so an
   `opening_balance` / `opening_position` lot stays an acquisition event without
   losing opening provenance. Projected events also retain posting settlement so
-  fee-like cost treatment remains a calculator decision. Relationship-level
-  integrity blockers catch
+  fee-like cost treatment remains a calculator decision. The projection also
+  returns compact journal contexts with posting summaries and relationship keys;
+  fee attachment flows through a cost-basis-owned classifier. The initial
+  classifier only marks `expense_only` fees with no relationships as
+  `standalone`; every other fee context remains `unknown` until a strict rule or
+  explicit review model exists. Relationship-level integrity blockers catch
   accepted allocations that no longer point at loaded postings, that no longer
   match their loaded posting metadata, that are structurally invalid or
   overallocated, that point at cost postings such as fees, or that mix excluded

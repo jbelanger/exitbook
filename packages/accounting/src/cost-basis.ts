@@ -58,12 +58,19 @@ export {
   type LedgerCostBasisRelationshipBasisTreatment,
 } from './cost-basis/ledger/ledger-cost-basis-relationship-treatment.js';
 export {
+  classifyLedgerCostBasisFeeAttachment,
+  type LedgerCostBasisFeeAttachment,
+  type LedgerCostBasisFeeAttachmentUnknownReason,
+} from './cost-basis/ledger/ledger-cost-basis-fee-attachment.js';
+export {
   projectLedgerCostBasisEvents,
   type LedgerCostBasisEventProjection,
   type LedgerCostBasisExcludedPosting,
   type LedgerCostBasisExclusionReason,
   type LedgerCostBasisInputEvent,
   type LedgerCostBasisInputEventKind,
+  type LedgerCostBasisJournalContext,
+  type LedgerCostBasisJournalPostingContext,
   type LedgerCostBasisPostingBlocker,
   type LedgerCostBasisProjectionBlocker,
   type LedgerCostBasisProjectionBlockerReason,

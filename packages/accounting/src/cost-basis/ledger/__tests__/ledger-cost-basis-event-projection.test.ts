@@ -36,6 +36,12 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.events.every((event) => event.relationshipKind === 'internal_transfer')).toBe(true);
     expect(projection.events.every((event) => event.relationshipBasisTreatment === 'carry_basis')).toBe(true);
     expect(projection.events.some((event) => event.kind === 'disposal')).toBe(false);
+    expect(
+      projection.journalContexts.map((context) => [context.journalFingerprint, context.relationshipStableKeys])
+    ).toEqual([
+      ['journal:source', ['relationship:test']],
+      ['journal:target', ['relationship:test']],
+    ]);
   });
 
   it('projects accepted external transfer relationships as disposal and acquisition events', () => {
@@ -220,6 +226,19 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.events.map((event) => event.kind)).toEqual(['fee']);
     expect(projection.events[0]?.settlement).toBe('on-chain');
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.01');
+    expect(projection.journalContexts).toMatchObject([
+      {
+        journalFingerprint: 'journal:default',
+        journalKind: 'expense_only',
+        relationshipStableKeys: [],
+        postings: [
+          {
+            postingFingerprint: 'posting:eth-fee',
+            postingRole: 'fee',
+          },
+        ],
+      },
+    ]);
   });
 
   it('blocks fee postings without settlement', () => {
