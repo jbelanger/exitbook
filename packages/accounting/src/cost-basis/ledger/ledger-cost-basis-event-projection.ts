@@ -11,6 +11,7 @@ import type {
   CostBasisLedgerRelationshipAllocation,
   CostBasisLedgerSourceActivity,
 } from '../../ports/cost-basis-ledger-persistence.js';
+import { buildAccountingExclusionFingerprint } from '../accounting-exclusion-fingerprint.js';
 
 import {
   classifyLedgerCostBasisRelationshipTreatment,
@@ -139,6 +140,7 @@ export interface LedgerCostBasisEventProjection {
   events: readonly LedgerCostBasisInputEvent[];
   blockers: readonly LedgerCostBasisProjectionBlocker[];
   excludedPostings: readonly LedgerCostBasisExcludedPosting[];
+  exclusionFingerprint: string;
 }
 
 interface LedgerPostingContext {
@@ -226,7 +228,15 @@ export function projectLedgerCostBasisEvents(
     blockers.push(...projection.value.blockers);
   }
 
-  return ok({ events, blockers, excludedPostings });
+  return ok({
+    events,
+    blockers,
+    excludedPostings,
+    exclusionFingerprint: buildAccountingExclusionFingerprint({
+      excludedAssetIds: options.excludedAssetIds ?? [],
+      excludedPostingFingerprints: excludedPostings.map((posting) => posting.postingFingerprint),
+    }),
+  });
 }
 
 function projectLedgerPostingCostBasisEvents(

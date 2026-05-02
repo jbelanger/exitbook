@@ -111,6 +111,22 @@ describe('projectLedgerCostBasisEvents', () => {
     });
 
     const projection = assertOk(projectLedgerCostBasisEvents(facts, { excludedAssetIds: new Set([excludedAssetId]) }));
+    const changedExcludedPostingProjection = assertOk(
+      projectLedgerCostBasisEvents(
+        makeFacts({
+          postings: [
+            makePosting({
+              id: 1,
+              assetId: excludedAssetId,
+              assetSymbol: SPAM,
+              postingFingerprint: 'posting:spam-in-2',
+              quantity: '1000',
+            }),
+          ],
+        }),
+        { excludedAssetIds: new Set([excludedAssetId]) }
+      )
+    );
 
     expect(projection.blockers).toEqual([]);
     expect(projection.events.map((event) => event.postingFingerprint)).toEqual(['posting:btc-in']);
@@ -122,6 +138,8 @@ describe('projectLedgerCostBasisEvents', () => {
       },
     ]);
     expect(projection.excludedPostings[0]?.postingQuantity.toFixed()).toBe('1000');
+    expect(projection.exclusionFingerprint).toMatch(/^accounting-exclusions:/);
+    expect(projection.exclusionFingerprint).not.toBe(changedExcludedPostingProjection.exclusionFingerprint);
   });
 
   it('projects asset migrations as carryover events across changed asset identities', () => {

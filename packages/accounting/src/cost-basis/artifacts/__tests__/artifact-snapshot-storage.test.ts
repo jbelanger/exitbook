@@ -154,7 +154,7 @@ describe('cost-basis-artifact-snapshot-storage', () => {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01Z') },
         pricesLastMutatedAt: new Date('2026-03-14T12:00:02Z'),
-        exclusionFingerprint: 'excluded-assets:none',
+        exclusionFingerprint: 'accounting-exclusions:none',
       },
       'cost-basis:test'
     );
@@ -230,7 +230,7 @@ describe('cost-basis-artifact-snapshot-storage', () => {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01Z') },
         pricesLastMutatedAt: new Date('2026-03-14T12:00:02Z'),
-        exclusionFingerprint: 'excluded-assets:none',
+        exclusionFingerprint: 'accounting-exclusions:none',
       },
       'cost-basis:test-ca'
     );
@@ -323,7 +323,7 @@ describe('cost-basis-artifact-snapshot-storage', () => {
         links: { status: 'fresh', lastBuiltAt: new Date('2026-03-15T12:00:00Z') },
         assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-15T12:00:01Z') },
         pricesLastMutatedAt: new Date('2026-03-15T12:00:02Z'),
-        exclusionFingerprint: 'excluded-assets:none',
+        exclusionFingerprint: 'accounting-exclusions:none',
       },
       'cost-basis:test-ca:no-display'
     );

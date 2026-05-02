@@ -1172,6 +1172,10 @@ Cost-basis migration model:
   asset exclusions are explicit projector input; excluded postings are reported
   for audit and do not emit cost-basis input events. Zero-quantity postings
   block explicitly. Fee-like cost postings without settlement block explicitly.
+  The exclusion fingerprint includes both accepted excluded asset ids and the
+  realized excluded posting fingerprints so adding, removing, or re-keying an
+  excluded posting invalidates calculation artifacts instead of silently
+  reusing an answer with stale audit inputs.
   Protocol position postings block unless accepted relationships explicitly
   carry basis.
   Relationship `kind` remains the semantic operation; the projector reads a

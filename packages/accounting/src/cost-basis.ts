@@ -10,6 +10,10 @@ export {
 } from './cost-basis/jurisdictions/jurisdiction-configs.js';
 export { CostBasisArtifactService } from './cost-basis/artifacts/artifact-service.js';
 export { persistCostBasisFailureSnapshot } from './cost-basis/artifacts/failure-snapshot-service.js';
+export {
+  buildAccountingExclusionFingerprint,
+  type AccountingExclusionFingerprintInput,
+} from './cost-basis/accounting-exclusion-fingerprint.js';
 export { CostBasisWorkflow } from './cost-basis/workflow/cost-basis-workflow.js';
 export type {
   CostBasisContext,
@@ -73,7 +77,6 @@ export {
   type ProjectLedgerCostBasisEventsOptions,
 } from './cost-basis/ledger/ledger-cost-basis-event-projection.js';
 export {
-  buildAccountingExclusionFingerprint,
   COST_BASIS_CALCULATION_ENGINE_VERSION,
   COST_BASIS_STORAGE_SCHEMA_VERSION,
   evaluateCostBasisArtifactFreshness,

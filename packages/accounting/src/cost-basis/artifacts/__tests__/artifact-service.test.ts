@@ -19,7 +19,7 @@ const dependencyWatermark: CostBasisDependencyWatermark = {
   links: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:00.000Z') },
   assetReview: { status: 'fresh', lastBuiltAt: new Date('2026-03-14T12:00:01.000Z') },
   pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
-  exclusionFingerprint: 'excluded-assets:none',
+  exclusionFingerprint: 'accounting-exclusions:none',
 };
 
 const config = {

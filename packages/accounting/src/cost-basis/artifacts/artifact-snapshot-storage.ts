@@ -2,7 +2,6 @@ import { err, ok, randomUUID, type Result } from '@exitbook/foundation';
 import { getLogger } from '@exitbook/logger';
 
 import type { CostBasisDependencyWatermark, CostBasisSnapshotRecord } from '../../ports/cost-basis-persistence.js';
-import { hashCostBasisStableValue } from '../cost-basis-stable-hash.js';
 import {
   buildCanadaArtifactSnapshotParts,
   fromStoredCanadaArtifact,
@@ -46,15 +45,6 @@ interface CostBasisArtifactFreshnessResult {
 
 export const COST_BASIS_STORAGE_SCHEMA_VERSION = 4;
 export const COST_BASIS_CALCULATION_ENGINE_VERSION = 1;
-
-export function buildAccountingExclusionFingerprint(excludedAssetIds: ReadonlySet<string>): string {
-  const sorted = [...excludedAssetIds].sort();
-  if (sorted.length === 0) {
-    return 'excluded-assets:none';
-  }
-
-  return `excluded-assets:${hashCostBasisStableValue(JSON.stringify(sorted))}`;
-}
 
 export function evaluateCostBasisArtifactFreshness(
   snapshot: CostBasisSnapshotRecord,

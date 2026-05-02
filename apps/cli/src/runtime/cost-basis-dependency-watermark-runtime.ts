@@ -19,7 +19,9 @@ export async function readCostBasisDependencyWatermark(
     return err(latestPriceMutationResult.error);
   }
 
-  const exclusionFingerprint = buildAccountingExclusionFingerprint(accountingExclusionPolicy.excludedAssetIds);
+  const exclusionFingerprint = buildAccountingExclusionFingerprint({
+    excludedAssetIds: accountingExclusionPolicy.excludedAssetIds,
+  });
   return buildCostBasisArtifactFreshnessPorts(db, profileId, {
     pricesLastMutatedAt: latestPriceMutationResult.value,
   }).readCurrentWatermark(exclusionFingerprint);

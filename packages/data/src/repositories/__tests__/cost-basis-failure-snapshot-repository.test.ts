@@ -20,7 +20,7 @@ function createSnapshot(
     assetReviewStatus: 'fresh',
     assetReviewBuiltAt: new Date('2026-03-14T12:00:01.000Z'),
     pricesLastMutatedAt: new Date('2026-03-14T12:00:02.000Z'),
-    exclusionFingerprint: 'excluded-assets:none',
+    exclusionFingerprint: 'accounting-exclusions:none',
     jurisdiction: 'US',
     method: 'fifo',
     taxYear: 2024,
