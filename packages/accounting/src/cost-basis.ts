@@ -171,6 +171,11 @@ export {
   type StandardLedgerOperationPipelineResult,
 } from './cost-basis/standard/operation-engine/standard-ledger-operation-pipeline.js';
 export {
+  runStandardLedgerCostBasisCalculation,
+  type RunStandardLedgerCostBasisCalculationInput,
+  type StandardLedgerCostBasisCalculationOptions,
+} from './cost-basis/standard/workflow/run-standard-ledger-cost-basis-calculation.js';
+export {
   runStandardLedgerOperationEngine,
   type RunStandardLedgerOperationEngineInput,
   type StandardLedgerBasisStatus,
