@@ -42,6 +42,10 @@ export type {
   CostBasisWorkflowExecutionOptions,
   CostBasisWorkflowResult,
   StandardCostBasisWorkflowResult,
+  StandardLedgerCostBasisCalculation,
+  StandardLedgerCostBasisExecutionMeta,
+  StandardLedgerCostBasisProjectionAudit,
+  StandardLedgerCostBasisWorkflowResult,
 } from './cost-basis/workflow/cost-basis-workflow.js';
 export type { ValidatedCostBasisConfig } from './cost-basis/workflow/cost-basis-input.js';
 export {

@@ -20,6 +20,10 @@ export type {
   CostBasisWorkflowExecutionOptions,
   CostBasisWorkflowResult,
   StandardCostBasisWorkflowResult,
+  StandardLedgerCostBasisCalculation,
+  StandardLedgerCostBasisExecutionMeta,
+  StandardLedgerCostBasisProjectionAudit,
+  StandardLedgerCostBasisWorkflowResult,
 } from './workflow-result-types.js';
 
 const logger = getLogger('cost-basis.workflow');
