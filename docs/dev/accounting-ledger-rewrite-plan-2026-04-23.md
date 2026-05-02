@@ -1198,9 +1198,13 @@ Cost-basis migration model:
   match their loaded posting metadata, that are structurally invalid or
   overallocated, that point at cost postings such as fees, or that mix excluded
   and non-excluded postings.
-- Next implementation slice after event projection: adapt standard or Canada
-  calculation behind this event model only after the calculation boundary
-  handles projection blockers and excluded-posting audit output deliberately.
+- Next implementation slice after event projection: build the neutral
+  ledger-cost-basis operation IR described in
+  `docs/dev/ledger-cost-basis-operation-ir-plan-2026-05-02.md`. Do not adapt
+  standard or Canada calculation until that boundary handles projection
+  blockers, excluded-posting audit output, deterministic ordering, resolved tax
+  identity chain keys, fee annotation, and carry allocation evidence
+  deliberately.
 
 Acceptance:
 
