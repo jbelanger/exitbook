@@ -58,6 +58,7 @@ export type LedgerCostBasisRelationshipAllocationMismatchReason =
 export type LedgerCostBasisRelationshipAllocationValidationReason =
   | 'non_positive_quantity'
   | 'overallocated_posting'
+  | 'protocol_position_requires_basis_carryover_relationship'
   | 'relationship_allocation_points_at_fee_posting'
   | 'relationship_allocation_points_at_protocol_overhead_posting'
   | 'source_allocation_points_at_positive_posting'
@@ -446,7 +447,12 @@ function findRelationshipProjectionIntegrity(
 
   for (const relationship of relationships) {
     const allocationIntegrity = relationship.allocations.map((allocation) =>
-      buildRelationshipAllocationIntegrity(allocation, contextByPostingFingerprint, excludedAssetIds)
+      buildRelationshipAllocationIntegrity(
+        allocation,
+        relationship.relationshipKind,
+        contextByPostingFingerprint,
+        excludedAssetIds
+      )
     );
     const missingAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'missing_posting');
     const excludedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'excluded_posting');
@@ -678,6 +684,7 @@ function selectRelationshipBlockerReason(params: {
 
 function buildRelationshipAllocationIntegrity(
   allocation: CostBasisLedgerRelationshipAllocation,
+  relationshipKind: AccountingJournalRelationshipKind,
   contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>,
   excludedAssetIds: ReadonlySet<string> | undefined
 ): RelationshipAllocationIntegrity {
@@ -695,7 +702,7 @@ function buildRelationshipAllocationIntegrity(
     return { allocation, mismatchReasons, validationReasons: [], state: 'mismatched_posting' };
   }
 
-  const validationReasons = findRelationshipAllocationValidationReasons(allocation, context);
+  const validationReasons = findRelationshipAllocationValidationReasons(allocation, relationshipKind, context);
   if (validationReasons.length > 0) {
     return { allocation, mismatchReasons: [], validationReasons, state: 'invalid_allocation' };
   }
@@ -768,6 +775,7 @@ function findRelationshipAllocationMismatchReasons(
 
 function findRelationshipAllocationValidationReasons(
   allocation: CostBasisLedgerRelationshipAllocation,
+  relationshipKind: AccountingJournalRelationshipKind,
   context: LedgerPostingContext
 ): LedgerCostBasisRelationshipAllocationValidationReason[] {
   const validationReasons: LedgerCostBasisRelationshipAllocationValidationReason[] = [];
@@ -781,6 +789,9 @@ function findRelationshipAllocationValidationReasons(
   if (context.posting.role === 'protocol_overhead') {
     validationReasons.push('relationship_allocation_points_at_protocol_overhead_posting');
   }
+  if (isProtocolPositionPosting(context.posting) && !BASIS_CARRYOVER_RELATIONSHIP_KINDS.has(relationshipKind)) {
+    validationReasons.push('protocol_position_requires_basis_carryover_relationship');
+  }
   if (allocation.allocationSide === 'source' && context.posting.quantity.gt(0)) {
     validationReasons.push('source_allocation_points_at_positive_posting');
   }
@@ -789,6 +800,10 @@ function findRelationshipAllocationValidationReasons(
   }
 
   return validationReasons;
+}
+
+function isProtocolPositionPosting(posting: CostBasisLedgerPosting): boolean {
+  return posting.role === 'protocol_deposit' || posting.role === 'protocol_refund';
 }
 
 function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExcludedPosting {

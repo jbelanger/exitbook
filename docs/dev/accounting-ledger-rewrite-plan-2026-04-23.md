@@ -1172,6 +1172,8 @@ Cost-basis migration model:
   asset exclusions are explicit projector input; excluded postings are reported
   for audit and do not emit cost-basis input events. Zero-quantity postings
   block explicitly. Fee-like cost postings without settlement block explicitly.
+  Protocol position postings block unless accepted relationships explicitly
+  carry basis.
   Projected events retain `journalKind` and `postingRole` so an
   `opening_balance` / `opening_position` lot stays an acquisition event without
   losing opening provenance. Relationship-level integrity blockers catch

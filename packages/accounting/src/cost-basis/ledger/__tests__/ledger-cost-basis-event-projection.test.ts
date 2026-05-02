@@ -151,6 +151,22 @@ describe('projectLedgerCostBasisEvents', () => {
     ]);
   });
 
+  it('projects protocol position postings through basis-carryover relationships', () => {
+    const facts = makeTransferFacts({
+      relationshipKind: 'bridge',
+      source: { role: 'protocol_deposit' },
+      target: { role: 'protocol_refund' },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.blockers).toEqual([]);
+    expect(projection.events.map((event) => [event.kind, event.postingRole])).toEqual([
+      ['carryover-out', 'protocol_deposit'],
+      ['carryover-in', 'protocol_refund'],
+    ]);
+  });
+
   it('projects fee postings as fee events', () => {
     const facts = makeFacts({
       journalKind: 'expense_only',
@@ -226,6 +242,53 @@ describe('projectLedgerCostBasisEvents', () => {
       postingFingerprint: 'posting:protocol-overhead',
     });
     expect(blocker.blockedQuantity.toFixed()).toBe('0.02');
+  });
+
+  it('blocks unlinked protocol position postings', () => {
+    const cases: readonly {
+      blockedQuantity: string;
+      postingFingerprint: string;
+      quantity: string;
+      role: CostBasisLedgerPosting['role'];
+    }[] = [
+      {
+        blockedQuantity: '1',
+        postingFingerprint: 'posting:protocol-deposit',
+        quantity: '-1',
+        role: 'protocol_deposit',
+      },
+      {
+        blockedQuantity: '0.5',
+        postingFingerprint: 'posting:protocol-refund',
+        quantity: '0.5',
+        role: 'protocol_refund',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const facts = makeFacts({
+        journalKind: 'protocol_event',
+        postings: [
+          makePosting({
+            id: 1,
+            postingFingerprint: testCase.postingFingerprint,
+            quantity: testCase.quantity,
+            role: testCase.role,
+          }),
+        ],
+      });
+
+      const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+      expect(projection.events).toEqual([]);
+      expect(projection.blockers).toHaveLength(1);
+      const blocker = expectPostingBlocker(projection.blockers[0]);
+      expect(blocker).toMatchObject({
+        reason: 'unsupported_protocol_posting',
+        postingFingerprint: testCase.postingFingerprint,
+      });
+      expect(blocker.blockedQuantity.toFixed()).toBe(testCase.blockedQuantity);
+    }
   });
 
   it('blocks zero-quantity postings instead of aborting projection', () => {
@@ -438,6 +501,32 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(blocker.allocations[0]?.validationReasons).toEqual(['overallocated_posting']);
     expect(blocker.message).toContain('overallocates posting(s): posting:source');
     expect(blocker.message).toContain('blocked relationship posting allocation(s): posting:source, posting:target');
+  });
+
+  it('blocks protocol position postings in non-carryover relationships', () => {
+    const facts = makeTransferFacts({
+      relationshipKind: 'external_transfer',
+      source: { role: 'protocol_deposit' },
+      target: { role: 'protocol_refund' },
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.events).toEqual([]);
+    expect(projection.blockers).toHaveLength(1);
+    const blocker = expectRelationshipBlocker(projection.blockers[0]);
+    expect(blocker).toMatchObject({
+      reason: 'relationship_allocation_invalid',
+      relationshipStableKey: 'relationship:test',
+    });
+    expect(blocker.allocations.map((allocation) => [allocation.postingFingerprint, allocation.state])).toEqual([
+      ['posting:source', 'invalid_allocation'],
+      ['posting:target', 'invalid_allocation'],
+    ]);
+    expect(blocker.allocations.map((allocation) => allocation.validationReasons)).toEqual([
+      ['protocol_position_requires_basis_carryover_relationship'],
+      ['protocol_position_requires_basis_carryover_relationship'],
+    ]);
   });
 
   it('blocks relationship allocations that point at fee postings', () => {
