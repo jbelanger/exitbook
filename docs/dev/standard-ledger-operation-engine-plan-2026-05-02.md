@@ -102,15 +102,20 @@ Implementation rule:
 - use that helper for both taxable disposal and non-taxable carry paths
 - do not call a method named `matchDisposal` to implement carry
 
-Same-chain carry does not change tax lot state because `chainKey` is already
-taxpayer-wide and account is audit data only. It may produce carry audit records
-later, but it must not close and reopen lots in the same chain.
+Same-chain carry does not change tax lot state when source and target
+quantities balance per `chainKey`, because `chainKey` is already taxpayer-wide
+and account is audit data only. It may produce carry audit records later, but it
+must not close and reopen lots in the same chain. A carry relationship whose
+source and target chain sets match but whose per-chain quantities do not balance
+must block rather than silently mutate the same chain.
 
 Cross-chain carry opens target-chain lots from the selected source lot slices.
 The target lots inherit source cost basis and acquisition date. The carry
 operation date remains carry provenance, not the tax acquisition date.
 Carry audit slices must name source quantity and target quantity separately
-because asset migrations can change units.
+because asset migrations can change units. For multi-source/multi-target carry,
+the invariant is total basis conservation across the relationship, not raw
+source per-unit basis preservation when source and target units differ.
 
 ### Unknown Fee Attachment
 
@@ -170,16 +175,19 @@ Add invariant tests before wiring the workflow:
    `acquire + carryIn - dispose - carryOut == open quantity + fenced quantity`.
 2. Cross-chain basis conservation:
    basis removed from selected source lots equals basis added to target lots.
-3. Configured strategy controls cross-chain carry lot relief.
-4. Same-chain carry leaves lot state byte-identical.
-5. Unknown fee attachment produces an `op-only` blocker on the fee asset chain
+3. Multi-source/multi-target carry preserves total basis across all target lots.
+4. Configured strategy controls cross-chain carry lot relief.
+5. Same-chain carry leaves lot state byte-identical only when per-chain
+   quantities balance.
+6. Same-chain quantity mismatch blocks instead of closing and reopening lots.
+7. Unknown fee attachment produces an `op-only` blocker on the fee asset chain
    and does not alter principal-chain state.
-6. An after-fence blocker on chain A leaves chain B byte-identical.
-7. Missing-price acquisition does not block until consumed by a disposal.
-8. Missing-price carry preserves unresolved basis across source and target
-   chains.
-9. Operation input coverage: every operation is processed into state, audit
-   carry, fee blocker, or calculation blocker.
+8. An after-fence blocker on chain A leaves chain B byte-identical.
+9. Missing-price acquisition does not block until consumed by a disposal.
+10. Missing-price carry preserves unresolved basis across source and target
+    chains.
+11. Operation input coverage: every operation is processed into state, audit
+    carry, fee blocker, or calculation blocker.
 
 ## Implementation Order
 

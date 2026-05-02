@@ -111,6 +111,7 @@ export type StandardLedgerCalculationBlockerReason =
   | 'fee_treatment_unimplemented'
   | 'insufficient_lots'
   | 'missing_disposal_price'
+  | 'same_chain_carry_quantity_mismatch'
   | 'unknown_fee_attachment'
   | 'unresolved_basis_disposal'
   | 'unsupported_strategy'
@@ -145,6 +146,8 @@ type LotSelectionBlocker =
       reason: 'unsupported_strategy';
       strategyName: ReturnType<ICostBasisStrategy['getName']>;
     };
+
+type CarryChainBalance = 'cross-chain' | 'same-chain-balanced' | 'same-chain-quantity-mismatch';
 
 const ZERO = parseDecimal('0');
 
@@ -317,10 +320,9 @@ function processCarryOperation(
   const sourceChainKeys = dedupeSorted(operation.sourceLegs.map((leg) => leg.chainKey));
   const targetChainKeys = dedupeSorted(operation.targetLegs.map((leg) => leg.chainKey));
   const affectedChainKeys = dedupeSorted([...sourceChainKeys, ...targetChainKeys]);
-  const isSameChainCarry =
-    sourceChainKeys.length === 1 && targetChainKeys.length === 1 && sourceChainKeys[0] === targetChainKeys[0];
+  const chainBalance = classifyCarryChainBalance(operation);
 
-  if (isSameChainCarry) {
+  if (chainBalance === 'same-chain-balanced') {
     return {
       carry: {
         calculationId: input.calculationId,
@@ -333,6 +335,21 @@ function processCarryOperation(
         sourceLegs: operation.sourceLegs,
         targetLegs: operation.targetLegs,
       },
+    };
+  }
+
+  if (chainBalance === 'same-chain-quantity-mismatch') {
+    return {
+      blocker: buildOperationBlocker({
+        affectedChainKeys,
+        inputEventIds: operation.inputEventIds,
+        inputOperationIds: [operation.operationId],
+        message:
+          `Standard ledger carry ${operation.operationId} changes quantity within the same tax chain set; ` +
+          'relationship allocations must balance per chain or be modeled as an explicit cross-chain carry',
+        propagation: 'after-fence',
+        reason: 'same_chain_carry_quantity_mismatch',
+      }),
     };
   }
 
@@ -398,6 +415,8 @@ function processCarryOperation(
         continue;
       }
 
+      // Source slice identity drives target quantity; target leg share drives basis.
+      // This preserves total carry basis when source and target units differ.
       const targetCostBasis = slice.costBasis?.times(targetLeg.quantity).dividedBy(totalTargetQuantity);
       const targetLot = buildCarryTargetLot({
         acquisitionDate: slice.acquisitionDate,
@@ -462,6 +481,40 @@ function processFeeOperation(operation: LedgerCostBasisFeeOperation): StandardLe
     propagation: 'op-only',
     reason: 'fee_treatment_unimplemented',
   });
+}
+
+function classifyCarryChainBalance(operation: LedgerCostBasisCarryOperation): CarryChainBalance {
+  const sourceQuantityByChainKey = sumCarryLegQuantitiesByChainKey(operation.sourceLegs);
+  const targetQuantityByChainKey = sumCarryLegQuantitiesByChainKey(operation.targetLegs);
+  const sourceChainKeys = [...sourceQuantityByChainKey.keys()].sort();
+  const targetChainKeys = [...targetQuantityByChainKey.keys()].sort();
+
+  if (sourceChainKeys.length === 0 || targetChainKeys.length === 0) {
+    return 'cross-chain';
+  }
+
+  if (!areStringArraysEqual(sourceChainKeys, targetChainKeys)) {
+    return 'cross-chain';
+  }
+
+  for (const chainKey of sourceChainKeys) {
+    const sourceQuantity = sourceQuantityByChainKey.get(chainKey) ?? ZERO;
+    const targetQuantity = targetQuantityByChainKey.get(chainKey) ?? ZERO;
+    if (!sourceQuantity.eq(targetQuantity)) {
+      return 'same-chain-quantity-mismatch';
+    }
+  }
+
+  return 'same-chain-balanced';
+}
+
+function sumCarryLegQuantitiesByChainKey(legs: readonly LedgerCostBasisCarryLeg[]): ReadonlyMap<string, Decimal> {
+  const quantityByChainKey = new Map<string, Decimal>();
+  for (const leg of legs) {
+    quantityByChainKey.set(leg.chainKey, (quantityByChainKey.get(leg.chainKey) ?? ZERO).plus(leg.quantity));
+  }
+
+  return quantityByChainKey;
 }
 
 function buildAcquireLot(params: {
@@ -802,6 +855,10 @@ function compareStringArrays(left: readonly string[], right: readonly string[]):
   }
 
   return 0;
+}
+
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return compareStringArrays(left, right) === 0;
 }
 
 function dedupeSorted(values: readonly string[]): string[] {

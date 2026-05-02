@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   LedgerCostBasisAcquireOperation,
+  LedgerCostBasisCarryLeg,
   LedgerCostBasisCarryOperation,
   LedgerCostBasisDisposeOperation,
   LedgerCostBasisFeeOperation,
@@ -101,6 +102,86 @@ describe('runStandardLedgerOperationEngine', () => {
     ]);
   });
 
+  it('preserves total basis across multi-source multi-target cross-chain carry', () => {
+    const result = runEngine([
+      makeAcquire({
+        assetId: 'source:a',
+        assetSymbol: BTC,
+        chainKey: 'source:a',
+        operationId: 'op:buy-a',
+        price: '100',
+        quantity: '1',
+      }),
+      makeAcquire({
+        assetId: 'source:b',
+        assetSymbol: ETH,
+        chainKey: 'source:b',
+        operationId: 'op:buy-b',
+        price: '200',
+        quantity: '2',
+      }),
+      makeCarryWithLegs({
+        operationId: 'op:nm-carry',
+        relationshipKind: 'bridge',
+        sourceLegs: [
+          makeCarryLeg({ allocationId: 1, assetId: 'source:a', assetSymbol: BTC, chainKey: 'source:a', quantity: '1' }),
+          makeCarryLeg({ allocationId: 2, assetId: 'source:b', assetSymbol: ETH, chainKey: 'source:b', quantity: '2' }),
+        ],
+        targetLegs: [
+          makeCarryLeg({
+            allocationId: 3,
+            assetId: 'target:x',
+            assetSymbol: RENDER,
+            chainKey: 'target:x',
+            quantity: '3',
+          }),
+          makeCarryLeg({
+            allocationId: 4,
+            assetId: 'target:y',
+            assetSymbol: RENDER,
+            chainKey: 'target:y',
+            quantity: '9',
+          }),
+        ],
+      }),
+    ]);
+
+    expect(result.blockers).toEqual([]);
+    expect(result.carries).toHaveLength(1);
+    expect(
+      result.carries[0]?.slices.map((slice) => [
+        slice.sourceChainKey,
+        slice.targetChainKey,
+        slice.sourceQuantity.toFixed(),
+        slice.targetQuantity.toFixed(),
+        slice.costBasis?.toFixed(),
+      ])
+    ).toEqual([
+      ['source:a', 'target:x', '1', '1', '25'],
+      ['source:b', 'target:x', '2', '2', '100'],
+      ['source:a', 'target:y', '1', '3', '75'],
+      ['source:b', 'target:y', '2', '6', '300'],
+    ]);
+    expect(sum(result.carries[0]?.slices.map((slice) => slice.costBasis ?? parseDecimal('0')) ?? []).toFixed()).toBe(
+      '500'
+    );
+    expect(
+      sum(
+        result.lots
+          .filter((lot) => lot.chainKey.startsWith('target:'))
+          .map((lot) => lot.totalCostBasis ?? parseDecimal('0'))
+      ).toFixed()
+    ).toBe('500');
+    expect(
+      result.lots
+        .filter((lot) => lot.chainKey.startsWith('source:'))
+        .map((lot) => [lot.chainKey, lot.remainingQuantity.toFixed()])
+    ).toEqual([
+      ['source:a', '0'],
+      ['source:b', '0'],
+    ]);
+  });
+
   it('keeps same-chain carry from mutating lot state', () => {
     const acquire = makeAcquire({ operationId: 'op:buy', price: '100', quantity: '1' });
     const clean = runEngine([acquire]);
@@ -113,6 +194,54 @@ describe('runStandardLedgerOperationEngine', () => {
     expect(JSON.stringify(withCarry.lots)).toBe(JSON.stringify(clean.lots));
     expect(withCarry.carries.map((carry) => carry.kind)).toEqual(['same-chain']);
     expect(withCarry.carries[0]?.slices).toEqual([]);
+  });
+
+  it('keeps multi-leg same-chain carry from mutating lot state when quantities balance per chain', () => {
+    const acquire = makeAcquire({ operationId: 'op:buy', price: '100', quantity: '2' });
+    const clean = runEngine([acquire]);
+    const withCarry = runEngine([
+      acquire,
+      makeCarryWithLegs({
+        operationId: 'op:multi-same-chain',
+        sourceLegs: [
+          makeCarryLeg({ allocationId: 1, chainKey: 'btc', quantity: '0.75' }),
+          makeCarryLeg({ allocationId: 2, chainKey: 'btc', quantity: '1.25' }),
+        ],
+        targetLegs: [
+          makeCarryLeg({ allocationId: 3, chainKey: 'btc', quantity: '1' }),
+          makeCarryLeg({ allocationId: 4, chainKey: 'btc', quantity: '1' }),
+        ],
+      }),
+    ]);
+
+    expect(withCarry.blockers).toEqual([]);
+    expect(JSON.stringify(withCarry.lots)).toBe(JSON.stringify(clean.lots));
+    expect(withCarry.carries.map((carry) => carry.kind)).toEqual(['same-chain']);
+    expect(withCarry.carries[0]?.slices).toEqual([]);
+  });
+
+  it('blocks same-chain carry when source and target quantities do not balance per chain', () => {
+    const acquire = makeAcquire({ operationId: 'op:buy', price: '100', quantity: '2' });
+    const result = runEngine([
+      acquire,
+      makeCarryWithLegs({
+        operationId: 'op:mismatched-same-chain',
+        sourceLegs: [makeCarryLeg({ allocationId: 1, chainKey: 'btc', quantity: '2' })],
+        targetLegs: [makeCarryLeg({ allocationId: 2, chainKey: 'btc', quantity: '1.5' })],
+      }),
+    ]);
+
+    expect(result.carries).toEqual([]);
+    expect(result.blockers).toMatchObject([
+      {
+        affectedChainKeys: ['btc'],
+        propagation: 'after-fence',
+        reason: 'same_chain_carry_quantity_mismatch',
+      },
+    ]);
+    expect(result.lots.map((lot) => [lot.id, lot.remainingQuantity.toFixed()])).toEqual([
+      ['standard-ledger-lot:op:buy', '2'],
+    ]);
   });
 
   it('keeps unknown fee attachment scoped to the fee asset chain', () => {
@@ -385,48 +514,91 @@ function makeCarry(overrides: {
 }): LedgerCostBasisCarryOperation {
   const operationId = overrides.operationId ?? 'op:carry';
   const timestamp = new Date(overrides.timestamp ?? '2026-01-02T00:00:00.000Z');
+  return makeCarryWithLegs({
+    operationId,
+    relationshipKind: overrides.relationshipKind ?? 'internal_transfer',
+    sourceLegs: [
+      makeCarryLeg({
+        allocationId: 1,
+        assetId: overrides.sourceAssetId ?? 'blockchain:bitcoin:native',
+        assetSymbol: overrides.sourceAssetSymbol ?? BTC,
+        chainKey: overrides.sourceChainKey ?? 'btc',
+        ownerAccountId: 1,
+        postingFingerprint: `posting:${operationId}:source`,
+        quantity: parseDecimal(overrides.sourceQuantity ?? '1'),
+        sourceEventId: `event:${operationId}:source`,
+        sourceActivityFingerprint: `activity:${operationId}:source`,
+        timestamp,
+      }),
+    ],
+    targetLegs: [
+      makeCarryLeg({
+        allocationId: 2,
+        assetId: overrides.targetAssetId ?? 'blockchain:bitcoin:native',
+        assetSymbol: overrides.targetAssetSymbol ?? BTC,
+        chainKey: overrides.targetChainKey ?? 'btc',
+        ownerAccountId: 2,
+        postingFingerprint: `posting:${operationId}:target`,
+        quantity: parseDecimal(overrides.targetQuantity ?? overrides.sourceQuantity ?? '1'),
+        sourceEventId: `event:${operationId}:target`,
+        sourceActivityFingerprint: `activity:${operationId}:target`,
+        timestamp,
+      }),
+    ],
+    timestamp,
+  });
+}
+
+function makeCarryWithLegs(overrides: {
+  operationId?: string | undefined;
+  relationshipKind?: AccountingJournalRelationshipKind | undefined;
+  sourceLegs: readonly LedgerCostBasisCarryLeg[];
+  targetLegs: readonly LedgerCostBasisCarryLeg[];
+  timestamp?: Date | undefined;
+}): LedgerCostBasisCarryOperation {
+  const operationId = overrides.operationId ?? 'op:carry';
+  const timestamp = overrides.timestamp ?? new Date('2026-01-02T00:00:00.000Z');
   return {
-    inputEventIds: [`event:${operationId}:source`, `event:${operationId}:target`],
+    inputEventIds: [...overrides.sourceLegs, ...overrides.targetLegs].map((leg) => leg.sourceEventId),
     kind: 'carry',
     operationId,
     relationshipBasisTreatment: 'carry_basis',
     relationshipKind: overrides.relationshipKind ?? 'internal_transfer',
     relationshipStableKey: `relationship:${operationId}`,
-    sourceLegs: [
-      {
-        allocationId: 1,
-        assetId: overrides.sourceAssetId ?? 'blockchain:bitcoin:native',
-        assetSymbol: overrides.sourceAssetSymbol ?? BTC,
-        chainKey: overrides.sourceChainKey ?? 'btc',
-        journalFingerprint: `journal:${operationId}:source`,
-        journalKind: 'transfer',
-        ownerAccountId: 1,
-        postingFingerprint: `posting:${operationId}:source`,
-        postingRole: 'principal',
-        quantity: parseDecimal(overrides.sourceQuantity ?? '1'),
-        sourceActivityFingerprint: `activity:${operationId}:source`,
-        sourceEventId: `event:${operationId}:source`,
-        timestamp,
-      },
-    ],
-    targetLegs: [
-      {
-        allocationId: 2,
-        assetId: overrides.targetAssetId ?? 'blockchain:bitcoin:native',
-        assetSymbol: overrides.targetAssetSymbol ?? BTC,
-        chainKey: overrides.targetChainKey ?? 'btc',
-        journalFingerprint: `journal:${operationId}:target`,
-        journalKind: 'transfer',
-        ownerAccountId: 2,
-        postingFingerprint: `posting:${operationId}:target`,
-        postingRole: 'principal',
-        quantity: parseDecimal(overrides.targetQuantity ?? overrides.sourceQuantity ?? '1'),
-        sourceActivityFingerprint: `activity:${operationId}:target`,
-        sourceEventId: `event:${operationId}:target`,
-        timestamp,
-      },
-    ],
+    sourceLegs: overrides.sourceLegs,
+    targetLegs: overrides.targetLegs,
     timestamp,
+  };
+}
+
+function makeCarryLeg(
+  overrides: Omit<Partial<LedgerCostBasisCarryLeg>, 'allocationId' | 'assetSymbol' | 'quantity' | 'timestamp'> & {
+    allocationId: number;
+    assetSymbol?: Currency | undefined;
+    quantity: string | ReturnType<typeof parseDecimal>;
+    timestamp?: Date | string | undefined;
+  }
+): LedgerCostBasisCarryLeg {
+  const timestamp =
+    overrides.timestamp instanceof Date
+      ? overrides.timestamp
+      : new Date(overrides.timestamp ?? '2026-01-02T00:00:00.000Z');
+  const quantity = typeof overrides.quantity === 'string' ? parseDecimal(overrides.quantity) : overrides.quantity;
+  return {
+    allocationId: overrides.allocationId,
+    assetId: overrides.assetId ?? 'blockchain:bitcoin:native',
+    assetSymbol: overrides.assetSymbol ?? BTC,
+    chainKey: overrides.chainKey ?? 'btc',
+    journalFingerprint: overrides.journalFingerprint ?? `journal:carry:${overrides.allocationId}`,
+    journalKind: overrides.journalKind ?? 'transfer',
+    ownerAccountId: overrides.ownerAccountId ?? 1,
+    postingFingerprint: overrides.postingFingerprint ?? `posting:carry:${overrides.allocationId}`,
+    postingRole: overrides.postingRole ?? 'principal',
+    quantity,
+    sourceActivityFingerprint: overrides.sourceActivityFingerprint ?? `activity:carry:${overrides.allocationId}`,
+    sourceEventId: overrides.sourceEventId ?? `event:carry:${overrides.allocationId}`,
+    timestamp,
+    ...(overrides.priceAtTxTime === undefined ? {} : { priceAtTxTime: overrides.priceAtTxTime }),
   };
 }
 
