@@ -381,6 +381,8 @@ describe('projectLedgerCostBasisEvents', () => {
       ['posting:target', 'blocked_by_relationship'],
     ]);
     expect(blocker.allocations[0]?.validationReasons).toEqual(['overallocated_posting']);
+    expect(blocker.message).toContain('overallocates posting(s): posting:source');
+    expect(blocker.message).toContain('blocked relationship posting allocation(s): posting:source, posting:target');
   });
 
   it('blocks relationship allocations that point at fee postings', () => {

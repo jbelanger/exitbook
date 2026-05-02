@@ -255,21 +255,7 @@ function projectLedgerPostingCostBasisEvents(
   let allocatedQuantity = posting.quantity.abs().times(0);
 
   for (const allocationContext of allocations) {
-    const allocationValidation = validateRelationshipAllocationDirection(context, allocationContext);
-    if (allocationValidation.isErr()) {
-      return err(allocationValidation.error);
-    }
-
     allocatedQuantity = allocatedQuantity.plus(allocationContext.allocation.quantity);
-    if (allocatedQuantity.gt(posting.quantity.abs())) {
-      return err(
-        new Error(
-          `Ledger cost-basis posting ${posting.postingFingerprint} is over-allocated by relationships: ` +
-            `${allocatedQuantity.toFixed()} allocated for ${posting.quantity.abs().toFixed()} posting quantity`
-        )
-      );
-    }
-
     events.push(projectRelationshipAllocationEvent(context, allocationContext));
   }
 
@@ -445,7 +431,7 @@ function findRelationshipProjectionIntegrity(
   const blockers: LedgerCostBasisRelationshipBlocker[] = [];
   const blockedRelationshipStableKeys = new Set<string>();
   const blockedPostingFingerprints = new Set<string>();
-  const validRelationshipAllocations: {
+  const pendingRelationshipAllocations: {
     allocationIntegrity: readonly RelationshipAllocationIntegrity[];
     relationship: CostBasisLedgerRelationship;
   }[] = [];
@@ -471,7 +457,7 @@ function findRelationshipProjectionIntegrity(
     const hasInvalidAllocation = invalidAllocations.length > 0;
     const hasPartialExclusion = excludedAllocations.length > 0 && nonExcludedPresentAllocations.length > 0;
     if (!hasMissingAllocation && !hasMismatchedAllocation && !hasInvalidAllocation && !hasPartialExclusion) {
-      validRelationshipAllocations.push({ allocationIntegrity, relationship });
+      pendingRelationshipAllocations.push({ allocationIntegrity, relationship });
       continue;
     }
 
@@ -499,11 +485,11 @@ function findRelationshipProjectionIntegrity(
   }
 
   const overallocatedPostingFingerprints = findOverallocatedPostingFingerprints(
-    validRelationshipAllocations,
+    pendingRelationshipAllocations,
     contextByPostingFingerprint
   );
   if (overallocatedPostingFingerprints.size > 0) {
-    for (const { allocationIntegrity, relationship } of validRelationshipAllocations) {
+    for (const { allocationIntegrity, relationship } of pendingRelationshipAllocations) {
       const overallocatedAllocations = allocationIntegrity.filter((allocation) =>
         overallocatedPostingFingerprints.has(allocation.allocation.postingFingerprint)
       );
@@ -637,7 +623,13 @@ function buildRelationshipBlockerMessage(params: {
     const overallocatedPostingFingerprints = params.overallocatedAllocations
       .map(({ allocation }) => allocation.postingFingerprint)
       .join(', ');
-    return `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} overallocates posting(s): ${overallocatedPostingFingerprints}`;
+    const blockedPostingFingerprints = [...params.overallocatedAllocations, ...params.validAllocations]
+      .map(({ allocation }) => allocation.postingFingerprint)
+      .join(', ');
+    return (
+      `Ledger cost-basis relationship ${params.relationship.relationshipStableKey} overallocates posting(s): ` +
+      `${overallocatedPostingFingerprints}; blocked relationship posting allocation(s): ${blockedPostingFingerprints}`
+    );
   }
 
   const excludedPostingFingerprints = params.excludedAllocations
@@ -805,47 +797,6 @@ function buildExcludedPosting(context: LedgerPostingContext): LedgerCostBasisExc
     postingQuantity: posting.quantity,
     message: `Ledger cost-basis posting ${posting.postingFingerprint} is excluded by accepted asset exclusion ${posting.assetId}`,
   };
-}
-
-function validateRelationshipAllocationDirection(
-  context: LedgerPostingContext,
-  allocationContext: RelationshipAllocationContext
-): Result<void, Error> {
-  const { allocation, relationship } = allocationContext;
-  const { posting } = context;
-
-  if (allocation.quantity.lte(0)) {
-    return err(new Error(`Ledger relationship allocation ${allocation.id} quantity must be positive`));
-  }
-
-  if (allocation.assetId !== posting.assetId) {
-    return err(
-      new Error(
-        `Ledger relationship ${relationship.relationshipStableKey} allocation ${allocation.id} asset ` +
-          `${allocation.assetId} does not match posting ${posting.postingFingerprint} asset ${posting.assetId}`
-      )
-    );
-  }
-
-  if (allocation.allocationSide === 'source' && posting.quantity.gt(0)) {
-    return err(
-      new Error(
-        `Ledger relationship ${relationship.relationshipStableKey} source allocation ${allocation.id} ` +
-          `points at positive posting ${posting.postingFingerprint}`
-      )
-    );
-  }
-
-  if (allocation.allocationSide === 'target' && posting.quantity.lt(0)) {
-    return err(
-      new Error(
-        `Ledger relationship ${relationship.relationshipStableKey} target allocation ${allocation.id} ` +
-          `points at negative posting ${posting.postingFingerprint}`
-      )
-    );
-  }
-
-  return ok(undefined);
 }
 
 function resolveLedgerPostingContext(
