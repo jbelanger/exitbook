@@ -185,6 +185,7 @@ interface LedgerCostBasisCarryOperation {
   relationshipStableKey: string;
   relationshipKind: AccountingJournalRelationshipKind;
   relationshipBasisTreatment: 'carry_basis';
+  inputEventIds: readonly string[];
   sourceLegs: readonly LedgerCostBasisCarryLeg[];
   targetLegs: readonly LedgerCostBasisCarryLeg[];
 }
@@ -261,6 +262,7 @@ interface LedgerCostBasisOperationBlocker {
   reason: string;
   propagation: LedgerCostBasisOperationBlockerPropagation;
   affectedChainKeys: readonly string[];
+  inputEventIds: readonly string[];
   sourceProjectionBlocker?: LedgerCostBasisProjectionBlocker | undefined;
   message: string;
 }
@@ -292,7 +294,9 @@ Add focused unit tests before adapting either calculator:
 1. Determinism: identical projection plus identity config produces byte-identical
    operation JSON after stable serialization.
 2. Event coverage: every projected event is consumed exactly once by an
-   operation or operation blocker.
+   operation or operation blocker. Single-posting operations expose
+   `sourceEventId`; carry operations and operation blockers expose
+   `inputEventIds`.
 3. Positive quantities: all operations and carry legs have positive quantities.
 4. Tax identity chain key: exchange and blockchain-native assets resolve to
    symbol identity, blockchain non-native tokens resolve to asset id, and

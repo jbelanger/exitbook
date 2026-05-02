@@ -63,6 +63,22 @@ export {
   type LedgerCostBasisFeeAttachmentUnknownReason,
 } from './cost-basis/ledger/ledger-cost-basis-fee-attachment.js';
 export {
+  buildLedgerCostBasisOperations,
+  type BuildLedgerCostBasisOperationsInput,
+  type LedgerCostBasisAcquireOperation,
+  type LedgerCostBasisCarryLeg,
+  type LedgerCostBasisCarryOperation,
+  type LedgerCostBasisDisposeOperation,
+  type LedgerCostBasisFeeOperation,
+  type LedgerCostBasisOperation,
+  type LedgerCostBasisOperationBlocker,
+  type LedgerCostBasisOperationBlockerPropagation,
+  type LedgerCostBasisOperationBlockerReason,
+  type LedgerCostBasisOperationIdentityConfig,
+  type LedgerCostBasisOperationProjection,
+  type LedgerCostBasisOperationRelationshipContext,
+} from './cost-basis/ledger/ledger-cost-basis-operation-projection.js';
+export {
   projectLedgerCostBasisEvents,
   type LedgerCostBasisEventProjection,
   type LedgerCostBasisExcludedPosting,
