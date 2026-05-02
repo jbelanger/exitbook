@@ -54,6 +54,34 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.25');
   });
 
+  it('projects opening positions as acquisition events with opening provenance', () => {
+    const facts = makeFacts({
+      journalKind: 'opening_balance',
+      postings: [
+        makePosting({
+          id: 1,
+          postingFingerprint: 'posting:btc-opening',
+          quantity: '2',
+          role: 'opening_position',
+        }),
+      ],
+    });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.blockers).toEqual([]);
+    expect(projection.events).toMatchObject([
+      {
+        journalKind: 'opening_balance',
+        kind: 'acquisition',
+        postingFingerprint: 'posting:btc-opening',
+        postingRole: 'opening_position',
+      },
+    ]);
+    expect(projection.events[0]?.priceAtTxTime).toBeUndefined();
+    expect(projection.events[0]?.quantity.toFixed()).toBe('2');
+  });
+
   it('omits accepted excluded assets from input events and reports skipped postings', () => {
     const excludedAssetId = 'blockchain:ethereum:0xspam';
     const facts = makeFacts({

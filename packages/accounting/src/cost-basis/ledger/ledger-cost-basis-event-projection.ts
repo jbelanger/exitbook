@@ -1,6 +1,6 @@
 import type { PriceAtTxTime } from '@exitbook/core';
 import { err, ok, type Currency, type Result } from '@exitbook/foundation';
-import type { AccountingJournalRelationshipKind } from '@exitbook/ledger';
+import type { AccountingJournalKind, AccountingJournalRelationshipKind, AccountingPostingRole } from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
 
 import type {
@@ -74,7 +74,9 @@ export interface LedgerCostBasisInputEvent {
   kind: LedgerCostBasisInputEventKind;
   sourceActivityFingerprint: string;
   journalFingerprint: string;
+  journalKind: AccountingJournalKind;
   postingFingerprint: string;
+  postingRole: AccountingPostingRole;
   timestamp: Date;
   assetId: string;
   assetSymbol: Currency;
@@ -387,7 +389,9 @@ function buildPostingEvent(
     kind,
     sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
     journalFingerprint: journal.journalFingerprint,
+    journalKind: journal.journalKind,
     postingFingerprint: posting.postingFingerprint,
+    postingRole: posting.role,
     timestamp: sourceActivity.activityDatetime,
     assetId: posting.assetId,
     assetSymbol: posting.assetSymbol,

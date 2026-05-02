@@ -1172,10 +1172,13 @@ Cost-basis migration model:
   asset exclusions are explicit projector input; excluded postings are reported
   for audit and do not emit cost-basis input events. Zero-quantity postings
   block explicitly. Fee-like cost postings without settlement block explicitly.
-  Relationship-level integrity blockers catch accepted allocations that no
-  longer point at loaded postings, that no longer match their loaded posting
-  metadata, that are structurally invalid or overallocated, that point at cost
-  postings such as fees, or that mix excluded and non-excluded postings.
+  Projected events retain `journalKind` and `postingRole` so an
+  `opening_balance` / `opening_position` lot stays an acquisition event without
+  losing opening provenance. Relationship-level integrity blockers catch
+  accepted allocations that no longer point at loaded postings, that no longer
+  match their loaded posting metadata, that are structurally invalid or
+  overallocated, that point at cost postings such as fees, or that mix excluded
+  and non-excluded postings.
 - Next implementation slice after event projection: adapt standard or Canada
   calculation behind this event model only after the calculation boundary
   handles projection blockers and excluded-posting audit output deliberately.
