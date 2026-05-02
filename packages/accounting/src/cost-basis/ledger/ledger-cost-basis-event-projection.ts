@@ -1,6 +1,11 @@
 import type { PriceAtTxTime } from '@exitbook/core';
 import { err, ok, type Currency, type Result } from '@exitbook/foundation';
-import type { AccountingJournalKind, AccountingJournalRelationshipKind, AccountingPostingRole } from '@exitbook/ledger';
+import type {
+  AccountingJournalKind,
+  AccountingJournalRelationshipKind,
+  AccountingPostingRole,
+  AccountingSettlement,
+} from '@exitbook/ledger';
 import { Decimal } from 'decimal.js';
 
 import type {
@@ -82,6 +87,7 @@ export interface LedgerCostBasisInputEvent {
   assetSymbol: Currency;
   quantity: Decimal;
   priceAtTxTime?: PriceAtTxTime | undefined;
+  settlement?: AccountingSettlement | undefined;
   relationshipStableKey?: string | undefined;
   relationshipKind?: AccountingJournalRelationshipKind | undefined;
   relationshipBasisTreatment?: LedgerCostBasisRelationshipBasisTreatment | undefined;
@@ -413,6 +419,7 @@ function buildPostingEvent(
     assetSymbol: posting.assetSymbol,
     quantity,
     priceAtTxTime: posting.priceAtTxTime,
+    ...(posting.settlement === undefined ? {} : { settlement: posting.settlement }),
     ...(relationship?.relationshipAllocationId === undefined
       ? {}
       : { relationshipAllocationId: relationship.relationshipAllocationId }),

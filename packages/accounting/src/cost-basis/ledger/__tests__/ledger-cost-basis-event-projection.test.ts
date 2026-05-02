@@ -218,6 +218,7 @@ describe('projectLedgerCostBasisEvents', () => {
 
     expect(projection.blockers).toEqual([]);
     expect(projection.events.map((event) => event.kind)).toEqual(['fee']);
+    expect(projection.events[0]?.settlement).toBe('on-chain');
     expect(projection.events[0]?.quantity.toFixed()).toBe('0.01');
   });
 
