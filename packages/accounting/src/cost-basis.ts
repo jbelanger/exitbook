@@ -157,6 +157,11 @@ export type {
   ConvertedLotTransfer,
 } from './cost-basis/model/report-types.js';
 export {
+  runStandardLedgerOperationPipeline,
+  type RunStandardLedgerOperationPipelineInput,
+  type StandardLedgerOperationPipelineResult,
+} from './cost-basis/standard/operation-engine/standard-ledger-operation-pipeline.js';
+export {
   runStandardLedgerOperationEngine,
   type RunStandardLedgerOperationEngineInput,
   type StandardLedgerBasisStatus,

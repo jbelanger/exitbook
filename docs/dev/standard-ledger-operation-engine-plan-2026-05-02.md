@@ -190,7 +190,9 @@ Add invariant tests before wiring the workflow:
 4. Add unresolved-basis lot state and disposal-time fencing.
 5. Implement same-chain and cross-chain carry.
 6. Add fee operation blockers; do not add fee tax math yet.
-7. Wire a non-Canada workflow path only after the operation engine invariants
+7. Add a ledger-native operation pipeline that composes event projection,
+   operation projection, strategy selection, and engine execution.
+8. Wire a non-Canada workflow path only after the operation engine invariants
    are green.
 
 ## Smells To Watch
