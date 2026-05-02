@@ -1,7 +1,7 @@
 import type { PriceAtTxTime } from '@exitbook/core';
 import { err, ok, type Currency, type Result } from '@exitbook/foundation';
 import type { AccountingJournalRelationshipKind } from '@exitbook/ledger';
-import type { Decimal } from 'decimal.js';
+import { Decimal } from 'decimal.js';
 
 import type {
   CostBasisLedgerFacts,
@@ -252,7 +252,7 @@ function projectLedgerPostingCostBasisEvents(
   }
 
   const events: LedgerCostBasisInputEvent[] = [];
-  let allocatedQuantity = posting.quantity.abs().times(0);
+  let allocatedQuantity = new Decimal(0);
 
   for (const allocationContext of allocations) {
     allocatedQuantity = allocatedQuantity.plus(allocationContext.allocation.quantity);
@@ -715,8 +715,7 @@ function findOverallocatedPostingFingerprints(
       }
 
       const currentQuantity =
-        allocatedQuantityByPostingFingerprint.get(allocation.allocation.postingFingerprint) ??
-        allocation.allocation.quantity.times(0);
+        allocatedQuantityByPostingFingerprint.get(allocation.allocation.postingFingerprint) ?? new Decimal(0);
       allocatedQuantityByPostingFingerprint.set(
         allocation.allocation.postingFingerprint,
         currentQuantity.plus(allocation.allocation.quantity)
