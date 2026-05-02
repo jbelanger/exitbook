@@ -3,6 +3,10 @@ import type { Decimal } from 'decimal.js';
 
 import type { CostBasisMethod } from '../jurisdictions/jurisdiction-configs.js';
 import type { AcquisitionLot, LotTransfer } from '../model/types.js';
+import type {
+  StandardLedgerCarry,
+  StandardLedgerLotProvenance,
+} from '../standard/operation-engine/standard-ledger-operation-engine.js';
 
 export interface CostBasisFilingTaxTreatmentSummary {
   taxTreatmentCategory: string;
@@ -50,12 +54,22 @@ interface CostBasisFilingAcquisitionFactBase extends CostBasisFilingFactAssetIde
   remainingQuantity: Decimal;
   totalCostBasis: Decimal;
   costBasisPerUnit: Decimal;
-  transactionId: number;
 }
 
 export interface StandardCostBasisAcquisitionFilingFact extends CostBasisFilingAcquisitionFactBase {
   kind: 'standard-acquisition';
   assetId: string;
+  transactionId: number;
+  status: AcquisitionLot['status'];
+}
+
+export interface StandardLedgerCostBasisAcquisitionFilingFact extends CostBasisFilingAcquisitionFactBase {
+  kind: 'standard-ledger-acquisition';
+  assetId: string;
+  chainKey: string;
+  operationId: string;
+  sourceEventId: string;
+  provenance: StandardLedgerLotProvenance;
   status: AcquisitionLot['status'];
 }
 
@@ -63,6 +77,7 @@ export interface CanadaCostBasisAcquisitionFilingFact extends CostBasisFilingAcq
   kind: 'canada-acquisition';
   acquisitionEventId: string;
   taxPropertyKey: string;
+  transactionId: number;
   remainingAllocatedCostBasis: Decimal;
 }
 
@@ -94,6 +109,20 @@ export interface StandardCostBasisDispositionFilingFact extends CostBasisFilingD
   lossDisallowed: boolean;
 }
 
+export interface StandardLedgerCostBasisDispositionFilingFact extends CostBasisFilingDispositionFactBase {
+  kind: 'standard-ledger-disposition';
+  assetId: string;
+  chainKey: string;
+  disposalId: string;
+  operationId: string;
+  sourceLotId: string;
+  acquiredAt: Date;
+  holdingPeriodDays: number;
+  grossProceeds: Decimal;
+  lossDisallowed: false;
+  sliceIndex: number;
+}
+
 export interface CanadaCostBasisDispositionFilingFact extends CostBasisFilingDispositionFactBase {
   kind: 'canada-disposition';
   dispositionEventId: string;
@@ -119,6 +148,20 @@ export interface StandardCostBasisTransferFilingFact extends CostBasisFilingTran
   linkedConfirmedLinkId?: number | undefined;
   sourceAcquiredAt?: Date | undefined;
   sameAssetFeeAmount?: Decimal | undefined;
+}
+
+export interface StandardLedgerCostBasisTransferFilingFact extends CostBasisFilingTransferFactBase {
+  kind: 'standard-ledger-transfer';
+  assetId: string;
+  operationId: string;
+  relationshipKind: StandardLedgerCarry['relationshipKind'];
+  relationshipStableKey: string;
+  sourceChainKey: string;
+  sourceLotId?: string | undefined;
+  sourceQuantity: Decimal;
+  targetChainKey: string;
+  targetLotId?: string | undefined;
+  targetQuantity: Decimal;
 }
 
 export interface CanadaCostBasisTransferFilingFact extends CostBasisFilingTransferFactBase {
@@ -147,13 +190,18 @@ export interface CanadaSuperficialLossAdjustmentFilingFact extends CostBasisFili
 
 export type CostBasisFilingAcquisitionFact =
   | StandardCostBasisAcquisitionFilingFact
+  | StandardLedgerCostBasisAcquisitionFilingFact
   | CanadaCostBasisAcquisitionFilingFact;
 
 export type CostBasisFilingDispositionFact =
   | StandardCostBasisDispositionFilingFact
+  | StandardLedgerCostBasisDispositionFilingFact
   | CanadaCostBasisDispositionFilingFact;
 
-export type CostBasisFilingTransferFact = StandardCostBasisTransferFilingFact | CanadaCostBasisTransferFilingFact;
+export type CostBasisFilingTransferFact =
+  | StandardCostBasisTransferFilingFact
+  | StandardLedgerCostBasisTransferFilingFact
+  | CanadaCostBasisTransferFilingFact;
 
 interface CostBasisFilingFactsBase {
   calculationId: string;
@@ -174,6 +222,13 @@ export interface StandardCostBasisFilingFacts extends CostBasisFilingFactsBase {
   transfers: StandardCostBasisTransferFilingFact[];
 }
 
+export interface StandardLedgerCostBasisFilingFacts extends CostBasisFilingFactsBase {
+  kind: 'standard-ledger';
+  acquisitions: StandardLedgerCostBasisAcquisitionFilingFact[];
+  dispositions: StandardLedgerCostBasisDispositionFilingFact[];
+  transfers: StandardLedgerCostBasisTransferFilingFact[];
+}
+
 export interface CanadaCostBasisFilingFacts extends CostBasisFilingFactsBase {
   kind: 'canada';
   acquisitions: CanadaCostBasisAcquisitionFilingFact[];
@@ -182,4 +237,7 @@ export interface CanadaCostBasisFilingFacts extends CostBasisFilingFactsBase {
   superficialLossAdjustments: CanadaSuperficialLossAdjustmentFilingFact[];
 }
 
-export type CostBasisFilingFacts = StandardCostBasisFilingFacts | CanadaCostBasisFilingFacts;
+export type CostBasisFilingFacts =
+  | StandardCostBasisFilingFacts
+  | StandardLedgerCostBasisFilingFacts
+  | CanadaCostBasisFilingFacts;

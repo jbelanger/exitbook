@@ -1,5 +1,5 @@
 ---
-status: active-design
+status: active-implementation
 ---
 
 # Standard Ledger Operation Engine Plan
@@ -231,6 +231,8 @@ Add invariant tests before wiring the workflow:
 
 ## Implementation Order
 
+Completed:
+
 1. Add operation-native result and blocker types under
    `standard/operation-engine/`.
 2. Add lot-selection helper shared by disposal and carry code.
@@ -242,7 +244,17 @@ Add invariant tests before wiring the workflow:
    operation projection, strategy selection, and engine execution.
 8. Add ledger-native standard workflow result and artifact codec, without
    switching public filing/export consumers yet.
+
+In progress:
+
 9. Migrate standard filing facts and source coverage to ledger provenance.
+   - Ledger filing facts exist as a parallel builder.
+   - Ledger filing facts split operation-level disposals into per-lot-slice
+     disposition facts so holding period and tax treatment stay per lot.
+   - Source coverage is still transaction-shaped and remains pending.
+
+Remaining:
+
 10. Migrate US tax package rendering/readiness to ledger provenance.
 11. Wire the non-Canada workflow path through ledger facts once artifact and
     reporting consumers accept the ledger-native result.

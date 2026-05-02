@@ -117,8 +117,13 @@ export {
   StoredStandardCostBasisArtifactSchema,
 } from './cost-basis/artifacts/artifact-storage-schemas.js';
 export { buildCostBasisFilingFacts } from './cost-basis/filing-facts/filing-facts-builder.js';
+export { buildStandardLedgerCostBasisFilingFacts } from './cost-basis/filing-facts/standard-filing-facts-builder.js';
 export type {
   CanadaCostBasisFilingFacts,
+  StandardLedgerCostBasisAcquisitionFilingFact,
+  StandardLedgerCostBasisDispositionFilingFact,
+  StandardLedgerCostBasisFilingFacts,
+  StandardLedgerCostBasisTransferFilingFact,
   StandardCostBasisDispositionFilingFact,
   StandardCostBasisFilingFacts,
 } from './cost-basis/filing-facts/filing-facts-types.js';

@@ -1,6 +1,9 @@
 import { parseDecimal, type Currency } from '@exitbook/foundation';
 
-import type { CostBasisWorkflowResult } from '../../workflow/workflow-result-types.js';
+import type {
+  CostBasisWorkflowResult,
+  StandardLedgerCostBasisWorkflowResult,
+} from '../../workflow/workflow-result-types.js';
 
 export function createStandardWorkflowArtifact(
   overrides?: Partial<Extract<CostBasisWorkflowResult, { kind: 'standard-workflow' }>>
@@ -146,6 +149,211 @@ export function createStandardWorkflowArtifact(
       missingPricesCount: 0,
       missingPriceTransactionIds: [],
       retainedTransactionIds: [1, 2, 3, 4, 5],
+    },
+    ...overrides,
+  };
+}
+
+export function createStandardLedgerWorkflowArtifact(
+  overrides?: Partial<StandardLedgerCostBasisWorkflowResult>
+): StandardLedgerCostBasisWorkflowResult {
+  const calculationId = 'standard-ledger-calculation:test';
+
+  return {
+    kind: 'standard-ledger-workflow',
+    calculation: {
+      id: calculationId,
+      calculationDate: new Date('2026-03-15T12:00:00.000Z'),
+      config: {
+        method: 'fifo',
+        currency: 'USD',
+        jurisdiction: 'US',
+        taxYear: 2024,
+        startDate: new Date('2024-01-01T00:00:00.000Z'),
+        endDate: new Date('2024-12-31T23:59:59.999Z'),
+      },
+      startDate: new Date('2024-01-01T00:00:00.000Z'),
+      endDate: new Date('2024-12-31T23:59:59.999Z'),
+      totalProceeds: parseDecimal('600'),
+      totalCostBasis: parseDecimal('200'),
+      totalGainLoss: parseDecimal('400'),
+      totalTaxableGainLoss: parseDecimal('400'),
+      assetsProcessed: ['BTC'],
+      eventsProjected: 4,
+      operationsProcessed: 3,
+      lotsCreated: 3,
+      disposalsProcessed: 1,
+      blockersProduced: 0,
+      status: 'completed',
+      createdAt: new Date('2026-03-15T12:00:00.000Z'),
+      completedAt: new Date('2026-03-15T12:00:01.000Z'),
+    },
+    projection: {
+      eventIds: ['event:buy-old', 'event:buy-new', 'event:sell', 'event:carry-target'],
+      operationIds: ['operation:buy-old', 'operation:buy-new', 'operation:sell', 'operation:carry'],
+      projectionBlockers: [],
+      operationBlockers: [],
+      excludedPostings: [],
+      exclusionFingerprint: 'accounting-exclusions:none',
+    },
+    engineResult: {
+      lots: [
+        {
+          id: 'standard-ledger-lot:old',
+          calculationId,
+          chainKey: 'btc',
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC' as Currency,
+          basisStatus: 'priced',
+          costBasisPerUnit: parseDecimal('100'),
+          totalCostBasis: parseDecimal('100'),
+          originalQuantity: parseDecimal('1'),
+          remainingQuantity: parseDecimal('0'),
+          acquisitionDate: new Date('2023-01-01T00:00:00.000Z'),
+          provenance: {
+            kind: 'acquire-operation',
+            operationId: 'operation:buy-old',
+            sourceEventId: 'event:buy-old',
+          },
+        },
+        {
+          id: 'standard-ledger-lot:new',
+          calculationId,
+          chainKey: 'btc',
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC' as Currency,
+          basisStatus: 'priced',
+          costBasisPerUnit: parseDecimal('200'),
+          totalCostBasis: parseDecimal('200'),
+          originalQuantity: parseDecimal('1'),
+          remainingQuantity: parseDecimal('0.25'),
+          acquisitionDate: new Date('2024-07-01T00:00:00.000Z'),
+          provenance: {
+            kind: 'acquire-operation',
+            operationId: 'operation:buy-new',
+            sourceEventId: 'event:buy-new',
+          },
+        },
+        {
+          id: 'standard-ledger-lot:wrapped',
+          calculationId,
+          chainKey: 'ethereum:wbtc',
+          assetId: 'blockchain:ethereum:0xwbtc',
+          assetSymbol: 'BTC' as Currency,
+          basisStatus: 'priced',
+          costBasisPerUnit: parseDecimal('200'),
+          totalCostBasis: parseDecimal('50'),
+          originalQuantity: parseDecimal('0.25'),
+          remainingQuantity: parseDecimal('0.25'),
+          acquisitionDate: new Date('2024-07-01T00:00:00.000Z'),
+          provenance: {
+            kind: 'carry-operation',
+            operationId: 'operation:carry',
+            relationshipStableKey: 'relationship:bridge',
+            sourceLotId: 'standard-ledger-lot:new',
+            targetLegSourceEventId: 'event:carry-target',
+          },
+        },
+      ],
+      disposals: [
+        {
+          id: 'standard-ledger-disposal:sell',
+          calculationId,
+          operationId: 'operation:sell',
+          chainKey: 'btc',
+          assetId: 'blockchain:bitcoin:native',
+          assetSymbol: 'BTC' as Currency,
+          quantity: parseDecimal('1.5'),
+          grossProceeds: parseDecimal('600'),
+          costBasis: parseDecimal('200'),
+          gainLoss: parseDecimal('400'),
+          disposalDate: new Date('2024-11-01T00:00:00.000Z'),
+          slices: [
+            {
+              lotId: 'standard-ledger-lot:old',
+              quantity: parseDecimal('1'),
+              acquisitionDate: new Date('2023-01-01T00:00:00.000Z'),
+              basisStatus: 'priced',
+              costBasis: parseDecimal('100'),
+              costBasisPerUnit: parseDecimal('100'),
+            },
+            {
+              lotId: 'standard-ledger-lot:new',
+              quantity: parseDecimal('0.5'),
+              acquisitionDate: new Date('2024-07-01T00:00:00.000Z'),
+              basisStatus: 'priced',
+              costBasis: parseDecimal('100'),
+              costBasisPerUnit: parseDecimal('200'),
+            },
+          ],
+        },
+      ],
+      carries: [
+        {
+          id: 'standard-ledger-carry:bridge',
+          calculationId,
+          operationId: 'operation:carry',
+          kind: 'cross-chain',
+          relationshipKind: 'bridge',
+          relationshipStableKey: 'relationship:bridge',
+          slices: [
+            {
+              sourceChainKey: 'btc',
+              sourceLotId: 'standard-ledger-lot:new',
+              sourceQuantity: parseDecimal('0.25'),
+              targetChainKey: 'ethereum:wbtc',
+              targetLotId: 'standard-ledger-lot:wrapped',
+              targetQuantity: parseDecimal('0.25'),
+              basisStatus: 'priced',
+              costBasis: parseDecimal('50'),
+            },
+          ],
+          sourceLegs: [
+            {
+              allocationId: 1,
+              sourceEventId: 'event:carry-source',
+              timestamp: new Date('2024-08-01T00:00:00.000Z'),
+              sourceActivityFingerprint: 'activity:carry-source',
+              ownerAccountId: 1,
+              journalFingerprint: 'journal:carry-source',
+              journalKind: 'transfer',
+              postingFingerprint: 'posting:carry-source',
+              postingRole: 'principal',
+              chainKey: 'btc',
+              assetId: 'blockchain:bitcoin:native',
+              assetSymbol: 'BTC' as Currency,
+              quantity: parseDecimal('0.25'),
+            },
+          ],
+          targetLegs: [
+            {
+              allocationId: 2,
+              sourceEventId: 'event:carry-target',
+              timestamp: new Date('2024-08-01T00:00:00.000Z'),
+              sourceActivityFingerprint: 'activity:carry-target',
+              ownerAccountId: 1,
+              journalFingerprint: 'journal:carry-target',
+              journalKind: 'transfer',
+              postingFingerprint: 'posting:carry-target',
+              postingRole: 'principal',
+              chainKey: 'ethereum:wbtc',
+              assetId: 'blockchain:ethereum:0xwbtc',
+              assetSymbol: 'BTC' as Currency,
+              quantity: parseDecimal('0.25'),
+            },
+          ],
+        },
+      ],
+      blockers: [],
+    },
+    executionMeta: {
+      calculationBlockerIds: [],
+      eventIds: ['event:buy-old', 'event:buy-new', 'event:sell', 'event:carry-target'],
+      excludedPostingFingerprints: [],
+      exclusionFingerprint: 'accounting-exclusions:none',
+      operationBlockerIds: [],
+      operationIds: ['operation:buy-old', 'operation:buy-new', 'operation:sell', 'operation:carry'],
+      projectionBlockerMessages: [],
     },
     ...overrides,
   };

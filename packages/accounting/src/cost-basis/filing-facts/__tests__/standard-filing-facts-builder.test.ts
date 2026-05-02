@@ -2,9 +2,12 @@ import { parseDecimal, type Currency } from '@exitbook/foundation';
 import { assertErr, assertOk } from '@exitbook/foundation/test-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildStandardCostBasisFilingFacts } from '../standard-filing-facts-builder.js';
+import {
+  buildStandardCostBasisFilingFacts,
+  buildStandardLedgerCostBasisFilingFacts,
+} from '../standard-filing-facts-builder.js';
 
-import { createStandardWorkflowArtifact } from './test-utils.js';
+import { createStandardLedgerWorkflowArtifact, createStandardWorkflowArtifact } from './test-utils.js';
 
 describe('buildStandardCostBasisFilingFacts', () => {
   describe('happy path', () => {
@@ -556,5 +559,124 @@ describe('buildStandardCostBasisFilingFacts', () => {
       expect(error.message).toContain('ZZ');
       expect(error.message).toContain('not registered');
     });
+  });
+});
+
+describe('buildStandardLedgerCostBasisFilingFacts', () => {
+  it('builds ledger-native acquisition, disposition, and carry filing facts without transaction ids', () => {
+    const result = assertOk(
+      buildStandardLedgerCostBasisFilingFacts({
+        artifact: createStandardLedgerWorkflowArtifact(),
+        scopeKey: 'scope:standard-ledger',
+        snapshotId: 'snapshot:standard-ledger',
+      })
+    );
+
+    expect(result.kind).toBe('standard-ledger');
+    expect(result.calculationId).toBe('standard-ledger-calculation:test');
+    expect(result.scopeKey).toBe('scope:standard-ledger');
+    expect(result.snapshotId).toBe('snapshot:standard-ledger');
+    expect(result.acquisitions).toHaveLength(3);
+    expect(result.dispositions).toHaveLength(2);
+    expect(result.transfers).toHaveLength(1);
+    expect(JSON.stringify(result)).not.toContain('transactionId');
+
+    const carriedAcquisition = result.acquisitions.find(
+      (acquisition) => acquisition.id === 'standard-ledger-lot:wrapped'
+    );
+    expect(carriedAcquisition).toMatchObject({
+      kind: 'standard-ledger-acquisition',
+      chainKey: 'ethereum:wbtc',
+      operationId: 'operation:carry',
+      sourceEventId: 'event:carry-target',
+      status: 'open',
+    });
+    expect(carriedAcquisition?.totalCostBasis.toFixed()).toBe('50');
+
+    expect(
+      result.dispositions.map((disposition) => ({
+        id: disposition.id,
+        sourceLotId: disposition.sourceLotId,
+        totalProceeds: disposition.totalProceeds.toFixed(),
+        totalCostBasis: disposition.totalCostBasis.toFixed(),
+        gainLoss: disposition.gainLoss.toFixed(),
+        taxTreatmentCategory: disposition.taxTreatmentCategory,
+      }))
+    ).toEqual([
+      {
+        id: 'standard-ledger-disposal:sell:slice:1',
+        sourceLotId: 'standard-ledger-lot:old',
+        totalProceeds: '400',
+        totalCostBasis: '100',
+        gainLoss: '300',
+        taxTreatmentCategory: 'long_term',
+      },
+      {
+        id: 'standard-ledger-disposal:sell:slice:2',
+        sourceLotId: 'standard-ledger-lot:new',
+        totalProceeds: '200',
+        totalCostBasis: '100',
+        gainLoss: '100',
+        taxTreatmentCategory: 'short_term',
+      },
+    ]);
+
+    const transfer = result.transfers[0]!;
+    expect(transfer).toMatchObject({
+      kind: 'standard-ledger-transfer',
+      operationId: 'operation:carry',
+      relationshipKind: 'bridge',
+      relationshipStableKey: 'relationship:bridge',
+      sourceChainKey: 'btc',
+      targetChainKey: 'ethereum:wbtc',
+      sourceLotId: 'standard-ledger-lot:new',
+      targetLotId: 'standard-ledger-lot:wrapped',
+    });
+    expect(transfer.totalCostBasis.toFixed()).toBe('50');
+    expect(transfer.costBasisPerUnit.toFixed()).toBe('200');
+  });
+
+  it('fails closed when ledger calculation blockers remain', () => {
+    const artifact = createStandardLedgerWorkflowArtifact({
+      engineResult: {
+        ...createStandardLedgerWorkflowArtifact().engineResult,
+        blockers: [
+          {
+            blockerId: 'standard-ledger-calculation-blocker:test',
+            reason: 'unknown_fee_attachment',
+            propagation: 'op-only',
+            affectedChainKeys: ['btc'],
+            inputEventIds: ['event:fee'],
+            inputOperationIds: ['operation:fee'],
+            message: 'fee attachment unresolved',
+          },
+        ],
+      },
+    });
+
+    const error = assertErr(buildStandardLedgerCostBasisFilingFacts({ artifact }));
+    expect(error.message).toContain('calculation blockers remain');
+    expect(error.message).toContain('standard-ledger-calculation-blocker:test');
+  });
+
+  it('fails closed for unresolved-basis ledger lots', () => {
+    const base = createStandardLedgerWorkflowArtifact();
+    const artifact = createStandardLedgerWorkflowArtifact({
+      engineResult: {
+        ...base.engineResult,
+        lots: [
+          {
+            ...base.engineResult.lots[0]!,
+            basisStatus: 'unresolved',
+            costBasisPerUnit: undefined,
+            totalCostBasis: undefined,
+          },
+          ...base.engineResult.lots.slice(1),
+        ],
+      },
+    });
+
+    const error = assertErr(buildStandardLedgerCostBasisFilingFacts({ artifact }));
+    expect(error.message).toContain('unresolved-basis standard ledger lot standard-ledger-lot:old');
   });
 });
