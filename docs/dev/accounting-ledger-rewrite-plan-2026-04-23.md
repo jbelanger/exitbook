@@ -1174,6 +1174,13 @@ Cost-basis migration model:
   block explicitly. Fee-like cost postings without settlement block explicitly.
   Protocol position postings block unless accepted relationships explicitly
   carry basis.
+  Relationship `kind` remains the semantic operation; the projector reads a
+  cost-basis-owned relationship treatment classifier (`carry_basis` or
+  `dispose_and_acquire`) instead of treating kind itself as basis truth. The
+  treatment is derived from kind for now, not persisted separately, so the model
+  does not carry duplicate relationship truth before override UX needs it.
+  Relationship-derived input events include the derived treatment so calculators
+  do not need to infer it from kind.
   Projected events retain `journalKind` and `postingRole` so an
   `opening_balance` / `opening_position` lot stays an acquisition event without
   losing opening provenance. Relationship-level integrity blockers catch

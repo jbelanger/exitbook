@@ -50,6 +50,10 @@ export {
   getCostBasisRebuildTransactions,
 } from './cost-basis/workflow/price-completeness.js';
 export {
+  classifyLedgerCostBasisRelationshipTreatment,
+  type LedgerCostBasisRelationshipBasisTreatment,
+} from './cost-basis/ledger/ledger-cost-basis-relationship-treatment.js';
+export {
   projectLedgerCostBasisEvents,
   type LedgerCostBasisEventProjection,
   type LedgerCostBasisExcludedPosting,

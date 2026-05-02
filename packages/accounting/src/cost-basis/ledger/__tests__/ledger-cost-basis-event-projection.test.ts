@@ -34,7 +34,20 @@ describe('projectLedgerCostBasisEvents', () => {
     expect(projection.blockers).toEqual([]);
     expect(projection.events.map((event) => event.kind)).toEqual(['carryover-out', 'carryover-in']);
     expect(projection.events.every((event) => event.relationshipKind === 'internal_transfer')).toBe(true);
+    expect(projection.events.every((event) => event.relationshipBasisTreatment === 'carry_basis')).toBe(true);
     expect(projection.events.some((event) => event.kind === 'disposal')).toBe(false);
+  });
+
+  it('projects accepted external transfer relationships as disposal and acquisition events', () => {
+    const facts = makeTransferFacts({ relationshipKind: 'external_transfer' });
+
+    const projection = assertOk(projectLedgerCostBasisEvents(facts));
+
+    expect(projection.blockers).toEqual([]);
+    expect(projection.events.map((event) => [event.kind, event.relationshipBasisTreatment])).toEqual([
+      ['disposal', 'dispose_and_acquire'],
+      ['acquisition', 'dispose_and_acquire'],
+    ]);
   });
 
   it('projects unlinked outflows as disposal candidates', () => {
@@ -524,8 +537,8 @@ describe('projectLedgerCostBasisEvents', () => {
       ['posting:target', 'invalid_allocation'],
     ]);
     expect(blocker.allocations.map((allocation) => allocation.validationReasons)).toEqual([
-      ['protocol_position_requires_basis_carryover_relationship'],
-      ['protocol_position_requires_basis_carryover_relationship'],
+      ['protocol_position_requires_carry_basis_relationship'],
+      ['protocol_position_requires_carry_basis_relationship'],
     ]);
   });
 

@@ -12,12 +12,10 @@ import type {
   CostBasisLedgerSourceActivity,
 } from '../../ports/cost-basis-ledger-persistence.js';
 
-const BASIS_CARRYOVER_RELATIONSHIP_KINDS = new Set<AccountingJournalRelationshipKind>([
-  'internal_transfer',
-  'same_hash_carryover',
-  'bridge',
-  'asset_migration',
-]);
+import {
+  classifyLedgerCostBasisRelationshipTreatment,
+  type LedgerCostBasisRelationshipBasisTreatment,
+} from './ledger-cost-basis-relationship-treatment.js';
 
 export type LedgerCostBasisInputEventKind = 'acquisition' | 'disposal' | 'carryover-in' | 'carryover-out' | 'fee';
 
@@ -58,7 +56,7 @@ export type LedgerCostBasisRelationshipAllocationMismatchReason =
 export type LedgerCostBasisRelationshipAllocationValidationReason =
   | 'non_positive_quantity'
   | 'overallocated_posting'
-  | 'protocol_position_requires_basis_carryover_relationship'
+  | 'protocol_position_requires_carry_basis_relationship'
   | 'relationship_allocation_points_at_fee_posting'
   | 'relationship_allocation_points_at_protocol_overhead_posting'
   | 'source_allocation_points_at_positive_posting'
@@ -85,6 +83,7 @@ export interface LedgerCostBasisInputEvent {
   priceAtTxTime?: PriceAtTxTime | undefined;
   relationshipStableKey?: string | undefined;
   relationshipKind?: AccountingJournalRelationshipKind | undefined;
+  relationshipBasisTreatment?: LedgerCostBasisRelationshipBasisTreatment | undefined;
   relationshipAllocationId?: number | undefined;
 }
 
@@ -348,20 +347,26 @@ function projectRelationshipAllocationEvent(
   allocationContext: RelationshipAllocationContext
 ): LedgerCostBasisInputEvent {
   const { allocation, relationship } = allocationContext;
-  const carriesBasis = BASIS_CARRYOVER_RELATIONSHIP_KINDS.has(relationship.relationshipKind);
-  const kind: LedgerCostBasisInputEventKind = carriesBasis
-    ? allocation.allocationSide === 'source'
-      ? 'carryover-out'
-      : 'carryover-in'
-    : allocation.allocationSide === 'source'
-      ? 'disposal'
-      : 'acquisition';
+  const basisTreatment = classifyLedgerCostBasisRelationshipTreatment(relationship);
+  const kind = selectRelationshipAllocationEventKind(allocation.allocationSide, basisTreatment);
 
   return buildPostingEvent(context, kind, allocation.quantity, {
     relationshipAllocationId: allocation.id,
+    relationshipBasisTreatment: basisTreatment,
     relationshipKind: relationship.relationshipKind,
     relationshipStableKey: relationship.relationshipStableKey,
   });
+}
+
+function selectRelationshipAllocationEventKind(
+  allocationSide: CostBasisLedgerRelationshipAllocation['allocationSide'],
+  basisTreatment: LedgerCostBasisRelationshipBasisTreatment
+): LedgerCostBasisInputEventKind {
+  if (basisTreatment === 'carry_basis') {
+    return allocationSide === 'source' ? 'carryover-out' : 'carryover-in';
+  }
+
+  return allocationSide === 'source' ? 'disposal' : 'acquisition';
 }
 
 function isFeeLikeCostPosting(posting: CostBasisLedgerPosting): boolean {
@@ -374,7 +379,7 @@ function buildPostingEvent(
   quantity: Decimal,
   relationship?: Pick<
     LedgerCostBasisInputEvent,
-    'relationshipAllocationId' | 'relationshipKind' | 'relationshipStableKey'
+    'relationshipAllocationId' | 'relationshipBasisTreatment' | 'relationshipKind' | 'relationshipStableKey'
   >
 ): LedgerCostBasisInputEvent {
   const { journal, posting, sourceActivity } = context;
@@ -401,6 +406,9 @@ function buildPostingEvent(
     ...(relationship?.relationshipAllocationId === undefined
       ? {}
       : { relationshipAllocationId: relationship.relationshipAllocationId }),
+    ...(relationship?.relationshipBasisTreatment === undefined
+      ? {}
+      : { relationshipBasisTreatment: relationship.relationshipBasisTreatment }),
     ...(relationship?.relationshipKind === undefined ? {} : { relationshipKind: relationship.relationshipKind }),
     ...(relationship?.relationshipStableKey === undefined
       ? {}
@@ -446,13 +454,9 @@ function findRelationshipProjectionIntegrity(
   }[] = [];
 
   for (const relationship of relationships) {
+    const basisTreatment = classifyLedgerCostBasisRelationshipTreatment(relationship);
     const allocationIntegrity = relationship.allocations.map((allocation) =>
-      buildRelationshipAllocationIntegrity(
-        allocation,
-        relationship.relationshipKind,
-        contextByPostingFingerprint,
-        excludedAssetIds
-      )
+      buildRelationshipAllocationIntegrity(allocation, basisTreatment, contextByPostingFingerprint, excludedAssetIds)
     );
     const missingAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'missing_posting');
     const excludedAllocations = allocationIntegrity.filter((allocation) => allocation.state === 'excluded_posting');
@@ -684,7 +688,7 @@ function selectRelationshipBlockerReason(params: {
 
 function buildRelationshipAllocationIntegrity(
   allocation: CostBasisLedgerRelationshipAllocation,
-  relationshipKind: AccountingJournalRelationshipKind,
+  basisTreatment: LedgerCostBasisRelationshipBasisTreatment,
   contextByPostingFingerprint: ReadonlyMap<string, LedgerPostingContext>,
   excludedAssetIds: ReadonlySet<string> | undefined
 ): RelationshipAllocationIntegrity {
@@ -702,7 +706,7 @@ function buildRelationshipAllocationIntegrity(
     return { allocation, mismatchReasons, validationReasons: [], state: 'mismatched_posting' };
   }
 
-  const validationReasons = findRelationshipAllocationValidationReasons(allocation, relationshipKind, context);
+  const validationReasons = findRelationshipAllocationValidationReasons(allocation, basisTreatment, context);
   if (validationReasons.length > 0) {
     return { allocation, mismatchReasons: [], validationReasons, state: 'invalid_allocation' };
   }
@@ -775,7 +779,7 @@ function findRelationshipAllocationMismatchReasons(
 
 function findRelationshipAllocationValidationReasons(
   allocation: CostBasisLedgerRelationshipAllocation,
-  relationshipKind: AccountingJournalRelationshipKind,
+  basisTreatment: LedgerCostBasisRelationshipBasisTreatment,
   context: LedgerPostingContext
 ): LedgerCostBasisRelationshipAllocationValidationReason[] {
   const validationReasons: LedgerCostBasisRelationshipAllocationValidationReason[] = [];
@@ -789,8 +793,8 @@ function findRelationshipAllocationValidationReasons(
   if (context.posting.role === 'protocol_overhead') {
     validationReasons.push('relationship_allocation_points_at_protocol_overhead_posting');
   }
-  if (isProtocolPositionPosting(context.posting) && !BASIS_CARRYOVER_RELATIONSHIP_KINDS.has(relationshipKind)) {
-    validationReasons.push('protocol_position_requires_basis_carryover_relationship');
+  if (isProtocolPositionPosting(context.posting) && basisTreatment !== 'carry_basis') {
+    validationReasons.push('protocol_position_requires_carry_basis_relationship');
   }
   if (allocation.allocationSide === 'source' && context.posting.quantity.gt(0)) {
     validationReasons.push('source_allocation_points_at_positive_posting');
