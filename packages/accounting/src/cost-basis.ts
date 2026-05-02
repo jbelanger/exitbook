@@ -157,6 +157,20 @@ export type {
   ConvertedLotTransfer,
 } from './cost-basis/model/report-types.js';
 export {
+  runStandardLedgerOperationEngine,
+  type RunStandardLedgerOperationEngineInput,
+  type StandardLedgerBasisStatus,
+  type StandardLedgerCalculationBlocker,
+  type StandardLedgerCalculationBlockerReason,
+  type StandardLedgerCarry,
+  type StandardLedgerCarrySlice,
+  type StandardLedgerDisposal,
+  type StandardLedgerLot,
+  type StandardLedgerLotProvenance,
+  type StandardLedgerLotSelectionSlice,
+  type StandardLedgerOperationEngineResult,
+} from './cost-basis/standard/operation-engine/standard-ledger-operation-engine.js';
+export {
   buildCanadaDisplayCostBasisReport,
   buildCanadaTaxReport,
 } from './cost-basis/jurisdictions/canada/tax/canada-tax-report-builder.js';

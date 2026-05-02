@@ -53,10 +53,6 @@ The engine consumes:
 ```ts
 interface RunStandardLedgerOperationEngineInput {
   calculationId: string;
-  config: CostBasisConfig;
-  jurisdiction: {
-    sameAssetTransferFeePolicy: 'disposal' | 'add-to-basis';
-  };
   operationProjection: LedgerCostBasisOperationProjection;
   strategy: ICostBasisStrategy;
 }
@@ -95,6 +91,8 @@ Reason:
   disposal behavior and would leak an unconfigured method into the engine.
 - Specific-id is not implemented today; when it is implemented, carry must use
   the same selected-lot mechanism as disposals.
+- If an unsupported strategy reaches the engine, the affected chain must block
+  loudly instead of silently falling back to FIFO.
 
 Implementation rule:
 
@@ -111,6 +109,8 @@ later, but it must not close and reopen lots in the same chain.
 Cross-chain carry opens target-chain lots from the selected source lot slices.
 The target lots inherit source cost basis and acquisition date. The carry
 operation date remains carry provenance, not the tax acquisition date.
+Carry audit slices must name source quantity and target quantity separately
+because asset migrations can change units.
 
 ### Unknown Fee Attachment
 
@@ -124,6 +124,8 @@ Rules:
   implemented explicitly
 - until then, fee operations can produce fee-chain blockers without changing
   acquire/dispose/carry math for unrelated chains
+- jurisdiction fee policy does not enter the operation engine API until fee math
+  is implemented
 
 Do not silently expense, capitalize, net, or dispose fee assets from the IR
 classifier alone.
