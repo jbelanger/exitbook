@@ -33,6 +33,7 @@ describe('projectLedgerCostBasisEvents', () => {
 
     expect(projection.blockers).toEqual([]);
     expect(projection.events.map((event) => event.kind)).toEqual(['carryover-out', 'carryover-in']);
+    expect(projection.events.map((event) => event.ownerAccountId)).toEqual([1, 2]);
     expect(projection.events.every((event) => event.relationshipKind === 'internal_transfer')).toBe(true);
     expect(projection.events.every((event) => event.relationshipBasisTreatment === 'carry_basis')).toBe(true);
     expect(projection.events.some((event) => event.kind === 'disposal')).toBe(false);
@@ -682,6 +683,7 @@ function makeTransferFacts(params: {
       makeSourceActivity({
         id: 2,
         activityDatetime: new Date('2026-01-01T00:01:00.000Z'),
+        ownerAccountId: 2,
         sourceActivityFingerprint: 'activity:target',
       }),
     ],

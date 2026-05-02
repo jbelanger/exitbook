@@ -78,6 +78,7 @@ export interface LedgerCostBasisInputEvent {
   eventId: string;
   kind: LedgerCostBasisInputEventKind;
   sourceActivityFingerprint: string;
+  ownerAccountId: number;
   journalFingerprint: string;
   journalKind: AccountingJournalKind;
   postingFingerprint: string;
@@ -427,6 +428,7 @@ function buildPostingEvent(
     eventId: eventIdParts.join(':'),
     kind,
     sourceActivityFingerprint: sourceActivity.sourceActivityFingerprint,
+    ownerAccountId: sourceActivity.ownerAccountId,
     journalFingerprint: journal.journalFingerprint,
     journalKind: journal.journalKind,
     postingFingerprint: posting.postingFingerprint,

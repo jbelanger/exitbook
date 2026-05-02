@@ -55,6 +55,7 @@ function makeEvent(overrides: Partial<LedgerCostBasisInputEvent> = {}): LedgerCo
     eventId: 'ledger-cost-basis:fee:posting:fee:posting',
     kind: 'fee',
     sourceActivityFingerprint: 'activity:fee',
+    ownerAccountId: 1,
     journalFingerprint: 'journal:fee',
     journalKind: 'expense_only',
     postingFingerprint: 'posting:fee',
