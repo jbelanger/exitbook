@@ -128,6 +128,14 @@ export type {
   StandardCostBasisFilingFacts,
 } from './cost-basis/filing-facts/filing-facts-types.js';
 export { buildTaxPackageBuildContext } from './cost-basis/export/tax-package-context-builder.js';
+export {
+  validateTaxPackageLedgerSourceCoverage,
+  type TaxPackageLedgerJournalCoverageRef,
+  type TaxPackageLedgerPostingCoverageRef,
+  type TaxPackageLedgerRelationshipCoverageRef,
+  type TaxPackageLedgerSourceActivityCoverageRef,
+  type TaxPackageLedgerSourceCoverageRequest,
+} from './cost-basis/export/tax-package-ledger-source-coverage.js';
 export { buildCanadaTaxPackage } from './cost-basis/export/canada-tax-package-builder.js';
 export { buildUsTaxPackage } from './cost-basis/export/us-tax-package-builder.js';
 export {
@@ -175,6 +183,7 @@ export {
   type RunStandardLedgerCostBasisCalculationInput,
   type StandardLedgerCostBasisCalculationOptions,
 } from './cost-basis/standard/workflow/run-standard-ledger-cost-basis-calculation.js';
+export { collectStandardLedgerTaxPackageSourceCoverage } from './cost-basis/standard/export/standard-ledger-tax-package-source-coverage.js';
 export {
   runStandardLedgerOperationEngine,
   type RunStandardLedgerOperationEngineInput,
@@ -184,10 +193,12 @@ export {
   type StandardLedgerCarry,
   type StandardLedgerCarrySlice,
   type StandardLedgerDisposal,
+  type StandardLedgerDisposalProvenance,
   type StandardLedgerLot,
   type StandardLedgerLotProvenance,
   type StandardLedgerLotSelectionSlice,
   type StandardLedgerOperationEngineResult,
+  type StandardLedgerPostingProvenance,
 } from './cost-basis/standard/operation-engine/standard-ledger-operation-engine.js';
 export {
   buildCanadaDisplayCostBasisReport,

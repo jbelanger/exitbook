@@ -251,7 +251,10 @@ In progress:
    - Ledger filing facts exist as a parallel builder.
    - Ledger filing facts split operation-level disposals into per-lot-slice
      disposition facts so holding period and tax treatment stay per lot.
-   - Source coverage is still transaction-shaped and remains pending.
+   - Ledger source coverage exists as a parallel collector/validator over
+     source activity, journal, posting, and relationship refs.
+   - Public tax-package context wiring is still transaction-shaped and remains
+     pending.
 
 Remaining:
 
