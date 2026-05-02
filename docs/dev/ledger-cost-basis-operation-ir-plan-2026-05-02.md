@@ -135,11 +135,19 @@ and explicitly overridden identities that are supposed to share tax state.
 Fiat assets are not tax-asset chains. If the current projector emits a fiat
 posting as a cost-basis event before a separate consideration/proceeds model
 exists, the operation builder must emit a blocker instead of silently creating a
-chain or dropping the event.
+chain or dropping the event. The current event projector does not exclude fiat
+postings, so this is required fail-closed behavior for the operation boundary.
 
 Single-posting operations use one `chainKey`:
 
 ```ts
+interface LedgerCostBasisOperationRelationshipContext {
+  relationshipStableKey: string;
+  relationshipKind: AccountingJournalRelationshipKind;
+  relationshipBasisTreatment: LedgerCostBasisRelationshipBasisTreatment;
+  relationshipAllocationId: number;
+}
+
 interface LedgerCostBasisAcquireOperation {
   kind: 'acquire';
   operationId: string;
@@ -152,15 +160,19 @@ interface LedgerCostBasisAcquireOperation {
   assetSymbol: Currency;
   quantity: Decimal;
   priceAtTxTime?: PriceAtTxTime | undefined;
-  priceStatus: 'priced' | 'missing';
+  relationshipContext?: LedgerCostBasisOperationRelationshipContext | undefined;
 }
 ```
 
-`DisposeOperation` has the same chain-key and audit fields.
+`DisposeOperation` has the same chain-key and audit fields. Relationship
+context is present when an acquire/dispose operation came from an accepted
+`dispose_and_acquire` relationship, so calculators can explain the operation
+without re-reading raw ledger events.
 
 Projection events do not currently include `ownerAccountId`; add it before the
-operation builder so operation audit trails can explain account provenance
-without making account ownership part of tax identity.
+operation builder as a passive ledger field. This keeps projection read-only
+while letting operation audit trails explain account provenance without making
+account ownership part of tax identity.
 
 ### Carry Operations
 
@@ -218,11 +230,15 @@ interface LedgerCostBasisFeeOperation {
   assetSymbol: Currency;
   quantity: Decimal;
   priceAtTxTime?: PriceAtTxTime | undefined;
-  priceStatus: 'priced' | 'missing';
   settlement: AccountingSettlement;
   attachment: LedgerCostBasisFeeAttachment;
 }
 ```
+
+`settlement` is required because the event projector blocks fee and
+`protocol_overhead` postings that lack settlement. If a future projection change
+lets a missing-settlement fee event through, the operation builder must emit an
+operation blocker instead of fabricating settlement.
 
 The operation preserves fee facts and the classifier output. It does not decide
 whether a jurisdiction capitalizes the fee, nets it against proceeds, expenses
@@ -278,8 +294,9 @@ Add focused unit tests before adapting either calculator:
 2. Event coverage: every projected event is consumed exactly once by an
    operation or operation blocker.
 3. Positive quantities: all operations and carry legs have positive quantities.
-4. Tax identity chain key: exchange/native assets resolve to symbol identity,
-   strict tokens resolve to token asset id, and explicit overrides merge chains.
+4. Tax identity chain key: exchange and blockchain-native assets resolve to
+   symbol identity, blockchain non-native tokens resolve to asset id, and
+   explicit overrides merge chains.
 5. Carry closure: each carry operation has at least one source leg and one
    target leg, and preserves source/target allocation ids and quantities.
 6. Treatment mutation: changing relationship treatment from `carry_basis` to
@@ -294,10 +311,13 @@ Add focused unit tests before adapting either calculator:
 10. Blocker chain isolation: a blocker for chain A does not change operations
     for unrelated chain B.
 11. Missing-price tolerance: missing acquisition price is represented on the
-    acquire operation and does not by itself fence the chain.
+    acquire operation by absent `priceAtTxTime` and does not by itself fence the
+    chain.
 12. Protocol carry preservation: protocol deposit/refund postings connected by a
     `carry_basis` relationship produce carry operations, not acquire/dispose
     operations.
+13. Fee chain attribution: a fee operation's `chainKey` is the fee asset's tax
+    identity, never the principal asset's identity.
 
 A single curated snapshot can cover a mixed fixture, but it is supporting
 evidence. The invariant tests above are the load-bearing checks.
@@ -305,7 +325,8 @@ evidence. The invariant tests above are the load-bearing checks.
 ## Implementation Order
 
 1. Add `ownerAccountId` to `LedgerCostBasisInputEvent` and event projection
-   tests.
+   tests. This is a passive field add to projection, not a projection-side
+   treatment decision.
 2. Add operation projection types and builder shell.
 3. Resolve chain keys with `resolveTaxAssetIdentity(...)`; fail with operation
    blockers, not thrown errors, when identity cannot resolve.
